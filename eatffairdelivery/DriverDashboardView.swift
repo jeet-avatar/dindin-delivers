@@ -5,8 +5,10 @@ import EatFairShared
 
 struct DriverDashboardView: View {
     @StateObject private var viewModel = DeliveryViewModel()
+    @StateObject private var chatManager = ChatManager.shared
     @State private var selectedTab = 0
-    
+    @State private var showTerms = false
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // Available Orders (Redesigned)
@@ -15,25 +17,55 @@ struct DriverDashboardView: View {
                     Label("Orders", systemImage: "tray.fill")
                 }
                 .tag(0)
-            
+
             // My Active Deliveries
             MyDeliveriesView(viewModel: viewModel)
                 .tabItem {
-                    Label("My Deliveries", systemImage: "shippingbox.fill")
+                    Label("Deliveries", systemImage: "shippingbox.fill")
                 }
                 .tag(1)
-            
+
+            // Messages/Chat
+            ConversationsListView()
+                .tabItem {
+                    Label("Messages", systemImage: "message.fill")
+                }
+                .tag(2)
+                .badge(chatManager.unreadCount)
+
             // Profile
             DriverProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.crop.circle.fill")
                 }
-                .tag(2)
+                .tag(3)
         }
         .accentColor(Color(red: 0.91, green: 0.30, blue: 0.24))
         .onAppear {
             viewModel.fetchAvailableOrders()
             viewModel.fetchMyDeliveries()
+            checkTermsAcceptance()
+        }
+        .sheet(isPresented: $showTerms) {
+            TermsAndConditionsView {
+                showTerms = false
+            }
+        }
+    }
+
+    private func checkTermsAcceptance() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let db = Firestore.firestore()
+        db.collection("drivers").document(uid).getDocument { snapshot, _ in
+            if let data = snapshot?.data() {
+                let termsAccepted = data["termsAcceptedAt"] as? Int64
+                if termsAccepted == nil {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showTerms = true
+                    }
+                }
+            }
         }
     }
 }

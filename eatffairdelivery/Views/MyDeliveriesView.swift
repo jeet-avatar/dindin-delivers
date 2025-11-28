@@ -38,6 +38,10 @@ struct MyDeliveriesView: View {
                     ActiveDeliveryFullScreen(order: delivery, viewModel: viewModel, locationManager: locationManager)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                // Voice Assistant Floating Button
+                VoiceAssistantButton()
+            }
         }
     }
 
@@ -311,6 +315,20 @@ struct ActiveDeliveryHeroCard: View {
                     }
 
                     Spacer()
+
+                    // Chat Button
+                    NavigationLink(destination: ChatView(
+                        conversationId: order.id ?? "",
+                        customerName: order.customerName,
+                        orderId: order.orderId
+                    )) {
+                        Image(systemName: "message.fill")
+                            .font(.headline)
+                            .foregroundColor(Theme.brandRed)
+                            .frame(width: 44, height: 44)
+                            .background(Theme.brandRed.opacity(0.1))
+                            .cornerRadius(12)
+                    }
 
                     // Call Button
                     if let phone = order.customerPhone, !phone.isEmpty {
