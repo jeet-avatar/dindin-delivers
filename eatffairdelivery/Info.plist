@@ -17,9 +17,14 @@
 	<string>We need your location to track deliveries and navigate to pickup and delivery locations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>We need your location to track deliveries in real-time and provide accurate updates to customers.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Voice commands allow hands-free control while driving - accept orders, navigate, and send messages safely.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access enables voice commands and voice messages for hands-free operation while delivering.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>audio</string>
 	</array>
 </dict>
 </plist>
