@@ -78,7 +78,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             }
         }
 
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
+        AVAudioApplication.requestRecordPermission { [weak self] granted in
             DispatchQueue.main.async {
                 if !granted {
                     self?.isAvailable = false

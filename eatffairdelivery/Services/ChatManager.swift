@@ -30,8 +30,10 @@ class ChatManager: ObservableObject {
         removeListeners()
     }
 
+    private var authStateListener: AuthStateDidChangeListenerHandle?
+
     private func setupAuthListener() {
-        Auth.auth().addStateDidChangeListener { [weak self] _, user in
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             if user != nil {
                 self?.fetchConversations()
             } else {
