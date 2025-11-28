@@ -1,0 +1,22 @@
+# iOS
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+Pods/
+
+# General
+.DS_Store
+*.log
+*.swp
+*~
+
+# Secrets
+GoogleService-Info.plist
+*.env
+*.secrets
