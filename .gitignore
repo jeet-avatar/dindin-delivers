@@ -1,4 +1,6 @@
+# ===================
 # iOS
+# ===================
 *.xcuserstate
 *.xcscmblueprint
 xcuserdata/
@@ -9,14 +11,77 @@ DerivedData/
 *.mode2v3
 *.perspectivev3
 Pods/
+*.ipa
+*.dSYM.zip
+*.dSYM
 
-# General
-.DS_Store
+# ===================
+# Android (for future)
+# ===================
+*.iml
+.gradle/
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/build/
+/captures
+.externalNativeBuild/
+.cxx/
+local.properties
+*.apk
+*.aab
+
+# ===================
+# Node.js / Backend
+# ===================
+node_modules/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# ===================
+# Firebase
+# ===================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# ===================
+# General
+# ===================
+.DS_Store
 *.swp
 *~
-
-# Secrets
-GoogleService-Info.plist
-*.env
+.env
+.env.local
+.env.*.local
 *.secrets
+
+# ===================
+# Secrets & API Keys
+# ===================
+GoogleService-Info.plist
+google-services.json
+*.keystore
+*.jks
+
+# ===================
+# IDE
+# ===================
+.vscode/
+.idea/
+*.sublime-*
+
+# ===================
+# Build outputs
+# ===================
+dist/
+lib/
+out/

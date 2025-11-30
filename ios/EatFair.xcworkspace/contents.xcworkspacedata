@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:eatfaircustomer/eatfaircustomer.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:eatffairdelivery/eatffairdelivery.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:eatffairrestaurant/eatffairrestaurant.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:eatfair-ios-shared">
+   </FileRef>
+</Workspace>

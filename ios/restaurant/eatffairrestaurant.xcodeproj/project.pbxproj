@@ -1,0 +1,758 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		104405012ED6BC5B00ED321A /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 104405002ED6BC5B00ED321A /* Stripe */; };
+		104405032ED6BC5B00ED321A /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = 104405022ED6BC5B00ED321A /* StripeApplePay */; };
+		104405052ED6BC5B00ED321A /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = 104405042ED6BC5B00ED321A /* StripeCardScan */; };
+		104405072ED6BC5B00ED321A /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = 104405062ED6BC5B00ED321A /* StripeConnect */; };
+		104405092ED6BC5B00ED321A /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 104405082ED6BC5B00ED321A /* StripeFinancialConnections */; };
+		1044050C2ED6BE9400ED321A /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1044050B2ED6BE9400ED321A /* FirebaseAnalytics */; };
+		1044050E2ED6BE9400ED321A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1044050D2ED6BE9400ED321A /* FirebaseAuth */; };
+		104405102ED6BE9400ED321A /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1044050F2ED6BE9400ED321A /* FirebaseCrashlytics */; };
+		104405122ED6BE9400ED321A /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 104405112ED6BE9400ED321A /* FirebaseFirestore */; };
+		104405152ED6BEE200ED321A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 104405142ED6BEE200ED321A /* GoogleSignIn */; };
+		104405172ED6BEE200ED321A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 104405162ED6BEE200ED321A /* GoogleSignInSwift */; };
+		104405E42ED7F2F700ED321A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 104405E32ED7F2F700ED321A /* FirebaseStorage */; };
+		104406A42ED8346800ED321A /* EatFairShared in Frameworks */ = {isa = PBXBuildFile; productRef = 104406A32ED8346800ED321A /* EatFairShared */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		104404C02ED6B25300ED321A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 104404A52ED6B25100ED321A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 104404AC2ED6B25100ED321A;
+			remoteInfo = eatffairrestaurant;
+		};
+		104404CA2ED6B25300ED321A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 104404A52ED6B25100ED321A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 104404AC2ED6B25100ED321A;
+			remoteInfo = eatffairrestaurant;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		104404AD2ED6B25100ED321A /* eatffairrestaurant.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eatffairrestaurant.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		104404BF2ED6B25300ED321A /* eatffairrestaurantTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairrestaurantTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		104404C92ED6B25300ED321A /* eatffairrestaurantUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairrestaurantUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		104406A92ED834F500ED321A /* eatfair-ios-shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "eatfair-ios-shared"; path = "../eatfair-ios-shared"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1044051B2ED6BF3D00ED321A /* Exceptions for "eatffairrestaurant" folder in "eatffairrestaurant" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 104404AC2ED6B25100ED321A /* eatffairrestaurant */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		104404AF2ED6B25100ED321A /* eatffairrestaurant */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1044051B2ED6BF3D00ED321A /* Exceptions for "eatffairrestaurant" folder in "eatffairrestaurant" target */,
+			);
+			path = eatffairrestaurant;
+			sourceTree = "<group>";
+		};
+		104404C22ED6B25300ED321A /* eatffairrestaurantTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = eatffairrestaurantTests;
+			sourceTree = "<group>";
+		};
+		104404CC2ED6B25300ED321A /* eatffairrestaurantUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = eatffairrestaurantUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		104404AA2ED6B25100ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				104405092ED6BC5B00ED321A /* StripeFinancialConnections in Frameworks */,
+				104405052ED6BC5B00ED321A /* StripeCardScan in Frameworks */,
+				104406A42ED8346800ED321A /* EatFairShared in Frameworks */,
+				1044050C2ED6BE9400ED321A /* FirebaseAnalytics in Frameworks */,
+				104405012ED6BC5B00ED321A /* Stripe in Frameworks */,
+				104405072ED6BC5B00ED321A /* StripeConnect in Frameworks */,
+				104405E42ED7F2F700ED321A /* FirebaseStorage in Frameworks */,
+				104405152ED6BEE200ED321A /* GoogleSignIn in Frameworks */,
+				104405122ED6BE9400ED321A /* FirebaseFirestore in Frameworks */,
+				104405102ED6BE9400ED321A /* FirebaseCrashlytics in Frameworks */,
+				1044050E2ED6BE9400ED321A /* FirebaseAuth in Frameworks */,
+				104405032ED6BC5B00ED321A /* StripeApplePay in Frameworks */,
+				104405172ED6BEE200ED321A /* GoogleSignInSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404BC2ED6B25300ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404C62ED6B25300ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		104404A42ED6B25100ED321A = {
+			isa = PBXGroup;
+			children = (
+				104404AF2ED6B25100ED321A /* eatffairrestaurant */,
+				104404C22ED6B25300ED321A /* eatffairrestaurantTests */,
+				104404CC2ED6B25300ED321A /* eatffairrestaurantUITests */,
+				104406A82ED834F500ED321A /* Frameworks */,
+				104404AE2ED6B25100ED321A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		104404AE2ED6B25100ED321A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				104404AD2ED6B25100ED321A /* eatffairrestaurant.app */,
+				104404BF2ED6B25300ED321A /* eatffairrestaurantTests.xctest */,
+				104404C92ED6B25300ED321A /* eatffairrestaurantUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		104406A82ED834F500ED321A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				104406A92ED834F500ED321A /* eatfair-ios-shared */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		104404AC2ED6B25100ED321A /* eatffairrestaurant */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104404D32ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurant" */;
+			buildPhases = (
+				104404A92ED6B25100ED321A /* Sources */,
+				104404AA2ED6B25100ED321A /* Frameworks */,
+				104404AB2ED6B25100ED321A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				104404AF2ED6B25100ED321A /* eatffairrestaurant */,
+			);
+			name = eatffairrestaurant;
+			packageProductDependencies = (
+				104405002ED6BC5B00ED321A /* Stripe */,
+				104405022ED6BC5B00ED321A /* StripeApplePay */,
+				104405042ED6BC5B00ED321A /* StripeCardScan */,
+				104405062ED6BC5B00ED321A /* StripeConnect */,
+				104405082ED6BC5B00ED321A /* StripeFinancialConnections */,
+				1044050B2ED6BE9400ED321A /* FirebaseAnalytics */,
+				1044050D2ED6BE9400ED321A /* FirebaseAuth */,
+				1044050F2ED6BE9400ED321A /* FirebaseCrashlytics */,
+				104405112ED6BE9400ED321A /* FirebaseFirestore */,
+				104405142ED6BEE200ED321A /* GoogleSignIn */,
+				104405162ED6BEE200ED321A /* GoogleSignInSwift */,
+				104405E32ED7F2F700ED321A /* FirebaseStorage */,
+				104406A32ED8346800ED321A /* EatFairShared */,
+			);
+			productName = eatffairrestaurant;
+			productReference = 104404AD2ED6B25100ED321A /* eatffairrestaurant.app */;
+			productType = "com.apple.product-type.application";
+		};
+		104404BE2ED6B25300ED321A /* eatffairrestaurantTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104404D62ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurantTests" */;
+			buildPhases = (
+				104404BB2ED6B25300ED321A /* Sources */,
+				104404BC2ED6B25300ED321A /* Frameworks */,
+				104404BD2ED6B25300ED321A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				104404C12ED6B25300ED321A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				104404C22ED6B25300ED321A /* eatffairrestaurantTests */,
+			);
+			name = eatffairrestaurantTests;
+			packageProductDependencies = (
+			);
+			productName = eatffairrestaurantTests;
+			productReference = 104404BF2ED6B25300ED321A /* eatffairrestaurantTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		104404C82ED6B25300ED321A /* eatffairrestaurantUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104404D92ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurantUITests" */;
+			buildPhases = (
+				104404C52ED6B25300ED321A /* Sources */,
+				104404C62ED6B25300ED321A /* Frameworks */,
+				104404C72ED6B25300ED321A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				104404CB2ED6B25300ED321A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				104404CC2ED6B25300ED321A /* eatffairrestaurantUITests */,
+			);
+			name = eatffairrestaurantUITests;
+			packageProductDependencies = (
+			);
+			productName = eatffairrestaurantUITests;
+			productReference = 104404C92ED6B25300ED321A /* eatffairrestaurantUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		104404A52ED6B25100ED321A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2610;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					104404AC2ED6B25100ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
+					104404BE2ED6B25300ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = 104404AC2ED6B25100ED321A;
+					};
+					104404C82ED6B25300ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = 104404AC2ED6B25100ED321A;
+					};
+				};
+			};
+			buildConfigurationList = 104404A82ED6B25100ED321A /* Build configuration list for PBXProject "eatffairrestaurant" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 104404A42ED6B25100ED321A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
+				1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				104405132ED6BEE200ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 104404AE2ED6B25100ED321A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				104404AC2ED6B25100ED321A /* eatffairrestaurant */,
+				104404BE2ED6B25300ED321A /* eatffairrestaurantTests */,
+				104404C82ED6B25300ED321A /* eatffairrestaurantUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		104404AB2ED6B25100ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404BD2ED6B25300ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404C72ED6B25300ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		104404A92ED6B25100ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404BB2ED6B25300ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104404C52ED6B25300ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		104404C12ED6B25300ED321A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 104404AC2ED6B25100ED321A /* eatffairrestaurant */;
+			targetProxy = 104404C02ED6B25300ED321A /* PBXContainerItemProxy */;
+		};
+		104404CB2ED6B25300ED321A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 104404AC2ED6B25100ED321A /* eatffairrestaurant */;
+			targetProxy = 104404CA2ED6B25300ED321A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		104404D12ED6B25300ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		104404D22ED6B25300ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		104404D42ED6B25300ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = eatffairrestaurant/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurant;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		104404D52ED6B25300ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = eatffairrestaurant/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurant;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		104404D72ED6B25300ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurantTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/eatffairrestaurant.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/eatffairrestaurant";
+			};
+			name = Debug;
+		};
+		104404D82ED6B25300ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurantTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/eatffairrestaurant.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/eatffairrestaurant";
+			};
+			name = Release;
+		};
+		104404DA2ED6B25300ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurantUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = eatffairrestaurant;
+			};
+			name = Debug;
+		};
+		104404DB2ED6B25300ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.restaurant.eatffairrestaurantUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = eatffairrestaurant;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		104404A82ED6B25100ED321A /* Build configuration list for PBXProject "eatffairrestaurant" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104404D12ED6B25300ED321A /* Debug */,
+				104404D22ED6B25300ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104404D32ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurant" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104404D42ED6B25300ED321A /* Debug */,
+				104404D52ED6B25300ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104404D62ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurantTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104404D72ED6B25300ED321A /* Debug */,
+				104404D82ED6B25300ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104404D92ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurantUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104404DA2ED6B25300ED321A /* Debug */,
+				104404DB2ED6B25300ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../eatfair-ios-shared";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 25.1.1;
+			};
+		};
+		1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.6.0;
+			};
+		};
+		104405132ED6BEE200ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		104405002ED6BC5B00ED321A /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = Stripe;
+		};
+		104405022ED6BC5B00ED321A /* StripeApplePay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeApplePay;
+		};
+		104405042ED6BC5B00ED321A /* StripeCardScan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeCardScan;
+		};
+		104405062ED6BC5B00ED321A /* StripeConnect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeConnect;
+		};
+		104405082ED6BC5B00ED321A /* StripeFinancialConnections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeFinancialConnections;
+		};
+		1044050B2ED6BE9400ED321A /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		1044050D2ED6BE9400ED321A /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		1044050F2ED6BE9400ED321A /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		104405112ED6BE9400ED321A /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		104405142ED6BEE200ED321A /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405132ED6BEE200ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		104405162ED6BEE200ED321A /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405132ED6BEE200ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		104405E32ED7F2F700ED321A /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		104406A32ED8346800ED321A /* EatFairShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */;
+			productName = EatFairShared;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 104404A52ED6B25100ED321A /* Project object */;
+}

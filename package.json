@@ -1,0 +1,18 @@
+{
+  "name": "eatfair-firestore-setup",
+  "version": "1.0.0",
+  "description": "Firestore database setup script for EatFair",
+  "main": "setup-firestore.js",
+  "scripts": {
+    "setup": "node setup-firestore.js",
+    "deploy-rules": "firebase deploy --only firestore:rules",
+    "deploy-indexes": "firebase deploy --only firestore:indexes"
+  },
+  "dependencies": {
+    "firebase": "^12.6.0",
+    "firebase-admin": "^12.7.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  }
+}
