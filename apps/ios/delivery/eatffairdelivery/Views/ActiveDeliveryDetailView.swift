@@ -83,10 +83,16 @@ struct ActiveDeliveryDetailView: View {
                             subtitle: order.restaurant.name,
                             address: order.restaurant.address,
                             action: {
-                                // Open in Maps for navigation
+                                openMapsNavigation(
+                                    to: CLLocationCoordinate2D(
+                                        latitude: order.restaurant.latitude,
+                                        longitude: order.restaurant.longitude
+                                    ),
+                                    name: order.restaurant.name
+                                )
                             }
                         )
-                        
+
                         // Customer Details
                         DetailSectionCard(
                             icon: "person.circle.fill",
@@ -95,7 +101,13 @@ struct ActiveDeliveryDetailView: View {
                             subtitle: order.customerName,
                             address: order.deliveryAddress.fullAddress,
                             action: {
-                                // Open in Maps for navigation
+                                openMapsNavigation(
+                                    to: CLLocationCoordinate2D(
+                                        latitude: order.deliveryAddress.latitude,
+                                        longitude: order.deliveryAddress.longitude
+                                    ),
+                                    name: "Delivery Location"
+                                )
                             }
                         )
                         
@@ -243,7 +255,7 @@ struct ActiveDeliveryDetailView: View {
                 HStack(spacing: 12) {
                     // Contact Button
                     Button(action: {
-                        // Call customer
+                        callCustomer()
                     }) {
                         HStack(spacing: 8) {
                             Image(systemName: "phone.fill")
@@ -258,6 +270,7 @@ struct ActiveDeliveryDetailView: View {
                         .background(Theme.brandRed.opacity(0.1))
                         .cornerRadius(12)
                     }
+                    .disabled(order.customerPhone?.isEmpty != false)
                     
                     // Primary Action Button
                     Button(action: {
@@ -349,6 +362,30 @@ struct ActiveDeliveryDetailView: View {
     
     var actionColor: Color {
         order.status == "Out for Delivery" ? Theme.statusActive : Theme.statusInfo
+    }
+
+    // MARK: - Helper Functions
+
+    private func callCustomer() {
+        guard let customerPhone = order.customerPhone, !customerPhone.isEmpty else { return }
+        let phone = customerPhone.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        guard !phone.isEmpty, let url = URL(string: "tel://\(phone)") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func openMapsNavigation(to coordinate: CLLocationCoordinate2D, name: String) {
+        // Try Google Maps first, fall back to Apple Maps
+        let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(coordinate.latitude),\(coordinate.longitude)&directionsmode=driving")
+        let appleMapsURL = URL(string: "http://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=d")
+
+        if let googleMapsURL = googleMapsURL, UIApplication.shared.canOpenURL(googleMapsURL) {
+            UIApplication.shared.open(googleMapsURL)
+        } else if let appleMapsURL = appleMapsURL {
+            UIApplication.shared.open(appleMapsURL)
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2610"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "104403312ED64A4000ED321A"
-               BuildableName = "eatfaircustomer.app"
+               BuildableName = "EatFair.app"
                BlueprintName = "eatfaircustomer"
-               ReferencedContainer = "container:eatfaircustomer/eatfaircustomer.xcodeproj">
+               ReferencedContainer = "container:customer/eatfaircustomer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "104403312ED64A4000ED321A"
-            BuildableName = "eatfaircustomer.app"
+            BuildableName = "EatFair.app"
             BlueprintName = "eatfaircustomer"
-            ReferencedContainer = "container:eatfaircustomer/eatfaircustomer.xcodeproj">
+            ReferencedContainer = "container:customer/eatfaircustomer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>

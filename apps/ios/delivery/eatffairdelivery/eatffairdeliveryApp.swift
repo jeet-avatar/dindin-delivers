@@ -8,17 +8,21 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseMessaging
-import FirebaseAuth
-import FirebaseFirestore
 import GoogleSignIn
 import UserNotifications
 import EatFairShared
+import GoogleMaps
+import GooglePlaces
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // Configure Firebase
+        // Configure Google Maps SDK
+        GMSServices.provideAPIKey(GoogleMapsConfig.currentKey)
+        GMSPlacesClient.provideAPIKey(GoogleMapsConfig.currentKey)
+
+        // Configure Firebase (for push notifications and Google Sign-In only)
         FirebaseApp.configure()
 
         // Load app configuration from Firebase
@@ -95,8 +99,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         print("DeliveryApp: FCM registration token: \(token.prefix(20))...")
         NotificationManager.shared.updateFCMToken(token)
 
-        // Save token to Firestore for the driver
-        saveTokenToFirestore(token)
+        // Save token to P2P backend
+        saveFCMTokenToP2P(token)
     }
 
     // MARK: - Notification Handling
@@ -131,16 +135,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    private func saveTokenToFirestore(_ token: String) {
-        // Save FCM token to driver's document for targeted notifications
-        guard let driverId = Auth.auth().currentUser?.uid else { return }
+    private func saveFCMTokenToP2P(_ token: String) {
+        // Save FCM token to P2P driver endpoint
+        guard let driverId = UserDefaults.standard.object(forKey: "p2p_driver_id") as? Int else { return }
 
-        let db = Firestore.firestore()
-        db.collection("drivers").document(driverId).setData([
-            "fcmToken": token,
-            "platform": "iOS",
-            "lastTokenUpdate": FieldValue.serverTimestamp()
-        ], merge: true)
+        // TODO: Add P2P endpoint to save FCM token
+        print("DeliveryApp: Would save FCM token for driver \(driverId)")
     }
 }
 
@@ -152,10 +152,11 @@ struct eatffairdeliveryApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationView {
-                if authManager.user != nil {
+                if authManager.isLoggedIn {
                     DriverDashboardView()
+                        .environmentObject(authManager)
                 } else {
-                    DriverLoginView()
+                    DriverLoginView(isLoggedIn: $authManager.isLoggedIn)
                 }
             }
             .onOpenURL { url in

@@ -8,26 +8,36 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseMessaging
-import FirebaseAuth
-import FirebaseFirestore
 import CoreData
 import UserNotifications
 import EatFairShared
+import GoogleMaps
+import GooglePlaces
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // Configure Firebase
+        // Configure Google Maps SDK
+        GMSServices.provideAPIKey(GoogleMapsConfig.currentKey)
+        GMSPlacesClient.provideAPIKey(GoogleMapsConfig.currentKey)
+
+        // Configure Firebase (for messaging only - auth uses P2P backend)
         FirebaseApp.configure()
 
-        // Load app configuration from Firebase
+        // Load app configuration
         AppConfig.shared.fetchConfig()
 
         // Setup push notifications
         setupPushNotifications(application)
 
         return true
+    }
+
+    // Handle Google Sign-In URL callback
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
     }
 
     // MARK: - Push Notification Setup
@@ -95,8 +105,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         print("RestaurantApp: FCM registration token: \(token.prefix(20))...")
         NotificationManager.shared.updateFCMToken(token)
 
-        // Save token to Firestore for the restaurant
-        saveTokenToFirestore(token)
+        // Save token to P2P backend for the restaurant
+        saveTokenToServer(token)
     }
 
     // MARK: - Notification Handling
@@ -126,16 +136,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    private func saveTokenToFirestore(_ token: String) {
-        // Save FCM token to restaurant's document for targeted notifications
-        guard let restaurantId = Auth.auth().currentUser?.uid else { return }
+    private func saveTokenToServer(_ token: String) {
+        // Save FCM token to P2P backend for targeted notifications
+        guard let vendorId = P2PAPIService.shared.currentVendorId else {
+            print("RestaurantApp: No vendor ID, skipping FCM token save")
+            return
+        }
 
-        let db = Firestore.firestore()
-        db.collection("restaurants").document(restaurantId).setData([
-            "fcmToken": token,
-            "platform": "iOS",
-            "lastTokenUpdate": FieldValue.serverTimestamp()
-        ], merge: true)
+        // Store FCM token via P2P backend (will need API endpoint)
+        print("RestaurantApp: Would save FCM token for vendor \(vendorId): \(token.prefix(20))...")
+        // TODO: Add P2P API endpoint for saving FCM tokens
     }
 }
 

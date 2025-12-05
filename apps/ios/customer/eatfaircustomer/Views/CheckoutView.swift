@@ -384,11 +384,11 @@ struct CheckoutView: View {
                 landmark: address.instructions
             )
             
-            cartViewModel.placeOrder(deliveryAddress: deliveryAddress) { success in
+            cartViewModel.placeOrder(deliveryAddress: deliveryAddress) { success, error in
                 if success {
                     showingSuccess = true
                 } else {
-                    errorMessage = "Failed to place order. Check console for details."
+                    errorMessage = error ?? "Failed to place order. Check console for details."
                     showingError = true
                 }
             }

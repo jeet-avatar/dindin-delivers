@@ -48,6 +48,12 @@ struct RestaurantSettingsView: View {
                             Text(viewModel.restaurantName)
                                 .font(.headline)
 
+                            if !viewModel.cuisineType.isEmpty {
+                                Text(viewModel.cuisineType)
+                                    .font(.caption)
+                                    .foregroundColor(RestaurantTheme.brandOrange)
+                            }
+
                             Text(viewModel.restaurantAddress)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -72,6 +78,23 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .padding(.vertical, 8)
+
+                    // Contact Info
+                    if !viewModel.phone.isEmpty {
+                        HStack {
+                            Label(viewModel.phone, systemImage: "phone.fill")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                    }
+
+                    if !viewModel.email.isEmpty {
+                        HStack {
+                            Label(viewModel.email, systemImage: "envelope.fill")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                    }
                 }
 
                 // Quick Actions Section
@@ -232,9 +255,9 @@ struct RestaurantSettingsView: View {
                     .foregroundColor(.primary)
 
                     HStack {
-                        Label("Commission Rate", systemImage: "percent")
+                        Label("Platform Fee", systemImage: "dollarsign.circle")
                         Spacer()
-                        Text("\(Int(AppConfig.shared.restaurantCommissionRate * 100))%")
+                        Text("$\(String(format: "%.2f", AppConfig.shared.restaurantPlatformFee))/order")
                             .foregroundColor(.secondary)
                     }
 
@@ -452,13 +475,29 @@ class SettingsViewModel: ObservableObject {
     @Published var operatingHours: [DayHours] = []
     @Published var monthlyEarnings: Double = 0.0
 
+    // P2P backend data
+    @Published var cuisineType: String = ""
+    @Published var phone: String = ""
+    @Published var email: String = ""
+    @Published var operatingHoursText: String = ""
+
     private let db = Firestore.firestore()
+    private let p2pAPI = P2PAPIService.shared
 
     var restaurantId: String {
         Auth.auth().currentUser?.uid ?? ""
     }
 
+    var vendorId: Int? {
+        P2PAPIService.shared.currentVendorId
+    }
+
     var operatingHoursSummary: String {
+        // Use P2P operating hours text if available
+        if !operatingHoursText.isEmpty {
+            return operatingHoursText
+        }
+
         guard !operatingHours.isEmpty else {
             return "Not set"
         }
@@ -508,33 +547,66 @@ class SettingsViewModel: ObservableObject {
     }
 
     func fetchSettings() {
+        // Try P2P backend first (primary source for restaurant data)
+        if let vendorId = vendorId {
+            fetchP2PVendorProfile(vendorId: vendorId)
+        }
+
+        // Also fetch from Firebase for additional settings
         guard !restaurantId.isEmpty else { return }
 
         db.collection("restaurants").document(restaurantId).getDocument { [weak self] snapshot, error in
             guard let self = self, let data = snapshot?.data() else { return }
 
             DispatchQueue.main.async {
-                self.restaurantName = data["name"] as? String ?? "My Restaurant"
-                self.restaurantAddress = data["address"] as? String ?? ""
-                self.restaurantImageUrl = data["imageUrl"] as? String
+                // Only use Firebase data if P2P didn't provide it
+                if self.restaurantName == "My Restaurant" {
+                    self.restaurantName = data["name"] as? String ?? "My Restaurant"
+                }
+                if self.restaurantAddress.isEmpty {
+                    self.restaurantAddress = data["address"] as? String ?? ""
+                }
+                if self.restaurantImageUrl == nil {
+                    self.restaurantImageUrl = data["imageUrl"] as? String
+                }
                 self.isOnline = data["isOnline"] as? Bool ?? true
-                self.acceptingDelivery = data["acceptingDelivery"] as? Bool ?? true
-                self.acceptingPickup = data["acceptingPickup"] as? Bool ?? true
                 self.prepTimeBuffer = data["prepTimeBuffer"] as? Int ?? 10
                 self.maxOrdersPerHour = data["maxOrdersPerHour"] as? Int ?? 0
 
-                // Parse operating hours from Firestore
-                if let hoursData = data["operatingHours"] as? [[String: Any]] {
-                    self.operatingHours = self.parseOperatingHours(hoursData)
-                } else {
-                    // Set default operating hours if none exist
-                    self.operatingHours = self.defaultOperatingHours()
+                // Parse operating hours from Firestore if not set from P2P
+                if self.operatingHours.isEmpty {
+                    if let hoursData = data["operatingHours"] as? [[String: Any]] {
+                        self.operatingHours = self.parseOperatingHours(hoursData)
+                    } else {
+                        self.operatingHours = self.defaultOperatingHours()
+                    }
                 }
             }
         }
 
         // Fetch monthly earnings from orders
         fetchMonthlyEarnings()
+    }
+
+    private func fetchP2PVendorProfile(vendorId: Int) {
+        p2pAPI.fetchVendorProfile(vendorId: vendorId) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let profile):
+                    self?.restaurantName = profile.name
+                    self?.restaurantAddress = profile.address.fullAddress
+                    self?.cuisineType = profile.cuisineType ?? "Indian"
+                    self?.phone = profile.contact.phone ?? ""
+                    self?.email = profile.contact.email ?? ""
+                    self?.operatingHoursText = profile.operatingHours ?? ""
+                    self?.acceptingDelivery = profile.deliveryAvailable
+                    self?.acceptingPickup = profile.pickupAvailable
+                    print("Loaded vendor profile from P2P: \(profile.name)")
+                case .failure(let error):
+                    print("Failed to fetch P2P vendor profile: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private func parseOperatingHours(_ data: [[String: Any]]) -> [DayHours] {
@@ -620,9 +692,10 @@ class SettingsViewModel: ObservableObject {
                     doc.data()["total"] as? Double
                 }.reduce(0, +)
 
-                // Subtract commission
-                let commissionRate = AppConfig.shared.restaurantCommissionRate
-                let earnings = total * (1 - commissionRate)
+                // Subtract flat $1 platform fee per order
+                let orderCount = documents.count
+                let platformFee = AppConfig.shared.restaurantPlatformFee
+                let earnings = total - (Double(orderCount) * platformFee)
 
                 DispatchQueue.main.async {
                     self?.monthlyEarnings = earnings
@@ -650,6 +723,9 @@ class SettingsViewModel: ObservableObject {
     }
 
     func signOut() {
+        // Clear P2P backend session
+        P2PAPIService.shared.logout()
+        // Sign out from Firebase
         try? Auth.auth().signOut()
     }
 }

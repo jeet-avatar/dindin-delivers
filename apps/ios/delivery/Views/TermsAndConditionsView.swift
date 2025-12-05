@@ -1,6 +1,5 @@
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
+import EatFairShared
 
 // MARK: - Terms and Conditions View
 struct TermsAndConditionsView: View {
@@ -9,6 +8,7 @@ struct TermsAndConditionsView: View {
     @State private var showFullTerms = false
     @State private var isLoading = false
 
+    private let p2pService = P2PAPIService.shared
     let onAccept: (() -> Void)?
 
     init(onAccept: (() -> Void)? = nil) {
@@ -115,22 +115,20 @@ struct TermsAndConditionsView: View {
     }
 
     private func acceptTerms() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Check if driver is logged in via P2P
+        guard p2pService.isDriverLoggedIn else { return }
 
         isLoading = true
 
-        let db = Firestore.firestore()
-        db.collection("drivers").document(uid).updateData([
-            "termsAcceptedAt": Int64(Date().timeIntervalSince1970 * 1000),
-            "termsVersion": "1.0",
-            "agreedToPlatformFee": true
-        ]) { error in
-            isLoading = false
-            if error == nil {
-                onAccept?()
-                dismiss()
-            }
-        }
+        // Store terms acceptance locally (P2P backend doesn't have terms endpoint yet)
+        // Using centralized keys from UserDefaultsKeys
+        UserDefaults.standard.set(true, forKey: UserDefaultsKeys.driverTermsAccepted)
+        UserDefaults.standard.set(Int64(Date().timeIntervalSince1970 * 1000), forKey: UserDefaultsKeys.driverTermsAcceptedAt)
+        UserDefaults.standard.set(AppConstants.termsVersion, forKey: UserDefaultsKeys.driverTermsVersion)
+
+        isLoading = false
+        onAccept?()
+        dismiss()
     }
 }
 

@@ -1,50 +1,94 @@
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
 import EatFairShared
 
 struct DriverDashboardView: View {
-    @StateObject private var viewModel = DeliveryViewModel()
+    @StateObject private var deliveryViewModel = DeliveryViewModel()
+    @StateObject private var rideViewModel = RideViewModel()
     @StateObject private var chatManager = ChatManager.shared
     @State private var selectedTab = 0
     @State private var showTerms = false
+    @State private var driverMode: DriverMode = .foodDelivery
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Available Orders (Redesigned)
-            AvailableOrdersView(viewModel: viewModel)
-                .tabItem {
-                    Label("Orders", systemImage: "tray.fill")
-                }
-                .tag(0)
+        VStack(spacing: 0) {
+            // Mode Toggle Header
+            DriverModeToggle(selectedMode: $driverMode)
 
-            // My Active Deliveries
-            MyDeliveriesView(viewModel: viewModel)
-                .tabItem {
-                    Label("Deliveries", systemImage: "shippingbox.fill")
-                }
-                .tag(1)
+            // Tab View based on mode
+            TabView(selection: $selectedTab) {
+                if driverMode == .foodDelivery {
+                    // Food Delivery Mode
+                    AvailableOrdersView(viewModel: deliveryViewModel)
+                        .tabItem {
+                            Label("Orders", systemImage: "bag.fill")
+                        }
+                        .tag(0)
 
-            // Messages/Chat
-            ConversationsListView()
-                .tabItem {
-                    Label("Messages", systemImage: "message.fill")
-                }
-                .tag(2)
-                .badge(chatManager.unreadCount)
+                    NavigationView {
+                        PickupDropoffView(viewModel: deliveryViewModel)
+                    }
+                    .tabItem {
+                        Label("Active", systemImage: "location.fill")
+                    }
+                    .tag(1)
 
-            // Profile
-            DriverProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.crop.circle.fill")
+                    MyDeliveriesView(viewModel: deliveryViewModel)
+                        .tabItem {
+                            Label("History", systemImage: "clock.fill")
+                        }
+                        .tag(2)
+                } else {
+                    // Ride-Share Mode
+                    AvailableRidesView(viewModel: rideViewModel)
+                        .tabItem {
+                            Label("Rides", systemImage: "car.fill")
+                        }
+                        .tag(0)
+
+                    NavigationView {
+                        PassengerPickupDropoffView(viewModel: rideViewModel)
+                    }
+                    .tabItem {
+                        Label("Active", systemImage: "location.fill")
+                    }
+                    .tag(1)
+
+                    RideHistoryView(viewModel: rideViewModel)
+                        .tabItem {
+                            Label("History", systemImage: "clock.fill")
+                        }
+                        .tag(2)
                 }
-                .tag(3)
+
+                // Common tabs for both modes
+                ConversationsListView()
+                    .tabItem {
+                        Label("Messages", systemImage: "message.fill")
+                    }
+                    .tag(3)
+                    .badge(chatManager.unreadCount)
+
+                DriverProfileView()
+                    .tabItem {
+                        Label("Profile", systemImage: "person.crop.circle.fill")
+                    }
+                    .tag(4)
+            }
+            .accentColor(driverMode == .foodDelivery ? Theme.brandRed : Theme.statusInfo)
         }
-        .accentColor(Color(red: 0.91, green: 0.30, blue: 0.24))
         .onAppear {
-            viewModel.fetchAvailableOrders()
-            viewModel.fetchMyDeliveries()
+            deliveryViewModel.fetchAvailableOrders()
+            deliveryViewModel.fetchMyDeliveries()
+            rideViewModel.fetchAvailableRides()
             checkTermsAcceptance()
+        }
+        .onChange(of: driverMode) { _, newMode in
+            selectedTab = 0 // Reset to first tab when mode changes
+            if newMode == .foodDelivery {
+                deliveryViewModel.refreshAllData()
+            } else {
+                rideViewModel.refreshAllData()
+            }
         }
         .sheet(isPresented: $showTerms) {
             TermsAndConditionsView {
@@ -54,19 +98,53 @@ struct DriverDashboardView: View {
     }
 
     private func checkTermsAcceptance() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let termsAccepted = UserDefaults.standard.bool(forKey: UserDefaultsKeys.driverTermsAccepted)
+        if !termsAccepted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showTerms = true
+            }
+        }
+    }
+}
 
-        let db = Firestore.firestore()
-        db.collection("drivers").document(uid).getDocument { snapshot, _ in
-            if let data = snapshot?.data() {
-                let termsAccepted = data["termsAcceptedAt"] as? Int64
-                if termsAccepted == nil {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        showTerms = true
+// MARK: - Driver Mode Toggle
+struct DriverModeToggle: View {
+    @Binding var selectedMode: DriverMode
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(DriverMode.allCases, id: \.self) { mode in
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        selectedMode = mode
                     }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: mode.icon)
+                            .font(.system(size: 16, weight: .semibold))
+                        Text(mode.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(selectedMode == mode ? .white : Theme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        selectedMode == mode
+                            ? (mode == .foodDelivery ? Theme.brandRed : Theme.statusInfo)
+                            : Color.clear
+                    )
+                    .cornerRadius(10)
                 }
             }
         }
+        .padding(4)
+        .background(Theme.lightGrey)
+        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Theme.cardBackground)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 2)
     }
 }
 

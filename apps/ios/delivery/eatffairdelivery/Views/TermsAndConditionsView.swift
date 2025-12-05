@@ -1,6 +1,5 @@
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
+import EatFairShared
 
 // MARK: - Terms and Conditions View
 struct TermsAndConditionsView: View {
@@ -9,6 +8,7 @@ struct TermsAndConditionsView: View {
     @State private var showFullTerms = false
     @State private var isLoading = false
 
+    private let p2pService = P2PAPIService.shared
     let onAccept: (() -> Void)?
 
     init(onAccept: (() -> Void)? = nil) {
@@ -91,7 +91,7 @@ struct TermsAndConditionsView: View {
                     .disabled(!hasAccepted || isLoading)
 
                     // Version
-                    Text("Terms Version 1.0 • Last Updated: November 2024")
+                    Text("Terms Version 1.1 • Last Updated: December 2024")
                         .font(.caption)
                         .foregroundColor(Theme.textGrey)
                         .frame(maxWidth: .infinity)
@@ -115,22 +115,20 @@ struct TermsAndConditionsView: View {
     }
 
     private func acceptTerms() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Check if driver is logged in via P2P
+        guard p2pService.isDriverLoggedIn else { return }
 
         isLoading = true
 
-        let db = Firestore.firestore()
-        db.collection("drivers").document(uid).updateData([
-            "termsAcceptedAt": Int64(Date().timeIntervalSince1970 * 1000),
-            "termsVersion": "1.0",
-            "agreedToPlatformFee": true
-        ]) { error in
-            isLoading = false
-            if error == nil {
-                onAccept?()
-                dismiss()
-            }
-        }
+        // Store terms acceptance locally (P2P backend doesn't have terms endpoint yet)
+        // Key must match what DriverDashboardView checks
+        UserDefaults.standard.set(true, forKey: "p2p_driver_terms_accepted")
+        UserDefaults.standard.set(Int64(Date().timeIntervalSince1970 * 1000), forKey: "p2p_driver_terms_accepted_at")
+        UserDefaults.standard.set("1.1", forKey: "p2p_driver_terms_version")
+
+        isLoading = false
+        onAccept?()
+        dismiss()
     }
 }
 
@@ -721,7 +719,35 @@ struct FullTermsView: View {
                             """)
                         }
 
-                        TermsSection(title: "9. Termination") {
+                        TermsSection(title: "9. Tax & Billing Compliance") {
+                            Text("""
+                            DinDin Delivers operates in full compliance with federal, state, and local tax regulations:
+
+                            Tax Collection & Remittance:
+                            • Sales tax is automatically calculated based on pickup location
+                            • Tax rates vary by state (0% - 8.875% depending on jurisdiction)
+                            • All applicable taxes are collected at checkout
+                            • Taxes are remitted to appropriate authorities by DinDin Delivers
+
+                            Driver Tax Obligations:
+                            • Drivers are independent contractors (1099 workers)
+                            • You are responsible for reporting your earnings to the IRS
+                            • DinDin Delivers will provide Form 1099-NEC for earnings over $600/year
+                            • Keep records of all expenses for potential deductions (mileage, vehicle maintenance, etc.)
+
+                            Receipt & Billing:
+                            • Customers receive itemized digital receipts for every transaction
+                            • Receipts include: subtotal, tax breakdown, platform fee, delivery fee, and tip
+                            • All receipts are accessible in the customer app
+                            • Drivers can access their earnings statements anytime
+
+                            Tax-Exempt Status:
+                            • Some states do not collect sales tax on delivery services
+                            • Nonprofit and tax-exempt customers may request exemption with valid documentation
+                            """)
+                        }
+
+                        TermsSection(title: "10. Termination") {
                             Text("""
                             Either party may terminate this agreement at any time. DinDin Delivers may suspend or terminate your account for:
 
@@ -736,7 +762,7 @@ struct FullTermsView: View {
                             """)
                         }
 
-                        TermsSection(title: "10. Contact Information") {
+                        TermsSection(title: "11. Contact Information") {
                             Text("""
                             For questions about these Terms, please contact us:
 
@@ -744,8 +770,11 @@ struct FullTermsView: View {
                             In-App: Settings > Contact Support
                             Website: www.dindindelivers.com/support
 
-                            Effective Date: November 28, 2024
-                            Version: 1.0
+                            For Tax-Related Inquiries:
+                            Email: tax@dindindelivers.com
+
+                            Effective Date: December 5, 2024
+                            Version: 1.1
                             """)
                         }
                     }

@@ -66,21 +66,48 @@ struct RestaurantDetailView: View {
                         Text(restaurant.name)
                             .font(.title)
                             .fontWeight(.bold)
-                        
+
                         Text(restaurant.cuisine)
                             .font(.subheadline)
-                            .foregroundColor(.gray)
-                        
+                            .foregroundColor(Theme.brandGreen)
+
                         HStack {
-                            Label("\(restaurant.rating)", systemImage: "star.fill")
+                            Label(String(format: "%.1f", restaurant.rating), systemImage: "star.fill")
                                 .foregroundColor(Theme.brandGreen)
                             Text("•")
-                            Label("\(restaurant.deliveryTime) mins", systemImage: "clock")
+                            Label("\(restaurant.deliveryTime)", systemImage: "clock")
                             Text("•")
                             Text("Free Delivery")
                         }
                         .font(.caption)
                         .foregroundColor(.gray)
+
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        // Address
+                        if !restaurant.address.isEmpty {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "location.fill")
+                                    .foregroundColor(Theme.brandGreen)
+                                    .frame(width: 20)
+                                Text(restaurant.address)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        // Phone
+                        if !restaurant.phone.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "phone.fill")
+                                    .foregroundColor(Theme.brandGreen)
+                                    .frame(width: 20)
+                                Text(restaurant.phone)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                     .padding()
                     .background(Color.white)
@@ -214,50 +241,80 @@ struct MenuItemCard: View {
     let item: MenuItem
     var onAdd: () -> Void
     @State private var showDetail = false
-    
-    // We need restaurant and cartViewModel to pass to sheet, but MenuItemCard signature is fixed.
-    // Better to let the parent handle the sheet.
-    // So we'll change onAdd to just trigger the action, and the parent will show sheet?
-    // Or we can just show the sheet from here if we have the data.
-    // Let's change the callback to pass the item back to parent.
-    
+
     var body: some View {
-        HStack(alignment: .top, spacing: 15) {
+        HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.name.uppercased())
                     .font(.headline)
                     .fontWeight(.bold)
                     .foregroundColor(Theme.brandBlack)
-                
+
                 Text(item.description)
                     .font(.caption)
                     .foregroundColor(Theme.textGrey)
                     .lineLimit(2)
-                
-                Text("$\(String(format: "%.1f", item.price))")
+
+                Text("$\(String(format: "%.2f", item.price))")
                     .font(.subheadline)
                     .fontWeight(.bold)
                     .foregroundColor(Theme.brandBlack)
                     .padding(.top, 5)
+
+                // Add Button
+                Button(action: onAdd) {
+                    Text("ADD")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(Theme.brandWhite)
+                        .foregroundColor(Theme.brandGreen)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Theme.brandGreen, lineWidth: 1)
+                        )
+                        .cornerRadius(4)
+                        .shadow(radius: 1)
+                }
+                .padding(.top, 4)
             }
-            
+
             Spacer()
-            
-            // Add Button
-            Button(action: onAdd) {
-                Text("ADD")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(Theme.brandWhite)
-                    .foregroundColor(Theme.brandGreen)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Theme.brandGreen, lineWidth: 1)
-                    )
-                    .cornerRadius(4)
-                    .shadow(radius: 1)
+
+            // Menu Item Image
+            if let imageUrlString = item.imageUrl, !imageUrlString.isEmpty,
+               let url = URL(string: imageUrlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: 100, height: 100)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 100, height: 100)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    case .failure:
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 30))
+                            .foregroundColor(.gray)
+                            .frame(width: 100, height: 100)
+                            .background(Color.gray.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+            } else {
+                // Placeholder when no image URL
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 30))
+                    .foregroundColor(.gray)
+                    .frame(width: 100, height: 100)
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
         .padding()

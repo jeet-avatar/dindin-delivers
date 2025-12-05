@@ -20,6 +20,7 @@
 		104405C82ED7DC3900ED321A /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C72ED7DC3900ED321A /* FirebaseFirestore */; };
 		104405CA2ED7DC3900ED321A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C92ED7DC3900ED321A /* FirebaseStorage */; };
 		104407A92ED83E4700ED321A /* EatFairShared in Frameworks */ = {isa = PBXBuildFile; productRef = 104407A82ED83E4700ED321A /* EatFairShared */; };
+		C8EFDC0952F083F53C017870 /* Pods_eatffairdelivery.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,9 +41,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		104405812ED797EA00ED321A /* eatffairdelivery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eatffairdelivery.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		104405812ED797EA00ED321A /* EatFair Driver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EatFair Driver.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairdeliveryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairdeliveryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairdelivery.release.xcconfig"; path = "Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery.release.xcconfig"; sourceTree = "<group>"; };
+		5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_eatffairdelivery.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairdelivery.debug.xcconfig"; path = "Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -94,6 +98,7 @@
 				104405BD2ED7D97400ED321A /* StripeConnect in Frameworks */,
 				104405C82ED7DC3900ED321A /* FirebaseFirestore in Frameworks */,
 				104405B72ED7D97400ED321A /* Stripe in Frameworks */,
+				C8EFDC0952F083F53C017870 /* Pods_eatffairdelivery.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,17 +126,36 @@
 				104405962ED797EC00ED321A /* eatffairdeliveryTests */,
 				104405A02ED797EC00ED321A /* eatffairdeliveryUITests */,
 				104405822ED797EA00ED321A /* Products */,
+				6B73B94BBE1E422B546F8F9F /* Pods */,
+				B429DC235F7187D94DCB5738 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
 		104405822ED797EA00ED321A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				104405812ED797EA00ED321A /* eatffairdelivery.app */,
+				104405812ED797EA00ED321A /* EatFair Driver.app */,
 				104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */,
 				1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6B73B94BBE1E422B546F8F9F /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */,
+				267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		B429DC235F7187D94DCB5738 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -141,9 +165,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 104405A72ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdelivery" */;
 			buildPhases = (
+				7094AD67DC4E4466106C1207 /* [CP] Check Pods Manifest.lock */,
 				1044057D2ED797EA00ED321A /* Sources */,
 				1044057E2ED797EA00ED321A /* Frameworks */,
 				1044057F2ED797EA00ED321A /* Resources */,
+				06118FCD39633CBE88BF251F /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -169,7 +195,7 @@
 				104407A82ED83E4700ED321A /* EatFairShared */,
 			);
 			productName = eatffairdelivery;
-			productReference = 104405812ED797EA00ED321A /* eatffairdelivery.app */;
+			productReference = 104405812ED797EA00ED321A /* EatFair Driver.app */;
 			productType = "com.apple.product-type.application";
 		};
 		104405922ED797EC00ED321A /* eatffairdeliveryTests */ = {
@@ -189,8 +215,6 @@
 				104405962ED797EC00ED321A /* eatffairdeliveryTests */,
 			);
 			name = eatffairdeliveryTests;
-			packageProductDependencies = (
-			);
 			productName = eatffairdeliveryTests;
 			productReference = 104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -212,8 +236,6 @@
 				104405A02ED797EC00ED321A /* eatffairdeliveryUITests */,
 			);
 			name = eatffairdeliveryUITests;
-			packageProductDependencies = (
-			);
 			productName = eatffairdeliveryUITests;
 			productReference = 1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -254,7 +276,7 @@
 				104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
 				104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */,
+				104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 104405822ED797EA00ED321A /* Products */;
@@ -291,6 +313,52 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		06118FCD39633CBE88BF251F /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7094AD67DC4E4466106C1207 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-eatffairdelivery-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1044057D2ED797EA00ED321A /* Sources */ = {
@@ -368,7 +436,7 @@
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -432,7 +500,7 @@
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -453,15 +521,18 @@
 		};
 		104405A82ED797EC00ED321A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = eatffairdelivery/eatffairdelivery.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairdelivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -473,9 +544,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair..eatffairdelivery;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.delivery;
+				PRODUCT_NAME = "EatFair Driver";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -487,15 +562,18 @@
 		};
 		104405A92ED797EC00ED321A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = eatffairdelivery/eatffairdelivery.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairdelivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -507,9 +585,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair..eatffairdelivery;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.eatfair.delivery;
+				PRODUCT_NAME = "EatFair Driver";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -645,9 +727,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */ = {
+		104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../eatfair-ios-shared";
+			relativePath = "../eatfair-ios-shared";
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -741,7 +823,7 @@
 		};
 		104407A82ED83E4700ED321A /* EatFairShared */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../../eatfair-ios-shared" */;
+			package = 104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */;
 			productName = EatFairShared;
 		};
 /* End XCSwiftPackageProductDependency section */

@@ -1,11 +1,10 @@
 import Foundation
 import CoreLocation
 import Combine
-import FirebaseFirestore
-import FirebaseAuth
+import EatFairShared
 
 /// LocationManager handles real-time GPS tracking for delivery drivers
-/// Publishes location updates and syncs with Firebase
+/// Publishes location updates and syncs with P2P backend (PostgreSQL)
 class LocationManager: NSObject, ObservableObject {
     static let shared = LocationManager()
 
@@ -21,14 +20,17 @@ class LocationManager: NSObject, ObservableObject {
 
     // MARK: - Private Properties
     private let locationManager = CLLocationManager()
-    private let db = Firestore.firestore()
+    private let p2pService = P2PAPIService.shared
     private var lastLocation: CLLocation?
     private var locationUpdateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    // Current active order ID for location updates
+    var activeOrderId: Int?
+
     // MARK: - Configuration
     private let minimumUpdateDistance: CLLocationDistance = 10 // meters
-    private let firebaseUpdateInterval: TimeInterval = 5 // seconds
+    private let p2pUpdateInterval: TimeInterval = 5 // seconds (update driver location to P2P backend)
 
     override init() {
         super.init()
@@ -71,8 +73,8 @@ class LocationManager: NSObject, ObservableObject {
         isTracking = true
         distanceTraveled = 0
 
-        // Start periodic Firebase updates
-        startFirebaseUpdates()
+        // Start periodic P2P backend updates
+        startP2PUpdates()
     }
 
     /// Stop tracking driver location
@@ -80,7 +82,7 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
         isTracking = false
-        stopFirebaseUpdates()
+        stopP2PUpdates()
     }
 
     /// Get current location once
@@ -126,53 +128,71 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Firebase Sync
+    // MARK: - P2P Backend Sync
 
-    private func startFirebaseUpdates() {
-        stopFirebaseUpdates() // Clear any existing timer
+    private func startP2PUpdates() {
+        stopP2PUpdates() // Clear any existing timer
 
-        locationUpdateTimer = Timer.scheduledTimer(withTimeInterval: firebaseUpdateInterval, repeats: true) { [weak self] _ in
-            self?.updateLocationInFirebase()
+        locationUpdateTimer = Timer.scheduledTimer(withTimeInterval: p2pUpdateInterval, repeats: true) { [weak self] _ in
+            self?.updateLocationInP2P()
         }
     }
 
-    private func stopFirebaseUpdates() {
+    private func stopP2PUpdates() {
         locationUpdateTimer?.invalidate()
         locationUpdateTimer = nil
     }
 
-    private func updateLocationInFirebase() {
-        guard let uid = Auth.auth().currentUser?.uid,
-              let location = currentLocation else { return }
+    private func updateLocationInP2P() {
+        guard let location = currentLocation else { return }
 
-        let locationData: [String: Any] = [
-            "currentLatitude": location.coordinate.latitude,
-            "currentLongitude": location.coordinate.longitude,
-            "lastActive": Int64(Date().timeIntervalSince1970 * 1000),
-            "speed": speed,
-            "heading": heading?.trueHeading ?? 0
-        ]
-
-        db.collection("drivers").document(uid).updateData(locationData) { error in
-            if let error = error {
-                print("Error updating location in Firebase: \(error)")
+        // Update driver's general location
+        p2pService.updateDriverLocation(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude
+        ) { result in
+            if case .failure(let error) = result {
+                print("Error updating driver location in P2P: \(error)")
             }
+        }
+
+        // If there's an active order, update that order's driver location
+        if let orderId = activeOrderId {
+            updateOrderLocationInP2P(orderId: orderId)
         }
     }
 
     /// Update location for a specific order (for live tracking by customer)
     func updateOrderLocation(orderId: String) {
+        guard let orderIdInt = Int(orderId) else { return }
+        updateOrderLocationInP2P(orderId: orderIdInt)
+    }
+
+    /// Update location for a specific order using P2P API
+    private func updateOrderLocationInP2P(orderId: Int) {
         guard let location = currentLocation else { return }
 
-        let locationData: [String: Any] = [
-            "driverLatitude": location.coordinate.latitude,
-            "driverLongitude": location.coordinate.longitude,
-            "driverSpeed": speed,
-            "driverHeading": heading?.trueHeading ?? 0,
-            "locationUpdatedAt": Int64(Date().timeIntervalSince1970 * 1000)
-        ]
+        p2pService.updateDriverLocation(
+            orderId: orderId,
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude
+        ) { result in
+            if case .failure(let error) = result {
+                print("Error updating order location in P2P: \(error)")
+            }
+        }
+    }
 
-        db.collection("orders").document(orderId).updateData(locationData)
+    /// Start tracking for a specific delivery order
+    func startDeliveryTracking(orderId: Int) {
+        activeOrderId = orderId
+        startTracking()
+    }
+
+    /// Stop tracking for delivery (when order is complete)
+    func stopDeliveryTracking() {
+        activeOrderId = nil
+        stopTracking()
     }
 }
 
@@ -197,9 +217,9 @@ extension LocationManager: CLLocationManagerDelegate {
         currentCoordinate = location.coordinate
         speed = max(location.speed, 0)
 
-        // Update Firebase for active orders
+        // Update P2P for active orders
         if isTracking {
-            updateLocationInFirebase()
+            updateLocationInP2P()
         }
     }
 
@@ -246,8 +266,12 @@ extension CLLocationCoordinate2D {
         return latitude != 0 && longitude != 0
     }
 
-    /// Default San Francisco coordinates for fallback
-    static var sanFrancisco: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+    /// Default fallback coordinates from centralized config
+    /// Only use when user location is unavailable
+    static var defaultFallback: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(
+            latitude: MapConfig.defaultLatitude,
+            longitude: MapConfig.defaultLongitude
+        )
     }
 }

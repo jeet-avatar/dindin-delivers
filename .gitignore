@@ -85,3 +85,13 @@ google-services.json
 dist/
 lib/
 out/
+apps/ios/eatfair-ios-shared/.build/
+
+# Swift Package Manager build artifacts
+apps/ios/eatfair-ios-shared/.build/
+apps/ios/eatfair-ios-shared/.swiftpm/
+apps/ios/customer/Pods/
+apps/ios/delivery/Pods/
+apps/ios/restaurant/Pods/
+*.xcframework/
+*.pack

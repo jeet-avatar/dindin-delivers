@@ -3,50 +3,79 @@ import CoreLocation
 import EatFairShared
 
 struct AddressListView: View {
-    // ... (rest of struct AddressListView is fine)
     @StateObject var viewModel = AddressViewModel()
     @State private var showingAddAddress = false
-    
+
     var body: some View {
-        NavigationView {
-            List {
-                if viewModel.isLoading {
-                    ProgressView()
+        List {
+            if viewModel.isLoading {
+                HStack {
+                    Spacer()
+                    ProgressView("Loading addresses...")
+                    Spacer()
                 }
-                
-                ForEach(viewModel.addresses) { address in
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Image(systemName: iconForType(address.type))
-                                .foregroundColor(Theme.brandOrange)
-                            Text(address.locationName)
-                                .font(.headline)
-                            if address.isDefault {
-                                Text("Default")
-                                    .font(.caption)
-                                    .padding(4)
-                                    .background(Color.green.opacity(0.2))
-                                    .foregroundColor(.green)
-                                    .cornerRadius(4)
+                .padding()
+            }
+
+            if viewModel.addresses.isEmpty && !viewModel.isLoading {
+                VStack(spacing: 16) {
+                    Image(systemName: "mappin.slash")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                    Text("No saved addresses")
+                        .font(.headline)
+                    Text("Add an address to get started")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            }
+
+            ForEach(viewModel.addresses) { address in
+                Button(action: {
+                    viewModel.selectedAddressId = address.id
+                }) {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Image(systemName: iconForType(address.type))
+                                    .foregroundColor(Theme.brandOrange)
+                                Text(address.locationName)
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                if address.isDefault {
+                                    Text("Default")
+                                        .font(.caption)
+                                        .padding(4)
+                                        .background(Color.green.opacity(0.2))
+                                        .foregroundColor(.green)
+                                        .cornerRadius(4)
+                                }
                             }
+                            Text("\(address.street), \(address.city), \(address.state) \(address.zipCode)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
                         }
-                        Text("\(address.street), \(address.city), \(address.state) \(address.zipCode)")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                        Spacer()
+                        if viewModel.selectedAddressId == address.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Theme.brandGreen)
+                        }
                     }
-                    .padding(.vertical, 4)
                 }
-                .onDelete(perform: deleteAddress)
+                .padding(.vertical, 4)
             }
-            .navigationTitle("Saved Addresses")
-            .toolbar {
-                Button(action: { showingAddAddress = true }) {
-                    Image(systemName: "plus")
-                }
+            .onDelete(perform: deleteAddress)
+        }
+        .navigationTitle("Saved Addresses")
+        .toolbar {
+            Button(action: { showingAddAddress = true }) {
+                Image(systemName: "plus")
             }
-            .sheet(isPresented: $showingAddAddress) {
-                AddAddressView(viewModel: viewModel)
-            }
+        }
+        .sheet(isPresented: $showingAddAddress) {
+            AddAddressView(viewModel: viewModel)
         }
     }
     

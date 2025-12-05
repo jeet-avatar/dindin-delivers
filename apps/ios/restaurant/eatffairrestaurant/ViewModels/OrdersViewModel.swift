@@ -1,10 +1,9 @@
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
 import Combine
 import EatFairShared
 
 /// Enhanced Orders ViewModel with real-time updates and AI features
+/// Uses P2P backend as single source of truth (no Firebase)
 class OrdersViewModel: ObservableObject {
     // MARK: - Configuration
     private var config: AppConfig { AppConfig.shared }
@@ -27,9 +26,12 @@ class OrdersViewModel: ObservableObject {
     @Published var restaurantName: String = ""
 
     // MARK: - Private
-    private var db = Firestore.firestore()
-    private var listener: ListenerRegistration?
     private var cancellables = Set<AnyCancellable>()
+    private let p2pAPI = P2PAPIService.shared
+
+    // P2P Backend Integration
+    @Published var p2pVendorId: Int?  // Numeric vendor ID for P2P backend
+    private var p2pRefreshTimer: Timer?
 
     enum BusyLevel: String {
         case slow = "Slow"
@@ -59,7 +61,8 @@ class OrdersViewModel: ObservableObject {
     // MARK: - Computed Properties
 
     var newOrders: [Order] {
-        allOrders.filter { $0.status == "Placed" }
+        // "Placed" = new order, "Confirmed" = confirmed but not yet accepted by restaurant
+        allOrders.filter { $0.status == "Placed" || $0.status == "Confirmed" }
             .sorted { $0.placedAt > $1.placedAt }
     }
 
@@ -74,7 +77,7 @@ class OrdersViewModel: ObservableObject {
     }
 
     var completedOrders: [Order] {
-        allOrders.filter { $0.status == "Delivered" || $0.status == "Picked Up" }
+        allOrders.filter { $0.status == "Delivered" || $0.status == "Picked Up" || $0.status == "Out for Delivery" }
             .sorted { $0.placedAt > $1.placedAt }
     }
 
@@ -108,70 +111,106 @@ class OrdersViewModel: ObservableObject {
     }
 
     deinit {
-        listener?.remove()
+        p2pRefreshTimer?.invalidate()
     }
 
     // MARK: - Setup
 
     private func setupRestaurant() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        restaurantId = uid
+        // Get P2P vendor ID from shared API service (single source of truth)
+        p2pVendorId = p2pAPI.currentVendorId
 
-        // Fetch restaurant details
-        db.collection("restaurants").document(uid).getDocument { [weak self] snapshot, error in
-            if let data = snapshot?.data() {
-                DispatchQueue.main.async {
-                    self?.restaurantName = data["name"] as? String ?? "My Restaurant"
-                    self?.isOnline = data["isOnline"] as? Bool ?? true
-                }
-            }
+        if let vendorId = p2pVendorId {
+            restaurantId = String(vendorId)
+            restaurantName = "My Restaurant" // Will be updated when orders load
+            print("Using P2P vendor ID: \(vendorId)")
+        } else {
+            print("No P2P vendor ID found - user needs to log in")
         }
+    }
+
+    /// Set the P2P vendor ID manually (called after vendor login)
+    func setP2PVendorId(_ vendorId: Int) {
+        p2pVendorId = vendorId
+        restaurantId = String(vendorId)
+        fetchP2POrders()  // Fetch orders immediately
     }
 
     // MARK: - Real-time Orders Listener
 
     func startListening() {
         isLoading = true
-        listener?.remove()
 
-        // Listen to all orders and filter client-side for now
-        // In production, add restaurantId field to orders for proper querying
-        listener = db.collection("orders")
-            .order(by: "placedAt", descending: true)
-            .limit(to: 100)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
+        // Re-check P2P vendor ID from UserDefaults (in case login just happened)
+        if p2pVendorId == nil {
+            p2pVendorId = p2pAPI.currentVendorId
+            if let vendorId = p2pVendorId {
+                restaurantId = String(vendorId)
+                print("startListening: Found P2P vendor ID: \(vendorId)")
+            }
+        }
 
-                DispatchQueue.main.async {
-                    self.isLoading = false
+        // Fetch P2P orders from backend
+        fetchP2POrders()
 
-                    if let error = error {
-                        self.errorMessage = error.localizedDescription
-                        self.showError = true
-                        return
-                    }
+        // Start periodic refresh for P2P orders (every 30 seconds)
+        p2pRefreshTimer?.invalidate()
+        p2pRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.fetchP2POrders()
+        }
+    }
 
-                    guard let documents = snapshot?.documents else { return }
+    /// Fetch orders from P2P backend
+    private func fetchP2POrders() {
+        guard let vendorId = p2pVendorId else {
+            print("🔴 fetchP2POrders: No P2P vendor ID set, skipping P2P orders fetch")
+            isLoading = false
+            return
+        }
 
-                    self.allOrders = documents.compactMap { doc -> Order? in
-                        try? doc.data(as: Order.self)
-                    }
+        print("🟢 fetchP2POrders: Fetching orders for vendor ID \(vendorId)")
+        p2pAPI.fetchVendorOrders(vendorId: vendorId) { [weak self] result in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                switch result {
+                case .success(let p2pVendorOrders):
+                    print("🟢 fetchP2POrders: SUCCESS - Got \(p2pVendorOrders.count) orders from P2P")
+                    // Convert to Order models
+                    self.allOrders = p2pVendorOrders.map { vendorOrder in
+                        let order = vendorOrder.toOrder(
+                            vendorId: String(vendorId),
+                            restaurantName: self.restaurantName
+                        )
+                        print("🟢 Order: \(order.orderId) - Status: \(order.status)")
+                        return order
+                    }.sorted { $0.placedAt > $1.placedAt }
 
                     // Update AI insights
                     self.updateAIInsights()
+                    print("🟢 Total orders: \(self.allOrders.count)")
+
+                case .failure(let error):
+                    print("🔴 fetchP2POrders: FAILED - \(error.localizedDescription)")
+                    self.errorMessage = "Failed to fetch orders: \(error.localizedDescription)"
+                    self.showError = true
                 }
             }
+        }
     }
 
     func stopListening() {
-        listener?.remove()
-        listener = nil
+        p2pRefreshTimer?.invalidate()
+        p2pRefreshTimer = nil
     }
 
     // MARK: - Order Actions
 
     func acceptOrder(_ order: Order) {
-        updateOrderStatus(order, newStatus: "Preparing")
+        // API expects uppercase status: PREPARING
+        updateOrderStatus(order, newStatus: "PREPARING")
 
         // Update estimated prep time based on current load
         let estimatedTime = calculateEstimatedPrepTime()
@@ -179,53 +218,69 @@ class OrdersViewModel: ObservableObject {
     }
 
     func rejectOrder(_ order: Order, reason: String = "") {
-        guard let orderId = order.id else { return }
+        // Extract order ID from orderId (e.g., "EF123" -> 123)
+        guard let orderIdInt = extractOrderId(from: order.orderId) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
 
-        db.collection("orders").document(orderId).updateData([
-            "status": "Rejected",
-            "rejectionReason": reason,
-            "rejectedAt": Int64(Date().timeIntervalSince1970 * 1000)
-        ]) { [weak self] error in
-            if let error = error {
-                self?.errorMessage = error.localizedDescription
-                self?.showError = true
+        // API expects uppercase status: CANCELLED
+        p2pAPI.updateOrderStatus(orderId: orderIdInt, status: "CANCELLED") { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("Order \(order.orderId) rejected successfully")
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
             }
         }
     }
 
     func markOrderReady(_ order: Order) {
-        updateOrderStatus(order, newStatus: "Ready")
+        // API expects uppercase status: READY_FOR_PICKUP
+        updateOrderStatus(order, newStatus: "READY_FOR_PICKUP")
     }
 
     func updateOrderStatus(_ order: Order, newStatus: String) {
-        guard let orderId = order.id else { return }
-
-        var updateData: [String: Any] = ["status": newStatus]
-
-        switch newStatus {
-        case "Preparing":
-            updateData["acceptedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
-        case "Ready":
-            updateData["preparedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
-        default:
-            break
+        // Use the database ID from order.id (not the display order number)
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            print("🔴 updateOrderStatus: Invalid order ID - order.id=\(order.id ?? "nil")")
+            return
         }
 
-        db.collection("orders").document(orderId).updateData(updateData) { [weak self] error in
-            if let error = error {
-                self?.errorMessage = error.localizedDescription
-                self?.showError = true
+        print("🟢 updateOrderStatus: Updating order \(order.orderId) (DB ID: \(orderIdInt)) to \(newStatus)")
+
+        // API expects uppercase statuses
+        p2pAPI.updateOrderStatus(orderId: orderIdInt, status: newStatus) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("🟢 Order \(order.orderId) updated to \(newStatus)")
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    print("🔴 Failed to update order: \(error.localizedDescription)")
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
             }
         }
     }
 
     private func updateEstimatedTime(_ order: Order, minutes: Int) {
-        guard let orderId = order.id else { return }
+        // This would be implemented via P2P API if needed
+        print("Estimated time for order \(order.orderId): \(minutes) minutes")
+    }
 
-        let estimatedDelivery = Int64(Date().timeIntervalSince1970 * 1000) + Int64(minutes * 60 * 1000)
-        db.collection("orders").document(orderId).updateData([
-            "estimatedDeliveryTime": estimatedDelivery
-        ])
+    private func extractOrderId(from orderId: String) -> Int? {
+        // Handle formats like "EF123" or just "123"
+        let digits = orderId.filter { $0.isNumber }
+        return Int(digits)
     }
 
     // MARK: - AI Features
@@ -340,12 +395,27 @@ class OrdersViewModel: ObservableObject {
     // MARK: - Restaurant Status
 
     func toggleOnlineStatus() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let vendorId = p2pVendorId else {
+            errorMessage = "No vendor ID - please log in again"
+            showError = true
+            return
+        }
 
         isOnline.toggle()
 
-        db.collection("restaurants").document(uid).updateData([
-            "isOnline": isOnline
-        ])
+        // Update online status via P2P API
+        p2pAPI.updateVendorStatus(vendorId: vendorId, isOnline: isOnline) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("Vendor status updated to: \(self?.isOnline == true ? "Online" : "Offline")")
+                case .failure(let error):
+                    // Revert the toggle on failure
+                    self?.isOnline.toggle()
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
     }
 }

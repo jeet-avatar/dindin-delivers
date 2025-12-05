@@ -12,53 +12,15 @@ struct MenuItemCustomizationView: View {
     @State private var selectedOptions: [String: Set<String>] = [:] // customizationName -> selected options
     @State private var showCartFullError = false
 
-    // Sample customizations (in production, these would come from the item)
+    // Customizations are now fetched from the P2P backend dynamically
+    // No more hardcoded fallbacks - each menu item has its own customizations
     private var customizations: [MenuItemCustomization] {
-        item.customizations ?? sampleCustomizations
+        item.customizations ?? []
     }
 
-    private var sampleCustomizations: [MenuItemCustomization] {
-        [
-            MenuItemCustomization(
-                name: "Size",
-                type: .single,
-                required: true,
-                minSelections: 1,
-                maxSelections: 1,
-                options: [
-                    CustomizationOption(name: "Regular", price: 0, isDefault: true),
-                    CustomizationOption(name: "Large", price: 2.00),
-                    CustomizationOption(name: "Extra Large", price: 3.50)
-                ]
-            ),
-            MenuItemCustomization(
-                name: "Add-ons",
-                type: .multiple,
-                required: false,
-                minSelections: 0,
-                maxSelections: 5,
-                options: [
-                    CustomizationOption(name: "Extra Cheese", price: 1.50),
-                    CustomizationOption(name: "Avocado", price: 2.00),
-                    CustomizationOption(name: "Bacon", price: 2.50),
-                    CustomizationOption(name: "Jalapeños", price: 0.75),
-                    CustomizationOption(name: "Sour Cream", price: 0.50)
-                ]
-            ),
-            MenuItemCustomization(
-                name: "Spice Level",
-                type: .single,
-                required: true,
-                minSelections: 1,
-                maxSelections: 1,
-                options: [
-                    CustomizationOption(name: "Mild", price: 0),
-                    CustomizationOption(name: "Medium", price: 0, isDefault: true),
-                    CustomizationOption(name: "Hot", price: 0),
-                    CustomizationOption(name: "Extra Hot", price: 0)
-                ]
-            )
-        ]
+    // Check if item has any customizations
+    private var hasCustomizations: Bool {
+        !customizations.isEmpty
     }
 
     var body: some View {

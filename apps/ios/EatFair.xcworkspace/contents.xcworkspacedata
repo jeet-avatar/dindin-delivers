@@ -2,13 +2,22 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:eatfaircustomer/eatfaircustomer.xcodeproj">
+      location = "group:customer/eatfaircustomer.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:eatffairdelivery/eatffairdelivery.xcodeproj">
+      location = "group:customer/Pods/Pods.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:eatffairrestaurant/eatffairrestaurant.xcodeproj">
+      location = "group:restaurant/eatffairrestaurant.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:restaurant/Pods/Pods.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:delivery/eatffairdelivery.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:delivery/Pods/Pods.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:eatfair-ios-shared">

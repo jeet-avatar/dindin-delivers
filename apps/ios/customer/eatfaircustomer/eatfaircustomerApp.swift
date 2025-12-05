@@ -5,11 +5,18 @@ import FirebaseFirestore
 import FirebaseMessaging
 import UserNotifications
 import EatFairShared
+import GoogleMaps
+import GooglePlaces
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        // Configure Google Maps SDK
+        GMSServices.provideAPIKey(GoogleMapsConfig.currentKey)
+        GMSPlacesClient.provideAPIKey(GoogleMapsConfig.currentKey)
+
         // Configure Firebase
         FirebaseApp.configure()
 
@@ -49,6 +56,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("CustomerApp: Failed to register for remote notifications: \(error.localizedDescription)")
+    }
+
+    // MARK: - Google Sign-In URL Handler
+
+    func application(_ app: UIApplication,
+                     open url: URL,
+                     options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        print("CustomerApp: Received URL callback: \(url)")
+        return GIDSignIn.sharedInstance.handle(url)
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -144,6 +160,11 @@ struct eatfaircustomerApp: App {
                 .onAppear {
                     // Clear badge on app launch
                     NotificationManager.shared.clearBadge()
+                }
+                .onOpenURL { url in
+                    // Handle Google Sign-In URL callback
+                    print("CustomerApp: onOpenURL received: \(url)")
+                    GIDSignIn.sharedInstance.handle(url)
                 }
         }
     }

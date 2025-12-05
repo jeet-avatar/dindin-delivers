@@ -51,7 +51,7 @@ struct LoginView: View {
                 
                 // Login Button
                 Button(action: {
-                    authViewModel.login()
+                    authViewModel.login(email: email, password: password)
                 }) {
                     Text("Login")
                         .font(.headline)
@@ -70,11 +70,16 @@ struct LoginView: View {
                     authViewModel.signInWithGoogle()
                 }) {
                     HStack {
-                        Image(systemName: "g.circle.fill") // Placeholder for Google Icon
-                            .foregroundColor(.red)
-                        Text("Sign in with Google")
-                            .font(.headline)
-                            .foregroundColor(Theme.brandBlack)
+                        if authViewModel.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        } else {
+                            Image(systemName: "g.circle.fill") // Placeholder for Google Icon
+                                .foregroundColor(.red)
+                            Text("Sign in with Google")
+                                .font(.headline)
+                                .foregroundColor(Theme.brandBlack)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -83,7 +88,18 @@ struct LoginView: View {
                     .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                 }
                 .padding(.horizontal, 30)
-                
+                .disabled(authViewModel.isLoading)
+
+                // Error Message
+                if let errorMessage = authViewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 30)
+                        .padding(.top, 10)
+                }
+
                 Spacer()
                 
                 // Footer

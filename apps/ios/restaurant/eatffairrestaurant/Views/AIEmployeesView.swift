@@ -643,7 +643,7 @@ struct AITaskRow: View {
                     .fontWeight(.medium)
 
                 if let orderId = task.payload["orderId"] {
-                    Text("Order: \(orderId.prefix(8))...")
+                    Text("Order: \(orderId)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

@@ -27,7 +27,7 @@ struct EnhancedMenuView: View {
                 categoryTabs
 
                 // Menu Items List
-                ScrollView {
+                ScrollView(.vertical, showsIndicators: true) {
                     LazyVStack(spacing: 12) {
                         // AI Suggestion for menu
                         if let suggestion = viewModel.menuSuggestion {
@@ -47,9 +47,13 @@ struct EnhancedMenuView: View {
                         if filteredItems.isEmpty && !viewModel.isLoading {
                             EmptyMenuView()
                         }
+
+                        // Bottom padding for scrolling
+                        Color.clear.frame(height: 100)
                     }
                     .padding()
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .refreshable {
                     viewModel.fetchMenu()
                 }
@@ -156,7 +160,7 @@ struct EnhancedMenuView: View {
 
     // MARK: - Category Tabs
     private var categoryTabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal, showsIndicators: true) {
             HStack(spacing: 8) {
                 CategoryTab(
                     title: "All",
@@ -179,10 +183,14 @@ struct EnhancedMenuView: View {
                         }
                     }
                 }
+
+                // Trailing spacer for last item visibility
+                Color.clear.frame(width: 20)
             }
             .padding(.horizontal)
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 8)
+        .frame(height: 50)
         .background(RestaurantTheme.backgroundPrimary)
     }
 }
@@ -710,14 +718,67 @@ class MenuViewModel: ObservableObject {
 
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
+    private let p2pAPI = P2PAPIService.shared
 
     var restaurantId: String? {
-        Auth.auth().currentUser?.uid
+        // First try P2P vendor ID, fallback to Firebase
+        if let vendorId = p2pAPI.currentVendorId {
+            return String(vendorId)
+        }
+        return Auth.auth().currentUser?.uid
+    }
+
+    var vendorId: Int? {
+        return p2pAPI.currentVendorId
     }
 
     func fetchMenu() {
-        guard let restaurantId = restaurantId else { return }
         isLoading = true
+
+        // Try P2P backend first
+        if let vendorId = vendorId {
+            p2pAPI.fetchMenuItems(vendorId: vendorId) { [weak self] result in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    switch result {
+                    case .success(let p2pItems):
+                        // Convert P2P menu items to local MenuItem format
+                        self?.menuItems = p2pItems.map { p2pItem in
+                            MenuItem(
+                                id: String(p2pItem.id),
+                                name: p2pItem.name,
+                                description: p2pItem.description ?? "",
+                                price: p2pItem.price,
+                                imageUrl: p2pItem.imageUrl ?? "",
+                                isAvailable: p2pItem.inStock,
+                                category: p2pItem.category ?? "Main Course",
+                                isPopular: false,
+                                prepTime: p2pItem.prepTime ?? 15
+                            )
+                        }
+                        // Extract unique categories
+                        self?.categories = Array(Set(self?.menuItems.compactMap { $0.category } ?? []))
+                            .sorted()
+                        // Generate AI suggestion
+                        self?.generateMenuSuggestion()
+                    case .failure(let error):
+                        print("Failed to fetch P2P menu: \(error)")
+                        // Fallback to Firebase
+                        self?.fetchMenuFromFirebase()
+                    }
+                }
+            }
+        } else {
+            // Fallback to Firebase
+            fetchMenuFromFirebase()
+        }
+    }
+
+    private func fetchMenuFromFirebase() {
+        guard let restaurantId = Auth.auth().currentUser?.uid else {
+            isLoading = false
+            return
+        }
 
         db.collection("restaurants").document(restaurantId).collection("menu")
             .getDocuments { [weak self] snapshot, error in

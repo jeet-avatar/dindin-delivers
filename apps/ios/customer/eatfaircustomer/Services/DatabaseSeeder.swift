@@ -7,6 +7,15 @@ import EatFairShared
 // DO NOT use in production. All functions are gated behind #if DEBUG.
 // =============================================================================
 
+/// Firebase collection names
+enum FirebaseCollections {
+    static let restaurants = "restaurants"
+    static let menu = "menu"
+    static let orders = "orders"
+    static let users = "users"
+    static let drivers = "drivers"
+}
+
 #if DEBUG
 
 /// Development-only database seeder for testing purposes.
@@ -19,36 +28,65 @@ class DatabaseSeeder {
         // Private initializer to ensure singleton pattern
     }
 
-    /// Seeds sample restaurant and menu data for testing.
+    /// Seeds real restaurant data for testing.
     /// WARNING: This will write to Firestore. Only use in development.
     func seedMenuData() {
-        print("⚠️ [DEBUG] Seeding database with test data...")
+        print("⚠️ [DEBUG] Seeding database with real restaurant data...")
         print("⚠️ [DEBUG] This should NEVER run in production!")
 
-        // Sample Restaurant 1
-        let sampleRestaurant1 = Restaurant(
-            id: "sample_restaurant_1",
-            name: "Sample Indian Kitchen",
+        // Real Restaurant 1: Natraj Cuisine
+        let natrajCuisine = Restaurant(
+            id: "2", // P2P Backend vendor ID
+            name: "Natraj Cuisine",
             cuisine: "Indian",
-            rating: 4.5,
+            rating: 4.7,
             deliveryTime: "25-35 min",
             imageUrl: "",
-            address: "123 Test Street, Test City, CA 90210",
-            latitude: 34.0522,
-            longitude: -118.2437,
-            phone: "555-000-0001"
+            address: "25380 Marguerite Pkwy, Mission Viejo, CA 92692",
+            latitude: 33.5958,
+            longitude: -117.6590,
+            phone: "949-555-1234"
         )
 
-        saveRestaurant(sampleRestaurant1)
+        saveRestaurant(natrajCuisine)
 
-        let sampleItems1 = [
-            MenuItem(name: "Sample Naan", description: "Sample bread item", price: 5.0, imageUrl: "", category: "Breads"),
-            MenuItem(name: "Sample Curry", description: "Sample curry dish", price: 18.0, imageUrl: "", category: "Main Course"),
-            MenuItem(name: "Sample Rice", description: "Sample rice dish", price: 6.0, imageUrl: "", category: "Rice")
+        let natrajMenu = [
+            MenuItem(name: "Chicken Tikka Masala", description: "Tender chicken in rich tomato cream sauce", price: 18.99, imageUrl: "", category: "Main Course"),
+            MenuItem(name: "Butter Chicken", description: "Creamy tomato-based curry with tender chicken", price: 17.99, imageUrl: "", category: "Main Course"),
+            MenuItem(name: "Lamb Biryani", description: "Fragrant basmati rice with spiced lamb", price: 21.99, imageUrl: "", category: "Rice Dishes"),
+            MenuItem(name: "Vegetable Samosas (2pc)", description: "Crispy pastries filled with spiced potatoes", price: 7.99, imageUrl: "", category: "Appetizers"),
+            MenuItem(name: "Garlic Naan", description: "Fresh baked bread with garlic butter", price: 4.99, imageUrl: "", category: "Bread"),
+            MenuItem(name: "Mango Lassi", description: "Sweet yogurt drink with mango", price: 5.99, imageUrl: "", category: "Beverages")
         ]
-        uploadItems(sampleItems1, to: "sample_restaurant_1")
+        uploadItems(natrajMenu, to: "2")
 
-        print("✅ [DEBUG] Database seeding complete")
+        // Real Restaurant 2: Tutto Fresco Kitchen & Bar
+        let tuttoFresco = Restaurant(
+            id: "3", // P2P Backend vendor ID
+            name: "Tutto Fresco Kitchen & Bar",
+            cuisine: "Italian",
+            rating: 4.6,
+            deliveryTime: "30-40 min",
+            imageUrl: "",
+            address: "22332 El Paseo, Rancho Santa Margarita, CA 92688",
+            latitude: 33.6405,
+            longitude: -117.5931,
+            phone: "949-858-3360"
+        )
+
+        saveRestaurant(tuttoFresco)
+
+        let tuttoMenu = [
+            MenuItem(name: "Margherita Pizza", description: "Fresh mozzarella, tomatoes, basil", price: 16.99, imageUrl: "", category: "Pizza"),
+            MenuItem(name: "Fettuccine Alfredo", description: "Creamy parmesan sauce with fettuccine", price: 17.99, imageUrl: "", category: "Pasta"),
+            MenuItem(name: "Chicken Parmigiana", description: "Breaded chicken with marinara and cheese", price: 22.99, imageUrl: "", category: "Main Course"),
+            MenuItem(name: "Bruschetta", description: "Toasted bread with tomatoes and basil", price: 9.99, imageUrl: "", category: "Appetizers"),
+            MenuItem(name: "Tiramisu", description: "Classic Italian coffee dessert", price: 10.99, imageUrl: "", category: "Desserts"),
+            MenuItem(name: "Italian Soda", description: "Sparkling water with flavor syrup", price: 4.99, imageUrl: "", category: "Beverages")
+        ]
+        uploadItems(tuttoMenu, to: "3")
+
+        print("✅ [DEBUG] Database seeding complete with Natraj Cuisine and Tutto Fresco")
     }
 
     private func saveRestaurant(_ restaurant: Restaurant) {
@@ -76,33 +114,34 @@ class DatabaseSeeder {
         }
     }
 
-    /// Seeds a test order for development testing.
+    /// Seeds a test order for development testing using real restaurant data.
     /// WARNING: This will write to Firestore. Only use in development.
     func seedTestOrder() {
         print("⚠️ [DEBUG] Seeding test order...")
         print("⚠️ [DEBUG] This should NEVER run in production!")
 
         let restaurantInfo = RestaurantInfo(
-            id: "sample_restaurant_1",
-            name: "Sample Indian Kitchen",
-            address: "123 Test Street, Test City, CA 90210",
-            latitude: 34.0522,
-            longitude: -118.2437,
+            id: "2",
+            name: "Natraj Cuisine",
+            address: "25380 Marguerite Pkwy, Mission Viejo, CA 92692",
+            latitude: 33.5958,
+            longitude: -117.6590,
             imageUrl: ""
         )
 
         let address = DeliveryAddress(
-            fullAddress: "456 Customer Ave, Test City, CA 90210",
-            street: "456 Customer Ave",
-            city: "Test City",
+            fullAddress: "123 Main Street, Irvine, CA 92618",
+            street: "123 Main Street",
+            city: "Irvine",
             state: "CA",
-            zipCode: "90210",
-            latitude: 34.0525,
-            longitude: -118.2440
+            zipCode: "92618",
+            latitude: 33.6846,
+            longitude: -117.8265
         )
 
         let items = [
-            OrderItem(menuItemId: "sample_1", name: "Sample Naan", price: 5.0, quantity: 2, options: nil)
+            OrderItem(menuItemId: "1", name: "Chicken Tikka Masala", price: 18.99, quantity: 1, options: nil),
+            OrderItem(menuItemId: "5", name: "Garlic Naan", price: 4.99, quantity: 2, options: nil)
         ]
 
         let testOrderId = "DEBUG_ORDER_\(Int(Date().timeIntervalSince1970))"
@@ -110,20 +149,20 @@ class DatabaseSeeder {
         let order = Order(
             orderId: testOrderId,
             customerId: "DEBUG_CUSTOMER",
-            customerName: "Debug Test User",
-            customerEmail: "debug@test.local",
+            customerName: "Test User",
+            customerEmail: "test@example.com",
             deliveryAddress: address,
-            deliveryInstructions: "[DEBUG] Test order - please ignore",
+            deliveryInstructions: "[DEBUG] Test order",
             restaurant: restaurantInfo,
             items: items,
-            itemsCount: 2,
-            subtotal: 10.0,
+            itemsCount: 3,
+            subtotal: 28.97,
             deliveryFee: 5.0,
-            serviceFee: 1.0,
+            serviceFee: 0.0,
             priorityFee: 0.0,
             smallOrderFee: 0.0,
-            tax: 1.60,
-            total: 17.60,
+            tax: 2.61,
+            total: 36.58,
             status: OrderStatusConstants.placed,
             placedAt: Int64(Date().timeIntervalSince1970 * 1000)
         )
@@ -141,7 +180,7 @@ class DatabaseSeeder {
     func cleanupTestData() {
         print("🧹 [DEBUG] Cleaning up test data...")
 
-        // Delete sample restaurants
+        // Delete old sample restaurants (not the real ones)
         db.collection(FirebaseCollections.restaurants).document("sample_restaurant_1").delete()
 
         // Delete debug orders

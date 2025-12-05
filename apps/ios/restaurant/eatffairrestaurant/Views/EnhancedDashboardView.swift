@@ -391,7 +391,7 @@ struct EnhancedOrderCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("#\(order.orderId.prefix(8).uppercased())")
+                        Text("#\(order.orderId.uppercased())")
                             .font(.headline)
                             .fontWeight(.bold)
 
@@ -470,7 +470,10 @@ struct EnhancedOrderCard: View {
                 Divider()
 
                 HStack(spacing: 12) {
-                    Button(action: onReject) {
+                    Button {
+                        print("🟡 Reject button tapped for order \(order.orderId)")
+                        onReject()
+                    } label: {
                         HStack {
                             Image(systemName: "xmark")
                             Text("Reject")
@@ -483,8 +486,12 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandRed.opacity(0.1))
                         .cornerRadius(10)
                     }
+                    .buttonStyle(.borderless)
 
-                    Button(action: onAccept) {
+                    Button {
+                        print("🟡 Accept button tapped for order \(order.orderId)")
+                        onAccept()
+                    } label: {
                         HStack {
                             Image(systemName: "checkmark")
                             Text("Accept")
@@ -497,12 +504,16 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandGreen)
                         .cornerRadius(10)
                     }
+                    .buttonStyle(.borderless)
                 }
                 .padding()
             } else if order.status == "Preparing" {
                 Divider()
 
-                Button(action: onMarkReady) {
+                Button {
+                    print("🟡 Mark Ready button tapped for order \(order.orderId)")
+                    onMarkReady()
+                } label: {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Mark Ready for Pickup")
@@ -515,6 +526,7 @@ struct EnhancedOrderCard: View {
                     .background(RestaurantTheme.brandOrange)
                     .cornerRadius(10)
                 }
+                .buttonStyle(.borderless)
                 .padding()
             }
         }

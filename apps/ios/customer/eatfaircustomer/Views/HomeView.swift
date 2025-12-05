@@ -10,25 +10,17 @@ struct HomeView: View {
     @State private var showActiveOrder = true
     @State private var selectedCategory: String?
 
-    let categories = [
-        ("🍕", "Pizza"),
-        ("🍔", "Burgers"),
-        ("🍜", "Asian"),
-        ("🌮", "Mexican"),
-        ("🥗", "Healthy"),
-        ("🍣", "Sushi"),
-        ("🍝", "Pasta"),
-        ("☕", "Cafe")
-    ]
-
     var body: some View {
         ZStack(alignment: .bottom) {
             Theme.brandGrey.edgesIgnoringSafeArea(.all)
 
-            ScrollView(showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     // MARK: - Header
                     headerSection
+
+                    // MARK: - Service Selection (Food vs Ride)
+                    serviceSelectionBanner
 
                     // MARK: - Categories
                     categoriesSection
@@ -50,7 +42,9 @@ struct HomeView: View {
                     // Bottom padding for floating elements
                     Spacer(minLength: 120)
                 }
+                .contentShape(Rectangle())
             }
+            .scrollDismissesKeyboard(.interactively)
 
             // MARK: - Active Order Tracker
             if showActiveOrder && viewModel.hasActiveOrder {
@@ -148,29 +142,60 @@ struct HomeView: View {
     // MARK: - Categories Section
     private var categoriesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Categories")
-                .font(.headline)
-                .padding(.horizontal)
-                .padding(.top)
+            if !viewModel.availableCuisines.isEmpty {
+                Text("Categories")
+                    .font(.headline)
+                    .padding(.horizontal)
+                    .padding(.top)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(categories, id: \.1) { emoji, name in
-                        CategoryButton(
-                            emoji: emoji,
-                            name: name,
-                            isSelected: selectedCategory == name,
-                            action: {
-                                withAnimation(.spring(response: 0.3)) {
-                                    selectedCategory = selectedCategory == name ? nil : name
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(viewModel.availableCuisines, id: \.name) { cuisine in
+                            CategoryButton(
+                                emoji: cuisine.emoji,
+                                name: cuisine.name,
+                                isSelected: selectedCategory == cuisine.name,
+                                action: {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        selectedCategory = selectedCategory == cuisine.name ? nil : cuisine.name
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
             }
         }
+    }
+
+    // MARK: - Service Selection (Food vs Ride)
+    private var serviceSelectionBanner: some View {
+        HStack(spacing: 12) {
+            // Food Delivery
+            NavigationLink(destination: SearchRestaurantsView()) {
+                ServiceOptionCard(
+                    icon: "bag.fill",
+                    title: "Food",
+                    subtitle: "Order delivery",
+                    color: Theme.brandGreen
+                )
+            }
+            .buttonStyle(.plain)
+
+            // Ride Share
+            NavigationLink(destination: RideRequestView()) {
+                ServiceOptionCard(
+                    icon: "car.fill",
+                    title: "Ride",
+                    subtitle: "Get picked up",
+                    color: Color.blue
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     // MARK: - AI Recommendation Banner
@@ -321,7 +346,26 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 50)
-            } else if viewModel.restaurants.isEmpty {
+            } else if let error = viewModel.errorMessage {
+                VStack(spacing: 16) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 50))
+                        .foregroundColor(.orange)
+                    Text("Connection Issue")
+                        .font(.headline)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    Button("Retry") {
+                        viewModel.fetchRestaurants()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 50)
+            } else if viewModel.allRestaurants.isEmpty {
                 EmptyStateView(
                     icon: "fork.knife",
                     title: "No Restaurants Found",
@@ -391,11 +435,48 @@ struct HomeView: View {
     // MARK: - Filtered Restaurants
     private var filteredRestaurants: [Restaurant] {
         if let category = selectedCategory {
-            return viewModel.restaurants.filter {
+            return viewModel.allRestaurants.filter {
                 $0.cuisine.localizedCaseInsensitiveContains(category)
             }
         }
-        return viewModel.restaurants
+        return viewModel.allRestaurants
+    }
+}
+
+// MARK: - Service Option Card (Food vs Ride)
+struct ServiceOptionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 56, height: 56)
+
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+            }
+
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -433,68 +514,91 @@ struct FeaturedRestaurantCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Image
+            // Image with proper clipping
             ZStack(alignment: .topTrailing) {
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
-                            startPoint: .top,
-                            endPoint: .bottom
+                if let url = URL(string: restaurant.imageUrl), !restaurant.imageUrl.isEmpty {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 180, height: 110)
+                                .clipped()
+                        case .failure(_):
+                            Rectangle()
+                                .fill(Color(.systemGray5))
+                                .overlay(
+                                    Image(systemName: "photo")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.gray)
+                                )
+                        case .empty:
+                            Rectangle()
+                                .fill(Color(.systemGray6))
+                                .overlay(ProgressView())
+                        @unknown default:
+                            Rectangle().fill(Color(.systemGray5))
+                        }
+                    }
+                } else {
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .overlay(
+                            Image(systemName: "fork.knife")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
                         )
-                    )
-                    .frame(width: 200, height: 120)
-                    .overlay(
-                        Image(systemName: "fork.knife")
-                            .font(.title)
-                            .foregroundColor(.gray)
-                    )
+                }
 
                 // Promo Badge
                 if restaurant.rating >= 4.5 {
-                    Text("⭐ TOP PICK")
-                        .font(.caption2)
-                        .fontWeight(.bold)
+                    Text("TOP PICK")
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(Color.orange)
                         .cornerRadius(4)
-                        .padding(8)
+                        .padding(6)
                 }
             }
+            .frame(width: 180, height: 110)
+            .clipped()
 
-            VStack(alignment: .leading, spacing: 4) {
+            // Restaurant Info
+            VStack(alignment: .leading, spacing: 3) {
                 Text(restaurant.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.caption2)
+                        .font(.system(size: 10))
                         .foregroundColor(.orange)
                     Text(String(format: "%.1f", restaurant.rating))
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                     Text("•")
+                        .font(.system(size: 10))
                         .foregroundColor(.gray)
-                    Text("\(restaurant.deliveryTime) min")
-                        .font(.caption)
+                    Text(restaurant.deliveryTime)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
 
                 Text("$1 delivery")
-                    .font(.caption2)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Theme.brandGreen)
             }
-            .padding(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
-        .frame(width: 200)
+        .frame(width: 180)
         .background(Color.white)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
     }
 }
 
@@ -508,72 +612,102 @@ struct RestaurantCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Image
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 100, height: 100)
-
-                Image(systemName: "fork.knife")
-                    .font(.title)
-                    .foregroundColor(.gray)
+        HStack(alignment: .center, spacing: 14) {
+            // Image with proper clipping
+            ZStack(alignment: .topTrailing) {
+                if let url = URL(string: restaurant.imageUrl), !restaurant.imageUrl.isEmpty {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 90, height: 90)
+                                .clipped()
+                        case .failure(_):
+                            Rectangle()
+                                .fill(Color(.systemGray5))
+                                .overlay(
+                                    Image(systemName: "photo")
+                                        .font(.title2)
+                                        .foregroundColor(.gray)
+                                )
+                        case .empty:
+                            Rectangle()
+                                .fill(Color(.systemGray6))
+                                .overlay(ProgressView())
+                        @unknown default:
+                            Rectangle().fill(Color(.systemGray5))
+                        }
+                    }
+                } else {
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .overlay(
+                            Image(systemName: "fork.knife")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                        )
+                }
 
                 // Items in cart badge
                 if hasItemsFromRestaurant {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "cart.fill")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding(6)
-                                .background(Theme.brandGreen)
-                                .clipShape(Circle())
-                        }
-                        Spacer()
-                    }
-                    .padding(4)
+                    Image(systemName: "cart.fill")
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                        .padding(5)
+                        .background(Theme.brandGreen)
+                        .clipShape(Circle())
+                        .offset(x: 4, y: -4)
                 }
             }
+            .frame(width: 90, height: 90)
+            .cornerRadius(12)
+            .clipped()
 
-            VStack(alignment: .leading, spacing: 6) {
+            // Restaurant Info
+            VStack(alignment: .leading, spacing: 4) {
                 Text(restaurant.name)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.primary)
+                    .lineLimit(1)
 
                 Text(restaurant.cuisine)
-                    .font(.subheadline)
+                    .font(.system(size: 14))
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
 
-                HStack(spacing: 12) {
-                    HStack(spacing: 4) {
+                Spacer().frame(height: 4)
+
+                HStack(spacing: 10) {
+                    HStack(spacing: 3) {
                         Image(systemName: "star.fill")
                             .foregroundColor(.orange)
+                            .font(.system(size: 11))
                         Text(String(format: "%.1f", restaurant.rating))
                             .fontWeight(.medium)
                     }
 
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: "clock")
-                        Text("\(restaurant.deliveryTime) min")
+                            .font(.system(size: 11))
+                        Text(restaurant.deliveryTime)
                     }
 
                     Text("$1 fee")
                         .foregroundColor(Theme.brandGreen)
                         .fontWeight(.medium)
                 }
-                .font(.caption)
+                .font(.system(size: 12))
                 .foregroundColor(.gray)
 
                 // Multi-restaurant indicator
                 if hasItemsFromRestaurant {
                     Text("Items in cart")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundColor(Theme.brandGreen)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(Theme.brandGreen.opacity(0.1))
                         .cornerRadius(4)
                 }
@@ -582,13 +716,13 @@ struct RestaurantCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-                .font(.caption)
+                .foregroundColor(Color(.systemGray3))
+                .font(.system(size: 14, weight: .medium))
         }
-        .padding()
+        .padding(12)
         .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .cornerRadius(14)
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
     }
 }
 

@@ -13,8 +13,10 @@ struct MultiRestaurantCheckoutView: View {
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Dummy Payment Mode (for testing)
-    // Set to false when integrating real payment processing
-    private let useDummyPayments = true
+    // Uses centralized config from AppConfig which defaults to false in production
+    private var useDummyPayments: Bool {
+        AppConfig.shared.isDummyPaymentMode
+    }
 
     // State
     @State private var selectedPaymentMethod: PaymentMethodType = .applePay
