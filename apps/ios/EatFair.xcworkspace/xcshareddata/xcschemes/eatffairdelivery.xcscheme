@@ -18,7 +18,7 @@
                BlueprintIdentifier = "104405802ED797EA00ED321A"
                BuildableName = "eatffairdelivery.app"
                BlueprintName = "eatffairdelivery"
-               ReferencedContainer = "container:eatffairdelivery/eatffairdelivery.xcodeproj">
+               ReferencedContainer = "container:delivery/eatffairdelivery.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -38,7 +38,7 @@
                BlueprintIdentifier = "104405922ED797EC00ED321A"
                BuildableName = "eatffairdeliveryTests.xctest"
                BlueprintName = "eatffairdeliveryTests"
-               ReferencedContainer = "container:eatffairdelivery/eatffairdelivery.xcodeproj">
+               ReferencedContainer = "container:delivery/eatffairdelivery.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -49,7 +49,7 @@
                BlueprintIdentifier = "1044059C2ED797EC00ED321A"
                BuildableName = "eatffairdeliveryUITests.xctest"
                BlueprintName = "eatffairdeliveryUITests"
-               ReferencedContainer = "container:eatffairdelivery/eatffairdelivery.xcodeproj">
+               ReferencedContainer = "container:delivery/eatffairdelivery.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -71,7 +71,7 @@
             BlueprintIdentifier = "104405802ED797EA00ED321A"
             BuildableName = "eatffairdelivery.app"
             BlueprintName = "eatffairdelivery"
-            ReferencedContainer = "container:eatffairdelivery/eatffairdelivery.xcodeproj">
+            ReferencedContainer = "container:delivery/eatffairdelivery.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -88,7 +88,7 @@
             BlueprintIdentifier = "104405802ED797EA00ED321A"
             BuildableName = "eatffairdelivery.app"
             BlueprintName = "eatffairdelivery"
-            ReferencedContainer = "container:eatffairdelivery/eatffairdelivery.xcodeproj">
+            ReferencedContainer = "container:delivery/eatffairdelivery.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
