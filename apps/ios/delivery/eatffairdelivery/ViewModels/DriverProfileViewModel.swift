@@ -123,39 +123,14 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Fetch Profile
     func fetchProfile() {
-        // First try P2P API
-        if let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
-            fetchP2PProfile(driverId: driverId)
-            return
-        }
-
-        // Fallback to Firebase
-        guard let uid = Auth.auth().currentUser?.uid else {
-            errorMessage = "Not logged in"
+        // Use P2P API - this is the only backend we use
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
+            errorMessage = "Not logged in. Please login again."
             showError = true
             return
         }
 
-        isLoading = true
-
-        db.collection("drivers").document(uid).getDocument { [weak self] snapshot, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-
-                if let error = error {
-                    self?.errorMessage = error.localizedDescription
-                    self?.showError = true
-                    return
-                }
-
-                if let data = snapshot?.data() {
-                    self?.parseDriverData(data)
-                } else {
-                    // Create new driver profile if doesn't exist
-                    self?.createNewProfile(uid: uid)
-                }
-            }
-        }
+        fetchP2PProfile(driverId: driverId)
     }
 
     // MARK: - Fetch P2P Profile
@@ -478,139 +453,17 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Save Profile
     func saveProfile() {
-        // Try P2P API first if logged in via P2P
-        if let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
-            saveProfileViaP2P(driverId: driverId)
-            return
-        }
-
-        // Fallback to Firebase
-        guard let uid = Auth.auth().currentUser?.uid else {
+        // Use P2P API - this is the only backend we use
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
             errorMessage = "Not logged in. Please login again."
             showError = true
             return
         }
 
-        isLoading = true
-
-        var driverData: [String: Any] = [
-            "name": name,
-            "email": email,
-            "phone": phone,
-            "updatedAt": Int64(Date().timeIntervalSince1970 * 1000)
-        ]
-
-        // Date of Birth
-        if let dob = dateOfBirth {
-            driverData["dateOfBirth"] = Int64(dob.timeIntervalSince1970 * 1000)
-        }
-
-        // Address
-        driverData["address"] = [
-            "street": street,
-            "city": city,
-            "state": state,
-            "zipCode": zipCode,
-            "country": "USA"
-        ]
-
-        // Driver's License
-        var licenseData: [String: Any] = [
-            "licenseNumber": licenseNumber,
-            "state": licenseState,
-            "licenseClass": licenseClass
-        ]
-        if let exp = licenseExpiration {
-            licenseData["expirationDate"] = Int64(exp.timeIntervalSince1970 * 1000)
-        }
-        if let frontUrl = licenseFrontUrl {
-            licenseData["frontImageUrl"] = frontUrl
-        }
-        if let backUrl = licenseBackUrl {
-            licenseData["backImageUrl"] = backUrl
-        }
-        driverData["driversLicense"] = licenseData
-
-        // Vehicle
-        var vehicleData: [String: Any] = [
-            "make": vehicleMake,
-            "model": vehicleModel,
-            "year": vehicleYear,
-            "color": vehicleColor,
-            "vehicleType": vehicleType,
-            "licensePlate": licensePlate,
-            "state": plateState
-        ]
-        if let frontUrl = vehicleFrontUrl {
-            vehicleData["frontImageUrl"] = frontUrl
-        }
-        if let sideUrl = vehicleSideUrl {
-            vehicleData["sideImageUrl"] = sideUrl
-        }
-        if let backUrl = vehicleBackUrl {
-            vehicleData["backImageUrl"] = backUrl
-        }
-        driverData["vehicle"] = vehicleData
-
-        // Also store at top level for backward compatibility
-        driverData["vehicleType"] = vehicleType
-        driverData["licensePlate"] = licensePlate
-
-        // Insurance
-        var insuranceData: [String: Any] = [
-            "provider": insuranceProvider,
-            "policyNumber": insurancePolicyNumber
-        ]
-        if let exp = insuranceExpiration {
-            insuranceData["expirationDate"] = Int64(exp.timeIntervalSince1970 * 1000)
-        }
-        if let cardUrl = insuranceCardUrl {
-            insuranceData["insuranceCardImageUrl"] = cardUrl
-        }
-        driverData["insurance"] = insuranceData
-
-        // Bank Account (only save if provided)
-        if !bankName.isEmpty {
-            var bankData: [String: Any] = [
-                "bankName": bankName,
-                "accountHolderName": accountHolderName,
-                "accountType": accountType
-            ]
-            if !routingNumber.isEmpty {
-                bankData["routingNumber"] = routingNumber
-            }
-            if !accountNumber.isEmpty {
-                // Only store last 4 digits
-                let last4 = String(accountNumber.suffix(4))
-                bankData["accountNumberLast4"] = last4
-            }
-            driverData["bankAccount"] = bankData
-        }
-
-        // Preferences
-        driverData["preferences"] = [
-            "notificationsEnabled": notificationsEnabled,
-            "soundEnabled": soundEnabled,
-            "acceptCashOrders": acceptCashOrders,
-            "maxDeliveryDistance": maxDeliveryDistance
-        ]
-
-        db.collection("drivers").document(uid).setData(driverData, merge: true) { [weak self] error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-
-                if let error = error {
-                    self?.errorMessage = error.localizedDescription
-                    self?.showError = true
-                } else {
-                    self?.isEditing = false
-                    self?.fetchProfile() // Refresh data
-                }
-            }
-        }
+        saveProfileViaP2P(driverId: driverId)
     }
 
-    /// Save profile via P2P API
+    /// Save profile via P2P API (Dollor.ai backend)
     private func saveProfileViaP2P(driverId: Int) {
         isLoading = true
 
@@ -657,14 +510,8 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Upload Profile Image
     func uploadProfileImage(_ data: Data) async {
-        // Try P2P upload first if logged in via P2P
-        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
-            await uploadProfileImageViaP2P(data: data, driverId: p2pDriverId)
-            return
-        }
-
-        // Fallback to Firebase
-        guard let uid = Auth.auth().currentUser?.uid else {
+        // Use P2P API - this is the only backend we use
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
             await MainActor.run {
                 self.errorMessage = "Not logged in. Please login again."
                 self.showError = true
@@ -672,33 +519,7 @@ class DriverProfileViewModel: ObservableObject {
             return
         }
 
-        await MainActor.run { self.isLoading = true }
-
-        let storageRef = storage.reference().child("drivers/\(uid)/profile.jpg")
-
-        do {
-            let metadata = StorageMetadata()
-            metadata.contentType = "image/jpeg"
-
-            _ = try await storageRef.putDataAsync(data, metadata: metadata)
-            let downloadURL = try await storageRef.downloadURL()
-
-            // Update Firestore
-            try await db.collection("drivers").document(uid).updateData([
-                "profileImageUrl": downloadURL.absoluteString
-            ])
-
-            await MainActor.run {
-                self.driver?.profileImageUrl = downloadURL.absoluteString
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.showError = true
-                self.isLoading = false
-            }
-        }
+        await uploadProfileImageViaP2P(data: data, driverId: driverId)
     }
 
     /// Upload profile image via P2P API
@@ -737,85 +558,16 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Upload Document
     func uploadDocument(_ data: Data, type: String) async {
-        // Try P2P upload first if logged in via P2P
-        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
-            await uploadDocumentViaP2P(data: data, type: type, driverId: p2pDriverId)
+        // Use P2P API - this is the only backend we use
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
+            await MainActor.run {
+                self.errorMessage = "Not logged in. Please login again."
+                self.showError = true
+            }
             return
         }
 
-        // Fallback to Firebase
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-
-        isLoading = true
-
-        let fileName: String
-        let firestoreField: String
-
-        switch type {
-        case "license_front":
-            fileName = "license_front.jpg"
-            firestoreField = "driversLicense.frontImageUrl"
-        case "license_back":
-            fileName = "license_back.jpg"
-            firestoreField = "driversLicense.backImageUrl"
-        case "vehicle_front":
-            fileName = "vehicle_front.jpg"
-            firestoreField = "vehicle.frontImageUrl"
-        case "vehicle_side":
-            fileName = "vehicle_side.jpg"
-            firestoreField = "vehicle.sideImageUrl"
-        case "vehicle_back":
-            fileName = "vehicle_back.jpg"
-            firestoreField = "vehicle.backImageUrl"
-        case "insurance_card":
-            fileName = "insurance_card.jpg"
-            firestoreField = "insurance.insuranceCardImageUrl"
-        default:
-            fileName = "\(type).jpg"
-            firestoreField = type
-        }
-
-        let storageRef = storage.reference().child("drivers/\(uid)/documents/\(fileName)")
-
-        do {
-            let metadata = StorageMetadata()
-            metadata.contentType = "image/jpeg"
-
-            _ = try await storageRef.putDataAsync(data, metadata: metadata)
-            let downloadURL = try await storageRef.downloadURL()
-
-            // Update Firestore with nested field
-            try await db.collection("drivers").document(uid).updateData([
-                firestoreField: downloadURL.absoluteString
-            ])
-
-            // Update local state
-            await MainActor.run {
-                switch type {
-                case "license_front":
-                    self.licenseFrontUrl = downloadURL.absoluteString
-                case "license_back":
-                    self.licenseBackUrl = downloadURL.absoluteString
-                case "vehicle_front":
-                    self.vehicleFrontUrl = downloadURL.absoluteString
-                case "vehicle_side":
-                    self.vehicleSideUrl = downloadURL.absoluteString
-                case "vehicle_back":
-                    self.vehicleBackUrl = downloadURL.absoluteString
-                case "insurance_card":
-                    self.insuranceCardUrl = downloadURL.absoluteString
-                default:
-                    break
-                }
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.showError = true
-                self.isLoading = false
-            }
-        }
+        await uploadDocumentViaP2P(data: data, type: type, driverId: driverId)
     }
 
     // MARK: - Upload Document via P2P API (with AI Verification)
