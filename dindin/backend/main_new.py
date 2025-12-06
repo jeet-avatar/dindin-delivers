@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -10,6 +10,9 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus
@@ -54,6 +57,1454 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+
+# Email Configuration - AWS SES
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@dollor.ai")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Dollor.ai")
+
+# Initialize boto3 SES client
+import boto3
+from botocore.exceptions import ClientError
+
+ses_client = None
+try:
+    ses_client = boto3.client('ses', region_name=AWS_REGION)
+    print(f"[EMAIL] AWS SES client initialized for region: {AWS_REGION}")
+except Exception as e:
+    print(f"[EMAIL] Failed to initialize AWS SES client: {e}")
+
+
+async def send_email(to_email: str, subject: str, html_content: str, text_content: str = None):
+    """
+    Send an email using AWS SES. Falls back to console logging if SES is not configured.
+    """
+    if not ses_client:
+        print(f"[EMAIL] AWS SES not configured. Would send to: {to_email}")
+        print(f"[EMAIL] Subject: {subject}")
+        print(f"[EMAIL] Content: {text_content or html_content[:200]}...")
+        return {"success": True, "method": "console_log"}
+
+    try:
+        # Build email message
+        message = {
+            'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+            'Body': {
+                'Html': {'Data': html_content, 'Charset': 'UTF-8'}
+            }
+        }
+
+        if text_content:
+            message['Body']['Text'] = {'Data': text_content, 'Charset': 'UTF-8'}
+
+        # Send email via AWS SES
+        response = ses_client.send_email(
+            Source=f"{EMAIL_FROM_NAME} <{EMAIL_FROM}>",
+            Destination={'ToAddresses': [to_email]},
+            Message=message
+        )
+
+        message_id = response.get('MessageId', 'unknown')
+        print(f"[EMAIL] Successfully sent email to {to_email} via AWS SES (MessageId: {message_id})")
+        return {"success": True, "method": "aws_ses", "message_id": message_id}
+
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        error_msg = e.response['Error']['Message']
+        print(f"[EMAIL] AWS SES error sending to {to_email}: {error_code} - {error_msg}")
+        return {"success": False, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
+        print(f"[EMAIL] Failed to send email to {to_email}: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+async def send_driver_approval_email(driver_email: str, driver_name: str):
+    """
+    Send approval notification email to driver.
+    """
+    subject = "🎉 Congratulations! Your Driver Application Has Been Approved"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #22c55e; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Welcome to the Team! 🚗</h1>
+            </div>
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>Great news! Your driver application with <strong>Dollor.ai</strong> has been <strong>approved</strong>!</p>
+
+                <p>Our AI verification system has reviewed your documents and everything checks out. You're now ready to start accepting delivery orders and earning money.</p>
+
+                <h3>What's Next?</h3>
+                <ul>
+                    <li>✅ Open the Dollor.ai Driver app</li>
+                    <li>✅ Go online to start receiving orders</li>
+                    <li>✅ Complete deliveries and track your earnings</li>
+                </ul>
+
+                <p>If you have any questions, our AI support team is available 24/7 in the app.</p>
+
+                <a href="https://dollor.ai/driver" class="button">Open Driver Dashboard</a>
+
+                <p style="margin-top: 30px;">Happy delivering! 🎉</p>
+                <p><strong>The Dollor.ai Team</strong></p>
+            </div>
+            <div class="footer">
+                <p>Dollor.ai - AI-Powered Food Delivery</p>
+                <p>This email was sent automatically by our AI verification system.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_content = f"""
+    Hi {driver_name},
+
+    Great news! Your driver application with Dollor.ai has been APPROVED!
+
+    Our AI verification system has reviewed your documents and everything checks out. You're now ready to start accepting delivery orders and earning money.
+
+    What's Next?
+    - Open the Dollor.ai Driver app
+    - Go online to start receiving orders
+    - Complete deliveries and track your earnings
+
+    If you have any questions, our AI support team is available 24/7 in the app.
+
+    Happy delivering!
+    The Dollor.ai Team
+
+    ---
+    Dollor.ai - AI-Powered Food Delivery
+    """
+
+    return await send_email(driver_email, subject, html_content, text_content)
+
+
+async def send_driver_rejection_email(driver_email: str, driver_name: str, reason: str):
+    """
+    Send rejection notification email to driver.
+    """
+    subject = "Update on Your Driver Application"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #f59e0b; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Application Update</h1>
+            </div>
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>Thank you for your interest in driving with <strong>Dollor.ai</strong>.</p>
+
+                <p>After reviewing your application, we were unable to approve it at this time.</p>
+
+                <p><strong>Reason:</strong> {reason}</p>
+
+                <h3>What You Can Do:</h3>
+                <ul>
+                    <li>Review and update your documents</li>
+                    <li>Ensure all information is accurate and clear</li>
+                    <li>Resubmit your application</li>
+                </ul>
+
+                <a href="https://dollor.ai/driver/apply" class="button">Update Your Application</a>
+
+                <p style="margin-top: 30px;">We look forward to having you on our team!</p>
+                <p><strong>The Dollor.ai Team</strong></p>
+            </div>
+            <div class="footer">
+                <p>Dollor.ai - AI-Powered Food Delivery</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_content = f"""
+    Hi {driver_name},
+
+    Thank you for your interest in driving with Dollor.ai.
+
+    After reviewing your application, we were unable to approve it at this time.
+
+    Reason: {reason}
+
+    What You Can Do:
+    - Review and update your documents
+    - Ensure all information is accurate and clear
+    - Resubmit your application
+
+    We look forward to having you on our team!
+    The Dollor.ai Team
+    """
+
+    return await send_email(driver_email, subject, html_content, text_content)
+
+
+# ============================================================================
+# ENTERPRISE EMAIL TEMPLATES - AI-OPERATED COMPANY (NO HUMAN IN LOOP)
+# ============================================================================
+
+def get_email_footer():
+    """Standard enterprise footer for all emails"""
+    return """
+            <div class="footer">
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+                    <p style="margin: 5px 0;"><strong>Dollor.ai</strong></p>
+                    <p style="margin: 5px 0; font-size: 11px;">AI-Powered Delivery & Rideshare Platform</p>
+                    <p style="margin: 10px 0; font-size: 11px;">
+                        <a href="https://dollor.ai" style="color: #3b82f6; text-decoration: none;">Website</a> |
+                        <a href="https://dollor.ai/support" style="color: #3b82f6; text-decoration: none;">AI Support</a> |
+                        <a href="https://dollor.ai/privacy" style="color: #3b82f6; text-decoration: none;">Privacy</a> |
+                        <a href="https://dollor.ai/terms" style="color: #3b82f6; text-decoration: none;">Terms</a>
+                    </p>
+                    <p style="margin: 10px 0; font-size: 10px; color: #9ca3af;">
+                        This is an automated message from Dollor.ai's AI system.<br>
+                        Our platform operates autonomously with AI verification and support.<br>
+                        © 2024 Dollor.ai. All rights reserved.
+                    </p>
+                    <p style="margin: 5px 0; font-size: 10px; color: #9ca3af;">
+                        123 AI Boulevard, San Francisco, CA 94105
+                    </p>
+                </div>
+            </div>
+    """
+
+def get_email_header(title: str, color: str = "#3b82f6", icon: str = "🚀"):
+    """Standard enterprise header for all emails"""
+    return f"""
+            <div class="header" style="background: linear-gradient(135deg, {color}, {color}dd); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                <div style="font-size: 40px; margin-bottom: 10px;">{icon}</div>
+                <h1 style="margin: 0; font-size: 24px;">{title}</h1>
+            </div>
+    """
+
+def get_email_styles():
+    """Standard CSS styles for all emails"""
+    return """
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f3f4f6; }
+            .container { max-width: 600px; margin: 20px auto; padding: 0; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+            .content { padding: 30px; }
+            .button { display: inline-block; background: #3b82f6; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 15px 0; }
+            .button-green { background: #22c55e; }
+            .button-orange { background: #f59e0b; }
+            .info-box { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+            .warning-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+            .success-box { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+            .order-details { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .order-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+            .order-total { font-size: 18px; font-weight: bold; color: #22c55e; }
+            .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+            .status-confirmed { background: #dbeafe; color: #1d4ed8; }
+            .status-preparing { background: #fef3c7; color: #b45309; }
+            .status-pickup { background: #e0e7ff; color: #4338ca; }
+            .status-delivered { background: #d1fae5; color: #065f46; }
+            .tracking-timeline { margin: 20px 0; }
+            .timeline-step { display: flex; align-items: flex-start; margin: 15px 0; }
+            .timeline-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 14px; }
+            .timeline-icon-active { background: #22c55e; color: white; }
+            .timeline-icon-pending { background: #e5e7eb; color: #9ca3af; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+    """
+
+
+# ============================================================================
+# FOOD DELIVERY EMAIL TEMPLATES
+# ============================================================================
+
+async def send_order_confirmation_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    restaurant_name: str,
+    items: list,
+    subtotal: float,
+    delivery_fee: float,
+    tax: float,
+    total: float,
+    delivery_address: str,
+    estimated_time: str
+):
+    """
+    STEP 1: Order Confirmed - Sent immediately when customer places order
+    """
+    subject = f"Order Confirmed! #{order_id} from {restaurant_name}"
+
+    items_html = ""
+    for item in items:
+        items_html += f"""
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                <span>{item.get('quantity', 1)}x {item.get('name', 'Item')}</span>
+                <span>${item.get('price', 0):.2f}</span>
+            </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Order Confirmed!", "#22c55e", "✅")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Great news! Your order has been confirmed and {restaurant_name} is preparing your food.</p>
+
+                <div class="success-box">
+                    <strong>Order #{order_id}</strong><br>
+                    <span class="status-badge status-confirmed">Confirmed</span>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Order Summary</h3>
+                    {items_html}
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Subtotal</span>
+                        <span style="float: right;">${subtotal:.2f}</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Delivery Fee</span>
+                        <span style="float: right;">${delivery_fee:.2f}</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Tax</span>
+                        <span style="float: right;">${tax:.2f}</span>
+                    </div>
+                    <div style="padding: 15px 0; font-size: 18px; font-weight: bold;">
+                        <span>Total</span>
+                        <span style="float: right; color: #22c55e;">${total:.2f}</span>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>📍 Delivery Address</strong><br>
+                    {delivery_address}<br><br>
+                    <strong>⏱️ Estimated Delivery</strong><br>
+                    {estimated_time}
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/orders/{order_id}" class="button button-green">Track Your Order</a>
+                </p>
+
+                <p style="color: #666; font-size: 14px;">
+                    You'll receive updates as your order progresses. Our AI system monitors every step to ensure a smooth delivery experience.
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_order_preparing_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    restaurant_name: str,
+    estimated_ready: str
+):
+    """
+    STEP 2: Restaurant Preparing - Sent when restaurant starts preparing
+    """
+    subject = f"🍳 {restaurant_name} is preparing your order #{order_id}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Your Food is Being Prepared!", "#f59e0b", "👨‍🍳")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>{restaurant_name} has started preparing your order. Fresh and delicious food is on its way!</p>
+
+                <div class="warning-box">
+                    <strong>Order #{order_id}</strong><br>
+                    <span class="status-badge status-preparing">Preparing</span>
+                </div>
+
+                <div class="tracking-timeline">
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Order Confirmed</strong><br><span style="color: #666;">Your order was received</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">🍳</div>
+                        <div><strong>Preparing</strong><br><span style="color: #666;">Chef is cooking your food</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">📦</div>
+                        <div><strong>Ready for Pickup</strong><br><span style="color: #666;">Waiting for driver</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">🚗</div>
+                        <div><strong>On the Way</strong><br><span style="color: #666;">Driver is delivering</span></div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>⏱️ Estimated Ready Time</strong><br>
+                    {estimated_ready}
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/orders/{order_id}" class="button">Track Your Order</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_driver_assigned_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    driver_name: str,
+    driver_photo_url: str = None,
+    vehicle_info: str = None,
+    estimated_pickup: str = None
+):
+    """
+    STEP 3: Driver Assigned - Sent when a driver accepts the order
+    """
+    subject = f"🚗 Driver assigned to your order #{order_id}"
+
+    driver_photo = f'<img src="{driver_photo_url}" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px;">' if driver_photo_url else '<div style="width: 60px; height: 60px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 15px;">🚗</div>'
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Driver On The Way!", "#3b82f6", "🚗")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Great news! A driver has been assigned to pick up your order.</p>
+
+                <div style="display: flex; align-items: center; background: #f0f9ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                    {driver_photo}
+                    <div>
+                        <strong style="font-size: 18px;">{driver_name}</strong><br>
+                        <span style="color: #666;">{vehicle_info or 'Dollor.ai Driver'}</span><br>
+                        <span style="color: #22c55e;">⭐ Verified Driver</span>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>📍 Driver Status</strong><br>
+                    Heading to {estimated_pickup or 'pickup location'}
+                </div>
+
+                <div class="tracking-timeline">
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Order Confirmed</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Preparing Complete</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">🚗</div>
+                        <div><strong>Driver Assigned</strong><br><span style="color: #666;">Heading to restaurant</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">📦</div>
+                        <div><strong>Picked Up</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">🏠</div>
+                        <div><strong>Delivered</strong></div>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/orders/{order_id}" class="button">Track Live Location</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_order_picked_up_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    driver_name: str,
+    estimated_arrival: str
+):
+    """
+    STEP 4: Order Picked Up - Sent when driver picks up from restaurant
+    """
+    subject = f"📦 Your order #{order_id} is on its way!"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Order Picked Up!", "#8b5cf6", "📦")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p><strong>{driver_name}</strong> has picked up your order and is heading your way!</p>
+
+                <div class="success-box">
+                    <strong>🚗 Your food is on the move!</strong><br>
+                    Estimated arrival: <strong>{estimated_arrival}</strong>
+                </div>
+
+                <div class="tracking-timeline">
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Order Confirmed</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Prepared</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Picked Up</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">🚗</div>
+                        <div><strong>On The Way</strong><br><span style="color: #22c55e;">Driver is delivering</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">🏠</div>
+                        <div><strong>Delivered</strong></div>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/orders/{order_id}" class="button">Track Live Location</a>
+                </p>
+
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                    💡 Tip: Have your phone ready - the driver may call when arriving
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_order_delivered_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    restaurant_name: str,
+    driver_name: str,
+    total: float,
+    tip_amount: float = 0
+):
+    """
+    STEP 5: Order Delivered - Sent when driver marks as delivered
+    """
+    subject = f"✅ Order #{order_id} delivered! Enjoy your meal!"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Order Delivered!", "#22c55e", "🎉")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Your order from <strong>{restaurant_name}</strong> has been delivered. Enjoy your meal!</p>
+
+                <div class="success-box">
+                    <strong>Order #{order_id}</strong><br>
+                    <span class="status-badge status-delivered">Delivered</span>
+                </div>
+
+                <div class="order-details">
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Order Total</span>
+                        <span style="float: right;">${total:.2f}</span>
+                    </div>
+                    {"<div style='padding: 10px 0;'><span>Tip for " + driver_name + "</span><span style='float: right; color: #22c55e;'>$" + f"{tip_amount:.2f}" + "</span></div>" if tip_amount > 0 else ""}
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <p><strong>How was your experience?</strong></p>
+                    <div style="font-size: 30px;">
+                        <a href="https://dollor.ai/rate/{order_id}/1" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate/{order_id}/2" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate/{order_id}/3" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate/{order_id}/4" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate/{order_id}/5" style="text-decoration: none;">⭐</a>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/orders/{order_id}/receipt" class="button">View Receipt</a>
+                </p>
+
+                <div class="info-box">
+                    <strong>🙏 Thank you for choosing Dollor.ai!</strong><br>
+                    Your support helps us deliver more smiles. Order again soon!
+                </div>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+# ============================================================================
+# RIDESHARE EMAIL TEMPLATES
+# ============================================================================
+
+async def send_ride_booked_email(
+    customer_email: str,
+    customer_name: str,
+    ride_id: str,
+    pickup_address: str,
+    dropoff_address: str,
+    estimated_fare: float,
+    vehicle_type: str,
+    pickup_time: str
+):
+    """
+    RIDESHARE STEP 1: Ride Booked - Sent when customer books a ride
+    """
+    subject = f"🚗 Ride Booked! Looking for your driver..."
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Ride Booked!", "#3b82f6", "🚗")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Your ride has been booked! Our AI is matching you with the best available driver.</p>
+
+                <div class="info-box">
+                    <strong>Ride #{ride_id}</strong><br>
+                    <span class="status-badge status-confirmed">Finding Driver</span>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Trip Details</h3>
+                    <div style="padding: 15px 0; border-bottom: 1px solid #e5e7eb;">
+                        <strong>📍 Pickup</strong><br>
+                        <span style="color: #666;">{pickup_address}</span>
+                    </div>
+                    <div style="padding: 15px 0; border-bottom: 1px solid #e5e7eb;">
+                        <strong>🏁 Dropoff</strong><br>
+                        <span style="color: #666;">{dropoff_address}</span>
+                    </div>
+                    <div style="padding: 15px 0; border-bottom: 1px solid #e5e7eb;">
+                        <strong>🚙 Vehicle Type</strong><br>
+                        <span style="color: #666;">{vehicle_type}</span>
+                    </div>
+                    <div style="padding: 15px 0;">
+                        <strong>💰 Estimated Fare</strong><br>
+                        <span style="color: #22c55e; font-size: 24px; font-weight: bold;">${estimated_fare:.2f}</span>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/rides/{ride_id}" class="button">Track Your Ride</a>
+                </p>
+
+                <p style="color: #666; font-size: 14px;">
+                    You'll receive a notification once a driver accepts your ride request.
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_ride_driver_assigned_email(
+    customer_email: str,
+    customer_name: str,
+    ride_id: str,
+    driver_name: str,
+    driver_rating: float,
+    vehicle_make: str,
+    vehicle_model: str,
+    vehicle_color: str,
+    license_plate: str,
+    eta_minutes: int
+):
+    """
+    RIDESHARE STEP 2: Driver Assigned - Sent when driver accepts the ride
+    """
+    subject = f"🚗 Your driver {driver_name} is on the way!"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Driver On The Way!", "#22c55e", "🚗")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Great news! Your driver is heading to pick you up.</p>
+
+                <div style="background: #f0fdf4; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🚗</div>
+                    <h3 style="margin: 10px 0;">{driver_name}</h3>
+                    <p style="margin: 5px 0;">⭐ {driver_rating:.1f} Rating</p>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Vehicle Details</h3>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Vehicle</span>
+                        <span style="float: right;">{vehicle_color} {vehicle_make} {vehicle_model}</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>License Plate</span>
+                        <span style="float: right; font-weight: bold; font-size: 18px;">{license_plate}</span>
+                    </div>
+                    <div style="padding: 15px 0; text-align: center;">
+                        <span style="font-size: 14px; color: #666;">Arriving in</span><br>
+                        <span style="font-size: 36px; font-weight: bold; color: #22c55e;">{eta_minutes} min</span>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <strong>📱 Safety Tip:</strong> Always verify the license plate matches before getting in.
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/rides/{ride_id}" class="button button-green">Track Driver Location</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_ride_started_email(
+    customer_email: str,
+    customer_name: str,
+    ride_id: str,
+    driver_name: str,
+    pickup_address: str,
+    dropoff_address: str,
+    estimated_arrival: str
+):
+    """
+    RIDESHARE STEP 3: Ride Started - Sent when ride begins
+    """
+    subject = f"🚗 Your ride has started!"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Ride In Progress!", "#8b5cf6", "🛣️")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>You're on your way! Enjoy your ride with {driver_name}.</p>
+
+                <div class="success-box">
+                    <strong>Ride #{ride_id}</strong><br>
+                    <span class="status-badge" style="background: #e0e7ff; color: #4338ca;">In Progress</span>
+                </div>
+
+                <div class="tracking-timeline">
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Ride Booked</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Driver Assigned</strong></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Picked Up</strong><br><span style="color: #666;">{pickup_address}</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">🚗</div>
+                        <div><strong>En Route</strong><br><span style="color: #22c55e;">ETA: {estimated_arrival}</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">🏁</div>
+                        <div><strong>Arrive at Destination</strong><br><span style="color: #666;">{dropoff_address}</span></div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>🆘 Need Help?</strong><br>
+                    If you have any concerns during your ride, use the emergency button in the app or call our 24/7 AI support.
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/rides/{ride_id}" class="button">View Ride Details</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_ride_completed_email(
+    customer_email: str,
+    customer_name: str,
+    ride_id: str,
+    driver_name: str,
+    pickup_address: str,
+    dropoff_address: str,
+    distance_miles: float,
+    duration_minutes: int,
+    base_fare: float,
+    distance_fare: float,
+    time_fare: float,
+    total_fare: float,
+    tip_amount: float = 0
+):
+    """
+    RIDESHARE STEP 4: Ride Completed - Sent when ride ends
+    """
+    subject = f"✅ Ride Complete! Thanks for riding with Dollor.ai"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Ride Complete!", "#22c55e", "🎉")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>You've arrived! Thanks for riding with Dollor.ai.</p>
+
+                <div class="success-box">
+                    <strong>Ride #{ride_id}</strong><br>
+                    <span class="status-badge status-delivered">Completed</span>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Trip Summary</h3>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>📍 From</span>
+                        <span style="float: right; max-width: 60%; text-align: right;">{pickup_address}</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>🏁 To</span>
+                        <span style="float: right; max-width: 60%; text-align: right;">{dropoff_address}</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Distance</span>
+                        <span style="float: right;">{distance_miles:.1f} miles</span>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Duration</span>
+                        <span style="float: right;">{duration_minutes} minutes</span>
+                    </div>
+                </div>
+
+                <div class="order-details" style="margin-top: 20px;">
+                    <h3 style="margin-top: 0;">Fare Breakdown</h3>
+                    <div style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Base Fare</span>
+                        <span style="float: right;">${base_fare:.2f}</span>
+                    </div>
+                    <div style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Distance ({distance_miles:.1f} mi)</span>
+                        <span style="float: right;">${distance_fare:.2f}</span>
+                    </div>
+                    <div style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Time ({duration_minutes} min)</span>
+                        <span style="float: right;">${time_fare:.2f}</span>
+                    </div>
+                    {"<div style='padding: 8px 0; border-bottom: 1px solid #e5e7eb;'><span>Tip for " + driver_name + "</span><span style='float: right;'>$" + f"{tip_amount:.2f}" + "</span></div>" if tip_amount > 0 else ""}
+                    <div style="padding: 15px 0; font-size: 20px; font-weight: bold;">
+                        <span>Total</span>
+                        <span style="float: right; color: #22c55e;">${total_fare + tip_amount:.2f}</span>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <p><strong>Rate your ride with {driver_name}</strong></p>
+                    <div style="font-size: 30px;">
+                        <a href="https://dollor.ai/rate-ride/{ride_id}/1" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate-ride/{ride_id}/2" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate-ride/{ride_id}/3" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate-ride/{ride_id}/4" style="text-decoration: none;">⭐</a>
+                        <a href="https://dollor.ai/rate-ride/{ride_id}/5" style="text-decoration: none;">⭐</a>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/rides/{ride_id}/receipt" class="button">View Full Receipt</a>
+                </p>
+
+                <div class="info-box">
+                    <strong>🙏 Thank you for choosing Dollor.ai!</strong><br>
+                    Ride with us again soon. Every trip supports our AI-powered future of transportation.
+                </div>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+# ============================================================================
+# DRIVER ONBOARDING EMAIL TEMPLATES
+# ============================================================================
+
+async def send_driver_welcome_email(driver_email: str, driver_name: str):
+    """
+    Driver Onboarding Step 1: Welcome - Sent when driver signs up
+    """
+    subject = "Welcome to Dollor.ai! Let's get you started 🚗"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Welcome to Dollor.ai!", "#3b82f6", "👋")}
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>Welcome to the Dollor.ai driver community! We're excited to have you join our AI-powered platform.</p>
+
+                <div class="info-box">
+                    <strong>What makes Dollor.ai different?</strong><br>
+                    We're a fully AI-operated platform with no human middlemen. This means faster payouts, transparent operations, and 24/7 AI support.
+                </div>
+
+                <h3>Complete Your Application</h3>
+                <p>To start earning, please complete the following steps:</p>
+
+                <div style="margin: 20px 0;">
+                    <div style="display: flex; align-items: center; padding: 15px; background: #f9fafb; border-radius: 8px; margin: 10px 0;">
+                        <div style="width: 30px; height: 30px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">1</div>
+                        <div><strong>Upload Driver's License</strong><br><span style="color: #666;">Front and back photos</span></div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 15px; background: #f9fafb; border-radius: 8px; margin: 10px 0;">
+                        <div style="width: 30px; height: 30px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">2</div>
+                        <div><strong>Upload Insurance</strong><br><span style="color: #666;">Valid auto insurance</span></div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 15px; background: #f9fafb; border-radius: 8px; margin: 10px 0;">
+                        <div style="width: 30px; height: 30px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">3</div>
+                        <div><strong>Vehicle Photos</strong><br><span style="color: #666;">Clear photos of your vehicle</span></div>
+                    </div>
+                    <div style="display: flex; align-items: center; padding: 15px; background: #f9fafb; border-radius: 8px; margin: 10px 0;">
+                        <div style="width: 30px; height: 30px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px;">4</div>
+                        <div><strong>Background Check</strong><br><span style="color: #666;">Automatic AI verification</span></div>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/driver/onboarding" class="button button-green">Complete Your Profile</a>
+                </p>
+
+                <div class="success-box">
+                    <strong>⚡ Fast AI Verification</strong><br>
+                    Our AI reviews documents in minutes, not days. Most drivers are approved within 24 hours!
+                </div>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(driver_email, subject, html_content)
+
+
+async def send_driver_documents_received_email(driver_email: str, driver_name: str, document_type: str):
+    """
+    Driver Onboarding Step 2: Document Received - Sent when document is uploaded
+    """
+    subject = f"📄 Document Received - {document_type}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Document Received!", "#3b82f6", "📄")}
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>We've received your <strong>{document_type}</strong>. Our AI verification system is reviewing it now.</p>
+
+                <div class="info-box">
+                    <strong>⏱️ What happens next?</strong><br>
+                    Our AI will verify your document within minutes. You'll receive an email once the verification is complete.
+                </div>
+
+                <div class="tracking-timeline">
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">✓</div>
+                        <div><strong>Document Uploaded</strong><br><span style="color: #666;">{document_type}</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-active">🤖</div>
+                        <div><strong>AI Verification</strong><br><span style="color: #f59e0b;">In Progress</span></div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="timeline-icon timeline-icon-pending">✓</div>
+                        <div><strong>Verified</strong></div>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/driver/status" class="button">Check Application Status</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(driver_email, subject, html_content)
+
+
+async def send_driver_document_verified_email(driver_email: str, driver_name: str, document_type: str, remaining_docs: list = None):
+    """
+    Driver Onboarding Step 3: Document Verified - Sent when each document is verified
+    """
+    subject = f"✅ {document_type} Verified!"
+
+    remaining_html = ""
+    if remaining_docs and len(remaining_docs) > 0:
+        remaining_html = """
+            <div class="warning-box">
+                <strong>📋 Still Needed:</strong><br>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+        """
+        for doc in remaining_docs:
+            remaining_html += f"<li>{doc}</li>"
+        remaining_html += """
+                </ul>
+            </div>
+        """
+    else:
+        remaining_html = """
+            <div class="success-box">
+                <strong>🎉 All Documents Verified!</strong><br>
+                Your application is being reviewed for final approval.
+            </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Document Verified!", "#22c55e", "✅")}
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>Great news! Your <strong>{document_type}</strong> has been verified by our AI system.</p>
+
+                {remaining_html}
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/driver/onboarding" class="button button-green">Continue Application</a>
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(driver_email, subject, html_content)
+
+
+async def send_driver_first_delivery_email(driver_email: str, driver_name: str, earnings: float):
+    """
+    Driver Milestone: First Delivery Complete
+    """
+    subject = "🎉 Congratulations on your first delivery!"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("First Delivery Complete!", "#22c55e", "🎉")}
+            <div class="content">
+                <h2>Amazing job, {driver_name}!</h2>
+                <p>You've completed your first delivery with Dollor.ai! This is just the beginning of your journey.</p>
+
+                <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 10px; color: white; margin: 20px 0;">
+                    <div style="font-size: 48px;">💰</div>
+                    <div style="font-size: 14px; margin-top: 10px;">You Earned</div>
+                    <div style="font-size: 42px; font-weight: bold;">${earnings:.2f}</div>
+                </div>
+
+                <div class="info-box">
+                    <strong>💡 Pro Tips for Success:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>Stay online during peak hours (11am-2pm, 5pm-9pm)</li>
+                        <li>Keep your phone charged and GPS accurate</li>
+                        <li>Communicate with customers for better ratings</li>
+                        <li>Complete more deliveries to unlock bonuses</li>
+                    </ul>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/driver/earnings" class="button button-green">View Your Earnings</a>
+                </p>
+
+                <p style="color: #666; text-align: center;">
+                    Keep up the great work! 🚀
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(driver_email, subject, html_content)
+
+
+async def send_weekly_earnings_summary_email(
+    driver_email: str,
+    driver_name: str,
+    week_start: str,
+    week_end: str,
+    total_earnings: float,
+    total_deliveries: int,
+    total_hours: float,
+    avg_rating: float,
+    tips_earned: float
+):
+    """
+    Driver Weekly Summary - Sent every Monday
+    """
+    subject = f"📊 Your Weekly Earnings Summary - ${total_earnings:.2f}"
+
+    hourly_rate = total_earnings / total_hours if total_hours > 0 else 0
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Weekly Earnings Summary", "#3b82f6", "📊")}
+            <div class="content">
+                <h2>Hi {driver_name},</h2>
+                <p>Here's your earnings summary for {week_start} - {week_end}</p>
+
+                <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 10px; color: white; margin: 20px 0;">
+                    <div style="font-size: 14px;">Total Earnings</div>
+                    <div style="font-size: 48px; font-weight: bold;">${total_earnings:.2f}</div>
+                    <div style="font-size: 14px; margin-top: 10px;">Including ${tips_earned:.2f} in tips</div>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Performance Stats</h3>
+                    <div style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>📦 Deliveries Completed</span>
+                        <span style="float: right; font-weight: bold;">{total_deliveries}</span>
+                    </div>
+                    <div style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>⏱️ Hours Online</span>
+                        <span style="float: right; font-weight: bold;">{total_hours:.1f} hrs</span>
+                    </div>
+                    <div style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>💵 Avg. Hourly Rate</span>
+                        <span style="float: right; font-weight: bold; color: #22c55e;">${hourly_rate:.2f}/hr</span>
+                    </div>
+                    <div style="padding: 12px 0;">
+                        <span>⭐ Average Rating</span>
+                        <span style="float: right; font-weight: bold;">{avg_rating:.1f} / 5.0</span>
+                    </div>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/driver/earnings" class="button">View Detailed Report</a>
+                </p>
+
+                <div class="info-box">
+                    <strong>💡 Tip:</strong> Peak hours this week are expected to be Friday and Saturday evenings. Go online early to maximize your earnings!
+                </div>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(driver_email, subject, html_content)
+
+
+# ============================================================================
+# RESTAURANT EMAIL TEMPLATES
+# ============================================================================
+
+async def send_restaurant_new_order_email(
+    restaurant_email: str,
+    restaurant_name: str,
+    order_id: str,
+    customer_name: str,
+    items: list,
+    total: float,
+    special_instructions: str = None
+):
+    """
+    Restaurant: New Order Notification
+    """
+    subject = f"🔔 New Order #{order_id} - ${total:.2f}"
+
+    items_html = ""
+    for item in items:
+        items_html += f"""
+            <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                <strong>{item.get('quantity', 1)}x {item.get('name', 'Item')}</strong>
+                {"<br><span style='color: #666; font-size: 13px;'>" + item.get('customizations', '') + "</span>" if item.get('customizations') else ""}
+            </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("New Order!", "#f59e0b", "🔔")}
+            <div class="content">
+                <h2>New Order for {restaurant_name}</h2>
+
+                <div class="warning-box">
+                    <strong>Order #{order_id}</strong><br>
+                    Customer: {customer_name}<br>
+                    Total: <strong>${total:.2f}</strong>
+                </div>
+
+                <div class="order-details">
+                    <h3 style="margin-top: 0;">Order Items</h3>
+                    {items_html}
+                </div>
+
+                {"<div class='info-box'><strong>📝 Special Instructions:</strong><br>" + special_instructions + "</div>" if special_instructions else ""}
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/restaurant/orders/{order_id}" class="button button-orange">View & Accept Order</a>
+                </p>
+
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                    Please confirm this order in your restaurant dashboard.
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(restaurant_email, subject, html_content)
+
+
+# ==================== REFUND & INVOICE EMAILS ====================
+
+async def send_refund_confirmation_email(
+    customer_email: str,
+    customer_name: str,
+    order_number: str,
+    refund_amount: float,
+    refund_reason: str,
+    original_amount: float
+):
+    """
+    Refund Confirmation Email
+    Sent when a refund is processed (customer cancel or restaurant reject)
+    """
+    subject = f"Refund Processed - Order #{order_number}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Refund Processed", "#10b981", "💰")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+
+                <p>Your refund has been processed successfully.</p>
+
+                <div class="order-details">
+                    <h3>Refund Details</h3>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Order Number</span>
+                        <strong>#{order_number}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span>Original Amount</span>
+                        <span>${original_amount:.2f}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #10b981;">
+                        <span><strong>Refund Amount</strong></span>
+                        <strong>${refund_amount:.2f}</strong>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>Reason:</strong> {refund_reason}
+                </div>
+
+                <div class="info-box" style="background: #ecfdf5; border-color: #10b981;">
+                    <strong>Refund Timeline:</strong><br>
+                    Your refund will be credited to your original payment method within 5-10 business days,
+                    depending on your bank.
+                </div>
+
+                <p style="color: #666; font-size: 14px;">
+                    If you have any questions about your refund, please contact our support team.
+                </p>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
+async def send_invoice_email(
+    customer_email: str,
+    customer_name: str,
+    invoice_number: str,
+    order_number: str,
+    total_amount: float,
+    html_content: str = None
+):
+    """
+    Invoice Email
+    Sent with the invoice/receipt for a completed order
+    """
+    subject = f"Your Receipt - Invoice #{invoice_number}"
+
+    if not html_content:
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>{get_email_styles()}</head>
+        <body>
+            <div class="container">
+                {get_email_header("Your Receipt", "#6366f1", "🧾")}
+                <div class="content">
+                    <h2>Hi {customer_name},</h2>
+
+                    <p>Thank you for your order! Here is your receipt.</p>
+
+                    <div class="order-details">
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span>Invoice Number</span>
+                            <strong>{invoice_number}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span>Order Number</span>
+                            <strong>#{order_number}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 15px 0; font-size: 18px;">
+                            <span><strong>Total Paid</strong></span>
+                            <strong style="color: #10b981;">${total_amount:.2f}</strong>
+                        </div>
+                    </div>
+
+                    <p style="text-align: center;">
+                        <a href="https://dollor.ai/orders/{order_number}/invoice" class="button">View Full Invoice</a>
+                    </p>
+
+                    <p style="color: #666; font-size: 14px; text-align: center;">
+                        Thank you for ordering with EatFair!
+                    </p>
+                </div>
+                {get_email_footer()}
+            </div>
+        </body>
+        </html>
+        """
+
+    return await send_email(customer_email, subject, html_content)
+
 
 # Pydantic Models
 class UserCreate(BaseModel):
@@ -197,12 +1648,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
+            print(f"[AUTH ERROR] Token decoded but no 'sub' field found in payload")
             raise credentials_exception
-    except JWTError:
+    except jwt.ExpiredSignatureError:
+        print(f"[AUTH ERROR] Token has expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError as e:
+        print(f"[AUTH ERROR] Invalid token: {str(e)}")
         raise credentials_exception
-    
+    except JWTError as e:
+        print(f"[AUTH ERROR] JWT Error: {str(e)}")
+        raise credentials_exception
+
     user = db.query(User).filter(User.email == email).first()
     if user is None:
+        print(f"[AUTH ERROR] User not found for email: {email}")
         raise credentials_exception
     return user
 
@@ -594,6 +2058,76 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         "email": new_driver.email,
         "status": new_driver.status.value,
         "message": "Registration successful. Your account is pending approval."
+    }
+
+
+@app.post("/api/auth/driver/refresh")
+def refresh_driver_token(request: Request, db: Session = Depends(get_db)):
+    """
+    Refresh driver token - accepts expired token and issues new one.
+    The token signature must still be valid (not tampered with).
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No token provided",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        # Decode without verifying expiration - we still verify signature
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except jwt.InvalidSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token signature",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify user still exists and is a driver
+    user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or not a driver",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify driver is still active
+    driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+    if not driver or driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Driver account is not active"
+        )
+
+    # Issue new token
+    new_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
+    print(f"[AUTH] Token refreshed for driver: {user.email}")
+
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "driver_id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "email": driver.email
     }
 
 
@@ -1010,7 +2544,8 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
         print(f"[AI] Driver {driver_id}: Insurance verified automatically")
 
     # Check if all required documents are verified, then auto-approve driver
-    if driver.drivers_license and driver.insurance:
+    was_already_approved = driver.status == DriverStatus.APPROVED
+    if driver.drivers_license and driver.insurance and not was_already_approved:
         # Auto-run background check (simulated)
         driver.background_check = True
         driver.background_check_date = datetime.utcnow()
@@ -1019,6 +2554,18 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
         driver.status = DriverStatus.APPROVED
         driver.approved_at = datetime.utcnow()
         print(f"[AI] Driver {driver_id}: All documents verified - AUTO-APPROVED by TechCloudPro AI")
+
+        # Send approval email to driver
+        driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
+        driver_email = driver.email
+        if driver_email:
+            import asyncio
+            try:
+                # Run email sending in background
+                asyncio.create_task(send_driver_approval_email(driver_email, driver_name))
+                print(f"[AI] Approval email queued for driver {driver_id}: {driver_email}")
+            except Exception as e:
+                print(f"[AI] Failed to queue approval email for driver {driver_id}: {e}")
 
     driver.updated_at = datetime.utcnow()
     db.commit()
@@ -1031,7 +2578,7 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
 
 
 @app.patch("/api/drivers/{driver_id}/approve")
-def approve_driver(
+async def approve_driver(
     driver_id: int,
     approval_data: Optional[dict] = None,
     db: Session = Depends(get_db)
@@ -1051,6 +2598,10 @@ def approve_driver(
     action = approval_data.get("action", "approve") if approval_data else "approve"
     reason = approval_data.get("reason", "AI verification completed successfully") if approval_data else "AI verification completed successfully"
 
+    driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
+    driver_email = driver.email
+    email_sent = False
+
     if action == "approve":
         driver.status = DriverStatus.APPROVED
         driver.approved_at = datetime.utcnow()
@@ -1067,10 +2618,22 @@ def approve_driver(
         message = f"Driver {driver.first_name} {driver.last_name} approved by AI"
         print(f"[TechCloudPro AI] {message}")
 
+        # Send approval email
+        if driver_email:
+            email_result = await send_driver_approval_email(driver_email, driver_name)
+            email_sent = email_result.get("success", False)
+            print(f"[TechCloudPro AI] Approval email sent to {driver_email}: {email_sent}")
+
     elif action == "reject":
         driver.status = DriverStatus.SUSPENDED
         message = f"Driver {driver.first_name} {driver.last_name} rejected: {reason}"
         print(f"[TechCloudPro AI] {message}")
+
+        # Send rejection email
+        if driver_email:
+            email_result = await send_driver_rejection_email(driver_email, driver_name, reason)
+            email_sent = email_result.get("success", False)
+            print(f"[TechCloudPro AI] Rejection email sent to {driver_email}: {email_sent}")
 
     elif action == "request_more_info":
         # Keep as pending, just log
@@ -1085,7 +2648,8 @@ def approve_driver(
         "driver_id": driver_id,
         "status": driver.status.value,
         "message": message,
-        "approved_at": driver.approved_at.isoformat() if driver.approved_at else None
+        "approved_at": driver.approved_at.isoformat() if driver.approved_at else None,
+        "email_sent": email_sent
     }
 
 
@@ -2538,6 +4102,14 @@ app.include_router(verification_router)
 # Include Vibing routes (Food Image AI Employee)
 from vibing_routes import router as vibing_router
 app.include_router(vibing_router)
+
+# Include Refund & Invoice routes (FinanceBot Zeta)
+try:
+    from refund_invoice import router as refund_invoice_router
+    app.include_router(refund_invoice_router)
+    print("[MAIN] Refund & Invoice routes loaded successfully")
+except ImportError as e:
+    print(f"[MAIN] Warning: Could not load refund_invoice routes: {e}")
 
 if __name__ == "__main__":
     import uvicorn

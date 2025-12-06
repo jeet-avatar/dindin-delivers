@@ -678,6 +678,183 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Apple OAuth login/registration for customers
+    /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    public func customerAppleAuth(
+        email: String,
+        name: String,
+        appleId: String,
+        completion: @escaping (Result<P2PCustomerLoginResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/apple-auth") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "name": name,
+            "apple_id": appleId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Apple auth failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
+                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_customer_access_token")
+                    UserDefaults.standard.set(loginResponse.customerId, forKey: "p2p_customer_id")
+                    completion(.success(loginResponse))
+                } catch {
+                    self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Request password reset - sends reset code to email
+    public func requestPasswordReset(
+        email: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/password-reset/request") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["email": email]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset request failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Confirm password reset with code and new password
+    public func confirmPasswordReset(
+        email: String,
+        code: String,
+        newPassword: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/password-reset/confirm") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "code": code,
+            "new_password": newPassword
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset confirmation failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Customer registration
     public func customerRegister(
         email: String,
@@ -1673,10 +1850,74 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    /// Update driver location
+    /// Refresh driver token - call when receiving 401 Unauthorized
+    public func refreshDriverToken(completion: @escaping (Result<String, Error>) -> Void) {
+        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+            completion(.failure(P2PAPIError.serverError("No token to refresh")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/auth/driver/refresh") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
+                }
+                return
+            }
+
+            if httpResponse.statusCode == 200, let data = data {
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let newToken = json["access_token"] as? String {
+                        // Save new token
+                        UserDefaults.standard.set(newToken, forKey: "p2p_driver_access_token")
+                        DispatchQueue.main.async {
+                            print("[P2P] Token refreshed successfully")
+                            completion(.success(newToken))
+                        }
+                        return
+                    }
+                } catch {
+                    // Parse error
+                }
+            }
+
+            DispatchQueue.main.async {
+                completion(.failure(P2PAPIError.serverError("Token refresh failed - please log in again")))
+            }
+        }.resume()
+    }
+
+    /// Update driver location (with automatic token refresh on 401)
     public func updateDriverLocation(
         latitude: Double,
         longitude: Double,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        updateDriverLocationInternal(latitude: latitude, longitude: longitude, retryOnExpired: true, completion: completion)
+    }
+
+    /// Internal implementation with retry capability
+    private func updateDriverLocationInternal(
+        latitude: Double,
+        longitude: Double,
+        retryOnExpired: Bool,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
@@ -1694,13 +1935,53 @@ public class P2PAPIService: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
+            if let error = error {
+                DispatchQueue.main.async {
                     self?.error = error.localizedDescription
                     completion(.failure(error))
+                }
+                return
+            }
+
+            // Check for 401 Unauthorized - token expired
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401 {
+                if retryOnExpired {
+                    print("[P2P] Token expired, attempting refresh...")
+                    self?.refreshDriverToken { result in
+                        switch result {
+                        case .success:
+                            // Retry the request with new token
+                            self?.updateDriverLocationInternal(
+                                latitude: latitude,
+                                longitude: longitude,
+                                retryOnExpired: false,
+                                completion: completion
+                            )
+                        case .failure(let error):
+                            // Token refresh failed - user needs to re-login
+                            print("[P2P] Token refresh failed: \(error)")
+                            NotificationCenter.default.post(
+                                name: Notification.Name("DriverTokenExpired"),
+                                object: nil
+                            )
+                            completion(.failure(P2PAPIError.serverError("Session expired - please log in again")))
+                        }
+                    }
+                    return
+                } else {
+                    // Already retried, fail
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: Notification.Name("DriverTokenExpired"),
+                            object: nil
+                        )
+                        completion(.failure(P2PAPIError.serverError("Session expired - please log in again")))
+                    }
                     return
                 }
+            }
 
+            DispatchQueue.main.async {
                 completion(.success(true))
             }
         }.resume()
@@ -3203,6 +3484,16 @@ public struct P2PVendorOrder: Codable, Identifiable {
 }
 
 // MARK: - Customer Auth Response Models
+
+public struct P2PPasswordResetResponse: Codable {
+    public let message: String
+    public let success: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case success
+    }
+}
 
 public struct P2PCustomerLoginResponse: Codable {
     public let accessToken: String

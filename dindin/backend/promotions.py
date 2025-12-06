@@ -27,6 +27,15 @@ from models_extended import (
     CommunicationStatus, RecipientType, Customer, VendorAnalytics
 )
 
+# Import pricing config for delivery fee
+try:
+    from pricing_config import DELIVERY_FEE_CONFIG
+    PRICING_CONFIG_LOADED = True
+except ImportError:
+    PRICING_CONFIG_LOADED = False
+    # Fallback value - should match pricing_config.py DELIVERY_FEE_CONFIG.min_fee
+    FALLBACK_DELIVERY_FEE = 2.99
+
 router = APIRouter(prefix="/api/promotions", tags=["promotions"])
 
 # ==================== AI EMPLOYEE ====================
@@ -631,7 +640,11 @@ def calculate_discount(promotion: Promotion, order_total: float, items: Optional
         discount = promotion.value
 
     elif promotion.type == PromotionType.FREE_DELIVERY:
-        discount = 4.99  # Standard delivery fee
+        # Use centralized pricing config for delivery fee
+        if PRICING_CONFIG_LOADED:
+            discount = DELIVERY_FEE_CONFIG.min_fee  # Standard delivery fee from config
+        else:
+            discount = FALLBACK_DELIVERY_FEE
 
     elif promotion.type == PromotionType.BOGO:
         # Find cheapest item for free

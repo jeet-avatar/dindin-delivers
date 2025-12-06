@@ -11,16 +11,67 @@ from pydantic import BaseModel
 import stripe
 import json
 import os
+import uuid
 from dotenv import load_dotenv
 
 from database import get_db
 from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout
 
+# Import centralized pricing config
+try:
+    from pricing_config import (
+        PLATFORM_FEE_CONFIG,
+        DELIVERY_FEE_CONFIG,
+        DRIVER_PAYOUT_CONFIG,
+        RESTAURANT_COMMISSION_CONFIG,
+        PAYMENT_PROCESSING_CONFIG,
+        ORDER_VALIDATION_CONFIG,
+        get_tax_rate,
+        calculate_distance
+    )
+    PRICING_CONFIG_LOADED = True
+except ImportError as e:
+    print(f"[STRIPE] Warning: pricing_config not found, using fallback values: {e}")
+    PRICING_CONFIG_LOADED = False
+    # Fallback values - should match pricing_config.py defaults
+    FALLBACK_TAX_RATE = 0.08       # Matches DEFAULT_TAX_RATE
+    FALLBACK_DELIVERY_FEE = 2.99   # Matches DELIVERY_FEE_CONFIG.min_fee
+    FALLBACK_PLATFORM_FEE = 1.00   # Matches PLATFORM_FEE_CONFIG.flat_fee
+
 load_dotenv()
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_key_here")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_your_webhook_secret")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+# CRITICAL: Environment detection for webhook validation
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+def validate_stripe_configuration():
+    """
+    Validate Stripe configuration on startup.
+    CRITICAL: In production, webhook secret MUST be set to prevent payment fraud.
+    """
+    if IS_PRODUCTION:
+        if not STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET == "whsec_your_webhook_secret":
+            raise RuntimeError(
+                "CRITICAL SECURITY ERROR: STRIPE_WEBHOOK_SECRET must be set in production! "
+                "Without webhook signature validation, attackers can forge payment confirmations. "
+                "Set the STRIPE_WEBHOOK_SECRET environment variable with your Stripe webhook signing secret."
+            )
+        if stripe.api_key == "sk_test_your_key_here":
+            raise RuntimeError(
+                "CRITICAL ERROR: Stripe API key not configured for production! "
+                "Set the STRIPE_SECRET_KEY environment variable."
+            )
+        print("[STRIPE] Production configuration validated successfully")
+    else:
+        if not STRIPE_WEBHOOK_SECRET:
+            print("[STRIPE WARNING] Webhook secret not set - running in development mode with reduced security")
+        print("[STRIPE] Development mode - webhook validation may be skipped for testing")
+
+# Run validation on module import
+validate_stripe_configuration()
 
 router = APIRouter(prefix="/api", tags=["payments"])
 
@@ -82,7 +133,10 @@ async def create_order(
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     
-    if vendor.onboarding_status != "approved":
+    # CRITICAL: Compare enum value properly (onboarding_status is an enum, not string)
+    # Using hasattr to safely handle both enum and string cases
+    vendor_status = vendor.onboarding_status.value if hasattr(vendor.onboarding_status, 'value') else str(vendor.onboarding_status)
+    if vendor_status != "approved":
         raise HTTPException(status_code=400, detail="Vendor is not approved")
     
     # Verify menu items exist and calculate totals
@@ -118,14 +172,46 @@ async def create_order(
             "total_price": item_total
         })
     
-    # Calculate fees and taxes
-    TAX_RATE = 0.08  # 8% tax (configure per location)
-    DELIVERY_FEE = 5.99 if order_data.delivery_address else 0.0
-    PLATFORM_FEE_RATE = 0.15  # 15% platform commission
-    
-    tax_amount = subtotal * TAX_RATE
-    platform_fee = subtotal * PLATFORM_FEE_RATE
-    total_amount = subtotal + tax_amount + DELIVERY_FEE + platform_fee
+    # Calculate fees and taxes using centralized pricing config
+    if PRICING_CONFIG_LOADED:
+        # Get state from delivery address for tax rate
+        delivery_state = order_data.delivery_address.get("state", "CA") if order_data.delivery_address else "CA"
+        tax_rate = get_tax_rate(delivery_state)
+
+        # Calculate distance for delivery fee (if coordinates provided)
+        distance_miles = 3.0  # Default
+        if (order_data.delivery_latitude and order_data.delivery_longitude and
+            vendor.latitude and vendor.longitude):
+            distance_miles = calculate_distance(
+                vendor.latitude, vendor.longitude,
+                order_data.delivery_latitude, order_data.delivery_longitude
+            )
+
+        # Check delivery range
+        if order_data.delivery_address and not DELIVERY_FEE_CONFIG.is_deliverable(distance_miles):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Delivery address is too far ({distance_miles:.1f} miles). Max distance: {DELIVERY_FEE_CONFIG.max_delivery_distance} miles."
+            )
+
+        # Validate order amount
+        is_valid, validation_msg = ORDER_VALIDATION_CONFIG.validate_order(subtotal)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=validation_msg)
+
+        # Calculate all fees using centralized config
+        tax_amount = round(subtotal * tax_rate, 2)
+        delivery_fee = DELIVERY_FEE_CONFIG.calculate(subtotal, distance_miles) if order_data.delivery_address else 0.0
+        platform_fee = PLATFORM_FEE_CONFIG.calculate(subtotal)
+        total_amount = subtotal + tax_amount + delivery_fee + platform_fee
+    else:
+        # Fallback to hardcoded values
+        tax_rate = FALLBACK_TAX_RATE
+        tax_amount = round(subtotal * tax_rate, 2)
+        delivery_fee = FALLBACK_DELIVERY_FEE if order_data.delivery_address else 0.0
+        platform_fee = FALLBACK_PLATFORM_FEE
+        total_amount = subtotal + tax_amount + delivery_fee + platform_fee
+        distance_miles = 3.0
     
     # Generate order number
     order_count = db.query(Order).count()
@@ -140,9 +226,9 @@ async def create_order(
         vendor_id=order_data.vendor_id,
         items=json.dumps(items_data),
         subtotal=subtotal,
-        tax_rate=TAX_RATE,
+        tax_rate=tax_rate,
         tax_amount=tax_amount,
-        delivery_fee=DELIVERY_FEE,
+        delivery_fee=delivery_fee,
         platform_fee=platform_fee,
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address),
@@ -218,10 +304,21 @@ async def stripe_webhook(
     # Log the event
     event_type = event['type']
     event_data = event['data']['object']
-    
+    stripe_event_id = event['id']
+
+    # CRITICAL: Check for duplicate webhook events (idempotency)
+    # Stripe can send the same event multiple times - we must only process once
+    existing_log = db.query(StripePaymentLog).filter(
+        StripePaymentLog.stripe_event_id == stripe_event_id
+    ).first()
+
+    if existing_log:
+        print(f"[STRIPE WEBHOOK] Duplicate event detected: {stripe_event_id}, skipping")
+        return {"status": "success", "event_type": event_type, "message": "duplicate event ignored"}
+
     stripe_log = StripePaymentLog(
         event_type=event_type,
-        stripe_event_id=event['id'],
+        stripe_event_id=stripe_event_id,
         payment_intent_id=event_data.get('id'),
         amount=event_data.get('amount', 0) / 100,
         currency=event_data.get('currency'),
@@ -230,7 +327,7 @@ async def stripe_webhook(
     )
     db.add(stripe_log)
     db.commit()
-    
+
     # Handle payment_intent.succeeded event
     if event_type == 'payment_intent.succeeded':
         payment_intent = event_data
@@ -432,8 +529,11 @@ def sync_vendor_payouts(
         vendor_payouts[order.vendor_id]["total_revenue"] += order.subtotal
         vendor_payouts[order.vendor_id]["platform_fees"] += order.platform_fee
         
-        # Estimate Stripe fees (2.9% + $0.30)
-        stripe_fee = (order.total_amount * 0.029) + 0.30
+        # Calculate Stripe fees using centralized config
+        if PRICING_CONFIG_LOADED:
+            stripe_fee = PAYMENT_PROCESSING_CONFIG.calculate_fee(order.total_amount)
+        else:
+            stripe_fee = (order.total_amount * 0.029) + 0.30  # Fallback
         vendor_payouts[order.vendor_id]["stripe_fees"] += stripe_fee
     
     # Create payout records
@@ -445,8 +545,9 @@ def sync_vendor_payouts(
             - payout_data["stripe_fees"]
         )
         
-        payout_count = db.query(VendorPayout).count()
-        payout_number = f"PAYOUT-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}"
+        # Generate unique payout number using vendor_id + UUID (avoids race condition with count())
+        payout_uuid = str(uuid.uuid4())[:8].upper()
+        payout_number = f"PAYOUT-{datetime.now().strftime('%Y%m%d')}-V{vendor_id}-{payout_uuid}"
         
         payout = VendorPayout(
             payout_number=payout_number,

@@ -1,4 +1,6 @@
 import SwiftUI
+import AuthenticationServices
+import EatFairShared
 
 struct LoginView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -92,6 +94,21 @@ struct LoginView: View {
                 .padding(.horizontal, 30)
                 .padding(.top, 10)
                 
+                // Apple Sign In Button (Required by App Store)
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.fullName, .email]
+                } onCompletion: { _ in
+                    // Handled by authViewModel
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 50)
+                .cornerRadius(12)
+                .padding(.horizontal, 30)
+                .onTapGesture {
+                    authViewModel.signInWithApple()
+                }
+                .disabled(authViewModel.isLoading)
+
                 // Google Sign In Button
                 Button(action: {
                     authViewModel.signInWithGoogle()
@@ -117,11 +134,33 @@ struct LoginView: View {
                 .padding(.horizontal, 30)
                 .disabled(authViewModel.isLoading)
 
+                // Forgot Password Link (only show on login)
+                if !isSignUp {
+                    Button(action: {
+                        authViewModel.showForgotPassword = true
+                    }) {
+                        Text("Forgot Password?")
+                            .font(.caption)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                    .padding(.top, 5)
+                }
+
                 // Error Message
                 if let errorMessage = authViewModel.errorMessage {
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 30)
+                        .padding(.top, 10)
+                }
+
+                // Success Message
+                if authViewModel.passwordResetSuccess {
+                    Text("Password reset successful! You can now login.")
+                        .font(.caption)
+                        .foregroundColor(.green)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
                         .padding(.top, 10)
@@ -145,6 +184,156 @@ struct LoginView: View {
                     }
                 }
                 .padding(.bottom, 30)
+            }
+        }
+        // Forgot Password Sheet
+        .sheet(isPresented: $authViewModel.showForgotPassword) {
+            ForgotPasswordView(authViewModel: authViewModel)
+        }
+        // Reset Code Entry Sheet
+        .sheet(isPresented: $authViewModel.showResetCodeEntry) {
+            ResetCodeEntryView(authViewModel: authViewModel)
+        }
+    }
+}
+
+// MARK: - Forgot Password View
+struct ForgotPasswordView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @State private var resetEmail = ""
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 25) {
+                Text("Reset Password")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top, 30)
+
+                Text("Enter your email address and we'll send you a code to reset your password.")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textGrey)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
+
+                TextField("Email", text: $resetEmail)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    .autocapitalization(.none)
+                    .keyboardType(.emailAddress)
+                    .padding(.horizontal, 30)
+
+                if let errorMessage = authViewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 30)
+                }
+
+                Button(action: {
+                    authViewModel.requestPasswordReset(email: resetEmail)
+                }) {
+                    if authViewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Send Reset Code")
+                    }
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Theme.brandGreen)
+                .cornerRadius(12)
+                .padding(.horizontal, 30)
+                .disabled(authViewModel.isLoading || resetEmail.isEmpty)
+
+                Spacer()
+            }
+            .background(Theme.brandGrey.edgesIgnoringSafeArea(.all))
+            .navigationBarItems(trailing: Button("Cancel") {
+                authViewModel.resetPasswordResetState()
+                dismiss()
+            })
+        }
+    }
+}
+
+// MARK: - Reset Code Entry View
+struct ResetCodeEntryView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 25) {
+                Text("Enter Reset Code")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top, 30)
+
+                Text("We sent a code to \(authViewModel.resetEmail). Enter it below along with your new password.")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textGrey)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
+
+                TextField("Reset Code", text: $authViewModel.resetCode)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    .keyboardType(.numberPad)
+                    .padding(.horizontal, 30)
+
+                SecureField("New Password", text: $authViewModel.newPassword)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    .padding(.horizontal, 30)
+
+                if let errorMessage = authViewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 30)
+                }
+
+                Button(action: {
+                    authViewModel.confirmPasswordReset()
+                }) {
+                    if authViewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Reset Password")
+                    }
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Theme.brandGreen)
+                .cornerRadius(12)
+                .padding(.horizontal, 30)
+                .disabled(authViewModel.isLoading || authViewModel.resetCode.isEmpty || authViewModel.newPassword.isEmpty)
+
+                Spacer()
+            }
+            .background(Theme.brandGrey.edgesIgnoringSafeArea(.all))
+            .navigationBarItems(trailing: Button("Cancel") {
+                authViewModel.resetPasswordResetState()
+                dismiss()
+            })
+            .onChange(of: authViewModel.passwordResetSuccess) { success in
+                if success {
+                    dismiss()
+                }
             }
         }
     }

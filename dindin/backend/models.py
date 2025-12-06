@@ -286,12 +286,13 @@ class VendorMenuItem(Base):
     vendor = relationship("Vendor", back_populates="menu_items")
 
 class OrderStatus(enum.Enum):
-    PENDING_PAYMENT = "pending_payment"
-    CONFIRMED = "confirmed"
-    PREPARING = "preparing"
-    OUT_FOR_DELIVERY = "out_for_delivery"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
+    PENDING_PAYMENT = "PENDING_PAYMENT"
+    CONFIRMED = "CONFIRMED"
+    PREPARING = "PREPARING"
+    READY_FOR_PICKUP = "READY_FOR_PICKUP"
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 class Order(Base):
     __tablename__ = "orders"
@@ -325,6 +326,7 @@ class Order(Base):
     delivery_instructions = Column(Text)
     delivery_latitude = Column(Float)
     delivery_longitude = Column(Float)
+    delivery_distance_miles = Column(Float)  # Actual distance stored at order creation - CRITICAL for accurate payout calculation
     driver_location = Column(Text)  # JSON: {"latitude": ..., "longitude": ..., "updated_at": ...}
     
     # Status
@@ -768,3 +770,132 @@ class DashboardMetric(Base):
 
     # Timestamps
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ==================== REFUND SYSTEM ====================
+
+class RefundReason(enum.Enum):
+    CUSTOMER_CANCELLED = "customer_cancelled"
+    RESTAURANT_REJECTED = "restaurant_rejected"
+    RESTAURANT_CLOSED = "restaurant_closed"
+    ITEM_UNAVAILABLE = "item_unavailable"
+    DELIVERY_ISSUE = "delivery_issue"
+    QUALITY_ISSUE = "quality_issue"
+    WRONG_ORDER = "wrong_order"
+    LATE_DELIVERY = "late_delivery"
+    OTHER = "other"
+
+
+class RefundStatus(enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class Refund(Base):
+    """Tracks refunds for cancelled or problematic orders"""
+    __tablename__ = "refunds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    refund_number = Column(String(50), unique=True, nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+
+    # Refund Details
+    reason = Column(SQLEnum(RefundReason), nullable=False)
+    reason_details = Column(Text)  # Additional notes
+    requested_by = Column(String(50))  # customer, restaurant, driver, system
+    requested_by_id = Column(Integer)  # ID of requester
+
+    # Amounts
+    original_amount = Column(Float, nullable=False)
+    refund_amount = Column(Float, nullable=False)
+    refund_type = Column(String(20))  # full, partial
+
+    # What gets refunded
+    refund_subtotal = Column(Float, default=0.0)
+    refund_tax = Column(Float, default=0.0)
+    refund_delivery_fee = Column(Float, default=0.0)
+    refund_platform_fee = Column(Float, default=0.0)
+    refund_tip = Column(Float, default=0.0)
+
+    # Stripe Integration
+    stripe_refund_id = Column(String(255))
+    stripe_payment_intent_id = Column(String(255))
+    stripe_status = Column(String(50))  # succeeded, pending, failed
+
+    # Status
+    status = Column(SQLEnum(RefundStatus), default=RefundStatus.PENDING)
+    failure_reason = Column(Text)
+
+    # Processing
+    processed_by_ai = Column(String(100))
+    processed_at = Column(DateTime)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    order = relationship("Order")
+
+
+# ==================== ORDER INVOICE SYSTEM ====================
+
+class OrderInvoice(Base):
+    """Customer-facing invoices for food delivery orders"""
+    __tablename__ = "order_invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_number = Column(String(50), unique=True, nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+
+    # Customer Info
+    customer_name = Column(String(255))
+    customer_email = Column(String(255))
+    customer_phone = Column(String(50))
+
+    # Restaurant Info
+    vendor_id = Column(Integer, ForeignKey("vendors.id"))
+    restaurant_name = Column(String(255))
+    restaurant_address = Column(Text)
+
+    # Invoice Details
+    invoice_date = Column(DateTime, default=datetime.utcnow)
+    order_date = Column(DateTime)
+
+    # Items (JSON array of order items)
+    items = Column(Text)  # JSON: [{"name": "...", "quantity": 2, "unit_price": 15.99, "total": 31.98}]
+
+    # Amounts (matching order)
+    subtotal = Column(Float, nullable=False)
+    tax_rate = Column(Float, default=0.0)
+    tax_amount = Column(Float, default=0.0)
+    delivery_fee = Column(Float, default=0.0)
+    tip = Column(Float, default=0.0)
+    platform_fee = Column(Float, default=0.0)
+    total_amount = Column(Float, nullable=False)
+
+    # Payment Info
+    payment_method = Column(String(50))
+    payment_status = Column(String(50))
+    stripe_payment_intent_id = Column(String(255))
+
+    # Delivery Info
+    delivery_address = Column(Text)
+
+    # PDF Generation
+    pdf_url = Column(String(500))
+    pdf_generated = Column(Boolean, default=False)
+    pdf_generated_at = Column(DateTime)
+
+    # Email Tracking
+    email_sent = Column(Boolean, default=False)
+    email_sent_at = Column(DateTime)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    order = relationship("Order")
+    vendor = relationship("Vendor")

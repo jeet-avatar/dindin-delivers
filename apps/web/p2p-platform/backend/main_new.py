@@ -927,6 +927,142 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
     }
 
 
+class CustomerAppleAuthRequest(BaseModel):
+    email: str
+    name: str
+    apple_id: str
+
+@app.post("/api/customer/apple-auth")
+def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
+    """Apple OAuth authentication for customers - handles both login and registration"""
+    print(f"Customer Apple auth for: {request.email}")
+
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email).first()
+
+    if not user:
+        # Create new user
+        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+        user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.name,
+            role=UserRole.USER
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created new user for Apple auth: {request.email}")
+
+    # Check if customer record exists
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+
+    if not customer:
+        # Parse name into first_name and last_name
+        name_parts = request.name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        # Generate unique customer_id
+        import random
+        customer_id = f"CUST{random.randint(100000, 999999)}"
+
+        # Create customer record with first_name/last_name to match database schema
+        customer = Customer(
+            customer_id=customer_id,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        print(f"Created new customer record for: {request.email} with ID: {customer_id}")
+
+    # Generate token
+    access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
+
+    # Construct full name from first_name and last_name
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "name": full_name,
+        "email": user.email
+    }
+
+
+# In-memory storage for password reset codes (in production, use Redis or database)
+password_reset_codes = {}
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+class PasswordResetConfirm(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@app.post("/api/customer/password-reset/request")
+def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset - sends code to email"""
+    import random
+
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Don't reveal whether email exists for security
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+
+    # Store code with timestamp (expires in 15 minutes)
+    from datetime import datetime, timedelta
+    password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    # In production, send email here
+    print(f"Password reset code for {request.email}: {code}")
+
+    return {"success": True, "message": "Reset code sent to your email."}
+
+@app.post("/api/customer/password-reset/confirm")
+def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset with code and set new password"""
+    from datetime import datetime
+
+    # Check if code exists and is valid
+    reset_data = password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > reset_data["expires"]:
+        del password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Get user and update password
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update password
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
+    # Remove used code
+    del password_reset_codes[request.email]
+
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+
 @app.get("/api/customer/profile")
 def get_customer_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get current customer's profile"""

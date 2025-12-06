@@ -5,6 +5,8 @@ import MapKit
 import EatFairShared
 import FirebaseFirestore
 import FirebaseAuth
+import StripePaymentSheet
+import Stripe
 
 // MARK: - Multi-Restaurant Checkout View
 struct MultiRestaurantCheckoutView: View {
@@ -41,6 +43,11 @@ struct MultiRestaurantCheckoutView: View {
     // Saved cards (mock data for now - in production fetch from backend)
     @State private var savedCards: [SavedCard] = []
     @State private var selectedCardId: String?
+
+    // Stripe PaymentSheet
+    @State private var stripePaymentSheet: PaymentSheet?
+    @State private var stripePaymentReady = false
+    @State private var isLoadingStripe = false
 
     private var currentTip: Double {
         if useCustomTip, let tip = Double(customTip) {
@@ -279,6 +286,21 @@ struct MultiRestaurantCheckoutView: View {
                     ) {
                         selectedPaymentMethod = .savedCard
                         selectedCardId = card.id
+                    }
+                }
+
+                // Stripe PaymentSheet - Real card payment (not dummy mode)
+                if !useDummyPayments {
+                    PaymentMethodRow(
+                        icon: "creditcard.fill",
+                        title: "Pay with Card (Stripe)",
+                        subtitle: "Secure checkout with any card",
+                        isSelected: selectedPaymentMethod == .stripeCard
+                    ) {
+                        selectedPaymentMethod = .stripeCard
+                        if stripePaymentSheet == nil && !isLoadingStripe {
+                            prepareStripePaymentSheet()
+                        }
                     }
                 }
 
@@ -523,6 +545,8 @@ struct MultiRestaurantCheckoutView: View {
             return "Pay with Apple Pay"
         case .savedCard:
             return "Pay with Card"
+        case .stripeCard:
+            return "Pay with Card"
         case .cash:
             return "Place Order (Cash)"
         }
@@ -588,6 +612,8 @@ struct MultiRestaurantCheckoutView: View {
             processApplePay()
         case .savedCard:
             processCardPayment()
+        case .stripeCard:
+            processStripePayment()
         case .cash:
             placeOrder()
         }
@@ -656,6 +682,57 @@ struct MultiRestaurantCheckoutView: View {
         // In production, this would charge the saved card via Stripe
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             self.placeOrder()
+        }
+    }
+
+    // MARK: - Stripe PaymentSheet Integration
+    private func prepareStripePaymentSheet() {
+        isLoadingStripe = true
+
+        PaymentService.shared.fetchPaymentSheetKeys(amount: finalTotal) { result in
+            DispatchQueue.main.async {
+                self.isLoadingStripe = false
+                switch result {
+                case .success(let keys):
+                    STPAPIClient.shared.publishableKey = keys.publishableKey
+
+                    var configuration = PaymentSheet.Configuration()
+                    configuration.merchantDisplayName = "EatFair"
+                    configuration.customer = .init(id: keys.customer, ephemeralKeySecret: keys.ephemeralKey)
+                    configuration.allowsDelayedPaymentMethods = false
+
+                    self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
+                    self.stripePaymentReady = true
+
+                case .failure(let error):
+                    print("Failed to load Stripe payment sheet: \(error)")
+                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
+                    self.showError = true
+                }
+            }
+        }
+    }
+
+    private func onStripePaymentCompletion(result: PaymentSheetResult) {
+        switch result {
+        case .completed:
+            placeOrder()
+        case .canceled:
+            isProcessing = false
+            print("Stripe payment canceled")
+        case .failed(let error):
+            isProcessing = false
+            errorMessage = "Payment failed: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    private func processStripePayment() {
+        // Stripe PaymentSheet is handled via PaymentSheet.PaymentButton
+        // This is a fallback for manual trigger if needed
+        isProcessing = true
+        if stripePaymentSheet == nil {
+            prepareStripePaymentSheet()
         }
     }
 
@@ -747,6 +824,7 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationControllerDelegate {
 enum PaymentMethodType {
     case applePay
     case savedCard
+    case stripeCard  // Real Stripe PaymentSheet
     case cash
 }
 

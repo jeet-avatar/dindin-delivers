@@ -3,8 +3,8 @@ import CoreLocation
 import MapKit
 import EatFairShared
 import FirebaseFirestore
-// import StripePaymentSheet
-// import Stripe
+import StripePaymentSheet
+import Stripe
 
 struct CheckoutView: View {
     @EnvironmentObject var cartViewModel: CartViewModel
@@ -18,11 +18,12 @@ struct CheckoutView: View {
     @State private var discount: Double = 0.0
     @State private var appliedPromoCode: String?
     
-    // Stripe State (Mocked for now)
-    // @State private var paymentSheet: PaymentSheet?
-    // @State private var paymentResult: PaymentSheetResult?
+    // Stripe State
+    @State private var paymentSheet: PaymentSheet?
+    @State private var paymentResult: PaymentSheetResult?
     @State private var isLoadingPayment = false
     @State private var showMockPaymentAlert = false
+    @State private var stripePaymentReady = false
     @State private var errorMessage: String?
     @State private var showingError = false
     
@@ -223,23 +224,74 @@ struct CheckoutView: View {
                 // Bottom Bar
                 VStack {
                     Spacer()
-                    Button(action: {
-                        print("Confirm Order Tapped")
-                        // Bypass Mock Payment Alert for now to ensure flow works
-                        placeOrder()
-                    }) {
-                        Text("Confirm Order • $\(String(format: "%.2f", cartViewModel.total))")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
+                    if selectedPaymentMethod == "Card" {
+                        // Stripe PaymentSheet Button
+                        if let paymentSheet = paymentSheet {
+                            PaymentSheet.PaymentButton(
+                                paymentSheet: paymentSheet,
+                                onCompletion: onPaymentCompletion
+                            ) {
+                                HStack {
+                                    if isLoadingPayment {
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                    Text("Pay with Card • $\(String(format: "%.2f", max(0, cartViewModel.total - discount)))")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Theme.brandGreen)
+                                .cornerRadius(12)
+                                .shadow(radius: 5)
+                            }
                             .padding()
-                            .background(Theme.brandGreen)
-                            .cornerRadius(12)
-                            .shadow(radius: 5)
+                            .padding(.bottom, 20)
+                            .disabled(addressViewModel.selectedAddress == nil)
+                        } else {
+                            // Loading state while preparing payment sheet
+                            Button(action: {
+                                preparePaymentSheet()
+                            }) {
+                                HStack {
+                                    if isLoadingPayment {
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                    Text(isLoadingPayment ? "Preparing Payment..." : "Setup Card Payment • $\(String(format: "%.2f", max(0, cartViewModel.total - discount)))")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isLoadingPayment ? Color.gray : Theme.brandGreen)
+                                .cornerRadius(12)
+                                .shadow(radius: 5)
+                            }
+                            .padding()
+                            .padding(.bottom, 20)
+                            .disabled(addressViewModel.selectedAddress == nil || isLoadingPayment)
+                        }
+                    } else {
+                        // Cash on Delivery - Direct order placement
+                        Button(action: {
+                            print("Confirm Order Tapped - Cash on Delivery")
+                            placeOrder()
+                        }) {
+                            Text("Confirm Order (Cash) • $\(String(format: "%.2f", max(0, cartViewModel.total - discount)))")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Theme.brandGreen)
+                                .cornerRadius(12)
+                                .shadow(radius: 5)
+                        }
+                        .padding()
+                        .padding(.bottom, 20)
+                        .disabled(addressViewModel.selectedAddress == nil)
                     }
-                    .padding()
-                    .padding(.bottom, 20) // Ensure clear of Tab Bar
-                    .disabled(addressViewModel.selectedAddress == nil)
                 }
             }
         }
@@ -262,6 +314,11 @@ struct CheckoutView: View {
         .navigationTitle("Checkout")
         .onAppear {
             addressViewModel.fetchAddresses()
+        }
+        .onChange(of: selectedPaymentMethod) { _, newValue in
+            if newValue == "Card" && paymentSheet == nil && !isLoadingPayment {
+                preparePaymentSheet()
+            }
         }
     }
     
@@ -328,41 +385,49 @@ struct CheckoutView: View {
             }
     }
     
-    /*
     func preparePaymentSheet() {
+        guard selectedPaymentMethod == "Card" else { return }
+
         isLoadingPayment = true
-        PaymentService.shared.fetchPaymentSheetKeys { result in
+        let finalTotal = cartViewModel.total - discount
+
+        PaymentService.shared.fetchPaymentSheetKeys(amount: max(0, finalTotal)) { result in
             DispatchQueue.main.async {
-                isLoadingPayment = false
+                self.isLoadingPayment = false
                 switch result {
                 case .success(let keys):
                     STPAPIClient.shared.publishableKey = keys.publishableKey
-                    
+
                     var configuration = PaymentSheet.Configuration()
                     configuration.merchantDisplayName = "EatFair"
                     configuration.customer = .init(id: keys.customer, ephemeralKeySecret: keys.ephemeralKey)
-                    
+                    configuration.allowsDelayedPaymentMethods = false
+
                     self.paymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
-                    
-                    case .failure(let error):
+                    self.stripePaymentReady = true
+
+                case .failure(let error):
                     print("Failed to load payment sheet: \(error)")
+                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
+                    self.showingError = true
                 }
             }
         }
     }
-    
+
     func onPaymentCompletion(result: PaymentSheetResult) {
         self.paymentResult = result
         switch result {
         case .completed:
-            placeOrder() // Place order in Firestore after successful payment
+            placeOrder()
         case .canceled:
             print("Payment canceled")
         case .failed(let error):
             print("Payment failed: \(error)")
+            errorMessage = "Payment failed: \(error.localizedDescription)"
+            showingError = true
         }
     }
-    */
     
     func placeOrder() {
         guard let address = addressViewModel.selectedAddress else {

@@ -16,6 +16,7 @@
 		104403AD2ED6707F00ED321A /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = 104403AC2ED6707F00ED321A /* StripeCardScan */; };
 		104403AF2ED6707F00ED321A /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = 104403AE2ED6707F00ED321A /* StripeConnect */; };
 		104403B12ED6707F00ED321A /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 104403B02ED6707F00ED321A /* StripeFinancialConnections */; };
+		104403B32ED6708000ED321A /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 104403B22ED6708000ED321A /* StripePaymentSheet */; };
 		104406AC2ED8354200ED321A /* EatFairShared in Frameworks */ = {isa = PBXBuildFile; productRef = 104406AB2ED8354200ED321A /* EatFairShared */; };
 		B9FF4BCB266C8B1FB7CCC913 /* Pods_eatfaircustomer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7199266C558D3A0C875B993B /* Pods_eatfaircustomer.framework */; };
 /* End PBXBuildFile section */
@@ -91,6 +92,7 @@
 				1044037C2ED64E2100ED321A /* FirebaseAuth in Frameworks */,
 				1044037E2ED64E2100ED321A /* FirebaseFirestore in Frameworks */,
 				104403B12ED6707F00ED321A /* StripeFinancialConnections in Frameworks */,
+				104403B32ED6708000ED321A /* StripePaymentSheet in Frameworks */,
 				104403AB2ED6707F00ED321A /* StripeApplePay in Frameworks */,
 				104406AC2ED8354200ED321A /* EatFairShared in Frameworks */,
 				104403842ED6522000ED321A /* GoogleSignIn in Frameworks */,
@@ -187,6 +189,7 @@
 				104403AC2ED6707F00ED321A /* StripeCardScan */,
 				104403AE2ED6707F00ED321A /* StripeConnect */,
 				104403B02ED6707F00ED321A /* StripeFinancialConnections */,
+				104403B22ED6708000ED321A /* StripePaymentSheet */,
 				104406AB2ED8354200ED321A /* EatFairShared */,
 			);
 			productName = eatfaircustomer;
@@ -786,6 +789,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 104403A72ED6707F00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
 			productName = StripeFinancialConnections;
+		};
+		104403B22ED6708000ED321A /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104403A72ED6707F00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripePaymentSheet;
 		};
 		104406AB2ED8354200ED321A /* EatFairShared */ = {
 			isa = XCSwiftPackageProductDependency;
