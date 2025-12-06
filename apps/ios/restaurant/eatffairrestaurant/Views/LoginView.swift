@@ -20,17 +20,21 @@ struct LoginView: View {
                 VStack(spacing: 24) {
                     // Logo and Title
                     VStack(spacing: 12) {
-                        Image(systemName: "fork.knife.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 100, height: 100)
-                            .foregroundColor(.orange)
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.15))
+                                .frame(width: 100, height: 100)
 
-                        Text("EatFair Restaurant")
+                            Text("$")
+                                .font(.system(size: 50, weight: .bold))
+                                .foregroundColor(.green)
+                        }
+
+                        Text("Dollor AI Restaurant")
                             .font(.largeTitle)
                             .fontWeight(.bold)
 
-                        Text("Manage your restaurant")
+                        Text("$ online store")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                     }
@@ -501,7 +505,7 @@ struct SignUpView: View {
                         .font(.title)
                         .fontWeight(.bold)
 
-                    Text("Join EatFair and start managing your restaurant")
+                    Text("Join Dollor AI and start managing your restaurant")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)

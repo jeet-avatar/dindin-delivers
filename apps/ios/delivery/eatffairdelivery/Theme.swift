@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct Theme {
-    // Primary Brand Colors (DoorDash/Uber Eats inspired)
-    static let brandRed = Color(hex: "EB1700")  // DoorDash red
-    static let brandGreen = Color(hex: "00A651")  // Earnings/success
-    static let brandOrange = Color(hex: "FF6D00")  // EatFair orange
+    // Primary Brand Colors - Dollor AI Service
+    static let brandRed = Color(hex: "EB1700")  // Primary red
+    static let brandGreen = Color(hex: "00A651")  // Earnings/success (Dollar green)
+    static let brandOrange = Color(hex: "FF6D00")  // Accent orange
     static let brandBlack = Color(hex: "191919")  // Dark text
     static let brandWhite = Color.white
     

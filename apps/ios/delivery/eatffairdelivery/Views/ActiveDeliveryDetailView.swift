@@ -214,25 +214,25 @@ struct ActiveDeliveryDetailView: View {
                             }
                             
                             HStack {
-                                Text("Estimated Tip")
+                                Text("Tip")
                                     .font(.subheadline)
                                     .foregroundColor(Theme.textSecondary)
                                 Spacer()
-                                Text("$\(String(format: "%.2f", order.total * 0.15))")
+                                Text("$\(String(format: "%.2f", order.tip))")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(Theme.textPrimary)
                             }
-                            
+
                             Divider()
-                            
+
                             HStack {
-                                Text("Total Estimated")
+                                Text("Total Earnings")
                                     .font(.headline)
                                     .fontWeight(.bold)
                                     .foregroundColor(Theme.textPrimary)
                                 Spacer()
-                                Text("$\(String(format: "%.2f", order.deliveryFee + order.total * 0.15))")
+                                Text("$\(String(format: "%.2f", order.deliveryFee + order.tip))")
                                     .font(.headline)
                                     .fontWeight(.bold)
                                     .foregroundColor(Theme.statusActive)
@@ -274,10 +274,10 @@ struct ActiveDeliveryDetailView: View {
                     
                     // Primary Action Button
                     Button(action: {
-                        if order.status == "Out for Delivery" {
+                        if orderStatus == .outForDelivery || orderStatus == .pickedUp {
                             showingCompleteAlert = true
                         } else {
-                            viewModel.acceptOrder(order)
+                            viewModel.markAsPickedUp(order)
                         }
                     }) {
                         HStack(spacing: 8) {
@@ -325,43 +325,47 @@ struct ActiveDeliveryDetailView: View {
         )
     }
     
+    private var orderStatus: DeliveryOrderStatus {
+        DeliveryOrderStatus.from(order.status)
+    }
+
     var statusText: String {
-        switch order.status {
-        case "Ready": return "Pickup Order"
-        case "Out for Delivery": return "Deliver to Customer"
-        case "Delivered": return "Order Completed"
-        default: return order.status
+        switch orderStatus {
+        case .ready, .readyForPickup: return "Pickup Order"
+        case .pickedUp, .outForDelivery: return "Deliver to Customer"
+        case .delivered: return "Order Completed"
+        case .cancelled: return "Order Cancelled"
         }
     }
-    
+
     var statusIcon: String {
-        switch order.status {
-        case "Ready": return "bag"
-        case "Out for Delivery": return "shippingbox"
-        case "Delivered": return "checkmark.circle"
-        default: return "ellipsis.circle"
+        switch orderStatus {
+        case .ready, .readyForPickup: return "bag"
+        case .pickedUp, .outForDelivery: return "shippingbox"
+        case .delivered: return "checkmark.circle"
+        case .cancelled: return "xmark.circle"
         }
     }
-    
+
     var statusColor: Color {
-        switch order.status {
-        case "Ready": return Theme.brandOrange
-        case "Out for Delivery": return Theme.statusInfo
-        case "Delivered": return Theme.statusActive
-        default: return Theme.textGrey
+        switch orderStatus {
+        case .ready, .readyForPickup: return Theme.brandOrange
+        case .pickedUp, .outForDelivery: return Theme.statusInfo
+        case .delivered: return Theme.statusActive
+        case .cancelled: return Theme.statusError
         }
     }
-    
+
     var actionText: String {
-        order.status == "Out for Delivery" ? "Complete Delivery" : "Start Delivery"
+        orderStatus == .outForDelivery || orderStatus == .pickedUp ? "Complete Delivery" : "Start Delivery"
     }
-    
+
     var actionIcon: String {
-        order.status == "Out for Delivery" ? "checkmark.circle.fill" : "arrow.right.circle.fill"
+        orderStatus == .outForDelivery || orderStatus == .pickedUp ? "checkmark.circle.fill" : "arrow.right.circle.fill"
     }
-    
+
     var actionColor: Color {
-        order.status == "Out for Delivery" ? Theme.statusActive : Theme.statusInfo
+        orderStatus == .outForDelivery || orderStatus == .pickedUp ? Theme.statusActive : Theme.statusInfo
     }
 
     // MARK: - Helper Functions
@@ -504,7 +508,19 @@ struct DetailSectionCard: View {
 // MARK: - Delivery Timeline View
 struct DeliveryTimelineView: View {
     let order: Order
-    
+
+    private var orderStatus: DeliveryOrderStatus {
+        DeliveryOrderStatus.from(order.status)
+    }
+
+    private var isPickedUp: Bool {
+        orderStatus == .pickedUp || orderStatus == .outForDelivery || orderStatus == .delivered
+    }
+
+    private var isDelivered: Bool {
+        orderStatus == .delivered
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TimelineStep(
@@ -513,25 +529,25 @@ struct DeliveryTimelineView: View {
                 isCompleted: true,
                 isLast: false
             )
-            
+
             TimelineStep(
                 title: "Accepted by Driver",
                 time: formatTime(order.acceptedAt),
                 isCompleted: order.acceptedAt != nil,
                 isLast: false
             )
-            
+
             TimelineStep(
-                title: order.status == "Ready" ? "Ready for Pickup" : "Picked Up",
-                time: order.status != "Ready" ? formatTime(order.pickedUpAt) : "Pending",
-                isCompleted: order.status != "Ready",
+                title: isPickedUp ? "Picked Up" : "Ready for Pickup",
+                time: isPickedUp ? formatTime(order.pickedUpAt) : "Pending",
+                isCompleted: isPickedUp,
                 isLast: false
             )
-            
+
             TimelineStep(
-                title: "Delivered",
-                time: order.status == "Delivered" ? formatTime(order.deliveredAt) : "Pending",
-                isCompleted: order.status == "Delivered",
+                title: DeliveryOrderStatus.delivered.displayName,
+                time: isDelivered ? formatTime(order.deliveredAt) : "Pending",
+                isCompleted: isDelivered,
                 isLast: true
             )
         }
@@ -539,7 +555,7 @@ struct DeliveryTimelineView: View {
         .background(Theme.cardBackground)
         .cornerRadius(16)
     }
-    
+
     func formatTime(_ timestamp: Int64?) -> String {
         guard let timestamp = timestamp else { return "Pending" }
         let date = Date(timeIntervalSince1970: TimeInterval(timestamp / 1000))

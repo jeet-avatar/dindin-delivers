@@ -40,7 +40,8 @@ struct ActivePickupDropoffView: View {
     @State private var isSliding = false
 
     private var isPickedUp: Bool {
-        order.status == "Out for Delivery"
+        let status = DeliveryOrderStatus.from(order.status)
+        return status == .pickedUp || status == .outForDelivery
     }
 
     var body: some View {
@@ -284,7 +285,7 @@ struct DriverBottomActionSheet: View {
                     if isPickedUp {
                         viewModel.markAsDelivered(order)
                     } else {
-                        viewModel.acceptOrder(order)
+                        viewModel.markAsPickedUp(order)
                     }
                 }
             )

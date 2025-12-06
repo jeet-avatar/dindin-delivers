@@ -1244,6 +1244,189 @@ public class P2PAPIService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "p2p_driver_email")
     }
 
+    /// Get driver profile from P2P API
+    public func getDriverProfile(
+        driverId: Int,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/drivers/\(driverId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add auth token if available
+        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Try to decode as generic dictionary
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    // Return basic info from stored UserDefaults
+                    let storedProfile: [String: Any] = [
+                        "id": driverId,
+                        "name": UserDefaults.standard.string(forKey: "p2p_driver_name") ?? "",
+                        "email": UserDefaults.standard.string(forKey: "p2p_driver_email") ?? "",
+                        "status": "pending",
+                        "approval_status": "pending"
+                    ]
+                    completion(.success(storedProfile))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Driver Documents APIs
+
+    /// Fetch driver documents status
+    public func getDriverDocuments(
+        driverId: Int,
+        completion: @escaping (Result<DriverDocumentsResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(DriverDocumentsResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Upload driver document (driver's license, insurance, etc.)
+    public func uploadDriverDocument(
+        driverId: Int,
+        documentType: DriverDocumentType,
+        imageData: Data,
+        expiryDate: Date? = nil,
+        completion: @escaping (Result<DocumentUploadResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        // Add auth token
+        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        // Add document type field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(documentType.rawValue)\r\n".data(using: .utf8)!)
+
+        // Add expiry date if provided
+        if let expiryDate = expiryDate {
+            let formatter = ISO8601DateFormatter()
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"expiry_date\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(formatter.string(from: expiryDate))\r\n".data(using: .utf8)!)
+        }
+
+        // Add file
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(documentType.rawValue).jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+
+        // Close boundary
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(DocumentUploadResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    // Try to parse as generic JSON for error messages
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let success = json["success"] as? Bool, success {
+                        let mockResponse = DocumentUploadResponse(
+                            success: true,
+                            message: json["message"] as? String ?? "Document uploaded",
+                            fileUrl: json["file_url"] as? String,
+                            documentType: documentType.rawValue,
+                            verificationStatus: json["verification_status"] as? String ?? "pending",
+                            aiVerificationId: json["ai_verification_id"] as? String
+                        )
+                        completion(.success(mockResponse))
+                    } else {
+                        self?.error = "Failed to upload document"
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Delivery APIs
 
     /// Fetch available orders for delivery
@@ -1615,7 +1798,7 @@ public class P2PAPIService: ObservableObject {
     public func fetchAvailableRides(
         completion: @escaping (Result<[P2PRide], Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/order-flow/rides/available") else {
+        guard let url = URL(string: "\(baseURL)/erp/rides/available") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1658,7 +1841,7 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        guard let url = URL(string: "\(baseURL)/order-flow/rides/\(rideId)/accept") else {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/accept") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1690,6 +1873,48 @@ public class P2PAPIService: ObservableObject {
                             completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                         } else {
                             completion(.failure(P2PAPIError.serverError("Failed to accept ride")))
+                        }
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    /// Mark passenger as picked up
+    public func ridePickedUp(
+        rideId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/picked-up") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode == 200 {
+                        completion(.success(true))
+                    } else {
+                        if let data = data,
+                           let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Failed to confirm pickup")))
                         }
                     }
                 }
@@ -1746,7 +1971,7 @@ public class P2PAPIService: ObservableObject {
         tip: Double = 0.0,
         completion: @escaping (Result<RideRequestResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/order-flow/rides/request") else {
+        guard let url = URL(string: "\(baseURL)/erp/rides/request") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1842,10 +2067,10 @@ public class P2PAPIService: ObservableObject {
     }
 }
 
-// MARK: - Customer Ride Request Models
+/// MARK: - Customer Ride Request Models
 
 /// Input for ride address (pickup or dropoff)
-public struct RideAddressInput {
+public struct RideAddressInput: Codable {
     public let street: String
     public let city: String
     public let state: String
@@ -1872,11 +2097,18 @@ public struct RideRequestResponse: Codable {
     public let success: Bool
     public let rideId: Int
     public let rideNumber: String
-    public let pickup: P2PRideLocation?
-    public let dropoff: P2PRideLocation?
-    public let fee: Double
+    public let pickup: RideAddressInput?
+    public let dropoff: RideAddressInput?
+    public let totalFare: Double
+    public let driverEarnings: Double
+    public let platformFee: Double
+    public let baseFare: Double
+    public let distanceFee: Double
+    public let timeFee: Double
+    public let surgeMultiplier: Double
+    public let taxAmount: Double
+    public let taxRate: String
     public let tip: Double
-    public let total: Double
     public let status: String
     public let processedBy: String?
 
@@ -1886,9 +2118,16 @@ public struct RideRequestResponse: Codable {
         case rideNumber = "ride_number"
         case pickup
         case dropoff
-        case fee
+        case totalFare = "total_fare"
+        case driverEarnings = "driver_earnings"
+        case platformFee = "platform_fee"
+        case baseFare = "base_fare"
+        case distanceFee = "distance_fee"
+        case timeFee = "time_fee"
+        case surgeMultiplier = "surge_multiplier"
+        case taxAmount = "tax_amount"
+        case taxRate = "tax_rate"
         case tip
-        case total
         case status
         case processedBy = "processed_by"
     }
@@ -2391,6 +2630,99 @@ public struct P2PDriverLoginResponse: Codable {
         case email
         case status
         case message
+    }
+}
+
+// MARK: - Driver Document Models
+
+public enum DriverDocumentType: String, Codable {
+    case driversLicense = "drivers_license"
+    case licenseFront = "license_front"
+    case licenseBack = "license_back"
+    case insurance = "insurance"
+    case insuranceCard = "insurance_card"
+    case backgroundCheck = "background_check"
+    case vehicleFront = "vehicle_front"
+    case vehicleSide = "vehicle_side"
+    case vehicleBack = "vehicle_back"
+    case profilePhoto = "profile_photo"
+
+    public var displayName: String {
+        switch self {
+        case .driversLicense: return "Driver's License"
+        case .licenseFront: return "License Front"
+        case .licenseBack: return "License Back"
+        case .insurance: return "Vehicle Insurance"
+        case .insuranceCard: return "Insurance Card"
+        case .backgroundCheck: return "Background Check"
+        case .vehicleFront: return "Vehicle Front"
+        case .vehicleSide: return "Vehicle Side"
+        case .vehicleBack: return "Vehicle Back"
+        case .profilePhoto: return "Profile Photo"
+        }
+    }
+}
+
+public struct DriverDocument: Codable, Identifiable {
+    public let id: Int
+    public let documentType: String
+    public let fileName: String
+    public let fileUrl: String?
+    public let uploadDate: String?
+    public let expiryDate: String?
+    public let status: String
+    public let verified: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case documentType = "document_type"
+        case fileName = "file_name"
+        case fileUrl = "file_url"
+        case uploadDate = "upload_date"
+        case expiryDate = "expiry_date"
+        case status
+        case verified
+    }
+}
+
+public struct DriverDocumentsResponse: Codable {
+    public let driverId: Int
+    public let documents: [DriverDocument]
+    public let count: Int
+    public let allVerified: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case driverId = "driver_id"
+        case documents
+        case count
+        case allVerified = "all_verified"
+    }
+}
+
+public struct DocumentUploadResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let fileUrl: String?
+    public let documentType: String
+    public let verificationStatus: String
+    public let aiVerificationId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case fileUrl = "file_url"
+        case documentType = "document_type"
+        case verificationStatus = "verification_status"
+        case aiVerificationId = "ai_verification_id"
+    }
+
+    public init(success: Bool, message: String, fileUrl: String?, documentType: String, verificationStatus: String, aiVerificationId: String?) {
+        self.success = success
+        self.message = message
+        self.fileUrl = fileUrl
+        self.documentType = documentType
+        self.verificationStatus = verificationStatus
+        self.aiVerificationId = aiVerificationId
     }
 }
 
@@ -3440,6 +3772,35 @@ extension P2PAPIService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                completion(.success(true))
+            }
+        }.resume()
+    }
+
+    /// Save FCM token for push notifications
+    public func saveDriverFCMToken(
+        driverId: Int,
+        fcmToken: String,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/drivers/\(driverId)/fcm-token") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["fcm_token": fcmToken]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {

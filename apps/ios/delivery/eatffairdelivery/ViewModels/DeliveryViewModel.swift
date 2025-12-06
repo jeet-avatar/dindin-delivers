@@ -86,13 +86,17 @@ class DeliveryViewModel: ObservableObject {
                 case .success(let p2pOrders):
                     self?.myDeliveries = p2pOrders
                         .filter {
-                            let status = $0.status?.lowercased() ?? ""
-                            return status != "delivered" && status != "cancelled"
+                            let status = DeliveryOrderStatus.from($0.status)
+                            return status != .delivered && status != .cancelled
                         }
                         .compactMap { self?.convertToOrder($0) }
                         .sorted { order1, order2 in
                             // Sort: Out for Delivery first, then Ready
-                            if order1.status == "Out for Delivery" && order2.status != "Out for Delivery" {
+                            let status1 = DeliveryOrderStatus.from(order1.status)
+                            let status2 = DeliveryOrderStatus.from(order2.status)
+                            let isOutForDelivery1 = status1 == .outForDelivery || status1 == .pickedUp
+                            let isOutForDelivery2 = status2 == .outForDelivery || status2 == .pickedUp
+                            if isOutForDelivery1 && !isOutForDelivery2 {
                                 return true
                             }
                             return false
@@ -116,7 +120,7 @@ class DeliveryViewModel: ObservableObject {
 
                     self?.completedDeliveries = p2pOrders
                         .filter { order in
-                            (order.status?.lowercased() ?? "") == "delivered" &&
+                            DeliveryOrderStatus.from(order.status) == .delivered &&
                             self?.isOrderFromToday(order, today: today) == true
                         }
                         .compactMap { self?.convertToOrder($0) }
@@ -172,6 +176,31 @@ class DeliveryViewModel: ObservableObject {
 
                 case .failure(let error):
                     self?.showErrorMessage("Failed to accept order: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Mark as Picked Up
+    /// Marks an order as picked up from restaurant (status: Ready -> Out for Delivery)
+    func markAsPickedUp(_ order: Order) {
+        guard let orderId = order.id, let orderIdInt = Int(orderId) else {
+            showErrorMessage("Unable to mark as picked up. Please try again.")
+            return
+        }
+
+        isLoading = true
+
+        p2pService.markOrderPickedUp(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to mark as picked up: \(error.localizedDescription)")
                 }
             }
         }
@@ -260,21 +289,8 @@ class DeliveryViewModel: ObservableObject {
             longitude: p2pOrder.dropoffLongitude ?? 0
         )
 
-        // Map P2P status to app status
-        let status: String
-        let orderStatus = p2pOrder.status?.lowercased() ?? "ready"
-        switch orderStatus {
-        case "ready", "ready_for_pickup":
-            status = "Ready"
-        case "picked_up", "out_for_delivery":
-            status = "Out for Delivery"
-        case "delivered":
-            status = "Delivered"
-        case "cancelled":
-            status = "Cancelled"
-        default:
-            status = p2pOrder.status?.capitalized ?? "Ready"
-        }
+        // Map P2P status to app status using enum
+        let status = DeliveryOrderStatus.from(p2pOrder.status).displayName
 
         let totalEarnings = p2pOrder.totalEarnings ?? (p2pOrder.deliveryFee + (p2pOrder.tip ?? 0))
 
@@ -307,7 +323,9 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Private Helpers
     private func handleError(_ error: Error) {
+        #if DEBUG
         print("DeliveryViewModel Error: \(error.localizedDescription)")
+        #endif
         errorMessage = error.localizedDescription
         showError = true
     }

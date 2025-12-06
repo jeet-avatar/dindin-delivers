@@ -1,6 +1,47 @@
 import Foundation
 import FirebaseFirestore
 
+// MARK: - Delivery Order Status
+public enum DeliveryOrderStatus: String, CaseIterable {
+    case ready = "Ready"
+    case readyForPickup = "ready_for_pickup"
+    case pickedUp = "picked_up"
+    case outForDelivery = "Out for Delivery"
+    case delivered = "Delivered"
+    case cancelled = "Cancelled"
+
+    /// Display name for UI
+    public var displayName: String {
+        switch self {
+        case .ready, .readyForPickup:
+            return "Ready"
+        case .pickedUp, .outForDelivery:
+            return "Out for Delivery"
+        case .delivered:
+            return "Delivered"
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
+
+    /// Create from any string status (case-insensitive)
+    public static func from(_ status: String?) -> DeliveryOrderStatus {
+        guard let status = status?.lowercased() else { return .ready }
+        switch status {
+        case "ready", "ready_for_pickup":
+            return .ready
+        case "picked_up", "out_for_delivery", "out for delivery":
+            return .outForDelivery
+        case "delivered":
+            return .delivered
+        case "cancelled", "canceled":
+            return .cancelled
+        default:
+            return .ready
+        }
+    }
+}
+
 public struct Order: Identifiable, Codable {
     public var id: String?
     public var orderId: String

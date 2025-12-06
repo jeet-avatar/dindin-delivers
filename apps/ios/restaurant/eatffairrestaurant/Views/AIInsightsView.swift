@@ -7,6 +7,7 @@ struct AIInsightsView: View {
     @ObservedObject var ordersVM: OrdersViewModel
     @State private var selectedInsight: AIInsightType = .demand
     @State private var showDetailSheet: AIInsightDetail?
+    @State private var showOrderInventoryAlert = false
 
     enum AIInsightType: String, CaseIterable {
         case demand = "Demand"
@@ -257,7 +258,7 @@ struct AIInsightsView: View {
 
                 Spacer()
 
-                Button(action: {}) {
+                Button(action: { showOrderInventoryAlert = true }) {
                     Text("Order")
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -273,6 +274,16 @@ struct AIInsightsView: View {
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
+        .alert("Order Inventory", isPresented: $showOrderInventoryAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Contact Supplier") {
+                if let url = URL(string: "tel:18005551234") {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text("AI recommends ordering extra chicken and cheese before 3 PM based on tonight's forecast.")
+        }
     }
 
     // MARK: - Pricing Insights Card
@@ -797,6 +808,9 @@ struct RecommendationRow: View {
     let description: String
     let impact: String
     let color: Color
+    var onTap: (() -> Void)? = nil
+
+    @State private var showDetails = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -822,7 +836,13 @@ struct RecommendationRow: View {
 
             Spacer()
 
-            Button(action: {}) {
+            Button(action: {
+                if let onTap = onTap {
+                    onTap()
+                } else {
+                    showDetails = true
+                }
+            }) {
                 Image(systemName: "arrow.right.circle.fill")
                     .foregroundColor(color)
             }
@@ -830,6 +850,11 @@ struct RecommendationRow: View {
         .padding()
         .background(color.opacity(0.05))
         .cornerRadius(10)
+        .alert("AI Recommendation", isPresented: $showDetails) {
+            Button("Got it", role: .cancel) { }
+        } message: {
+            Text("\(title)\n\n\(description)\n\nExpected impact: \(impact)")
+        }
     }
 }
 

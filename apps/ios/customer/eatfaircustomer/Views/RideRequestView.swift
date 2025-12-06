@@ -1,5 +1,7 @@
 import SwiftUI
 import MapKit
+import CoreLocation
+import Combine
 import EatFairShared
 
 /// Uber-style Ride Request View for Customers
@@ -459,6 +461,31 @@ struct RideBottomSheet: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+
+                    Divider()
+
+                    // Legal Disclosures (Required for TNC compliance)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("FARE DISCLOSURE")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+
+                        Text("Fares are estimates based on distance and time. Final fare may vary due to traffic, route changes, or wait time. Sales tax is calculated based on pickup location. By requesting a ride, you agree to our Terms of Service.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                            Text("Base: $2.00 | Distance: $1.00/mi | Time: $0.15/min | Platform: $1.00")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                    }
+                    .padding(.vertical, 4)
                 }
                 .padding()
             }

@@ -1257,21 +1257,65 @@ struct CurrentLocationMapView: View {
     }
 }
 
-// MARK: - Payout History View (Placeholder)
+// MARK: - Payout History View
 struct PayoutHistoryView: View {
+    @StateObject private var earningsViewModel = EarningsViewModel()
+
     var body: some View {
         List {
-            ForEach(0..<10) { index in
+            // Weekly Summary Section
+            Section(header: Text("This Week")) {
                 HStack {
                     VStack(alignment: .leading) {
-                        Text("Weekly Payout")
+                        Text("Week Total")
                             .fontWeight(.semibold)
-                        Text("Nov \(20 - index), 2025")
+                        Text("\(earningsViewModel.weekDeliveries) deliveries")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
                     Spacer()
-                    Text("$\(String(format: "%.2f", Double.random(in: 200...500)))")
+                    Text(String(format: "$%.2f", earningsViewModel.weekEarnings))
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.statusActive)
+                }
+                .padding(.vertical, 4)
+            }
+
+            // Daily Breakdown Section
+            Section(header: Text("Daily Breakdown")) {
+                if earningsViewModel.dailyEarnings.isEmpty {
+                    Text("No earnings data yet")
+                        .foregroundColor(Theme.textSecondary)
+                        .italic()
+                } else {
+                    ForEach(earningsViewModel.dailyEarnings) { daily in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(daily.day)
+                                    .fontWeight(.semibold)
+                            }
+                            Spacer()
+                            Text(String(format: "$%.2f", daily.amount))
+                                .fontWeight(.bold)
+                                .foregroundColor(daily.amount > 0 ? Theme.statusActive : Theme.textSecondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+
+            // Monthly Summary Section
+            Section(header: Text("This Month")) {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Month Total")
+                            .fontWeight(.semibold)
+                        Text("\(earningsViewModel.monthDeliveries) deliveries")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Text(String(format: "$%.2f", earningsViewModel.monthEarnings))
                         .fontWeight(.bold)
                         .foregroundColor(Theme.statusActive)
                 }
@@ -1279,6 +1323,9 @@ struct PayoutHistoryView: View {
             }
         }
         .navigationTitle("Payout History")
+        .onAppear {
+            earningsViewModel.fetchEarnings()
+        }
     }
 }
 

@@ -136,13 +136,24 @@ struct TermsAndConditionsView: View {
 struct TermsHeader: View {
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "doc.badge.gearshape.fill")
-                .font(.system(size: 50))
-                .foregroundColor(Theme.brandRed)
+            // Smiling dollar sign logo
+            ZStack {
+                Circle()
+                    .fill(Theme.brandRed.opacity(0.15))
+                    .frame(width: 100, height: 100)
 
-            Text("DinDin Delivers")
+                Text("$")
+                    .font(.system(size: 50, weight: .bold))
+                    .foregroundColor(Theme.brandRed)
+            }
+
+            Text("Dollor AI Service")
                 .font(.largeTitle)
                 .fontWeight(.bold)
+
+            Text("$ online store")
+                .font(.headline)
+                .foregroundColor(Theme.brandRed)
 
             Text("Driver Terms & Conditions")
                 .font(.title3)
@@ -605,15 +616,15 @@ struct FullTermsView: View {
                     Group {
                         TermsSection(title: "1. Introduction") {
                             Text("""
-                            Welcome to DinDin Delivers ("Platform", "we", "us", "our"). These Terms and Conditions ("Terms") govern your use of our delivery driver application and services.
+                            Welcome to Dollor AI Service ("Platform", "we", "us", "our"). These Terms and Conditions ("Terms") govern your use of our delivery driver application and services.
 
-                            By accessing or using DinDin Delivers as a driver, you agree to be bound by these Terms. If you disagree with any part of the terms, you may not access the service.
+                            By accessing or using Dollor AI Service as a driver, you agree to be bound by these Terms. If you disagree with any part of the terms, you may not access the service.
                             """)
                         }
 
                         TermsSection(title: "2. Platform Fee Structure") {
                             Text("""
-                            DinDin Delivers operates on a transparent, flat-fee model:
+                            Dollor AI Service operates on a transparent, flat-fee model:
 
                             • Customer Platform Fee: $1.00 per order
                             • Restaurant Platform Fee: $1.00 per order
@@ -630,21 +641,21 @@ struct FullTermsView: View {
 
                         TermsSection(title: "3. Driver Eligibility") {
                             Text("""
-                            To be eligible as a DinDin Delivers driver, you must:
+                            To be eligible as a Dollor AI Service driver, you must:
 
                             • Be at least 18 years of age
                             • Possess a valid driver's license
                             • Have access to a reliable vehicle, bicycle, or other approved transportation
                             • Maintain valid auto insurance (for vehicle deliveries)
                             • Pass a background check
-                            • Have a smartphone capable of running the DinDin Delivers app
+                            • Have a smartphone capable of running the Dollor AI Service app
                             • Provide accurate and truthful information during registration
                             """)
                         }
 
                         TermsSection(title: "4. Driver Responsibilities") {
                             Text("""
-                            As a DinDin Delivers driver, you agree to:
+                            As a Dollor AI Service driver, you agree to:
 
                             • Deliver orders in a timely and professional manner
                             • Maintain the quality and safety of food during transport
@@ -658,7 +669,7 @@ struct FullTermsView: View {
 
                         TermsSection(title: "5. Direct Customer Communication") {
                             Text("""
-                            DinDin Delivers encourages direct communication between drivers and customers through our in-app chat feature. This includes:
+                            Dollor AI Service encourages direct communication between drivers and customers through our in-app chat feature. This includes:
 
                             • Coordinating delivery details
                             • Providing delivery updates
@@ -707,7 +718,7 @@ struct FullTermsView: View {
 
                         TermsSection(title: "8. Voice Assistant Feature") {
                             Text("""
-                            DinDin Delivers provides a hands-free voice assistant for driver safety:
+                            Dollor AI Service provides a hands-free voice assistant for driver safety:
 
                             • Accept or decline orders by voice
                             • Get navigation directions
@@ -721,18 +732,18 @@ struct FullTermsView: View {
 
                         TermsSection(title: "9. Tax & Billing Compliance") {
                             Text("""
-                            DinDin Delivers operates in full compliance with federal, state, and local tax regulations:
+                            Dollor AI Service operates in full compliance with federal, state, and local tax regulations:
 
                             Tax Collection & Remittance:
                             • Sales tax is automatically calculated based on pickup location
                             • Tax rates vary by state (0% - 8.875% depending on jurisdiction)
                             • All applicable taxes are collected at checkout
-                            • Taxes are remitted to appropriate authorities by DinDin Delivers
+                            • Taxes are remitted to appropriate authorities by Dollor AI Service
 
                             Driver Tax Obligations:
                             • Drivers are independent contractors (1099 workers)
                             • You are responsible for reporting your earnings to the IRS
-                            • DinDin Delivers will provide Form 1099-NEC for earnings over $600/year
+                            • Dollor AI Service will provide Form 1099-NEC for earnings over $600/year
                             • Keep records of all expenses for potential deductions (mileage, vehicle maintenance, etc.)
 
                             Receipt & Billing:
@@ -749,7 +760,7 @@ struct FullTermsView: View {
 
                         TermsSection(title: "10. Termination") {
                             Text("""
-                            Either party may terminate this agreement at any time. DinDin Delivers may suspend or terminate your account for:
+                            Either party may terminate this agreement at any time. Dollor AI Service may suspend or terminate your account for:
 
                             • Violation of these Terms
                             • Fraudulent activity
@@ -766,12 +777,12 @@ struct FullTermsView: View {
                             Text("""
                             For questions about these Terms, please contact us:
 
-                            Email: support@dindindelivers.com
+                            Email: support@dollor.ai
                             In-App: Settings > Contact Support
-                            Website: www.dindindelivers.com/support
+                            Website: www.dollor.ai/support
 
                             For Tax-Related Inquiries:
-                            Email: tax@dindindelivers.com
+                            Email: tax@dollor.ai
 
                             Effective Date: December 5, 2024
                             Version: 1.1

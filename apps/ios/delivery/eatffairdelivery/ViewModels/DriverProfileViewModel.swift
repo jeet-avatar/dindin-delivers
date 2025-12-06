@@ -109,9 +109,27 @@ class DriverProfileViewModel: ObservableObject {
     // MARK: - Private Properties
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
+    private let p2pService = P2PAPIService.shared
+
+    // Helper to get current driver ID (P2P or Firebase)
+    private var currentDriverId: String? {
+        // Try P2P auth first
+        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            return String(p2pDriverId)
+        }
+        // Fallback to Firebase
+        return Auth.auth().currentUser?.uid
+    }
 
     // MARK: - Fetch Profile
     func fetchProfile() {
+        // First try P2P API
+        if let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            fetchP2PProfile(driverId: driverId)
+            return
+        }
+
+        // Fallback to Firebase
         guard let uid = Auth.auth().currentUser?.uid else {
             errorMessage = "Not logged in"
             showError = true
@@ -138,6 +156,74 @@ class DriverProfileViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Fetch P2P Profile
+    private func fetchP2PProfile(driverId: Int) {
+        isLoading = true
+
+        p2pService.getDriverProfile(driverId: driverId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let driverData):
+                    self?.parseP2PDriverData(driverData)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
+    private func parseP2PDriverData(_ data: [String: Any]) {
+        // Personal Info from P2P response
+        name = data["name"] as? String ?? data["full_name"] as? String ?? ""
+        email = data["email"] as? String ?? ""
+        phone = data["phone"] as? String ?? data["phone_number"] as? String ?? ""
+
+        // Approval status
+        let approvalStatus = data["status"] as? String ?? data["approval_status"] as? String ?? "pending"
+        let isApproved = approvalStatus == "approved" || approvalStatus == "active"
+
+        // Build a basic driver object for P2P data
+        driver = Driver(
+            id: String(data["id"] as? Int ?? 0),
+            name: name,
+            email: email,
+            phone: phone,
+            profileImageUrl: data["profile_image"] as? String,
+            dateOfBirth: nil,
+            address: nil,
+            driversLicense: nil,
+            vehicle: nil,
+            vehicleType: data["vehicle_type"] as? String ?? "Car",
+            licensePlate: data["license_plate"] as? String ?? "",
+            insurance: nil,
+            bankAccount: nil,
+            isOnline: data["is_online"] as? Bool ?? false,
+            isApproved: isApproved,
+            approvalStatus: approvalStatus,
+            currentLatitude: data["latitude"] as? Double ?? 0.0,
+            currentLongitude: data["longitude"] as? Double ?? 0.0,
+            stats: DriverStats(
+                rating: data["rating"] as? Double ?? 5.0,
+                totalDeliveries: data["total_deliveries"] as? Int ?? 0,
+                completedDeliveries: data["completed_deliveries"] as? Int ?? 0,
+                cancelledDeliveries: 0,
+                totalEarnings: data["total_earnings"] as? Double ?? 0.0,
+                totalDistance: 0.0,
+                totalOnlineTime: 0.0,
+                acceptanceRate: 100.0,
+                completionRate: 100.0,
+                onTimeRate: 100.0,
+                weeklyDeliveries: 0,
+                weeklyEarnings: 0.0,
+                weeklyHours: 0.0,
+                weeklyDistance: 0.0
+            )
+        )
     }
 
     private func parseDriverData(_ data: [String: Any]) {
@@ -515,9 +601,22 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Upload Profile Image
     func uploadProfileImage(_ data: Data) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Try P2P upload first if logged in via P2P
+        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            await uploadProfileImageViaP2P(data: data, driverId: p2pDriverId)
+            return
+        }
 
-        isLoading = true
+        // Fallback to Firebase
+        guard let uid = Auth.auth().currentUser?.uid else {
+            await MainActor.run {
+                self.errorMessage = "Not logged in. Please login again."
+                self.showError = true
+            }
+            return
+        }
+
+        await MainActor.run { self.isLoading = true }
 
         let storageRef = storage.reference().child("drivers/\(uid)/profile.jpg")
 
@@ -546,8 +645,49 @@ class DriverProfileViewModel: ObservableObject {
         }
     }
 
+    /// Upload profile image via P2P API
+    private func uploadProfileImageViaP2P(data: Data, driverId: Int) async {
+        await MainActor.run { self.isLoading = true }
+
+        P2PAPIService.shared.uploadDriverDocument(
+            driverId: driverId,
+            documentType: .profilePhoto,
+            imageData: data
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    #if DEBUG
+                    print("[P2P] Profile image upload successful: \(response.message)")
+                    #endif
+
+                    // Update local state with the returned URL
+                    if let fileUrl = response.fileUrl {
+                        self?.driver?.profileImageUrl = fileUrl
+                    }
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                    #if DEBUG
+                    print("[P2P] Profile image upload failed: \(error)")
+                    #endif
+                }
+            }
+        }
+    }
+
     // MARK: - Upload Document
     func uploadDocument(_ data: Data, type: String) async {
+        // Try P2P upload first if logged in via P2P
+        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            await uploadDocumentViaP2P(data: data, type: type, driverId: p2pDriverId)
+            return
+        }
+
+        // Fallback to Firebase
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         isLoading = true
@@ -618,6 +758,82 @@ class DriverProfileViewModel: ObservableObject {
                 self.errorMessage = error.localizedDescription
                 self.showError = true
                 self.isLoading = false
+            }
+        }
+    }
+
+    // MARK: - Upload Document via P2P API (with AI Verification)
+    private func uploadDocumentViaP2P(data: Data, type: String, driverId: Int) async {
+        isLoading = true
+
+        // Map document type to P2P API document type
+        let documentType: DriverDocumentType
+        var expiryDate: Date? = nil
+
+        switch type {
+        case "license_front", "license_back":
+            documentType = .driversLicense
+            expiryDate = self.licenseExpiration
+        case "insurance_card":
+            documentType = .insurance
+            expiryDate = self.insuranceExpiration
+        default:
+            // For vehicle photos, we'll use drivers_license as a placeholder
+            // The backend can handle various document types
+            documentType = .driversLicense
+        }
+
+        P2PAPIService.shared.uploadDriverDocument(
+            driverId: driverId,
+            documentType: documentType,
+            imageData: data,
+            expiryDate: expiryDate
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    #if DEBUG
+                    print("[P2P] Document upload successful: \(response.message)")
+                    print("[P2P] AI Verification Status: \(response.verificationStatus)")
+                    if let verificationId = response.aiVerificationId {
+                        print("[P2P] AI Verification ID: \(verificationId)")
+                    }
+                    #endif
+
+                    // Update local state with the returned URL
+                    if let fileUrl = response.fileUrl {
+                        switch type {
+                        case "license_front":
+                            self?.licenseFrontUrl = fileUrl
+                        case "license_back":
+                            self?.licenseBackUrl = fileUrl
+                        case "vehicle_front":
+                            self?.vehicleFrontUrl = fileUrl
+                        case "vehicle_side":
+                            self?.vehicleSideUrl = fileUrl
+                        case "vehicle_back":
+                            self?.vehicleBackUrl = fileUrl
+                        case "insurance_card":
+                            self?.insuranceCardUrl = fileUrl
+                        default:
+                            break
+                        }
+                    }
+
+                    // If the document was auto-verified, refresh profile to get updated status
+                    if response.verificationStatus == "verified" {
+                        self?.fetchProfile()
+                    }
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                    #if DEBUG
+                    print("[P2P] Document upload failed: \(error)")
+                    #endif
+                }
             }
         }
     }

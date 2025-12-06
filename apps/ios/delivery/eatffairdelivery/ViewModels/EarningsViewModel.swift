@@ -11,33 +11,43 @@ class EarningsViewModel: ObservableObject {
     @Published var todayEarnings: Double = 0.0
     @Published var weekEarnings: Double = 0.0
     @Published var monthEarnings: Double = 0.0
-    
+
     @Published var todayDeliveries: Int = 0
     @Published var weekDeliveries: Int = 0
     @Published var monthDeliveries: Int = 0
-    
+
     @Published var todayHours: Double = 0.0
     @Published var weekHours: Double = 0.0
     @Published var monthHours: Double = 0.0
-    
+
     @Published var dailyEarnings: [DailyEarning] = []
     @Published var isOnline: Bool = false
-    
+
     @Published var todayBreakdown: EarningsBreakdown = EarningsBreakdown()
     @Published var weekBreakdown: EarningsBreakdown = EarningsBreakdown()
     @Published var monthBreakdown: EarningsBreakdown = EarningsBreakdown()
-    
+
     @Published var currentSessionId: String?
     @Published var sessionStartTime: Date?
     @Published var recentTips: [Tip] = []
-    
+
     private var db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
     private var locationManager = CLLocationManager()
     private var tipListener: ListenerRegistration?
-    
+
+    // Helper to get current driver ID (P2P or Firebase)
+    private var currentDriverId: String? {
+        // Try P2P auth first
+        if let p2pDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            return String(p2pDriverId)
+        }
+        // Fallback to Firebase
+        return Auth.auth().currentUser?.uid
+    }
+
     func fetchEarnings() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = currentDriverId else { return }
         
         let now = Date()
         let calendar = Calendar.current
@@ -82,11 +92,13 @@ class EarningsViewModel: ObservableObject {
     private func fetchPeriodEarnings(driverId: String, startTimestamp: Int64, completion: @escaping (Double, Int, EarningsBreakdown) -> Void) {
         db.collection("orders")
             .whereField("driverId", isEqualTo: driverId)
-            .whereField("status", isEqualTo: "Delivered")
+            .whereField("status", isEqualTo: DeliveryOrderStatus.delivered.displayName)
             .whereField("deliveredAt", isGreaterThanOrEqualTo: startTimestamp)
             .getDocuments { snapshot, error in
                 if let error = error {
+                    #if DEBUG
                     print("Error fetching earnings: \(error)")
+                    #endif
                     completion(0.0, 0, EarningsBreakdown())
                     return
                 }
@@ -119,11 +131,13 @@ class EarningsViewModel: ObservableObject {
     private func fetchDailyBreakdown(driverId: String, startTimestamp: Int64) {
         db.collection("orders")
             .whereField("driverId", isEqualTo: driverId)
-            .whereField("status", isEqualTo: "Delivered")
+            .whereField("status", isEqualTo: DeliveryOrderStatus.delivered.displayName)
             .whereField("deliveredAt", isGreaterThanOrEqualTo: startTimestamp)
             .getDocuments { snapshot, error in
                 if let error = error {
+                    #if DEBUG
                     print("Error fetching daily breakdown: \(error)")
+                    #endif
                     return
                 }
                 
@@ -164,7 +178,7 @@ class EarningsViewModel: ObservableObject {
     }
     
     func updateOnlineStatus(_ status: Bool) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = currentDriverId else { return }
         
         let driverData: [String: Any] = [
             "isOnline": status,
@@ -173,7 +187,9 @@ class EarningsViewModel: ObservableObject {
         
         db.collection("drivers").document(uid).setData(driverData, merge: true) { error in
             if let error = error {
+                #if DEBUG
                 print("Error updating online status: \(error)")
+                #endif
             } else {
                 self.isOnline = status
             }
@@ -181,7 +197,7 @@ class EarningsViewModel: ObservableObject {
     }
     
     func fetchOnlineStatus() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = currentDriverId else { return }
         
         db.collection("drivers").document(uid).getDocument { snapshot, error in
             if let data = snapshot?.data() {
@@ -221,7 +237,7 @@ class EarningsViewModel: ObservableObject {
     
     // MARK: - Session Tracking
     func startSession() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = currentDriverId else { return }
         
         locationManager.requestWhenInUseAuthorization()
         
@@ -259,13 +275,15 @@ class EarningsViewModel: ObservableObject {
                 "isOnline": true
             ])
         } catch {
+            #if DEBUG
             print("Error starting session: \(error)")
+            #endif
         }
     }
     
     func endSession() {
         guard let sessionId = currentSessionId,
-              let uid = Auth.auth().currentUser?.uid,
+              let uid = currentDriverId,
               let startTime = sessionStartTime else { return }
         
         let endTime = Date()
@@ -324,7 +342,7 @@ class EarningsViewModel: ObservableObject {
     
     // MARK: - Tip Listening
     func listenForTips() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = currentDriverId else { return }
         
         tipListener = db.collection("tips")
             .whereField("driverId", isEqualTo: uid)

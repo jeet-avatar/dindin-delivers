@@ -315,34 +315,44 @@ struct FilterTab: View {
 // MARK: - AI Suggestion Banner
 struct AISuggestionBanner: View {
     let suggestion: String
+    var onDismiss: (() -> Void)? = nil
+
+    @State private var isVisible = true
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.title3)
-                .foregroundColor(.purple)
+        if isVisible {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.title3)
+                    .foregroundColor(.purple)
 
-            Text(suggestion)
-                .font(.subheadline)
-                .foregroundColor(.primary)
+                Text(suggestion)
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
 
-            Spacer()
+                Spacer()
 
-            Button(action: {}) {
-                Image(systemName: "xmark")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Button(action: {
+                    withAnimation {
+                        isVisible = false
+                    }
+                    onDismiss?()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-        }
-        .padding()
-        .background(
-            LinearGradient(
-                colors: [Color.purple.opacity(0.1), Color.blue.opacity(0.1)],
-                startPoint: .leading,
-                endPoint: .trailing
+            .padding()
+            .background(
+                LinearGradient(
+                    colors: [Color.purple.opacity(0.1), Color.blue.opacity(0.1)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             )
-        )
-        .cornerRadius(12)
+            .cornerRadius(12)
+        }
     }
 }
 
@@ -611,7 +621,17 @@ struct OrderDetailSheet: View {
 
                             Spacer()
 
-                            Button(action: {}) {
+                            Button(action: {
+                                if let phone = order.customerPhone {
+                                    let cleanPhone = phone.replacingOccurrences(of: "-", with: "")
+                                        .replacingOccurrences(of: " ", with: "")
+                                        .replacingOccurrences(of: "(", with: "")
+                                        .replacingOccurrences(of: ")", with: "")
+                                    if let url = URL(string: "tel:\(cleanPhone)") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                            }) {
                                 Image(systemName: "phone.fill")
                                     .foregroundColor(.white)
                                     .padding(10)

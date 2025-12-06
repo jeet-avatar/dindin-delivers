@@ -9,6 +9,7 @@ struct HomeView: View {
     @State private var searchText = ""
     @State private var showActiveOrder = true
     @State private var selectedCategory: String?
+    @State private var showNotifications = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -60,6 +61,9 @@ struct HomeView: View {
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerView(viewModel: addressViewModel, isPresented: $showLocationPicker)
         }
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView()
+        }
     }
 
     // MARK: - Header Section
@@ -93,7 +97,7 @@ struct HomeView: View {
                 Spacer()
 
                 // Notification Bell
-                Button(action: {}) {
+                Button(action: { showNotifications = true }) {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: "bell")
                             .font(.title2)

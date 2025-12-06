@@ -3,64 +3,38 @@ import EatFairShared
 
 struct DriverDashboardView: View {
     @StateObject private var deliveryViewModel = DeliveryViewModel()
-    @StateObject private var rideViewModel = RideViewModel()
     @StateObject private var chatManager = ChatManager.shared
     @State private var selectedTab = 0
     @State private var showTerms = false
-    @State private var driverMode: DriverMode = .foodDelivery
 
     var body: some View {
         VStack(spacing: 0) {
-            // Mode Toggle Header
-            DriverModeToggle(selectedMode: $driverMode)
-
-            // Tab View based on mode
+            // Food Delivery App - No mode toggle needed
             TabView(selection: $selectedTab) {
-                if driverMode == .foodDelivery {
-                    // Food Delivery Mode
-                    AvailableOrdersView(viewModel: deliveryViewModel)
-                        .tabItem {
-                            Label("Orders", systemImage: "bag.fill")
-                        }
-                        .tag(0)
-
-                    NavigationView {
-                        PickupDropoffView(viewModel: deliveryViewModel)
-                    }
+                // Available Orders Tab
+                AvailableOrdersView(viewModel: deliveryViewModel)
                     .tabItem {
-                        Label("Active", systemImage: "location.fill")
+                        Label("Orders", systemImage: "bag.fill")
                     }
-                    .tag(1)
+                    .tag(0)
 
-                    MyDeliveriesView(viewModel: deliveryViewModel)
-                        .tabItem {
-                            Label("History", systemImage: "clock.fill")
-                        }
-                        .tag(2)
-                } else {
-                    // Ride-Share Mode
-                    AvailableRidesView(viewModel: rideViewModel)
-                        .tabItem {
-                            Label("Rides", systemImage: "car.fill")
-                        }
-                        .tag(0)
-
-                    NavigationView {
-                        PassengerPickupDropoffView(viewModel: rideViewModel)
-                    }
-                    .tabItem {
-                        Label("Active", systemImage: "location.fill")
-                    }
-                    .tag(1)
-
-                    RideHistoryView(viewModel: rideViewModel)
-                        .tabItem {
-                            Label("History", systemImage: "clock.fill")
-                        }
-                        .tag(2)
+                // Active Delivery Tab
+                NavigationView {
+                    PickupDropoffView(viewModel: deliveryViewModel)
                 }
+                .tabItem {
+                    Label("Active", systemImage: "location.fill")
+                }
+                .tag(1)
 
-                // Common tabs for both modes
+                // Delivery History Tab
+                MyDeliveriesView(viewModel: deliveryViewModel)
+                    .tabItem {
+                        Label("History", systemImage: "clock.fill")
+                    }
+                    .tag(2)
+
+                // Messages Tab
                 ConversationsListView()
                     .tabItem {
                         Label("Messages", systemImage: "message.fill")
@@ -68,27 +42,19 @@ struct DriverDashboardView: View {
                     .tag(3)
                     .badge(chatManager.unreadCount)
 
+                // Profile Tab
                 DriverProfileView()
                     .tabItem {
                         Label("Profile", systemImage: "person.crop.circle.fill")
                     }
                     .tag(4)
             }
-            .accentColor(driverMode == .foodDelivery ? Theme.brandRed : Theme.statusInfo)
+            .accentColor(Theme.brandGreen)
         }
         .onAppear {
             deliveryViewModel.fetchAvailableOrders()
             deliveryViewModel.fetchMyDeliveries()
-            rideViewModel.fetchAvailableRides()
             checkTermsAcceptance()
-        }
-        .onChange(of: driverMode) { _, newMode in
-            selectedTab = 0 // Reset to first tab when mode changes
-            if newMode == .foodDelivery {
-                deliveryViewModel.refreshAllData()
-            } else {
-                rideViewModel.refreshAllData()
-            }
         }
         .sheet(isPresented: $showTerms) {
             TermsAndConditionsView {
@@ -107,48 +73,7 @@ struct DriverDashboardView: View {
     }
 }
 
-// MARK: - Driver Mode Toggle
-struct DriverModeToggle: View {
-    @Binding var selectedMode: DriverMode
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(DriverMode.allCases, id: \.self) { mode in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3)) {
-                        selectedMode = mode
-                    }
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: mode.icon)
-                            .font(.system(size: 16, weight: .semibold))
-                        Text(mode.displayName)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
-                    .foregroundColor(selectedMode == mode ? .white : Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        selectedMode == mode
-                            ? (mode == .foodDelivery ? Theme.brandRed : Theme.statusInfo)
-                            : Color.clear
-                    )
-                    .cornerRadius(10)
-                }
-            }
-        }
-        .padding(4)
-        .background(Theme.lightGrey)
-        .cornerRadius(12)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Theme.cardBackground)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 2)
-    }
-}
-
-// MARK: - Missing Import
+// MARK: - Dashboard Components
 // Note: Make sure EarningsViewModel has listenForTips() called in fetchEarnings() or onAppear
 
 // MARK: - Home Tab (Dashboard Overview)

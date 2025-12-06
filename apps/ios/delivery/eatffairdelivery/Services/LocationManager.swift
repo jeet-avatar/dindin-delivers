@@ -151,9 +151,11 @@ class LocationManager: NSObject, ObservableObject {
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
         ) { result in
+            #if DEBUG
             if case .failure(let error) = result {
                 print("Error updating driver location in P2P: \(error)")
             }
+            #endif
         }
 
         // If there's an active order, update that order's driver location
@@ -177,9 +179,11 @@ class LocationManager: NSObject, ObservableObject {
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
         ) { result in
+            #if DEBUG
             if case .failure(let error) = result {
                 print("Error updating order location in P2P: \(error)")
             }
+            #endif
         }
     }
 
@@ -229,7 +233,9 @@ extension LocationManager: CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationError = error.localizedDescription
+        #if DEBUG
         print("Location error: \(error)")
+        #endif
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

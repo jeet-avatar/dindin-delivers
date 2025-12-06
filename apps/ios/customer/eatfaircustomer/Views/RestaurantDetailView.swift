@@ -11,6 +11,8 @@ struct RestaurantDetailView: View {
     @State private var selectedItem: MenuItem? = nil
     @State private var showMultiRestaurantAlert = false
     @State private var showCartFull = false
+    @State private var showMenuSearch = false
+    @State private var menuSearchText = ""
     
     /*
     // Mock Menu Items for now
@@ -38,7 +40,7 @@ struct RestaurantDetailView: View {
                                 .background(Circle().fill(Theme.brandBlack.opacity(0.5)))
                         }
                         Spacer()
-                        Button(action: {}) {
+                        Button(action: { showMenuSearch = true }) {
                             Image(systemName: "magnifyingglass")
                                 .font(.title2)
                                 .foregroundColor(.white)
@@ -212,6 +214,106 @@ struct RestaurantDetailView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("You can order from up to 3 restaurants at a time. Remove items from another restaurant to add from here.")
+        }
+        .sheet(isPresented: $showMenuSearch) {
+            MenuSearchSheet(
+                menuItems: menuViewModel.menuItems,
+                searchText: $menuSearchText,
+                onSelectItem: { item in
+                    showMenuSearch = false
+                    selectedItem = item
+                }
+            )
+        }
+    }
+}
+
+// MARK: - Menu Search Sheet
+struct MenuSearchSheet: View {
+    let menuItems: [MenuItem]
+    @Binding var searchText: String
+    let onSelectItem: (MenuItem) -> Void
+    @Environment(\.dismiss) var dismiss
+
+    var filteredItems: [MenuItem] {
+        if searchText.isEmpty {
+            return menuItems
+        }
+        return menuItems.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Search Bar
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+
+                    TextField("Search menu items...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding()
+
+                if filteredItems.isEmpty {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 50))
+                            .foregroundColor(.gray.opacity(0.5))
+                        Text("No items found")
+                            .font(.headline)
+                        Text("Try a different search term")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                } else {
+                    List(filteredItems) { item in
+                        Button(action: { onSelectItem(item) }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.name)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Text(item.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                                Spacer()
+                                Text("$\(String(format: "%.2f", item.price))")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Theme.brandGreen)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Search Menu")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 }

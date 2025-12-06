@@ -4,7 +4,10 @@ struct LoginView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var email = ""
     @State private var password = ""
-    
+    @State private var isSignUp = false
+    @State private var fullName = ""
+    @State private var phone = ""
+
     var body: some View {
         ZStack {
             // Background
@@ -15,24 +18,44 @@ struct LoginView: View {
                 
                 // Header
                 VStack(spacing: 10) {
-                    Image(systemName: "fork.knife.circle.fill") // Placeholder Logo
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 80, height: 80)
-                        .foregroundColor(Theme.brandOrange)
-                    
-                    Text("EatFair")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                    ZStack {
+                        Circle()
+                            .fill(Theme.brandGreen.opacity(0.15))
+                            .frame(width: 100, height: 100)
+
+                        Text("$")
+                            .font(.system(size: 50, weight: .bold))
+                            .foregroundColor(Theme.brandGreen)
+                    }
+
+                    Text("Dollor AI Service")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.brandBlack)
-                    
-                    Text("Food Delivery")
+
+                    Text("$ online store")
                         .font(.subheadline)
                         .foregroundColor(Theme.textGrey)
                 }
-                .padding(.bottom, 30)
+                .padding(.bottom, isSignUp ? 15 : 30)
                 
                 // Input Fields
                 VStack(spacing: 15) {
+                    if isSignUp {
+                        TextField("Full Name", text: $fullName)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                            .autocapitalization(.words)
+
+                        TextField("Phone Number", text: $phone)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                            .keyboardType(.phonePad)
+                    }
+
                     TextField("Email", text: $email)
                         .padding()
                         .background(Color.white)
@@ -40,7 +63,7 @@ struct LoginView: View {
                         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                         .autocapitalization(.none)
                         .keyboardType(.emailAddress)
-                    
+
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.white)
@@ -49,18 +72,22 @@ struct LoginView: View {
                 }
                 .padding(.horizontal, 30)
                 
-                // Login Button
+                // Login/Sign Up Button
                 Button(action: {
-                    authViewModel.login(email: email, password: password)
+                    if isSignUp {
+                        authViewModel.register(email: email, password: password, fullName: fullName, phone: phone)
+                    } else {
+                        authViewModel.login(email: email, password: password)
+                    }
                 }) {
-                    Text("Login")
+                    Text(isSignUp ? "Sign Up" : "Login")
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.brandOrange)
+                        .background(Theme.brandGreen)
                         .cornerRadius(12)
-                        .shadow(color: Theme.brandOrange.opacity(0.3), radius: 10, x: 0, y: 5)
+                        .shadow(color: Theme.brandGreen.opacity(0.3), radius: 10, x: 0, y: 5)
                 }
                 .padding(.horizontal, 30)
                 .padding(.top, 10)
@@ -104,12 +131,17 @@ struct LoginView: View {
                 
                 // Footer
                 HStack {
-                    Text("Don't have an account?")
+                    Text(isSignUp ? "Already have an account?" : "Don't have an account?")
                         .foregroundColor(Theme.textGrey)
-                    Button(action: {}) {
-                        Text("Sign Up")
+                    Button(action: {
+                        withAnimation {
+                            isSignUp.toggle()
+                            authViewModel.errorMessage = nil
+                        }
+                    }) {
+                        Text(isSignUp ? "Login" : "Sign Up")
                             .fontWeight(.bold)
-                            .foregroundColor(Theme.brandOrange)
+                            .foregroundColor(Theme.brandGreen)
                     }
                 }
                 .padding(.bottom, 30)

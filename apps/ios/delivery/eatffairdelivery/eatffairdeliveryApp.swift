@@ -43,9 +43,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         // Request authorization
         NotificationManager.shared.requestAuthorization { granted in
+            #if DEBUG
             if granted {
                 print("DeliveryApp: Push notification authorization granted")
             }
+            #endif
         }
     }
 
@@ -54,13 +56,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
+        #if DEBUG
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         print("DeliveryApp: APNs token received: \(tokenString.prefix(20))...")
+        #endif
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if DEBUG
         print("DeliveryApp: Failed to register for remote notifications: \(error.localizedDescription)")
+        #endif
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -69,8 +75,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        #if DEBUG
         let userInfo = notification.request.content.userInfo
         print("DeliveryApp: Received notification in foreground: \(userInfo)")
+        #endif
 
         // Show banner and play sound even when app is in foreground
         // Delivery app should always show new order notifications prominently
@@ -82,7 +90,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
+        #if DEBUG
         print("DeliveryApp: User tapped notification: \(userInfo)")
+        #endif
 
         // Handle notification action based on type
         if let payload = NotificationPayload(from: userInfo) {
@@ -96,7 +106,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
+        #if DEBUG
         print("DeliveryApp: FCM registration token: \(token.prefix(20))...")
+        #endif
         NotificationManager.shared.updateFCMToken(token)
 
         // Save token to P2P backend
@@ -137,10 +149,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     private func saveFCMTokenToP2P(_ token: String) {
         // Save FCM token to P2P driver endpoint
-        guard let driverId = UserDefaults.standard.object(forKey: "p2p_driver_id") as? Int else { return }
+        guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else { return }
 
-        // TODO: Add P2P endpoint to save FCM token
-        print("DeliveryApp: Would save FCM token for driver \(driverId)")
+        P2PAPIService.shared.saveDriverFCMToken(driverId: driverId, fcmToken: token) { result in
+            #if DEBUG
+            switch result {
+            case .success:
+                print("DeliveryApp: FCM token saved for driver \(driverId)")
+            case .failure(let error):
+                print("DeliveryApp: Failed to save FCM token: \(error.localizedDescription)")
+            }
+            #endif
+        }
     }
 }
 

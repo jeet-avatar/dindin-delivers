@@ -10,6 +10,25 @@ import CoreData
 struct PersistenceController {
     static let shared = PersistenceController()
 
+    /// Error types for persistence operations
+    enum PersistenceError: Error {
+        case saveFailed(Error)
+        case loadFailed(Error)
+
+        var localizedDescription: String {
+            switch self {
+            case .saveFailed(let error):
+                return "Failed to save data: \(error.localizedDescription)"
+            case .loadFailed(let error):
+                return "Failed to load data: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Flag to track if store loaded successfully
+    private(set) var storeLoaded = false
+    private(set) var loadError: Error?
+
     @MainActor
     static let preview: PersistenceController = {
         let result = PersistenceController(inMemory: true)
@@ -21,10 +40,10 @@ struct PersistenceController {
         do {
             try viewContext.save()
         } catch {
-            // Replace this implementation with code to handle the error appropriately.
-            // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-            let nsError = error as NSError
-            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            // Log error but don't crash in preview
+            #if DEBUG
+            print("Preview persistence error: \(error.localizedDescription)")
+            #endif
         }
         return result
     }()
@@ -36,22 +55,38 @@ struct PersistenceController {
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
+        container.loadPersistentStores { (storeDescription, error) in
             if let error = error as NSError? {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+                // Log the error for debugging
+                #if DEBUG
+                print("CoreData Error: \(error.localizedDescription)")
+                print("Error details: \(error.userInfo)")
+                #endif
 
-                /*
-                 Typical reasons for an error here include:
-                 * The parent directory does not exist, cannot be created, or disallows writing.
-                 * The persistent store is not accessible, due to permissions or data protection when the device is locked.
-                 * The device is out of space.
-                 * The store could not be migrated to the current model version.
-                 Check the error message to determine what the actual problem was.
-                 */
-                fatalError("Unresolved error \(error), \(error.userInfo)")
+                // In production, we handle this gracefully instead of crashing
+                // The app can still function with limited persistence
+                // Possible causes:
+                // - Parent directory doesn't exist or can't be created
+                // - Persistent store not accessible (permissions/data protection)
+                // - Device out of space
+                // - Store migration failed
             }
-        })
+        }
         container.viewContext.automaticallyMergesChangesFromParent = true
+    }
+
+    /// Safe save method that doesn't crash
+    func save() throws {
+        let context = container.viewContext
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                #if DEBUG
+                print("CoreData save error: \(error.localizedDescription)")
+                #endif
+                throw PersistenceError.saveFailed(error)
+            }
+        }
     }
 }

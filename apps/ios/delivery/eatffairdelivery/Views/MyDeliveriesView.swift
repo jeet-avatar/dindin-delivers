@@ -124,7 +124,7 @@ struct MyDeliveriesView: View {
         ScrollView {
             VStack(spacing: 20) {
                 // Active Delivery Hero Card (if any)
-                if let activeDelivery = viewModel.myDeliveries.first(where: { $0.status == "Out for Delivery" }) {
+                if let activeDelivery = viewModel.myDeliveries.first(where: { DeliveryOrderStatus.from($0.status) == .outForDelivery }) {
                     ActiveDeliveryHeroCard(
                         order: activeDelivery,
                         locationManager: locationManager,
@@ -140,7 +140,7 @@ struct MyDeliveriesView: View {
                 }
 
                 // Other Deliveries
-                let otherDeliveries = viewModel.myDeliveries.filter { $0.status != "Out for Delivery" }
+                let otherDeliveries = viewModel.myDeliveries.filter { DeliveryOrderStatus.from($0.status) != .outForDelivery }
                 if !otherDeliveries.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Pending Pickups")
@@ -695,14 +695,14 @@ struct TodayStatsSummary: View {
 
                 TodayStatItem(
                     icon: "checkmark.circle.fill",
-                    value: "0",
+                    value: "\(viewModel.todayCompletedCount)",
                     label: "Completed",
                     color: Theme.statusActive
                 )
 
                 TodayStatItem(
                     icon: "dollarsign.circle.fill",
-                    value: "$0.00",
+                    value: String(format: "$%.2f", viewModel.todayEarnings),
                     label: "Earned",
                     color: Theme.brandRed
                 )

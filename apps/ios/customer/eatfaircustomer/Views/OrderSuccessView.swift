@@ -332,7 +332,7 @@ struct OrderSuccessView: View {
             }
 
             // Contact support
-            Button(action: {}) {
+            NavigationLink(destination: HelpSupportView()) {
                 HStack {
                     Image(systemName: "questionmark.circle")
                     Text("Need Help?")
