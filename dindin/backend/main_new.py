@@ -721,6 +721,131 @@ def get_driver_profile(driver_id: int, db: Session = Depends(get_db), current_us
     }
 
 
+class DriverProfileUpdate(BaseModel):
+    """Model for updating driver profile"""
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[str] = None
+
+    # Address fields
+    address_street: Optional[str] = None
+    address_city: Optional[str] = None
+    address_state: Optional[str] = None
+    address_zip: Optional[str] = None
+
+    # License fields
+    license_number: Optional[str] = None
+    license_state: Optional[str] = None
+    license_class: Optional[str] = None
+    license_expiry: Optional[str] = None
+
+    # Vehicle fields
+    vehicle_type: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_year: Optional[int] = None
+    vehicle_color: Optional[str] = None
+    license_plate: Optional[str] = None
+    plate_state: Optional[str] = None
+
+    # Insurance fields
+    insurance_provider: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    insurance_expiry: Optional[str] = None
+
+    # Bank fields
+    bank_name: Optional[str] = None
+    account_holder_name: Optional[str] = None
+    account_type: Optional[str] = None
+    routing_number: Optional[str] = None
+    account_number_last4: Optional[str] = None
+
+    # Preferences
+    notifications_enabled: Optional[bool] = None
+    sound_enabled: Optional[bool] = None
+    accept_cash_orders: Optional[bool] = None
+    max_delivery_distance: Optional[float] = None
+
+
+@app.put("/api/drivers/{driver_id}")
+def update_driver_profile(
+    driver_id: int,
+    profile_update: DriverProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update driver profile information"""
+    from models import Driver
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Check authorization - driver can only update their own profile
+    if current_user.role == UserRole.DRIVER and current_user.driver_id != driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this profile")
+
+    # Update basic info
+    if profile_update.first_name is not None:
+        driver.first_name = profile_update.first_name
+    if profile_update.last_name is not None:
+        driver.last_name = profile_update.last_name
+    if profile_update.phone is not None:
+        driver.phone = profile_update.phone
+
+    # Update vehicle info
+    if profile_update.vehicle_type is not None:
+        driver.vehicle_type = profile_update.vehicle_type
+    if profile_update.vehicle_make is not None:
+        driver.vehicle_make = profile_update.vehicle_make
+    if profile_update.vehicle_model is not None:
+        driver.vehicle_model = profile_update.vehicle_model
+    if profile_update.vehicle_year is not None:
+        driver.vehicle_year = profile_update.vehicle_year
+    if profile_update.vehicle_color is not None:
+        driver.vehicle_color = profile_update.vehicle_color
+    if profile_update.license_plate is not None:
+        driver.license_plate = profile_update.license_plate
+
+    # Update license expiry if provided
+    if profile_update.license_expiry is not None:
+        try:
+            driver.drivers_license_expiry = datetime.fromisoformat(profile_update.license_expiry.replace('Z', '+00:00'))
+        except:
+            pass
+
+    # Update insurance expiry if provided
+    if profile_update.insurance_expiry is not None:
+        try:
+            driver.insurance_expiry = datetime.fromisoformat(profile_update.insurance_expiry.replace('Z', '+00:00'))
+        except:
+            pass
+
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": "Profile updated successfully",
+        "driver": {
+            "id": driver.id,
+            "driver_code": driver.driver_id,
+            "name": f"{driver.first_name} {driver.last_name}",
+            "email": driver.email,
+            "phone": driver.phone,
+            "status": driver.status.value if driver.status else "pending",
+            "vehicle_type": driver.vehicle_type,
+            "vehicle_make": driver.vehicle_make,
+            "vehicle_model": driver.vehicle_model,
+            "vehicle_year": driver.vehicle_year,
+            "vehicle_color": driver.vehicle_color,
+            "license_plate": driver.license_plate
+        }
+    }
+
+
 @app.get("/api/drivers/{driver_id}/documents")
 def get_driver_documents(
     driver_id: int,

@@ -478,7 +478,18 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Save Profile
     func saveProfile() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Try P2P API first if logged in via P2P
+        if let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int {
+            saveProfileViaP2P(driverId: driverId)
+            return
+        }
+
+        // Fallback to Firebase
+        guard let uid = Auth.auth().currentUser?.uid else {
+            errorMessage = "Not logged in. Please login again."
+            showError = true
+            return
+        }
 
         isLoading = true
 
@@ -594,6 +605,51 @@ class DriverProfileViewModel: ObservableObject {
                 } else {
                     self?.isEditing = false
                     self?.fetchProfile() // Refresh data
+                }
+            }
+        }
+    }
+
+    /// Save profile via P2P API
+    private func saveProfileViaP2P(driverId: Int) {
+        isLoading = true
+
+        // Parse name into first/last name
+        let nameParts = name.split(separator: " ")
+        let firstName = nameParts.first.map(String.init) ?? name
+        let lastName = nameParts.dropFirst().joined(separator: " ")
+
+        p2pService.updateDriverProfile(
+            driverId: driverId,
+            firstName: firstName.isEmpty ? nil : firstName,
+            lastName: lastName.isEmpty ? nil : lastName,
+            phone: phone.isEmpty ? nil : phone,
+            vehicleType: vehicleType.isEmpty ? nil : vehicleType,
+            vehicleMake: vehicleMake.isEmpty ? nil : vehicleMake,
+            vehicleModel: vehicleModel.isEmpty ? nil : vehicleModel,
+            vehicleYear: vehicleYear > 0 ? vehicleYear : nil,
+            vehicleColor: vehicleColor.isEmpty ? nil : vehicleColor,
+            licensePlate: licensePlate.isEmpty ? nil : licensePlate,
+            licenseExpiry: licenseExpiration,
+            insuranceExpiry: insuranceExpiration
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    #if DEBUG
+                    print("[P2P] Profile update successful: \(response)")
+                    #endif
+                    self?.isEditing = false
+                    self?.fetchProfile() // Refresh data
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                    #if DEBUG
+                    print("[P2P] Profile update failed: \(error)")
+                    #endif
                 }
             }
         }
@@ -764,22 +820,29 @@ class DriverProfileViewModel: ObservableObject {
 
     // MARK: - Upload Document via P2P API (with AI Verification)
     private func uploadDocumentViaP2P(data: Data, type: String, driverId: Int) async {
-        isLoading = true
+        await MainActor.run { isLoading = true }
 
         // Map document type to P2P API document type
         let documentType: DriverDocumentType
         var expiryDate: Date? = nil
 
         switch type {
-        case "license_front", "license_back":
-            documentType = .driversLicense
+        case "license_front":
+            documentType = .licenseFront
+            expiryDate = self.licenseExpiration
+        case "license_back":
+            documentType = .licenseBack
             expiryDate = self.licenseExpiration
         case "insurance_card":
-            documentType = .insurance
+            documentType = .insuranceCard
             expiryDate = self.insuranceExpiration
+        case "vehicle_front":
+            documentType = .vehicleFront
+        case "vehicle_side":
+            documentType = .vehicleSide
+        case "vehicle_back":
+            documentType = .vehicleBack
         default:
-            // For vehicle photos, we'll use drivers_license as a placeholder
-            // The backend can handle various document types
             documentType = .driversLicense
         }
 

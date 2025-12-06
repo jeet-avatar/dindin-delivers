@@ -1294,6 +1294,96 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Update Driver Profile
+
+    /// Update driver profile information
+    public func updateDriverProfile(
+        driverId: Int,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        phone: String? = nil,
+        vehicleType: String? = nil,
+        vehicleMake: String? = nil,
+        vehicleModel: String? = nil,
+        vehicleYear: Int? = nil,
+        vehicleColor: String? = nil,
+        licensePlate: String? = nil,
+        licenseExpiry: Date? = nil,
+        insuranceExpiry: Date? = nil,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add auth token
+        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Build request body - only include non-nil values
+        var body: [String: Any] = [:]
+
+        if let firstName = firstName { body["first_name"] = firstName }
+        if let lastName = lastName { body["last_name"] = lastName }
+        if let phone = phone { body["phone"] = phone }
+        if let vehicleType = vehicleType { body["vehicle_type"] = vehicleType }
+        if let vehicleMake = vehicleMake { body["vehicle_make"] = vehicleMake }
+        if let vehicleModel = vehicleModel { body["vehicle_model"] = vehicleModel }
+        if let vehicleYear = vehicleYear { body["vehicle_year"] = vehicleYear }
+        if let vehicleColor = vehicleColor { body["vehicle_color"] = vehicleColor }
+        if let licensePlate = licensePlate { body["license_plate"] = licensePlate }
+
+        if let licenseExpiry = licenseExpiry {
+            let formatter = ISO8601DateFormatter()
+            body["license_expiry"] = formatter.string(from: licenseExpiry)
+        }
+        if let insuranceExpiry = insuranceExpiry {
+            let formatter = ISO8601DateFormatter()
+            body["insurance_expiry"] = formatter.string(from: insuranceExpiry)
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode >= 400 {
+                        if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let detail = errorJson["detail"] as? String {
+                            completion(.failure(P2PAPIError.serverError(detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("HTTP \(httpResponse.statusCode)")))
+                        }
+                        return
+                    }
+                }
+
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Documents APIs
 
     /// Fetch driver documents status
