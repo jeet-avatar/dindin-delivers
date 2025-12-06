@@ -8,6 +8,7 @@ import EatFairShared
 
 // MARK: - Main Profile View
 struct DriverProfileView: View {
+    @EnvironmentObject var authManager: AuthManager
     @StateObject private var viewModel = DriverProfileViewModel()
     @State private var selectedTab = 0
 
@@ -39,6 +40,7 @@ struct DriverProfileView: View {
                         EarningsPaymentSection(viewModel: viewModel)
                     case 3:
                         SettingsSection(viewModel: viewModel)
+                            .environmentObject(authManager)
                     default:
                         PersonalInfoSection(viewModel: viewModel)
                     }
@@ -893,6 +895,7 @@ struct EarningsStat: View {
 // MARK: - Settings Section
 struct SettingsSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
+    @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
 
     var body: some View {
@@ -972,7 +975,7 @@ struct SettingsSection: View {
             .alert("Logout", isPresented: $showLogoutAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Logout", role: .destructive) {
-                    try? Auth.auth().signOut()
+                    performLogout()
                 }
             } message: {
                 Text("Are you sure you want to logout?")
@@ -985,6 +988,21 @@ struct SettingsSection: View {
                 .padding(.top, 8)
         }
         .padding(.bottom, 24)
+    }
+
+    private func performLogout() {
+        // Clear P2P session data first
+        authManager.logout()
+
+        // Also sign out from Firebase if logged in there
+        try? Auth.auth().signOut()
+
+        // Clear any cached data
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverTermsAccepted)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverFCMToken)
+        UserDefaults.standard.synchronize()
+
+        print("Driver logged out successfully")
     }
 }
 

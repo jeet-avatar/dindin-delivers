@@ -2,6 +2,7 @@ import SwiftUI
 import EatFairShared
 
 struct DriverDashboardView: View {
+    @EnvironmentObject var authManager: AuthManager
     @StateObject private var deliveryViewModel = DeliveryViewModel()
     @StateObject private var chatManager = ChatManager.shared
     @State private var selectedTab = 0
@@ -44,6 +45,7 @@ struct DriverDashboardView: View {
 
                 // Profile Tab
                 DriverProfileView()
+                    .environmentObject(authManager)
                     .tabItem {
                         Label("Profile", systemImage: "person.crop.circle.fill")
                     }
