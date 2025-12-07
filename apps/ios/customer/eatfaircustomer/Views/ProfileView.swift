@@ -1,7 +1,9 @@
 import SwiftUI
 import FirebaseAuth
+import EatFairShared
 
 struct ProfileView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var userEmail: String = ""
     @State private var userName: String = "User" // Placeholder
     @State private var showEditProfile = false
@@ -135,12 +137,10 @@ struct ProfileView: View {
                         
                         // Logout Button
                         Button(action: {
+                            // Use the authViewModel to properly logout
+                            authViewModel.logout()
+                            // Also sign out from Firebase
                             try? Auth.auth().signOut()
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                               let window = windowScene.windows.first {
-                                window.rootViewController = UIHostingController(rootView: MainAppView())
-                                window.makeKeyAndVisible()
-                            }
                         }) {
                             Text("Log Out")
                                 .fontWeight(.bold)

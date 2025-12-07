@@ -2861,6 +2861,112 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
 # ============================================================================
 
 
+# ============================================================================
+# CUSTOMER ORDER ENDPOINTS
+# ============================================================================
+
+@app.get("/api/customer/orders")
+def get_customer_orders(request: Request, db: Session = Depends(get_db)):
+    """
+    Get orders for the authenticated customer.
+    Returns orders in format expected by iOS app.
+    """
+    # Get auth token
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        user_type = payload.get("type", "customer")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Get customer from database
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Import Order model
+    from order_flow import Order, OrderStatus
+
+    # Get orders for this customer (by email match)
+    orders = db.query(Order).filter(
+        Order.customer_email == email
+    ).order_by(Order.created_at.desc()).limit(50).all()
+
+    result = []
+    for order in orders:
+        # Parse items from JSON
+        items_data = []
+        if order.items:
+            try:
+                raw_items = json.loads(order.items)
+                for item in raw_items:
+                    items_data.append({
+                        "id": item.get("id", 0),
+                        "menuItemId": item.get("menu_item_id", str(item.get("id", 0))),
+                        "name": item.get("name", "Unknown Item"),
+                        "quantity": item.get("quantity", 1),
+                        "price": item.get("price", 0.0)
+                    })
+            except json.JSONDecodeError:
+                pass
+
+        # Parse delivery address
+        delivery_addr = {"street": "", "city": "", "state": "", "zip": ""}
+        if order.delivery_address:
+            try:
+                addr_data = json.loads(order.delivery_address)
+                delivery_addr = {
+                    "street": addr_data.get("street", ""),
+                    "city": addr_data.get("city", ""),
+                    "state": addr_data.get("state", ""),
+                    "zip": addr_data.get("zip", addr_data.get("zip_code", ""))
+                }
+            except json.JSONDecodeError:
+                pass
+
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        restaurant_info = {
+            "id": str(order.vendor_id) if order.vendor_id else "0",
+            "name": vendor.business_name if vendor else "Restaurant",
+            "imageUrl": "",
+            "address": vendor.address if vendor else "",
+            "latitude": vendor.latitude if vendor else 0.0,
+            "longitude": vendor.longitude if vendor else 0.0
+        }
+
+        result.append({
+            "id": order.id,
+            "orderNumber": order.order_number or f"ORD-{order.id}",
+            "restaurant": restaurant_info,
+            "items": items_data,
+            "subtotal": float(order.subtotal or 0),
+            "tax": float(order.tax_amount or 0),
+            "deliveryFee": float(order.delivery_fee or 0),
+            "tip": float(order.tip or 0),
+            "total": float(order.total_amount or 0),
+            "status": order.status.value if order.status else "Placed",
+            "placedAt": int(order.created_at.timestamp() * 1000) if order.created_at else 0,
+            "deliveryAddress": delivery_addr,
+            "paymentMethod": order.payment_method or "card"
+        })
+
+    return result  # Return array directly as iOS expects
+
+
+# ============================================================================
+# END CUSTOMER ORDER ENDPOINTS
+# ============================================================================
+
+
 @app.post("/api/auth/driver/refresh")
 def refresh_driver_token(request: Request, db: Session = Depends(get_db)):
     """

@@ -3,6 +3,29 @@ import StripePaymentSheet
 import Stripe
 import EatFairShared
 
+// MARK: - Fee Calculation Model (outside class for Swift 6 compatibility)
+struct ACHFeeCalculation: Decodable, Sendable {
+    let amount: Int
+    let currency: String
+    let collection: CollectionFees
+
+    struct CollectionFees: Decodable, Sendable {
+        let method: String
+        let fee: Double
+        let feePercentage: String
+        let customerDiscount: Double
+        let savingsVsCard: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case method
+            case fee
+            case feePercentage = "fee_percentage"
+            case customerDiscount = "customer_discount"
+            case savingsVsCard = "savings_vs_card"
+        }
+    }
+}
+
 /// ACH Payment Service for bank transfer payments
 /// Lower fees than card payments with customer discount
 class ACHPaymentService {
@@ -38,27 +61,6 @@ class ACHPaymentService {
         }
     }
 
-    struct FeeCalculation: Decodable {
-        let amount: Int
-        let currency: String
-        let collection: CollectionFees
-
-        struct CollectionFees: Decodable {
-            let method: String
-            let fee: Double
-            let feePercentage: String
-            let customerDiscount: Double
-            let savingsVsCard: Double?
-
-            enum CodingKeys: String, CodingKey {
-                case method
-                case fee
-                case feePercentage = "fee_percentage"
-                case customerDiscount = "customer_discount"
-                case savingsVsCard = "savings_vs_card"
-            }
-        }
-    }
 
     // MARK: - Calculate Fees
 
@@ -94,7 +96,7 @@ class ACHPaymentService {
                 return
             }
             if let data = data,
-               let response = try? JSONDecoder().decode(FeeCalculation.self, from: data) {
+               let response = try? JSONDecoder().decode(ACHFeeCalculation.self, from: data) {
                 cardFee = response.collection.fee
             }
         }.resume()
@@ -113,7 +115,7 @@ class ACHPaymentService {
                 return
             }
             if let data = data,
-               let response = try? JSONDecoder().decode(FeeCalculation.self, from: data) {
+               let response = try? JSONDecoder().decode(ACHFeeCalculation.self, from: data) {
                 achFee = response.collection.fee
                 customerDiscount = response.collection.customerDiscount
                 savings = response.collection.savingsVsCard ?? 0
@@ -236,7 +238,14 @@ class ACHPaymentService {
 
                 // Present the sheet
                 DispatchQueue.main.async {
-                    if let vc = viewController ?? UIApplication.shared.keyWindow?.rootViewController {
+                    let presentingVC: UIViewController? = viewController ?? {
+                        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+                            return nil
+                        }
+                        return window.rootViewController
+                    }()
+                    if let vc = presentingVC {
                         self?.paymentSheet?.present(from: vc) { paymentResult in
                             switch paymentResult {
                             case .completed:

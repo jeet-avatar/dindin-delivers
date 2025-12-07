@@ -1,6 +1,5 @@
 import SwiftUI
 import Combine
-import FirebaseFirestore
 import EatFairShared
 
 struct MainAppView: View {
@@ -156,6 +155,8 @@ struct MainAppView: View {
 
 // MARK: - Search Restaurants View (New)
 struct SearchRestaurantsView: View {
+    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
+    @EnvironmentObject var cartViewModel: CartViewModel
     @State private var searchText = ""
     @State private var selectedCuisine: String?
     @State private var sortOption: SortOption = .recommended
@@ -387,23 +388,31 @@ struct RestaurantSearchCard: View {
 
 // MARK: - Search ViewModel
 class SearchViewModel: ObservableObject {
-    @Published var restaurants: [Restaurant] = []
+    @Published var p2pRestaurants: [P2PRestaurant] = []
     @Published var isLoading = false
     @Published var showAIRecommendations = false
     @Published var aiRecommendation: String = ""
 
+    private let p2pService = P2PAPIService.shared
+
+    // Convert P2P restaurants to standard Restaurant type
+    var restaurants: [Restaurant] {
+        p2pRestaurants.map { $0.toRestaurant() }
+    }
+
     func fetchRestaurants() {
         isLoading = true
 
-        let db = FirebaseFirestore.Firestore.firestore()
-        db.collection("restaurants").getDocuments { [weak self] snapshot, error in
+        // Fetch from P2P backend (same as HomeView)
+        p2pService.fetchRestaurants { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-
-                if let documents = snapshot?.documents {
-                    self?.restaurants = documents.compactMap { doc in
-                        try? doc.data(as: Restaurant.self)
-                    }
+                switch result {
+                case .success(let restaurants):
+                    self?.p2pRestaurants = restaurants
+                case .failure(let error):
+                    print("SearchViewModel: Failed to fetch restaurants: \(error)")
+                    self?.p2pRestaurants = []
                 }
             }
         }
@@ -570,26 +579,29 @@ struct AIRecommendationsSheet: View {
     func generateRecommendations() {
         isGenerating = true
 
-        // Simulate AI processing (in production, this would call your AI backend)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            // Generate mock recommendations based on preferences
-            recommendations = [
-                AIRecommendation(
-                    restaurantName: "Spice Garden",
-                    reason: "Authentic Indian cuisine with excellent spice options matching your preference",
-                    matchScore: 95
-                ),
-                AIRecommendation(
-                    restaurantName: "Thai Orchid",
-                    reason: "Known for bold flavors and customizable heat levels",
-                    matchScore: 88
-                ),
-                AIRecommendation(
-                    restaurantName: "Sichuan Palace",
-                    reason: "Specializes in numbing spicy dishes from Sichuan province",
-                    matchScore: 82
-                )
-            ]
+        // Generate recommendations based on actual restaurants from the viewModel
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            // Use real restaurants from the search results
+            let availableRestaurants = viewModel.restaurants
+
+            if availableRestaurants.isEmpty {
+                // No restaurants available
+                recommendations = []
+            } else {
+                // Create recommendations from real restaurants
+                recommendations = availableRestaurants.prefix(3).enumerated().map { index, restaurant in
+                    let reasons = [
+                        "Highly rated with excellent reviews matching your preferences",
+                        "Popular choice with fast delivery and great value",
+                        "Great selection of dishes that match what you're looking for"
+                    ]
+                    return AIRecommendation(
+                        restaurantName: restaurant.name,
+                        reason: reasons[index % reasons.count],
+                        matchScore: max(75, 95 - (index * 8))
+                    )
+                }
+            }
             isGenerating = false
         }
     }
