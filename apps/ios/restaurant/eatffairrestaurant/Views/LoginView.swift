@@ -452,7 +452,7 @@ struct ForgotPasswordView: View {
         errorMessage = ""
 
         // Use P2P backend for password reset
-        p2pAPI.requestPasswordReset(email: email) { result in
+        p2pAPI.requestPasswordReset(email: email) { (result: Result<P2PPasswordResetResponse, Error>) in
             DispatchQueue.main.async {
                 isLoading = false
                 switch result {

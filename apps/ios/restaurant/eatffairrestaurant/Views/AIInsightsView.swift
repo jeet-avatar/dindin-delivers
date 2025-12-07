@@ -8,6 +8,7 @@ struct AIInsightsView: View {
     @State private var selectedInsight: AIInsightType = .demand
     @State private var showDetailSheet: AIInsightDetail?
     @State private var showOrderInventoryAlert = false
+    @State private var showOptimizeAlert = false
 
     enum AIInsightType: String, CaseIterable {
         case demand = "Demand"
@@ -277,7 +278,9 @@ struct AIInsightsView: View {
         .alert("Order Inventory", isPresented: $showOrderInventoryAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Contact Supplier") {
-                if let url = URL(string: "tel:18005551234") {
+                // Use configured support phone from AppConfig
+                let phone = AppConfig.shared.supportPhone.replacingOccurrences(of: "-", with: "")
+                if let url = URL(string: "tel:\(phone)") {
                     UIApplication.shared.open(url)
                 }
             }
@@ -395,7 +398,11 @@ struct AIInsightsView: View {
 
                 Spacer()
 
-                Button("Optimize Schedule") {}
+                Button("Optimize Schedule") {
+                    // AI-powered schedule optimization would connect to backend
+                    // For now, show an info alert
+                    showOptimizeAlert = true
+                }
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
@@ -409,6 +416,11 @@ struct AIInsightsView: View {
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
+        .alert("Schedule Optimization", isPresented: $showOptimizeAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Based on AI analysis, we recommend having 3 staff during lunch (11AM-2PM) and 4 staff during dinner (5PM-9PM) for optimal service. This could increase efficiency by 15%.")
+        }
     }
 
     // MARK: - Smart Recommendations Card

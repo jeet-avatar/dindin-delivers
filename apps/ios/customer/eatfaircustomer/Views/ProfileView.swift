@@ -4,7 +4,12 @@ import FirebaseAuth
 struct ProfileView: View {
     @State private var userEmail: String = ""
     @State private var userName: String = "User" // Placeholder
-    
+    @State private var showEditProfile = false
+    @State private var showLanguageSheet = false
+    @State private var selectedLanguage = "English"
+
+    private let availableLanguages = ["English", "Spanish", "French", "Chinese", "Hindi"]
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -23,15 +28,17 @@ struct ProfileView: View {
                                     .font(.system(size: 40, weight: .bold))
                                     .foregroundColor(.white)
                                 
-                                // Edit Badge
+                                // Edit Badge - Tappable
                                 VStack {
                                     Spacer()
                                     HStack {
                                         Spacer()
-                                        Image(systemName: "pencil.circle.fill")
-                                            .foregroundColor(Theme.brandOrange)
-                                            .font(.title)
-                                            .background(Color.white.clipShape(Circle()))
+                                        Button(action: { showEditProfile = true }) {
+                                            Image(systemName: "pencil.circle.fill")
+                                                .foregroundColor(Theme.brandOrange)
+                                                .font(.title)
+                                                .background(Color.white.clipShape(Circle()))
+                                        }
                                     }
                                 }
                                 .frame(width: 100, height: 100)
@@ -92,7 +99,29 @@ struct ProfileView: View {
                                     ProfileOptionRow(icon: "bell.fill", title: "Notifications")
                                 }
                                 Divider()
-                                ProfileOptionRow(icon: "globe", title: "Language") // Keep as placeholder or add view
+                                Button(action: { showLanguageSheet = true }) {
+                                    HStack {
+                                        Image(systemName: "globe")
+                                            .foregroundColor(Theme.brandOrange)
+                                            .font(.title3)
+                                            .frame(width: 30)
+
+                                        Text("Language")
+                                            .font(.body)
+                                            .foregroundColor(Theme.brandBlack)
+
+                                        Spacer()
+
+                                        Text(selectedLanguage)
+                                            .font(.subheadline)
+                                            .foregroundColor(.gray)
+
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.gray)
+                                            .font(.caption)
+                                    }
+                                    .padding()
+                                }
                                 Divider()
                                 NavigationLink(destination: HelpSupportView()) {
                                     ProfileOptionRow(icon: "questionmark.circle.fill", title: "Help & Support")
@@ -134,6 +163,107 @@ struct ProfileView: View {
                 if let user = Auth.auth().currentUser {
                     self.userEmail = user.email ?? "No Email"
                     self.userName = user.displayName ?? "User"
+                }
+            }
+            .sheet(isPresented: $showEditProfile) {
+                EditProfileView(userName: $userName, userEmail: $userEmail)
+            }
+            .sheet(isPresented: $showLanguageSheet) {
+                LanguageSelectionSheet(selectedLanguage: $selectedLanguage, languages: availableLanguages)
+            }
+        }
+    }
+}
+
+// MARK: - Edit Profile View
+struct EditProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var userName: String
+    @Binding var userEmail: String
+    @State private var editedName: String = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Profile Information") {
+                    TextField("Name", text: $editedName)
+                        .textContentType(.name)
+
+                    HStack {
+                        Text("Email")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(userEmail)
+                            .foregroundColor(.gray)
+                    }
+                }
+
+                Section {
+                    Text("Your email cannot be changed. Contact support if you need to update it.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Edit Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        isSaving = true
+                        // Update Firebase profile
+                        let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
+                        changeRequest?.displayName = editedName
+                        changeRequest?.commitChanges { error in
+                            isSaving = false
+                            if error == nil {
+                                userName = editedName
+                                dismiss()
+                            }
+                        }
+                    }
+                    .disabled(editedName.isEmpty || isSaving)
+                }
+            }
+            .onAppear {
+                editedName = userName
+            }
+        }
+    }
+}
+
+// MARK: - Language Selection Sheet
+struct LanguageSelectionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedLanguage: String
+    let languages: [String]
+
+    var body: some View {
+        NavigationView {
+            List(languages, id: \.self) { language in
+                Button(action: {
+                    selectedLanguage = language
+                    dismiss()
+                }) {
+                    HStack {
+                        Text(language)
+                            .foregroundColor(Theme.brandBlack)
+                        Spacer()
+                        if language == selectedLanguage {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(Theme.brandOrange)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select Language")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
                 }
             }
         }

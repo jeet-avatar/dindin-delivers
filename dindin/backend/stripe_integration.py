@@ -616,3 +616,96 @@ def get_vendor_payouts(
         "coupa_status": payout.coupa_status,
         "created_at": payout.created_at
     } for payout in payouts]
+
+
+# ===================== PAYMENT SHEET ENDPOINT (iOS App) =====================
+
+class CreatePaymentIntentRequest(BaseModel):
+    """Request model for creating a PaymentIntent for iOS PaymentSheet"""
+    amount: int  # Amount in cents
+    currency: str = "usd"
+    order_id: Optional[str] = None
+    customer_email: Optional[str] = None
+
+class PaymentSheetKeysResponse(BaseModel):
+    """Response model matching iOS PaymentSheetKeys struct"""
+    paymentIntent: str
+    ephemeralKey: str
+    customer: str
+    publishableKey: str
+
+@router.post("/payments/create-intent", response_model=PaymentSheetKeysResponse)
+async def create_payment_intent_for_sheet(
+    request: CreatePaymentIntentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Create PaymentIntent for iOS PaymentSheet
+
+    This endpoint creates:
+    1. A Stripe Customer (or retrieves existing)
+    2. An Ephemeral Key for the customer
+    3. A PaymentIntent with the specified amount
+
+    Returns all keys needed for iOS PaymentSheet configuration.
+
+    Example usage:
+        POST /api/payments/create-intent
+        {"amount": 2500, "currency": "usd"}
+
+    Returns:
+        {
+            "paymentIntent": "pi_xxx_secret_xxx",
+            "ephemeralKey": "ek_xxx",
+            "customer": "cus_xxx",
+            "publishableKey": "pk_live_xxx"
+        }
+    """
+    try:
+        # Get or create Stripe customer
+        # In production, you'd look up by user ID from auth token
+        customer_email = request.customer_email or "customer@dollor.ai"
+
+        # Search for existing customer by email
+        existing_customers = stripe.Customer.list(email=customer_email, limit=1)
+
+        if existing_customers.data:
+            customer = existing_customers.data[0]
+        else:
+            customer = stripe.Customer.create(
+                email=customer_email,
+                metadata={"source": "dollor_ios_app"}
+            )
+
+        # Create ephemeral key for the customer (required for PaymentSheet)
+        ephemeral_key = stripe.EphemeralKey.create(
+            customer=customer.id,
+            stripe_version="2023-10-16"  # Use latest stable API version
+        )
+
+        # Create PaymentIntent
+        payment_intent = stripe.PaymentIntent.create(
+            amount=request.amount,
+            currency=request.currency,
+            customer=customer.id,
+            automatic_payment_methods={"enabled": True},
+            metadata={
+                "order_id": request.order_id or "",
+                "source": "ios_payment_sheet"
+            }
+        )
+
+        # Get publishable key from environment
+        publishable_key = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_key_here")
+
+        return PaymentSheetKeysResponse(
+            paymentIntent=payment_intent.client_secret,
+            ephemeralKey=ephemeral_key.secret,
+            customer=customer.id,
+            publishableKey=publishable_key
+        )
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment initialization failed: {str(e)}")

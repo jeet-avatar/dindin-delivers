@@ -414,14 +414,14 @@ public struct MultiRestaurantOrder: Identifiable, Codable {
         self.allItems = itemsByRestaurant.values.flatMap { $0 }
         self.totalItemsCount = allItems.reduce(0) { $0 + $1.quantity }
 
-        // Calculate pricing
+        // Calculate pricing using centralized config
         self.subtotal = allItems.reduce(0) { $0 + ($1.price * Double($1.quantity)) }
-        self.platformFee = Double(restaurants.count) * 1.0 // $1 per restaurant
-        self.deliveryFee = 5.0 + Double(max(0, restaurants.count - 1)) * 2.0 // Base + $2 per extra stop
-        self.driverBonus = restaurants.count > 1 ? Double(restaurants.count - 1) * 2.0 : 0.0 // Bonus for multi-stop
+        self.platformFee = Double(restaurants.count) * AppConfig.shared.platformFeePerRestaurant // $1 per restaurant (from AppConfig)
+        self.deliveryFee = AppConfig.shared.baseDeliveryFee + Double(max(0, restaurants.count - 1)) * AppConfig.shared.extraStopFee // Base + $2 per extra stop
+        self.driverBonus = restaurants.count > 1 ? Double(restaurants.count - 1) * AppConfig.shared.extraStopFee : 0.0 // Bonus for multi-stop
         self.serviceFee = 0.0
-        self.tax = subtotal * 0.10 // 10% tax
-        self.taxRate = 10.0
+        self.tax = subtotal * AppConfig.shared.taxRate // Tax rate from AppConfig (e.g., 0.08 = 8%)
+        self.taxRate = AppConfig.shared.taxRate * 100 // Convert decimal to percentage for display
 
         self.promotionCodes = nil
         self.discounts = nil
@@ -447,16 +447,17 @@ public struct MultiRestaurantOrder: Identifiable, Codable {
         self.isTipped = false
     }
 
-    /// Recalculates all pricing fields
+    /// Recalculates all pricing fields using centralized config
     public mutating func recalculatePricing() {
         self.allItems = itemsByRestaurant.values.flatMap { $0 }
         self.totalItemsCount = allItems.reduce(0) { $0 + $1.quantity }
         self.subtotal = allItems.reduce(0) { $0 + ($1.price * Double($1.quantity)) }
-        self.platformFee = Double(restaurants.count) * 1.0
-        self.deliveryFee = 5.0 + Double(max(0, restaurants.count - 1)) * 2.0
-        self.driverBonus = restaurants.count > 1 ? Double(restaurants.count - 1) * 2.0 : 0.0
-        self.tax = subtotal * (taxRate / 100.0)
-        self.suggestedTip = subtotal * 0.20
+        self.platformFee = Double(restaurants.count) * AppConfig.shared.platformFeePerRestaurant
+        self.deliveryFee = AppConfig.shared.baseDeliveryFee + Double(max(0, restaurants.count - 1)) * AppConfig.shared.extraStopFee
+        self.driverBonus = restaurants.count > 1 ? Double(restaurants.count - 1) * AppConfig.shared.extraStopFee : 0.0
+        self.tax = subtotal * AppConfig.shared.taxRate
+        self.taxRate = AppConfig.shared.taxRate * 100
+        self.suggestedTip = subtotal * AppConfig.shared.defaultTipRate
         self.total = subtotal + platformFee + deliveryFee + serviceFee + tax + tip - totalDiscount
         self.isHighTicket = restaurants.count > 1
     }

@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_
 from datetime import datetime, timedelta, date
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
+import secrets
 from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
@@ -19,44 +20,54 @@ from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, Invoic
 
 load_dotenv()
 
-app = FastAPI(title="Invoice Management System")
+# ===================== SECURITY CONFIGURATION =====================
+# CRITICAL: These values MUST be set via environment variables in production
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
-# CORS - Allow dollor.ai, vibingticket.ai, and local development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:5177",
-        "http://localhost:5178",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://dollor.ai",
-        "https://dollor.ai",
-        "http://www.dollor.ai",
-        "https://www.dollor.ai",
-        "http://api.dollor.ai",
-        "https://api.dollor.ai",
-        "http://vibingticket.com",
-        "https://vibingticket.com",
-        "http://www.vibingticket.com",
-        "https://www.vibingticket.com",
-        "https://d3pus2gxlb5cer.cloudfront.net",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Validate critical security settings in production
+if IS_PRODUCTION:
+    jwt_secret = os.getenv("JWT_SECRET_KEY", "")
+    if not jwt_secret or len(jwt_secret) < 32 or jwt_secret == "your-secret-key-change-in-production":
+        raise RuntimeError(
+            "CRITICAL: JWT_SECRET_KEY must be set to a secure random value (min 32 chars) in production! "
+            "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
+
+app = FastAPI(
+    title="Dollor.ai API",
+    description="Enterprise Food Delivery & Rideshare Platform",
+    version="2.0.0",
+    docs_url="/docs" if not IS_PRODUCTION else None,  # Disable docs in production
+    redoc_url="/redoc" if not IS_PRODUCTION else None,
 )
+
+# ===================== SECURITY MIDDLEWARE =====================
+# Add comprehensive security middleware (rate limiting, headers, CORS)
+try:
+    from security_middleware import add_security_middleware
+    add_security_middleware(app)
+except ImportError as e:
+    print(f"[SECURITY WARNING] Security middleware not loaded: {e}")
+    # Fallback to basic CORS if security middleware not available
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://dollor.ai", "https://www.dollor.ai"] if IS_PRODUCTION else ["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# CRITICAL: Use cryptographically secure secret key
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(64) if not IS_PRODUCTION else "")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+# Reduced token expiration for security (was 24 hours, now 1 hour for access tokens)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))  # 1 hour default
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))  # 7 days for refresh
 
 # Email Configuration - AWS SES
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
@@ -1022,6 +1033,122 @@ async def send_ride_completed_email(
     return await send_email(customer_email, subject, html_content)
 
 
+async def send_ride_cancelled_email(
+    customer_email: str,
+    customer_name: str,
+    ride_id: str,
+    pickup_address: str,
+    dropoff_address: str,
+    cancellation_fee: float = 0,
+    refund_amount: float = 0,
+    reason: str = ""
+):
+    """
+    Rideshare Email 5: Ride Cancelled - Government-compliant cancellation notice
+    Sent when a ride is cancelled with fee/refund details
+    """
+    from datetime import datetime
+
+    cancelled_at = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+
+    subject = f"Ride Cancelled - {ride_id}"
+
+    fee_section = ""
+    if cancellation_fee > 0:
+        fee_section = f"""
+        <div class="warning-box">
+            <strong>Cancellation Fee: ${cancellation_fee:.2f}</strong><br>
+            A cancellation fee has been charged because the driver was already en route.
+        </div>
+        """
+    elif refund_amount > 0:
+        fee_section = f"""
+        <div class="success-box">
+            <strong>Refund: ${refund_amount:.2f}</strong><br>
+            Your payment has been refunded. Please allow 3-5 business days for processing.
+        </div>
+        """
+    else:
+        fee_section = """
+        <div class="info-box">
+            <strong>No Charge</strong><br>
+            Your ride was cancelled with no fee since the driver had not yet been dispatched.
+        </div>
+        """
+
+    reason_section = ""
+    if reason:
+        reason_section = f"""
+        <div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-radius: 8px;">
+            <strong>Cancellation Reason:</strong><br>
+            {reason}
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>{get_email_styles()}</head>
+    <body>
+        <div class="container">
+            {get_email_header("Ride Cancelled", "#ef4444", "❌")}
+            <div class="content">
+                <h2>Hi {customer_name},</h2>
+                <p>Your ride has been cancelled.</p>
+
+                <div class="ride-details">
+                    <h3>Cancelled Ride Details</h3>
+                    <div style="padding: 15px; background: #fef2f2; border-radius: 8px; margin: 15px 0;">
+                        <div style="margin: 10px 0;">
+                            <span style="color: #666;">Ride ID:</span><br>
+                            <strong>{ride_id}</strong>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <span style="color: #666;">Cancelled At:</span><br>
+                            <strong>{cancelled_at}</strong>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <span style="color: #666;">Pickup:</span><br>
+                            <strong>{pickup_address}</strong>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <span style="color: #666;">Dropoff:</span><br>
+                            <strong>{dropoff_address}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {reason_section}
+
+                {fee_section}
+
+                <div style="margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 10px; border: 1px solid #bfdbfe;">
+                    <h3 style="margin-top: 0;">Cancellation Policy</h3>
+                    <ul style="padding-left: 20px; color: #444;">
+                        <li><strong>Free cancellation:</strong> Within 2 minutes of booking</li>
+                        <li><strong>$5 fee:</strong> After driver has been assigned</li>
+                        <li><strong>$10 fee:</strong> After driver is en route to pickup</li>
+                    </ul>
+                </div>
+
+                <p style="text-align: center; margin-top: 30px;">
+                    <a href="https://dollor.ai/book" class="button button-green">Book Another Ride</a>
+                </p>
+
+                <div class="info-box" style="margin-top: 30px;">
+                    <strong>Need help?</strong><br>
+                    Contact us at support@dollor.ai or visit our Help Center.
+                </div>
+            </div>
+            {get_email_footer()}
+        </div>
+    </body>
+    </html>
+    """
+
+    return await send_email(customer_email, subject, html_content)
+
+
 # ============================================================================
 # DRIVER ONBOARDING EMAIL TEMPLATES
 # ============================================================================
@@ -1697,6 +1824,405 @@ async def startup_event():
 def read_root():
     return {"message": "Invoice Management System API", "version": "1.0.0"}
 
+
+# =============================================================================
+# APP CONFIGURATION ENDPOINT
+# =============================================================================
+# This endpoint provides centralized configuration for all mobile apps
+# All pricing, fees, and settings should come from here - NO HARDCODES in apps!
+
+@app.get("/api/config")
+def get_app_config():
+    """
+    Returns centralized configuration for iOS/Android apps.
+    This ensures all pricing, fees, and settings are consistent across all apps.
+    """
+    return {
+        # Platform fees - $1 + $1 = $2 total platform fee model
+        "serviceFee": 1.00,                    # Customer pays $1 platform fee
+        "restaurantPlatformFee": 1.00,         # Restaurant pays $1 per order
+        "platformFeePerRestaurant": 1.00,      # Same as above (alias)
+
+        # Delivery fees
+        "baseDeliveryFee": 2.99,               # Base delivery fee
+        "deliveryFee": 2.99,                   # Alias
+        "perMileDeliveryFee": 0.50,            # Per mile rate
+        "maxDeliveryFee": 12.99,               # Maximum delivery fee cap
+        "extraStopFee": 2.00,                  # Fee for extra stops
+        "maxDeliveryDistanceMiles": 15.0,      # Max delivery distance
+
+        # Tax (default - actual tax calculated by state)
+        "taxRate": 0.08,                       # 8% default tax rate
+
+        # Rideshare pricing
+        "rideBaseFare": 2.00,                  # Base fare
+        "ridePerMileRate": 1.00,               # Per mile rate
+        "ridePerMinuteRate": 0.15,             # Per minute rate
+        "ridePlatformFee": 1.00,               # $1 platform fee
+        "rideMinFare": 5.00,                   # Minimum fare
+        "rideCancellationFee": 5.00,           # Cancellation fee (base)
+        "rideCancellationFeeDriverEnRoute": 5.00,   # Fee when driver assigned
+        "rideCancellationFeeInProgress": 10.00,     # Fee when ride in progress
+        "rideSurgeEnabled": True,              # Surge pricing enabled
+        "rideMaxSurgeMultiplier": 3.0,         # Maximum surge multiplier
+
+        # Order settings
+        "maxRestaurantsPerOrder": 3,           # Max restaurants per order
+        "smallOrderThreshold": 10.0,           # Small order threshold
+        "smallOrderFee": 2.0,                  # Small order fee
+
+        # Tip settings
+        "defaultTipRate": 0.15,                # 15% default tip
+        "tipOptions": [0, 15, 20, 25],         # Tip percentage options
+
+        # Prep time settings
+        "defaultPrepTimeMinutes": 20,          # Default prep time
+        "maxPrepTimeMinutes": 60,              # Max prep time
+
+        # Distance settings
+        "nearbyDistanceMeters": 3218.69,       # 2 miles in meters
+
+        # Support info
+        "supportUrl": "https://dollor.ai/support",
+        "supportPhone": "+1-800-DOLLOR",
+        "supportEmail": "support@dollor.ai",
+
+        # Legal URLs
+        "termsOfServiceURL": "https://dollor.ai/terms",
+        "privacyPolicyURL": "https://dollor.ai/privacy",
+
+        # Feature flags
+        "isDummyPaymentMode": False,           # Production: real payments
+        "isAIFeaturesEnabled": True,           # AI features enabled
+        "isDynamicPricingEnabled": False,      # Dynamic pricing disabled
+
+        # Version
+        "configVersion": "1.0.0",
+        "minAppVersion": "1.0.0"
+    }
+
+# =============================================================================
+# LEGAL PAGES - Terms of Service and Privacy Policy
+# =============================================================================
+
+TERMS_OF_SERVICE_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service - Dollor AI Service</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; --border-color: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); background-color: var(--bg-color); padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { color: var(--primary-color); font-size: 2rem; margin-bottom: 10px; border-bottom: 3px solid var(--primary-color); padding-bottom: 10px; }
+        h2 { color: var(--primary-color); font-size: 1.4rem; margin-top: 30px; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
+        h3 { color: var(--text-color); font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-bottom: 15px; padding-left: 25px; }
+        li { margin-bottom: 8px; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 30px; }
+        .important { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: #666; font-size: 0.9rem; }
+        a { color: var(--primary-color); }
+        @media (max-width: 600px) { body { padding: 15px; } h1 { font-size: 1.5rem; } h2 { font-size: 1.2rem; } }
+    </style>
+</head>
+<body>
+    <h1>Terms of Service</h1>
+    <p class="meta"><strong>Last Updated:</strong> December 7, 2024 | <strong>Effective Date:</strong> December 7, 2024</p>
+
+    <h2>1. Agreement to Terms</h2>
+    <p>Welcome to Dollor AI Service ("Dollor," "we," "us," or "our"). These Terms of Service ("Terms") govern your access to and use of the Dollor mobile applications, including the Dollor Customer App, Dollor Driver App, and Dollor Restaurant App (collectively, the "Services").</p>
+    <p>By downloading, installing, or using our Services, you agree to be bound by these Terms. If you do not agree to these Terms, do not use our Services.</p>
+    <div class="important">
+        <strong>IMPORTANT:</strong> THESE TERMS CONTAIN AN ARBITRATION AGREEMENT AND CLASS ACTION WAIVER THAT AFFECT YOUR LEGAL RIGHTS. PLEASE READ THEM CAREFULLY.
+    </div>
+
+    <h2>2. Description of Services</h2>
+    <p>Dollor provides a technology platform that connects:</p>
+    <ul>
+        <li><strong>Customers</strong> who wish to order food from local restaurants or request rideshare transportation</li>
+        <li><strong>Restaurants</strong> who wish to offer their food for delivery or pickup</li>
+        <li><strong>Drivers</strong> who wish to provide delivery and rideshare services</li>
+    </ul>
+    <h3>Platform Fee Structure</h3>
+    <ul>
+        <li>Customers pay a platform fee of $1.00 per order/ride</li>
+        <li>Restaurants pay a platform fee of $1.00 per order</li>
+        <li>Drivers receive the fare minus the platform fee</li>
+    </ul>
+
+    <h2>3. Eligibility</h2>
+    <p>To use our Services, you must:</p>
+    <ul>
+        <li>Be at least 18 years of age</li>
+        <li>Have the legal capacity to enter into a binding agreement</li>
+        <li>Not be prohibited from using the Services under applicable law</li>
+        <li>Provide accurate and complete registration information</li>
+    </ul>
+
+    <h2>4. Account Registration and Security</h2>
+    <p>You may register using email and password, Google Sign-In, or Apple Sign-In. You are responsible for maintaining the confidentiality of your account credentials and all activities under your account.</p>
+
+    <h2>5. User Conduct</h2>
+    <p>You agree NOT to:</p>
+    <ul>
+        <li>Use the Services for any illegal purpose</li>
+        <li>Harass, abuse, or harm other users</li>
+        <li>Impersonate any person or entity</li>
+        <li>Interfere with or disrupt the Services</li>
+        <li>Attempt to gain unauthorized access to our systems</li>
+        <li>Engage in discrimination of any kind</li>
+    </ul>
+
+    <h2>6. Payments and Pricing</h2>
+    <p>We accept credit/debit cards (Visa, Mastercard, American Express, Discover) and Apple Pay. Payments are processed by Stripe, Inc. Tips are optional and 100% go directly to drivers.</p>
+
+    <h2>7. Orders and Deliveries</h2>
+    <p>Orders are subject to restaurant acceptance. Estimated delivery times are approximations only. Drivers are independent contractors, not employees.</p>
+
+    <h2>8. Rideshare Services</h2>
+    <p>Initial fares are estimated based on distance and time. Drivers may propose counter-offers. Final fare is agreed upon before ride confirmation.</p>
+
+    <h2>9. Intellectual Property</h2>
+    <p>The Services are owned by Dollor and protected by intellectual property laws. You receive a limited, non-exclusive license for personal use only.</p>
+
+    <h2>10. Privacy</h2>
+    <p>Your privacy is important to us. Please review our <a href="/privacy">Privacy Policy</a> for details on how we collect and use your information.</p>
+
+    <h2>11. Disclaimers</h2>
+    <p>THE SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED. We do not control and are not responsible for food quality, driver conduct, or third-party services.</p>
+
+    <h2>12. Limitation of Liability</h2>
+    <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, DOLLOR SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED $100 OR THE AMOUNT YOU PAID IN THE 12 MONTHS PRECEDING THE CLAIM.</p>
+
+    <h2>13. Dispute Resolution</h2>
+    <p>Any dispute shall be resolved by binding arbitration administered by the American Arbitration Association. YOU AGREE TO RESOLVE DISPUTES ON AN INDIVIDUAL BASIS AND WAIVE THE RIGHT TO PARTICIPATE IN A CLASS ACTION. These Terms are governed by the laws of the State of Delaware.</p>
+
+    <h2>14. Apple-Specific Terms</h2>
+    <p>If you access our Services through an Apple device: These Terms are between you and Dollor only, not Apple Inc. Dollor is solely responsible for maintenance, support, and warranties. Apple and its subsidiaries are third-party beneficiaries of these Terms.</p>
+
+    <h2>15. Driver-Specific Terms</h2>
+    <p>Drivers are independent contractors, not employees. Drivers are responsible for their own taxes, insurance, vehicle maintenance, and compliance with local laws. Drivers must pass background checks and maintain valid auto insurance.</p>
+
+    <h2>16. Restaurant-Specific Terms</h2>
+    <p>Restaurants are responsible for menu accuracy, food safety, and compliance with health regulations. A $1.00 platform fee applies to each completed order.</p>
+
+    <h2>17. Modifications</h2>
+    <p>We may modify these Terms at any time. Material changes will be notified through in-app notifications or email. Continued use constitutes acceptance.</p>
+
+    <h2>18. Contact Information</h2>
+    <p>For questions about these Terms:</p>
+    <ul>
+        <li><strong>Email:</strong> legal@dollor.ai</li>
+        <li><strong>Support:</strong> support@dollor.ai</li>
+        <li><strong>Website:</strong> <a href="https://dollor.ai">https://dollor.ai</a></li>
+    </ul>
+
+    <div class="footer">
+        <p><strong>By using Dollor AI Service, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</strong></p>
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+    </div>
+</body>
+</html>
+"""
+
+PRIVACY_POLICY_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Dollor AI Service</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; --border-color: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); background-color: var(--bg-color); padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { color: var(--primary-color); font-size: 2rem; margin-bottom: 10px; border-bottom: 3px solid var(--primary-color); padding-bottom: 10px; }
+        h2 { color: var(--primary-color); font-size: 1.4rem; margin-top: 30px; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
+        h3 { color: var(--text-color); font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-bottom: 15px; padding-left: 25px; }
+        li { margin-bottom: 8px; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 30px; }
+        .highlight { background-color: #e8f4f8; border-left: 4px solid var(--primary-color); padding: 15px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.95rem; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: 600; }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: #666; font-size: 0.9rem; }
+        a { color: var(--primary-color); }
+        @media (max-width: 600px) { body { padding: 15px; } h1 { font-size: 1.5rem; } h2 { font-size: 1.2rem; } table { font-size: 0.85rem; } th, td { padding: 8px; } }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy</h1>
+    <p class="meta"><strong>Last Updated:</strong> December 7, 2024 | <strong>Effective Date:</strong> December 7, 2024</p>
+
+    <div class="highlight">
+        <p><strong>Your Privacy Matters:</strong> Dollor AI Service is committed to protecting your privacy. This policy explains what data we collect, why we collect it, and how you can control it.</p>
+    </div>
+
+    <h2>1. Information We Collect</h2>
+    <h3>Information You Provide</h3>
+    <table>
+        <tr><th>Category</th><th>Data Types</th></tr>
+        <tr><td>Account Information</td><td>Name, email, phone number, password (encrypted), profile photo</td></tr>
+        <tr><td>Payment Information</td><td>Card details (via Stripe), billing address, transaction history</td></tr>
+        <tr><td>Delivery Information</td><td>Addresses, delivery instructions, saved locations</td></tr>
+        <tr><td>Driver Information</td><td>License, vehicle details, insurance, bank account</td></tr>
+        <tr><td>Restaurant Information</td><td>Business details, menu, operating hours</td></tr>
+    </table>
+
+    <h3>Information Collected Automatically</h3>
+    <ul>
+        <li><strong>Device Information:</strong> Device type, OS version, unique identifiers</li>
+        <li><strong>Location Information:</strong> GPS location (with permission) during active orders/rides</li>
+        <li><strong>Usage Information:</strong> Features used, search queries, order history</li>
+    </ul>
+
+    <h3>Information from Third Parties</h3>
+    <ul>
+        <li><strong>Google Sign-In:</strong> Name, email, profile photo</li>
+        <li><strong>Apple Sign-In:</strong> Name, email (may be anonymized)</li>
+    </ul>
+
+    <h2>2. How We Use Your Information</h2>
+    <ul>
+        <li>Process orders and ride requests</li>
+        <li>Connect customers with restaurants and drivers</li>
+        <li>Calculate fares and process payments</li>
+        <li>Send notifications and updates</li>
+        <li>Verify identity and ensure safety</li>
+        <li>Detect and prevent fraud</li>
+        <li>Improve our services</li>
+    </ul>
+
+    <h2>3. How We Share Your Information</h2>
+    <h3>With Other Users</h3>
+    <table>
+        <tr><th>User Type</th><th>Information Shared</th></tr>
+        <tr><td>Drivers see</td><td>Customer first name, pickup/delivery address, order details</td></tr>
+        <tr><td>Customers see</td><td>Driver first name, photo, vehicle info, real-time location</td></tr>
+        <tr><td>Restaurants see</td><td>Customer first name, delivery address, order details</td></tr>
+    </table>
+
+    <h3>With Service Providers</h3>
+    <table>
+        <tr><th>Provider</th><th>Purpose</th></tr>
+        <tr><td>Stripe</td><td>Payment processing</td></tr>
+        <tr><td>Firebase</td><td>Authentication, notifications</td></tr>
+        <tr><td>Google Maps</td><td>Navigation, location services</td></tr>
+        <tr><td>AWS</td><td>Cloud hosting (encrypted)</td></tr>
+    </table>
+
+    <p><strong>We Do NOT Sell Your Data.</strong> Dollor does not sell your personal information to third parties.</p>
+
+    <h2>4. Data Retention</h2>
+    <table>
+        <tr><th>Data Type</th><th>Retention Period</th></tr>
+        <tr><td>Account information</td><td>Duration of account + 3 years</td></tr>
+        <tr><td>Transaction records</td><td>7 years (legal requirements)</td></tr>
+        <tr><td>Location data</td><td>90 days after trip completion</td></tr>
+        <tr><td>Support communications</td><td>3 years</td></tr>
+    </table>
+
+    <h2>5. Data Security</h2>
+    <ul>
+        <li><strong>Encryption:</strong> All data encrypted in transit (TLS 1.3) and at rest (AES-256)</li>
+        <li><strong>Access Controls:</strong> Role-based access with multi-factor authentication</li>
+        <li><strong>Payment Security:</strong> PCI DSS compliant via Stripe</li>
+        <li><strong>Breach Notification:</strong> We will notify affected users within 72 hours of a breach</li>
+    </ul>
+
+    <h2>6. Your Privacy Rights</h2>
+    <table>
+        <tr><th>Right</th><th>How to Exercise</th></tr>
+        <tr><td>Access your data</td><td>App settings or email privacy@dollor.ai</td></tr>
+        <tr><td>Correct your data</td><td>App settings or support@dollor.ai</td></tr>
+        <tr><td>Delete your account</td><td>App settings > Delete Account</td></tr>
+        <tr><td>Opt out of marketing</td><td>Unsubscribe link or app settings</td></tr>
+        <tr><td>Control location</td><td>Device settings</td></tr>
+        <tr><td>Control notifications</td><td>App settings or device settings</td></tr>
+    </table>
+    <p>We respond to all privacy requests within 30 days.</p>
+
+    <h2>7. Children's Privacy</h2>
+    <p>Our Services are not intended for children under 18 years of age. We do not knowingly collect personal information from children under 18. If we learn that we have collected information from a child, we will delete it promptly.</p>
+
+    <h2>8. Third-Party Services</h2>
+    <ul>
+        <li><strong>Google Services:</strong> Sign-In, Maps, Firebase - <a href="https://policies.google.com/privacy">Privacy Policy</a></li>
+        <li><strong>Apple Services:</strong> Sign-In, Maps, Push Notifications - <a href="https://www.apple.com/privacy">Privacy Policy</a></li>
+        <li><strong>Stripe:</strong> Payment Processing - <a href="https://stripe.com/privacy">Privacy Policy</a></li>
+    </ul>
+
+    <h2>9. California Privacy Rights (CCPA)</h2>
+    <p>California residents have additional rights including:</p>
+    <ul>
+        <li>Right to know what personal information is collected</li>
+        <li>Right to delete personal information</li>
+        <li>Right to opt-out of sale (we do not sell data)</li>
+        <li>Right to non-discrimination</li>
+    </ul>
+
+    <h2>10. European Privacy Rights (GDPR)</h2>
+    <p>If you are in the EEA, you have additional rights including:</p>
+    <ul>
+        <li>Right to restriction of processing</li>
+        <li>Right to object to processing</li>
+        <li>Right to data portability</li>
+        <li>Right to withdraw consent</li>
+        <li>Right to lodge a complaint with a supervisory authority</li>
+    </ul>
+
+    <h2>11. Location Data</h2>
+    <p><strong>When collected:</strong> During active orders/rides and when browsing nearby restaurants.</p>
+    <p><strong>How to control:</strong> iOS Settings > Privacy > Location Services > Dollor</p>
+    <p><strong>Options:</strong> Never, While Using, Always</p>
+
+    <h2>12. Contact Us</h2>
+    <p>For privacy questions or to exercise your rights:</p>
+    <ul>
+        <li><strong>Privacy Email:</strong> <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a></li>
+        <li><strong>Support Email:</strong> <a href="mailto:support@dollor.ai">support@dollor.ai</a></li>
+        <li><strong>Website:</strong> <a href="https://dollor.ai">https://dollor.ai</a></li>
+    </ul>
+
+    <h2>13. Updates to This Policy</h2>
+    <p>We may update this Privacy Policy periodically. Material changes will be notified through in-app notifications or email. Continued use constitutes acceptance.</p>
+
+    <div class="footer">
+        <p><strong>By using Dollor AI Service, you acknowledge that you have read and understood this Privacy Policy.</strong></p>
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+        <p style="margin-top: 15px;"><a href="/terms">Terms of Service</a></p>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/terms", response_class=HTMLResponse)
+async def get_terms_of_service():
+    """Returns the Terms of Service page"""
+    return TERMS_OF_SERVICE_HTML
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def get_privacy_policy():
+    """Returns the Privacy Policy page"""
+    return PRIVACY_POLICY_HTML
+
+# Also support /terms.html and /privacy.html for direct file access
+@app.get("/terms.html", response_class=HTMLResponse)
+async def get_terms_html():
+    """Returns the Terms of Service page (alternate URL)"""
+    return TERMS_OF_SERVICE_HTML
+
+@app.get("/privacy.html", response_class=HTMLResponse)
+async def get_privacy_html():
+    """Returns the Privacy Policy page (alternate URL)"""
+    return PRIVACY_POLICY_HTML
+
 @app.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -2059,6 +2585,253 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         "status": new_driver.status.value,
         "message": "Registration successful. Your account is pending approval."
     }
+
+
+# ============================================================================
+# CUSTOMER AUTHENTICATION ENDPOINTS (for iOS Customer App)
+# ============================================================================
+
+class CustomerRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    phone: Optional[str] = None
+
+class CustomerLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class CustomerOAuthRequest(BaseModel):
+    email: str
+    name: str
+    google_id: Optional[str] = None
+    apple_id: Optional[str] = None
+
+class CustomerPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class CustomerPasswordResetConfirm(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
+@app.post("/customer/login")
+def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db)):
+    """Customer email/password login"""
+    print(f"Customer login attempt for: {request.email}")
+
+    user = db.query(User).filter(
+        User.email == request.email,
+        User.role == UserRole.USER
+    ).first()
+
+    if not user:
+        print(f"Customer not found: {request.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+
+    if not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+
+    access_token = create_access_token(data={"sub": user.email, "role": "customer", "user_id": user.id})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": user.id,
+        "full_name": user.full_name,
+        "email": user.email
+    }
+
+@app.post("/customer/register")
+def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+    """Register new customer account"""
+    print(f"Customer registration attempt for: {request.email}")
+
+    existing_user = db.query(User).filter(User.email == request.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+
+    hashed_password = get_password_hash(request.password)
+    new_user = User(
+        email=request.email,
+        password_hash=hashed_password,
+        full_name=request.full_name,
+        role=UserRole.USER
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    access_token = create_access_token(data={"sub": new_user.email, "role": "customer", "user_id": new_user.id})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": new_user.id,
+        "full_name": new_user.full_name,
+        "email": new_user.email
+    }
+
+@app.post("/customer/google-auth")
+def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
+    """Google OAuth login/register for customers - handles both new and existing users"""
+    print(f"Customer Google auth for: {request.email}")
+
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email).first()
+
+    if user:
+        # Existing user - log them in
+        if user.role != UserRole.USER:
+            # User exists but is not a customer (might be driver/vendor)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email registered with different account type"
+            )
+        print(f"Existing customer found: {user.email}")
+    else:
+        # New user - register them
+        print(f"Creating new customer via Google: {request.email}")
+        user = User(
+            email=request.email,
+            password_hash=get_password_hash(secrets.token_hex(32)),  # Random password for OAuth users
+            full_name=request.name,
+            role=UserRole.USER
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token(data={"sub": user.email, "role": "customer", "user_id": user.id})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": user.id,
+        "full_name": user.full_name,
+        "email": user.email
+    }
+
+@app.post("/customer/apple-auth")
+def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
+    """Apple OAuth login/register for customers - handles both new and existing users"""
+    print(f"Customer Apple auth for: {request.email}, apple_id: {request.apple_id}")
+
+    user = None
+
+    # First try to find by Apple ID if provided
+    if request.apple_id:
+        # Check if we have a user with this Apple ID stored (you'd store this in a separate field)
+        # For now, we'll use email as primary identifier
+        pass
+
+    # Find by email
+    if request.email:
+        user = db.query(User).filter(User.email == request.email).first()
+
+    if user:
+        if user.role != UserRole.USER:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email registered with different account type"
+            )
+        print(f"Existing customer found via Apple: {user.email}")
+    else:
+        # New user - create account
+        # Apple may not provide email on subsequent logins, use apple_id as fallback
+        email = request.email if request.email else f"{request.apple_id}@privaterelay.appleid.com"
+        name = request.name if request.name else "Apple User"
+
+        print(f"Creating new customer via Apple: {email}")
+        user = User(
+            email=email,
+            password_hash=get_password_hash(secrets.token_hex(32)),
+            full_name=name,
+            role=UserRole.USER
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token(data={"sub": user.email, "role": "customer", "user_id": user.id})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": user.id,
+        "full_name": user.full_name,
+        "email": user.email
+    }
+
+# Password reset storage (in production, use Redis or database)
+password_reset_codes: Dict[str, Dict[str, Any]] = {}
+
+@app.post("/customer/password-reset/request")
+def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request password reset - sends code to email"""
+    print(f"Password reset requested for: {request.email}")
+
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.USER).first()
+    if not user:
+        # Don't reveal if email exists or not
+        return {"message": "If an account exists with this email, a reset code has been sent."}
+
+    # Generate 6-digit code
+    code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+
+    # Store code with expiration (15 minutes)
+    password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    # TODO: Send email with code (integrate with SES or email service)
+    print(f"[DEV] Password reset code for {request.email}: {code}")
+
+    return {"message": "If an account exists with this email, a reset code has been sent."}
+
+@app.post("/customer/password-reset/confirm")
+def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset with code"""
+    print(f"Password reset confirmation for: {request.email}")
+
+    # Check code
+    stored = password_reset_codes.get(request.email)
+    if not stored:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > stored["expires"]:
+        del password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired")
+
+    if stored["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Update password
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.USER).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
+    # Clear used code
+    del password_reset_codes[request.email]
+
+    return {"message": "Password has been reset successfully"}
+
+# ============================================================================
+# END CUSTOMER AUTHENTICATION ENDPOINTS
+# ============================================================================
 
 
 @app.post("/api/auth/driver/refresh")
@@ -4110,6 +4883,30 @@ try:
     print("[MAIN] Refund & Invoice routes loaded successfully")
 except ImportError as e:
     print(f"[MAIN] Warning: Could not load refund_invoice routes: {e}")
+
+# Include Accounting routes (LedgerBot Delta & AuditBot Zeta)
+try:
+    from accounting import router as accounting_router
+    app.include_router(accounting_router)
+    print("[MAIN] Accounting routes loaded successfully (Income Statement, Balance Sheet, Cash Flow)")
+except ImportError as e:
+    print(f"[MAIN] Warning: Could not load accounting routes: {e}")
+
+# Include Enterprise Payments routes (Stripe + ACH + Plaid + Connect)
+try:
+    from enterprise_payments import router as enterprise_payments_router
+    app.include_router(enterprise_payments_router)
+    print("[MAIN] Enterprise Payments loaded (Card, ACH, Plaid, Connect, Instant Payouts)")
+except ImportError as e:
+    print(f"[MAIN] Warning: Enterprise payments not loaded: {e}")
+
+# Include Rideshare routes (Uber-style ride sharing with $1 platform fee)
+try:
+    from rideshare import router as rideshare_router
+    app.include_router(rideshare_router)
+    print("[MAIN] Rideshare routes loaded successfully ($1 platform fee model)")
+except ImportError as e:
+    print(f"[MAIN] Warning: Could not load rideshare routes: {e}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -36,6 +36,11 @@ struct VoiceAssistantButton: View {
 
                     QuickActionButton(icon: "message.fill", label: "Messages") {
                         voiceAssistant.speak("Opening messages")
+                        NotificationCenter.default.post(
+                            name: .voiceCommandRecognized,
+                            object: nil,
+                            userInfo: ["command": VoiceAssistantManager.VoiceCommand.readMessages]
+                        )
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))

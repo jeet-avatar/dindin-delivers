@@ -4,6 +4,7 @@ import EatFairShared
 
 /// DeliveryViewModel manages all delivery-related data
 /// Connected to P2P API for unified database with Customer and Restaurant apps
+/// Supports both Food Delivery and Rideshare modes
 class DeliveryViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var availableOrders: [Order] = []
@@ -13,9 +14,30 @@ class DeliveryViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showError = false
 
+    // MARK: - Rideshare Support
+    @Published var availableRides: [P2PRide] = []
+    @Published var myActiveRides: [P2PRide] = []
+    @Published var driverMode: DriverMode = .foodDelivery
+
+    // MARK: - Negotiation Support (Rideshare Only)
+    @Published var pendingNegotiations: [RideNegotiation] = []
+    @Published var activeNegotiation: RideNegotiation?
+    @Published var showNegotiationSheet = false
+
     // MARK: - Stats (computed from real data)
     @Published var todayCompletedCount = 0
     @Published var todayEarnings: Double = 0.0
+    @Published var todayTips: Double = 0.0
+    @Published var hoursOnline: Double = 0.0
+    @Published var weeklyEarnings: Double = 0.0
+    @Published var weeklyDeliveries: Int = 0
+    @Published var isOnline: Bool = false
+
+    // Computed property for average per trip
+    var averagePerTrip: Double {
+        guard todayCompletedCount > 0 else { return 0.0 }
+        return todayEarnings / Double(todayCompletedCount)
+    }
 
     // MARK: - Private Properties
     private let p2pService = P2PAPIService.shared
@@ -43,6 +65,37 @@ class DeliveryViewModel: ObservableObject {
         fetchAvailableOrders()
         fetchMyDeliveries()
         fetchTodayCompleted()
+        if driverMode == .rideShare {
+            fetchAvailableRides()
+        }
+    }
+
+    // MARK: - Driver Mode Toggle
+    func setDriverMode(_ mode: DriverMode) {
+        driverMode = mode
+        refreshAllData()
+    }
+
+    // MARK: - Online Status Toggle
+    func setOnlineStatus(_ online: Bool) {
+        guard let driverId = p2pService.currentDriverId else {
+            VoiceAssistantManager.shared.speak("Unable to update status. Please log in again.")
+            return
+        }
+
+        isOnline = online
+        // Update backend with driver online status
+        p2pService.updateDriverOnlineStatus(driverId: driverId, isOnline: online) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    VoiceAssistantManager.shared.speak(online ? "You are now online and receiving orders" : "You are now offline")
+                case .failure:
+                    self?.isOnline = !online // Revert on failure
+                    self?.handleError(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to update online status"]))
+                }
+            }
+        }
     }
 
     private func clearData() {
@@ -336,6 +389,161 @@ class DeliveryViewModel: ObservableObject {
             self.showError = true
         }
     }
+
+    // MARK: - Rideshare Methods
+
+    /// Fetch available rides for drivers
+    func fetchAvailableRides() {
+        isLoading = true
+
+        p2pService.fetchAvailableRides { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let rides):
+                    self?.availableRides = rides
+
+                case .failure(let error):
+                    self?.handleError(error)
+                }
+            }
+        }
+    }
+
+    /// Accept a ride request
+    func acceptRide(_ ride: P2PRide) {
+        isLoading = true
+
+        p2pService.acceptRide(rideId: ride.rideId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    // Start location tracking for this ride
+                    LocationManager.shared.startDeliveryTracking(orderId: ride.rideId)
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to accept ride: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Mark passenger as picked up
+    func markRidePickedUp(_ ride: P2PRide) {
+        isLoading = true
+
+        p2pService.ridePickedUp(rideId: ride.rideId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to mark ride as picked up: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Complete a ride (drop off passenger)
+    func completeRide(_ ride: P2PRide) {
+        isLoading = true
+
+        p2pService.completeRide(rideId: ride.rideId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    LocationManager.shared.stopDeliveryTracking()
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to complete ride: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Fare Negotiation (Rideshare Only - $1+$1 Platform Fee Model)
+
+    /// Submit a counter-offer for a ride fare
+    func submitCounterOffer(rideId: Int, counterFare: Double) {
+        isLoading = true
+
+        // Negotiation: Driver offers a fare, customer can accept or counter
+        // Platform charges $1 to driver + $1 to customer = $2 total (unique selling point!)
+        p2pService.submitFareNegotiation(
+            rideId: rideId,
+            proposedFare: counterFare,
+            isDriverOffer: true
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    if response.status == "accepted" {
+                        // Fare accepted - ride will proceed
+                        self?.refreshAllData()
+                    } else {
+                        // Counter-offer submitted, waiting for customer response
+                        self?.activeNegotiation = RideNegotiation(
+                            rideId: rideId,
+                            customerOffer: response.customerOffer,
+                            driverOffer: counterFare,
+                            status: response.status,
+                            platformFeeDriver: AppConfig.shared.ridePlatformFee,
+                            platformFeeCustomer: AppConfig.shared.ridePlatformFee
+                        )
+                    }
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to submit offer: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Accept customer's proposed fare
+    func acceptCustomerFare(rideId: Int, fare: Double) {
+        isLoading = true
+
+        p2pService.acceptFareNegotiation(rideId: rideId, acceptedFare: fare) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.activeNegotiation = nil
+                    self?.showNegotiationSheet = false
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to accept fare: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Ride Negotiation Model
+struct RideNegotiation: Identifiable {
+    let id = UUID()
+    let rideId: Int
+    let customerOffer: Double
+    let driverOffer: Double?
+    let status: String // "pending", "counter_offered", "accepted", "rejected"
+    let platformFeeDriver: Double // $1
+    let platformFeeCustomer: Double // $1
+
+    var totalPlatformFee: Double { platformFeeDriver + platformFeeCustomer } // $2 total
 }
 
 // MARK: - Preview Helper

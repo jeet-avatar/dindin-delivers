@@ -372,16 +372,7 @@ struct EnhancedOrderCard: View {
 
     private var timeElapsed: String {
         let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
-        let interval = Date().timeIntervalSince(orderDate)
-        let minutes = Int(interval / 60)
-
-        if minutes < 1 {
-            return "Just now"
-        } else if minutes < 60 {
-            return "\(minutes) min ago"
-        } else {
-            return "\(minutes / 60)h \(minutes % 60)m ago"
-        }
+        return DateTimeFormatter.shared.orderedTime(from: orderDate)
     }
 
     var body: some View {

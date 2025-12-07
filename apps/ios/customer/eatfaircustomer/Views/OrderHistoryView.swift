@@ -207,18 +207,12 @@ struct OrderCard: View {
                     StatusBadge(status: order.status)
                 }
 
-                // Date
+                // Date - Using world-class time formatting
                 HStack {
                     Image(systemName: "calendar")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text(Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000), style: .date)
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text("at")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text(Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000), style: .time)
+                    Text(orderDateFormatted)
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -341,6 +335,12 @@ struct OrderCard: View {
 
     private var isActiveOrder: Bool {
         ["Placed", "Accepted", "Preparing", "Ready", "PickedUp", "OnTheWay"].contains(order.status)
+    }
+
+    /// Smart formatted date - shows relative time for recent, full date for older
+    private var orderDateFormatted: String {
+        let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
+        return DateTimeFormatter.shared.historyDetailTime(from: orderDate)
     }
 }
 

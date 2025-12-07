@@ -6,6 +6,7 @@ struct ChatView: View {
     let conversationId: String
     let customerName: String
     let orderId: String
+    var customerPhone: String? = nil
 
     @StateObject private var chatManager = ChatManager.shared
     @StateObject private var voiceAssistant = VoiceAssistantManager.shared
@@ -115,9 +116,17 @@ struct ChatView: View {
     }
 
     private func callCustomer() {
-        // Fetch customer phone from conversation/order
-        // For now, just show voice assistant
-        voiceAssistant.speak("Calling customer")
+        guard let phone = customerPhone, !phone.isEmpty else {
+            voiceAssistant.speak("Customer phone number not available")
+            return
+        }
+        let cleanPhone = phone.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        if let url = URL(string: "tel://\(cleanPhone)") {
+            UIApplication.shared.open(url)
+        }
     }
 }
 

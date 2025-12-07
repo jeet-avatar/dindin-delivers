@@ -316,7 +316,7 @@ struct DriverBottomActionSheet: View {
 
     private func openMaps(to coordinate: CLLocationCoordinate2D, name: String) {
         let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(coordinate.latitude),\(coordinate.longitude)&directionsmode=driving")
-        let appleMapsURL = URL(string: "http://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=d")
+        let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=d")
 
         if let googleMapsURL = googleMapsURL, UIApplication.shared.canOpenURL(googleMapsURL) {
             UIApplication.shared.open(googleMapsURL)

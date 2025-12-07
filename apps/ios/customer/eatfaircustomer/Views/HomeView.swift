@@ -10,6 +10,14 @@ struct HomeView: View {
     @State private var showActiveOrder = true
     @State private var selectedCategory: String?
     @State private var showNotifications = false
+    @State private var sortOption: SortOption = .recommended
+
+    enum SortOption: String, CaseIterable {
+        case recommended = "Recommended"
+        case topRated = "Top Rated"
+        case fastest = "Fastest Delivery"
+        case nearest = "Nearest"
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -262,7 +270,7 @@ struct HomeView: View {
                     .foregroundColor(.white)
             }
 
-            Text("Order from up to 3 restaurants in one delivery! Just $1 per restaurant.")
+            Text("Order from up to 3 restaurants in one delivery! Just $\(String(format: "%.2f", AppConfig.shared.platformFeePerRestaurant)) per restaurant.")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.9))
 
@@ -293,9 +301,11 @@ struct HomeView: View {
                 Text("Featured Near You")
                     .font(.headline)
                 Spacer()
-                Button("See All") {}
-                    .font(.subheadline)
-                    .foregroundColor(Theme.brandGreen)
+                NavigationLink("See All") {
+                    AllRestaurantsListView(restaurants: viewModel.restaurants)
+                }
+                .font(.subheadline)
+                .foregroundColor(Theme.brandGreen)
             }
             .padding(.horizontal)
             .padding(.top)
@@ -324,13 +334,19 @@ struct HomeView: View {
                 Spacer()
 
                 Menu {
-                    Button("Recommended") {}
-                    Button("Top Rated") {}
-                    Button("Fastest Delivery") {}
-                    Button("Nearest") {}
+                    ForEach(SortOption.allCases, id: \.self) { option in
+                        Button(action: { sortOption = option }) {
+                            HStack {
+                                Text(option.rawValue)
+                                if sortOption == option {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Sort")
+                        Text(sortOption.rawValue)
                             .font(.subheadline)
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.caption)
@@ -438,12 +454,41 @@ struct HomeView: View {
 
     // MARK: - Filtered Restaurants
     private var filteredRestaurants: [Restaurant] {
+        var restaurants = viewModel.allRestaurants
+
+        // Apply category filter
         if let category = selectedCategory {
-            return viewModel.allRestaurants.filter {
+            restaurants = restaurants.filter {
                 $0.cuisine.localizedCaseInsensitiveContains(category)
             }
         }
-        return viewModel.allRestaurants
+
+        // Apply sort
+        switch sortOption {
+        case .recommended:
+            // Default order (by rating as proxy for recommendation)
+            restaurants.sort { $0.rating > $1.rating }
+        case .topRated:
+            restaurants.sort { $0.rating > $1.rating }
+        case .fastest:
+            restaurants.sort {
+                let time1 = Int($0.deliveryTime.components(separatedBy: "-").first ?? "99") ?? 99
+                let time2 = Int($1.deliveryTime.components(separatedBy: "-").first ?? "99") ?? 99
+                return time1 < time2
+            }
+        case .nearest:
+            // Sort by distance if location available, otherwise by name
+            if let userLat = addressViewModel.selectedAddress?.latitude,
+               let userLon = addressViewModel.selectedAddress?.longitude {
+                restaurants.sort {
+                    let dist1 = sqrt(pow($0.latitude - userLat, 2) + pow($0.longitude - userLon, 2))
+                    let dist2 = sqrt(pow($1.latitude - userLat, 2) + pow($1.longitude - userLon, 2))
+                    return dist1 < dist2
+                }
+            }
+        }
+
+        return restaurants
     }
 }
 
@@ -592,7 +637,7 @@ struct FeaturedRestaurantCard: View {
                         .foregroundColor(.secondary)
                 }
 
-                Text("$1 delivery")
+                Text("$\(String(format: "%.0f", AppConfig.shared.platformFeePerRestaurant)) delivery")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Theme.brandGreen)
             }
@@ -698,7 +743,7 @@ struct RestaurantCard: View {
                         Text(restaurant.deliveryTime)
                     }
 
-                    Text("$1 fee")
+                    Text("$\(String(format: "%.0f", AppConfig.shared.platformFeePerRestaurant)) fee")
                         .foregroundColor(Theme.brandGreen)
                         .fontWeight(.medium)
                 }
@@ -751,5 +796,86 @@ struct EmptyStateView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
+    }
+}
+
+// MARK: - All Restaurants List View
+struct AllRestaurantsListView: View {
+    let restaurants: [Restaurant]
+    @State private var searchText = ""
+
+    private var filteredRestaurants: [Restaurant] {
+        if searchText.isEmpty {
+            return restaurants
+        }
+        return restaurants.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.cuisine.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        List {
+            ForEach(filteredRestaurants) { restaurant in
+                NavigationLink(destination: RestaurantDetailView(restaurant: restaurant)) {
+                    RestaurantRowView(restaurant: restaurant)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .searchable(text: $searchText, prompt: "Search restaurants...")
+        .navigationTitle("All Restaurants")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+// MARK: - Restaurant Row View
+struct RestaurantRowView: View {
+    let restaurant: Restaurant
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Restaurant Image
+            AsyncImage(url: URL(string: restaurant.imageUrl)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                ZStack {
+                    Color.gray.opacity(0.1)
+                    Image(systemName: "fork.knife")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                }
+            }
+            .frame(width: 70, height: 70)
+            .cornerRadius(10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(restaurant.name)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Text(restaurant.cuisine)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.yellow)
+                        Text(String(format: "%.1f", restaurant.rating))
+                    }
+
+                    Text("\(restaurant.deliveryTime) min")
+                        .foregroundColor(.secondary)
+
+                    Text("$\(String(format: "%.0f", AppConfig.shared.platformFeePerRestaurant)) fee")
+                        .foregroundColor(Theme.brandGreen)
+                }
+                .font(.caption)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }

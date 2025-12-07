@@ -948,13 +948,21 @@ struct SettingsSection: View {
             // Support
             ProfileCard(title: "Support", icon: "questionmark.circle.fill") {
                 VStack(spacing: 0) {
-                    SettingsRow(icon: "doc.text.fill", title: "Terms of Service", color: Theme.statusInfo)
+                    Link(destination: URL(string: AppConstants.termsOfServiceURL)!) {
+                        SettingsRow(icon: "doc.text.fill", title: "Terms of Service", color: Theme.statusInfo)
+                    }
                     Divider()
-                    SettingsRow(icon: "hand.raised.fill", title: "Privacy Policy", color: Theme.statusInfo)
+                    Link(destination: URL(string: AppConstants.privacyPolicyURL)!) {
+                        SettingsRow(icon: "hand.raised.fill", title: "Privacy Policy", color: Theme.statusInfo)
+                    }
                     Divider()
-                    SettingsRow(icon: "envelope.fill", title: "Contact Support", color: Theme.statusActive)
+                    Link(destination: URL(string: "mailto:\(AppConfig.shared.supportEmail)")!) {
+                        SettingsRow(icon: "envelope.fill", title: "Contact Support", color: Theme.statusActive)
+                    }
                     Divider()
-                    SettingsRow(icon: "star.fill", title: "Rate the App", color: .yellow)
+                    Link(destination: URL(string: "https://apps.apple.com/app/id\(Bundle.main.bundleIdentifier ?? "")")!) {
+                        SettingsRow(icon: "star.fill", title: "Rate the App", color: .yellow)
+                    }
                 }
             }
 

@@ -26,6 +26,9 @@ struct CheckoutView: View {
     @State private var stripePaymentReady = false
     @State private var errorMessage: String?
     @State private var showingError = false
+
+    // ACH Payment State
+    @State private var achDiscount: Double = 0.50  // $0.50 discount for ACH
     
     @State private var correctedCoordinates: CLLocationCoordinate2D?
     
@@ -116,7 +119,7 @@ struct CheckoutView: View {
                                 .font(.caption)
                                 .fontWeight(.bold)
                                 .foregroundColor(Theme.textGrey)
-                            
+
                             VStack(spacing: 0) {
                                 PaymentOptionRow(title: "Cash on Delivery", icon: "banknote.fill", isSelected: selectedPaymentMethod == "Cash on Delivery")
                                     .onTapGesture { selectedPaymentMethod = "Cash on Delivery" }
@@ -125,6 +128,32 @@ struct CheckoutView: View {
                                     .onTapGesture {
                                         selectedPaymentMethod = "Card"
                                     }
+                                Divider()
+                                // ACH Bank Payment - Lower fees, $0.50 discount
+                                HStack {
+                                    Image(systemName: "building.columns.fill")
+                                        .foregroundColor(Theme.brandBlack)
+                                        .frame(width: 30)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Bank Account (ACH)")
+                                            .foregroundColor(Theme.brandBlack)
+                                        Text("Save $0.50 on fees")
+                                            .font(.caption2)
+                                            .foregroundColor(.green)
+                                    }
+                                    Spacer()
+                                    if selectedPaymentMethod == "ACH" {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(Theme.brandGreen)
+                                    } else {
+                                        Image(systemName: "circle")
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .padding()
+                                .onTapGesture {
+                                    selectedPaymentMethod = "ACH"
+                                }
                             }
                             .background(Color.white)
                             .cornerRadius(12)
@@ -192,18 +221,34 @@ struct CheckoutView: View {
                                         Text("$\(String(format: "%.2f", item.price))")
                                     }
                                 }
-                                
+
                                 if discount > 0 {
                                     HStack {
-                                        Text("Discount")
+                                        Text("Promo Discount")
                                             .foregroundColor(.green)
                                         Spacer()
                                         Text("-$\(String(format: "%.2f", discount))")
                                             .foregroundColor(.green)
                                     }
                                 }
-                                
-                                let finalTotal = cartViewModel.total - discount
+
+                                // Show ACH discount when ACH is selected
+                                if selectedPaymentMethod == "ACH" {
+                                    HStack {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "building.columns.fill")
+                                                .font(.caption)
+                                            Text("ACH Bank Discount")
+                                        }
+                                        .foregroundColor(.green)
+                                        Spacer()
+                                        Text("-$\(String(format: "%.2f", achDiscount))")
+                                            .foregroundColor(.green)
+                                    }
+                                }
+
+                                let totalDiscount = discount + (selectedPaymentMethod == "ACH" ? achDiscount : 0)
+                                let finalTotal = cartViewModel.total - totalDiscount
                                 Divider()
                                 HStack {
                                     Text("Total")
@@ -273,6 +318,31 @@ struct CheckoutView: View {
                             .padding(.bottom, 20)
                             .disabled(addressViewModel.selectedAddress == nil || isLoadingPayment)
                         }
+                    } else if selectedPaymentMethod == "ACH" {
+                        // ACH Bank Payment - Uses Stripe Financial Connections
+                        Button(action: {
+                            initiateACHPayment()
+                        }) {
+                            HStack {
+                                if isLoadingPayment {
+                                    ProgressView()
+                                        .tint(.white)
+                                }
+                                Image(systemName: "building.columns.fill")
+                                let achTotal = max(0, cartViewModel.total - discount - achDiscount)
+                                Text(isLoadingPayment ? "Processing..." : "Pay with Bank • $\(String(format: "%.2f", achTotal))")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(isLoadingPayment ? Color.gray : Color.blue)
+                            .cornerRadius(12)
+                            .shadow(radius: 5)
+                        }
+                        .padding()
+                        .padding(.bottom, 20)
+                        .disabled(addressViewModel.selectedAddress == nil || isLoadingPayment)
                     } else {
                         // Cash on Delivery - Direct order placement
                         Button(action: {
@@ -428,7 +498,37 @@ struct CheckoutView: View {
             showingError = true
         }
     }
-    
+
+    /// Initiate ACH bank payment using Stripe Financial Connections
+    func initiateACHPayment() {
+        isLoadingPayment = true
+        let finalTotal = cartViewModel.total - discount - achDiscount
+        let amountCents = Int(max(0, finalTotal) * 100)
+
+        // Get customer email for the payment (stored in UserDefaults - non-sensitive)
+        let customerEmail = UserDefaults.standard.string(forKey: "p2p_customer_email") ?? UserDefaults.standard.string(forKey: "customer_email") ?? ""
+
+        ACHPaymentService.shared.presentACHPaymentSheet(
+            amountCents: amountCents,
+            customerEmail: customerEmail
+        ) { [self] result in
+            isLoadingPayment = false
+            switch result {
+            case .success:
+                // ACH payment successful, place the order
+                placeOrder()
+            case .failure(let error):
+                if case ACHPaymentService.PaymentError.canceled = error {
+                    // User canceled, not an error
+                    print("ACH Payment canceled")
+                } else {
+                    errorMessage = "Bank payment failed: \(error.localizedDescription)"
+                    showingError = true
+                }
+            }
+        }
+    }
+
     func placeOrder() {
         guard let address = addressViewModel.selectedAddress else {
             errorMessage = "Please select a delivery address"

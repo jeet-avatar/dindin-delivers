@@ -68,15 +68,11 @@
 		};
 		104403472ED64A4100ED321A /* eatfaircustomerTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatfaircustomerTests;
 			sourceTree = "<group>";
 		};
 		104403512ED64A4100ED321A /* eatfaircustomerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatfaircustomerUITests;
 			sourceTree = "<group>";
 		};
@@ -274,7 +270,7 @@
 				1044037A2ED64E2100ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				104403822ED6522000ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				104403A72ED6707F00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
-				104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */,
+				104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 104403332ED64A4000ED321A /* Products */;
@@ -321,9 +317,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatfaircustomer/Pods-eatfaircustomer-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatfaircustomer/Pods-eatfaircustomer-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -711,7 +711,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */ = {
+		104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../eatfair-ios-shared";
 		};
@@ -797,7 +797,7 @@
 		};
 		104406AB2ED8354200ED321A /* EatFairShared */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */;
+			package = 104406AA2ED8354200ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */;
 			productName = EatFairShared;
 		};
 /* End XCSwiftPackageProductDependency section */

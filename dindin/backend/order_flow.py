@@ -16,6 +16,7 @@ AI Employees:
 - LedgerBot Delta (AI_EMP_004): Accounting & payouts
 - QualityBot Epsilon (AI_EMP_005): Quality monitoring
 """
+from __future__ import annotations  # Python 3.8 compatibility for type hints
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -48,6 +49,15 @@ from models import (
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine
 )
 
+# Helper function to format datetime for iOS compatibility
+# iOS ISO8601DateFormatter expects 'Z' suffix for UTC dates
+def format_datetime_iso(dt: Optional[datetime]) -> Optional[str]:
+    """Format datetime to ISO8601 string with Z suffix for iOS compatibility"""
+    if dt is None:
+        return None
+    # Format with fractional seconds and Z suffix for UTC
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.') + f'{dt.microsecond:06d}'[:3] + 'Z'
+
 router = APIRouter(prefix="/api/erp", tags=["erp"])
 
 # ==================== AUTHENTICATION HELPERS ====================
@@ -56,9 +66,28 @@ import os
 from fastapi import Header
 from jose import jwt, JWTError
 
-ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "eatfair-admin-secret-key-2024")
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "eatfair-driver-secret-key-2024")
+# SECURITY: JWT secrets MUST be set via environment variables in production
+# These keys should be cryptographically secure random strings (at least 32 characters)
+# Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
+
+# Validate JWT secrets are configured in production
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+if IS_PRODUCTION:
+    if not ADMIN_SECRET_KEY or len(ADMIN_SECRET_KEY) < 32:
+        raise RuntimeError("CRITICAL: ADMIN_SECRET_KEY must be set to a secure value (min 32 chars) in production")
+    if not JWT_SECRET_KEY or len(JWT_SECRET_KEY) < 32:
+        raise RuntimeError("CRITICAL: JWT_SECRET_KEY must be set to a secure value (min 32 chars) in production")
+else:
+    # Development fallbacks - NEVER use in production
+    if not ADMIN_SECRET_KEY:
+        ADMIN_SECRET_KEY = "dev-only-admin-key-do-not-use-in-production"
+        print("[WARNING] Using development ADMIN_SECRET_KEY - set environment variable for production")
+    if not JWT_SECRET_KEY:
+        JWT_SECRET_KEY = "dev-only-jwt-key-do-not-use-in-production"
+        print("[WARNING] Using development JWT_SECRET_KEY - set environment variable for production")
 
 # Maximum pagination limits to prevent DoS
 MAX_PAGINATION_LIMIT = 500
@@ -592,9 +621,10 @@ async def get_available_orders(
 ):
     """
     Get orders ready for driver pickup - Called from iOS Driver App
+    Shows orders in PREPARING or READY_FOR_PICKUP status that don't have a driver assigned
     """
     orders = db.query(Order).filter(
-        Order.status == OrderStatus.PREPARING,
+        Order.status.in_([OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
         Order.driver_id.is_(None)
     ).all()
 
@@ -610,10 +640,149 @@ async def get_available_orders(
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
             "total_earnings": order.delivery_fee + order.tip,
-            "created_at": order.created_at.isoformat()
+            "created_at": format_datetime_iso(order.created_at)
         })
 
     return {"success": True, "orders": result}
+
+
+@router.get("/orders/vendor/{vendor_id}")
+async def get_vendor_orders(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders for a specific vendor - Called from iOS Restaurant App
+    Returns orders in the format expected by P2PVendorOrdersResponse
+    """
+    # Verify vendor exists
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Get all non-cancelled orders for this vendor, ordered by newest first
+    orders = db.query(Order).filter(
+        Order.vendor_id == vendor_id,
+        Order.status != OrderStatus.CANCELLED
+    ).order_by(Order.created_at.desc()).limit(100).all()
+
+    result = []
+    for order in orders:
+        # Parse items from JSON
+        items_data = []
+        if order.items:
+            try:
+                raw_items = json.loads(order.items)
+                for item in raw_items:
+                    items_data.append({
+                        "name": item.get("name", "Unknown Item"),
+                        "quantity": item.get("quantity", 1),
+                        "unit_price": item.get("price", 0.0),
+                        "total_price": item.get("price", 0.0) * item.get("quantity", 1)
+                    })
+            except json.JSONDecodeError:
+                pass
+
+        # Parse delivery address from JSON
+        delivery_addr = None
+        if order.delivery_address:
+            try:
+                addr_data = json.loads(order.delivery_address)
+                delivery_addr = {
+                    "street": addr_data.get("street", ""),
+                    "city": addr_data.get("city", ""),
+                    "state": addr_data.get("state", ""),
+                    "zip": addr_data.get("zip", addr_data.get("zip_code", ""))
+                }
+            except json.JSONDecodeError:
+                pass
+
+        result.append({
+            "id": order.id,
+            "order_number": order.order_number,
+            "customer_name": order.customer_name or "Customer",
+            "customer_phone": order.customer_phone,
+            "items": items_data,
+            "subtotal": order.subtotal or 0.0,
+            "tax": order.tax_amount or 0.0,
+            "delivery_fee": order.delivery_fee or 0.0,
+            "total": order.total_amount or 0.0,
+            "status": order.status.value if order.status else "PENDING",
+            "delivery_address": delivery_addr,
+            "delivery_instructions": order.delivery_instructions,
+            "created_at": format_datetime_iso(order.created_at)
+        })
+
+    return {"success": True, "orders": result}
+
+
+@router.put("/orders/{order_id}/status")
+async def update_order_status(
+    order_id: int,
+    status: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Update order status - Called from iOS Restaurant App (Mark Ready button)
+    This is the main endpoint for restaurant to update order status.
+
+    Expected status values:
+    - CONFIRMED
+    - PREPARING
+    - READY_FOR_PICKUP
+    - OUT_FOR_DELIVERY
+    - DELIVERED
+    - CANCELLED
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Map status string to OrderStatus enum
+    status_mapping = {
+        "PENDING_PAYMENT": OrderStatus.PENDING_PAYMENT,
+        "CONFIRMED": OrderStatus.CONFIRMED,
+        "PREPARING": OrderStatus.PREPARING,
+        "READY_FOR_PICKUP": OrderStatus.READY_FOR_PICKUP,
+        "OUT_FOR_DELIVERY": OrderStatus.OUT_FOR_DELIVERY,
+        "DELIVERED": OrderStatus.DELIVERED,
+        "CANCELLED": OrderStatus.CANCELLED,
+    }
+
+    new_status = status_mapping.get(status.upper())
+    if not new_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: {status}. Valid values: {', '.join(status_mapping.keys())}"
+        )
+
+    # Validate state transition
+    is_valid, error_msg = validate_state_transition(order.status, new_status)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
+    # Update status and timestamps
+    old_status = order.status.value
+    order.status = new_status
+
+    # Set appropriate timestamps based on new status
+    if new_status == OrderStatus.CONFIRMED:
+        order.confirmed_at = datetime.now()
+    elif new_status == OrderStatus.PREPARING:
+        order.preparing_at = datetime.now()
+    elif new_status == OrderStatus.DELIVERED:
+        order.delivered_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "previous_status": old_status,
+        "new_status": new_status.value,
+        "message": f"Order status updated to {new_status.value}"
+    }
 
 
 @router.post("/orders/{order_id}/assign-driver")
@@ -816,12 +985,12 @@ async def order_delivered(
             if per_mile > 0 and order.delivery_fee >= base:
                 estimated_distance = (order.delivery_fee - base) / per_mile
 
-        driver_base_pay = DRIVER_PAYOUT_CONFIG.calculate(estimated_distance)
+        driver_base_pay = DRIVER_PAYOUT_CONFIG.calculate_base_payout(estimated_distance)
         driver_tip = order.tip * DRIVER_PAYOUT_CONFIG.tip_percentage
         driver_payout = driver_base_pay + driver_tip
 
         # Calculate Stripe fees (2.9% + $0.30)
-        stripe_fee = PAYMENT_PROCESSING_CONFIG.calculate_fee(order.total_amount)
+        stripe_fee = PAYMENT_PROCESSING_CONFIG.calculate_stripe_fee(order.total_amount)
 
         # Platform fee (stored on order)
         platform_fee = order.platform_fee
@@ -1003,7 +1172,7 @@ async def order_delivered(
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Delivered",
-        "delivered_at": order.delivered_at.isoformat(),
+        "delivered_at": format_datetime_iso(order.delivered_at),
         "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
         "accounting": {
             "journal_entry": entry_number,
@@ -1054,7 +1223,7 @@ async def get_pending_payouts(
             "platform_fee": p.platform_fee,
             "net_payout": p.net_payout,
             "status": p.status,
-            "created_at": p.created_at.isoformat()
+            "created_at": format_datetime_iso(p.created_at)
         } for p in vendor_payouts],
         "driver_payouts": [{
             "id": p.id,
@@ -1064,7 +1233,7 @@ async def get_pending_payouts(
             "tip": p.tip,
             "net_payout": p.net_payout,
             "status": p.status,
-            "created_at": p.created_at.isoformat()
+            "created_at": format_datetime_iso(p.created_at)
         } for p in driver_payouts],
         "totals": {
             "restaurant_total": sum(p.net_payout for p in vendor_payouts),
@@ -1166,7 +1335,7 @@ async def get_journal_entries(
             "description": entry.description,
             "status": entry.status,
             "created_by": entry.created_by_ai_name,
-            "created_at": entry.created_at.isoformat(),
+            "created_at": format_datetime_iso(entry.created_at),
             "lines": [{
                 "account": line.account_name,
                 "debit": line.debit,
@@ -1413,10 +1582,10 @@ async def get_driver_active_orders(
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
-            "created_at": order.created_at.isoformat(),
-            "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
+            "created_at": format_datetime_iso(order.created_at),
+            "assigned_at": format_datetime_iso(order.confirmed_at),
             "picked_up_at": None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+            "delivered_at": format_datetime_iso(order.delivered_at)
         })
 
     return {"success": True, "orders": result}
@@ -1485,7 +1654,7 @@ async def update_driver_location(
     order.driver_location = json.dumps({
         "latitude": location.latitude,
         "longitude": location.longitude,
-        "updated_at": location.updated_at or datetime.now().isoformat()
+        "updated_at": location.updated_at or format_datetime_iso(datetime.now())
     })
 
     db.commit()
@@ -1529,7 +1698,7 @@ async def get_stuck_orders(
                 "customer_email": order.customer_email,
                 "vendor_id": order.vendor_id,
                 "total_amount": order.total_amount,
-                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "created_at": format_datetime_iso(order.created_at),
                 "timeout_reason": timeout_msg
             })
 

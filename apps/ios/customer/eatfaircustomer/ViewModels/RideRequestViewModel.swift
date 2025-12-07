@@ -19,7 +19,7 @@ class RideRequestViewModel: ObservableObject {
     // Fare Estimation (World-class pricing)
     @Published var estimatedDistance: Double = 0.0  // miles
     @Published var estimatedDuration: Double = 0.0  // minutes
-    @Published var baseFare: Double = 2.50
+    @Published var baseFare: Double = AppConfig.shared.rideBaseFare
     @Published var distanceFee: Double = 0.0
     @Published var timeFee: Double = 0.0
     @Published var surgeMultiplier: Double = 1.0
@@ -28,6 +28,22 @@ class RideRequestViewModel: ObservableObject {
     @Published var activeRide: RideRequestResponse?
     @Published var rideTracking: RideTrackingInfo?
     @Published var isRideActive = false
+
+    // Fare Negotiation ($1+$1 platform fee model)
+    @Published var isNegotiating = false
+    @Published var driverOfferAmount: Double?
+    @Published var showNegotiationSheet = false
+    @Published var negotiationMessage: String?
+    @Published var initialFareOffer: Double? = nil  // Customer's initial offer before request
+
+    // Ride Cancellation
+    @Published var showCancelSheet = false
+    @Published var cancellationFee: Double = 0.0
+    @Published var cancellationReason: String = ""
+
+    // Payment
+    @Published var paymentIntentClientSecret: String?
+    @Published var showPaymentSheet = false
 
     // UI State
     @Published var currentStep: RideRequestStep = .selectPickup
@@ -45,37 +61,25 @@ class RideRequestViewModel: ObservableObject {
     // MARK: - Private Properties
     private let p2pService = P2PAPIService.shared
     private var trackingTimer: Timer?
+    private var negotiationTimer: Timer?
 
-    // MARK: - Pricing Constants (matches backend - $1 ONLY platform fee)
-    static let platformFeeConst: Double = 1.00      // $1 platform fee - ONLY fee to EatFair
-    static let baseFareConst: Double = 2.00         // $2.00 base fare (goes to driver)
-    static let perMileRate: Double = 1.00           // $1.00 per mile (goes to driver)
-    static let perMinuteRate: Double = 0.15         // $0.15 per minute (goes to driver)
-    static let minimumFare: Double = 5.00           // $5 minimum total fare
+    // MARK: - Pricing Constants (from AppConfig - matches backend pricing_config.py)
+    // All pricing values come from centralized AppConfig - no hardcodes!
+    private let config = AppConfig.shared
 
-    // MARK: - State Tax Rates (US states)
-    static let stateTaxRates: [String: Double] = [
-        "AL": 0.04, "AK": 0.00, "AZ": 0.056, "AR": 0.065, "CA": 0.0725,
-        "CO": 0.029, "CT": 0.0635, "DE": 0.00, "FL": 0.06, "GA": 0.04,
-        "HI": 0.04, "ID": 0.06, "IL": 0.0625, "IN": 0.07, "IA": 0.06,
-        "KS": 0.065, "KY": 0.06, "LA": 0.0445, "ME": 0.055, "MD": 0.06,
-        "MA": 0.0625, "MI": 0.06, "MN": 0.06875, "MS": 0.07, "MO": 0.04225,
-        "MT": 0.00, "NE": 0.055, "NV": 0.0685, "NH": 0.00, "NJ": 0.06625,
-        "NM": 0.05125, "NY": 0.08875, "NC": 0.0475, "ND": 0.05, "OH": 0.0575,
-        "OK": 0.045, "OR": 0.00, "PA": 0.06, "RI": 0.07, "SC": 0.06,
-        "SD": 0.045, "TN": 0.07, "TX": 0.0625, "UT": 0.061, "VT": 0.06,
-        "VA": 0.053, "WA": 0.065, "WV": 0.06, "WI": 0.05, "WY": 0.04, "DC": 0.06
-    ]
+    // MARK: - Computed Properties (from AppConfig)
+    var platformFee: Double { config.ridePlatformFee }
+    var baseFareConst: Double { config.rideBaseFare }
+    var perMileRate: Double { config.ridePerMileRate }
+    var perMinuteRate: Double { config.ridePerMinuteRate }
+    var minimumFare: Double { config.rideMinFare }
+    var cancellationFeeAmount: Double { config.rideCancellationFee }
 
-    // MARK: - Computed Properties
-    var platformFee: Double { Self.platformFeeConst }
-
-    /// Tax rate based on pickup state
+    /// Tax rate based on pickup state (from centralized StateTaxRates)
     var taxRate: Double {
-        guard let state = pickupAddress?.state.uppercased() else { return 0.0 }
-        // Handle full state names
-        let stateCode = stateCodeFromName(state)
-        return Self.stateTaxRates[stateCode] ?? 0.0
+        guard let state = pickupAddress?.state else { return 0.0 }
+        let stateCode = StateTaxRates.stateCode(from: state)
+        return StateTaxRates.rate(for: stateCode)
     }
 
     /// Tax amount on the fare
@@ -86,13 +90,13 @@ class RideRequestViewModel: ObservableObject {
     /// Fare before tax (driver earnings + platform fee)
     var fareBeforeTax: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return max(driverPortion + platformFee, Self.minimumFare)
+        return max(driverPortion + platformFee, minimumFare)
     }
 
     /// Driver's earnings (90%+ of fare goes to driver!)
     var driverEarnings: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return max(driverPortion, Self.minimumFare - platformFee) + tip
+        return max(driverPortion, minimumFare - platformFee) + tip
     }
 
     /// What platform earns ($1.00 ONLY)
@@ -110,26 +114,9 @@ class RideRequestViewModel: ObservableObject {
         subtotal + tip
     }
 
-    /// Convert state name to state code
-    private func stateCodeFromName(_ state: String) -> String {
-        let stateNames: [String: String] = [
-            "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
-            "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
-            "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI", "IDAHO": "ID",
-            "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA", "KANSAS": "KS",
-            "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
-            "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN", "MISSISSIPPI": "MS",
-            "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE", "NEVADA": "NV",
-            "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM", "NEW YORK": "NY",
-            "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH", "OKLAHOMA": "OK",
-            "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
-            "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT",
-            "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA", "WEST VIRGINIA": "WV",
-            "WISCONSIN": "WI", "WYOMING": "WY", "DISTRICT OF COLUMBIA": "DC"
-        ]
-        // If already a code, return it
-        if state.count == 2 { return state }
-        return stateNames[state.uppercased()] ?? state
+    /// Estimated fare (used in UI before tip)
+    var estimatedFare: Double {
+        fareBeforeTax + taxAmount
     }
 
     var canRequestRide: Bool {
@@ -157,6 +144,7 @@ class RideRequestViewModel: ObservableObject {
 
     deinit {
         trackingTimer?.invalidate()
+        negotiationTimer?.invalidate()
     }
 
     // MARK: - Set Pickup Location
@@ -204,8 +192,8 @@ class RideRequestViewModel: ObservableObject {
         // Update published properties
         estimatedDistance = distance
         estimatedDuration = duration
-        distanceFee = distance * Self.perMileRate
-        timeFee = duration * Self.perMinuteRate
+        distanceFee = distance * perMileRate
+        timeFee = duration * perMinuteRate
     }
 
     /// Haversine formula to calculate distance between two coordinates
@@ -243,18 +231,57 @@ class RideRequestViewModel: ObservableObject {
             tip: tip
         ) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isLoading = false
+                guard let self = self else { return }
 
                 switch result {
                 case .success(let response):
-                    self?.activeRide = response
-                    self?.isRideActive = true
-                    self?.currentStep = .waitingForDriver
-                    self?.startTrackingRide()
+                    self.activeRide = response
+                    self.isRideActive = true
+                    self.currentStep = .waitingForDriver
+                    self.startTrackingRide()
+
+                    // If customer set an initial fare offer, submit it automatically
+                    if let initialOffer = self.initialFareOffer {
+                        self.submitInitialFareOffer(rideId: response.rideId, offer: initialOffer)
+                    } else {
+                        self.isLoading = false
+                    }
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to request ride: \(error.localizedDescription)")
+                    self.isLoading = false
+                    self.showErrorMessage("Failed to request ride: \(error.localizedDescription)")
                 }
+            }
+        }
+    }
+
+    /// Submit initial fare offer after ride creation (for pre-request negotiation)
+    private func submitInitialFareOffer(rideId: Int, offer: Double) {
+        p2pService.customerSubmitFareOffer(rideId: rideId, proposedFare: offer) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    self.isNegotiating = true
+                    self.negotiationMessage = "Your offer of $\(String(format: "%.2f", offer)) sent to drivers"
+
+                    if response.status == "accepted" {
+                        self.negotiationMessage = "Fare accepted! Driver is on the way."
+                        self.isNegotiating = false
+                    } else {
+                        // Start polling for driver response
+                        self.startNegotiationPolling()
+                    }
+
+                case .failure(let error):
+                    // Negotiation failed but ride is still active
+                    self.negotiationMessage = "Offer could not be sent: \(error.localizedDescription)"
+                }
+
+                // Clear the initial offer
+                self.initialFareOffer = nil
             }
         }
     }
@@ -306,6 +333,85 @@ class RideRequestViewModel: ObservableObject {
     private func stopTracking() {
         trackingTimer?.invalidate()
         trackingTimer = nil
+        stopNegotiationPolling()
+    }
+
+    // MARK: - Negotiation Status Polling
+
+    /// Start polling for negotiation status updates (driver counter-offers)
+    private func startNegotiationPolling() {
+        negotiationTimer?.invalidate()
+        negotiationTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            self?.fetchNegotiationStatus()
+        }
+        // Fetch immediately
+        fetchNegotiationStatus()
+    }
+
+    /// Stop negotiation polling
+    private func stopNegotiationPolling() {
+        negotiationTimer?.invalidate()
+        negotiationTimer = nil
+    }
+
+    /// Fetch current negotiation status from backend
+    private func fetchNegotiationStatus() {
+        guard let rideId = activeRide?.rideId, isNegotiating else { return }
+
+        p2pService.getRideNegotiationStatus(rideId: rideId) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let status):
+                    self?.handleNegotiationStatusUpdate(status)
+
+                case .failure:
+                    // Silent failure for polling
+                    break
+                }
+            }
+        }
+    }
+
+    /// Handle negotiation status update from backend
+    private func handleNegotiationStatusUpdate(_ status: RideNegotiationStatus) {
+        switch status.negotiationStatus.lowercased() {
+        case "driver_countered":
+            // Driver has submitted a counter-offer
+            if let driverOffer = status.driverOffer, driverOffer != driverOfferAmount {
+                driverOfferAmount = driverOffer
+                negotiationMessage = "Driver counter-offered $\(String(format: "%.2f", driverOffer))"
+                showNegotiationSheet = true
+            }
+
+        case "accepted":
+            // Negotiation accepted - fare agreed!
+            isNegotiating = false
+            stopNegotiationPolling()
+            if let agreedFare = status.agreedFare {
+                negotiationMessage = "Fare agreed at $\(String(format: "%.2f", agreedFare))! Driver is on the way."
+            } else {
+                negotiationMessage = "Fare accepted! Driver is on the way."
+            }
+            showNegotiationSheet = false
+
+        case "rejected":
+            // Negotiation rejected
+            isNegotiating = false
+            stopNegotiationPolling()
+            negotiationMessage = status.message ?? "Negotiation was not accepted"
+            driverOfferAmount = nil
+
+        case "customer_offered":
+            // Waiting for driver response
+            negotiationMessage = "Waiting for driver's response..."
+
+        case "none":
+            // No active negotiation
+            break
+
+        default:
+            break
+        }
     }
 
     // MARK: - Reset
@@ -325,5 +431,172 @@ class RideRequestViewModel: ObservableObject {
     private func showErrorMessage(_ message: String) {
         errorMessage = message
         showError = true
+    }
+
+    // MARK: - Ride Cancellation
+
+    /// Cancel ride with calculated fee
+    func cancelRide(reason: String?) {
+        guard let rideId = activeRide?.rideId else {
+            showErrorMessage("No active ride to cancel")
+            return
+        }
+
+        isLoading = true
+        cancellationReason = reason ?? ""
+
+        p2pService.cancelRide(rideId: rideId, reason: reason) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    self?.cancellationFee = response.cancellationFee
+                    if response.cancellationFee > 0 {
+                        self?.negotiationMessage = "Cancelled with $\(String(format: "%.2f", response.cancellationFee)) fee"
+                    }
+                    self?.resetRide()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to cancel: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Get estimated cancellation fee based on ride status (from AppConfig)
+    var estimatedCancellationFee: Double {
+        // Fee structure from centralized config
+        switch currentStep {
+        case .waitingForDriver:
+            return 0.0  // Free cancellation
+        case .driverEnRoute:
+            return config.rideCancellationFeeDriverEnRoute  // Driver assigned
+        case .rideInProgress:
+            return config.rideCancellationFeeInProgress  // Ride in progress
+        default:
+            return 0.0
+        }
+    }
+
+    // MARK: - Fare Negotiation ($1+$1 Platform Fee Model)
+
+    /// Submit counter-offer for fare
+    func submitFareOffer(proposedFare: Double) {
+        guard let rideId = activeRide?.rideId else {
+            showErrorMessage("No active ride to negotiate")
+            return
+        }
+
+        isLoading = true
+        isNegotiating = true
+
+        p2pService.customerSubmitFareOffer(rideId: rideId, proposedFare: proposedFare) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    if response.status == "accepted" {
+                        self?.negotiationMessage = "Fare accepted! Driver is on the way."
+                        self?.isNegotiating = false
+                        self?.showNegotiationSheet = false
+                        self?.stopNegotiationPolling()
+                    } else {
+                        self?.driverOfferAmount = response.driverOffer
+                        self?.negotiationMessage = response.message ?? "Waiting for driver response..."
+                        // Start polling for driver's counter-offer
+                        self?.startNegotiationPolling()
+                    }
+
+                case .failure(let error):
+                    self?.isNegotiating = false
+                    self?.showErrorMessage("Negotiation failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Accept driver's counter-offer
+    func acceptDriverOffer() {
+        guard let rideId = activeRide?.rideId,
+              let driverOffer = driverOfferAmount else {
+            showErrorMessage("No driver offer to accept")
+            return
+        }
+
+        isLoading = true
+
+        p2pService.customerAcceptDriverFare(rideId: rideId, acceptedFare: driverOffer) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.isNegotiating = false
+                    self?.showNegotiationSheet = false
+                    self?.stopNegotiationPolling()
+                    self?.negotiationMessage = "Fare agreed at $\(String(format: "%.2f", driverOffer))! Driver is on the way."
+                    self?.driverOfferAmount = nil
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to accept: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Decline driver's offer and optionally submit counter
+    func declineDriverOffer() {
+        driverOfferAmount = nil
+        negotiationMessage = "Offer declined. Submit a new counter-offer."
+    }
+
+    // MARK: - Stripe Payment
+
+    /// Create payment intent for ride
+    func createPaymentIntent() {
+        guard let rideId = activeRide?.rideId else {
+            showErrorMessage("No active ride for payment")
+            return
+        }
+
+        isLoading = true
+
+        p2pService.createRidePaymentIntent(rideId: rideId, amount: totalAmount) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    self?.paymentIntentClientSecret = response.clientSecret
+                    self?.showPaymentSheet = true
+
+                case .failure(let error):
+                    self?.showErrorMessage("Payment setup failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Confirm payment completed
+    func confirmPayment(paymentIntentId: String) {
+        guard let rideId = activeRide?.rideId else { return }
+
+        isLoading = true
+
+        p2pService.confirmRidePayment(rideId: rideId, paymentIntentId: paymentIntentId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let confirmation):
+                    self?.negotiationMessage = confirmation.message ?? "Payment successful!"
+
+                case .failure(let error):
+                    self?.showErrorMessage("Payment confirmation failed: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }

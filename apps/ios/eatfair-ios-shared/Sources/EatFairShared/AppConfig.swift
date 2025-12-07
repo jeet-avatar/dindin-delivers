@@ -11,10 +11,11 @@ public class AppConfig: ObservableObject {
     @Published public var p2pAPIBaseURL: String = "https://dollor.ai"
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
-    @Published public var taxRate: Double = 0.09  // 9% tax
-    @Published public var baseDeliveryFee: Double = 4.99  // Delivery fee goes to driver
+    // NOTE: These defaults MUST match pricing_config.py in the backend
+    @Published public var taxRate: Double = 0.08  // 8% tax (matches backend DEFAULT_TAX_RATE)
+    @Published public var baseDeliveryFee: Double = 2.99  // Delivery fee (matches backend DELIVERY_FEE_CONFIG.base_fee)
     @Published public var extraStopFee: Double = 2.0
-    @Published public var platformFeePerRestaurant: Double = 0.0  // No platform fee to customer
+    @Published public var platformFeePerRestaurant: Double = 1.0  // $1 platform fee (matches PLATFORM_FEE_CONFIG.flat_fee)
     @Published public var maxRestaurantsPerOrder: Int = 3
     @Published public var serviceFeeRate: Double = 0.05  // Legacy - use serviceFee instead
     @Published public var smallOrderThreshold: Double = 10.0
@@ -22,25 +23,47 @@ public class AppConfig: ObservableObject {
 
     // MARK: - $1 Dollar Store Fee Structure - World's First!
     // ==============================================
-    // Customer pays: Food + Tax + Delivery Fee + Tip (NO service fee!)
-    // Restaurant pays: $1 flat platform fee (deducted from their payout)
-    // Driver receives: Delivery fee + 100% of tip
-    // Platform receives: $1 from restaurant per order
+    // Customer pays: Food + Tax + Delivery Fee + Platform Fee + Tip
+    // Restaurant pays: $1 flat commission (deducted from their payout)
+    // Driver receives: Base pay + per-mile pay + 100% of tip
+    // Platform receives: $1 platform fee from customer + $1 commission from restaurant
     // ==============================================
-    @Published public var serviceFee: Double = 0.00  // $0 - NO service fee to customer!
-    @Published public var deliveryFee: Double = 4.99  // $4.99 delivery fee from customer (to driver)
-    @Published public var restaurantPlatformFee: Double = 1.0  // $1 flat platform fee from restaurant
+    // NOTE: These MUST match pricing_config.py in the backend
+    @Published public var serviceFee: Double = 1.00  // $1 platform fee to customer (matches PLATFORM_FEE_CONFIG.flat_fee)
+    @Published public var deliveryFee: Double = 2.99  // $2.99 base delivery fee (matches DELIVERY_FEE_CONFIG.base_fee)
+    @Published public var restaurantPlatformFee: Double = 1.0  // $1 flat commission from restaurant (matches RESTAURANT_COMMISSION_CONFIG.flat_commission)
 
-    // Driver/Delivery Config
+    // Driver/Delivery Config (matches pricing_config.py)
+    @Published public var perMileDeliveryFee: Double = 0.50  // Per mile fee (matches DELIVERY_FEE_CONFIG.per_mile_fee)
+    @Published public var maxDeliveryFee: Double = 12.99  // Max delivery fee cap (matches DELIVERY_FEE_CONFIG.max_fee)
     @Published public var defaultTipRate: Double = 0.15
     @Published public var nearbyDistanceMeters: Double = 3218.69 // 2 miles
-    @Published public var maxDeliveryDistanceMiles: Double = 10.0
+    @Published public var maxDeliveryDistanceMiles: Double = 15.0  // Max distance (matches DELIVERY_FEE_CONFIG.max_delivery_distance)
+
+    // Tip options (in dollars for rideshare, percentages for delivery)
+    @Published public var rideTipOptions: [Double] = [0.0, 2.0, 5.0, 10.0]  // Dollar amounts
+    @Published public var deliveryTipPercentages: [Int] = [0, 15, 20, 25]   // Percentages
+
+    // Driver earnings info (for transparency display)
+    @Published public var driverEarningsPercentage: Int = 90  // Drivers keep 90%+ of fare
 
     // AI/Analytics Thresholds
     @Published public var busyLevelThresholds: BusyLevelThresholds = BusyLevelThresholds()
     @Published public var defaultPrepTimeMinutes: Int = 20
     @Published public var maxPrepTimeMinutes: Int = 60
     @Published public var additionalPrepTimePerOrder: Int = 3
+
+    // MARK: - Rideshare Pricing (matches pricing_config.py RIDESHARE_PRICING_CONFIG)
+    @Published public var rideBaseFare: Double = 2.00          // Base fare for rideshare
+    @Published public var ridePerMileRate: Double = 1.00       // Per mile rate
+    @Published public var ridePerMinuteRate: Double = 0.15     // Per minute rate
+    @Published public var ridePlatformFee: Double = 1.00       // $1 platform fee (same as delivery)
+    @Published public var rideMinFare: Double = 5.00           // Minimum fare
+    @Published public var rideCancellationFee: Double = 5.00   // Cancellation fee (base)
+    @Published public var rideCancellationFeeDriverEnRoute: Double = 5.00  // Fee when driver assigned
+    @Published public var rideCancellationFeeInProgress: Double = 10.00    // Fee when ride in progress
+    @Published public var rideSurgeEnabled: Bool = true        // Surge pricing enabled
+    @Published public var rideMaxSurgeMultiplier: Double = 3.0 // Maximum surge multiplier
 
     // Support
     @Published public var supportUrl: String = "https://support.eatfair.com"
@@ -121,6 +144,22 @@ public class AppConfig: ObservableObject {
                 if let dummyMode = json["isDummyPaymentMode"] as? Bool { self.isDummyPaymentMode = dummyMode }
                 if let aiEnabled = json["isAIFeaturesEnabled"] as? Bool { self.isAIFeaturesEnabled = aiEnabled }
                 if let dynamicPricing = json["isDynamicPricingEnabled"] as? Bool { self.isDynamicPricingEnabled = dynamicPricing }
+
+                // Rideshare Pricing (from backend)
+                if let rideBaseFare = json["rideBaseFare"] as? Double { self.rideBaseFare = rideBaseFare }
+                if let ridePerMileRate = json["ridePerMileRate"] as? Double { self.ridePerMileRate = ridePerMileRate }
+                if let ridePerMinuteRate = json["ridePerMinuteRate"] as? Double { self.ridePerMinuteRate = ridePerMinuteRate }
+                if let ridePlatformFee = json["ridePlatformFee"] as? Double { self.ridePlatformFee = ridePlatformFee }
+                if let rideMinFare = json["rideMinFare"] as? Double { self.rideMinFare = rideMinFare }
+                if let rideCancellationFee = json["rideCancellationFee"] as? Double { self.rideCancellationFee = rideCancellationFee }
+                if let rideCancellationFeeDriverEnRoute = json["rideCancellationFeeDriverEnRoute"] as? Double { self.rideCancellationFeeDriverEnRoute = rideCancellationFeeDriverEnRoute }
+                if let rideCancellationFeeInProgress = json["rideCancellationFeeInProgress"] as? Double { self.rideCancellationFeeInProgress = rideCancellationFeeInProgress }
+                if let rideSurgeEnabled = json["rideSurgeEnabled"] as? Bool { self.rideSurgeEnabled = rideSurgeEnabled }
+                if let rideMaxSurgeMultiplier = json["rideMaxSurgeMultiplier"] as? Double { self.rideMaxSurgeMultiplier = rideMaxSurgeMultiplier }
+
+                // Per mile delivery fee
+                if let perMileDeliveryFee = json["perMileDeliveryFee"] as? Double { self.perMileDeliveryFee = perMileDeliveryFee }
+                if let maxDeliveryFee = json["maxDeliveryFee"] as? Double { self.maxDeliveryFee = maxDeliveryFee }
 
                 self.configLoaded = true
                 print("AppConfig: Configuration loaded from Dollar.ai backend")
@@ -267,9 +306,59 @@ public struct UserDefaultsKeys {
 
 public struct AppConstants {
     // Current terms version - increment when terms change
-    public static let termsVersion = "1.0"
+    public static let termsVersion = "1.1"
 
-    // Support URLs
-    public static let termsOfServiceURL = "https://eatfair.com/terms"
-    public static let privacyPolicyURL = "https://eatfair.com/privacy"
+    // Legal URLs (Required for App Store)
+    // TODO: These pages need to be created on the dollor.ai website
+    public static let termsOfServiceURL = "https://dollor.ai/terms"
+    public static let privacyPolicyURL = "https://dollor.ai/privacy"
+}
+
+// MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)
+// US state tax rates for rideshare/delivery services
+public struct StateTaxRates {
+    /// State tax rate lookup - matches backend pricing_config.py
+    public static let rates: [String: Double] = [
+        "AL": 0.04, "AK": 0.0, "AZ": 0.056, "AR": 0.065,
+        "CA": 0.0725, "CO": 0.029, "CT": 0.0635, "DE": 0.0,
+        "FL": 0.06, "GA": 0.04, "HI": 0.04, "ID": 0.06,
+        "IL": 0.0625, "IN": 0.07, "IA": 0.06, "KS": 0.065,
+        "KY": 0.06, "LA": 0.0445, "ME": 0.055, "MD": 0.06,
+        "MA": 0.0625, "MI": 0.06, "MN": 0.06875, "MS": 0.07,
+        "MO": 0.04225, "MT": 0.0, "NE": 0.055, "NV": 0.0685,
+        "NH": 0.0, "NJ": 0.06625, "NM": 0.05125, "NY": 0.08,
+        "NC": 0.0475, "ND": 0.05, "OH": 0.0575, "OK": 0.045,
+        "OR": 0.0, "PA": 0.06, "RI": 0.07, "SC": 0.06,
+        "SD": 0.045, "TN": 0.07, "TX": 0.0625, "UT": 0.061,
+        "VT": 0.06, "VA": 0.053, "WA": 0.065, "WV": 0.06,
+        "WI": 0.05, "WY": 0.04, "DC": 0.06
+    ]
+
+    /// Get tax rate for a state code (e.g., "CA", "NY")
+    public static func rate(for stateCode: String) -> Double {
+        return rates[stateCode.uppercased()] ?? 0.0
+    }
+
+    /// Convert full state name to state code
+    public static func stateCode(from name: String) -> String {
+        let stateNames: [String: String] = [
+            "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
+            "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
+            "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI", "IDAHO": "ID",
+            "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA", "KANSAS": "KS",
+            "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
+            "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN", "MISSISSIPPI": "MS",
+            "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE", "NEVADA": "NV",
+            "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM", "NEW YORK": "NY",
+            "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH", "OKLAHOMA": "OK",
+            "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
+            "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT",
+            "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA", "WEST VIRGINIA": "WV",
+            "WISCONSIN": "WI", "WYOMING": "WY", "DISTRICT OF COLUMBIA": "DC"
+        ]
+        let upper = name.uppercased()
+        // If already a code, return it
+        if upper.count == 2 { return upper }
+        return stateNames[upper] ?? upper
+    }
 }

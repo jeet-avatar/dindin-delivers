@@ -48,11 +48,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         Messaging.messaging().delegate = self
 
         // Request authorization
-        NotificationManager.shared.requestAuthorization { granted in
-            if granted {
-                print("RestaurantApp: Push notification authorization granted")
-            }
-        }
+        NotificationManager.shared.requestAuthorization { _ in }
     }
 
     // MARK: - Remote Notification Registration
@@ -60,13 +56,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
-        let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("RestaurantApp: APNs token received: \(tokenString.prefix(20))...")
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if DEBUG
         print("RestaurantApp: Failed to register for remote notifications: \(error.localizedDescription)")
+        #endif
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -75,9 +71,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let userInfo = notification.request.content.userInfo
-        print("RestaurantApp: Received notification in foreground: \(userInfo)")
-
         // Show banner and play sound even when app is in foreground
         // Restaurant app should always show new order notifications prominently
         completionHandler([.banner, .sound, .badge])
@@ -88,7 +81,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        print("RestaurantApp: User tapped notification: \(userInfo)")
 
         // Handle notification action based on type
         if let payload = NotificationPayload(from: userInfo) {
@@ -102,7 +94,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
-        print("RestaurantApp: FCM registration token: \(token.prefix(20))...")
         NotificationManager.shared.updateFCMToken(token)
 
         // Save token to P2P backend for the restaurant
@@ -139,13 +130,20 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     private func saveTokenToServer(_ token: String) {
         // Save FCM token to P2P backend for targeted notifications
         guard let vendorId = P2PAPIService.shared.currentVendorId else {
-            print("RestaurantApp: No vendor ID, skipping FCM token save")
             return
         }
 
-        // Store FCM token via P2P backend (will need API endpoint)
-        print("RestaurantApp: Would save FCM token for vendor \(vendorId): \(token.prefix(20))...")
-        // TODO: Add P2P API endpoint for saving FCM tokens
+        // Store FCM token via P2P backend
+        P2PAPIService.shared.saveVendorFCMToken(vendorId: vendorId, token: token) { result in
+            #if DEBUG
+            switch result {
+            case .success:
+                print("RestaurantApp: FCM token saved for vendor \(vendorId)")
+            case .failure(let error):
+                print("RestaurantApp: Failed to save FCM token: \(error.localizedDescription)")
+            }
+            #endif
+        }
     }
 }
 

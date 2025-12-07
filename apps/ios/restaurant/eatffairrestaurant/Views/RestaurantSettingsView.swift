@@ -1,5 +1,7 @@
 import SwiftUI
 import Combine
+import PhotosUI
+import UserNotifications
 import FirebaseAuth
 import FirebaseFirestore
 import EatFairShared
@@ -750,6 +752,8 @@ struct EditRestaurantProfileView: View {
     @State private var email = ""
     @State private var description = ""
     @State private var cuisine = ""
+    @State private var showImagePicker = false
+    @State private var selectedLogoData: Data?
 
     var body: some View {
         NavigationStack {
@@ -778,17 +782,36 @@ struct EditRestaurantProfileView: View {
                                 .fill(Color.gray.opacity(0.2))
                                 .frame(width: 100, height: 100)
 
-                            Image(systemName: "camera.fill")
-                                .font(.title)
-                                .foregroundColor(.gray)
+                            if let logoData = selectedLogoData,
+                               let uiImage = UIImage(data: logoData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 100, height: 100)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "camera.fill")
+                                    .font(.title)
+                                    .foregroundColor(.gray)
+                            }
                         }
                         Spacer()
                     }
                     .padding(.vertical)
 
-                    Button("Upload Logo") { }
-                        .frame(maxWidth: .infinity)
+                    Button("Upload Logo") {
+                        showImagePicker = true
+                    }
+                    .frame(maxWidth: .infinity)
                 }
+                .photosPicker(isPresented: $showImagePicker, selection: .init(get: { nil }, set: { item in
+                    Task {
+                        if let item = item,
+                           let data = try? await item.loadTransferable(type: Data.self) {
+                            selectedLogoData = data
+                        }
+                    }
+                }), matching: .images)
             }
             .navigationTitle("Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
@@ -928,7 +951,13 @@ struct NotificationSettingsView: View {
 
                 Section {
                     Button("Test Notification") {
-                        // Send test notification
+                        // Send local test notification
+                        let content = UNMutableNotificationContent()
+                        content.title = "New Order!"
+                        content.body = "You have a new order waiting to be accepted."
+                        content.sound = .default
+                        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+                        UNUserNotificationCenter.current().add(request)
                     }
                 }
             }
@@ -1070,48 +1099,68 @@ struct FAQItem: View {
 struct LegalDocumentView: View {
     let title: String
     let type: LegalDocType
+    @Environment(\.openURL) private var openURL
 
     enum LegalDocType {
         case terms, privacy, agreement
+
+        var url: URL? {
+            switch self {
+            case .terms:
+                return URL(string: AppConstants.termsOfServiceURL)
+            case .privacy:
+                return URL(string: AppConstants.privacyPolicyURL)
+            case .agreement:
+                return URL(string: AppConstants.termsOfServiceURL) // Same as terms for now
+            }
+        }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Last updated: November 2024")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(spacing: 20) {
+            Image(systemName: iconName)
+                .font(.system(size: 60))
+                .foregroundColor(Theme.brandGreen)
+                .padding(.top, 40)
 
-                Text(sampleLegalText)
-                    .font(.body)
+            Text(title)
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("View the complete \(title.lowercased()) on our website.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            if let url = type.url {
+                Button(action: { openURL(url) }) {
+                    HStack {
+                        Image(systemName: "safari")
+                        Text("Open in Browser")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.brandGreen)
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
             }
-            .padding()
+
+            Spacer()
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var sampleLegalText: String {
-        """
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-        1. ACCEPTANCE OF TERMS
-        By using this application, you agree to be bound by these terms and conditions.
-
-        2. SERVICE DESCRIPTION
-        EatFair provides a platform for restaurants to receive and manage food orders.
-
-        3. USER RESPONSIBILITIES
-        You are responsible for maintaining the accuracy of your menu and pricing information.
-
-        4. PAYMENT TERMS
-        Commission rates and payment schedules are outlined in your restaurant agreement.
-
-        5. PRIVACY
-        We collect and process data as described in our Privacy Policy.
-
-        For the complete legal documentation, please visit our website or contact support.
-        """
+    private var iconName: String {
+        switch type {
+        case .terms: return "doc.text.fill"
+        case .privacy: return "hand.raised.fill"
+        case .agreement: return "signature"
+        }
     }
 }
 

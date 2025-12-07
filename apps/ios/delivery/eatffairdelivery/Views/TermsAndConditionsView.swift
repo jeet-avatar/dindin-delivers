@@ -91,7 +91,7 @@ struct TermsAndConditionsView: View {
                     .disabled(!hasAccepted || isLoading)
 
                     // Version
-                    Text("Terms Version 1.1 • Last Updated: December 2024")
+                    Text("Terms Version \(AppConstants.termsVersion) • Last Updated: December 2024")
                         .font(.caption)
                         .foregroundColor(Theme.textGrey)
                         .frame(maxWidth: .infinity)
@@ -124,7 +124,7 @@ struct TermsAndConditionsView: View {
         // Key must match what DriverDashboardView checks
         UserDefaults.standard.set(true, forKey: "p2p_driver_terms_accepted")
         UserDefaults.standard.set(Int64(Date().timeIntervalSince1970 * 1000), forKey: "p2p_driver_terms_accepted_at")
-        UserDefaults.standard.set("1.1", forKey: "p2p_driver_terms_version")
+        UserDefaults.standard.set(AppConstants.termsVersion, forKey: UserDefaultsKeys.driverTermsVersion)
 
         isLoading = false
         onAccept?()
@@ -172,6 +172,8 @@ struct TermsHeader: View {
 
 // MARK: - Platform Fee Card
 struct PlatformFeeCard: View {
+    private let config = AppConfig.shared
+
     var body: some View {
         VStack(spacing: 16) {
             HStack {
@@ -192,17 +194,17 @@ struct PlatformFeeCard: View {
 
             Divider()
 
-            // Fee Structure
+            // Fee Structure - using AppConfig values (no hardcodes!)
             VStack(spacing: 12) {
                 FeeRow(
                     title: "Customer Platform Fee",
-                    amount: "$1.00",
+                    amount: String(format: "$%.2f", config.serviceFee),
                     description: "Per order placed through the app"
                 )
 
                 FeeRow(
                     title: "Restaurant Platform Fee",
-                    amount: "$1.00",
+                    amount: String(format: "$%.2f", config.restaurantPlatformFee),
                     description: "Per order received through the app"
                 )
 

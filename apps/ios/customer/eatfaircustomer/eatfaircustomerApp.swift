@@ -37,11 +37,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         Messaging.messaging().delegate = self
 
         // Request authorization
-        NotificationManager.shared.requestAuthorization { granted in
-            if granted {
-                print("CustomerApp: Push notification authorization granted")
-            }
-        }
+        NotificationManager.shared.requestAuthorization { _ in }
     }
 
     // MARK: - Remote Notification Registration
@@ -49,13 +45,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
-        let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("CustomerApp: APNs token received: \(tokenString.prefix(20))...")
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if DEBUG
         print("CustomerApp: Failed to register for remote notifications: \(error.localizedDescription)")
+        #endif
     }
 
     // MARK: - Google Sign-In URL Handler
@@ -63,7 +59,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ app: UIApplication,
                      open url: URL,
                      options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-        print("CustomerApp: Received URL callback: \(url)")
         return GIDSignIn.sharedInstance.handle(url)
     }
 
@@ -73,9 +68,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let userInfo = notification.request.content.userInfo
-        print("CustomerApp: Received notification in foreground: \(userInfo)")
-
         // Show banner and play sound even when app is in foreground
         completionHandler([.banner, .sound, .badge])
     }
@@ -85,7 +77,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        print("CustomerApp: User tapped notification: \(userInfo)")
 
         // Handle notification action based on type
         if let payload = NotificationPayload(from: userInfo) {
@@ -99,7 +90,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
-        print("CustomerApp: FCM registration token: \(token.prefix(20))...")
         NotificationManager.shared.updateFCMToken(token)
 
         // Save token to Firestore for the current user
@@ -163,7 +153,6 @@ struct eatfaircustomerApp: App {
                 }
                 .onOpenURL { url in
                     // Handle Google Sign-In URL callback
-                    print("CustomerApp: onOpenURL received: \(url)")
                     GIDSignIn.sharedInstance.handle(url)
                 }
         }

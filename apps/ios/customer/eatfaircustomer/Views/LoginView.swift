@@ -330,8 +330,8 @@ struct ResetCodeEntryView: View {
                 authViewModel.resetPasswordResetState()
                 dismiss()
             })
-            .onChange(of: authViewModel.passwordResetSuccess) { success in
-                if success {
+            .onChange(of: authViewModel.passwordResetSuccess) { oldValue, newValue in
+                if newValue {
                     dismiss()
                 }
             }

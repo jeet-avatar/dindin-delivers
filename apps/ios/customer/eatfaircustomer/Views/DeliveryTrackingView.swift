@@ -260,6 +260,35 @@ struct DeliveryBottomSheet: View {
     let driverLocation: CLLocationCoordinate2D?
     let onExpandMap: () -> Void
 
+    /// Format ETA using world-class time formatting
+    private var formattedETA: String {
+        // If estimatedTime contains "min", extract minutes and use formatter
+        if let minutes = extractMinutes(from: estimatedTime) {
+            return DateTimeFormatter.shared.formattedETA(etaMinutes: minutes, showArrivalTime: false)
+        }
+        return estimatedTime
+    }
+
+    /// Extract minutes from strings like "15 mins", "10-15 mins", "30-40 mins"
+    private func extractMinutes(from eta: String) -> Int? {
+        // Handle "Arrived" case
+        if eta.lowercased().contains("arrived") {
+            return nil
+        }
+
+        // Try to extract from "X mins" or "X-Y mins" pattern
+        let components = eta.components(separatedBy: CharacterSet.decimalDigits.inverted)
+        let numbers = components.compactMap { Int($0) }.filter { $0 > 0 }
+
+        if numbers.count >= 2 {
+            // For ranges like "10-15", use the average
+            return (numbers[0] + numbers[1]) / 2
+        } else if let first = numbers.first {
+            return first
+        }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Handle bar
@@ -271,11 +300,11 @@ struct DeliveryBottomSheet: View {
             // ETA Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Arriving in")
+                    Text(estimatedTime == "Arrived" ? "Status" : "Arriving in")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
-                    Text(estimatedTime)
+                    Text(formattedETA)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Theme.brandGreen)
                 }
@@ -342,11 +371,11 @@ struct DeliveryBottomSheet: View {
             .padding()
 
             // Contact Driver Button
-            if isOutForDelivery {
+            if isOutForDelivery, let driverPhone = order.driverPhone, !driverPhone.isEmpty {
                 Divider()
 
                 Button(action: {
-                    // Contact driver action
+                    callDriver(phone: driverPhone)
                 }) {
                     HStack {
                         Image(systemName: "phone.fill")
@@ -375,6 +404,16 @@ struct DeliveryBottomSheet: View {
 
     private var isOutForDelivery: Bool {
         ["Out for Delivery", "OnTheWay"].contains(order.status)
+    }
+
+    private func callDriver(phone: String) {
+        let cleanPhone = phone.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+        if let url = URL(string: "tel://\(cleanPhone)") {
+            UIApplication.shared.open(url)
+        }
     }
 }
 

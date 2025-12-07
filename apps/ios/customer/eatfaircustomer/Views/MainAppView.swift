@@ -365,7 +365,7 @@ struct RestaurantSearchCard: View {
                     Text("•")
                         .foregroundColor(.gray)
 
-                    Text("$1 fee")
+                    Text("$\(String(format: "%.0f", AppConfig.shared.platformFeePerRestaurant)) fee")
                         .foregroundColor(Theme.brandGreen)
                 }
                 .font(.caption)

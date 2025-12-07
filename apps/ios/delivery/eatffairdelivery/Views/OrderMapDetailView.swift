@@ -65,13 +65,14 @@ struct OrderMapDetailView: View {
                     VStack {
                         if !distance.isEmpty {
                             HStack {
-                                Text("Distance: \(distance)")
-                                Text("•")
-                                Text("Time: \(travelTime)")
+                                Text(formattedMapInfo)
                             }
+                            .font(.subheadline)
+                            .fontWeight(.medium)
                             .padding(8)
                             .background(Color.white.opacity(0.9))
                             .cornerRadius(8)
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                             .padding(.top, 10)
                         }
                         Spacer()
@@ -147,6 +148,31 @@ struct OrderMapDetailView: View {
         .onAppear {
             calculateRoute()
         }
+    }
+
+    /// World-class formatted ETA display (like Uber/DoorDash)
+    private var formattedMapInfo: String {
+        // Parse distance in miles if available
+        var distanceMiles: Double = 0.0
+        if let miles = Double(distance.replacingOccurrences(of: " mi", with: "").replacingOccurrences(of: "mi", with: "")) {
+            distanceMiles = miles
+        }
+
+        // Parse ETA in minutes
+        var etaMinutes: Int = 0
+        if let mins = Int(travelTime.replacingOccurrences(of: " min", with: "").replacingOccurrences(of: "min", with: "")) {
+            etaMinutes = mins
+        }
+
+        // Use DateTimeFormatter for world-class display
+        if distanceMiles > 0 && etaMinutes > 0 {
+            return DateTimeFormatter.shared.mapAnnotationTime(etaMinutes: etaMinutes, distanceMiles: distanceMiles)
+        } else if etaMinutes > 0 {
+            return DateTimeFormatter.shared.formatDuration(minutes: etaMinutes)
+        }
+
+        // Fallback
+        return "\(distance) • \(travelTime)"
     }
 
     private func calculateZoom() -> Float {

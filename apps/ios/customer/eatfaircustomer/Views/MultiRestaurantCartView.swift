@@ -366,7 +366,7 @@ struct MultiRestaurantCartView: View {
                 CartSummaryRow(
                     label: "Platform Fee (\(cartVM.restaurantCount) restaurant\(cartVM.restaurantCount > 1 ? "s" : ""))",
                     value: cartVM.platformFee,
-                    info: "$1 per restaurant"
+                    info: "$\(String(format: "%.2f", AppConfig.shared.platformFeePerRestaurant)) per restaurant"
                 )
 
                 CartSummaryRow(
@@ -375,7 +375,7 @@ struct MultiRestaurantCartView: View {
                     info: cartVM.restaurantCount > 1 ? "Includes multi-stop" : nil
                 )
 
-                CartSummaryRow(label: "Tax (10%)", value: cartVM.tax)
+                CartSummaryRow(label: "Tax (\(String(format: "%.1f", AppConfig.shared.taxRate * 100))%)", value: cartVM.tax)
 
                 CartSummaryRow(label: "Tip", value: currentTip)
 

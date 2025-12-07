@@ -96,28 +96,30 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Google Sign-In → P2P backend (no Firebase Auth)
     func signInWithGoogle() {
+        #if DEBUG
         print("AuthViewModel: signInWithGoogle() called")
+        #endif
         let config = GIDConfiguration(clientID: googleClientID)
         GIDSignIn.sharedInstance.configuration = config
-        print("AuthViewModel: Google client ID configured: \(googleClientID)")
 
         guard let topViewController = getTopViewController() else {
+            #if DEBUG
             print("AuthViewModel: ERROR - Unable to get top view controller")
+            #endif
             errorMessage = "Unable to get view controller for sign-in"
             return
         }
-
-        print("AuthViewModel: Got top view controller: \(type(of: topViewController)), starting Google Sign-In...")
 
         isLoading = true
         errorMessage = nil
 
         GIDSignIn.sharedInstance.signIn(withPresenting: topViewController) { [weak self] result, error in
-            print("AuthViewModel: Google Sign-In callback received")
             guard let self = self else { return }
 
             if let error = error {
+                #if DEBUG
                 print("AuthViewModel: Google Sign-In error: \(error.localizedDescription)")
+                #endif
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.errorMessage = error.localizedDescription
@@ -126,7 +128,6 @@ class AuthViewModel: NSObject, ObservableObject {
             }
 
             guard let user = result?.user else {
-                print("AuthViewModel: ERROR - No user in Google Sign-In result")
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.errorMessage = "Failed to get user info from Google"
@@ -139,10 +140,7 @@ class AuthViewModel: NSObject, ObservableObject {
             let googleName = user.profile?.name ?? ""
             let googleUserId = user.userID ?? ""
 
-            print("AuthViewModel: Got Google user - email: \(googleEmail), name: \(googleName)")
-
             // Use the dedicated Google OAuth endpoint - handles both login and registration
-            print("AuthViewModel: Calling P2P backend for Google auth...")
             self.p2pService.customerGoogleAuth(
                 email: googleEmail,
                 name: googleName,
@@ -152,12 +150,10 @@ class AuthViewModel: NSObject, ObservableObject {
                     self.isLoading = false
                     switch result {
                     case .success(let response):
-                        print("AuthViewModel: P2P Google auth SUCCESS - name: \(response.fullName), email: \(response.email)")
                         self.customerName = response.fullName
                         self.customerEmail = response.email
                         self.isAuthenticated = true
                     case .failure(let error):
-                        print("AuthViewModel: P2P Google auth FAILED - \(error.localizedDescription)")
                         self.errorMessage = error.localizedDescription
                     }
                 }
@@ -261,7 +257,6 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Start Apple Sign-In flow
     func signInWithApple() {
-        print("AuthViewModel: signInWithApple() called")
         isLoading = true
         errorMessage = nil
 
@@ -283,10 +278,7 @@ class AuthViewModel: NSObject, ObservableObject {
 // MARK: - ASAuthorizationControllerDelegate
 extension AuthViewModel: ASAuthorizationControllerDelegate {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-        print("AuthViewModel: Apple Sign-In didCompleteWithAuthorization")
-
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            print("AuthViewModel: ERROR - Unable to get Apple ID credential")
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.errorMessage = "Unable to get Apple ID credential"
@@ -295,7 +287,6 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
         }
 
         guard let _ = currentNonce else {
-            print("AuthViewModel: ERROR - Invalid state: A login callback was received, but no login request was sent.")
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.errorMessage = "Invalid login state. Please try again."
@@ -310,10 +301,7 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
             .compactMap { $0 }
             .joined(separator: " ")
 
-        print("AuthViewModel: Got Apple user - id: \(appleUserId), email: \(appleEmail), name: \(fullName)")
-
-        // Call P2P backend for Apple auth (similar to Google OAuth)
-        print("AuthViewModel: Calling P2P backend for Apple auth...")
+        // Call P2P backend for Apple auth
         p2pService.customerAppleAuth(
             email: appleEmail,
             name: fullName.isEmpty ? "Apple User" : fullName,
@@ -323,12 +311,10 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
                 self?.isLoading = false
                 switch result {
                 case .success(let response):
-                    print("AuthViewModel: P2P Apple auth SUCCESS - name: \(response.fullName), email: \(response.email)")
                     self?.customerName = response.fullName
                     self?.customerEmail = response.email
                     self?.isAuthenticated = true
                 case .failure(let error):
-                    print("AuthViewModel: P2P Apple auth FAILED - \(error.localizedDescription)")
                     self?.errorMessage = error.localizedDescription
                 }
             }
@@ -336,7 +322,6 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        print("AuthViewModel: Apple Sign-In error: \(error.localizedDescription)")
         DispatchQueue.main.async {
             self.isLoading = false
             // Don't show error if user cancelled

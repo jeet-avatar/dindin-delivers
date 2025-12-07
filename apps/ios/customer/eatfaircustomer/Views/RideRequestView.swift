@@ -238,6 +238,9 @@ struct RideBottomSheet: View {
     let onRequestRide: () -> Void
     let onDismiss: () -> Void
 
+    @State private var showNegotiateSheet = false
+    @State private var customFareOffer: String = ""
+
     var body: some View {
         VStack(spacing: 0) {
             // Handle
@@ -420,7 +423,7 @@ struct RideBottomSheet: View {
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 8) {
-                            ForEach([0.0, 2.0, 5.0, 10.0], id: \.self) { amount in
+                            ForEach(AppConfig.shared.rideTipOptions, id: \.self) { amount in
                                 Button(action: { viewModel.tip = amount }) {
                                     Text(amount == 0 ? "None" : "$\(Int(amount))")
                                         .font(.subheadline)
@@ -456,7 +459,7 @@ struct RideBottomSheet: View {
                             Text("Driver earns: $\(String(format: "%.2f", viewModel.driverEarnings))")
                                 .font(.caption)
                                 .foregroundColor(.green)
-                            Text("(90%+ of fare)")
+                            Text("(\(AppConfig.shared.driverEarningsPercentage)%+ of fare)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -479,7 +482,7 @@ struct RideBottomSheet: View {
                         HStack(spacing: 4) {
                             Image(systemName: "info.circle")
                                 .font(.caption2)
-                            Text("Base: $2.00 | Distance: $1.00/mi | Time: $0.15/min | Platform: $1.00")
+                            Text("Base: $\(String(format: "%.2f", viewModel.baseFare)) | Distance: $\(String(format: "%.2f", viewModel.perMileRate))/mi | Time: $\(String(format: "%.2f", viewModel.perMinuteRate))/min | Platform: $\(String(format: "%.2f", viewModel.platformFee))")
                                 .font(.caption2)
                         }
                         .foregroundColor(.secondary)
@@ -490,20 +493,53 @@ struct RideBottomSheet: View {
                 .padding()
             }
 
-            // Request Button
-            Button(action: onRequestRide) {
-                HStack {
-                    Image(systemName: "car.fill")
-                    Text("Request Ride")
+            // Action Buttons
+            VStack(spacing: 12) {
+                // Request at Estimated Fare
+                Button(action: onRequestRide) {
+                    HStack {
+                        Image(systemName: "car.fill")
+                        Text("Request at $\(String(format: "%.2f", viewModel.estimatedFare))")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(viewModel.canRequestRide ? Theme.brandGreen : Color.gray)
+                    .cornerRadius(12)
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(viewModel.canRequestRide ? Color.blue : Color.gray)
-                .cornerRadius(12)
+                .disabled(!viewModel.canRequestRide)
+
+                // Negotiate Fare Button
+                Button(action: { showNegotiateSheet = true }) {
+                    HStack {
+                        Image(systemName: "dollarsign.arrow.circlepath")
+                        Text("Negotiate Fare")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Theme.brandOrange)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.brandOrange.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Theme.brandOrange.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .disabled(!viewModel.canRequestRide)
+
+                // Info text
+                HStack(spacing: 4) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.caption2)
+                        .foregroundColor(Theme.brandGreen)
+                    Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) platform fee only • Drivers keep \(AppConfig.shared.driverEarningsPercentage)%+")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
-            .disabled(!viewModel.canRequestRide)
             .padding()
         }
         .background(
@@ -511,6 +547,248 @@ struct RideBottomSheet: View {
                 .fill(Color.white)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
         )
+        .sheet(isPresented: $showNegotiateSheet) {
+            PreRequestNegotiationSheet(
+                viewModel: viewModel,
+                isPresented: $showNegotiateSheet,
+                onRequestWithOffer: { offer in
+                    viewModel.initialFareOffer = offer
+                    showNegotiateSheet = false
+                    onRequestRide()
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+// MARK: - Pre-Request Negotiation Sheet
+struct PreRequestNegotiationSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Binding var isPresented: Bool
+    let onRequestWithOffer: (Double) -> Void
+
+    @State private var customOffer: String = ""
+    @State private var selectedQuickOffer: Double? = nil
+
+    private var estimatedFare: Double { viewModel.estimatedFare }
+    private var platformFee: Double { AppConfig.shared.ridePlatformFee }
+
+    private var minFare: Double { AppConfig.shared.rideMinFare }
+
+    private var quickOfferOptions: [Double] {
+        let base = estimatedFare
+        return [
+            max(minFare, base * 0.6),  // 40% off
+            max(minFare, base * 0.7),  // 30% off
+            max(minFare, base * 0.8),  // 20% off
+            max(minFare, base * 0.9)   // 10% off
+        ].map { round($0 * 100) / 100 }
+    }
+
+    private var currentOffer: Double? {
+        if let selected = selectedQuickOffer {
+            return selected
+        }
+        if let custom = Double(customOffer), custom >= minFare {
+            return custom
+        }
+        return nil
+    }
+
+    private var driverEarnings: Double {
+        guard let offer = currentOffer else { return 0 }
+        let taxRate = StateTaxRates.rate(for: viewModel.pickupAddress?.state ?? "TX")
+        return offer - platformFee - (offer * taxRate)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.brandOrange.opacity(0.15))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: "dollarsign.arrow.circlepath")
+                                .font(.system(size: 36))
+                                .foregroundColor(Theme.brandOrange)
+                        }
+
+                        Text("Name Your Price")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("Drivers can accept your offer or counter")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top)
+
+                    // Estimated vs Your Offer
+                    HStack(spacing: 20) {
+                        VStack(spacing: 4) {
+                            Text("Estimated")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", estimatedFare))")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+
+                        VStack(spacing: 4) {
+                            Text("Your Offer")
+                                .font(.caption)
+                                .foregroundColor(Theme.brandOrange)
+                            Text(currentOffer != nil ? "$\(String(format: "%.2f", currentOffer!))" : "--")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(Theme.brandOrange)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandOrange.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
+                    // Quick Offer Buttons
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Offers")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.horizontal)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            ForEach(quickOfferOptions, id: \.self) { amount in
+                                Button(action: {
+                                    selectedQuickOffer = amount
+                                    customOffer = ""
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Text("$\(String(format: "%.0f", amount))")
+                                            .font(.headline)
+                                        let savings = estimatedFare - amount
+                                        if savings > 0 {
+                                            Text("Save $\(String(format: "%.0f", savings))")
+                                                .font(.caption2)
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(selectedQuickOffer == amount ? Theme.brandOrange : Color.gray.opacity(0.1))
+                                    .foregroundColor(selectedQuickOffer == amount ? .white : .primary)
+                                    .cornerRadius(12)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Custom Amount
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Or enter custom amount")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        HStack {
+                            Text("$")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            TextField("0.00", text: $customOffer)
+                                .font(.title2)
+                                .keyboardType(.decimalPad)
+                                .onChange(of: customOffer) { _, _ in
+                                    selectedQuickOffer = nil
+                                }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+
+                        Text("Minimum fare: $\(String(format: "%.2f", AppConfig.shared.rideMinFare))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+
+                    // Driver Earnings Preview
+                    if currentOffer != nil {
+                        VStack(spacing: 8) {
+                            Divider()
+
+                            HStack {
+                                Image(systemName: "person.fill.checkmark")
+                                    .foregroundColor(Theme.brandGreen)
+                                Text("Driver would earn:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("$\(String(format: "%.2f", driverEarnings))")
+                                    .font(.headline)
+                                    .foregroundColor(Theme.brandGreen)
+                            }
+                            .padding()
+                            .background(Theme.brandGreen.opacity(0.1))
+                            .cornerRadius(12)
+
+                            HStack(spacing: 4) {
+                                Image(systemName: "info.circle")
+                                Text("Platform fee: only $\(String(format: "%.0f", platformFee))")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 20)
+                }
+            }
+            .navigationTitle("Negotiate Fare")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12) {
+                    Button(action: {
+                        if let offer = currentOffer {
+                            onRequestWithOffer(offer)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "paperplane.fill")
+                            Text(currentOffer != nil ? "Request with $\(String(format: "%.0f", currentOffer!)) Offer" : "Enter an Amount")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(currentOffer != nil ? Theme.brandOrange : Color.gray)
+                        .cornerRadius(12)
+                    }
+                    .disabled(currentOffer == nil)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+            }
+        }
     }
 }
 
@@ -904,6 +1182,9 @@ struct RideTrackingView: View {
 // MARK: - Ride Status Card
 struct RideStatusCard: View {
     @ObservedObject var viewModel: RideRequestViewModel
+    @State private var showCancelConfirm = false
+    @State private var showNegotiateSheet = false
+    @State private var customerOfferAmount: String = ""
 
     var statusText: String {
         switch viewModel.currentStep {
@@ -971,8 +1252,135 @@ struct RideStatusCard: View {
                 }
 
                 Spacer()
+
+                // Cancel button (when cancellation is allowed)
+                if viewModel.currentStep != .completed && viewModel.currentStep != .rideInProgress {
+                    Button(action: { showCancelConfirm = true }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.red.opacity(0.7))
+                    }
+                }
             }
             .padding(.horizontal)
+
+            // Negotiation Status Section ($1+$1 Platform Fee Model)
+            if viewModel.isNegotiating {
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Show driver counter-offer if available
+                    if let driverOffer = viewModel.driverOfferAmount {
+                        // Driver Counter-Offer Card
+                        VStack(spacing: 12) {
+                            HStack {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.orange.opacity(0.15))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .foregroundColor(.orange)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Driver Counter-Offer")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Text("Platform fee: only $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Text("$\(String(format: "%.2f", driverOffer))")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.orange)
+                            }
+
+                            // Driver earnings transparency
+                            HStack {
+                                Image(systemName: "person.fill.checkmark")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                Text("Driver earns: $\(String(format: "%.2f", driverOffer - AppConfig.shared.ridePlatformFee))")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                Spacer()
+                            }
+
+                            HStack(spacing: 12) {
+                                Button(action: { viewModel.acceptDriverOffer() }) {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("Accept")
+                                    }
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.green)
+                                    .cornerRadius(10)
+                                }
+
+                                Button(action: { showNegotiateSheet = true }) {
+                                    HStack {
+                                        Image(systemName: "arrow.left.arrow.right")
+                                        Text("Counter")
+                                    }
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.orange.opacity(0.15))
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.05))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+
+                    } else {
+                        // Waiting for driver response
+                        HStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Negotiating...")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Waiting for driver's response")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button(action: { showNegotiateSheet = true }) {
+                                Text("Change Offer")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
 
             // Driver Info (when assigned)
             if let tracking = viewModel.rideTracking,
@@ -1012,6 +1420,14 @@ struct RideStatusCard: View {
                 .padding(.horizontal)
             }
 
+            // Negotiation Message
+            if let message = viewModel.negotiationMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.green)
+                    .padding(.horizontal)
+            }
+
             // Complete Button (when ride is done)
             if viewModel.currentStep == .completed {
                 Button(action: { viewModel.resetRide() }) {
@@ -1033,6 +1449,25 @@ struct RideStatusCard: View {
                 .fill(Color.white)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
         )
+        // Cancel Confirmation
+        .confirmationDialog("Cancel Ride?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
+            Button("Cancel Ride\(viewModel.estimatedCancellationFee > 0 ? " ($\(String(format: "%.0f", viewModel.estimatedCancellationFee)) fee)" : " (Free)")", role: .destructive) {
+                viewModel.cancelRide(reason: "Customer cancelled")
+            }
+            Button("Keep Ride", role: .cancel) { }
+        } message: {
+            Text(viewModel.estimatedCancellationFee > 0 ?
+                 "A $\(String(format: "%.0f", viewModel.estimatedCancellationFee)) cancellation fee will apply." :
+                 "You can cancel for free right now.")
+        }
+        // Negotiate Sheet
+        .sheet(isPresented: $showNegotiateSheet) {
+            CustomerNegotiationSheet(
+                viewModel: viewModel,
+                customerOfferAmount: $customerOfferAmount,
+                isPresented: $showNegotiateSheet
+            )
+        }
     }
 
     private func callDriver(_ phone: String) {
@@ -1041,6 +1476,146 @@ struct RideStatusCard: View {
         if let url = URL(string: "tel://\(cleanPhone)") {
             UIApplication.shared.open(url)
         }
+    }
+}
+
+// MARK: - Customer Negotiation Sheet
+struct CustomerNegotiationSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Binding var customerOfferAmount: String
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    Image(systemName: "dollarsign.arrow.circlepath")
+                        .font(.system(size: 50))
+                        .foregroundColor(.orange)
+
+                    Text("Negotiate Fare")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Only $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) platform fee to you + $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) to driver")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 20)
+
+                // Current offers
+                if let driverOffer = viewModel.driverOfferAmount {
+                    HStack(spacing: 20) {
+                        VStack {
+                            Text("Driver's Offer")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", driverOffer))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(12)
+
+                        VStack {
+                            Text("Your Budget")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", viewModel.totalAmount))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
+
+                // Your offer input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your Counter-Offer")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    HStack {
+                        Text("$")
+                            .font(.title)
+                            .foregroundColor(.secondary)
+
+                        TextField("0.00", text: $customerOfferAmount)
+                            .font(.title)
+                            .keyboardType(.decimalPad)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+
+                    Text("Driver receives your offer minus $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) platform fee")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+
+                // Quick offer buttons
+                HStack(spacing: 12) {
+                    ForEach([5, 10, 15, 20], id: \.self) { amount in
+                        Button(action: { customerOfferAmount = "\(amount)" }) {
+                            Text("$\(amount)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // Submit button
+                Button(action: submitOffer) {
+                    HStack {
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Submit Offer")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(customerOfferAmount.isEmpty ? Color.gray : Color.blue)
+                    .cornerRadius(12)
+                }
+                .disabled(customerOfferAmount.isEmpty || viewModel.isLoading)
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func submitOffer() {
+        guard let amount = Double(customerOfferAmount) else { return }
+        viewModel.submitFareOffer(proposedFare: amount)
     }
 }
 

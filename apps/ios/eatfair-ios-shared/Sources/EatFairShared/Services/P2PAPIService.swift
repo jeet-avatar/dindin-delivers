@@ -7,15 +7,50 @@ public class P2PAPIService: ObservableObject {
     public static let shared = P2PAPIService()
 
     // MARK: - Configuration
-    // Production URL - connected to Dollar.ai live backend
-    private let baseURL = "https://dollor.ai/api"
+    // Uses centralized AppConfig for baseURL - no hardcodes!
+    private var baseURL: String {
+        return "\(AppConfig.shared.p2pAPIBaseURL)/api"
+    }
 
     @Published public var isLoading = false
     @Published public var error: String?
 
     private var cancellables = Set<AnyCancellable>()
 
-    private init() {}
+    // MARK: - Secure Storage Keys (for non-sensitive data in UserDefaults)
+    private enum UserDefaultsKey {
+        static let vendorId = "p2p_vendor_id"
+        static let customerId = "p2p_customer_id"
+        static let driverId = "p2p_driver_id"
+        static let driverCode = "p2p_driver_code"
+        static let driverName = "p2p_driver_name"
+        static let driverEmail = "p2p_driver_email"
+        static let customerName = "p2p_customer_name"
+        static let customerEmail = "p2p_customer_email"
+    }
+
+    // MARK: - Secure Token Access
+    // All tokens are now stored securely in Keychain via SecureStorage
+
+    /// Get customer access token from secure storage
+    private var customerToken: String? {
+        return SecureStorage.shared.customerAccessToken
+    }
+
+    /// Get driver access token from secure storage
+    private var driverToken: String? {
+        return SecureStorage.shared.driverAccessToken
+    }
+
+    /// Get vendor access token from secure storage
+    private var vendorToken: String? {
+        return SecureStorage.shared.vendorAccessToken
+    }
+
+    private init() {
+        // Migrate any tokens from UserDefaults to Keychain on first access
+        SecureStorage.shared.migrateFromUserDefaults()
+    }
 
     // MARK: - Public Restaurant APIs (Customer App)
 
@@ -415,9 +450,9 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
-                    // Store the token
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_access_token")
-                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: "p2p_vendor_id")
+                    // Store the token securely in Keychain
+                    SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -429,18 +464,18 @@ public class P2PAPIService: ObservableObject {
 
     /// Get stored vendor ID
     public var currentVendorId: Int? {
-        return UserDefaults.standard.object(forKey: "p2p_vendor_id") as? Int
+        return UserDefaults.standard.object(forKey: UserDefaultsKey.vendorId) as? Int
     }
 
     /// Check if logged in
     public var isLoggedIn: Bool {
-        return UserDefaults.standard.string(forKey: "p2p_access_token") != nil
+        return vendorToken != nil
     }
 
     /// Logout
     public func logout() {
-        UserDefaults.standard.removeObject(forKey: "p2p_access_token")
-        UserDefaults.standard.removeObject(forKey: "p2p_vendor_id")
+        SecureStorage.shared.clearAuthTokens(type: .vendor)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.vendorId)
     }
 
     /// Register a new vendor
@@ -498,59 +533,13 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
-                    // Store the token
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_access_token")
-                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: "p2p_vendor_id")
+                    // Store the token securely in Keychain
+                    SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
                     completion(.failure(error))
-                }
-            }
-        }.resume()
-    }
-
-    /// Request password reset
-    public func requestPasswordReset(
-        email: String,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        guard let url = URL(string: "\(baseURL)/auth/password-reset/request") else {
-            completion(.failure(P2PAPIError.invalidURL))
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = ["email": email]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        isLoading = true
-        error = nil
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-
-                if let error = error {
-                    self?.error = error.localizedDescription
-                    completion(.failure(error))
-                    return
-                }
-
-                if let httpResponse = response as? HTTPURLResponse {
-                    if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-                        completion(.success(()))
-                    } else if let data = data,
-                              let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
-                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
-                    } else {
-                        completion(.failure(P2PAPIError.serverError("Password reset request failed")))
-                    }
-                } else {
-                    completion(.failure(P2PAPIError.noData))
                 }
             }
         }.resume()
@@ -604,8 +593,8 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_customer_access_token")
-                    UserDefaults.standard.set(loginResponse.customerId, forKey: "p2p_customer_id")
+                    SecureStorage.shared.customerAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -667,8 +656,8 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_customer_access_token")
-                    UserDefaults.standard.set(loginResponse.customerId, forKey: "p2p_customer_id")
+                    SecureStorage.shared.customerAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
@@ -730,8 +719,8 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_customer_access_token")
-                    UserDefaults.standard.set(loginResponse.customerId, forKey: "p2p_customer_id")
+                    SecureStorage.shared.customerAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
@@ -909,10 +898,10 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_customer_access_token")
-                    UserDefaults.standard.set(loginResponse.customerId, forKey: "p2p_customer_id")
-                    UserDefaults.standard.set(loginResponse.fullName, forKey: "p2p_customer_name")
-                    UserDefaults.standard.set(loginResponse.email, forKey: "p2p_customer_email")
+                    SecureStorage.shared.customerAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
+                    UserDefaults.standard.set(loginResponse.fullName, forKey: UserDefaultsKey.customerName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.customerEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
@@ -924,18 +913,20 @@ public class P2PAPIService: ObservableObject {
 
     /// Get stored customer ID
     public var currentCustomerId: Int? {
-        return UserDefaults.standard.object(forKey: "p2p_customer_id") as? Int
+        return UserDefaults.standard.object(forKey: UserDefaultsKey.customerId) as? Int
     }
 
     /// Check if customer is logged in
     public var isCustomerLoggedIn: Bool {
-        return UserDefaults.standard.string(forKey: "p2p_customer_access_token") != nil
+        return customerToken != nil
     }
 
     /// Customer logout
     public func customerLogout() {
-        UserDefaults.standard.removeObject(forKey: "p2p_customer_access_token")
-        UserDefaults.standard.removeObject(forKey: "p2p_customer_id")
+        SecureStorage.shared.clearAuthTokens(type: .customer)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.customerId)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.customerName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.customerEmail)
     }
 
     // MARK: - Customer Order APIs
@@ -953,7 +944,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "GET"
 
         // Add auth token if available
-        if let token = UserDefaults.standard.string(forKey: "p2p_customer_access_token") {
+        if let token = customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -999,7 +990,7 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        if let token = UserDefaults.standard.string(forKey: "p2p_customer_access_token") {
+        if let token = customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1045,7 +1036,7 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        if let token = UserDefaults.standard.string(forKey: "p2p_customer_access_token") {
+        if let token = customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1235,7 +1226,7 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
 
-        if let token = UserDefaults.standard.string(forKey: "p2p_access_token") {
+        if let token = vendorToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1305,11 +1296,11 @@ public class P2PAPIService: ObservableObject {
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PDriverLoginResponse.self, from: data)
                     // Store the token and driver info
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_driver_access_token")
-                    UserDefaults.standard.set(loginResponse.driverId, forKey: "p2p_driver_id")
-                    UserDefaults.standard.set(loginResponse.driverCode, forKey: "p2p_driver_code")
-                    UserDefaults.standard.set(loginResponse.name, forKey: "p2p_driver_name")
-                    UserDefaults.standard.set(loginResponse.email, forKey: "p2p_driver_email")
+                    SecureStorage.shared.driverAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.driverId, forKey: UserDefaultsKey.driverId)
+                    UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
+                    UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -1378,11 +1369,11 @@ public class P2PAPIService: ObservableObject {
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PDriverLoginResponse.self, from: data)
                     // Store the token and driver info
-                    UserDefaults.standard.set(loginResponse.accessToken, forKey: "p2p_driver_access_token")
-                    UserDefaults.standard.set(loginResponse.driverId, forKey: "p2p_driver_id")
-                    UserDefaults.standard.set(loginResponse.driverCode, forKey: "p2p_driver_code")
-                    UserDefaults.standard.set(loginResponse.name, forKey: "p2p_driver_name")
-                    UserDefaults.standard.set(loginResponse.email, forKey: "p2p_driver_email")
+                    SecureStorage.shared.driverAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.driverId, forKey: UserDefaultsKey.driverId)
+                    UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
+                    UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
@@ -1394,31 +1385,31 @@ public class P2PAPIService: ObservableObject {
 
     /// Get stored driver ID
     public var currentDriverId: Int? {
-        return UserDefaults.standard.object(forKey: "p2p_driver_id") as? Int
+        return UserDefaults.standard.object(forKey: UserDefaultsKey.driverId) as? Int
     }
 
     /// Get stored driver name
     public var currentDriverName: String? {
-        return UserDefaults.standard.string(forKey: "p2p_driver_name")
+        return UserDefaults.standard.string(forKey: UserDefaultsKey.driverName)
     }
 
     /// Get stored driver code
     public var currentDriverCode: String? {
-        return UserDefaults.standard.string(forKey: "p2p_driver_code")
+        return UserDefaults.standard.string(forKey: UserDefaultsKey.driverCode)
     }
 
     /// Check if driver is logged in
     public var isDriverLoggedIn: Bool {
-        return UserDefaults.standard.string(forKey: "p2p_driver_access_token") != nil
+        return driverToken != nil
     }
 
     /// Driver logout
     public func driverLogout() {
-        UserDefaults.standard.removeObject(forKey: "p2p_driver_access_token")
-        UserDefaults.standard.removeObject(forKey: "p2p_driver_id")
-        UserDefaults.standard.removeObject(forKey: "p2p_driver_code")
-        UserDefaults.standard.removeObject(forKey: "p2p_driver_name")
-        UserDefaults.standard.removeObject(forKey: "p2p_driver_email")
+        SecureStorage.shared.clearAuthTokens(type: .driver)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverId)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverCode)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverEmail)
     }
 
     /// Get driver profile from P2P API
@@ -1436,7 +1427,7 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add auth token if available
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1460,8 +1451,8 @@ public class P2PAPIService: ObservableObject {
                     // Return basic info from stored UserDefaults
                     let storedProfile: [String: Any] = [
                         "id": driverId,
-                        "name": UserDefaults.standard.string(forKey: "p2p_driver_name") ?? "",
-                        "email": UserDefaults.standard.string(forKey: "p2p_driver_email") ?? "",
+                        "name": UserDefaults.standard.string(forKey: UserDefaultsKey.driverName) ?? "",
+                        "email": UserDefaults.standard.string(forKey: UserDefaultsKey.driverEmail) ?? "",
                         "status": "pending",
                         "approval_status": "pending"
                     ]
@@ -1499,7 +1490,7 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add auth token
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1574,7 +1565,7 @@ public class P2PAPIService: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1617,7 +1608,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
 
         // Add auth token
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -1852,7 +1843,7 @@ public class P2PAPIService: ObservableObject {
 
     /// Refresh driver token - call when receiving 401 Unauthorized
     public func refreshDriverToken(completion: @escaping (Result<String, Error>) -> Void) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("No token to refresh")))
             return
         }
@@ -1885,8 +1876,8 @@ public class P2PAPIService: ObservableObject {
                 do {
                     if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let newToken = json["access_token"] as? String {
-                        // Save new token
-                        UserDefaults.standard.set(newToken, forKey: "p2p_driver_access_token")
+                        // Save new token securely
+                        SecureStorage.shared.driverAccessToken = newToken
                         DispatchQueue.main.async {
                             print("[P2P] Token refreshed successfully")
                             completion(.success(newToken))
@@ -1920,7 +1911,7 @@ public class P2PAPIService: ObservableObject {
         retryOnExpired: Bool,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -1992,7 +1983,7 @@ public class P2PAPIService: ObservableObject {
         isOnline: Bool,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2062,7 +2053,7 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2097,7 +2088,7 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2134,7 +2125,7 @@ public class P2PAPIService: ObservableObject {
         longitude: Double,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2175,7 +2166,7 @@ public class P2PAPIService: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -2221,7 +2212,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") {
+        if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -2256,7 +2247,7 @@ public class P2PAPIService: ObservableObject {
         rideId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2298,7 +2289,7 @@ public class P2PAPIService: ObservableObject {
         rideId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = UserDefaults.standard.string(forKey: "p2p_driver_access_token") else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
@@ -2435,6 +2426,499 @@ public class P2PAPIService: ObservableObject {
                 }
             }
         }.resume()
+    }
+
+    // MARK: - Fare Negotiation APIs (Rideshare Only - $1+$1 Model)
+
+    /// Submit a fare counter-offer (driver or customer)
+    public func submitFareNegotiation(
+        rideId: Int,
+        proposedFare: Double,
+        isDriverOffer: Bool,
+        completion: @escaping (Result<FareNegotiationResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/negotiate") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add driver auth token for negotiation
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "proposed_fare": proposedFare,
+            "is_driver_offer": isDriverOffer,
+            "platform_fee_driver": 1.0,  // $1 to driver
+            "platform_fee_customer": 1.0  // $1 to customer = $2 total platform fee
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(FareNegotiationResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Accept a negotiated fare
+    public func acceptFareNegotiation(
+        rideId: Int,
+        acceptedFare: Double,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/accept-fare") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add driver auth token for accepting fare
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "accepted_fare": acceptedFare,
+            "platform_fee_driver": 1.0,
+            "platform_fee_customer": 1.0
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                completion(.success(()))
+            } else {
+                completion(.failure(P2PAPIError.serverError("Failed to accept fare")))
+            }
+        }.resume()
+    }
+
+    // MARK: - Stripe Payment APIs (Rideshare)
+
+    /// Create Stripe PaymentIntent for ride payment
+    public func createRidePaymentIntent(
+        rideId: Int,
+        amount: Double,
+        currency: String = "usd",
+        completion: @escaping (Result<StripePaymentIntentResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/create-payment-intent") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "amount": Int(amount * 100),  // Convert to cents for Stripe
+            "currency": currency,
+            "ride_id": rideId
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(StripePaymentIntentResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Confirm Stripe payment for ride
+    public func confirmRidePayment(
+        rideId: Int,
+        paymentIntentId: String,
+        completion: @escaping (Result<RidePaymentConfirmation, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/confirm-payment") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "payment_intent_id": paymentIntentId
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(RidePaymentConfirmation.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Ride Cancellation APIs
+
+    /// Cancel ride with cancellation fee (if applicable)
+    /// Fee schedule:
+    /// - Free: Within 2 minutes of request OR no driver assigned
+    /// - $5: After driver assigned but before pickup
+    /// - $10: After driver en route (>50% of fare)
+    public func cancelRide(
+        rideId: Int,
+        reason: String?,
+        completion: @escaping (Result<RideCancellationResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/cancel") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["ride_id": rideId]
+        if let reason = reason {
+            body["reason"] = reason
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(RideCancellationResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Customer fare negotiation - submit counter offer
+    public func customerSubmitFareOffer(
+        rideId: Int,
+        proposedFare: Double,
+        completion: @escaping (Result<FareNegotiationResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-negotiate") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "proposed_fare": proposedFare,
+            "is_driver_offer": false,
+            "platform_fee_customer": 1.0  // $1 platform fee to customer
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(FareNegotiationResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Customer accepts driver's fare offer
+    public func customerAcceptDriverFare(
+        rideId: Int,
+        acceptedFare: Double,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-accept-fare") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "accepted_fare": acceptedFare,
+            "platform_fee_customer": 1.0
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                completion(.success(()))
+            } else {
+                completion(.failure(P2PAPIError.serverError("Failed to accept fare")))
+            }
+        }.resume()
+    }
+
+    /// Get current negotiation status for a ride (polling endpoint for customers)
+    public func getRideNegotiationStatus(
+        rideId: Int,
+        completion: @escaping (Result<RideNegotiationStatus, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/negotiation-status") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add customer auth token
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(RideNegotiationStatus.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+}
+
+/// Ride negotiation status response (for polling)
+public struct RideNegotiationStatus: Codable {
+    public let success: Bool
+    public let rideId: Int
+    public let negotiationStatus: String  // "none", "customer_offered", "driver_countered", "accepted", "rejected"
+    public let customerOffer: Double?
+    public let driverOffer: Double?
+    public let agreedFare: Double?
+    public let platformFee: Double
+    public let driverEarnings: Double?
+    public let message: String?
+    public let lastUpdated: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case rideId = "ride_id"
+        case negotiationStatus = "negotiation_status"
+        case customerOffer = "customer_offer"
+        case driverOffer = "driver_offer"
+        case agreedFare = "agreed_fare"
+        case platformFee = "platform_fee"
+        case driverEarnings = "driver_earnings"
+        case message
+        case lastUpdated = "last_updated"
+    }
+}
+
+// MARK: - Stripe Payment Models
+
+/// Stripe PaymentIntent response
+public struct StripePaymentIntentResponse: Codable {
+    public let success: Bool
+    public let clientSecret: String
+    public let paymentIntentId: String
+    public let amount: Int  // in cents
+    public let currency: String
+    public let publishableKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case clientSecret = "client_secret"
+        case paymentIntentId = "payment_intent_id"
+        case amount
+        case currency
+        case publishableKey = "publishable_key"
+    }
+}
+
+/// Ride payment confirmation
+public struct RidePaymentConfirmation: Codable {
+    public let success: Bool
+    public let rideId: Int
+    public let paymentStatus: String
+    public let amountPaid: Double
+    public let receiptUrl: String?
+    public let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case rideId = "ride_id"
+        case paymentStatus = "payment_status"
+        case amountPaid = "amount_paid"
+        case receiptUrl = "receipt_url"
+        case message
+    }
+}
+
+/// Ride cancellation response
+public struct RideCancellationResponse: Codable {
+    public let success: Bool
+    public let rideId: Int
+    public let cancellationFee: Double
+    public let refundAmount: Double
+    public let message: String
+    public let reason: String?
+    public let cancelledAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case rideId = "ride_id"
+        case cancellationFee = "cancellation_fee"
+        case refundAmount = "refund_amount"
+        case message
+        case reason
+        case cancelledAt = "cancelled_at"
+    }
+}
+
+/// Fare negotiation response
+public struct FareNegotiationResponse: Codable {
+    public let success: Bool
+    public let status: String  // "pending", "counter_offered", "accepted", "rejected"
+    public let customerOffer: Double
+    public let driverOffer: Double?
+    public let platformFeeDriver: Double  // Always $1
+    public let platformFeeCustomer: Double  // Always $1
+    public let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case status
+        case customerOffer = "customer_offer"
+        case driverOffer = "driver_offer"
+        case platformFeeDriver = "platform_fee_driver"
+        case platformFeeCustomer = "platform_fee_customer"
+        case message
     }
 }
 

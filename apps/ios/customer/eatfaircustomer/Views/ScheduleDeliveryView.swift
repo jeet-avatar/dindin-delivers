@@ -1,4 +1,5 @@
 import SwiftUI
+import EatFairShared
 
 struct ScheduleDeliveryView: View {
     @Environment(\.dismiss) var dismiss
@@ -367,9 +368,9 @@ struct ScheduleBadge: View {
         .cornerRadius(8)
     }
 
+    /// World-class scheduled time formatting (like Uber/DoorDash)
     private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, h:mm a"
-        return formatter.string(from: date)
+        // Use DateTimeFormatter for scheduled ride/delivery display
+        return DateTimeFormatter.shared.scheduledRideTime(from: date)
     }
 }

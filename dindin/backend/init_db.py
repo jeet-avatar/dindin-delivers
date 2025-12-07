@@ -10,21 +10,41 @@ load_dotenv()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def create_sample_data():
-    """Create sample data for testing"""
+    """Create sample data for testing
+
+    SECURITY NOTE: Admin credentials should be set via environment variables.
+    Default credentials are ONLY for initial development setup.
+    """
     db = SessionLocal()
-    
+
+    # Get admin credentials from environment or use development defaults
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@invoice.com")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+    # In production, require admin password to be set
+    IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+    if IS_PRODUCTION and not ADMIN_PASSWORD:
+        raise RuntimeError("CRITICAL: ADMIN_PASSWORD must be set in environment for production")
+
+    # Development fallback - generates a random password and prints it
+    if not ADMIN_PASSWORD:
+        import secrets
+        ADMIN_PASSWORD = secrets.token_urlsafe(16)
+        print(f"[DEV] Generated temporary admin password: {ADMIN_PASSWORD}")
+        print("[DEV] Set ADMIN_PASSWORD environment variable for persistent access")
+
     try:
         # Check if admin user exists
-        admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+        admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
         if not admin:
             admin = User(
-                email="admin@invoice.com",
-                password_hash=pwd_context.hash("admin123"),
+                email=ADMIN_EMAIL,
+                password_hash=pwd_context.hash(ADMIN_PASSWORD),
                 full_name="Admin User",
                 role=UserRole.ADMIN
             )
             db.add(admin)
-            print("✓ Created admin user (email: admin@invoice.com, password: admin123)")
+            print(f"✓ Created admin user (email: {ADMIN_EMAIL})")
         
         # Create sample clients
         if db.query(Client).count() == 0:

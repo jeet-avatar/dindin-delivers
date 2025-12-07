@@ -383,7 +383,7 @@ struct ActiveDeliveryDetailView: View {
     private func openMapsNavigation(to coordinate: CLLocationCoordinate2D, name: String) {
         // Try Google Maps first, fall back to Apple Maps
         let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(coordinate.latitude),\(coordinate.longitude)&directionsmode=driving")
-        let appleMapsURL = URL(string: "http://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=d")
+        let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=d")
 
         if let googleMapsURL = googleMapsURL, UIApplication.shared.canOpenURL(googleMapsURL) {
             UIApplication.shared.open(googleMapsURL)
@@ -559,9 +559,7 @@ struct DeliveryTimelineView: View {
     func formatTime(_ timestamp: Int64?) -> String {
         guard let timestamp = timestamp else { return "Pending" }
         let date = Date(timeIntervalSince1970: TimeInterval(timestamp / 1000))
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        return DateTimeFormatter.shared.statusTimelineTime(from: date)
     }
 }
 

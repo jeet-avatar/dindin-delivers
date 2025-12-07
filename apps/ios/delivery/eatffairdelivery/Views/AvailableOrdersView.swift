@@ -3,13 +3,19 @@ import MapKit
 import EatFairShared
 
 // MARK: - World-Class Available Orders View
+/// Supports both Food Delivery and Rideshare modes with fare negotiation
 struct AvailableOrdersView: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @StateObject private var locationManager = LocationManager.shared
     @State private var selectedFilter: OrderFilter = .all
     @State private var viewMode: ViewMode = .list
     @State private var selectedOrder: Order?
+    @State private var selectedRide: P2PRide?
     @State private var showOrderDetail = false
+    @State private var showRideDetail = false
+    @State private var showNegotiationSheet = false
+    @State private var showEarningsSheet = false
+    @State private var showMessagesSheet = false
 
     enum OrderFilter: String, CaseIterable {
         case all = "All"
@@ -29,6 +35,9 @@ struct AvailableOrdersView: View {
                 Theme.backgroundGrey.ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // Service Mode Toggle (Food Delivery / Rideshare)
+                    serviceModeToggle
+
                     // Header Stats Bar
                     statsHeader
 
@@ -38,13 +47,27 @@ struct AvailableOrdersView: View {
                     // Content
                     if viewModel.isLoading {
                         loadingView
-                    } else if filteredOrders.isEmpty {
-                        emptyStateView
-                    } else {
-                        if viewMode == .list {
-                            ordersList
+                    } else if viewModel.driverMode == .foodDelivery {
+                        // Food Delivery Mode
+                        if filteredOrders.isEmpty {
+                            emptyStateView
                         } else {
-                            ordersMapView
+                            if viewMode == .list {
+                                ordersList
+                            } else {
+                                ordersMapView
+                            }
+                        }
+                    } else {
+                        // Rideshare Mode
+                        if viewModel.availableRides.isEmpty {
+                            rideEmptyStateView
+                        } else {
+                            if viewMode == .list {
+                                ridesList
+                            } else {
+                                ridesMapView
+                            }
                         }
                     }
                 }
@@ -69,7 +92,87 @@ struct AvailableOrdersView: View {
                     OrderDetailSheet(order: order, viewModel: viewModel, locationManager: locationManager)
                 }
             }
+            .sheet(isPresented: $showRideDetail) {
+                if let ride = selectedRide {
+                    RideDetailSheet(ride: ride, viewModel: viewModel, locationManager: locationManager)
+                }
+            }
+            .sheet(isPresented: $showNegotiationSheet) {
+                if let ride = selectedRide {
+                    FareNegotiationSheet(ride: ride, viewModel: viewModel)
+                }
+            }
+            .sheet(isPresented: $showEarningsSheet) {
+                EarningsSummarySheet(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showMessagesSheet) {
+                MessagesListSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .voiceCommandRecognized)) { notification in
+                guard let command = notification.userInfo?["command"] as? VoiceAssistantManager.VoiceCommand else { return }
+                handleVoiceCommand(command)
+            }
         }
+    }
+
+    // MARK: - Voice Command Handler
+    private func handleVoiceCommand(_ command: VoiceAssistantManager.VoiceCommand) {
+        switch command {
+        case .checkEarnings:
+            showEarningsSheet = true
+        case .readMessages:
+            showMessagesSheet = true
+        case .goOnline:
+            viewModel.setOnlineStatus(true)
+        case .goOffline:
+            viewModel.setOnlineStatus(false)
+        case .acceptOrder:
+            // Accept first available order if any
+            if let order = filteredOrders.first {
+                viewModel.acceptOrder(order)
+            } else if let ride = viewModel.availableRides.first {
+                viewModel.acceptRide(ride)
+            }
+        case .declineOrder:
+            // Just dismiss any open sheet
+            showOrderDetail = false
+            showRideDetail = false
+        default:
+            break
+        }
+    }
+
+    // MARK: - Service Mode Toggle (Food Delivery / Rideshare)
+    private var serviceModeToggle: some View {
+        HStack(spacing: 0) {
+            ForEach(DriverMode.allCases, id: \.self) { mode in
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        viewModel.setDriverMode(mode)
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: mode.icon)
+                            .font(.subheadline)
+                        Text(mode.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(viewModel.driverMode == mode ? .white : Theme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        viewModel.driverMode == mode
+                            ? (mode == .foodDelivery ? Theme.brandOrange : Color.blue)
+                            : Color.clear
+                    )
+                }
+            }
+        }
+        .background(Theme.lightGrey)
+        .cornerRadius(12)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     // MARK: - Stats Header
@@ -253,6 +356,96 @@ struct AvailableOrdersView: View {
             Spacer()
         }
         .padding()
+    }
+
+    // MARK: - Rideshare Empty State
+    private var rideEmptyStateView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 140, height: 140)
+
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "car.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(.blue)
+            }
+
+            VStack(spacing: 8) {
+                Text("No Ride Requests")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(Theme.textPrimary)
+
+                Text("Ride requests will appear here.\nOnly $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) platform fee per ride!")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: { viewModel.fetchAvailableRides() }) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Refresh")
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
+                .background(Color.blue)
+                .cornerRadius(12)
+            }
+
+            Spacer()
+        }
+        .padding()
+    }
+
+    // MARK: - Rides List
+    private var ridesList: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(viewModel.availableRides) { ride in
+                    RideCard(
+                        ride: ride,
+                        locationManager: locationManager,
+                        onTap: {
+                            selectedRide = ride
+                            showRideDetail = true
+                        },
+                        onAccept: {
+                            viewModel.acceptRide(ride)
+                        },
+                        onNegotiate: {
+                            selectedRide = ride
+                            showNegotiationSheet = true
+                        }
+                    )
+                }
+            }
+            .padding()
+        }
+        .refreshable {
+            viewModel.fetchAvailableRides()
+        }
+    }
+
+    // MARK: - Rides Map View
+    private var ridesMapView: some View {
+        RidesMapView(
+            rides: viewModel.availableRides,
+            locationManager: locationManager,
+            onRideSelected: { ride in
+                selectedRide = ride
+                showRideDetail = true
+            }
+        )
     }
 
     // MARK: - Computed Properties
@@ -884,5 +1077,797 @@ struct OrderDetailMapPreview: View {
             }
         }
         .mapStyle(.standard)
+    }
+}
+
+// MARK: - Ride Card Component
+/// World-class ride card with pickup/dropoff locations and negotiation option
+struct RideCard: View {
+    let ride: P2PRide
+    let locationManager: LocationManager
+    let onTap: () -> Void
+    let onAccept: () -> Void
+    let onNegotiate: () -> Void
+
+    private var distanceToPickup: Double? {
+        guard let pickup = ride.pickup, let lat = pickup.lat, let lng = pickup.lng else { return nil }
+        return locationManager.distanceTo(latitude: lat, longitude: lng)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header with earnings and distance
+            HStack {
+                // Earnings Badge
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("$\(String(format: "%.2f", ride.earnings))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    HStack(spacing: 4) {
+                        Text("$\(String(format: "%.2f", ride.fee)) fare")
+                            .font(.caption2)
+                        if let tip = ride.tip, tip > 0 {
+                            Text("+ $\(String(format: "%.2f", tip)) tip")
+                                .font(.caption2)
+                        }
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(12)
+
+                Spacer()
+
+                // Distance & Platform Fee
+                VStack(alignment: .trailing, spacing: 4) {
+                    if let distance = distanceToPickup {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.caption2)
+                            Text("\(String(format: "%.1f", distance / 1609.34)) mi away")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(Theme.textSecondary)
+                    }
+
+                    // Platform fee badge - competitive advantage!
+                    HStack(spacing: 4) {
+                        Image(systemName: "dollarsign.circle.fill")
+                            .font(.caption2)
+                        Text("Only $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) fee")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.15))
+                    .cornerRadius(8)
+                }
+            }
+            .padding()
+
+            Divider()
+                .padding(.horizontal)
+
+            // Pickup Location
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "person.fill")
+                        .foregroundColor(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("PICKUP")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textSecondary)
+                    Text(ride.pickup?.fullAddress ?? "Address pending...")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+
+            // Route line
+            HStack {
+                Rectangle()
+                    .fill(Color.blue.opacity(0.3))
+                    .frame(width: 2, height: 24)
+                    .padding(.leading, 32)
+                Spacer()
+            }
+
+            // Dropoff Location
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.red)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("DROP-OFF")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textSecondary)
+                    Text(ride.dropoff?.fullAddress ?? "Destination pending...")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+
+            // Customer name if available
+            if let customerName = ride.customerName, !customerName.isEmpty {
+                HStack {
+                    Image(systemName: "person.crop.circle")
+                        .foregroundColor(Theme.textSecondary)
+                    Text(customerName)
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+
+            Divider()
+                .padding(.horizontal)
+
+            // Action Buttons
+            HStack(spacing: 12) {
+                // Accept Button
+                Button(action: onAccept) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Accept")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+                }
+
+                // Negotiate Button - unique feature!
+                Button(action: onNegotiate) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text("Negotiate")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.blue, lineWidth: 1)
+                    )
+                }
+            }
+            .padding()
+        }
+        .background(Theme.cardBackground)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .onTapGesture(perform: onTap)
+    }
+}
+
+// MARK: - Rides Map View Component
+struct RidesMapView: View {
+    let rides: [P2PRide]
+    let locationManager: LocationManager
+    let onRideSelected: (P2PRide) -> Void
+
+    var body: some View {
+        Map {
+            // Driver's current location
+            if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
+                Annotation("You", coordinate: coordinate) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 20, height: 20)
+                        Circle()
+                            .stroke(Color.white, lineWidth: 3)
+                            .frame(width: 20, height: 20)
+                    }
+                }
+            }
+
+            // All available ride pickups
+            ForEach(rides) { ride in
+                if let pickup = ride.pickup, let lat = pickup.lat, let lng = pickup.lng {
+                    Annotation("$\(String(format: "%.0f", ride.earnings))", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)) {
+                        Button(action: { onRideSelected(ride) }) {
+                            VStack(spacing: 2) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.blue)
+                                        .frame(width: 36, height: 36)
+                                    Image(systemName: "car.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.white)
+                                }
+                                Text("$\(String(format: "%.0f", ride.earnings))")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue)
+                                    .cornerRadius(4)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .mapStyle(.standard)
+    }
+}
+
+// MARK: - Fare Negotiation Sheet
+/// Unique negotiation feature - $1+$1 platform fee model
+struct FareNegotiationSheet: View {
+    let ride: P2PRide
+    @ObservedObject var viewModel: DeliveryViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var counterOffer: String = ""
+
+    private var platformFee: Double { AppConfig.shared.ridePlatformFee }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 32))
+                            .foregroundColor(.blue)
+                    }
+
+                    Text("Negotiate Fare")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Propose your price for this ride")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .padding(.top)
+
+                // Current Fare Display
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Customer's Offer")
+                            .foregroundColor(Theme.textSecondary)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", ride.fee))")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(Theme.textPrimary)
+                    }
+
+                    Divider()
+
+                    // Platform Fee Info - competitive advantage!
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Platform Fee")
+                                .foregroundColor(Theme.textSecondary)
+                            Text("Only $\(String(format: "%.0f", platformFee)) - lowest in industry!")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        Spacer()
+                        Text("$\(String(format: "%.2f", platformFee))")
+                            .font(.headline)
+                            .foregroundColor(.green)
+                    }
+                }
+                .padding()
+                .background(Theme.lightGrey)
+                .cornerRadius(12)
+                .padding(.horizontal)
+
+                // Counter Offer Input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your Counter Offer")
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    HStack {
+                        Text("$")
+                            .font(.title)
+                            .foregroundColor(Theme.textSecondary)
+                        TextField("0.00", text: $counterOffer)
+                            .font(.title)
+                            .keyboardType(.decimalPad)
+                            .foregroundColor(Theme.textPrimary)
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.blue, lineWidth: 2)
+                    )
+
+                    // Earnings preview
+                    if let offer = Double(counterOffer), offer > 0 {
+                        HStack {
+                            Text("Your earnings after $1 fee:")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", offer - platformFee))")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // Action Buttons
+                VStack(spacing: 12) {
+                    // Submit Counter Offer
+                    Button(action: {
+                        if let offer = Double(counterOffer), offer > 0 {
+                            viewModel.submitCounterOffer(rideId: ride.rideId, counterFare: offer)
+                            dismiss()
+                        }
+                    }) {
+                        Text("Submit Counter Offer")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Double(counterOffer) ?? 0 > 0 ? Color.blue : Color.gray)
+                            .cornerRadius(12)
+                    }
+                    .disabled((Double(counterOffer) ?? 0) <= 0)
+
+                    // Accept Current Fare
+                    Button(action: {
+                        viewModel.acceptCustomerFare(rideId: ride.rideId, fare: ride.fee)
+                        dismiss()
+                    }) {
+                        Text("Accept $\(String(format: "%.2f", ride.fee)) Offer")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+            }
+            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .navigationTitle("Negotiate")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Ride Detail Sheet
+/// Full ride details with accept/negotiate options
+struct RideDetailSheet: View {
+    let ride: P2PRide
+    @ObservedObject var viewModel: DeliveryViewModel
+    let locationManager: LocationManager
+    @Environment(\.dismiss) var dismiss
+    @State private var showNegotiationSheet = false
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Map Preview
+                    RideDetailMapPreview(ride: ride, locationManager: locationManager)
+                        .frame(height: 220)
+                        .cornerRadius(16)
+                        .padding(.horizontal)
+
+                    // Earnings Card
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your Earnings")
+                                    .font(.subheadline)
+                                    .foregroundColor(Theme.textSecondary)
+                                Text("$\(String(format: "%.2f", ride.earnings))")
+                                    .font(.system(size: 36, weight: .bold))
+                                    .foregroundColor(Theme.textPrimary)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("Platform Fee")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textSecondary)
+                                HStack(spacing: 4) {
+                                    Image(systemName: "dollarsign.circle.fill")
+                                    Text("Only $1")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.green)
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            EarningBreakdownItem(label: "Base Fare", amount: ride.fee)
+                            Spacer()
+                            if let tip = ride.tip, tip > 0 {
+                                EarningBreakdownItem(label: "Tip", amount: tip)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(16)
+                    .padding(.horizontal)
+
+                    // Route Details
+                    VStack(spacing: 0) {
+                        // Pickup
+                        DetailRouteCard(
+                            icon: "person.fill",
+                            iconColor: .green,
+                            title: "PICKUP LOCATION",
+                            name: ride.customerName ?? "Passenger",
+                            address: ride.pickup?.fullAddress ?? "Address pending..."
+                        )
+                        .padding()
+
+                        Divider()
+                            .padding(.horizontal)
+
+                        // Dropoff
+                        DetailRouteCard(
+                            icon: "mappin.circle.fill",
+                            iconColor: .red,
+                            title: "DROP-OFF LOCATION",
+                            name: "Destination",
+                            address: ride.dropoff?.fullAddress ?? "Destination pending..."
+                        )
+                        .padding()
+                    }
+                    .background(Theme.cardBackground)
+                    .cornerRadius(16)
+                    .padding(.horizontal)
+
+                    // Ride notes if available
+                    if let notes = ride.notes, !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "note.text")
+                                Text("Ride Notes")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(Theme.textSecondary)
+
+                            Text(notes)
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textPrimary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.cardBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.vertical)
+            }
+            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .navigationTitle("Ride Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 12) {
+                    // Accept Button
+                    Button(action: {
+                        viewModel.acceptRide(ride)
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Accept Ride")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(16)
+                    }
+
+                    // Negotiate Button
+                    Button(action: {
+                        showNegotiationSheet = true
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(16)
+                    }
+                }
+                .padding()
+                .background(Theme.cardBackground)
+            }
+            .sheet(isPresented: $showNegotiationSheet) {
+                FareNegotiationSheet(ride: ride, viewModel: viewModel)
+            }
+        }
+    }
+}
+
+// MARK: - Ride Detail Map Preview
+struct RideDetailMapPreview: View {
+    let ride: P2PRide
+    let locationManager: LocationManager
+
+    var body: some View {
+        Map {
+            // Driver location
+            if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
+                Annotation("You", coordinate: coordinate) {
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 16, height: 16)
+                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                }
+            }
+
+            // Pickup
+            if let pickup = ride.pickup, let lat = pickup.lat, let lng = pickup.lng {
+                Annotation("Pickup", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)) {
+                    Image(systemName: "person.fill")
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.green)
+                        .clipShape(Circle())
+                }
+            }
+
+            // Dropoff
+            if let dropoff = ride.dropoff, let lat = dropoff.lat, let lng = dropoff.lng {
+                Annotation("Dropoff", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng)) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .mapStyle(.standard)
+    }
+}
+
+// MARK: - Earnings Summary Sheet (for voice command)
+struct EarningsSummarySheet: View {
+    @ObservedObject var viewModel: DeliveryViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Today's Earnings
+                    VStack(spacing: 8) {
+                        Text("Today's Earnings")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textSecondary)
+                        Text("$\(String(format: "%.2f", viewModel.todayEarnings))")
+                            .font(.system(size: 48, weight: .bold))
+                            .foregroundColor(Theme.brandRed)
+                    }
+                    .padding(.top, 20)
+
+                    // Stats Grid
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                        EarningStatCard(title: "Deliveries", value: "\(viewModel.completedDeliveries)", icon: "shippingbox.fill", color: Theme.brandOrange)
+                        EarningStatCard(title: "Tips", value: "$\(String(format: "%.2f", viewModel.todayTips))", icon: "dollarsign.circle.fill", color: .green)
+                        EarningStatCard(title: "Hours Online", value: String(format: "%.1fh", viewModel.hoursOnline), icon: "clock.fill", color: .blue)
+                        EarningStatCard(title: "Avg Per Trip", value: "$\(String(format: "%.2f", viewModel.averagePerTrip))", icon: "chart.line.uptrend.xyaxis", color: .purple)
+                    }
+                    .padding(.horizontal)
+
+                    // Weekly Summary
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("This Week")
+                            .font(.headline)
+                            .foregroundColor(Theme.textPrimary)
+
+                        HStack {
+                            Text("Total Earnings")
+                            Spacer()
+                            Text("$\(String(format: "%.2f", viewModel.weeklyEarnings))")
+                                .fontWeight(.semibold)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+
+                        HStack {
+                            Text("Total Deliveries")
+                            Spacer()
+                            Text("\(viewModel.weeklyDeliveries)")
+                                .fontWeight(.semibold)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                    }
+                    .padding()
+                    .background(Theme.cardBackground)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
+                    Spacer()
+                }
+            }
+            .background(Theme.backgroundGrey.ignoresSafeArea())
+            .navigationTitle("Earnings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct EarningStatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(Theme.textPrimary)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Theme.cardBackground)
+        .cornerRadius(12)
+    }
+}
+
+// MARK: - Messages List Sheet (for voice command)
+struct MessagesListSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var messages: [(id: String, from: String, preview: String, time: String, unread: Bool)] = [
+        (id: "1", from: "Support Team", preview: "Welcome to Dollor! Start accepting orders...", time: "2h ago", unread: true),
+        (id: "2", from: "System", preview: "Your earnings have been deposited.", time: "Yesterday", unread: false)
+    ]
+
+    var body: some View {
+        NavigationView {
+            List {
+                if messages.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "message.badge.filled.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(Theme.textGrey)
+                        Text("No Messages")
+                            .font(.headline)
+                            .foregroundColor(Theme.textSecondary)
+                        Text("You'll receive messages from customers and support here.")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textGrey)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 60)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(messages, id: \.id) { message in
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(message.unread ? Theme.brandRed : Theme.lightGrey)
+                                .frame(width: 10, height: 10)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(message.from)
+                                        .font(.subheadline)
+                                        .fontWeight(message.unread ? .bold : .regular)
+                                    Spacer()
+                                    Text(message.time)
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textGrey)
+                                }
+
+                                Text(message.preview)
+                                    .font(.caption)
+                                    .foregroundColor(Theme.textSecondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle("Messages")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
