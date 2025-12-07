@@ -33,7 +33,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-REDIRECT_URI = "http://localhost:3000/auth/callback"
+# OAuth redirect URI - MUST be set via environment in production
+REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:3000/auth/callback")
+if os.getenv("ENVIRONMENT", "development").lower() == "production" and "localhost" in REDIRECT_URI:
+    raise RuntimeError("CRITICAL: OAUTH_REDIRECT_URI must be set to production URL")
 AUTHORIZATION_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/authorize"
 TOKEN_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/token"
 USERINFO_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/userinfo"

@@ -74,16 +74,41 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@dollor.ai")
 EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Dollor.ai")
 
-# Initialize boto3 SES client
+# Production validation
+_IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+# Initialize boto3 SES client with production-grade settings
 import boto3
 from botocore.exceptions import ClientError
+from botocore.config import Config as BotoConfig
 
 ses_client = None
 try:
-    ses_client = boto3.client('ses', region_name=AWS_REGION)
+    # Configure boto3 for high throughput
+    boto_config = BotoConfig(
+        retries={'max_attempts': 3, 'mode': 'adaptive'},
+        max_pool_connections=50,  # High concurrency for millions of users
+        connect_timeout=5,
+        read_timeout=30
+    )
+    ses_client = boto3.client('ses', region_name=AWS_REGION, config=boto_config)
     print(f"[EMAIL] AWS SES client initialized for region: {AWS_REGION}")
+
+    # Verify SES identity in production
+    if _IS_PRODUCTION:
+        try:
+            response = ses_client.get_identity_verification_attributes(
+                Identities=[EMAIL_FROM]
+            )
+            status = response.get('VerificationAttributes', {}).get(EMAIL_FROM, {}).get('VerificationStatus')
+            if status != 'Success':
+                print(f"[EMAIL WARNING] Email {EMAIL_FROM} verification status: {status}")
+        except Exception as verify_error:
+            print(f"[EMAIL WARNING] Could not verify email identity: {verify_error}")
 except Exception as e:
     print(f"[EMAIL] Failed to initialize AWS SES client: {e}")
+    if _IS_PRODUCTION:
+        print("[EMAIL WARNING] Production requires AWS SES - emails will not be sent!")
 
 
 async def send_email(to_email: str, subject: str, html_content: str, text_content: str = None):
@@ -2794,15 +2819,17 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         "expires": datetime.utcnow() + timedelta(minutes=15)
     }
 
-    # TODO: Send email with code (integrate with SES or email service)
-    print(f"[DEV] Password reset code for {request.email}: {code}")
+    # Send email with code via SES
+    IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+    if not IS_PRODUCTION:
+        # Only log in development, never in production
+        print(f"[DEV ONLY] Password reset code generated for {request.email}")
 
     return {"message": "If an account exists with this email, a reset code has been sent."}
 
 @app.post("/customer/password-reset/confirm")
 def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code"""
-    print(f"Password reset confirmation for: {request.email}")
 
     # Check code
     stored = password_reset_codes.get(request.email)

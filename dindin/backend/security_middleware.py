@@ -53,17 +53,22 @@ class SecurityConfig:
     # IP Blocking
     BLOCKED_IPS: Set[str] = set()
 
-    # Allowed Origins (for CORS)
+    # Allowed Origins (for CORS) - Production origins always allowed
     ALLOWED_ORIGINS = [
         "https://dollor.ai",
         "https://www.dollor.ai",
         "https://api.dollor.ai",
         "https://admin.dollor.ai",
-        # Development
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
     ]
+
+    # Development origins only in non-production
+    _IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+    if not _IS_PRODUCTION:
+        ALLOWED_ORIGINS.extend([
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://127.0.0.1:3000",
+        ])
 
     # Paths exempt from rate limiting
     RATE_LIMIT_EXEMPT_PATHS = {
