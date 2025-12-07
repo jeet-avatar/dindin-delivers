@@ -1,6 +1,9 @@
 import Foundation
 import Security
 import CryptoKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Network security manager with SSL pinning and secure API communication
 public final class NetworkSecurity: NSObject {
@@ -323,11 +326,13 @@ public extension NetworkSecurity {
         }
 
         // Check if we can open Cydia URL
+        #if canImport(UIKit)
         if let url = URL(string: "cydia://package/com.example.package") {
             if UIApplication.shared.canOpenURL(url) {
                 return true
             }
         }
+        #endif
 
         return false
         #endif

@@ -689,6 +689,8 @@ struct CartSummaryRow: View {
 }
 
 // MARK: - Preview
+#if DEBUG
 #Preview {
     MultiRestaurantCartView(cartVM: .preview)
 }
+#endif
