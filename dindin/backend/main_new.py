@@ -2640,7 +2640,7 @@ class CustomerPasswordResetConfirm(BaseModel):
     code: str
     new_password: str
 
-@app.post("/customer/login")
+@app.post("/api/customer/login")
 def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db)):
     """Customer email/password login"""
     print(f"Customer login attempt for: {request.email}")
@@ -2673,7 +2673,7 @@ def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db))
         "email": user.email
     }
 
-@app.post("/customer/register")
+@app.post("/api/customer/register")
 def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register new customer account"""
     print(f"Customer registration attempt for: {request.email}")
@@ -2706,7 +2706,7 @@ def customer_register(request: CustomerRegisterRequest, db: Session = Depends(ge
         "email": new_user.email
     }
 
-@app.post("/customer/google-auth")
+@app.post("/api/customer/google-auth")
 def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth login/register for customers - handles both new and existing users"""
     print(f"Customer Google auth for: {request.email}")
@@ -2746,7 +2746,7 @@ def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(ge
         "email": user.email
     }
 
-@app.post("/customer/apple-auth")
+@app.post("/api/customer/apple-auth")
 def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth login/register for customers - handles both new and existing users"""
     print(f"Customer Apple auth for: {request.email}, apple_id: {request.apple_id}")
@@ -2800,7 +2800,7 @@ def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get
 # Password reset storage (in production, use Redis or database)
 password_reset_codes: Dict[str, Dict[str, Any]] = {}
 
-@app.post("/customer/password-reset/request")
+@app.post("/api/customer/password-reset/request")
 def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request password reset - sends code to email"""
     print(f"Password reset requested for: {request.email}")
@@ -2827,7 +2827,7 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
 
     return {"message": "If an account exists with this email, a reset code has been sent."}
 
-@app.post("/customer/password-reset/confirm")
+@app.post("/api/customer/password-reset/confirm")
 def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code"""
 
