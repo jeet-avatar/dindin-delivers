@@ -12,6 +12,12 @@ class OrderTrackingViewModel: ObservableObject {
     @Published var driverLocation: CLLocationCoordinate2D?
     @Published var errorMessage: String?
 
+    // Full tracking data from P2P API
+    @Published var fullTracking: P2PFullOrderTracking?
+    @Published var timelineEvents: [P2PTimelineEvent] = []
+    @Published var restaurantInfo: P2PTrackingRestaurant?
+    @Published var driverInfo: P2PTrackingDriver?
+
     private let p2pAPI = P2PAPIService.shared
     private var pollingTimer: Timer?
     private var trackingOrderId: Int?
@@ -87,6 +93,10 @@ class OrderTrackingViewModel: ObservableObject {
     }
 
     private func fetchOrderTracking(orderId: Int) {
+        // First try full tracking for timeline and driver info
+        fetchFullOrderTracking(orderId: orderId)
+
+        // Also fetch basic tracking for compatibility
         p2pAPI.trackOrder(orderId: orderId) { [weak self] result in
             guard let self = self else { return }
 
@@ -100,6 +110,48 @@ class OrderTrackingViewModel: ObservableObject {
                 case .failure:
                     // Fallback to regular order fetch
                     self.fetchOrderById(orderId: orderId)
+                }
+            }
+        }
+    }
+
+    /// Fetch full order tracking with timeline, restaurant, and driver info
+    private func fetchFullOrderTracking(orderId: Int) {
+        p2pAPI.getFullOrderTracking(orderId: orderId) { [weak self] result in
+            guard let self = self else { return }
+
+            Task { @MainActor in
+                switch result {
+                case .success(let tracking):
+                    self.fullTracking = tracking
+                    self.timelineEvents = tracking.timeline
+                    self.restaurantInfo = tracking.restaurant
+                    self.driverInfo = tracking.driver
+
+                    // Update driver location from full tracking
+                    if let driverLoc = tracking.driver?.location,
+                       let lat = driverLoc.latitude,
+                       let lng = driverLoc.longitude {
+                        self.driverLocation = CLLocationCoordinate2D(
+                            latitude: lat,
+                            longitude: lng
+                        )
+                    }
+
+                    // Update estimated time
+                    if let eta = tracking.estimatedDelivery {
+                        self.estimatedTime = eta
+                    }
+
+                    #if DEBUG
+                    print("[OrderTracking] Full tracking loaded with \(tracking.timeline.count) timeline events")
+                    #endif
+
+                case .failure(let error):
+                    #if DEBUG
+                    print("[OrderTracking] Full tracking failed: \(error.localizedDescription)")
+                    #endif
+                    // Basic tracking will handle updates
                 }
             }
         }

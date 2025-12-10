@@ -5,6 +5,7 @@ import EatFairShared
 /// DeliveryViewModel manages all delivery-related data
 /// Connected to P2P API for unified database with Customer and Restaurant apps
 /// Supports both Food Delivery and Rideshare modes
+/// Issues #34-38, #41-42 Fixed: Thread safety, rate limiting, input validation, offline handling
 class DeliveryViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var availableOrders: [Order] = []
@@ -44,13 +45,64 @@ class DeliveryViewModel: ObservableObject {
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    // Issue #34: Thread-safe access using serial queue
+    private let stateQueue = DispatchQueue(label: "com.dollor.driver.deliveryvm.state")
+
+    // Issue #36: Rate limiting for order acceptance (prevent double-tap)
+    private var orderAcceptanceInProgress: Set<String> = []
+    private let rateLimitInterval: TimeInterval = 2.0 // seconds between accepting orders
+
+    // Issue #41: Location update throttling
+    private var lastLocationUpdate: Date = .distantPast
+    private let locationUpdateMinInterval: TimeInterval = 3.0 // seconds
+
+    // Issue #42: Offline mode handling
+    private var isNetworkAvailable: Bool = true
+    private var pendingActions: [(action: () -> Void, description: String)] = []
+
     // MARK: - Initialization
     init() {
         setupRefreshTimer()
+        setupNetworkMonitoring()
     }
 
+    /// Issue #35 Fixed: Proper cleanup in deinit
     deinit {
         refreshTimer?.invalidate()
+        refreshTimer = nil
+        cancellables.removeAll()
+        #if DEBUG
+        print("[DeliveryViewModel] Deinitialized, timer and cancellables cleaned up")
+        #endif
+    }
+
+    /// Issue #42: Setup network monitoring for offline mode
+    private func setupNetworkMonitoring() {
+        // Observe LocationManager's network status
+        LocationManager.shared.$isNetworkAvailable
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isAvailable in
+                self?.handleNetworkChange(isAvailable: isAvailable)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Issue #42: Handle network status changes
+    private func handleNetworkChange(isAvailable: Bool) {
+        let wasOffline = !isNetworkAvailable
+        isNetworkAvailable = isAvailable
+
+        if isAvailable && wasOffline {
+            // Network restored - retry pending actions
+            #if DEBUG
+            print("[DeliveryViewModel] Network restored, retrying \(pendingActions.count) pending actions")
+            #endif
+            let actions = pendingActions
+            pendingActions.removeAll()
+            for pending in actions {
+                pending.action()
+            }
+        }
     }
 
     // MARK: - Refresh Timer for Real-time Updates
@@ -208,9 +260,38 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Accept Order
     /// Driver accepts an order for delivery
+    /// Issue #36 Fixed: Rate limiting to prevent double-tap
+    /// Issue #37 Fixed: Input sanitization for order IDs
     func acceptOrder(_ order: Order) {
-        guard let orderId = order.id, let orderIdInt = Int(orderId) else {
-            showErrorMessage("Unable to accept order. Please try again.")
+        // Issue #37: Validate and sanitize order ID
+        guard let orderId = order.id,
+              !orderId.isEmpty,
+              let orderIdInt = Int(orderId),
+              orderIdInt > 0 else {
+            showErrorMessage("Invalid order ID. Please try again.")
+            return
+        }
+
+        // Issue #36: Rate limiting - prevent double acceptance
+        let isAlreadyInProgress = stateQueue.sync { () -> Bool in
+            if orderAcceptanceInProgress.contains(orderId) {
+                return true
+            }
+            orderAcceptanceInProgress.insert(orderId)
+            return false
+        }
+
+        if isAlreadyInProgress {
+            #if DEBUG
+            print("[DeliveryViewModel] Order acceptance already in progress for order: \(orderId)")
+            #endif
+            return
+        }
+
+        // Issue #42: Check network availability
+        guard isNetworkAvailable else {
+            showErrorMessage("No network connection. Please try again when online.")
+            stateQueue.sync { _ = orderAcceptanceInProgress.remove(orderId) }
             return
         }
 
@@ -219,6 +300,11 @@ class DeliveryViewModel: ObservableObject {
         p2pService.acceptDeliveryOrder(orderId: orderIdInt) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
+
+                // Issue #36: Remove from in-progress after delay to prevent rapid re-acceptance
+                DispatchQueue.main.asyncAfter(deadline: .now() + (self?.rateLimitInterval ?? 2.0)) {
+                    self?.stateQueue.sync { _ = self?.orderAcceptanceInProgress.remove(orderId) }
+                }
 
                 switch result {
                 case .success:
@@ -307,8 +393,26 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Update Driver Location on Order
     /// Updates the driver's live location on an active order
+    /// Issue #41 Fixed: Location update throttling to reduce API calls
     func updateDriverLocationOnOrder(_ order: Order, latitude: Double, longitude: Double) {
-        guard let orderId = order.id, let orderIdInt = Int(orderId) else { return }
+        // Issue #37: Validate order ID
+        guard let orderId = order.id,
+              !orderId.isEmpty,
+              let orderIdInt = Int(orderId),
+              orderIdInt > 0 else { return }
+
+        // Issue #41: Throttle location updates to prevent excessive API calls
+        let now = Date()
+        guard now.timeIntervalSince(lastLocationUpdate) >= locationUpdateMinInterval else {
+            #if DEBUG
+            print("[DeliveryViewModel] Location update throttled, last update was \(now.timeIntervalSince(lastLocationUpdate))s ago")
+            #endif
+            return
+        }
+        lastLocationUpdate = now
+
+        // Issue #42: Skip if offline
+        guard isNetworkAvailable else { return }
 
         p2pService.updateDriverLocation(
             orderId: orderIdInt,
@@ -376,9 +480,6 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Private Helpers
     private func handleError(_ error: Error) {
-        #if DEBUG
-        print("DeliveryViewModel Error: \(error.localizedDescription)")
-        #endif
         errorMessage = error.localizedDescription
         showError = true
     }

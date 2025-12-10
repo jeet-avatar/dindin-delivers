@@ -564,6 +564,7 @@ struct OrderDetailSheet: View {
     let order: Order
     @ObservedObject var ordersVM: OrdersViewModel
     @Environment(\.dismiss) var dismiss
+    @State private var showInvoice = false
 
     private var orderStatus: OrderStatus {
         OrderStatus(rawValue: order.status) ?? .placed
@@ -747,11 +748,318 @@ struct OrderDetailSheet: View {
             .navigationTitle("Order Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showInvoice = true }) {
+                        Label("Invoice", systemImage: "doc.text.fill")
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(isPresented: $showInvoice) {
+                OrderInvoiceView(order: order)
+            }
         }
+    }
+}
+
+// MARK: - Order Invoice View
+struct OrderInvoiceView: View {
+    let order: Order
+    @Environment(\.dismiss) var dismiss
+    @State private var showShareSheet = false
+
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private var orderDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Invoice Header
+                    VStack(spacing: 8) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(RestaurantTheme.brandOrange)
+
+                        Text("INVOICE")
+                            .font(.title)
+                            .fontWeight(.bold)
+
+                        Text("#\(order.orderId)")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top)
+
+                    Divider()
+
+                    // Invoice Details
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Date")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(dateFormatter.string(from: orderDate))
+                                .font(.subheadline)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 6) {
+                            Text("Status")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(order.status)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(RestaurantTheme.brandGreen)
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // Customer Info
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("BILL TO")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+
+                        Text(order.customerName)
+                            .font(.headline)
+
+                        if let phone = order.customerPhone {
+                            Text(phone)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text(order.deliveryAddress.fullAddress)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
+                    // Line Items
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ITEMS")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+
+                        VStack(spacing: 0) {
+                            // Header
+                            HStack {
+                                Text("Item")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("Qty")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40)
+                                Text("Price")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 70, alignment: .trailing)
+                            }
+                            .padding()
+                            .background(Color(.systemGray5))
+
+                            // Items
+                            ForEach(order.items, id: \.id) { item in
+                                HStack {
+                                    Text(item.name)
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(item.quantity)")
+                                        .font(.subheadline)
+                                        .frame(width: 40)
+                                    Text("$\(String(format: "%.2f", item.price * Double(item.quantity)))")
+                                        .font(.subheadline)
+                                        .frame(width: 70, alignment: .trailing)
+                                }
+                                .padding()
+
+                                if item.id != order.items.last?.id {
+                                    Divider()
+                                        .padding(.leading)
+                                }
+                            }
+                        }
+                        .background(Color(.systemBackground))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(.systemGray4), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                    }
+
+                    // Totals
+                    VStack(spacing: 8) {
+                        InvoiceTotalRow(label: "Subtotal", value: order.subtotal)
+                        InvoiceTotalRow(label: "Tax", value: order.tax)
+                        InvoiceTotalRow(label: "Delivery Fee", value: order.deliveryFee)
+                        if order.tip > 0 {
+                            InvoiceTotalRow(label: "Tip", value: order.tip)
+                        }
+
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        HStack {
+                            Text("TOTAL")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", order.total))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(RestaurantTheme.brandGreen)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
+                    // Footer
+                    VStack(spacing: 8) {
+                        Text("Thank you for your order!")
+                            .font(.headline)
+
+                        Text("Powered by Dollor.ai")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top)
+
+                    Spacer(minLength: 20)
+                }
+            }
+            .navigationTitle("Invoice")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showShareSheet = true }) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                InvoiceShareSheet(order: order)
+            }
+        }
+    }
+}
+
+// MARK: - Invoice Total Row
+struct InvoiceTotalRow: View {
+    let label: String
+    let value: Double
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text("$\(String(format: "%.2f", value))")
+                .font(.subheadline)
+        }
+    }
+}
+
+// MARK: - Invoice Share Sheet
+struct InvoiceShareSheet: UIViewControllerRepresentable {
+    let order: Order
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let invoiceText = generateInvoiceText()
+        let activityVC = UIActivityViewController(
+            activityItems: [invoiceText],
+            applicationActivities: nil
+        )
+        return activityVC
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+
+    private func generateInvoiceText() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .long
+        dateFormatter.timeStyle = .short
+        let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
+
+        var text = """
+        ================================
+                    INVOICE
+        ================================
+
+        Order #\(order.orderId)
+        Date: \(dateFormatter.string(from: orderDate))
+        Status: \(order.status)
+
+        --------------------------------
+        BILL TO:
+        \(order.customerName)
+        \(order.deliveryAddress.fullAddress)
+        --------------------------------
+
+        ITEMS:
+
+        """
+
+        for item in order.items {
+            let itemTotal = item.price * Double(item.quantity)
+            text += "\(item.quantity)x \(item.name)\n"
+            text += "   $\(String(format: "%.2f", itemTotal))\n"
+        }
+
+        text += """
+
+        --------------------------------
+        Subtotal:     $\(String(format: "%.2f", order.subtotal))
+        Tax:          $\(String(format: "%.2f", order.tax))
+        Delivery:     $\(String(format: "%.2f", order.deliveryFee))
+        """
+
+        if order.tip > 0 {
+            text += "\nTip:          $\(String(format: "%.2f", order.tip))"
+        }
+
+        text += """
+
+        --------------------------------
+        TOTAL:        $\(String(format: "%.2f", order.total))
+        ================================
+
+        Thank you for your order!
+        Powered by Dollor.ai
+        """
+
+        return text
     }
 }
 

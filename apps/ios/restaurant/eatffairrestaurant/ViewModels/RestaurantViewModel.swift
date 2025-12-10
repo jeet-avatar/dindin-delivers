@@ -31,9 +31,8 @@ class RestaurantViewModel: ObservableObject {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 self.isLoading = false
-                
-                if let error = error {
-                    print("Error fetching orders: \(error)")
+
+                if error != nil {
                     return
                 }
                 
@@ -45,7 +44,6 @@ class RestaurantViewModel: ObservableObject {
                         order.id = doc.documentID
                         return order
                     } catch {
-                        print("Error decoding restaurant order \(doc.documentID): \(error)")
                         return nil
                     }
                 }.sorted(by: { $0.placedAt > $1.placedAt })
@@ -78,9 +76,7 @@ class RestaurantViewModel: ObservableObject {
         }
         
         db.collection("orders").document(orderId).updateData(updateData) { error in
-            if let error = error {
-                print("Error updating status: \(error)")
-            } else {
+            if error == nil {
                 self.fetchOrders() // Refresh
             }
         }

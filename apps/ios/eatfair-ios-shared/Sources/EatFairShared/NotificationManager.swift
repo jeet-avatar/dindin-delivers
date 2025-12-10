@@ -27,9 +27,11 @@ public class NotificationManager: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self?.isAuthorized = granted
 
+                #if DEBUG
                 if let error = error {
-                    print("NotificationManager: Authorization error - \(error.localizedDescription)")
+                    print("[NotificationManager] Authorization error: \(error.localizedDescription)")
                 }
+                #endif
 
                 if granted {
                     self?.registerForRemoteNotifications()
@@ -66,14 +68,18 @@ public class NotificationManager: NSObject, ObservableObject {
     /// Update FCM token (called by AppDelegate)
     public func updateFCMToken(_ token: String) {
         self.fcmToken = token
-        print("NotificationManager: FCM Token updated")
+        #if DEBUG
+        print("[NotificationManager] FCM Token updated")
+        #endif
     }
 
     /// Get current FCM token
     public func getFCMToken(completion: @escaping (String?) -> Void) {
         Messaging.messaging().token { token, error in
             if let error = error {
-                print("NotificationManager: Error fetching FCM token - \(error.localizedDescription)")
+                #if DEBUG
+                print("[NotificationManager] Error fetching FCM token: \(error.localizedDescription)")
+                #endif
                 completion(nil)
             } else {
                 self.fcmToken = token
@@ -122,9 +128,11 @@ public class NotificationManager: NSObject, ObservableObject {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         UNUserNotificationCenter.current().add(request) { error in
+            #if DEBUG
             if let error = error {
-                print("NotificationManager: Failed to schedule notification - \(error.localizedDescription)")
+                print("[NotificationManager] Failed to schedule notification: \(error.localizedDescription)")
             }
+            #endif
         }
     }
 

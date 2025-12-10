@@ -28,17 +28,56 @@ public class AIEmployeeService: ObservableObject {
     @Published public var isLoading = false
     @Published public var error: String?
 
+    // P2P API Data
+    @Published public var p2pAIStats: P2PAIEmployeeStats?
+    @Published public var p2pEmployees: [P2PAIEmployee] = []
+    @Published public var systemHealth: P2PSystemHealth?
+
     private var employeesListener: ListenerRegistration?
     private var tasksListener: ListenerRegistration?
+    private let p2pAPI = P2PAPIService.shared
 
     private init() {}
 
     // MARK: - Employee Management
 
-    /// Fetch all AI employees for the platform
+    /// Fetch all AI employees - tries P2P API first, then Firebase fallback
     public func fetchEmployees() {
         isLoading = true
 
+        // First fetch from P2P API (primary source)
+        fetchP2PAIEmployeeStats()
+
+        // Also setup Firebase listener as backup/sync
+        setupFirebaseListener()
+    }
+
+    /// Fetch AI employee stats from P2P backend
+    public func fetchP2PAIEmployeeStats() {
+        p2pAPI.getAIEmployeeStats { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let stats):
+                    self?.p2pAIStats = stats
+                    self?.p2pEmployees = stats.aiEmployees
+                    self?.systemHealth = stats.systemHealth
+                    self?.isLoading = false
+                    #if DEBUG
+                    print("[AIEmployee] Loaded \(stats.aiEmployees.count) AI employees from P2P API")
+                    #endif
+
+                case .failure(let error):
+                    #if DEBUG
+                    print("[AIEmployee] P2P API failed: \(error.localizedDescription), using Firebase fallback")
+                    #endif
+                    // Firebase will handle the data
+                }
+            }
+        }
+    }
+
+    /// Setup Firebase listener as fallback
+    private func setupFirebaseListener() {
         employeesListener?.remove()
         employeesListener = db.collection(employeesCollection)
             .order(by: "createdAt", descending: true)

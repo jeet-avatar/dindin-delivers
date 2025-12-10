@@ -169,10 +169,17 @@ struct RideMapBackground: View {
         let latitudes = coordinates.map { $0.latitude }
         let longitudes = coordinates.map { $0.longitude }
 
-        let centerLat = (latitudes.min()! + latitudes.max()!) / 2
-        let centerLon = (longitudes.min()! + longitudes.max()!) / 2
-        let spanLat = (latitudes.max()! - latitudes.min()!) * 1.5 + 0.02
-        let spanLon = (longitudes.max()! - longitudes.min()!) * 1.5 + 0.02
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else {
+            return
+        }
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = (maxLat - minLat) * 1.5 + 0.02
+        let spanLon = (maxLon - minLon) * 1.5 + 0.02
 
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
@@ -259,7 +266,7 @@ struct RideBottomSheet: View {
 
                 Spacer()
 
-                Text("Request a Ride")
+                Text("Find a Driver")
                     .font(.headline)
 
                 Spacer()
@@ -373,7 +380,7 @@ struct RideBottomSheet: View {
                     // Trip Estimate Header
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("TRIP ESTIMATE")
+                            Text("SUGGESTED OFFER")
                                 .font(.caption2)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.secondary)
@@ -400,12 +407,10 @@ struct RideBottomSheet: View {
 
                     Divider()
 
-                    // Fare Breakdown
+                    // Suggested Payment Breakdown (Driver sets final price)
                     VStack(spacing: 6) {
-                        FareLineItem(label: "Base Fare", amount: viewModel.baseFare)
-                        FareLineItem(label: "Distance (\(viewModel.estimatedDistanceText))", amount: viewModel.distanceFee)
-                        FareLineItem(label: "Time (\(viewModel.estimatedTimeText))", amount: viewModel.timeFee)
-                        FareLineItem(label: "Platform Fee", amount: viewModel.platformFee)
+                        FareLineItem(label: "Suggested Driver Payment", amount: viewModel.baseFare + viewModel.distanceFee + viewModel.timeFee)
+                        FareLineItem(label: "Connection Fee", amount: viewModel.platformFee)
                         if viewModel.taxAmount > 0 {
                             FareLineItem(
                                 label: "Tax (\(String(format: "%.2f", viewModel.taxRate * 100))%)",
@@ -416,9 +421,9 @@ struct RideBottomSheet: View {
 
                     Divider()
 
-                    // Tip options
+                    // Additional Amount for Driver
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Add Tip for Driver")
+                        Text("Add Extra for Driver (Optional)")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
@@ -440,10 +445,10 @@ struct RideBottomSheet: View {
 
                     Divider()
 
-                    // Total & Driver Earnings
+                    // Your Offer Summary
                     VStack(spacing: 8) {
                         HStack {
-                            Text("Total")
+                            Text("Your Offer")
                                 .font(.headline)
                             Spacer()
                             Text("$\(String(format: "%.2f", viewModel.totalAmount))")
@@ -452,14 +457,14 @@ struct RideBottomSheet: View {
                                 .foregroundColor(.blue)
                         }
 
-                        // Driver earnings info (transparency!)
+                        // Driver receives info
                         HStack {
                             Image(systemName: "person.fill.checkmark")
                                 .foregroundColor(.green)
-                            Text("Driver earns: $\(String(format: "%.2f", viewModel.driverEarnings))")
+                            Text("Driver receives: $\(String(format: "%.2f", viewModel.driverEarnings))")
                                 .font(.caption)
                                 .foregroundColor(.green)
-                            Text("(\(AppConfig.shared.driverEarningsPercentage)%+ of fare)")
+                            Text("(You pay driver directly)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -467,14 +472,14 @@ struct RideBottomSheet: View {
 
                     Divider()
 
-                    // Legal Disclosures (Required for TNC compliance)
+                    // Legal Disclosures (P2P Rideshare Matchmaking)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("FARE DISCLOSURE")
+                        Text("PEER-TO-PEER RIDESHARE")
                             .font(.caption2)
                             .fontWeight(.semibold)
                             .foregroundColor(.secondary)
 
-                        Text("Fares are estimates based on distance and time. Final fare may vary due to traffic, route changes, or wait time. Sales tax is calculated based on pickup location. By requesting a ride, you agree to our Terms of Service.")
+                        Text("Dollor.ai connects riders with independent drivers. Drivers set their own rates and may accept, decline, or counter your offer. The connection fee is for using our matchmaking service. Transportation is provided directly by the driver, not Dollor.ai. By using this service, you agree to our Terms of Service.")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -482,7 +487,7 @@ struct RideBottomSheet: View {
                         HStack(spacing: 4) {
                             Image(systemName: "info.circle")
                                 .font(.caption2)
-                            Text("Base: $\(String(format: "%.2f", viewModel.baseFare)) | Distance: $\(String(format: "%.2f", viewModel.perMileRate))/mi | Time: $\(String(format: "%.2f", viewModel.perMinuteRate))/min | Platform: $\(String(format: "%.2f", viewModel.platformFee))")
+                            Text("Connection fee: $\(String(format: "%.2f", viewModel.platformFee)) • Driver sets final price")
                                 .font(.caption2)
                         }
                         .foregroundColor(.secondary)
@@ -495,11 +500,11 @@ struct RideBottomSheet: View {
 
             // Action Buttons
             VStack(spacing: 12) {
-                // Request at Estimated Fare
+                // Find Driver with Suggested Offer
                 Button(action: onRequestRide) {
                     HStack {
-                        Image(systemName: "car.fill")
-                        Text("Request at $\(String(format: "%.2f", viewModel.estimatedFare))")
+                        Image(systemName: "magnifyingglass")
+                        Text("Find Driver • Offer $\(String(format: "%.2f", viewModel.estimatedFare))")
                     }
                     .font(.headline)
                     .foregroundColor(.white)
@@ -510,11 +515,11 @@ struct RideBottomSheet: View {
                 }
                 .disabled(!viewModel.canRequestRide)
 
-                // Negotiate Fare Button
+                // Make Custom Offer Button
                 Button(action: { showNegotiateSheet = true }) {
                     HStack {
                         Image(systemName: "dollarsign.arrow.circlepath")
-                        Text("Negotiate Fare")
+                        Text("Make a Different Offer")
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -530,12 +535,12 @@ struct RideBottomSheet: View {
                 }
                 .disabled(!viewModel.canRequestRide)
 
-                // Info text
+                // Info text - P2P matchmaking disclaimer
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle.fill")
                         .font(.caption2)
                         .foregroundColor(Theme.brandGreen)
-                    Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) platform fee only • Drivers keep \(AppConfig.shared.driverEarningsPercentage)%+")
+                    Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee • Drivers are independent")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -618,20 +623,20 @@ struct PreRequestNegotiationSheet: View {
                                 .foregroundColor(Theme.brandOrange)
                         }
 
-                        Text("Name Your Price")
+                        Text("Make Your Offer")
                             .font(.title2)
                             .fontWeight(.bold)
 
-                        Text("Drivers can accept your offer or counter")
+                        Text("Independent drivers can accept, decline, or counter")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                     .padding(.top)
 
-                    // Estimated vs Your Offer
+                    // Suggested vs Your Offer
                     HStack(spacing: 20) {
                         VStack(spacing: 4) {
-                            Text("Estimated")
+                            Text("Suggested")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Text("$\(String(format: "%.2f", estimatedFare))")
@@ -724,7 +729,7 @@ struct PreRequestNegotiationSheet: View {
                     }
                     .padding(.horizontal)
 
-                    // Driver Earnings Preview
+                    // Driver Payment Preview
                     if currentOffer != nil {
                         VStack(spacing: 8) {
                             Divider()
@@ -732,7 +737,7 @@ struct PreRequestNegotiationSheet: View {
                             HStack {
                                 Image(systemName: "person.fill.checkmark")
                                     .foregroundColor(Theme.brandGreen)
-                                Text("Driver would earn:")
+                                Text("Driver would receive:")
                                     .font(.subheadline)
                                 Spacer()
                                 Text("$\(String(format: "%.2f", driverEarnings))")
@@ -745,7 +750,7 @@ struct PreRequestNegotiationSheet: View {
 
                             HStack(spacing: 4) {
                                 Image(systemName: "info.circle")
-                                Text("Platform fee: only $\(String(format: "%.0f", platformFee))")
+                                Text("Connection fee: $\(String(format: "%.0f", platformFee)) • Driver is independent")
                             }
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -756,7 +761,7 @@ struct PreRequestNegotiationSheet: View {
                     Spacer(minLength: 20)
                 }
             }
-            .navigationTitle("Negotiate Fare")
+            .navigationTitle("Make an Offer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -1189,13 +1194,13 @@ struct RideStatusCard: View {
     var statusText: String {
         switch viewModel.currentStep {
         case .waitingForDriver:
-            return "Looking for a driver..."
+            return "Finding available drivers..."
         case .driverEnRoute:
-            return "Driver is on the way!"
+            return "Driver accepted and is on the way!"
         case .rideInProgress:
-            return "Enjoy your ride!"
+            return "In transit with driver"
         case .completed:
-            return "Ride completed!"
+            return "Trip completed!"
         default:
             return "Processing..."
         }

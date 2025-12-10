@@ -355,6 +355,7 @@ class Order(Base):
     confirmed_at = Column(DateTime)
     preparing_at = Column(DateTime)
     delivered_at = Column(DateTime)
+    estimated_ready_at = Column(DateTime)  # Restaurant's estimated time when order will be ready
     
     # Relationships
     vendor = relationship("Vendor")
@@ -898,4 +899,130 @@ class OrderInvoice(Base):
 
     # Relationships
     order = relationship("Order")
+    vendor = relationship("Vendor")
+
+
+# ==================== RIDESHARE SYSTEM ====================
+
+class RideStatus(enum.Enum):
+    WAITING_FOR_DRIVER = "waiting_for_driver"
+    DRIVER_ASSIGNED = "driver_assigned"
+    DRIVER_EN_ROUTE = "driver_en_route"
+    PICKED_UP = "picked_up"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class Ride(Base):
+    """Rideshare rides - Uber-style transportation with $1 platform fee"""
+    __tablename__ = "rides"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ride_number = Column(String(50), unique=True, nullable=False, index=True)  # RIDE-ABC123
+
+    # Customer Information
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_name = Column(String(255), nullable=False)
+    customer_email = Column(String(255))
+    customer_phone = Column(String(50))
+
+    # Pickup Location
+    pickup_street = Column(Text)
+    pickup_city = Column(String(100))
+    pickup_state = Column(String(100))
+    pickup_zip = Column(String(20))
+    pickup_lat = Column(Float)
+    pickup_lng = Column(Float)
+
+    # Dropoff Location
+    dropoff_street = Column(Text)
+    dropoff_city = Column(String(100))
+    dropoff_state = Column(String(100))
+    dropoff_zip = Column(String(20))
+    dropoff_lat = Column(Float)
+    dropoff_lng = Column(Float)
+
+    # Trip Details
+    distance_miles = Column(Float, default=0.0)
+    duration_minutes = Column(Float, default=0.0)
+    notes = Column(Text)
+
+    # Fare Breakdown (matches iOS RideRequestViewModel)
+    base_fare = Column(Float, default=2.0)
+    distance_fee = Column(Float, default=0.0)
+    time_fee = Column(Float, default=0.0)
+    surge_multiplier = Column(Float, default=1.0)
+    platform_fee = Column(Float, default=1.0)  # $1 flat fee
+    tax_rate = Column(Float, default=0.0)
+    tax_amount = Column(Float, default=0.0)
+    tip = Column(Float, default=0.0)
+    total_fare = Column(Float, default=0.0)
+    driver_earnings = Column(Float, default=0.0)
+
+    # Negotiation
+    customer_offer = Column(Float)
+    driver_offer = Column(Float)
+    agreed_fare = Column(Float)
+    negotiation_status = Column(String(50))  # none, customer_offered, driver_countered, accepted, rejected
+
+    # Driver Information
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    driver_name = Column(String(255))
+    driver_phone = Column(String(50))
+    driver_latitude = Column(Float)
+    driver_longitude = Column(Float)
+
+    # Status
+    status = Column(SQLEnum(RideStatus), default=RideStatus.WAITING_FOR_DRIVER)
+
+    # Payment
+    payment_status = Column(String(50))  # pending, paid, refunded
+    payment_intent_id = Column(String(255))
+    payment_amount = Column(Float)
+    paid_at = Column(DateTime)
+
+    # Cancellation
+    cancellation_reason = Column(Text)
+    cancellation_fee = Column(Float, default=0.0)
+    refund_amount = Column(Float, default=0.0)
+    cancelled_at = Column(DateTime)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    driver_accepted_at = Column(DateTime)
+    picked_up_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+    # Relationships
+    driver = relationship("Driver", foreign_keys=[driver_id])
+
+
+# ==================== CUSTOMER FAVORITES SYSTEM ====================
+
+class CustomerFavorite(Base):
+    """Customer favorite restaurants - replaces Firebase favorites"""
+    __tablename__ = "customer_favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Customer (using customer ID from customer session)
+    customer_id = Column(Integer, nullable=False, index=True)
+
+    # Restaurant/Vendor Information
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    restaurant_name = Column(String(255))
+    cuisine = Column(String(100))
+    rating = Column(Float, default=0.0)
+    image_url = Column(String(500))
+    address = Column(Text)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    phone = Column(String(50))
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
     vendor = relationship("Vendor")

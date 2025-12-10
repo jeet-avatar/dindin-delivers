@@ -47,23 +47,10 @@
                 <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
             </array>
         </dict>
-        <!-- Physical Address -->
+        <!-- Physical Address (Delivery address) -->
         <dict>
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypePhysicalAddress</string>
-            <key>NSPrivacyCollectedDataTypeLinked</key>
-            <true/>
-            <key>NSPrivacyCollectedDataTypeTracking</key>
-            <false/>
-            <key>NSPrivacyCollectedDataTypePurposes</key>
-            <array>
-                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-            </array>
-        </dict>
-        <!-- Payment Info -->
-        <dict>
-            <key>NSPrivacyCollectedDataType</key>
-            <string>NSPrivacyCollectedDataTypePaymentInfo</string>
             <key>NSPrivacyCollectedDataTypeLinked</key>
             <true/>
             <key>NSPrivacyCollectedDataTypeTracking</key>
@@ -86,6 +73,19 @@
                 <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
             </array>
         </dict>
+        <!-- Payment Info -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePaymentInfo</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
         <!-- Purchase History -->
         <dict>
             <key>NSPrivacyCollectedDataType</key>
@@ -99,10 +99,36 @@
                 <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
             </array>
         </dict>
+        <!-- Photos -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePhotos</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
         <!-- Device ID -->
         <dict>
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypeDeviceID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- Contacts -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeContacts</string>
             <key>NSPrivacyCollectedDataTypeLinked</key>
             <false/>
             <key>NSPrivacyCollectedDataTypeTracking</key>

@@ -2,8 +2,9 @@ import SwiftUI
 import MapKit
 import EatFairShared
 
-// MARK: - World-Class Available Orders View
-/// Supports both Food Delivery and Rideshare modes with fare negotiation
+// MARK: - Available Orders View
+/// Supports both Food Delivery and P2P Rideshare Matchmaking
+/// Rideshare: Drivers are independent contractors who set their own prices
 struct AvailableOrdersView: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @StateObject private var locationManager = LocationManager.shared
@@ -383,7 +384,7 @@ struct AvailableOrdersView: View {
                     .fontWeight(.bold)
                     .foregroundColor(Theme.textPrimary)
 
-                Text("Ride requests will appear here.\nOnly $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) platform fee per ride!")
+                Text("Rider connection requests will appear here.\nOnly $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee!")
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -1140,11 +1141,11 @@ struct RideCard: View {
                         .foregroundColor(Theme.textSecondary)
                     }
 
-                    // Platform fee badge - competitive advantage!
+                    // Connection fee badge - P2P matchmaking
                     HStack(spacing: 4) {
                         Image(systemName: "dollarsign.circle.fill")
                             .font(.caption2)
-                        Text("Only $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) fee")
+                        Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee")
                             .font(.caption2)
                             .fontWeight(.bold)
                     }
@@ -1338,7 +1339,8 @@ struct RidesMapView: View {
 }
 
 // MARK: - Fare Negotiation Sheet
-/// Unique negotiation feature - $1+$1 platform fee model
+/// P2P Matchmaking: Drivers set their own prices and negotiate directly with riders
+/// $1 connection fee for using the matchmaking platform
 struct FareNegotiationSheet: View {
     let ride: P2PRide
     @ObservedObject var viewModel: DeliveryViewModel
@@ -1361,11 +1363,11 @@ struct FareNegotiationSheet: View {
                             .foregroundColor(.blue)
                     }
 
-                    Text("Negotiate Fare")
+                    Text("Set Your Price")
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("Propose your price for this ride")
+                    Text("As an independent driver, you set your own rates")
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                 }
@@ -1385,12 +1387,12 @@ struct FareNegotiationSheet: View {
 
                     Divider()
 
-                    // Platform Fee Info - competitive advantage!
+                    // Connection Fee Info - P2P matchmaking
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Platform Fee")
+                            Text("Connection Fee")
                                 .foregroundColor(Theme.textSecondary)
-                            Text("Only $\(String(format: "%.0f", platformFee)) - lowest in industry!")
+                            Text("$\(String(format: "%.0f", platformFee)) for matchmaking service")
                                 .font(.caption)
                                 .foregroundColor(.green)
                         }
@@ -1405,9 +1407,9 @@ struct FareNegotiationSheet: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
 
-                // Counter Offer Input
+                // Your Price Input
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Your Counter Offer")
+                    Text("Your Price")
                         .font(.headline)
                         .foregroundColor(Theme.textPrimary)
 
@@ -1431,7 +1433,7 @@ struct FareNegotiationSheet: View {
                     // Earnings preview
                     if let offer = Double(counterOffer), offer > 0 {
                         HStack {
-                            Text("Your earnings after $1 fee:")
+                            Text("You receive after $\(String(format: "%.0f", platformFee)) connection fee:")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
                             Spacer()
@@ -1449,14 +1451,14 @@ struct FareNegotiationSheet: View {
 
                 // Action Buttons
                 VStack(spacing: 12) {
-                    // Submit Counter Offer
+                    // Submit Your Price
                     Button(action: {
                         if let offer = Double(counterOffer), offer > 0 {
                             viewModel.submitCounterOffer(rideId: ride.rideId, counterFare: offer)
                             dismiss()
                         }
                     }) {
-                        Text("Submit Counter Offer")
+                        Text("Send My Price to Rider")
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -1466,12 +1468,12 @@ struct FareNegotiationSheet: View {
                     }
                     .disabled((Double(counterOffer) ?? 0) <= 0)
 
-                    // Accept Current Fare
+                    // Accept Rider's Offer
                     Button(action: {
                         viewModel.acceptCustomerFare(rideId: ride.rideId, fare: ride.fee)
                         dismiss()
                     }) {
-                        Text("Accept $\(String(format: "%.2f", ride.fee)) Offer")
+                        Text("Accept Rider's $\(String(format: "%.2f", ride.fee)) Offer")
                             .font(.headline)
                             .foregroundColor(.blue)
                             .frame(maxWidth: .infinity)
@@ -1483,7 +1485,7 @@ struct FareNegotiationSheet: View {
                 .padding()
             }
             .background(Theme.backgroundGrey.ignoresSafeArea())
-            .navigationTitle("Negotiate")
+            .navigationTitle("Set Your Price")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -1517,7 +1519,7 @@ struct RideDetailSheet: View {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Your Earnings")
+                                Text("You Receive")
                                     .font(.subheadline)
                                     .foregroundColor(Theme.textSecondary)
                                 Text("$\(String(format: "%.2f", ride.earnings))")
@@ -1526,12 +1528,12 @@ struct RideDetailSheet: View {
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
-                                Text("Platform Fee")
+                                Text("Connection Fee")
                                     .font(.caption)
                                     .foregroundColor(Theme.textSecondary)
                                 HStack(spacing: 4) {
                                     Image(systemName: "dollarsign.circle.fill")
-                                    Text("Only $1")
+                                    Text("$1")
                                 }
                                 .font(.headline)
                                 .foregroundColor(.green)

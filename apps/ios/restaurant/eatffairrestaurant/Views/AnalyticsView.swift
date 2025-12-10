@@ -5,15 +5,9 @@ import EatFairShared
 /// World-class Analytics Dashboard with insights and trends
 struct AnalyticsView: View {
     @ObservedObject var ordersVM: OrdersViewModel
-    @State private var selectedPeriod: TimePeriod = .today
+    @StateObject private var analyticsVM = AnalyticsViewModel()
+    @State private var selectedPeriod: AnalyticsViewModel.TimePeriod = .today
     @State private var selectedChart: ChartType = .revenue
-
-    enum TimePeriod: String, CaseIterable {
-        case today = "Today"
-        case week = "This Week"
-        case month = "This Month"
-        case year = "This Year"
-    }
 
     enum ChartType: String, CaseIterable {
         case revenue = "Revenue"
@@ -51,6 +45,19 @@ struct AnalyticsView: View {
             .background(RestaurantTheme.backgroundGrouped)
             .navigationTitle("Analytics")
             .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                // Update analytics from orders when view appears
+                analyticsVM.updateFromOrders(ordersVM.allOrders, period: selectedPeriod)
+                analyticsVM.fetchPromotionAnalytics()
+            }
+            .onChange(of: selectedPeriod) { _, newPeriod in
+                // Update analytics when period changes
+                analyticsVM.updateFromOrders(ordersVM.allOrders, period: newPeriod)
+            }
+            .onChange(of: ordersVM.allOrders.count) { _, _ in
+                // Update analytics when orders change
+                analyticsVM.updateFromOrders(ordersVM.allOrders, period: selectedPeriod)
+            }
         }
     }
 
@@ -58,7 +65,7 @@ struct AnalyticsView: View {
     private var periodSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(TimePeriod.allCases, id: \.self) { period in
+                ForEach(AnalyticsViewModel.TimePeriod.allCases, id: \.self) { period in
                     Button(action: {
                         withAnimation(.spring(response: 0.3)) {
                             selectedPeriod = period
@@ -86,40 +93,45 @@ struct AnalyticsView: View {
         ], spacing: 12) {
             MetricCard(
                 title: "Total Revenue",
-                value: "$\(Int(ordersVM.todayRevenue))",
-                change: "+12.5%",
-                isPositive: true,
+                value: "$\(Int(analyticsVM.totalRevenue))",
+                change: formatChange(analyticsVM.revenueChange),
+                isPositive: analyticsVM.revenueChange >= 0,
                 icon: "dollarsign.circle.fill",
                 color: RestaurantTheme.brandGreen
             )
 
             MetricCard(
                 title: "Total Orders",
-                value: "\(ordersVM.todayOrderCount)",
-                change: "+8.2%",
-                isPositive: true,
+                value: "\(analyticsVM.totalOrders)",
+                change: formatChange(analyticsVM.ordersChange),
+                isPositive: analyticsVM.ordersChange >= 0,
                 icon: "bag.fill",
                 color: RestaurantTheme.brandBlue
             )
 
             MetricCard(
                 title: "Avg Order Value",
-                value: "$\(ordersVM.todayOrderCount > 0 ? Int(ordersVM.todayRevenue / Double(ordersVM.todayOrderCount)) : 0)",
-                change: "+5.1%",
-                isPositive: true,
+                value: "$\(Int(analyticsVM.averageOrderValue))",
+                change: formatChange(analyticsVM.avgOrderChange),
+                isPositive: analyticsVM.avgOrderChange >= 0,
                 icon: "chart.line.uptrend.xyaxis",
                 color: RestaurantTheme.brandPurple
             )
 
             MetricCard(
                 title: "Avg Prep Time",
-                value: "\(ordersVM.averagePrepTime) min",
-                change: "-2 min",
-                isPositive: true,
+                value: "\(analyticsVM.averagePrepTime) min",
+                change: "\(analyticsVM.prepTimeChange >= 0 ? "+" : "")\(analyticsVM.prepTimeChange) min",
+                isPositive: analyticsVM.prepTimeChange <= 0, // Lower prep time is better
                 icon: "clock.fill",
                 color: RestaurantTheme.brandOrange
             )
         }
+    }
+
+    private func formatChange(_ value: Double) -> String {
+        let prefix = value >= 0 ? "+" : ""
+        return "\(prefix)\(String(format: "%.1f", value))%"
     }
 
     // MARK: - Revenue Chart Card
@@ -140,9 +152,9 @@ struct AnalyticsView: View {
                 .frame(width: 200)
             }
 
-            // Chart
+            // Chart using real data from analyticsVM
             Chart {
-                ForEach(sampleHourlyData, id: \.hour) { data in
+                ForEach(analyticsVM.hourlyData) { data in
                     BarMark(
                         x: .value("Hour", data.hour),
                         y: .value("Value", selectedChart == .revenue ? data.revenue : (selectedChart == .orders ? Double(data.orders) : data.avgOrder))
@@ -232,41 +244,48 @@ struct AnalyticsView: View {
                 Text("Top Selling Items")
                     .font(.headline)
                 Spacer()
-                Text("Today")
+                Text(selectedPeriod.rawValue)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
-            ForEach(Array(samplePopularItems.enumerated()), id: \.element.name) { index, item in
-                HStack(spacing: 12) {
-                    Text("\(index + 1)")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .frame(width: 24, height: 24)
-                        .background(index < 3 ? RestaurantTheme.brandOrange : Color.gray)
-                        .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.name)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Text("\(item.quantity) orders")
+            if analyticsVM.popularItems.isEmpty {
+                Text("No order data available")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(Array(analyticsVM.popularItems.enumerated()), id: \.element.id) { index, item in
+                    HStack(spacing: 12) {
+                        Text("\(index + 1)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .frame(width: 24, height: 24)
+                            .background(index < 3 ? RestaurantTheme.brandOrange : Color.gray)
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("\(item.quantity) orders")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text("$\(Int(item.revenue))")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(RestaurantTheme.brandGreen)
                     }
+                    .padding(.vertical, 4)
 
-                    Spacer()
-
-                    Text("$\(Int(item.revenue))")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(RestaurantTheme.brandGreen)
-                }
-                .padding(.vertical, 4)
-
-                if index < samplePopularItems.count - 1 {
-                    Divider()
+                    if index < analyticsVM.popularItems.count - 1 {
+                        Divider()
+                    }
                 }
             }
         }
@@ -283,7 +302,7 @@ struct AnalyticsView: View {
                 .font(.headline)
 
             Chart {
-                ForEach(sampleHourlyData, id: \.hour) { data in
+                ForEach(analyticsVM.hourlyData) { data in
                     AreaMark(
                         x: .value("Hour", data.hour),
                         y: .value("Orders", data.orders)
@@ -317,8 +336,8 @@ struct AnalyticsView: View {
             }
 
             HStack(spacing: 20) {
-                PeakHourInfo(label: "Lunch Peak", time: "12:00 - 2:00 PM", orders: 45)
-                PeakHourInfo(label: "Dinner Peak", time: "6:00 - 9:00 PM", orders: 78)
+                PeakHourInfo(label: "Lunch Peak", time: analyticsVM.lunchPeakTime, orders: analyticsVM.lunchPeakOrders)
+                PeakHourInfo(label: "Dinner Peak", time: analyticsVM.dinnerPeakTime, orders: analyticsVM.dinnerPeakOrders)
             }
         }
         .padding()
@@ -336,29 +355,29 @@ struct AnalyticsView: View {
             VStack(spacing: 12) {
                 PerformanceRow(
                     label: "Order Completion Rate",
-                    value: "98.5%",
-                    progress: 0.985,
+                    value: String(format: "%.1f%%", analyticsVM.orderCompletionRate * 100),
+                    progress: analyticsVM.orderCompletionRate,
                     color: RestaurantTheme.brandGreen
                 )
 
                 PerformanceRow(
                     label: "On-Time Delivery",
-                    value: "94.2%",
-                    progress: 0.942,
+                    value: String(format: "%.1f%%", analyticsVM.onTimeDeliveryRate * 100),
+                    progress: analyticsVM.onTimeDeliveryRate,
                     color: RestaurantTheme.brandBlue
                 )
 
                 PerformanceRow(
                     label: "Customer Rating",
-                    value: "4.8/5",
-                    progress: 0.96,
+                    value: String(format: "%.1f/5", analyticsVM.customerRating),
+                    progress: analyticsVM.customerRating / 5.0,
                     color: RestaurantTheme.brandOrange
                 )
 
                 PerformanceRow(
                     label: "Repeat Customers",
-                    value: "67%",
-                    progress: 0.67,
+                    value: String(format: "%.0f%%", analyticsVM.repeatCustomerRate * 100),
+                    progress: analyticsVM.repeatCustomerRate,
                     color: RestaurantTheme.brandPurple
                 )
             }
@@ -369,48 +388,6 @@ struct AnalyticsView: View {
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
     }
 
-    // MARK: - Sample Data
-    private var sampleHourlyData: [HourlyData] {
-        [
-            HourlyData(hour: "9AM", revenue: 120, orders: 8, avgOrder: 15),
-            HourlyData(hour: "10AM", revenue: 180, orders: 12, avgOrder: 15),
-            HourlyData(hour: "11AM", revenue: 350, orders: 22, avgOrder: 16),
-            HourlyData(hour: "12PM", revenue: 520, orders: 35, avgOrder: 15),
-            HourlyData(hour: "1PM", revenue: 480, orders: 30, avgOrder: 16),
-            HourlyData(hour: "2PM", revenue: 280, orders: 18, avgOrder: 16),
-            HourlyData(hour: "3PM", revenue: 150, orders: 10, avgOrder: 15),
-            HourlyData(hour: "4PM", revenue: 180, orders: 12, avgOrder: 15),
-            HourlyData(hour: "5PM", revenue: 320, orders: 20, avgOrder: 16),
-            HourlyData(hour: "6PM", revenue: 580, orders: 38, avgOrder: 15),
-            HourlyData(hour: "7PM", revenue: 720, orders: 45, avgOrder: 16),
-            HourlyData(hour: "8PM", revenue: 650, orders: 42, avgOrder: 15),
-            HourlyData(hour: "9PM", revenue: 420, orders: 28, avgOrder: 15)
-        ]
-    }
-
-    private var samplePopularItems: [PopularItem] {
-        [
-            PopularItem(name: "Margherita Pizza", quantity: 45, revenue: 675),
-            PopularItem(name: "Chicken Tikka Masala", quantity: 38, revenue: 570),
-            PopularItem(name: "Caesar Salad", quantity: 32, revenue: 320),
-            PopularItem(name: "Beef Burger", quantity: 28, revenue: 392),
-            PopularItem(name: "Pasta Carbonara", quantity: 25, revenue: 375)
-        ]
-    }
-}
-
-// MARK: - Supporting Types
-struct HourlyData {
-    let hour: String
-    let revenue: Double
-    let orders: Int
-    let avgOrder: Double
-}
-
-struct PopularItem {
-    let name: String
-    let quantity: Int
-    let revenue: Double
 }
 
 // MARK: - Metric Card

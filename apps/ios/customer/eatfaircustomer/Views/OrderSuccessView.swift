@@ -114,7 +114,7 @@ struct OrderSuccessView: View {
         .padding(.top, 20)
     }
 
-    // MARK: - Dummy Order Card (for test mode)
+    // MARK: - Placeholder Order Card (when order details not yet loaded)
     private var dummyOrderCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -123,9 +123,8 @@ struct OrderSuccessView: View {
                 Text("Order Details")
                     .font(.headline)
                 Spacer()
-                Text("#TEST-\(Int.random(in: 100000...999999))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                ProgressView()
+                    .scaleEffect(0.8)
             }
 
             Divider()
@@ -144,29 +143,21 @@ struct OrderSuccessView: View {
                     Text("Your Order")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                    Text("Order placed successfully")
+                    Text("Loading order details...")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 Spacer()
-
-                Text("Test Mode")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
             }
 
-            // Delivery note
+            // Info note
             HStack(spacing: 12) {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.blue)
                     .frame(width: 20)
 
-                Text("In test mode, orders are simulated. Enable production mode to send real orders to restaurants.")
+                Text("Your order has been placed. Details will appear shortly.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -268,7 +259,7 @@ struct OrderSuccessView: View {
                     Text("Arriving in")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("25-35 min")
+                    Text(formatDeliveryTime(viewModel.latestOrder?.estimatedDeliveryTime))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Theme.brandGreen)
@@ -295,6 +286,30 @@ struct OrderSuccessView: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+
+    /// Format delivery time from timestamp
+    private func formatDeliveryTime(_ estimatedTime: Int64?) -> String {
+        guard let timestamp = estimatedTime else {
+            return "20-30 min"
+        }
+
+        // Calculate minutes until delivery
+        let deliveryDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
+        let minutesRemaining = Int(deliveryDate.timeIntervalSinceNow / 60)
+
+        if minutesRemaining <= 0 {
+            return "Any moment"
+        } else if minutesRemaining < 5 {
+            return "< 5 min"
+        } else if minutesRemaining <= 60 {
+            // Show range
+            let minTime = max(5, minutesRemaining - 5)
+            let maxTime = minutesRemaining + 10
+            return "\(minTime)-\(maxTime) min"
+        } else {
+            return DateTimeFormatter.shared.formattedETA(etaMinutes: minutesRemaining, showArrivalTime: true)
+        }
     }
 
     // MARK: - Action Buttons
@@ -437,7 +452,6 @@ class OrderSuccessViewModel: ObservableObject {
     func fetchLatestOrder() {
         guard let userId = Auth.auth().currentUser?.uid else {
             // No user logged in - this is expected in test mode
-            print("OrderSuccessViewModel: No user logged in, skipping order fetch")
             return
         }
 
@@ -453,7 +467,9 @@ class OrderSuccessViewModel: ObservableObject {
 
                     if let error = error {
                         // Don't crash - just log and continue with dummy order card
-                        print("OrderSuccessViewModel: Failed to fetch order - \(error.localizedDescription)")
+                        #if DEBUG
+                        print("[OrderSuccess] Failed to fetch order: \(error.localizedDescription)")
+                        #endif
                         self?.errorMessage = error.localizedDescription
                         return
                     }

@@ -9,6 +9,8 @@ struct OrderHistoryView: View {
     @State private var selectedFilter: OrderFilter = .all
     @State private var showReorderConfirmation = false
     @State private var orderToReorder: Order?
+    @State private var navigateToCart = false
+    @State private var showCancelSuccess = false
 
     enum OrderFilter: String, CaseIterable {
         case all = "All"
@@ -41,7 +43,15 @@ struct OrderHistoryView: View {
                                         orderToReorder = order
                                         showReorderConfirmation = true
                                     },
-                                    onTrack: {}
+                                    onTrack: {},
+                                    onCancel: {
+                                        viewModel.cancelOrder(order)
+                                    },
+                                    canCancel: viewModel.canCancelOrder(order),
+                                    refundStatus: viewModel.getRefundStatus(for: order),
+                                    onFetchRefundStatus: {
+                                        viewModel.fetchRefundStatus(for: order)
+                                    }
                                 )
                             }
                         }
@@ -59,11 +69,55 @@ struct OrderHistoryView: View {
             Button("Add to Cart") {
                 if let order = orderToReorder {
                     reorderItems(from: order)
+                    navigateToCart = true
                 }
             }
         } message: {
             if let order = orderToReorder {
                 Text("Add \(order.items.count) items from \(order.restaurant.name) to your cart?")
+            }
+        }
+        .navigationDestination(isPresented: $navigateToCart) {
+            MultiRestaurantCartView(cartVM: multiCartViewModel)
+        }
+        .alert("Order Cancelled", isPresented: $viewModel.cancelSuccess) {
+            Button("OK") {
+                viewModel.cancelSuccess = false
+            }
+        } message: {
+            if let response = viewModel.cancelResponse {
+                if let refundAmount = response.refundAmount, refundAmount > 0 {
+                    Text("Your order has been cancelled. A refund of $\(String(format: "%.2f", refundAmount)) will be processed to your original payment method.")
+                } else {
+                    Text(response.message)
+                }
+            } else {
+                Text("Your order has been cancelled successfully.")
+            }
+        }
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK") {
+                viewModel.showError = false
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "An error occurred")
+        }
+        .overlay {
+            if viewModel.isCancelling {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Cancelling order...")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(24)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(12)
+                }
             }
         }
     }
@@ -175,8 +229,23 @@ struct OrderCard: View {
     let order: Order
     let onReorder: () -> Void
     let onTrack: () -> Void
+    let onCancel: (() -> Void)?
+    let canCancel: Bool
+    let refundStatus: P2PRefundStatusResponse?
+    let onFetchRefundStatus: (() -> Void)?
 
     @State private var isExpanded = false
+    @State private var showCancelConfirmation = false
+
+    init(order: Order, onReorder: @escaping () -> Void, onTrack: @escaping () -> Void, onCancel: (() -> Void)? = nil, canCancel: Bool = false, refundStatus: P2PRefundStatusResponse? = nil, onFetchRefundStatus: (() -> Void)? = nil) {
+        self.order = order
+        self.onReorder = onReorder
+        self.onTrack = onTrack
+        self.onCancel = onCancel
+        self.canCancel = canCancel
+        self.refundStatus = refundStatus
+        self.onFetchRefundStatus = onFetchRefundStatus
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -270,6 +339,80 @@ struct OrderCard: View {
                 .padding()
             }
 
+            // Refund Status Section (for cancelled orders)
+            if order.status == "Cancelled" {
+                Divider()
+                    .padding(.horizontal)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "dollarsign.arrow.circlepath")
+                            .foregroundColor(.orange)
+                        Text("Refund Status")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+
+                    if let status = refundStatus {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Circle()
+                                        .fill(refundStatusColor(status.refundStatus))
+                                        .frame(width: 8, height: 8)
+                                    Text(status.refundStatus.capitalized)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(refundStatusColor(status.refundStatus))
+                                }
+
+                                if let amount = status.refundAmount, amount > 0 {
+                                    Text("Amount: $\(String(format: "%.2f", amount))")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                if let refundNumber = status.refundNumber {
+                                    Text("Ref #: \(refundNumber)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                if let estimatedArrival = status.estimatedArrival {
+                                    Text("Est. arrival: \(estimatedArrival)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                if let processedAt = status.processedAt {
+                                    Text("Processed: \(processedAt)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                    } else {
+                        HStack {
+                            Text("Tap to check refund status")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Button(action: {
+                                onFetchRefundStatus?()
+                            }) {
+                                Text("Check")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(Theme.brandGreen)
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color.orange.opacity(0.05))
+            }
+
             Divider()
                 .padding(.horizontal)
 
@@ -291,6 +434,25 @@ struct OrderCard: View {
                 }
 
                 Spacer()
+
+                // Cancel Order Button (for cancellable orders)
+                if canCancel {
+                    Button(action: {
+                        showCancelConfirmation = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle.fill")
+                            Text("Cancel")
+                        }
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.red)
+                        .cornerRadius(8)
+                    }
+                }
 
                 // Track Order (for active orders)
                 if isActiveOrder {
@@ -331,6 +493,14 @@ struct OrderCard: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .alert("Cancel Order", isPresented: $showCancelConfirmation) {
+            Button("Keep Order", role: .cancel) {}
+            Button("Cancel Order", role: .destructive) {
+                onCancel?()
+            }
+        } message: {
+            Text("Are you sure you want to cancel this order? If payment was already processed, a refund will be initiated.")
+        }
     }
 
     private var isActiveOrder: Bool {
@@ -341,6 +511,22 @@ struct OrderCard: View {
     private var orderDateFormatted: String {
         let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
         return DateTimeFormatter.shared.historyDetailTime(from: orderDate)
+    }
+
+    /// Get color for refund status
+    private func refundStatusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "completed", "refunded":
+            return .green
+        case "processing", "pending":
+            return .orange
+        case "failed", "denied":
+            return .red
+        case "initiated":
+            return .blue
+        default:
+            return .gray
+        }
     }
 }
 

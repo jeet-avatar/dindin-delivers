@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Dollor AI Service</string>
+	<string>Dollor Driver</string>
 	<key>CFBundleName</key>
-	<string>Dollor AI Service</string>
+	<string>Dollor Driver - Earn More</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -13,7 +13,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.107524350806-smtgnkufvnf2a7dp0luc7qgp1h5ara1e</string>
+				<string>com.googleusercontent.apps.107524350806-76hoejr3osqosdskgobjgub9jqe98vpm</string>
 			</array>
 		</dict>
 	</array>
@@ -40,8 +40,6 @@
 	<string>Dollor AI Service needs your location to track deliveries and navigate to pickup and delivery locations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Dollor AI Service needs your location to track deliveries in real-time and provide accurate updates to customers even when the app is in the background.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Dollor AI Service needs continuous location access to track your deliveries and update customers with real-time driver location.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Voice commands allow hands-free control while driving - accept orders, navigate, and send messages safely.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -62,14 +60,6 @@
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>maps.apple.com</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

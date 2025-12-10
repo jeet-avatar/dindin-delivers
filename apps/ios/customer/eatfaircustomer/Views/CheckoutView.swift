@@ -22,7 +22,6 @@ struct CheckoutView: View {
     @State private var paymentSheet: PaymentSheet?
     @State private var paymentResult: PaymentSheetResult?
     @State private var isLoadingPayment = false
-    @State private var showMockPaymentAlert = false
     @State private var stripePaymentReady = false
     @State private var errorMessage: String?
     @State private var showingError = false
@@ -346,7 +345,6 @@ struct CheckoutView: View {
                     } else {
                         // Cash on Delivery - Direct order placement
                         Button(action: {
-                            print("Confirm Order Tapped - Cash on Delivery")
                             placeOrder()
                         }) {
                             Text("Confirm Order (Cash) • $\(String(format: "%.2f", max(0, cartViewModel.total - discount)))")
@@ -368,16 +366,7 @@ struct CheckoutView: View {
         .navigationDestination(isPresented: $showingSuccess) {
             OrderSuccessView()
         }
-        .alert(isPresented: $showMockPaymentAlert) {
-            Alert(
-                title: Text("Mock Payment"),
-                message: Text("Stripe is not linked yet. Simulating successful payment."),
-                primaryButton: .default(Text("Pay"), action: {
-                    placeOrder()
-                }),
-                secondaryButton: .cancel()
-            )
-        }
+        // Mock payment alert removed for production - Stripe is properly integrated
         .alert(isPresented: $showingError) {
             Alert(title: Text("Error"), message: Text(errorMessage ?? "Unknown error"), dismissButton: .default(Text("OK")))
         }
@@ -399,13 +388,17 @@ struct CheckoutView: View {
         let isActuallySF = address.city.lowercased().contains("san francisco")
         
         if isSuspiciouslySF && !isActuallySF {
-            print("Detected incorrect SF coordinates for \(address.city). Geocoding...")
+            #if DEBUG
+            print("[Checkout] Detected incorrect SF coordinates for \(address.city). Geocoding...")
+            #endif
             let geocoder = CLGeocoder()
             let addressString = "\(address.street), \(address.city), \(address.state) \(address.zipCode)"
-            
+
             geocoder.geocodeAddressString(addressString) { placemarks, error in
                 if let location = placemarks?.first?.location {
-                    print("Corrected coordinates: \(location.coordinate)")
+                    #if DEBUG
+                    print("[Checkout] Corrected coordinates: \(location.coordinate)")
+                    #endif
                     self.correctedCoordinates = location.coordinate
                 }
             }
@@ -477,7 +470,6 @@ struct CheckoutView: View {
                     self.stripePaymentReady = true
 
                 case .failure(let error):
-                    print("Failed to load payment sheet: \(error)")
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showingError = true
                 }
@@ -491,9 +483,8 @@ struct CheckoutView: View {
         case .completed:
             placeOrder()
         case .canceled:
-            print("Payment canceled")
+            break
         case .failed(let error):
-            print("Payment failed: \(error)")
             errorMessage = "Payment failed: \(error.localizedDescription)"
             showingError = true
         }
@@ -520,7 +511,6 @@ struct CheckoutView: View {
             case .failure(let error):
                 if case ACHPaymentService.PaymentError.canceled = error {
                     // User canceled, not an error
-                    print("ACH Payment canceled")
                 } else {
                     errorMessage = "Bank payment failed: \(error.localizedDescription)"
                     showingError = true
@@ -566,16 +556,13 @@ struct CheckoutView: View {
             proceed(lat: address.latitude, long: address.longitude)
         } else {
             // Geocode now
-            print("Coordinates missing, geocoding at checkout...")
             let geocoder = CLGeocoder()
             let addressString = "\(address.street), \(address.city), \(address.state) \(address.zipCode)"
-            
+
             geocoder.geocodeAddressString(addressString) { placemarks, error in
                 if let location = placemarks?.first?.location {
-                    print("Geocoded at checkout: \(location.coordinate)")
                     proceed(lat: location.coordinate.latitude, long: location.coordinate.longitude)
                 } else {
-                    print("Geocoding failed at checkout: \(error?.localizedDescription ?? "Unknown")")
                     self.errorMessage = "Could not verify address location. Please check your address details."
                     self.showingError = true
                 }

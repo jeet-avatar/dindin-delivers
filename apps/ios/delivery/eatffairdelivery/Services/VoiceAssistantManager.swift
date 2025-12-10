@@ -5,6 +5,7 @@ import Combine
 
 /// VoiceAssistantManager handles speech recognition and text-to-speech
 /// Enables hands-free operation for drivers during deliveries
+/// Issues #23-26 Fixed: Error handling, task cleanup, guard statements, configurable timeout
 class VoiceAssistantManager: NSObject, ObservableObject {
     static let shared = VoiceAssistantManager()
 
@@ -22,6 +23,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
     private let speechSynthesizer = AVSpeechSynthesizer()
+
+    // Issue #25: Configurable auto-stop timeout
+    private let autoStopTimeout: TimeInterval = 10.0
+    private var autoStopWorkItem: DispatchWorkItem?
 
     // MARK: - Commands
     enum VoiceCommand: String, CaseIterable {
@@ -62,6 +67,20 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         checkPermissions()
     }
 
+    /// Issue #24 Fixed: Cancel recognition task on deinit
+    deinit {
+        autoStopWorkItem?.cancel()
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        #if DEBUG
+        print("[VoiceAssistantManager] Deinitialized, recognition cancelled")
+        #endif
+    }
+
     // MARK: - Permissions
     func checkPermissions() {
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
@@ -89,9 +108,12 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     }
 
     // MARK: - Start Listening
+    /// Issue #23 Fixed: Show user-facing error alerts
     func startListening() {
         guard isAvailable else {
-            errorMessage = "Voice assistant not available"
+            DispatchQueue.main.async {
+                self.errorMessage = "Voice assistant not available. Please enable speech recognition in Settings."
+            }
             return
         }
 
@@ -103,7 +125,13 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         do {
             try startRecognition()
         } catch {
-            errorMessage = error.localizedDescription
+            // Issue #23: Show meaningful error to user
+            DispatchQueue.main.async {
+                self.errorMessage = "Unable to start voice recognition: \(error.localizedDescription)"
+            }
+            #if DEBUG
+            print("[VoiceAssistantManager] startListening error: \(error)")
+            #endif
         }
     }
 
@@ -158,10 +186,11 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             }
         }
 
-        // Configure audio tap
+        // Issue #26 Fixed: Guard against nil recognitionRequest before appending
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            self.recognitionRequest?.append(buffer)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+            guard let request = self?.recognitionRequest else { return }
+            request.append(buffer)
         }
 
         // Start audio engine
@@ -173,16 +202,25 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             self.transcribedText = ""
         }
 
-        // Auto-stop after 10 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            if self?.isListening == true {
-                self?.stopListening()
-            }
+        // Issue #25 Fixed: Configurable auto-stop with cancellable work item
+        autoStopWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self, self.isListening else { return }
+            #if DEBUG
+            print("[VoiceAssistantManager] Auto-stopping after \(self.autoStopTimeout)s timeout")
+            #endif
+            self.stopListening()
         }
+        autoStopWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + autoStopTimeout, execute: workItem)
     }
 
     // MARK: - Stop Listening
     func stopListening() {
+        // Issue #25: Cancel auto-stop timer
+        autoStopWorkItem?.cancel()
+        autoStopWorkItem = nil
+
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()

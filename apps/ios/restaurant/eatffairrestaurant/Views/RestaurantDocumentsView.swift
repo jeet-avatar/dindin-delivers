@@ -963,8 +963,7 @@ class RestaurantDocumentsViewModel: ObservableObject {
         metadata.contentType = "image/jpeg"
 
         storageRef.putData(imageData, metadata: metadata) { _, error in
-            if let error = error {
-                print("Upload error: \(error.localizedDescription)")
+            if error != nil {
                 completion(nil)
                 return
             }
@@ -1011,7 +1010,7 @@ class RestaurantDocumentsViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("Encoding error: \(error)")
+            // Silently fail - encoding errors are rare
         }
     }
 

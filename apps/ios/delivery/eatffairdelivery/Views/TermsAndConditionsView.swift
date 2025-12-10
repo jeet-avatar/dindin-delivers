@@ -159,32 +159,45 @@ struct TermsHeader: View {
                 .font(.title3)
                 .foregroundColor(Theme.textSecondary)
 
-            Text("A revolutionary platform that puts drivers first with transparent pricing and direct customer relationships.")
+            Text("A peer-to-peer matchmaking platform connecting independent drivers with riders and delivery requests.")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+
+            // Independent Contractor Badge
+            HStack(spacing: 6) {
+                Image(systemName: "person.badge.shield.checkmark")
+                    .foregroundColor(Theme.brandRed)
+                Text("You are an Independent Contractor")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Theme.brandRed.opacity(0.1))
+            .cornerRadius(20)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
     }
 }
 
-// MARK: - Platform Fee Card
+// MARK: - Connection Fee Card (P2P Matchmaking)
 struct PlatformFeeCard: View {
     private let config = AppConfig.shared
 
     var body: some View {
         VStack(spacing: 16) {
             HStack {
-                Image(systemName: "dollarsign.circle.fill")
+                Image(systemName: "link.circle.fill")
                     .font(.title)
                     .foregroundColor(Theme.statusActive)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Transparent Platform Fee")
+                    Text("Connection Fee Structure")
                         .font(.headline)
-                    Text("Simple, fair, predictable")
+                    Text("Matchmaking service fees only")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                 }
@@ -194,36 +207,42 @@ struct PlatformFeeCard: View {
 
             Divider()
 
-            // Fee Structure - using AppConfig values (no hardcodes!)
+            // Fee Structure - P2P matchmaking model
             VStack(spacing: 12) {
                 FeeRow(
-                    title: "Customer Platform Fee",
+                    title: "Customer Connection Fee",
                     amount: String(format: "$%.2f", config.serviceFee),
-                    description: "Per order placed through the app"
+                    description: "For using our matchmaking service"
                 )
 
                 FeeRow(
-                    title: "Restaurant Platform Fee",
+                    title: "Restaurant Connection Fee",
                     amount: String(format: "$%.2f", config.restaurantPlatformFee),
-                    description: "Per order received through the app"
+                    description: "For receiving order connections"
                 )
 
                 FeeRow(
-                    title: "Driver Platform Fee",
+                    title: "Driver Connection Fee",
                     amount: "$0.00",
-                    description: "We don't take from your earnings!"
+                    description: "No fees on your earnings!"
                 )
             }
 
-            // Highlight Box
-            HStack(spacing: 12) {
-                Image(systemName: "star.fill")
-                    .foregroundColor(.yellow)
+            // Highlight Box - Independent contractor emphasis
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
 
-                Text("Keep 100% of your delivery fee + 100% of tips")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Theme.textPrimary)
+                    Text("Keep 100% of what you earn")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textPrimary)
+                }
+
+                Text("You're an independent contractor - set your own prices for rideshare")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
             }
             .padding()
             .frame(maxWidth: .infinity)
@@ -285,8 +304,8 @@ struct KeyBenefitsSection: View {
 
                 BenefitRow(
                     icon: "hand.raised.fill",
-                    title: "Driver Freedom",
-                    description: "Set your own routes, negotiate directly with customers"
+                    title: "Independent Contractor Freedom",
+                    description: "Set your own schedule, prices, and negotiate directly with riders"
                 )
 
                 BenefitRow(
@@ -424,20 +443,21 @@ struct StepRow: View {
     }
 }
 
-// MARK: - Driver Rights Section
+// MARK: - Independent Contractor Rights Section
 struct DriverRightsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(icon: "shield.fill", title: "Your Rights as a Driver")
+            SectionHeader(icon: "shield.fill", title: "Your Rights as an Independent Contractor")
 
             VStack(alignment: .leading, spacing: 12) {
-                RightItem(text: "Accept or decline any delivery without penalty")
-                RightItem(text: "Set your own availability schedule")
-                RightItem(text: "Communicate directly with customers")
-                RightItem(text: "Negotiate tips for exceptional service")
-                RightItem(text: "Multi-app if you choose - no exclusivity required")
-                RightItem(text: "Transparent access to all earnings data")
-                RightItem(text: "24/7 support for any issues")
+                RightItem(text: "Accept or decline any request without penalty")
+                RightItem(text: "Set your own schedule - work when you want")
+                RightItem(text: "Set your own prices for rideshare trips")
+                RightItem(text: "Negotiate directly with riders and customers")
+                RightItem(text: "Use multiple platforms - no exclusivity required")
+                RightItem(text: "Keep 100% of your earnings (no percentage cuts)")
+                RightItem(text: "Operate your own independent business")
+                RightItem(text: "24/7 platform support")
             }
             .padding()
             .background(Theme.cardBackground)
@@ -616,42 +636,53 @@ struct FullTermsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Group {
-                        TermsSection(title: "1. Introduction") {
+                        TermsSection(title: "1. Introduction & Legal Status") {
                             Text("""
-                            Welcome to Dollor AI Service ("Platform", "we", "us", "our"). These Terms and Conditions ("Terms") govern your use of our delivery driver application and services.
+                            Welcome to Dollor AI Service ("Platform", "we", "us", "our"). These Terms and Conditions ("Terms") govern your use of our peer-to-peer matchmaking platform.
 
-                            By accessing or using Dollor AI Service as a driver, you agree to be bound by these Terms. If you disagree with any part of the terms, you may not access the service.
+                            IMPORTANT LEGAL NOTICE: Dollor AI Service is a MATCHMAKING PLATFORM that connects riders with independent drivers. We do NOT provide transportation services. We are NOT a Transportation Network Company (TNC). All transportation arrangements are directly between you (the driver) and the rider.
+
+                            By accessing or using Dollor AI Service as a driver, you agree to be bound by these Terms and acknowledge your status as an INDEPENDENT CONTRACTOR. If you disagree with any part of the terms, you may not access the service.
                             """)
                         }
 
-                        TermsSection(title: "2. Platform Fee Structure") {
+                        TermsSection(title: "2. Connection Fee Structure") {
                             Text("""
-                            Dollor AI Service operates on a transparent, flat-fee model:
+                            Dollor AI Service operates on a transparent, flat-fee model for our MATCHMAKING service:
 
-                            • Customer Platform Fee: $1.00 per order
-                            • Restaurant Platform Fee: $1.00 per order
-                            • Driver Platform Fee: $0.00 (zero)
+                            CONNECTION FEES (for use of our matching platform):
+                            • Customer Connection Fee: $1.00 per connection
+                            • Restaurant Connection Fee: $1.00 per connection
+                            • Driver Connection Fee: $0.00 (zero)
 
-                            Drivers retain 100% of:
-                            - Delivery fees set by the platform
+                            As an INDEPENDENT DRIVER, you retain 100% of:
+                            - Payments negotiated directly with riders
                             - All tips provided by customers
-                            - Any additional compensation negotiated directly with customers
+                            - Any additional compensation agreed upon with riders
 
-                            This fee structure is designed to be fair, transparent, and sustainable for all parties involved.
+                            IMPORTANT: Dollor AI Service charges a connection fee for matching you with riders. We do NOT take a percentage of your earnings. You set your own prices and negotiate directly with riders.
                             """)
                         }
 
-                        TermsSection(title: "3. Driver Eligibility") {
+                        TermsSection(title: "3. Independent Contractor Status") {
                             Text("""
-                            To be eligible as a Dollor AI Service driver, you must:
+                            As an INDEPENDENT CONTRACTOR using Dollor AI Service, you acknowledge:
 
+                            • You are NOT an employee of Dollor AI Service
+                            • You operate your own independent transportation business
+                            • You set your own schedule and working hours
+                            • You may accept or decline any ride request without penalty
+                            • You are responsible for your own taxes, insurance, and vehicle expenses
+                            • You may use other platforms simultaneously
+                            • Transportation services are provided by YOU, not by Dollor AI Service
+
+                            ELIGIBILITY REQUIREMENTS:
                             • Be at least 18 years of age
                             • Possess a valid driver's license
-                            • Have access to a reliable vehicle, bicycle, or other approved transportation
-                            • Maintain valid auto insurance (for vehicle deliveries)
-                            • Pass a background check
+                            • Have access to a reliable, legally registered vehicle
+                            • Maintain valid auto insurance meeting your state's requirements
+                            • Complete identity verification
                             • Have a smartphone capable of running the Dollor AI Service app
-                            • Provide accurate and truthful information during registration
                             """)
                         }
 
@@ -704,11 +735,19 @@ struct FullTermsView: View {
 
                         TermsSection(title: "7. Earnings and Payments") {
                             Text("""
-                            Earnings Structure:
-                            • Base delivery fee (100% to driver)
-                            • Distance-based compensation (100% to driver)
-                            • Peak hour bonuses when applicable (100% to driver)
-                            • Customer tips (100% to driver)
+                            As an INDEPENDENT CONTRACTOR, your earnings are:
+
+                            RIDESHARE (P2P Matchmaking):
+                            • YOU set your own prices for rides
+                            • Riders make offers which you can accept, decline, or counter
+                            • All negotiated payments go directly to you
+                            • Dollor AI Service only charges a $1 connection fee
+                            • Tips are 100% yours
+
+                            FOOD DELIVERY:
+                            • Base delivery fee (100% to you)
+                            • Distance-based compensation (100% to you)
+                            • Customer tips (100% to you)
 
                             Payment Schedule:
                             • Earnings are calculated in real-time
@@ -732,31 +771,34 @@ struct FullTermsView: View {
                             """)
                         }
 
-                        TermsSection(title: "9. Tax & Billing Compliance") {
+                        TermsSection(title: "9. Tax & Legal Compliance") {
                             Text("""
-                            Dollor AI Service operates in full compliance with federal, state, and local tax regulations:
+                            INDEPENDENT CONTRACTOR TAX OBLIGATIONS:
 
-                            Tax Collection & Remittance:
-                            • Sales tax is automatically calculated based on pickup location
-                            • Tax rates vary by state (0% - 8.875% depending on jurisdiction)
-                            • All applicable taxes are collected at checkout
-                            • Taxes are remitted to appropriate authorities by Dollor AI Service
+                            As an independent contractor, YOU are responsible for:
+                            • Reporting all earnings to the IRS and state tax authorities
+                            • Paying self-employment taxes (Social Security & Medicare)
+                            • Making quarterly estimated tax payments if required
+                            • Maintaining records of all business expenses
+                            • Filing appropriate tax returns (Schedule C, etc.)
 
-                            Driver Tax Obligations:
-                            • Drivers are independent contractors (1099 workers)
-                            • You are responsible for reporting your earnings to the IRS
-                            • Dollor AI Service will provide Form 1099-NEC for earnings over $600/year
-                            • Keep records of all expenses for potential deductions (mileage, vehicle maintenance, etc.)
+                            Dollor AI Service will provide:
+                            • Form 1099-NEC for earnings over $600/year
+                            • Year-end earnings summary for your records
+                            • Transaction history available anytime in the app
 
-                            Receipt & Billing:
-                            • Customers receive itemized digital receipts for every transaction
-                            • Receipts include: subtotal, tax breakdown, platform fee, delivery fee, and tip
-                            • All receipts are accessible in the customer app
-                            • Drivers can access their earnings statements anytime
+                            DEDUCTIBLE EXPENSES (consult your tax advisor):
+                            • Mileage or actual vehicle expenses
+                            • Phone and data plan (business portion)
+                            • Vehicle maintenance and repairs
+                            • Insurance premiums (business portion)
+                            • Supplies and equipment
 
-                            Tax-Exempt Status:
-                            • Some states do not collect sales tax on delivery services
-                            • Nonprofit and tax-exempt customers may request exemption with valid documentation
+                            LEGAL COMPLIANCE:
+                            • You are responsible for complying with all local, state, and federal laws
+                            • You must maintain appropriate insurance coverage
+                            • Vehicle registration and licensing requirements are your responsibility
+                            • Dollor AI Service does not provide legal, tax, or insurance advice
                             """)
                         }
 
@@ -775,19 +817,22 @@ struct FullTermsView: View {
                             """)
                         }
 
-                        TermsSection(title: "11. Contact Information") {
+                        TermsSection(title: "11. Contact & Legal Information") {
                             Text("""
                             For questions about these Terms, please contact us:
 
-                            Email: support@dollor.ai
-                            In-App: Settings > Contact Support
-                            Website: www.dollor.ai/support
+                            Platform Support: support@dollor.ai
+                            Website: www.dollor.ai
+                            Privacy Policy: www.dollor.ai/privacy
+                            Terms of Service: www.dollor.ai/terms
 
-                            For Tax-Related Inquiries:
-                            Email: tax@dollor.ai
+                            LEGAL NOTICE:
+                            Dollor AI Service is a peer-to-peer matchmaking platform.
+                            We do NOT provide transportation services.
+                            Drivers using our platform are independent contractors.
 
-                            Effective Date: December 5, 2024
-                            Version: 1.1
+                            Effective Date: December 9, 2024
+                            Version: 2.0 (P2P Matchmaking Model)
                             """)
                         }
                     }

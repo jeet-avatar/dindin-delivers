@@ -65,8 +65,41 @@ struct AddressListView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                .contextMenu {
+                    // Set as default option
+                    if !address.isDefault {
+                        Button {
+                            viewModel.setDefaultAddress(address)
+                        } label: {
+                            Label("Set as Default", systemImage: "star.fill")
+                        }
+                    }
+
+                    // Delete option
+                    Button(role: .destructive) {
+                        viewModel.deleteAddress(address: address)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    if !address.isDefault {
+                        Button {
+                            viewModel.setDefaultAddress(address)
+                        } label: {
+                            Label("Default", systemImage: "star.fill")
+                        }
+                        .tint(.orange)
+                    }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        viewModel.deleteAddress(address: address)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
             }
-            .onDelete(perform: deleteAddress)
         }
         .navigationTitle("Saved Addresses")
         .toolbar {

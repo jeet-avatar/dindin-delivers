@@ -66,16 +66,17 @@ public class AppConfig: ObservableObject {
     @Published public var rideMaxSurgeMultiplier: Double = 3.0 // Maximum surge multiplier
 
     // Support
-    @Published public var supportUrl: String = "https://support.eatfair.com"
-    @Published public var supportPhone: String = "+1-800-EATFAIR"
-    @Published public var supportEmail: String = "support@eatfair.com"
+    @Published public var supportUrl: String = "https://dollor.ai/support"
+    @Published public var supportPhone: String = "+1-800-365-5671"
+    @Published public var supportEmail: String = "support@dollor.ai"
+
+    // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
+    public var termsOfServiceUrl: String { AppConstants.termsOfServiceURL }
+    public var privacyPolicyUrl: String { AppConstants.privacyPolicyURL }
 
     // Feature Flags - Production defaults
-    #if DEBUG
-    @Published public var isDummyPaymentMode: Bool = true  // Enable dummy payments in DEBUG only
-    #else
-    @Published public var isDummyPaymentMode: Bool = false  // Real payments in production
-    #endif
+    // LIVE PAYMENTS ENABLED - Real Stripe integration active
+    @Published public var isDummyPaymentMode: Bool = false  // Real payments enabled
     @Published public var isAIFeaturesEnabled: Bool = true
     @Published public var isDynamicPricingEnabled: Bool = false
 
@@ -89,7 +90,9 @@ public class AppConfig: ObservableObject {
     /// All data comes from P2P backend - Firebase is only for authentication
     public func fetchConfig(completion: ((Bool) -> Void)? = nil) {
         guard let url = URL(string: "\(p2pAPIBaseURL)/api/config") else {
-            print("AppConfig: Invalid URL for config endpoint")
+            #if DEBUG
+            print("[AppConfig] Invalid URL for config endpoint")
+            #endif
             // Use default values if API fails
             self.configLoaded = true
             completion?(true)
@@ -106,7 +109,9 @@ public class AppConfig: ObservableObject {
             // If API fails, use default values (already set above)
             guard error == nil, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                print("AppConfig: Using default configuration (P2P API not available)")
+                #if DEBUG
+                print("[AppConfig] Using default configuration (P2P API not available)")
+                #endif
                 DispatchQueue.main.async {
                     self.configLoaded = true
                     completion?(true)
@@ -141,7 +146,13 @@ public class AppConfig: ObservableObject {
                 if let supportEmail = json["supportEmail"] as? String { self.supportEmail = supportEmail }
 
                 // Feature Flags
+                // APP STORE FIX: Never allow dummy payment mode in Release builds
+                #if DEBUG
                 if let dummyMode = json["isDummyPaymentMode"] as? Bool { self.isDummyPaymentMode = dummyMode }
+                #else
+                // In Release builds, always use real payments - ignore backend flag
+                self.isDummyPaymentMode = false
+                #endif
                 if let aiEnabled = json["isAIFeaturesEnabled"] as? Bool { self.isAIFeaturesEnabled = aiEnabled }
                 if let dynamicPricing = json["isDynamicPricingEnabled"] as? Bool { self.isDynamicPricingEnabled = dynamicPricing }
 
@@ -162,7 +173,9 @@ public class AppConfig: ObservableObject {
                 if let maxDeliveryFee = json["maxDeliveryFee"] as? Double { self.maxDeliveryFee = maxDeliveryFee }
 
                 self.configLoaded = true
-                print("AppConfig: Configuration loaded from Dollar.ai backend")
+                #if DEBUG
+                print("[AppConfig] Configuration loaded from Dollar.ai backend")
+                #endif
                 completion?(true)
             }
         }.resume()
@@ -177,7 +190,7 @@ public class AppConfig: ObservableObject {
     }
 
     public var bundleIdentifier: String {
-        Bundle.main.bundleIdentifier ?? "com.eatfair.unknown"
+        Bundle.main.bundleIdentifier ?? "com.dollor.unknown"
     }
 }
 
@@ -308,8 +321,7 @@ public struct AppConstants {
     // Current terms version - increment when terms change
     public static let termsVersion = "1.1"
 
-    // Legal URLs (Required for App Store)
-    // TODO: These pages need to be created on the dollor.ai website
+    // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
     public static let termsOfServiceURL = "https://dollor.ai/terms"
     public static let privacyPolicyURL = "https://dollor.ai/privacy"
 }

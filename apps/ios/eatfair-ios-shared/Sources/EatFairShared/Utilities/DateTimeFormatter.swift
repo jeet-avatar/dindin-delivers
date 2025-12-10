@@ -367,6 +367,76 @@ public struct DateTimeFormatter {
         let minutes = Int(seconds / 60)
         return "Updated \(minutes) min ago"
     }
+
+    // MARK: - Enterprise Order ID Formatting
+
+    /// Parse enterprise order ID to extract date and time
+    /// Format: EF-YYYYMMDD-HHMMSS-XXXX (e.g., EF-20251208-143525-0042)
+    /// Returns: (date: Date?, sequence: String?)
+    public func parseOrderId(_ orderId: String) -> (date: Date?, sequence: String?) {
+        // Handle enterprise format: EF-YYYYMMDD-HHMMSS-XXXX
+        let parts = orderId.split(separator: "-")
+        guard parts.count >= 4,
+              parts[0] == "EF",
+              parts[1].count == 8,
+              parts[2].count == 6 else {
+            // Handle legacy format: EF120800042 (no dashes)
+            return (nil, nil)
+        }
+
+        let dateString = "\(parts[1])\(parts[2])"
+        let sequence = String(parts[3])
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMddHHmmss"
+        let date = formatter.date(from: dateString)
+
+        return (date, sequence)
+    }
+
+    /// Format order ID for display with human-readable date/time
+    /// "EF-20251208-143525-0042" -> "Order #0042 | Dec 8, 2025 at 2:35 PM"
+    public func formatOrderIdForDisplay(_ orderId: String) -> String {
+        let (date, sequence) = parseOrderId(orderId)
+
+        guard let date = date, let sequence = sequence else {
+            // Return original ID for legacy formats
+            return "Order #\(orderId)"
+        }
+
+        let dateStr = historyDetailTime(from: date)
+        return "Order #\(sequence) | \(dateStr)"
+    }
+
+    /// Get just the order sequence number from enterprise order ID
+    /// "EF-20251208-143525-0042" -> "0042"
+    public func orderSequence(_ orderId: String) -> String {
+        let (_, sequence) = parseOrderId(orderId)
+        return sequence ?? orderId
+    }
+
+    /// Get placed date from order ID
+    /// "EF-20251208-143525-0042" -> Date or nil
+    public func orderPlacedDate(_ orderId: String) -> Date? {
+        let (date, _) = parseOrderId(orderId)
+        return date
+    }
+
+    /// Format order placed time from order ID
+    /// "EF-20251208-143525-0042" -> "Dec 8, 2025 at 2:35 PM"
+    public func orderPlacedTime(_ orderId: String) -> String {
+        guard let date = orderPlacedDate(orderId) else {
+            return "--"
+        }
+        return historyDetailTime(from: date)
+    }
+
+    /// Generate enterprise order ID on client side (fallback for offline)
+    public static func generateOrderId(sequence: Int = Int.random(in: 1...9999)) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "EF-\(formatter.string(from: Date()))-\(String(format: "%04d", sequence))"
+    }
 }
 
 // MARK: - Convenience Extensions

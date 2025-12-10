@@ -14,13 +14,12 @@ public final class NetworkSecurity: NSObject {
     // Update these when certificates are renewed
     private let pinnedDomains: [String: Set<String>] = [
         "dollor.ai": [
-            // Primary certificate pin (SHA-256 of SPKI)
-            // Generate with: openssl x509 -in cert.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
-            // Placeholder - replace with actual certificate pins before production
-            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            // Certificate pinning disabled - using ATS for security
+            // Enable pinning in future by generating pins with:
+            // openssl x509 -in cert.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
         ],
         "api.dollor.ai": [
-            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            // Certificate pinning disabled - using ATS for security
         ],
         "api.stripe.com": [
             // Stripe certificate pins - these are public and stable

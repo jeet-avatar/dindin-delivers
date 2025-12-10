@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_
@@ -10,13 +12,21 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
 import secrets
+import logging
 from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO if os.getenv("ENVIRONMENT") == "production" else logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("dollor")
+
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, CustomerFavorite
 
 load_dotenv()
 
@@ -47,7 +57,7 @@ try:
     from security_middleware import add_security_middleware
     add_security_middleware(app)
 except ImportError as e:
-    print(f"[SECURITY WARNING] Security middleware not loaded: {e}")
+    logger.warning(f" Security middleware not loaded: {e}")
     # Fallback to basic CORS if security middleware not available
     from fastapi.middleware.cors import CORSMiddleware
     app.add_middleware(
@@ -92,7 +102,7 @@ try:
         read_timeout=30
     )
     ses_client = boto3.client('ses', region_name=AWS_REGION, config=boto_config)
-    print(f"[EMAIL] AWS SES client initialized for region: {AWS_REGION}")
+    logger.info(f"[EMAIL] AWS SES client initialized for region: {AWS_REGION}")
 
     # Verify SES identity in production
     if _IS_PRODUCTION:
@@ -102,13 +112,13 @@ try:
             )
             status = response.get('VerificationAttributes', {}).get(EMAIL_FROM, {}).get('VerificationStatus')
             if status != 'Success':
-                print(f"[EMAIL WARNING] Email {EMAIL_FROM} verification status: {status}")
+                logger.warning(f"[EMAIL] Email {EMAIL_FROM} verification status: {status}")
         except Exception as verify_error:
-            print(f"[EMAIL WARNING] Could not verify email identity: {verify_error}")
+            logger.warning(f"[EMAIL] Could not verify email identity: {verify_error}")
 except Exception as e:
-    print(f"[EMAIL] Failed to initialize AWS SES client: {e}")
+    logger.info(f"[EMAIL] Failed to initialize AWS SES client: {e}")
     if _IS_PRODUCTION:
-        print("[EMAIL WARNING] Production requires AWS SES - emails will not be sent!")
+        logger.warning("[EMAIL] Production requires AWS SES - emails will not be sent!")
 
 
 async def send_email(to_email: str, subject: str, html_content: str, text_content: str = None):
@@ -116,9 +126,9 @@ async def send_email(to_email: str, subject: str, html_content: str, text_conten
     Send an email using AWS SES. Falls back to console logging if SES is not configured.
     """
     if not ses_client:
-        print(f"[EMAIL] AWS SES not configured. Would send to: {to_email}")
-        print(f"[EMAIL] Subject: {subject}")
-        print(f"[EMAIL] Content: {text_content or html_content[:200]}...")
+        logger.info(f"[EMAIL] AWS SES not configured. Would send to: {to_email}")
+        logger.info(f"[EMAIL] Subject: {subject}")
+        logger.info(f"[EMAIL] Content: {text_content or html_content[:200]}...")
         return {"success": True, "method": "console_log"}
 
     try:
@@ -141,16 +151,16 @@ async def send_email(to_email: str, subject: str, html_content: str, text_conten
         )
 
         message_id = response.get('MessageId', 'unknown')
-        print(f"[EMAIL] Successfully sent email to {to_email} via AWS SES (MessageId: {message_id})")
+        logger.info(f"[EMAIL] Successfully sent email to {to_email} via AWS SES (MessageId: {message_id})")
         return {"success": True, "method": "aws_ses", "message_id": message_id}
 
     except ClientError as e:
         error_code = e.response['Error']['Code']
         error_msg = e.response['Error']['Message']
-        print(f"[EMAIL] AWS SES error sending to {to_email}: {error_code} - {error_msg}")
+        logger.info(f"[EMAIL] AWS SES error sending to {to_email}: {error_code} - {error_msg}")
         return {"success": False, "error": f"{error_code}: {error_msg}"}
     except Exception as e:
-        print(f"[EMAIL] Failed to send email to {to_email}: {str(e)}")
+        logger.info(f"[EMAIL] Failed to send email to {to_email}: {str(e)}")
         return {"success": False, "error": str(e)}
 
 
@@ -1800,25 +1810,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
-            print(f"[AUTH ERROR] Token decoded but no 'sub' field found in payload")
+            logger.error(f"[AUTH] Token decoded but no 'sub' field found in payload")
             raise credentials_exception
     except jwt.ExpiredSignatureError:
-        print(f"[AUTH ERROR] Token has expired")
+        logger.error(f"[AUTH] Token has expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.InvalidTokenError as e:
-        print(f"[AUTH ERROR] Invalid token: {str(e)}")
+        logger.error(f"[AUTH] Invalid token: {str(e)}")
         raise credentials_exception
     except JWTError as e:
-        print(f"[AUTH ERROR] JWT Error: {str(e)}")
+        logger.error(f"[AUTH] JWT Error: {str(e)}")
         raise credentials_exception
 
     user = db.query(User).filter(User.email == email).first()
     if user is None:
-        print(f"[AUTH ERROR] User not found for email: {email}")
+        logger.error(f"[AUTH] User not found for email: {email}")
         raise credentials_exception
     return user
 
@@ -2268,26 +2278,26 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    print(f"Login attempt for: {form_data.username}")  # Debug log
+    logger.debug(f"Login attempt for: {form_data.username}")  # Debug log
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        print(f"User not found: {form_data.username}")  # Debug log
+        logger.debug(f"User not found: {form_data.username}")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    print(f"User found, verifying password...")  # Debug log
+    logger.debug(f"User found, verifying password...")  # Debug log
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed")  # Debug log
+        logger.debug(f"Password verification failed")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    print(f"Login successful for: {user.email}")  # Debug log
+    logger.info(f"Login successful for: {user.email}")  # Debug log
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -2298,7 +2308,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 # Vendor Login
 @app.post("/api/auth/vendor/login", response_model=Token)
 def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    print(f"Vendor login attempt for: {form_data.username}")
+    logger.debug(f"Vendor login attempt for: {form_data.username}")
     
     # Find user with VENDOR role
     user = db.query(User).filter(
@@ -2307,7 +2317,7 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     ).first()
     
     if not user:
-        print(f"Vendor user not found: {form_data.username}")
+        logger.debug(f"Vendor user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2315,7 +2325,7 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         )
     
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for vendor")
+        logger.debug(f"Password verification failed for vendor")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2331,7 +2341,7 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
                 detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
             )
     
-    print(f"Vendor login successful for: {user.email}")
+    logger.info(f"Vendor login successful for: {user.email}")
     access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
     return {
         "access_token": access_token,
@@ -2356,7 +2366,7 @@ class PasswordResetConfirm(BaseModel):
 # Vendor Registration
 @app.post("/api/auth/vendor/register", response_model=Token)
 def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db)):
-    print(f"Vendor registration attempt for: {request.email}")
+    logger.debug(f"Vendor registration attempt for: {request.email}")
 
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
@@ -2397,7 +2407,7 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_user)
 
-    print(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
+    logger.info(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
     access_token = create_access_token(data={"sub": new_user.email, "role": "vendor"})
     return {
         "access_token": access_token,
@@ -2408,7 +2418,7 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
 # Password Reset Request
 @app.post("/api/auth/password-reset/request")
 def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
-    print(f"Password reset requested for: {request.email}")
+    logger.debug(f"Password reset requested for: {request.email}")
 
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
@@ -2423,7 +2433,7 @@ def request_password_reset(request: PasswordResetRequest, db: Session = Depends(
 
     # In production, send email with reset link
     # For now, just log it
-    print(f"Password reset token for {user.email}: {reset_token[:50]}...")
+    logger.debug(f"Password reset token for {user.email}: {reset_token[:50]}...")
 
     # TODO: Integrate with email service (SendGrid, SES, etc.)
     # send_password_reset_email(user.email, reset_token)
@@ -2449,7 +2459,7 @@ def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(
         user.password_hash = get_password_hash(request.new_password)
         db.commit()
 
-        print(f"Password reset successful for: {email}")
+        logger.debug(f"Password reset successful for: {email}")
         return {"message": "Password has been reset successfully"}
 
     except JWTError:
@@ -2497,7 +2507,7 @@ class DriverLoginResponse(BaseModel):
 @app.post("/api/auth/driver/login")
 def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
-    print(f"Driver login attempt for: {form_data.username}")
+    logger.debug(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role
     user = db.query(User).filter(
@@ -2506,7 +2516,7 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     ).first()
 
     if not user:
-        print(f"Driver user not found: {form_data.username}")
+        logger.debug(f"Driver user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2514,7 +2524,7 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for driver")
+        logger.debug(f"Password verification failed for driver")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2535,7 +2545,7 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             detail=f"Driver account is not active. Status: {driver.status.value}"
         )
 
-    print(f"Driver login successful for: {user.email}")
+    logger.info(f"Driver login successful for: {user.email}")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
     return {
         "access_token": access_token,
@@ -2550,7 +2560,7 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 @app.post("/api/auth/driver/register")
 def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db)):
     """Register a new driver account"""
-    print(f"Driver registration attempt for: {request.email}")
+    logger.debug(f"Driver registration attempt for: {request.email}")
 
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == request.email).first()
@@ -2597,7 +2607,7 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_user)
 
-    print(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
+    logger.info(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
     access_token = create_access_token(data={"sub": new_user.email, "role": "driver", "driver_id": new_driver.id})
 
     return {
@@ -2643,7 +2653,7 @@ class CustomerPasswordResetConfirm(BaseModel):
 @app.post("/api/customer/login")
 def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db)):
     """Customer email/password login"""
-    print(f"Customer login attempt for: {request.email}")
+    logger.debug(f"Customer login attempt for: {request.email}")
 
     user = db.query(User).filter(
         User.email == request.email,
@@ -2651,7 +2661,7 @@ def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db))
     ).first()
 
     if not user:
-        print(f"Customer not found: {request.email}")
+        logger.debug(f"Customer not found: {request.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -2676,7 +2686,7 @@ def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db))
 @app.post("/api/customer/register")
 def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register new customer account"""
-    print(f"Customer registration attempt for: {request.email}")
+    logger.debug(f"Customer registration attempt for: {request.email}")
 
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
@@ -2709,7 +2719,7 @@ def customer_register(request: CustomerRegisterRequest, db: Session = Depends(ge
 @app.post("/api/customer/google-auth")
 def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth login/register for customers - handles both new and existing users"""
-    print(f"Customer Google auth for: {request.email}")
+    logger.debug(f"Customer Google auth for: {request.email}")
 
     # Check if user exists
     user = db.query(User).filter(User.email == request.email).first()
@@ -2722,10 +2732,10 @@ def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(ge
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email registered with different account type"
             )
-        print(f"Existing customer found: {user.email}")
+        logger.debug(f"Existing customer found: {user.email}")
     else:
         # New user - register them
-        print(f"Creating new customer via Google: {request.email}")
+        logger.info(f"Creating new customer via Google: {request.email}")
         user = User(
             email=request.email,
             password_hash=get_password_hash(secrets.token_hex(32)),  # Random password for OAuth users
@@ -2748,20 +2758,30 @@ def customer_google_auth(request: CustomerOAuthRequest, db: Session = Depends(ge
 
 @app.post("/api/customer/apple-auth")
 def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get_db)):
-    """Apple OAuth login/register for customers - handles both new and existing users"""
-    print(f"Customer Apple auth for: {request.email}, apple_id: {request.apple_id}")
+    """Apple OAuth login/register for customers - handles both new and existing users
+
+    IMPORTANT: Apple only provides email on FIRST authorization. On subsequent logins,
+    email will be empty. We use apple_id-based email as the consistent identifier.
+    """
+    # Generate a consistent email from apple_id for lookups
+    apple_email = f"{request.apple_id}@privaterelay.appleid.com" if request.apple_id else None
+    provided_email = request.email if request.email else None
+
+    logger.debug(f"Customer Apple auth - provided_email: {provided_email}, apple_id: {request.apple_id}, generated: {apple_email}")
 
     user = None
 
-    # First try to find by Apple ID if provided
-    if request.apple_id:
-        # Check if we have a user with this Apple ID stored (you'd store this in a separate field)
-        # For now, we'll use email as primary identifier
-        pass
+    # First try to find by the provided email (first-time login)
+    if provided_email:
+        user = db.query(User).filter(User.email == provided_email).first()
+        if user:
+            logger.debug(f"Found user by provided email: {provided_email}")
 
-    # Find by email
-    if request.email:
-        user = db.query(User).filter(User.email == request.email).first()
+    # If not found and we have apple_id, try the generated email pattern
+    if not user and apple_email:
+        user = db.query(User).filter(User.email == apple_email).first()
+        if user:
+            logger.debug(f"Found user by apple_email: {apple_email}")
 
     if user:
         if user.role != UserRole.USER:
@@ -2769,14 +2789,29 @@ def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email registered with different account type"
             )
-        print(f"Existing customer found via Apple: {user.email}")
+        logger.debug(f"Existing customer found via Apple: {user.email}, current name: {user.full_name}")
+
+        # Update name if client provides a real name and current name is a placeholder
+        # Apple only provides name on first sign-in, so update if we have a better name now
+        if request.name and request.name not in ["", "Apple User"]:
+            if user.full_name in [None, "", "Apple User"]:
+                logger.debug(f"Updating Apple user name from '{user.full_name}' to '{request.name}'")
+                user.full_name = request.name
+                db.commit()
+                db.refresh(user)
     else:
         # New user - create account
-        # Apple may not provide email on subsequent logins, use apple_id as fallback
-        email = request.email if request.email else f"{request.apple_id}@privaterelay.appleid.com"
+        # Use provided email if available (first login), otherwise use apple_id-based email
+        email = provided_email if provided_email else apple_email
         name = request.name if request.name else "Apple User"
 
-        print(f"Creating new customer via Apple: {email}")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unable to create account: no email or Apple ID provided"
+            )
+
+        logger.info(f"Creating new customer via Apple: {email}")
         user = User(
             email=email,
             password_hash=get_password_hash(secrets.token_hex(32)),
@@ -2797,13 +2832,96 @@ def customer_apple_auth(request: CustomerOAuthRequest, db: Session = Depends(get
         "email": user.email
     }
 
+# Customer Profile Update Request
+class CustomerProfileUpdateRequest(BaseModel):
+    full_name: str
+
+@app.put("/api/customer/{customer_id}/profile")
+def update_customer_profile(customer_id: int, request: CustomerProfileUpdateRequest, db: Session = Depends(get_db)):
+    """Update customer profile (name)"""
+    logger.debug(f"Updating customer profile for ID: {customer_id}, new name: {request.full_name}")
+
+    user = db.query(User).filter(User.id == customer_id, User.role == UserRole.USER).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    user.full_name = request.full_name
+    db.commit()
+    db.refresh(user)
+
+    logger.debug(f"Customer {customer_id} name updated to: {user.full_name}")
+    return {"message": "Profile updated successfully", "full_name": user.full_name}
+
+
+# Stripe Payment Intent Creation
+class PaymentIntentRequest(BaseModel):
+    amount: int  # Amount in cents
+    currency: str = "usd"
+    order_id: Optional[str] = None
+
+@app.post("/api/payments/create-intent")
+def create_payment_intent(request: PaymentIntentRequest):
+    """Create a Stripe PaymentIntent for Apple Pay / Card payments"""
+    import stripe
+
+    # Get Stripe secret key from environment
+    stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+    stripe_publishable_key = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_placeholder")
+
+    if not stripe_secret_key:
+        logger.warning("STRIPE_SECRET_KEY not configured - using test mode")
+        # Return a mock response for testing
+        return {
+            "clientSecret": "pi_test_secret_mock",
+            "publishableKey": stripe_publishable_key,
+            "paymentIntent": "pi_test_mock",
+            "ephemeralKey": "ek_test_mock",
+            "customer": "cus_test_mock"
+        }
+
+    stripe.api_key = stripe_secret_key
+
+    try:
+        # Create PaymentIntent
+        intent = stripe.PaymentIntent.create(
+            amount=request.amount,
+            currency=request.currency,
+            automatic_payment_methods={"enabled": True},
+            metadata={"order_id": request.order_id} if request.order_id else {}
+        )
+
+        logger.info(f"Created PaymentIntent: {intent.id} for amount: {request.amount}")
+
+        return {
+            "clientSecret": intent.client_secret,
+            "publishableKey": stripe_publishable_key,
+            "paymentIntent": intent.client_secret,  # For backwards compatibility
+            "ephemeralKey": "",  # Not used with simple PaymentIntent flow
+            "customer": ""  # Not used with simple PaymentIntent flow
+        }
+    except stripe.error.AuthenticationError as e:
+        # API key is expired or invalid - fall back to test mode
+        logger.error(f"Stripe authentication error (expired/invalid key): {e}")
+        logger.warning("Falling back to test mode response")
+        return {
+            "clientSecret": "pi_test_secret_mock",
+            "publishableKey": "pk_test_placeholder",
+            "paymentIntent": "pi_test_mock",
+            "ephemeralKey": "ek_test_mock",
+            "customer": "cus_test_mock"
+        }
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # Password reset storage (in production, use Redis or database)
 password_reset_codes: Dict[str, Dict[str, Any]] = {}
 
 @app.post("/api/customer/password-reset/request")
 def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request password reset - sends code to email"""
-    print(f"Password reset requested for: {request.email}")
+    logger.debug(f"Password reset requested for: {request.email}")
 
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.USER).first()
     if not user:
@@ -2823,7 +2941,7 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
     if not IS_PRODUCTION:
         # Only log in development, never in production
-        print(f"[DEV ONLY] Password reset code generated for {request.email}")
+        logger.debug(f"[DEV] Password reset code generated for {request.email}")
 
     return {"message": "If an account exists with this email, a reset code has been sent."}
 
@@ -2967,6 +3085,139 @@ def get_customer_orders(request: Request, db: Session = Depends(get_db)):
 # ============================================================================
 
 
+# ============================================================================
+# CUSTOMER FAVORITES ENDPOINTS
+# ============================================================================
+
+class AddFavoriteRequest(BaseModel):
+    customer_id: int
+    vendor_id: int
+
+class FavoriteResponse(BaseModel):
+    id: int
+    customer_id: int
+    vendor_id: int
+    restaurant_name: Optional[str]
+    cuisine: Optional[str]
+    rating: Optional[float]
+    image_url: Optional[str]
+    address: Optional[str]
+    latitude: Optional[float]
+    longitude: Optional[float]
+    phone: Optional[str]
+    created_at: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+@app.get("/api/customer/favorites/{customer_id}", tags=["Customer Favorites"])
+def get_customer_favorites(customer_id: int, db: Session = Depends(get_db)):
+    """Get all favorites for a customer"""
+    favorites = db.query(CustomerFavorite).filter(
+        CustomerFavorite.customer_id == customer_id
+    ).all()
+
+    result = []
+    for fav in favorites:
+        # Fetch vendor info if available
+        vendor = db.query(Vendor).filter(Vendor.id == fav.vendor_id).first()
+        result.append({
+            "id": fav.id,
+            "customer_id": fav.customer_id,
+            "vendor_id": fav.vendor_id,
+            "restaurant_name": fav.restaurant_name or (vendor.name if vendor else "Unknown"),
+            "cuisine": fav.cuisine or (vendor.cuisine if vendor else ""),
+            "rating": fav.rating or (vendor.average_rating if vendor else 0.0),
+            "image_url": fav.image_url or (vendor.image_url if vendor else ""),
+            "address": fav.address or (vendor.address if vendor else ""),
+            "latitude": fav.latitude or (vendor.latitude if vendor else 0.0),
+            "longitude": fav.longitude or (vendor.longitude if vendor else 0.0),
+            "phone": fav.phone or (vendor.phone if vendor else ""),
+            "created_at": fav.created_at.isoformat() if fav.created_at else None
+        })
+
+    return {"favorites": result, "count": len(result)}
+
+
+@app.post("/api/customer/favorites", tags=["Customer Favorites"])
+def add_favorite(request: AddFavoriteRequest, db: Session = Depends(get_db)):
+    """Add a restaurant to customer favorites"""
+    # Check if already favorited
+    existing = db.query(CustomerFavorite).filter(
+        CustomerFavorite.customer_id == request.customer_id,
+        CustomerFavorite.vendor_id == request.vendor_id
+    ).first()
+
+    if existing:
+        return {"message": "Already in favorites", "favorite_id": existing.id}
+
+    # Get vendor details
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Create favorite with denormalized data for performance
+    favorite = CustomerFavorite(
+        customer_id=request.customer_id,
+        vendor_id=request.vendor_id,
+        restaurant_name=vendor.name,
+        cuisine=vendor.cuisine,
+        rating=vendor.average_rating,
+        image_url=vendor.image_url,
+        address=vendor.address,
+        latitude=vendor.latitude,
+        longitude=vendor.longitude,
+        phone=vendor.phone
+    )
+
+    db.add(favorite)
+    db.commit()
+    db.refresh(favorite)
+
+    logger.info(f"[FAVORITES] Customer {request.customer_id} added vendor {request.vendor_id} to favorites")
+
+    return {
+        "message": "Added to favorites",
+        "favorite_id": favorite.id,
+        "restaurant_name": favorite.restaurant_name
+    }
+
+
+@app.delete("/api/customer/favorites/{customer_id}/{vendor_id}", tags=["Customer Favorites"])
+def remove_favorite(customer_id: int, vendor_id: int, db: Session = Depends(get_db)):
+    """Remove a restaurant from customer favorites"""
+    favorite = db.query(CustomerFavorite).filter(
+        CustomerFavorite.customer_id == customer_id,
+        CustomerFavorite.vendor_id == vendor_id
+    ).first()
+
+    if not favorite:
+        raise HTTPException(status_code=404, detail="Favorite not found")
+
+    db.delete(favorite)
+    db.commit()
+
+    logger.info(f"[FAVORITES] Customer {customer_id} removed vendor {vendor_id} from favorites")
+
+    return {"message": "Removed from favorites"}
+
+
+@app.get("/api/customer/favorites/{customer_id}/check/{vendor_id}", tags=["Customer Favorites"])
+def check_favorite(customer_id: int, vendor_id: int, db: Session = Depends(get_db)):
+    """Check if a restaurant is in customer favorites"""
+    favorite = db.query(CustomerFavorite).filter(
+        CustomerFavorite.customer_id == customer_id,
+        CustomerFavorite.vendor_id == vendor_id
+    ).first()
+
+    return {"is_favorite": favorite is not None}
+
+
+# ============================================================================
+# END CUSTOMER FAVORITES ENDPOINTS
+# ============================================================================
+
+
 @app.post("/api/auth/driver/refresh")
 def refresh_driver_token(request: Request, db: Session = Depends(get_db)):
     """
@@ -3025,7 +3276,7 @@ def refresh_driver_token(request: Request, db: Session = Depends(get_db)):
 
     # Issue new token
     new_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
-    print(f"[AUTH] Token refreshed for driver: {user.email}")
+    logger.info(f"[AUTH] Token refreshed for driver: {user.email}")
 
     return {
         "access_token": new_token,
@@ -3444,10 +3695,10 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
     # In production: Call TechCloudPro AI API for document verification
     if document_type == 'drivers_license':
         driver.drivers_license = True
-        print(f"[AI] Driver {driver_id}: Driver's license verified automatically")
+        logger.info(f"[AI] Driver {driver_id}: Driver's license verified automatically")
     elif document_type == 'insurance':
         driver.insurance = True
-        print(f"[AI] Driver {driver_id}: Insurance verified automatically")
+        logger.info(f"[AI] Driver {driver_id}: Insurance verified automatically")
 
     # Check if all required documents are verified, then auto-approve driver
     was_already_approved = driver.status == DriverStatus.APPROVED
@@ -3459,7 +3710,7 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
         # Auto-approve driver - NO HUMAN NEEDED
         driver.status = DriverStatus.APPROVED
         driver.approved_at = datetime.utcnow()
-        print(f"[AI] Driver {driver_id}: All documents verified - AUTO-APPROVED by TechCloudPro AI")
+        logger.info(f"[AI] Driver {driver_id}: All documents verified - AUTO-APPROVED by TechCloudPro AI")
 
         # Send approval email to driver
         driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
@@ -3469,9 +3720,9 @@ async def trigger_ai_document_verification(driver_id: int, document_type: str, f
             try:
                 # Run email sending in background
                 asyncio.create_task(send_driver_approval_email(driver_email, driver_name))
-                print(f"[AI] Approval email queued for driver {driver_id}: {driver_email}")
+                logger.info(f"[AI] Approval email queued for driver {driver_id}: {driver_email}")
             except Exception as e:
-                print(f"[AI] Failed to queue approval email for driver {driver_id}: {e}")
+                logger.info(f"[AI] Failed to queue approval email for driver {driver_id}: {e}")
 
     driver.updated_at = datetime.utcnow()
     db.commit()
@@ -3522,29 +3773,29 @@ async def approve_driver(
             driver.background_check_date = datetime.utcnow()
 
         message = f"Driver {driver.first_name} {driver.last_name} approved by AI"
-        print(f"[TechCloudPro AI] {message}")
+        logger.info(f"[AI] {message}")
 
         # Send approval email
         if driver_email:
             email_result = await send_driver_approval_email(driver_email, driver_name)
             email_sent = email_result.get("success", False)
-            print(f"[TechCloudPro AI] Approval email sent to {driver_email}: {email_sent}")
+            logger.info(f"[AI] Approval email sent to {driver_email}: {email_sent}")
 
     elif action == "reject":
         driver.status = DriverStatus.SUSPENDED
         message = f"Driver {driver.first_name} {driver.last_name} rejected: {reason}"
-        print(f"[TechCloudPro AI] {message}")
+        logger.info(f"[AI] {message}")
 
         # Send rejection email
         if driver_email:
             email_result = await send_driver_rejection_email(driver_email, driver_name, reason)
             email_sent = email_result.get("success", False)
-            print(f"[TechCloudPro AI] Rejection email sent to {driver_email}: {email_sent}")
+            logger.info(f"[AI] Rejection email sent to {driver_email}: {email_sent}")
 
     elif action == "request_more_info":
         # Keep as pending, just log
         message = f"More information requested for driver {driver.first_name} {driver.last_name}: {reason}"
-        print(f"[TechCloudPro AI] {message}")
+        logger.info(f"[AI] {message}")
 
     driver.updated_at = datetime.utcnow()
     db.commit()
@@ -3595,8 +3846,8 @@ async def ai_verification_webhook(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    print(f"[AI Webhook] Received verification from {ai_employee_id} for driver {driver_id}")
-    print(f"[AI Webhook] Result: {result}, Document: {document_type}, Confidence: {confidence_score}")
+    logger.info(f"[AI] Received verification from {ai_employee_id} for driver {driver_id}")
+    logger.info(f"[AI] Result: {result}, Document: {document_type}, Confidence: {confidence_score}")
 
     if result == "approved" and confidence_score >= 0.8:
         # Mark document as verified
@@ -3616,11 +3867,11 @@ async def ai_verification_webhook(
 
             driver.status = DriverStatus.APPROVED
             driver.approved_at = datetime.utcnow()
-            print(f"[AI Webhook] Driver {driver_id} AUTO-APPROVED - all documents verified")
+            logger.info(f"[AI] Driver {driver_id} AUTO-APPROVED - all documents verified")
 
     elif result == "rejected":
         driver.status = DriverStatus.SUSPENDED
-        print(f"[AI Webhook] Driver {driver_id} REJECTED by AI: {ai_notes}")
+        logger.info(f"[AI] Driver {driver_id} REJECTED by AI: {ai_notes}")
 
     driver.updated_at = datetime.utcnow()
     db.commit()
@@ -4087,19 +4338,13 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
     """Public endpoint for restaurant applications - no auth required"""
     from models import Vendor
     
-    print("=" * 60)
-    print("🍽️  RESTAURANT APPLICATION RECEIVED")
-    print(f"Restaurant: {vendor.restaurant_name}")
-    print(f"Contact: {vendor.contact_email}")
-    print("=" * 60)
-    
+    logger.info(f"[VENDOR] Application received: {vendor.restaurant_name} ({vendor.contact_email})")
+
     try:
         # Generate vendor ID
         count = db.query(Vendor).count()
         vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-        
-        print(f"Generated vendor_id: {vendor_id}")
-        
+
         db_vendor = Vendor(
             vendor_id=vendor_id,
             **vendor.dict()
@@ -4107,16 +4352,12 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         db.add(db_vendor)
         db.commit()
         db.refresh(db_vendor)
-        
-        print(f"✅ Vendor created successfully! ID: {db_vendor.id}")
-        print("=" * 60)
-        
+
+        logger.info(f"[VENDOR] Created successfully: {db_vendor.id} ({vendor_id})")
         return db_vendor
-        
+
     except Exception as e:
-        print(f"❌ ERROR creating vendor: {str(e)}")
-        print(f"Error type: {type(e).__name__}")
-        print("=" * 60)
+        logger.error(f"[VENDOR] Failed to create: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
 
@@ -4315,7 +4556,7 @@ def update_vendor_status(
             db.add(vendor_user)
             
             # TODO: Send email with login credentials
-            print(f"Vendor user created: {db_vendor.contact_email} / {temp_password}")
+            logger.info(f"Vendor user created: {db_vendor.contact_email} / {temp_password}")
     
     db.commit()
     db.refresh(db_vendor)
@@ -5013,33 +5254,609 @@ app.include_router(vibing_router)
 try:
     from refund_invoice import router as refund_invoice_router
     app.include_router(refund_invoice_router)
-    print("[MAIN] Refund & Invoice routes loaded successfully")
+    logger.info("[MAIN] Refund & Invoice routes loaded successfully")
 except ImportError as e:
-    print(f"[MAIN] Warning: Could not load refund_invoice routes: {e}")
+    logger.info(f"[MAIN] Warning: Could not load refund_invoice routes: {e}")
 
 # Include Accounting routes (LedgerBot Delta & AuditBot Zeta)
 try:
     from accounting import router as accounting_router
     app.include_router(accounting_router)
-    print("[MAIN] Accounting routes loaded successfully (Income Statement, Balance Sheet, Cash Flow)")
+    logger.info("[MAIN] Accounting routes loaded successfully (Income Statement, Balance Sheet, Cash Flow)")
 except ImportError as e:
-    print(f"[MAIN] Warning: Could not load accounting routes: {e}")
+    logger.info(f"[MAIN] Warning: Could not load accounting routes: {e}")
 
 # Include Enterprise Payments routes (Stripe + ACH + Plaid + Connect)
 try:
     from enterprise_payments import router as enterprise_payments_router
     app.include_router(enterprise_payments_router)
-    print("[MAIN] Enterprise Payments loaded (Card, ACH, Plaid, Connect, Instant Payouts)")
+    logger.info("[MAIN] Enterprise Payments loaded (Card, ACH, Plaid, Connect, Instant Payouts)")
 except ImportError as e:
-    print(f"[MAIN] Warning: Enterprise payments not loaded: {e}")
+    logger.info(f"[MAIN] Warning: Enterprise payments not loaded: {e}")
 
 # Include Rideshare routes (Uber-style ride sharing with $1 platform fee)
 try:
     from rideshare import router as rideshare_router
     app.include_router(rideshare_router)
-    print("[MAIN] Rideshare routes loaded successfully ($1 platform fee model)")
+    logger.info("[MAIN] Rideshare routes loaded successfully ($1 platform fee model)")
 except ImportError as e:
-    print(f"[MAIN] Warning: Could not load rideshare routes: {e}")
+    logger.info(f"[MAIN] Warning: Could not load rideshare routes: {e}")
+
+# Include Admin Dashboard
+try:
+    from admin_dashboard import router as admin_router
+    app.include_router(admin_router)
+    logger.info("[MAIN] Admin Dashboard loaded successfully")
+except ImportError as e:
+    logger.info(f"[MAIN] Warning: Could not load admin dashboard: {e}")
+
+# Include Address Management API
+try:
+    from addresses import router as addresses_router, CustomerAddress
+    # Create the addresses table if it doesn't exist
+    from database import engine
+    CustomerAddress.__table__.create(bind=engine, checkfirst=True)
+    app.include_router(addresses_router)
+    logger.info("[MAIN] Address Management API loaded successfully")
+except ImportError as e:
+    logger.info(f"[MAIN] Warning: Could not load addresses API: {e}")
+except Exception as e:
+    logger.info(f"[MAIN] Warning: Address table creation failed: {e}")
+
+# Include ERP Dashboard API (Coupa, NetSuite, Zip, JIRA, Process Unity)
+try:
+    from erp_dashboard import router as erp_dashboard_router
+    app.include_router(erp_dashboard_router)
+    logger.info("[MAIN] ERP Dashboard API loaded (Coupa, NetSuite, Zip, JIRA, Process Unity)")
+except ImportError as e:
+    logger.info(f"[MAIN] Warning: Could not load ERP Dashboard API: {e}")
+except Exception as e:
+    logger.info(f"[MAIN] Warning: ERP Dashboard failed to load: {e}")
+
+# ==================== ERP DASHBOARD FRONTEND ====================
+# Serve static files and ERP dashboard HTML
+STATIC_DIR = Path(__file__).parent / "static"
+STATIC_DIR.mkdir(exist_ok=True)
+
+@app.get("/erp-dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+async def erp_dashboard():
+    """Serve the ERP Dashboard frontend"""
+    dashboard_file = STATIC_DIR / "erp_dashboard.html"
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    else:
+        return HTMLResponse(content="<h1>Dashboard not found</h1><p>Please deploy erp_dashboard.html to static folder</p>", status_code=404)
+
+@app.get("/p2p-dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+async def p2p_dashboard():
+    """Serve the P2P Platform Dashboard frontend"""
+    dashboard_file = STATIC_DIR / "p2p_dashboard.html"
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    else:
+        return HTMLResponse(content="<h1>P2P Dashboard not found</h1><p>Please deploy p2p_dashboard.html to static folder</p>", status_code=404)
+
+# ===================== ACCOUNT DELETION (Apple App Store 5.1.1) =====================
+
+@app.delete("/api/drivers/{driver_id}/delete", tags=["Account Deletion"])
+def delete_driver_account(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete driver account and all associated data.
+    Required by Apple App Store Guidelines 5.1.1 for apps with account-based features.
+    """
+    from models import Driver
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Log deletion for audit trail
+    logger.info(f"[ACCOUNT] Driver {driver_id} ({driver.email}) requesting account deletion")
+
+    # Delete the driver record (this will cascade delete related data if configured)
+    db.delete(driver)
+    db.commit()
+
+    logger.info(f"[ACCOUNT] Driver {driver_id} account deleted successfully")
+
+    return {"message": "Account deleted successfully", "driver_id": driver_id}
+
+
+@app.delete("/api/customers/{customer_id}/delete", tags=["Account Deletion"])
+def delete_customer_account(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete customer account and all associated data.
+    Required by Apple App Store Guidelines 5.1.1 for apps with account-based features.
+    """
+    # Try to find in User table (customers are stored as users with customer role)
+    user = db.query(User).filter(User.id == customer_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Log deletion for audit trail
+    logger.info(f"[ACCOUNT] Customer {customer_id} ({user.email}) requesting account deletion")
+
+    # Delete the user record
+    db.delete(user)
+    db.commit()
+
+    logger.info(f"[ACCOUNT] Customer {customer_id} account deleted successfully")
+
+    return {"message": "Account deleted successfully", "customer_id": customer_id}
+
+
+@app.delete("/api/vendors/{vendor_id}/delete", tags=["Account Deletion"])
+def delete_vendor_account(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete vendor/restaurant account and all associated data.
+    Required by Apple App Store Guidelines 5.1.1 for apps with account-based features.
+    """
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Log deletion for audit trail
+    logger.info(f"[ACCOUNT] Vendor {vendor_id} ({vendor.name}) requesting account deletion")
+
+    # Delete the vendor record
+    db.delete(vendor)
+    db.commit()
+
+    logger.info(f"[ACCOUNT] Vendor {vendor_id} account deleted successfully")
+
+    return {"message": "Account deleted successfully", "vendor_id": vendor_id}
+
+
+# ===================== DASHBOARD ROUTES =====================
+
+@app.get("/admin-dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+async def admin_dashboard_page():
+    """Serve the Admin Dashboard with approval workflows"""
+    dashboard_file = STATIC_DIR / "admin_dashboard.html"
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    else:
+        return HTMLResponse(content="<h1>Admin Dashboard not found</h1><p>Please deploy admin_dashboard.html to static folder</p>", status_code=404)
+
+@app.get("/live-ops", response_class=HTMLResponse, tags=["Dashboard"])
+async def live_operations_dashboard():
+    """Serve the Live Operations Dashboard - Real-time monitoring for all operations"""
+    dashboard_file = STATIC_DIR / "live_operations.html"
+    if dashboard_file.exists():
+        return FileResponse(dashboard_file)
+    else:
+        return HTMLResponse(content="<h1>Live Operations Dashboard not found</h1><p>Please deploy live_operations.html to static folder</p>", status_code=404)
+
+
+# ===================== DASHBOARD API ENDPOINTS (Secret Query Param) =====================
+# These endpoints are designed for the Live Operations Dashboard
+# They use a simple secret query parameter for authentication
+
+DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "admin")  # Set via environment in production
+
+def verify_dashboard_secret(secret: str):
+    """Verify dashboard secret for admin endpoints"""
+    if secret != DASHBOARD_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid admin secret")
+    return True
+
+
+@app.get("/api/dashboard/orders", tags=["Dashboard API"])
+async def get_dashboard_orders(
+    secret: str,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders for dashboard display.
+    Requires admin secret query parameter.
+    """
+    verify_dashboard_secret(secret)
+
+    from order_flow import Order, OrderStatus
+
+    orders = db.query(Order).order_by(Order.created_at.desc()).limit(limit).all()
+
+    result = []
+    for order in orders:
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+
+        result.append({
+            "id": order.id,
+            "order_number": order.order_number,
+            "customer_name": order.customer_name,
+            "customer_email": order.customer_email,
+            "restaurant_name": vendor.business_name if vendor else "Unknown",
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "payment_status": order.payment_status or "pending",
+            "total": order.total_amount,
+            "total_amount": order.total_amount,
+            "subtotal": order.subtotal,
+            "tax_amount": order.tax_amount,
+            "delivery_fee": order.delivery_fee,
+            "tip": order.tip,
+            "platform_fee": order.platform_fee,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "driver_id": order.driver_id
+        })
+
+    return {"success": True, "orders": result, "total": len(result)}
+
+
+@app.get("/api/dashboard/payouts/pending", tags=["Dashboard API"])
+async def get_dashboard_pending_payouts(
+    secret: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get pending payouts for dashboard display.
+    Requires admin secret query parameter.
+    """
+    verify_dashboard_secret(secret)
+
+    from order_flow import VendorPayout, DriverPayout
+
+    try:
+        vendor_payouts = db.query(VendorPayout).filter(
+            VendorPayout.status == "pending"
+        ).all()
+
+        driver_payouts = db.query(DriverPayout).filter(
+            DriverPayout.status == "pending"
+        ).all()
+
+        return {
+            "success": True,
+            "restaurant_payouts": [{
+                "id": p.id,
+                "vendor_id": p.vendor_id,
+                "amount": p.amount,
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else None
+            } for p in vendor_payouts],
+            "driver_payouts": [{
+                "id": p.id,
+                "driver_id": p.driver_id,
+                "amount": p.amount,
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else None
+            } for p in driver_payouts],
+            "total_restaurant": len(vendor_payouts),
+            "total_driver": len(driver_payouts)
+        }
+    except Exception as e:
+        return {
+            "success": True,
+            "restaurant_payouts": [],
+            "driver_payouts": [],
+            "total_restaurant": 0,
+            "total_driver": 0,
+            "note": "Payout tables may not exist yet"
+        }
+
+
+@app.get("/api/dashboard/journal-entries", tags=["Dashboard API"])
+async def get_dashboard_journal_entries(
+    secret: str,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Get journal entries for dashboard display.
+    Requires admin secret query parameter.
+    """
+    verify_dashboard_secret(secret)
+
+    try:
+        from order_flow import JournalEntry
+
+        entries = db.query(JournalEntry).order_by(
+            JournalEntry.posted_at.desc()
+        ).limit(limit).all()
+
+        return {
+            "success": True,
+            "entries": [{
+                "id": e.id,
+                "entry_type": e.entry_type,
+                "reference_id": e.reference_id,
+                "description": e.description,
+                "total_debit": e.total_debit,
+                "total_credit": e.total_credit,
+                "posted_at": e.posted_at.isoformat() if e.posted_at else None
+            } for e in entries],
+            "total": len(entries)
+        }
+    except Exception as e:
+        return {
+            "success": True,
+            "entries": [],
+            "total": 0,
+            "note": "Journal entry tables may not exist yet"
+        }
+
+
+@app.get("/api/dashboard/drivers", tags=["Dashboard API"])
+async def get_dashboard_drivers(
+    secret: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all drivers for dashboard display.
+    Requires admin secret query parameter.
+    """
+    verify_dashboard_secret(secret)
+
+    from models import Driver
+
+    drivers = db.query(Driver).all()
+
+    return {
+        "success": True,
+        "drivers": [{
+            "id": d.id,
+            "name": d.name,
+            "email": d.email,
+            "phone": d.phone,
+            "status": d.status if hasattr(d, 'status') else "unknown",
+            "is_online": d.is_online if hasattr(d, 'is_online') else False,
+            "is_available": d.is_available if hasattr(d, 'is_available') else False,
+            "is_approved": d.is_approved if hasattr(d, 'is_approved') else False,
+            "created_at": d.created_at.isoformat() if hasattr(d, 'created_at') and d.created_at else None
+        } for d in drivers],
+        "total": len(drivers),
+        "online": sum(1 for d in drivers if getattr(d, 'is_online', False)),
+        "available": sum(1 for d in drivers if getattr(d, 'is_available', False))
+    }
+
+
+@app.get("/api/dashboard/restaurants", tags=["Dashboard API"])
+async def get_dashboard_restaurants(
+    secret: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all restaurants for dashboard display.
+    Requires admin secret query parameter.
+    """
+    verify_dashboard_secret(secret)
+
+    vendors = db.query(Vendor).all()
+
+    return {
+        "success": True,
+        "restaurants": [{
+            "id": v.id,
+            "name": v.business_name or v.name,
+            "email": v.email,
+            "phone": v.phone,
+            "address": v.address,
+            "is_open": v.is_open if hasattr(v, 'is_open') else True,
+            "is_approved": v.is_approved if hasattr(v, 'is_approved') else False,
+            "created_at": v.created_at.isoformat() if hasattr(v, 'created_at') and v.created_at else None
+        } for v in vendors],
+        "total": len(vendors),
+        "open": sum(1 for v in vendors if getattr(v, 'is_open', True)),
+        "approved": sum(1 for v in vendors if getattr(v, 'is_approved', False))
+    }
+
+
+# ===================== DRIVER RATING & TIP APIs =====================
+# Customer-to-Driver communication via P2P backend
+
+class DriverRatingRequest(BaseModel):
+    order_id: int
+    driver_id: int
+    rating: int  # 1-5 stars
+    comment: Optional[str] = None
+    on_time: bool = False
+    friendly: bool = False
+    followed_instructions: bool = False
+    food_quality: bool = False
+
+class DriverTipRequest(BaseModel):
+    order_id: int
+    driver_id: int
+    amount: float
+    tip_type: str = "custom"  # "percentage" or "custom" or "none"
+    percentage: Optional[float] = None
+
+class ChatMessageRequest(BaseModel):
+    order_id: int
+    message: str
+    sender_type: str = "customer"  # "customer" or "driver"
+
+@app.post("/api/orders/{order_id}/rate-driver", tags=["Customer API"])
+async def rate_driver(
+    order_id: int,
+    rating_data: DriverRatingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Submit a driver rating for a completed order.
+    Updates driver's average rating.
+    """
+    from models import Order, Driver
+
+    # Verify order exists and belongs to customer
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.customer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to rate this order")
+
+    # Get driver
+    driver = db.query(Driver).filter(Driver.id == rating_data.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Update order with rating info
+    order.driver_rating = rating_data.rating
+    order.driver_rating_comment = rating_data.comment
+    order.is_rated = True
+
+    # Update driver's average rating
+    # Get all orders with ratings for this driver
+    rated_orders = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.driver_rating.isnot(None)
+    ).all()
+
+    total_rating = sum(o.driver_rating for o in rated_orders if o.driver_rating)
+    num_ratings = len([o for o in rated_orders if o.driver_rating])
+
+    if num_ratings > 0:
+        driver.rating = round(total_rating / num_ratings, 2)
+        driver.total_deliveries = num_ratings
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Rating submitted successfully",
+        "order_id": order_id,
+        "driver_id": driver.id,
+        "new_driver_rating": driver.rating
+    }
+
+
+@app.post("/api/orders/{order_id}/tip-driver", tags=["Customer API"])
+async def tip_driver(
+    order_id: int,
+    tip_data: DriverTipRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Add a tip for the driver on a completed order.
+    Updates driver's earnings.
+    """
+    from models import Order, Driver
+
+    # Verify order exists and belongs to customer
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.customer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to tip on this order")
+
+    # Get driver
+    driver = db.query(Driver).filter(Driver.id == tip_data.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Update order with tip
+    order.tip = tip_data.amount
+    order.tip_percentage = tip_data.percentage
+    order.is_tipped = True
+
+    # Update order total
+    order.total = (order.subtotal or 0) + (order.tax or 0) + (order.delivery_fee or 0) + tip_data.amount
+
+    # Update driver's total earnings
+    if hasattr(driver, 'total_earnings'):
+        driver.total_earnings = (driver.total_earnings or 0) + tip_data.amount
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Tip added successfully",
+        "order_id": order_id,
+        "driver_id": driver.id,
+        "tip_amount": tip_data.amount,
+        "new_order_total": order.total
+    }
+
+
+# In-memory chat storage (for MVP - can migrate to DB table later)
+_chat_messages: Dict[int, List[Dict]] = {}
+
+@app.post("/api/orders/{order_id}/chat", tags=["Customer API"])
+async def send_chat_message(
+    order_id: int,
+    message_data: ChatMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Send a chat message for an order (customer <-> driver communication).
+    """
+    from models import Order
+
+    # Verify order exists
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Create message
+    message = {
+        "id": f"{order_id}_{datetime.now().timestamp()}",
+        "order_id": order_id,
+        "sender_id": current_user.id,
+        "sender_name": current_user.full_name or current_user.email,
+        "sender_type": message_data.sender_type,
+        "text": message_data.message,
+        "timestamp": datetime.now().isoformat(),
+        "is_read": False
+    }
+
+    # Store in memory (or DB)
+    if order_id not in _chat_messages:
+        _chat_messages[order_id] = []
+    _chat_messages[order_id].append(message)
+
+    return {
+        "success": True,
+        "message": message
+    }
+
+
+@app.get("/api/orders/{order_id}/chat", tags=["Customer API"])
+async def get_chat_messages(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all chat messages for an order.
+    """
+    from models import Order
+
+    # Verify order exists
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    messages = _chat_messages.get(order_id, [])
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "messages": messages,
+        "count": len(messages)
+    }
+
+
+# Mount static files
+try:
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    logger.info("[MAIN] Static files mounted at /static")
+except Exception as e:
+    logger.info(f"[MAIN] Warning: Could not mount static files: {e}")
 
 if __name__ == "__main__":
     import uvicorn

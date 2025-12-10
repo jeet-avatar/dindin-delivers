@@ -95,18 +95,27 @@ struct LoginView: View {
                 .padding(.top, 10)
                 
                 // Apple Sign In Button (Required by App Store)
-                SignInWithAppleButton(.signIn) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { _ in
-                    // Handled by authViewModel
-                }
-                .signInWithAppleButtonStyle(.black)
-                .frame(height: 50)
-                .cornerRadius(12)
-                .padding(.horizontal, 30)
-                .onTapGesture {
+                Button(action: {
                     authViewModel.signInWithApple()
+                }) {
+                    HStack {
+                        if authViewModel.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        } else {
+                            Image(systemName: "apple.logo")
+                                .font(.title2)
+                            Text("Sign in with Apple")
+                                .font(.headline)
+                        }
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.black)
+                    .cornerRadius(12)
                 }
+                .padding(.horizontal, 30)
                 .disabled(authViewModel.isLoading)
 
                 // Google Sign In Button

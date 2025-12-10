@@ -3,8 +3,9 @@ import Combine
 import EatFairShared
 import CoreLocation
 
-/// ViewModel for customer ride requests (Uber-style ride-sharing)
-/// World-class pricing: $1 platform fee + distance/time based driver earnings
+/// ViewModel for P2P rideshare matchmaking
+/// Dollor.ai connects riders with independent drivers - NOT a TNC service
+/// $1 connection fee for using our matchmaking platform
 class RideRequestViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var pickupAddress: RideAddressInput?
@@ -16,13 +17,13 @@ class RideRequestViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showError = false
 
-    // Fare Estimation (World-class pricing)
+    // Suggested Offer Calculation (for matchmaking)
     @Published var estimatedDistance: Double = 0.0  // miles
     @Published var estimatedDuration: Double = 0.0  // minutes
     @Published var baseFare: Double = AppConfig.shared.rideBaseFare
     @Published var distanceFee: Double = 0.0
     @Published var timeFee: Double = 0.0
-    @Published var surgeMultiplier: Double = 1.0
+    @Published var surgeMultiplier: Double = 1.0  // Demand indicator only
 
     // Active ride tracking
     @Published var activeRide: RideRequestResponse?
@@ -93,13 +94,13 @@ class RideRequestViewModel: ObservableObject {
         return max(driverPortion + platformFee, minimumFare)
     }
 
-    /// Driver's earnings (90%+ of fare goes to driver!)
+    /// What driver receives (driver sets own price, this is suggested)
     var driverEarnings: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
         return max(driverPortion, minimumFare - platformFee) + tip
     }
 
-    /// What platform earns ($1.00 ONLY)
+    /// Connection fee for matchmaking service ($1.00)
     var platformEarnings: Double {
         platformFee
     }

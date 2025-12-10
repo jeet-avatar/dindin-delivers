@@ -22,8 +22,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         GMSServices.provideAPIKey(GoogleMapsConfig.currentKey)
         GMSPlacesClient.provideAPIKey(GoogleMapsConfig.currentKey)
 
-        // Configure Firebase (for push notifications and Google Sign-In only)
-        FirebaseApp.configure()
+        // Issue #13 Fixed: Configure Firebase with error handling
+        configureFirebase()
 
         // Load app configuration from Firebase
         AppConfig.shared.fetchConfig()
@@ -32,6 +32,32 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         setupPushNotifications(application)
 
         return true
+    }
+
+    /// Issue #13 Fixed: Firebase configuration with proper error handling
+    private func configureFirebase() {
+        // Check if Firebase is already configured (prevents double configuration crash)
+        guard FirebaseApp.app() == nil else {
+            #if DEBUG
+            print("DeliveryApp: Firebase already configured, skipping")
+            #endif
+            return
+        }
+
+        // Verify GoogleService-Info.plist exists
+        guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
+            #if DEBUG
+            print("DeliveryApp: ERROR - GoogleService-Info.plist not found!")
+            #endif
+            // App can still function without Firebase (no push notifications)
+            return
+        }
+
+        // Configure Firebase (doesn't throw - checked via FirebaseApp.app() above)
+        FirebaseApp.configure()
+        #if DEBUG
+        print("DeliveryApp: Firebase configured successfully")
+        #endif
     }
 
     // MARK: - Push Notification Setup

@@ -3,6 +3,7 @@ import EatFairShared
 
 struct HomeView: View {
     @StateObject var viewModel = HomeViewModel()
+    @StateObject var voiceSearch = VoiceSearchService()
     @EnvironmentObject var addressViewModel: AddressViewModel
     @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
     @State private var showLocationPicker = false
@@ -11,6 +12,7 @@ struct HomeView: View {
     @State private var selectedCategory: String?
     @State private var showNotifications = false
     @State private var sortOption: SortOption = .recommended
+    @State private var showVoiceSearch = false
 
     enum SortOption: String, CaseIterable {
         case recommended = "Recommended"
@@ -72,6 +74,9 @@ struct HomeView: View {
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
         }
+        .sheet(isPresented: $showVoiceSearch) {
+            VoiceSearchSheet(voiceSearch: voiceSearch)
+        }
     }
 
     // MARK: - Header Section
@@ -129,23 +134,30 @@ struct HomeView: View {
             .padding()
 
             // Search Bar
-            NavigationLink(destination: SearchRestaurantsView()) {
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                    Text("Search restaurants or dishes...")
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Image(systemName: "mic.fill")
-                        .foregroundColor(Theme.brandGreen)
+            HStack(spacing: 0) {
+                NavigationLink(destination: SearchRestaurantsView()) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                        Text("Search restaurants or dishes...")
+                            .foregroundColor(.gray)
+                        Spacer()
+                    }
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding(.horizontal)
-                .padding(.bottom)
+                .buttonStyle(.plain)
+
+                // Voice Search Button
+                Button(action: { showVoiceSearch = true }) {
+                    Image(systemName: voiceSearch.isListening ? "mic.fill" : "mic.fill")
+                        .foregroundColor(voiceSearch.isListening ? .red : Theme.brandGreen)
+                        .padding(.trailing, 4)
+                }
             }
-            .buttonStyle(.plain)
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
+            .padding(.bottom)
         }
         .background(Color.white)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 2)
@@ -260,38 +272,47 @@ struct HomeView: View {
     }
 
     // MARK: - Multi-Restaurant Promo Banner
+    @State private var showMultiRestaurantInfo = false
+
     private var multiRestaurantPromoBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "star.fill")
-                    .foregroundColor(.yellow)
-                Text("NEW: Multi-Restaurant Orders")
-                    .font(.headline)
-                    .foregroundColor(.white)
-            }
+        Button(action: { showMultiRestaurantInfo = true }) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                    Text("NEW: Multi-Restaurant Orders")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
 
-            Text("Order from up to 3 restaurants in one delivery! Just $\(String(format: "%.2f", AppConfig.shared.platformFeePerRestaurant)) per restaurant.")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.9))
-
-            HStack {
-                Spacer()
-                Text("Learn More →")
+                Text("Order from up to 3 restaurants in one delivery! Just $\(String(format: "%.2f", AppConfig.shared.platformFeePerRestaurant)) per restaurant.")
                     .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+
+                HStack {
+                    Spacer()
+                    Text("Learn More →")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
             }
-        }
-        .padding()
-        .background(
-            LinearGradient(
-                colors: [Color.orange, Color.red],
-                startPoint: .leading,
-                endPoint: .trailing
+            .padding()
+            .background(
+                LinearGradient(
+                    colors: [Color.orange, Color.red],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             )
-        )
-        .cornerRadius(16)
-        .padding(.horizontal)
+            .cornerRadius(16)
+            .padding(.horizontal)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showMultiRestaurantInfo) {
+            MultiRestaurantInfoSheet()
+        }
     }
 
     // MARK: - Featured Restaurants Section
@@ -426,7 +447,7 @@ struct HomeView: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(Theme.brandBlack)
-                    Text("Est. arrival: 20-25 mins")
+                    Text("Est. arrival: \(formatActiveOrderETA()) mins")
                         .font(.caption)
                         .foregroundColor(Theme.textGrey)
                 }
@@ -489,6 +510,27 @@ struct HomeView: View {
         }
 
         return restaurants
+    }
+
+    // MARK: - Format Active Order ETA
+    private func formatActiveOrderETA() -> String {
+        guard let order = viewModel.activeOrder,
+              let timestamp = order.estimatedDeliveryTime else {
+            return "20-30"
+        }
+
+        let deliveryDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
+        let minutesRemaining = Int(deliveryDate.timeIntervalSinceNow / 60)
+
+        if minutesRemaining <= 0 {
+            return "5-10"
+        } else if minutesRemaining < 5 {
+            return "< 5"
+        } else {
+            let minTime = max(5, minutesRemaining - 5)
+            let maxTime = minutesRemaining + 10
+            return "\(minTime)-\(maxTime)"
+        }
     }
 }
 
@@ -877,5 +919,285 @@ struct RestaurantRowView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Multi-Restaurant Info Sheet
+struct MultiRestaurantInfoSheet: View {
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(spacing: 12) {
+                        Image(systemName: "cart.badge.plus")
+                            .font(.system(size: 60))
+                            .foregroundColor(Theme.brandGreen)
+
+                        Text("Multi-Restaurant Orders")
+                            .font(.title)
+                            .fontWeight(.bold)
+
+                        Text("Order from multiple restaurants in a single delivery")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top)
+
+                    // How it works
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("How It Works")
+                            .font(.headline)
+
+                        FeatureRow(
+                            icon: "1.circle.fill",
+                            title: "Browse & Add",
+                            description: "Add items from up to 3 different restaurants to your cart"
+                        )
+
+                        FeatureRow(
+                            icon: "2.circle.fill",
+                            title: "Single Checkout",
+                            description: "Pay once for all your items with combined delivery"
+                        )
+
+                        FeatureRow(
+                            icon: "3.circle.fill",
+                            title: "One Driver",
+                            description: "A single driver picks up from all restaurants and delivers to you"
+                        )
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+
+                    // Pricing
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Pricing")
+                            .font(.headline)
+
+                        HStack {
+                            Image(systemName: "dollarsign.circle.fill")
+                                .foregroundColor(Theme.brandGreen)
+                            Text("$\(String(format: "%.2f", AppConfig.shared.platformFeePerRestaurant)) per restaurant")
+                                .font(.subheadline)
+                        }
+
+                        Text("You pay a small fee per restaurant to cover the additional pickup stops. Still cheaper than multiple separate deliveries!")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+
+                    // Benefits
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Benefits")
+                            .font(.headline)
+
+                        BenefitRow(icon: "clock.fill", text: "Save time with one delivery")
+                        BenefitRow(icon: "leaf.fill", text: "Better for the environment")
+                        BenefitRow(icon: "heart.fill", text: "Everyone gets what they want")
+                        BenefitRow(icon: "dollarsign.circle.fill", text: "Lower total delivery fees")
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+                }
+                .padding()
+            }
+            .navigationTitle("Learn More")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct FeatureRow: View {
+    let icon: String
+    let title: String
+    let description: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(Theme.brandGreen)
+                .frame(width: 30)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+struct BenefitRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(Theme.brandGreen)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
+        }
+    }
+}
+
+// MARK: - Voice Search Sheet
+struct VoiceSearchSheet: View {
+    @ObservedObject var voiceSearch: VoiceSearchService
+    @Environment(\.dismiss) var dismiss
+    @State private var navigateToSearch = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Microphone Animation
+                ZStack {
+                    // Outer pulse circles when listening
+                    if voiceSearch.isListening {
+                        Circle()
+                            .stroke(Theme.brandGreen.opacity(0.3), lineWidth: 2)
+                            .frame(width: 150, height: 150)
+                            .scaleEffect(voiceSearch.isListening ? 1.3 : 1.0)
+                            .opacity(voiceSearch.isListening ? 0 : 1)
+                            .animation(.easeOut(duration: 1.0).repeatForever(autoreverses: false), value: voiceSearch.isListening)
+
+                        Circle()
+                            .stroke(Theme.brandGreen.opacity(0.5), lineWidth: 2)
+                            .frame(width: 130, height: 130)
+                            .scaleEffect(voiceSearch.isListening ? 1.2 : 1.0)
+                            .opacity(voiceSearch.isListening ? 0 : 1)
+                            .animation(.easeOut(duration: 1.0).repeatForever(autoreverses: false).delay(0.3), value: voiceSearch.isListening)
+                    }
+
+                    // Main button
+                    Button(action: {
+                        voiceSearch.toggleListening()
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(voiceSearch.isListening ? Color.red : Theme.brandGreen)
+                                .frame(width: 100, height: 100)
+                                .shadow(color: (voiceSearch.isListening ? Color.red : Theme.brandGreen).opacity(0.4), radius: 10, x: 0, y: 5)
+
+                            Image(systemName: voiceSearch.isListening ? "stop.fill" : "mic.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+
+                // Status Text
+                VStack(spacing: 8) {
+                    if voiceSearch.isListening {
+                        Text("Listening...")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.brandBlack)
+
+                        Text("Speak now to search")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    } else if !voiceSearch.transcribedText.isEmpty {
+                        Text("You said:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Text("\"\(voiceSearch.transcribedText)\"")
+                            .font(.title3)
+                            .fontWeight(.medium)
+                            .foregroundColor(Theme.brandBlack)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    } else {
+                        Text("Tap to speak")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.brandBlack)
+
+                        Text("Search for restaurants or dishes")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                // Error message
+                if let error = voiceSearch.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
+                Spacer()
+
+                // Search Button (when we have transcribed text)
+                if !voiceSearch.transcribedText.isEmpty && !voiceSearch.isListening {
+                    Button(action: {
+                        navigateToSearch = true
+                    }) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                            Text("Search for \"\(voiceSearch.transcribedText)\"")
+                        }
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandGreen)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
+                    Button(action: {
+                        voiceSearch.transcribedText = ""
+                        voiceSearch.startListening()
+                    }) {
+                        Text("Try again")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+
+                Spacer().frame(height: 20)
+            }
+            .navigationTitle("Voice Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        voiceSearch.stopListening()
+                        dismiss()
+                    }
+                }
+            }
+            .navigationDestination(isPresented: $navigateToSearch) {
+                SearchRestaurantsView()
+            }
+            .onDisappear {
+                voiceSearch.stopListening()
+            }
+        }
     }
 }

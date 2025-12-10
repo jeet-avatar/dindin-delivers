@@ -51,8 +51,35 @@ class CartViewModel: ObservableObject {
     /// Place order via P2P backend to get synced order number
     /// This ensures the same order number is visible in Customer, Restaurant, and Delivery apps
     func placeOrder(deliveryAddress: DeliveryAddress, completion: @escaping (Bool, String?) -> Void) {
-        guard let user = Auth.auth().currentUser, let restaurant = restaurant, !items.isEmpty else {
-            print("User not logged in or cart empty")
+        // Try P2P customer data first, then fall back to Firebase Auth
+        let customerId: String
+        let customerName: String
+        let customerPhone: String
+        let customerEmail: String
+
+        // Check P2P customer data first
+        let p2pCustomerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+        let p2pCustomerName = UserDefaults.standard.string(forKey: "p2p_customer_name")
+        let p2pCustomerEmail = UserDefaults.standard.string(forKey: "p2p_customer_email")
+
+        if p2pCustomerId > 0 {
+            // Use P2P customer data
+            customerId = String(p2pCustomerId)
+            customerName = p2pCustomerName ?? "Customer"
+            customerPhone = ""
+            customerEmail = p2pCustomerEmail ?? ""
+        } else if let user = Auth.auth().currentUser {
+            // Fallback to Firebase Auth
+            customerId = user.uid
+            customerName = user.displayName ?? "Customer"
+            customerPhone = user.phoneNumber ?? ""
+            customerEmail = user.email ?? ""
+        } else {
+            completion(false, nil)
+            return
+        }
+
+        guard let restaurant = restaurant, !items.isEmpty else {
             completion(false, nil)
             return
         }
@@ -69,7 +96,6 @@ class CartViewModel: ObservableObject {
 
         // Get vendor ID from restaurant (numeric ID for P2P backend)
         guard let vendorId = Int(restaurant.id ?? "0") else {
-            print("Invalid vendor ID")
             completion(false, nil)
             return
         }
@@ -85,9 +111,9 @@ class CartViewModel: ObservableObject {
         // Create order via P2P API to get backend-synced order number
         p2pAPI.createOrder(
             vendorId: vendorId,
-            customerName: user.displayName ?? "Customer",
-            customerEmail: user.email ?? "",
-            customerPhone: user.phoneNumber ?? "",
+            customerName: customerName,
+            customerEmail: customerEmail,
+            customerPhone: customerPhone,
             deliveryAddress: addressDict,
             deliveryInstructions: deliveryAddress.instructions,
             items: orderItems,
@@ -101,15 +127,22 @@ class CartViewModel: ObservableObject {
                 // Also save to Firebase for real-time updates
                 self?.saveOrderToFirebase(
                     orderNumber: response.orderNumber,
-                    user: user,
+                    customerId: customerId,
+                    customerName: customerName,
+                    customerEmail: customerEmail,
                     deliveryAddress: deliveryAddress,
                     completion: completion
                 )
 
-            case .failure(let error):
-                print("P2P order creation failed: \(error.localizedDescription)")
+            case .failure:
                 // Fallback: create order with Firebase-generated ID
-                self?.createFallbackOrder(user: user, deliveryAddress: deliveryAddress, completion: completion)
+                self?.createFallbackOrder(
+                    customerId: customerId,
+                    customerName: customerName,
+                    customerEmail: customerEmail,
+                    deliveryAddress: deliveryAddress,
+                    completion: completion
+                )
             }
         }
     }
@@ -117,7 +150,9 @@ class CartViewModel: ObservableObject {
     /// Save order to Firebase with the backend-synced order number
     private func saveOrderToFirebase(
         orderNumber: String,
-        user: FirebaseAuth.User,
+        customerId: String,
+        customerName: String,
+        customerEmail: String,
         deliveryAddress: DeliveryAddress,
         completion: @escaping (Bool, String?) -> Void
     ) {
@@ -150,9 +185,9 @@ class CartViewModel: ObservableObject {
         // Use the backend-synced order number
         let order = Order(
             orderId: orderNumber,  // Backend-synced order number
-            customerId: user.uid,
-            customerName: user.displayName ?? "Customer",
-            customerEmail: user.email ?? "",
+            customerId: customerId,
+            customerName: customerName,
+            customerEmail: customerEmail,
             deliveryAddress: deliveryAddress,
             deliveryInstructions: deliveryAddress.instructions ?? "",
             restaurant: restaurantInfo,
@@ -170,23 +205,19 @@ class CartViewModel: ObservableObject {
         )
 
         do {
-            try db.collection("orders").addDocument(from: order) { error in
-                if let error = error {
-                    print("Error saving to Firebase: \(error)")
-                    completion(false, nil)
-                } else {
-                    completion(true, orderNumber)
-                }
+            try db.collection("orders").addDocument(from: order) { writeError in
+                completion(writeError == nil, writeError == nil ? orderNumber : nil)
             }
         } catch {
-            print("Error encoding order: \(error)")
             completion(false, nil)
         }
     }
 
     /// Fallback order creation if P2P backend is unavailable
     private func createFallbackOrder(
-        user: FirebaseAuth.User,
+        customerId: String,
+        customerName: String,
+        customerEmail: String,
         deliveryAddress: DeliveryAddress,
         completion: @escaping (Bool, String?) -> Void
     ) {
@@ -197,8 +228,11 @@ class CartViewModel: ObservableObject {
 
         let db = Firestore.firestore()
 
-        // Generate order number locally if backend unavailable
-        let orderNumber = "ORD-\(Int(Date().timeIntervalSince1970))-\(Int.random(in: 1000...9999))"
+        // Generate enterprise-level order number locally if backend unavailable
+        // Format matches backend: EF-YYYYMMDD-HHMMSS-XXXX
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd-HHmmss"
+        let orderNumber = "EF-\(dateFormatter.string(from: Date()))-\(String(format: "%04d", Int.random(in: 1...9999)))"
         self.lastOrderNumber = orderNumber
 
         let restaurantInfo = RestaurantInfo(
@@ -222,9 +256,9 @@ class CartViewModel: ObservableObject {
 
         let order = Order(
             orderId: orderNumber,
-            customerId: user.uid,
-            customerName: user.displayName ?? "Customer",
-            customerEmail: user.email ?? "",
+            customerId: customerId,
+            customerName: customerName,
+            customerEmail: customerEmail,
             deliveryAddress: deliveryAddress,
             deliveryInstructions: deliveryAddress.instructions ?? "",
             restaurant: restaurantInfo,
@@ -242,16 +276,10 @@ class CartViewModel: ObservableObject {
         )
 
         do {
-            try db.collection("orders").addDocument(from: order) { error in
-                if let error = error {
-                    print("Error placing fallback order: \(error)")
-                    completion(false, nil)
-                } else {
-                    completion(true, orderNumber)
-                }
+            try db.collection("orders").addDocument(from: order) { writeError in
+                completion(writeError == nil, writeError == nil ? orderNumber : nil)
             }
         } catch {
-            print("Error encoding fallback order: \(error)")
             completion(false, nil)
         }
     }

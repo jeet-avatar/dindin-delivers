@@ -803,12 +803,38 @@ class MenuViewModel: ObservableObject {
 
     func toggleItemAvailability(_ item: MenuItem) {
         guard let restaurantId = restaurantId, let itemId = item.id else { return }
+        let newAvailability = !item.isAvailable
 
-        db.collection("restaurants").document(restaurantId)
-            .collection("menu").document(itemId)
-            .updateData(["isAvailable": !item.isAvailable]) { [weak self] _ in
-                self?.fetchMenu()
+        // Sync with P2P backend first (primary source)
+        if let vendorId = vendorId, let itemIdInt = Int(itemId) {
+            p2pAPI.toggleItemAvailability(vendorId: vendorId, itemId: itemIdInt, inStock: newAvailability) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        #if DEBUG
+                        print("[Menu] P2P item availability updated")
+                        #endif
+                    case .failure(let error):
+                        #if DEBUG
+                        print("[Menu] P2P availability update failed: \(error.localizedDescription)")
+                        #endif
+                    }
+                    // Also update Firebase for backup
+                    self?.db.collection("restaurants").document(restaurantId)
+                        .collection("menu").document(itemId)
+                        .updateData(["isAvailable": newAvailability]) { _ in
+                            self?.fetchMenu()
+                        }
+                }
             }
+        } else {
+            // Fallback to Firebase only
+            db.collection("restaurants").document(restaurantId)
+                .collection("menu").document(itemId)
+                .updateData(["isAvailable": newAvailability]) { [weak self] _ in
+                    self?.fetchMenu()
+                }
+        }
     }
 
     func addItem(name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String = "") {
@@ -851,11 +877,49 @@ class MenuViewModel: ObservableObject {
             updateData["imageUrl"] = imageUrl
         }
 
-        db.collection("restaurants").document(restaurantId)
-            .collection("menu").document(itemId)
-            .updateData(updateData) { [weak self] _ in
-                self?.fetchMenu()
+        // Sync with P2P backend first (primary source)
+        if let vendorId = vendorId, let itemIdInt = Int(itemId) {
+            // P2P uses snake_case keys
+            var p2pUpdates: [String: Any] = [
+                "name": name,
+                "description": description,
+                "price": price,
+                "category": category,
+                "in_stock": isAvailable,
+                "prep_time": prepTime
+            ]
+            if let imageUrl = imageUrl {
+                p2pUpdates["image_url"] = imageUrl
             }
+
+            p2pAPI.updateMenuItem(vendorId: vendorId, itemId: itemIdInt, updates: p2pUpdates) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        #if DEBUG
+                        print("[Menu] P2P item updated successfully")
+                        #endif
+                    case .failure(let error):
+                        #if DEBUG
+                        print("[Menu] P2P item update failed: \(error.localizedDescription)")
+                        #endif
+                    }
+                    // Also update Firebase for backup
+                    self?.db.collection("restaurants").document(restaurantId)
+                        .collection("menu").document(itemId)
+                        .updateData(updateData) { _ in
+                            self?.fetchMenu()
+                        }
+                }
+            }
+        } else {
+            // Fallback to Firebase only
+            db.collection("restaurants").document(restaurantId)
+                .collection("menu").document(itemId)
+                .updateData(updateData) { [weak self] _ in
+                    self?.fetchMenu()
+                }
+        }
     }
 
     // MARK: - Image Upload Functions

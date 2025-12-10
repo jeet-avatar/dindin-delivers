@@ -123,9 +123,6 @@ class OrdersViewModel: ObservableObject {
         if let vendorId = p2pVendorId {
             restaurantId = String(vendorId)
             restaurantName = "My Restaurant" // Will be updated when orders load
-            print("Using P2P vendor ID: \(vendorId)")
-        } else {
-            print("No P2P vendor ID found - user needs to log in")
         }
     }
 
@@ -146,7 +143,6 @@ class OrdersViewModel: ObservableObject {
             p2pVendorId = p2pAPI.currentVendorId
             if let vendorId = p2pVendorId {
                 restaurantId = String(vendorId)
-                print("startListening: Found P2P vendor ID: \(vendorId)")
             }
         }
 
@@ -163,12 +159,10 @@ class OrdersViewModel: ObservableObject {
     /// Fetch orders from P2P backend
     private func fetchP2POrders() {
         guard let vendorId = p2pVendorId else {
-            print("🔴 fetchP2POrders: No P2P vendor ID set, skipping P2P orders fetch")
             isLoading = false
             return
         }
 
-        print("🟢 fetchP2POrders: Fetching orders for vendor ID \(vendorId)")
         p2pAPI.fetchVendorOrders(vendorId: vendorId) { [weak self] result in
             guard let self = self else { return }
 
@@ -177,23 +171,18 @@ class OrdersViewModel: ObservableObject {
 
                 switch result {
                 case .success(let p2pVendorOrders):
-                    print("🟢 fetchP2POrders: SUCCESS - Got \(p2pVendorOrders.count) orders from P2P")
                     // Convert to Order models
                     self.allOrders = p2pVendorOrders.map { vendorOrder in
-                        let order = vendorOrder.toOrder(
+                        vendorOrder.toOrder(
                             vendorId: String(vendorId),
                             restaurantName: self.restaurantName
                         )
-                        print("🟢 Order: \(order.orderId) - Status: \(order.status)")
-                        return order
                     }.sorted { $0.placedAt > $1.placedAt }
 
                     // Update AI insights
                     self.updateAIInsights()
-                    print("🟢 Total orders: \(self.allOrders.count)")
 
                 case .failure(let error):
-                    print("🔴 fetchP2POrders: FAILED - \(error.localizedDescription)")
                     self.errorMessage = "Failed to fetch orders: \(error.localizedDescription)"
                     self.showError = true
                 }
@@ -209,12 +198,11 @@ class OrdersViewModel: ObservableObject {
     // MARK: - Order Actions
 
     func acceptOrder(_ order: Order) {
-        // API expects uppercase status: PREPARING
-        updateOrderStatus(order, newStatus: "PREPARING")
-
-        // Update estimated prep time based on current load
+        // Calculate estimated prep time based on current load
         let estimatedTime = calculateEstimatedPrepTime()
-        updateEstimatedTime(order, minutes: estimatedTime)
+
+        // API expects uppercase status: PREPARING - include estimated prep time
+        updateOrderStatus(order, newStatus: "PREPARING", estimatedMinutes: estimatedTime)
     }
 
     func rejectOrder(_ order: Order, reason: String = "") {
@@ -230,7 +218,6 @@ class OrdersViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("Order \(order.orderId) rejected successfully")
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -245,26 +232,21 @@ class OrdersViewModel: ObservableObject {
         updateOrderStatus(order, newStatus: "READY_FOR_PICKUP")
     }
 
-    func updateOrderStatus(_ order: Order, newStatus: String) {
+    func updateOrderStatus(_ order: Order, newStatus: String, estimatedMinutes: Int? = nil) {
         // Use the database ID from order.id (not the display order number)
         guard let idString = order.id, let orderIdInt = Int(idString) else {
             errorMessage = "Invalid order ID"
             showError = true
-            print("🔴 updateOrderStatus: Invalid order ID - order.id=\(order.id ?? "nil")")
             return
         }
 
-        print("🟢 updateOrderStatus: Updating order \(order.orderId) (DB ID: \(orderIdInt)) to \(newStatus)")
-
-        // API expects uppercase statuses
-        p2pAPI.updateOrderStatus(orderId: orderIdInt, status: newStatus) { [weak self] result in
+        // API expects uppercase statuses - pass estimated prep time if provided
+        p2pAPI.updateOrderStatus(orderId: orderIdInt, status: newStatus, estimatedMinutes: estimatedMinutes) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("🟢 Order \(order.orderId) updated to \(newStatus)")
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    print("🔴 Failed to update order: \(error.localizedDescription)")
                     self?.errorMessage = error.localizedDescription
                     self?.showError = true
                 }
@@ -272,10 +254,6 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
-    private func updateEstimatedTime(_ order: Order, minutes: Int) {
-        // This would be implemented via P2P API if needed
-        print("Estimated time for order \(order.orderId): \(minutes) minutes")
-    }
 
     private func extractOrderId(from orderId: String) -> Int? {
         // Handle formats like "EF123" or just "123"
@@ -408,7 +386,7 @@ class OrdersViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("Vendor status updated to: \(self?.isOnline == true ? "Online" : "Offline")")
+                    break
                 case .failure(let error):
                     // Revert the toggle on failure
                     self?.isOnline.toggle()

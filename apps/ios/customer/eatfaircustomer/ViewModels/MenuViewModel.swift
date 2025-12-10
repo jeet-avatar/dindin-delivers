@@ -92,10 +92,14 @@ class MenuViewModel: ObservableObject {
                 self.hasError = true
             }
 
+            #if DEBUG
             print("Loaded \(self.menuItems.count) menu items from P2P for vendor \(vendorId)")
+            #endif
 
         case .failure(let error):
+            #if DEBUG
             print("P2P menu fetch failed: \(error.localizedDescription)")
+            #endif
             self.errorMessage = "Unable to load menu. Please try again."
             self.hasError = true
         }
@@ -218,7 +222,9 @@ class MenuViewModel: ObservableObject {
 
         collectionRef.getDocuments { snapshot, error in
             if let error = error {
+                #if DEBUG
                 print("MenuViewModel: Error fetching menu - \(error.localizedDescription)")
+                #endif
                 DispatchQueue.main.async {
                     completion([])
                 }
@@ -270,7 +276,9 @@ class MenuViewModel: ObservableObject {
         errorMessage = "Unable to load menu. Please try again."
         hasError = true
         menuItems = []
+        #if DEBUG
         print("MenuViewModel: Error - \(error.localizedDescription)")
+        #endif
     }
 
     /// Retry fetching menu

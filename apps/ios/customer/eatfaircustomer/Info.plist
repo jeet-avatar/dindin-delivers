@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Dollor AI Service</string>
+	<string>Dollor</string>
 	<key>CFBundleName</key>
-	<string>Dollor AI Service</string>
+	<string>Dollor - $1 Delivery</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
@@ -31,14 +31,6 @@
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>maps.apple.com</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -47,7 +39,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.107524350806-ign58n65jrc4i0ab8audp3qgp24b37if</string>
+				<string>com.googleusercontent.apps.107524350806-i9ek47g1o6345b7f83q3i2nlhog7emgr</string>
 			</array>
 		</dict>
 	</array>

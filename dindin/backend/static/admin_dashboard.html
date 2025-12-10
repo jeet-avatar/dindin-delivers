@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dollor.ai Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            min-height: 100vh;
+            color: #e2e8f0;
+        }
+
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .login-box {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            width: 400px;
+        }
+        .login-box h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 16px;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .login-error {
+            color: #ef4444;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        /* Main Dashboard */
+        .dashboard { display: none; }
+        .dashboard.active { display: block; }
+
+        .header {
+            background: #1e293b;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+        }
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logout-btn {
+            padding: 8px 20px;
+            background: #ef4444;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .tabs {
+            display: flex;
+            background: #1e293b;
+            padding: 10px 30px;
+            gap: 5px;
+            border-bottom: 1px solid #334155;
+            overflow-x: auto;
+        }
+        .tab {
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #94a3b8;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: #334155; }
+        .tab.active {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            color: white;
+        }
+
+        .main-content { padding: 30px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        .stat-card h3 { color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: #3b82f6; }
+
+        /* Tables */
+        .table-container {
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+        .table-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .table-header h2 { font-size: 18px; }
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #334155;
+            border: none;
+            border-radius: 6px;
+            color: #e2e8f0;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th { background: #0f172a; color: #94a3b8; font-weight: 600; }
+        tr:hover { background: #334155; }
+
+        /* Buttons */
+        .btn-approve {
+            padding: 6px 14px;
+            background: #22c55e;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-reject {
+            padding: 6px 14px;
+            background: #ef4444;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+        .btn-view {
+            padding: 6px 14px;
+            background: #3b82f6;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        /* Status badges */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-pending { background: #fbbf24; color: #0f172a; }
+        .badge-approved { background: #22c55e; color: white; }
+        .badge-rejected { background: #ef4444; color: white; }
+        .badge-active { background: #3b82f6; color: white; }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+        }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.show { display: block; }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h1>Admin Dashboard</h1>
+            <div class="login-error" id="loginError">Invalid admin secret</div>
+            <input type="password" id="adminSecret" placeholder="Enter Admin Secret">
+            <button onclick="login()">Login</button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard" id="dashboard">
+        <div class="header">
+            <div class="logo">Dollor.ai Admin</div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="overview">Overview</div>
+            <div class="tab" data-tab="vendors">Vendor Approvals</div>
+            <div class="tab" data-tab="drivers">Driver Approvals</div>
+            <div class="tab" data-tab="orders">Orders</div>
+            <div class="tab" data-tab="journal">Journal Entries</div>
+            <div class="tab" data-tab="accounting">Accounting</div>
+        </div>
+
+        <div class="main-content">
+            <!-- Overview Tab -->
+            <div class="tab-content active" id="overview">
+                <div class="stats-grid" id="overviewStats">
+                    <div class="stat-card"><h3>Total Vendors</h3><div class="value" id="totalVendors">-</div></div>
+                    <div class="stat-card"><h3>Pending Approvals</h3><div class="value" id="pendingApprovals">-</div></div>
+                    <div class="stat-card"><h3>Active Drivers</h3><div class="value" id="activeDrivers">-</div></div>
+                    <div class="stat-card"><h3>Today's Orders</h3><div class="value" id="todayOrders">-</div></div>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Recent Activity</h2>
+                        <button class="refresh-btn" onclick="loadOverview()">Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Time</th><th>Type</th><th>Description</th><th>Status</th></tr></thead>
+                        <tbody id="recentActivity"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vendors Tab -->
+            <div class="tab-content" id="vendors">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Vendor Approval Queue</h2>
+                        <button class="refresh-btn" onclick="loadVendors()">Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>ID</th><th>Restaurant Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="vendorList"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Drivers Tab -->
+            <div class="tab-content" id="drivers">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Driver Approval Queue</h2>
+                        <button class="refresh-btn" onclick="loadDrivers()">Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Documents</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="driverList"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div class="tab-content" id="orders">
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>Pending</h3><div class="value" id="ordersPending">-</div></div>
+                    <div class="stat-card"><h3>In Progress</h3><div class="value" id="ordersProgress">-</div></div>
+                    <div class="stat-card"><h3>Completed</h3><div class="value" id="ordersCompleted">-</div></div>
+                    <div class="stat-card"><h3>Stuck Orders</h3><div class="value" id="ordersStuck">-</div></div>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Recent Orders</h2>
+                        <button class="refresh-btn" onclick="loadOrders()">Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Order ID</th><th>Customer</th><th>Restaurant</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="orderList"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Journal Entries Tab -->
+            <div class="tab-content" id="journal">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Journal Entries</h2>
+                        <button class="refresh-btn" onclick="loadJournalEntries()">Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Date</th><th>Entry ID</th><th>Description</th><th>Debit</th><th>Credit</th><th>Account</th></tr></thead>
+                        <tbody id="journalList"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Accounting Tab -->
+            <div class="tab-content" id="accounting">
+                <div class="stats-grid" id="accountingStats">
+                    <div class="stat-card"><h3>Total Revenue</h3><div class="value" id="totalRevenue">-</div></div>
+                    <div class="stat-card"><h3>Platform Fees</h3><div class="value" id="platformFees">-</div></div>
+                    <div class="stat-card"><h3>Driver Payouts</h3><div class="value" id="driverPayouts">-</div></div>
+                    <div class="stat-card"><h3>Vendor Payouts</h3><div class="value" id="vendorPayouts">-</div></div>
+                </div>
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Financial Summary</h2>
+                        <button class="refresh-btn" onclick="loadAccounting()">Refresh</button>
+                    </div>
+                    <div style="padding: 20px;" id="accountingSummary">
+                        <p class="loading">Loading financial data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let adminSecret = '';
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+
+                // Load data for tab
+                switch(tab.dataset.tab) {
+                    case 'overview': loadOverview(); break;
+                    case 'vendors': loadVendors(); break;
+                    case 'drivers': loadDrivers(); break;
+                    case 'orders': loadOrders(); break;
+                    case 'journal': loadJournalEntries(); break;
+                    case 'accounting': loadAccounting(); break;
+                }
+            });
+        });
+
+        // Login
+        function login() {
+            adminSecret = document.getElementById('adminSecret').value;
+            if (!adminSecret) {
+                showError('Please enter admin secret');
+                return;
+            }
+
+            // Test the secret with admin endpoint
+            fetch(`${API_BASE}/admin/?secret=${encodeURIComponent(adminSecret)}`)
+                .then(r => {
+                    if (r.ok) {
+                        document.getElementById('loginScreen').style.display = 'none';
+                        document.getElementById('dashboard').classList.add('active');
+                        loadOverview();
+                    } else {
+                        showError('Invalid admin secret');
+                    }
+                })
+                .catch(() => showError('Connection failed'));
+        }
+
+        function showError(msg) {
+            const err = document.getElementById('loginError');
+            err.textContent = msg;
+            err.style.display = 'block';
+        }
+
+        function logout() {
+            adminSecret = '';
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('adminSecret').value = '';
+        }
+
+        function showToast(msg, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function authHeaders() {
+            return { 'Authorization': `Bearer ${adminSecret}`, 'Content-Type': 'application/json' };
+        }
+
+        // Load Overview
+        async function loadOverview() {
+            try {
+                const stats = await fetch(`${API_BASE}/admin/api/stats?secret=${encodeURIComponent(adminSecret)}`).then(r => r.json());
+                document.getElementById('totalVendors').textContent = stats.total_vendors || 0;
+                document.getElementById('pendingApprovals').textContent = stats.pending_approvals || 0;
+                document.getElementById('activeDrivers').textContent = stats.active_drivers || 0;
+                document.getElementById('todayOrders').textContent = stats.today_orders || 0;
+
+                // Load recent activity
+                const activity = await fetch(`${API_BASE}/api/dashboard/recent-activity`).then(r => r.json());
+                const tbody = document.getElementById('recentActivity');
+                if (activity.activities && activity.activities.length > 0) {
+                    tbody.innerHTML = activity.activities.slice(0, 10).map(a => `
+                        <tr>
+                            <td>${new Date(a.timestamp).toLocaleString()}</td>
+                            <td>${a.type || 'Activity'}</td>
+                            <td>${a.description || '-'}</td>
+                            <td><span class="badge badge-${a.status || 'active'}">${a.status || 'Active'}</span></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4">No recent activity</td></tr>';
+                }
+            } catch (e) {
+                console.error('Failed to load overview:', e);
+            }
+        }
+
+        // Load Vendors
+        async function loadVendors() {
+            try {
+                const vendors = await fetch(`${API_BASE}/admin/api/restaurants?secret=${encodeURIComponent(adminSecret)}`).then(r => r.json());
+                const tbody = document.getElementById('vendorList');
+                if (vendors && vendors.length > 0) {
+                    tbody.innerHTML = vendors.map(v => `
+                        <tr>
+                            <td>${v.id}</td>
+                            <td>${v.name || '-'}</td>
+                            <td>${v.email || '-'}</td>
+                            <td><span class="badge badge-${v.status === 'approved' ? 'approved' : v.status === 'pending' ? 'pending' : 'active'}">${v.status || 'Active'}</span></td>
+                            <td>
+                                ${v.status === 'pending' ? `
+                                    <button class="btn-approve" onclick="approveVendor(${v.id})">Approve</button>
+                                    <button class="btn-reject" onclick="rejectVendor(${v.id})">Reject</button>
+                                ` : `<button class="btn-view" onclick="viewVendor(${v.id})">View</button>`}
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5">No vendors found</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('vendorList').innerHTML = '<tr><td colspan="5">Failed to load vendors</td></tr>';
+            }
+        }
+
+        async function approveVendor(id) {
+            try {
+                await fetch(`${API_BASE}/api/vendors/${id}/approve`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+                showToast('Vendor approved!', 'success');
+                loadVendors();
+            } catch (e) {
+                showToast('Failed to approve vendor', 'error');
+            }
+        }
+
+        async function rejectVendor(id) {
+            if (!confirm('Are you sure you want to reject this vendor?')) return;
+            try {
+                await fetch(`${API_BASE}/api/vendors/${id}/reject`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+                showToast('Vendor rejected', 'success');
+                loadVendors();
+            } catch (e) {
+                showToast('Failed to reject vendor', 'error');
+            }
+        }
+
+        // Load Drivers
+        async function loadDrivers() {
+            try {
+                const drivers = await fetch(`${API_BASE}/admin/api/drivers?secret=${encodeURIComponent(adminSecret)}`).then(r => r.json());
+                const tbody = document.getElementById('driverList');
+                if (drivers && drivers.length > 0) {
+                    tbody.innerHTML = drivers.map(d => `
+                        <tr>
+                            <td>${d.id}</td>
+                            <td>${d.name || '-'}</td>
+                            <td>${d.email || '-'}</td>
+                            <td>${d.documents_submitted ? 'Submitted' : 'Pending'}</td>
+                            <td><span class="badge badge-${d.status === 'approved' ? 'approved' : d.status === 'pending' ? 'pending' : 'active'}">${d.status || 'Active'}</span></td>
+                            <td>
+                                ${d.status === 'pending' || d.status === 'pending_approval' ? `
+                                    <button class="btn-approve" onclick="approveDriver(${d.id})">Approve</button>
+                                    <button class="btn-reject" onclick="rejectDriver(${d.id})">Reject</button>
+                                ` : `<button class="btn-view" onclick="viewDriver(${d.id})">View</button>`}
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6">No drivers found</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('driverList').innerHTML = '<tr><td colspan="6">Failed to load drivers</td></tr>';
+            }
+        }
+
+        async function approveDriver(id) {
+            try {
+                await fetch(`${API_BASE}/api/drivers/${id}/approve`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+                showToast('Driver approved!', 'success');
+                loadDrivers();
+            } catch (e) {
+                showToast('Failed to approve driver', 'error');
+            }
+        }
+
+        async function rejectDriver(id) {
+            if (!confirm('Are you sure you want to reject this driver?')) return;
+            try {
+                await fetch(`${API_BASE}/api/drivers/${id}/reject`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+                showToast('Driver rejected', 'success');
+                loadDrivers();
+            } catch (e) {
+                showToast('Failed to reject driver', 'error');
+            }
+        }
+
+        // Load Orders
+        async function loadOrders() {
+            try {
+                const orders = await fetch(`${API_BASE}/admin/api/orders?secret=${encodeURIComponent(adminSecret)}`).then(r => r.json());
+
+                // Update stats
+                const pending = orders.filter(o => o.status === 'pending' || o.status === 'placed').length;
+                const progress = orders.filter(o => ['accepted', 'preparing', 'ready', 'picked_up'].includes(o.status)).length;
+                const completed = orders.filter(o => o.status === 'delivered' || o.status === 'completed').length;
+
+                document.getElementById('ordersPending').textContent = pending;
+                document.getElementById('ordersProgress').textContent = progress;
+                document.getElementById('ordersCompleted').textContent = completed;
+
+                // Check stuck orders
+                const stuck = await fetch(`${API_BASE}/api/erp/orders/stuck`).then(r => r.json()).catch(() => ({ stuck_orders: [] }));
+                document.getElementById('ordersStuck').textContent = stuck.stuck_orders?.length || 0;
+
+                const tbody = document.getElementById('orderList');
+                if (orders && orders.length > 0) {
+                    tbody.innerHTML = orders.slice(0, 20).map(o => `
+                        <tr>
+                            <td>#${o.id}</td>
+                            <td>${o.customer_name || '-'}</td>
+                            <td>${o.restaurant_name || '-'}</td>
+                            <td>$${(o.total || 0).toFixed(2)}</td>
+                            <td><span class="badge badge-${o.status === 'delivered' ? 'approved' : 'pending'}">${o.status || '-'}</span></td>
+                            <td><button class="btn-view" onclick="viewOrder(${o.id})">View</button></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6">No orders found</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('orderList').innerHTML = '<tr><td colspan="6">Failed to load orders</td></tr>';
+            }
+        }
+
+        // Load Journal Entries
+        async function loadJournalEntries() {
+            try {
+                const entries = await fetch(`${API_BASE}/api/erp/journal-entries`, {
+                    headers: authHeaders()
+                }).then(r => r.json());
+
+                const tbody = document.getElementById('journalList');
+                if (entries && entries.length > 0) {
+                    tbody.innerHTML = entries.slice(0, 50).map(e => `
+                        <tr>
+                            <td>${new Date(e.created_at || e.date).toLocaleDateString()}</td>
+                            <td>${e.id || e.entry_id || '-'}</td>
+                            <td>${e.description || e.memo || '-'}</td>
+                            <td>$${(e.debit || 0).toFixed(2)}</td>
+                            <td>$${(e.credit || 0).toFixed(2)}</td>
+                            <td>${e.account || e.account_name || '-'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6">No journal entries found</td></tr>';
+                }
+            } catch (e) {
+                document.getElementById('journalList').innerHTML = '<tr><td colspan="6">Failed to load journal entries (auth required)</td></tr>';
+            }
+        }
+
+        // Load Accounting
+        async function loadAccounting() {
+            try {
+                const dashboard = await fetch(`${API_BASE}/api/accounting/dashboard`).then(r => r.json());
+
+                document.getElementById('totalRevenue').textContent = `$${(dashboard.total_revenue || 0).toFixed(2)}`;
+                document.getElementById('platformFees').textContent = `$${(dashboard.platform_fees || 0).toFixed(2)}`;
+                document.getElementById('driverPayouts').textContent = `$${(dashboard.driver_payouts || 0).toFixed(2)}`;
+                document.getElementById('vendorPayouts').textContent = `$${(dashboard.vendor_payouts || 0).toFixed(2)}`;
+
+                document.getElementById('accountingSummary').innerHTML = `
+                    <h3 style="margin-bottom: 15px;">Income Statement Summary</h3>
+                    <p><strong>Gross Revenue:</strong> $${(dashboard.gross_revenue || dashboard.total_revenue || 0).toFixed(2)}</p>
+                    <p><strong>Net Revenue:</strong> $${(dashboard.net_revenue || 0).toFixed(2)}</p>
+                    <p><strong>Total Expenses:</strong> $${(dashboard.total_expenses || 0).toFixed(2)}</p>
+                    <p><strong>Net Income:</strong> $${(dashboard.net_income || 0).toFixed(2)}</p>
+                    <hr style="margin: 15px 0; border-color: #334155;">
+                    <p style="color: #94a3b8; font-size: 13px;">Last updated: ${new Date().toLocaleString()}</p>
+                `;
+            } catch (e) {
+                document.getElementById('accountingSummary').innerHTML = '<p>Failed to load accounting data</p>';
+            }
+        }
+
+        // Enter key for login
+        document.getElementById('adminSecret').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>

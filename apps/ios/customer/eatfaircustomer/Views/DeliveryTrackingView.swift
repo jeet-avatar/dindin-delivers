@@ -61,7 +61,9 @@ struct ActiveDeliveryTrackingView: View {
                         order: order,
                         estimatedTime: viewModel.estimatedTime,
                         driverLocation: viewModel.driverLocation,
-                        onExpandMap: { isMapExpanded = true }
+                        onExpandMap: { isMapExpanded = true },
+                        timelineEvents: viewModel.timelineEvents,
+                        driverInfo: viewModel.driverInfo
                     )
                     .transition(.move(edge: .bottom))
                 }
@@ -147,10 +149,17 @@ struct DeliveryTrackingMapView: View {
         let latitudes = coordinates.map { $0.latitude }
         let longitudes = coordinates.map { $0.longitude }
 
-        let centerLat = (latitudes.min()! + latitudes.max()!) / 2
-        let centerLon = (longitudes.min()! + longitudes.max()!) / 2
-        let spanLat = (latitudes.max()! - latitudes.min()!) * 1.5 + 0.01
-        let spanLon = (longitudes.max()! - longitudes.min()!) * 1.5 + 0.01
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else {
+            return
+        }
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = (maxLat - minLat) * 1.5 + 0.01
+        let spanLon = (maxLon - minLon) * 1.5 + 0.01
 
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
@@ -259,6 +268,8 @@ struct DeliveryBottomSheet: View {
     let estimatedTime: String
     let driverLocation: CLLocationCoordinate2D?
     let onExpandMap: () -> Void
+    var timelineEvents: [P2PTimelineEvent] = []
+    var driverInfo: P2PTrackingDriver?
 
     /// Format ETA using world-class time formatting
     private var formattedETA: String {
@@ -325,9 +336,16 @@ struct DeliveryBottomSheet: View {
 
             Divider()
 
-            // Status Timeline
-            DeliveryStatusTimeline(order: order)
+            // Status Timeline - use real timeline events if available
+            DeliveryStatusTimeline(order: order, timelineEvents: timelineEvents)
                 .padding()
+
+            // Driver Info (if available from full tracking)
+            if let driver = driverInfo, driver.name != nil {
+                Divider()
+                DriverInfoRow(driver: driver)
+                    .padding(.horizontal)
+            }
 
             Divider()
 
@@ -420,65 +438,208 @@ struct DeliveryBottomSheet: View {
 // MARK: - Delivery Status Timeline
 struct DeliveryStatusTimeline: View {
     let order: Order
+    var timelineEvents: [P2PTimelineEvent] = []
 
-    private var stages: [(name: String, icon: String, isActive: Bool, isCompleted: Bool)] {
+    /// Convert API timeline events to display format
+    private var timelineEventMap: [String: String] {
+        var map: [String: String] = [:]
+        for event in timelineEvents {
+            map[event.status.lowercased()] = event.time
+        }
+        return map
+    }
+
+    private var stages: [(name: String, icon: String, isActive: Bool, isCompleted: Bool, time: String?)] {
         let status = order.status.lowercased()
+        let events = timelineEventMap
+
         return [
             ("Placed", "checkmark.circle.fill",
              status == "placed" || status == "pending",
-             true),
+             true,
+             events["placed"] ?? events["pending"]),
             ("Preparing", "flame.fill",
              status == "preparing" || status == "confirmed",
-             ["preparing", "ready", "out for delivery", "ontheway", "delivered"].contains(status)),
+             ["preparing", "ready", "out for delivery", "ontheway", "delivered"].contains(status),
+             events["preparing"] ?? events["confirmed"]),
             ("Ready", "bag.fill",
              status == "ready",
-             ["ready", "out for delivery", "ontheway", "delivered"].contains(status)),
+             ["ready", "out for delivery", "ontheway", "delivered"].contains(status),
+             events["ready"]),
             ("On the way", "car.fill",
              status == "out for delivery" || status == "ontheway",
-             ["out for delivery", "ontheway", "delivered"].contains(status)),
+             ["out for delivery", "ontheway", "delivered"].contains(status),
+             events["out for delivery"] ?? events["ontheway"] ?? events["picked_up"]),
             ("Delivered", "house.fill",
              status == "delivered",
-             status == "delivered")
+             status == "delivered",
+             events["delivered"])
         ]
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
-                VStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(stage.isCompleted ? Theme.brandGreen : Color.gray.opacity(0.2))
-                            .frame(width: 36, height: 36)
-
-                        if stage.isActive && !stage.isCompleted {
+        VStack(spacing: 12) {
+            HStack(spacing: 0) {
+                ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
+                    VStack(spacing: 8) {
+                        ZStack {
                             Circle()
-                                .stroke(Theme.brandGreen, lineWidth: 2)
+                                .fill(stage.isCompleted ? Theme.brandGreen : Color.gray.opacity(0.2))
                                 .frame(width: 36, height: 36)
+
+                            if stage.isActive && !stage.isCompleted {
+                                Circle()
+                                    .stroke(Theme.brandGreen, lineWidth: 2)
+                                    .frame(width: 36, height: 36)
+                            }
+
+                            Image(systemName: stage.icon)
+                                .font(.system(size: 14))
+                                .foregroundColor(stage.isCompleted ? .white : .gray)
                         }
 
-                        Image(systemName: stage.icon)
-                            .font(.system(size: 14))
-                            .foregroundColor(stage.isCompleted ? .white : .gray)
+                        VStack(spacing: 2) {
+                            Text(stage.name)
+                                .font(.caption2)
+                                .fontWeight(stage.isActive ? .semibold : .regular)
+                                .foregroundColor(stage.isCompleted || stage.isActive ? Theme.brandGreen : .gray)
+                                .multilineTextAlignment(.center)
+
+                            // Show timestamp if available
+                            if let time = stage.time {
+                                Text(formatTimelineTime(time))
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(width: 60)
                     }
 
-                    Text(stage.name)
-                        .font(.caption2)
-                        .fontWeight(stage.isActive ? .semibold : .regular)
-                        .foregroundColor(stage.isCompleted || stage.isActive ? Theme.brandGreen : .gray)
-                        .multilineTextAlignment(.center)
-                        .frame(width: 60)
-                }
-
-                if index < stages.count - 1 {
-                    Rectangle()
-                        .fill(stages[index].isCompleted ? Theme.brandGreen : Color.gray.opacity(0.2))
-                        .frame(height: 2)
-                        .frame(maxWidth: .infinity)
-                        .padding(.bottom, 24)
+                    if index < stages.count - 1 {
+                        Rectangle()
+                            .fill(stages[index].isCompleted ? Theme.brandGreen : Color.gray.opacity(0.2))
+                            .frame(height: 2)
+                            .frame(maxWidth: .infinity)
+                            .padding(.bottom, 40)
+                    }
                 }
             }
         }
+    }
+
+    /// Format timeline timestamp for display
+    private func formatTimelineTime(_ timeString: String) -> String {
+        // Try to parse ISO8601 format
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        if let date = isoFormatter.date(from: timeString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "h:mm a"
+            return displayFormatter.string(from: date)
+        }
+
+        // Try alternate ISO format without fractional seconds
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        if let date = isoFormatter.date(from: timeString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "h:mm a"
+            return displayFormatter.string(from: date)
+        }
+
+        // If already formatted (like "2:30 PM"), return as-is
+        if timeString.contains(":") && (timeString.contains("AM") || timeString.contains("PM")) {
+            return timeString
+        }
+
+        return timeString
+    }
+}
+
+// MARK: - Driver Info Row
+struct DriverInfoRow: View {
+    let driver: P2PTrackingDriver
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Driver photo or placeholder
+            ZStack {
+                Circle()
+                    .fill(Theme.brandGreen.opacity(0.1))
+                    .frame(width: 50, height: 50)
+
+                if let photoUrl = driver.photoUrl, let url = URL(string: photoUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 50, height: 50)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Image(systemName: "person.fill")
+                            .font(.title2)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                } else {
+                    Image(systemName: "person.fill")
+                        .font(.title2)
+                        .foregroundColor(Theme.brandGreen)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(driver.name ?? "Driver")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                HStack(spacing: 8) {
+                    if let rating = driver.rating {
+                        HStack(spacing: 2) {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundColor(.yellow)
+                            Text(String(format: "%.1f", rating))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if let vehicle = driver.vehicle {
+                        Text(vehicle)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if let plate = driver.licensePlate {
+                        Text(plate)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Call button
+            if let phone = driver.phone, !phone.isEmpty {
+                Button(action: {
+                    let cleanPhone = phone.replacingOccurrences(of: " ", with: "")
+                        .replacingOccurrences(of: "-", with: "")
+                    if let url = URL(string: "tel://\(cleanPhone)") {
+                        UIApplication.shared.open(url)
+                    }
+                }) {
+                    Image(systemName: "phone.fill")
+                        .font(.body)
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Theme.brandGreen)
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(.vertical, 8)
     }
 }
 

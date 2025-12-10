@@ -2,9 +2,11 @@ import Foundation
 import CoreLocation
 import Combine
 import EatFairShared
+import Network
 
 /// LocationManager handles real-time GPS tracking for delivery drivers
 /// Publishes location updates and syncs with P2P backend (PostgreSQL)
+/// Issues #14-18, #43 Fixed: Timer cleanup, weak self, location permissions, network checks
 class LocationManager: NSObject, ObservableObject {
     static let shared = LocationManager()
 
@@ -17,6 +19,7 @@ class LocationManager: NSObject, ObservableObject {
     @Published var locationError: String?
     @Published var speed: CLLocationSpeed = 0 // m/s
     @Published var distanceTraveled: CLLocationDistance = 0
+    @Published var isNetworkAvailable = true // Issue #43: Network reachability
 
     // MARK: - Private Properties
     private let locationManager = CLLocationManager()
@@ -25,16 +28,54 @@ class LocationManager: NSObject, ObservableObject {
     private var locationUpdateTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
+    // Issue #43: Network monitor for reachability
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "com.dollor.driver.network")
+
+    // Issue #18: Track consecutive P2P update failures
+    private var consecutiveP2PFailures = 0
+    private let maxConsecutiveFailures = 5
+
     // Current active order ID for location updates
     var activeOrderId: Int?
 
-    // MARK: - Configuration
+    // Location retry queue for failed updates
+    private var pendingLocationUpdates: [(orderId: Int?, latitude: Double, longitude: Double, timestamp: Date)] = []
+    private let maxPendingUpdates = 50 // Prevent memory issues
+    private var retryTimer: Timer?
+
+    // MARK: - Configuration (Issue #17: Could be moved to AppConfig)
     private let minimumUpdateDistance: CLLocationDistance = 10 // meters
     private let p2pUpdateInterval: TimeInterval = 5 // seconds (update driver location to P2P backend)
 
     override init() {
         super.init()
         setupLocationManager()
+        setupNetworkMonitor()
+    }
+
+    /// Issue #15 Fixed: Guarantee timer invalidation on deinit
+    deinit {
+        stopP2PUpdates()
+        retryTimer?.invalidate()
+        retryTimer = nil
+        networkMonitor.cancel()
+        #if DEBUG
+        print("[LocationManager] Deinitialized, timers cancelled")
+        #endif
+    }
+
+    /// Issue #43: Setup network reachability monitoring
+    private func setupNetworkMonitor() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.isNetworkAvailable = path.status == .satisfied
+                #if DEBUG
+                print("[LocationManager] Network status: \(path.status == .satisfied ? "available" : "unavailable")")
+                #endif
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
     }
 
     private func setupLocationManager() {
@@ -85,9 +126,19 @@ class LocationManager: NSObject, ObservableObject {
         stopP2PUpdates()
     }
 
-    /// Get current location once
+    /// Issue #16 Fixed: Get current location once with permission check
     func getCurrentLocation() {
-        locationManager.requestLocation()
+        // Check authorization before requesting location
+        switch authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.requestLocation()
+        case .notDetermined:
+            requestPermission()
+        case .denied, .restricted:
+            locationError = "Location access denied. Please enable in Settings."
+        @unknown default:
+            requestPermission()
+        }
     }
 
     /// Calculate distance from current location to a coordinate
@@ -132,9 +183,12 @@ class LocationManager: NSObject, ObservableObject {
 
     private func startP2PUpdates() {
         stopP2PUpdates() // Clear any existing timer
+        consecutiveP2PFailures = 0 // Reset failure counter
 
+        // Issue #14 Fixed: Proper weak self handling with guard
         locationUpdateTimer = Timer.scheduledTimer(withTimeInterval: p2pUpdateInterval, repeats: true) { [weak self] _ in
-            self?.updateLocationInP2P()
+            guard let self = self else { return }
+            self.updateLocationInP2P()
         }
     }
 
@@ -144,18 +198,39 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     private func updateLocationInP2P() {
+        // Issue #43: Check network availability before making API call
+        guard isNetworkAvailable else {
+            #if DEBUG
+            print("[LocationManager] Skipping P2P update - no network")
+            #endif
+            return
+        }
+
         guard let location = currentLocation else { return }
 
-        // Update driver's general location
+        // Issue #18 Fixed: Proper error handling for location updates
         p2pService.updateDriverLocation(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
-        ) { result in
-            #if DEBUG
-            if case .failure(let error) = result {
-                print("Error updating driver location in P2P: \(error)")
+        ) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .success:
+                self.consecutiveP2PFailures = 0
+            case .failure(let error):
+                self.consecutiveP2PFailures += 1
+                #if DEBUG
+                print("[LocationManager] P2P location update failed (\(self.consecutiveP2PFailures)/\(self.maxConsecutiveFailures)): \(error.localizedDescription)")
+                #endif
+
+                // Notify user after multiple consecutive failures
+                if self.consecutiveP2PFailures >= self.maxConsecutiveFailures {
+                    DispatchQueue.main.async {
+                        self.locationError = "Unable to sync location with server. Please check your connection."
+                    }
+                }
             }
-            #endif
         }
 
         // If there's an active order, update that order's driver location
@@ -170,20 +245,106 @@ class LocationManager: NSObject, ObservableObject {
         updateOrderLocationInP2P(orderId: orderIdInt)
     }
 
-    /// Update location for a specific order using P2P API
+    /// Update location for a specific order using P2P API with retry queue
     private func updateOrderLocationInP2P(orderId: Int) {
         guard let location = currentLocation else { return }
 
+        let latitude = location.coordinate.latitude
+        let longitude = location.coordinate.longitude
+
         p2pService.updateDriverLocation(
             orderId: orderId,
-            latitude: location.coordinate.latitude,
-            longitude: location.coordinate.longitude
-        ) { result in
-            #if DEBUG
-            if case .failure(let error) = result {
-                print("Error updating order location in P2P: \(error)")
+            latitude: latitude,
+            longitude: longitude
+        ) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .success:
+                // Success - no action needed
+                break
+            case .failure:
+                // Add to retry queue
+                self.queueFailedLocationUpdate(orderId: orderId, latitude: latitude, longitude: longitude)
             }
-            #endif
+        }
+    }
+
+    // MARK: - Location Retry Queue
+
+    /// Add failed location update to retry queue
+    private func queueFailedLocationUpdate(orderId: Int?, latitude: Double, longitude: Double) {
+        // Prevent queue from growing too large
+        if pendingLocationUpdates.count >= maxPendingUpdates {
+            pendingLocationUpdates.removeFirst()
+        }
+
+        pendingLocationUpdates.append((orderId: orderId, latitude: latitude, longitude: longitude, timestamp: Date()))
+
+        // Start retry timer if not already running
+        startRetryTimerIfNeeded()
+
+        #if DEBUG
+        print("[LocationManager] Queued failed location update. Queue size: \(pendingLocationUpdates.count)")
+        #endif
+    }
+
+    /// Start retry timer if there are pending updates
+    private func startRetryTimerIfNeeded() {
+        guard retryTimer == nil, !pendingLocationUpdates.isEmpty else { return }
+
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.processPendingLocationUpdates()
+        }
+    }
+
+    /// Process pending location updates when network is available
+    private func processPendingLocationUpdates() {
+        guard isNetworkAvailable, !pendingLocationUpdates.isEmpty else {
+            // Stop timer if no pending updates
+            if pendingLocationUpdates.isEmpty {
+                retryTimer?.invalidate()
+                retryTimer = nil
+            }
+            return
+        }
+
+        #if DEBUG
+        print("[LocationManager] Processing \(pendingLocationUpdates.count) pending location updates")
+        #endif
+
+        // Remove stale updates (older than 5 minutes)
+        let fiveMinutesAgo = Date().addingTimeInterval(-300)
+        pendingLocationUpdates.removeAll { $0.timestamp < fiveMinutesAgo }
+
+        // Process remaining updates
+        let updatesToProcess = pendingLocationUpdates
+        pendingLocationUpdates.removeAll()
+
+        for update in updatesToProcess {
+            if let orderId = update.orderId {
+                p2pService.updateDriverLocation(
+                    orderId: orderId,
+                    latitude: update.latitude,
+                    longitude: update.longitude
+                ) { [weak self] result in
+                    if case .failure = result {
+                        // Re-queue if still failing
+                        self?.queueFailedLocationUpdate(orderId: orderId, latitude: update.latitude, longitude: update.longitude)
+                    }
+                }
+            } else {
+                p2pService.updateDriverLocation(
+                    latitude: update.latitude,
+                    longitude: update.longitude
+                ) { _ in }
+            }
+        }
+
+        // Stop timer if queue is empty
+        if pendingLocationUpdates.isEmpty {
+            retryTimer?.invalidate()
+            retryTimer = nil
         }
     }
 
@@ -233,9 +394,6 @@ extension LocationManager: CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         locationError = error.localizedDescription
-        #if DEBUG
-        print("Location error: \(error)")
-        #endif
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

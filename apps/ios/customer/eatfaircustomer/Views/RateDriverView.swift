@@ -8,7 +8,6 @@
 
 import SwiftUI
 import Combine
-import FirebaseFirestore
 import EatFairShared
 
 struct RateDriverView: View {
@@ -205,65 +204,52 @@ class RateDriverViewModel: ObservableObject {
     @Published var friendly: Bool = false
     @Published var followedInstructions: Bool = false
     @Published var foodQuality: Bool = false
-    
+    @Published var isSubmitting: Bool = false
+    @Published var errorMessage: String?
+
     private let order: Order
-    private let db = Firestore.firestore()
-    
+    private let p2pService = P2PAPIService.shared
+
     init(order: Order) {
         self.order = order
     }
-    
+
     func submitRating() {
         guard let orderId = order.id,
-              let driverId = order.driverId else { return }
+              let driverIdString = order.driverId,
+              let driverId = Int(driverIdString) else {
+            errorMessage = "Invalid order or driver info"
+            return
+        }
 
-        let rating = Rating(
-            id: UUID().uuidString,
-            orderId: orderId,
-            customerId: order.customerId,
-            customerName: order.customerName,
+        guard let orderIdInt = Int(orderId) else {
+            errorMessage = "Invalid order ID"
+            return
+        }
+
+        isSubmitting = true
+        errorMessage = nil
+
+        p2pService.submitDriverRating(
+            orderId: orderIdInt,
             driverId: driverId,
-            driverName: order.driverName ?? "Driver",
-            restaurantId: order.restaurant.id,
-            rating: self.rating,
+            rating: rating,
             comment: comment.isEmpty ? nil : comment,
             onTime: onTime,
             friendly: friendly,
             followedInstructions: followedInstructions,
-            foodQuality: foodQuality,
-            createdAt: Int64(Date().timeIntervalSince1970 * 1000)
-        )
-        
-        do {
-            try db.collection("ratings").document(rating.id ?? UUID().uuidString).setData(from: rating)
-            
-            // Update order status
-            db.collection("orders").document(orderId).updateData([
-                "isRated": true
-            ])
-            
-            // Update driver's rating
-            updateDriverRating(driverId: driverId, newRating: self.rating)
-        } catch {
-            print("Error saving rating: \(error)")
-        }
-    }
-    
-    private func updateDriverRating(driverId: String, newRating: Int) {
-        db.collection("ratings")
-            .whereField("driverId", isEqualTo: driverId)
-            .getDocuments { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else { return }
-                
-                let ratings = documents.compactMap { try? $0.data(as: Rating.self) }
-                let totalRatings = ratings.map { $0.rating }.reduce(0, +)
-                let avgRating = Double(totalRatings) / Double(ratings.count)
-                
-                // Update driver's stats
-                self?.db.collection("drivers").document(driverId).updateData([
-                    "stats.rating": avgRating,
-                    "stats.totalDeliveries": ratings.count
-                ])
+            foodQuality: foodQuality
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isSubmitting = false
+                switch result {
+                case .success(let response):
+                    print("[RateDriverView] Rating submitted: \(response.message)")
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    print("[RateDriverView] Rating failed: \(error)")
+                }
             }
+        }
     }
 }

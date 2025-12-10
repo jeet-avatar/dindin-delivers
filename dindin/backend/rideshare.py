@@ -1,15 +1,23 @@
 """
-RIDESHARE MODULE - ENTERPRISE-LEVEL UBER-STYLE RIDE SHARING
-============================================================
-$1 Platform Fee Model - 90%+ goes to drivers!
+RIDESHARE MODULE - PEER-TO-PEER RIDESHARE MATCHMAKING PLATFORM
+==============================================================
+Dollor.ai connects riders with independent drivers.
+NOT a Transportation Network Company (TNC) - we are a MATCHMAKING service.
 
-Pricing Structure (must match iOS RideRequestViewModel.swift):
-- Platform Fee: $1.00 flat (only fee to platform)
-- Base Fare: $2.00 (goes to driver)
-- Per Mile: $1.00 (goes to driver)
-- Per Minute: $0.15 (goes to driver)
-- Minimum Fare: $5.00 total
-- Cancellation Fee: $5.00 (after driver assigned)
+Legal Model:
+- Dollor.ai provides CONNECTION service, not transportation
+- Drivers are INDEPENDENT and set their own prices
+- Riders make OFFERS which drivers can accept/decline/counter
+- $1 CONNECTION FEE for using our matchmaking platform
+- Transportation is directly between rider and driver
+
+Suggested Pricing (drivers can accept, decline, or counter):
+- Connection Fee: $1.00 (for matchmaking service)
+- Suggested Base: $2.00 (driver receives)
+- Suggested Per Mile: $1.00 (driver receives)
+- Suggested Per Minute: $0.15 (driver receives)
+- Minimum Offer: $5.00 total
+- Cancellation: Terms between rider and driver
 
 All calculations use Haversine formula for distance.
 All prices include state-based tax calculations.
@@ -17,6 +25,7 @@ All prices include state-based tax calculations.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
@@ -25,6 +34,7 @@ import math
 import secrets
 
 from database import get_db
+from models import Ride, RideStatus
 from pricing_config import (
     RIDESHARE_PRICING_CONFIG,
     STATE_TAX_RATES,
@@ -168,24 +178,79 @@ STATE_NAME_TO_CODE = {
 
 
 # =============================================================================
-# IN-MEMORY RIDE STORAGE (Replace with database in production)
+# DATABASE HELPERS
 # =============================================================================
-
-# In production, use SQLAlchemy models
-rides_db: Dict[int, Dict[str, Any]] = {}
-ride_counter = 1000  # Starting ride ID
-
-
-def get_next_ride_id() -> int:
-    """Get next ride ID (thread-safe in production)"""
-    global ride_counter
-    ride_counter += 1
-    return ride_counter
-
 
 def generate_ride_number() -> str:
     """Generate unique ride number like RIDE-XXXXX"""
     return f"RIDE-{secrets.token_hex(3).upper()}"
+
+
+def ride_to_dict(ride: Ride) -> Dict[str, Any]:
+    """Convert Ride database model to dictionary for backward compatibility"""
+    return {
+        "ride_id": ride.id,
+        "ride_number": ride.ride_number,
+        "customer_id": ride.customer_id,
+        "customer_name": ride.customer_name,
+        "customer_email": ride.customer_email,
+        "customer_phone": ride.customer_phone,
+        "pickup": {
+            "street": ride.pickup_street,
+            "city": ride.pickup_city,
+            "state": ride.pickup_state,
+            "zip": ride.pickup_zip,
+            "lat": ride.pickup_lat,
+            "lng": ride.pickup_lng
+        },
+        "dropoff": {
+            "street": ride.dropoff_street,
+            "city": ride.dropoff_city,
+            "state": ride.dropoff_state,
+            "zip": ride.dropoff_zip,
+            "lat": ride.dropoff_lat,
+            "lng": ride.dropoff_lng
+        },
+        "notes": ride.notes,
+        "fare_breakdown": {
+            "base_fare": ride.base_fare,
+            "distance_fee": ride.distance_fee,
+            "time_fee": ride.time_fee,
+            "surge_multiplier": ride.surge_multiplier,
+            "platform_fee": ride.platform_fee,
+            "tax_rate": f"{(ride.tax_rate or 0) * 100:.2f}%",
+            "tax_rate_decimal": ride.tax_rate,
+            "tax_amount": ride.tax_amount,
+            "tip": ride.tip,
+            "total_fare": ride.total_fare,
+            "driver_earnings": ride.driver_earnings,
+            "distance_miles": ride.distance_miles,
+            "duration_minutes": ride.duration_minutes
+        },
+        "status": ride.status.value if ride.status else "waiting_for_driver",
+        "driver_id": ride.driver_id,
+        "driver_name": ride.driver_name,
+        "driver_phone": ride.driver_phone,
+        "driver_latitude": ride.driver_latitude,
+        "driver_longitude": ride.driver_longitude,
+        "customer_offer": ride.customer_offer,
+        "driver_offer": ride.driver_offer,
+        "agreed_fare": ride.agreed_fare,
+        "negotiation_status": ride.negotiation_status,
+        "payment_status": ride.payment_status,
+        "payment_intent_id": ride.payment_intent_id,
+        "payment_amount": ride.payment_amount,
+        "cancellation_reason": ride.cancellation_reason,
+        "cancellation_fee": ride.cancellation_fee,
+        "refund_amount": ride.refund_amount,
+        "created_at": ride.created_at,
+        "updated_at": ride.updated_at,
+        "driver_accepted_at": ride.driver_accepted_at,
+        "picked_up_at": ride.picked_up_at,
+        "completed_at": ride.completed_at,
+        "cancelled_at": ride.cancelled_at,
+        "paid_at": ride.paid_at
+    }
 
 
 # =============================================================================
@@ -297,7 +362,7 @@ def calculate_fare(
     }
 
 
-def calculate_cancellation_fee(ride: Dict[str, Any]) -> float:
+def calculate_cancellation_fee_for_ride(ride: Ride) -> float:
     """
     Calculate cancellation fee based on ride status.
 
@@ -305,8 +370,8 @@ def calculate_cancellation_fee(ride: Dict[str, Any]) -> float:
     - $5: Driver assigned but not picked up
     - $10: Driver en route or ride in progress
     """
-    status = ride.get("status", "").lower()
-    created_at = ride.get("created_at", datetime.now())
+    status = ride.status.value if ride.status else ""
+    created_at = ride.created_at or datetime.now()
 
     # Check if within 2 minute grace period
     time_since_request = (datetime.now() - created_at).total_seconds()
@@ -314,7 +379,7 @@ def calculate_cancellation_fee(ride: Dict[str, Any]) -> float:
         return 0.0
 
     # No driver assigned - free cancellation
-    if not ride.get("driver_id"):
+    if not ride.driver_id:
         return 0.0
 
     # Status-based fee
@@ -539,17 +604,65 @@ async def request_ride(
         surge_multiplier=1.0  # Can add surge logic later
     )
 
-    # Create ride record
-    ride_id = get_next_ride_id()
+    # Generate unique ride number
     ride_number = generate_ride_number()
 
-    ride_data = {
-        "ride_id": ride_id,
-        "ride_number": ride_number,
-        "customer_name": request.customer_name,
-        "customer_email": request.customer_email,
-        "customer_phone": request.customer_phone,
-        "pickup": {
+    # Create ride record in database
+    ride = Ride(
+        ride_number=ride_number,
+        customer_name=request.customer_name,
+        customer_email=request.customer_email,
+        customer_phone=request.customer_phone,
+        # Pickup location
+        pickup_street=pickup.street,
+        pickup_city=pickup.city,
+        pickup_state=pickup.state,
+        pickup_zip=pickup.zip,
+        pickup_lat=pickup.lat,
+        pickup_lng=pickup.lng,
+        # Dropoff location
+        dropoff_street=dropoff.street,
+        dropoff_city=dropoff.city,
+        dropoff_state=dropoff.state,
+        dropoff_zip=dropoff.zip,
+        dropoff_lat=dropoff.lat,
+        dropoff_lng=dropoff.lng,
+        # Trip details
+        distance_miles=fare["distance_miles"],
+        duration_minutes=fare["duration_minutes"],
+        notes=request.notes,
+        # Fare breakdown
+        base_fare=fare["base_fare"],
+        distance_fee=fare["distance_fee"],
+        time_fee=fare["time_fee"],
+        surge_multiplier=fare["surge_multiplier"],
+        platform_fee=fare["platform_fee"],
+        tax_rate=fare["tax_rate_decimal"],
+        tax_amount=fare["tax_amount"],
+        tip=fare["tip"],
+        total_fare=fare["total_fare"],
+        driver_earnings=fare["driver_earnings"],
+        # Status
+        status=RideStatus.WAITING_FOR_DRIVER
+    )
+
+    db.add(ride)
+    db.commit()
+    db.refresh(ride)
+
+    # Create journal entries for accounting
+    ride_dict = ride_to_dict(ride)
+    journal = create_rideshare_journal_entry(ride_dict, db)
+
+    print(f"[RIDESHARE] New ride request: {ride_number} (ID: {ride.id})")
+    print(f"[RIDESHARE] Distance: {distance_miles:.2f} mi, Duration: {duration_minutes:.0f} min")
+    print(f"[RIDESHARE] Total fare: ${fare['total_fare']:.2f}, Driver: ${fare['driver_earnings']:.2f}, Platform: ${fare['platform_fee']:.2f}")
+
+    return RideRequestResponse(
+        success=True,
+        ride_id=ride.id,
+        ride_number=ride_number,
+        pickup={
             "street": pickup.street,
             "city": pickup.city,
             "state": pickup.state,
@@ -557,7 +670,7 @@ async def request_ride(
             "lat": pickup.lat,
             "lng": pickup.lng
         },
-        "dropoff": {
+        dropoff={
             "street": dropoff.street,
             "city": dropoff.city,
             "state": dropoff.state,
@@ -565,35 +678,6 @@ async def request_ride(
             "lat": dropoff.lat,
             "lng": dropoff.lng
         },
-        "notes": request.notes,
-        "fare_breakdown": fare,
-        "status": "waiting_for_driver",
-        "driver_id": None,
-        "driver_name": None,
-        "driver_phone": None,
-        "driver_latitude": None,
-        "driver_longitude": None,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now()
-    }
-
-    # Store ride (in production, save to database)
-    rides_db[ride_id] = ride_data
-
-    # Create journal entries (in production, save to accounting table)
-    journal = create_rideshare_journal_entry(ride_data, db)
-    ride_data["journal_entries"] = journal
-
-    print(f"[RIDESHARE] New ride request: {ride_number}")
-    print(f"[RIDESHARE] Distance: {distance_miles:.2f} mi, Duration: {duration_minutes:.0f} min")
-    print(f"[RIDESHARE] Total fare: ${fare['total_fare']:.2f}, Driver: ${fare['driver_earnings']:.2f}, Platform: ${fare['platform_fee']:.2f}")
-
-    return RideRequestResponse(
-        success=True,
-        ride_id=ride_id,
-        ride_number=ride_number,
-        pickup=ride_data["pickup"],
-        dropoff=ride_data["dropoff"],
         total_fare=fare["total_fare"],
         driver_earnings=fare["driver_earnings"],
         platform_fee=fare["platform_fee"],
@@ -605,7 +689,7 @@ async def request_ride(
         tax_rate=fare["tax_rate"],
         tip=fare["tip"],
         status="waiting_for_driver",
-        processed_by="Dollor.ai AI Dispatch"
+        processed_by="Dollor.ai Matchmaking"
     )
 
 
@@ -618,21 +702,20 @@ async def track_ride(
     Track a ride - Returns driver location and status.
     Called periodically by iOS app.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Calculate ETA if driver is assigned
     estimated_arrival = None
-    if ride.get("driver_latitude") and ride.get("dropoff"):
+    if ride.driver_latitude and ride.dropoff_lat:
         # Calculate remaining distance to dropoff
         remaining_distance = haversine_distance(
-            ride["driver_latitude"], ride["driver_longitude"],
-            ride["dropoff"]["lat"], ride["dropoff"]["lng"]
+            ride.driver_latitude, ride.driver_longitude,
+            ride.dropoff_lat, ride.dropoff_lng
         )
         eta_minutes = estimate_duration(remaining_distance)
         arrival_time = datetime.now() + timedelta(minutes=eta_minutes)
@@ -641,12 +724,12 @@ async def track_ride(
     return RideTrackingResponse(
         success=True,
         order_id=ride_id,
-        order_number=ride.get("ride_number", ""),
-        status=ride.get("status", "waiting_for_driver"),
-        driver_name=ride.get("driver_name"),
-        driver_phone=ride.get("driver_phone"),
-        driver_latitude=ride.get("driver_latitude"),
-        driver_longitude=ride.get("driver_longitude"),
+        order_number=ride.ride_number or "",
+        status=ride.status.value if ride.status else "waiting_for_driver",
+        driver_name=ride.driver_name,
+        driver_phone=ride.driver_phone,
+        driver_latitude=ride.driver_latitude,
+        driver_longitude=ride.driver_longitude,
         estimated_arrival=estimated_arrival
     )
 
@@ -660,40 +743,41 @@ async def cancel_ride(
     """
     Cancel a ride - Calculates cancellation fee based on status.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Check if already cancelled or completed
-    if ride.get("status") in ["cancelled", "completed", "delivered"]:
+    if ride.status in [RideStatus.CANCELLED, RideStatus.COMPLETED]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ride cannot be cancelled"
         )
 
     # Calculate cancellation fee
-    cancellation_fee = calculate_cancellation_fee(ride)
+    cancellation_fee = calculate_cancellation_fee_for_ride(ride)
 
     # Calculate refund (if payment was already made)
-    total_paid = ride.get("fare_breakdown", {}).get("total_fare", 0)
+    total_paid = ride.total_fare or 0
     refund_amount = max(0, total_paid - cancellation_fee)
 
     # Update ride status
-    ride["status"] = "cancelled"
-    ride["cancelled_at"] = datetime.now()
-    ride["cancellation_reason"] = reason
-    ride["cancellation_fee"] = cancellation_fee
-    ride["refund_amount"] = refund_amount
+    ride.status = RideStatus.CANCELLED
+    ride.cancelled_at = datetime.now()
+    ride.cancellation_reason = reason
+    ride.cancellation_fee = cancellation_fee
+    ride.refund_amount = refund_amount
+
+    db.commit()
 
     # Create journal entries for cancellation
-    cancel_journal = create_cancellation_journal_entry(ride, cancellation_fee, refund_amount)
-    ride["cancellation_journal"] = cancel_journal
+    ride_dict = ride_to_dict(ride)
+    cancel_journal = create_cancellation_journal_entry(ride_dict, cancellation_fee, refund_amount)
 
-    print(f"[RIDESHARE] Ride cancelled: {ride.get('ride_number')}")
+    print(f"[RIDESHARE] Ride cancelled: {ride.ride_number}")
     print(f"[RIDESHARE] Fee: ${cancellation_fee:.2f}, Refund: ${refund_amount:.2f}")
 
     message = "Ride cancelled successfully"
@@ -720,27 +804,28 @@ async def customer_negotiate_fare(
     In the $1 platform model, negotiations only affect driver earnings.
     Platform fee remains $1 flat regardless.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Validate proposed fare meets minimum
-    if proposed_fare < MINIMUM_FARE:
+    if proposed_fare < RIDESHARE_PRICING_CONFIG.min_fare:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Proposed fare must be at least ${MINIMUM_FARE:.2f}"
+            detail=f"Proposed fare must be at least ${RIDESHARE_PRICING_CONFIG.min_fare:.2f}"
         )
 
     # Store negotiation
-    ride["customer_offer"] = proposed_fare
-    ride["negotiation_status"] = "pending_driver_response"
+    ride.customer_offer = proposed_fare
+    ride.negotiation_status = "pending_driver_response"
+    ride.updated_at = datetime.now()
+    db.commit()
 
     # Calculate what driver would earn from this offer
-    driver_would_earn = proposed_fare - PLATFORM_FEE - ride.get("fare_breakdown", {}).get("tax_amount", 0)
+    driver_would_earn = proposed_fare - RIDESHARE_PRICING_CONFIG.platform_fee - (ride.tax_amount or 0)
 
     return FareNegotiationResponse(
         success=True,
@@ -760,28 +845,29 @@ async def customer_accept_driver_fare(
     """
     Customer accepts the driver's counter-offer.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Update fare and status
-    ride["agreed_fare"] = accepted_fare
-    ride["negotiation_status"] = "accepted"
-    ride["status"] = "driver_assigned"
+    ride.agreed_fare = accepted_fare
+    ride.negotiation_status = "accepted"
+    ride.status = RideStatus.DRIVER_ASSIGNED
 
     # Recalculate fare breakdown with agreed amount
-    original_fare = ride.get("fare_breakdown", {})
-    tax_rate_decimal = original_fare.get("tax_rate_decimal", 0.08)
+    tax_rate_decimal = ride.tax_rate or 0.08
 
     # Platform fee stays $1
-    driver_earnings = accepted_fare - PLATFORM_FEE - (accepted_fare * tax_rate_decimal)
+    driver_earnings = accepted_fare - RIDESHARE_PRICING_CONFIG.platform_fee - (accepted_fare * tax_rate_decimal)
 
-    ride["fare_breakdown"]["total_fare"] = accepted_fare
-    ride["fare_breakdown"]["driver_earnings"] = round(driver_earnings + original_fare.get("tip", 0), 2)
+    ride.total_fare = accepted_fare
+    ride.driver_earnings = round(driver_earnings + (ride.tip or 0), 2)
+    ride.updated_at = datetime.now()
+
+    db.commit()
 
     return FareNegotiationResponse(
         success=True,
@@ -817,16 +903,15 @@ async def get_negotiation_status(
     Used by customer app to poll for driver counter-offers.
     Returns current negotiation state including any driver counter-offers.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Determine negotiation status
-    nego_status = ride.get("negotiation_status", "none")
+    nego_status = ride.negotiation_status or "none"
 
     # Map internal status to client-facing status
     status_map = {
@@ -839,29 +924,27 @@ async def get_negotiation_status(
     client_status = status_map.get(nego_status, "none")
 
     # Calculate driver earnings if we have an agreed or offered fare
-    driver_earnings = None
-    fare_breakdown = ride.get("fare_breakdown", {})
+    driver_earnings_calc = None
+    tax_rate = ride.tax_rate or 0.08
 
-    if ride.get("agreed_fare"):
+    if ride.agreed_fare:
         # Use agreed fare
-        agreed = ride["agreed_fare"]
-        tax_rate = fare_breakdown.get("tax_rate_decimal", 0.08)
-        driver_earnings = round(agreed - RIDESHARE_PRICING_CONFIG.platform_fee - (agreed * tax_rate), 2)
-    elif ride.get("driver_offer"):
+        agreed = ride.agreed_fare
+        driver_earnings_calc = round(agreed - RIDESHARE_PRICING_CONFIG.platform_fee - (agreed * tax_rate), 2)
+    elif ride.driver_offer:
         # Use driver's offer
-        driver_offer = ride["driver_offer"]
-        tax_rate = fare_breakdown.get("tax_rate_decimal", 0.08)
-        driver_earnings = round(driver_offer - RIDESHARE_PRICING_CONFIG.platform_fee - (driver_offer * tax_rate), 2)
+        driver_offer_val = ride.driver_offer
+        driver_earnings_calc = round(driver_offer_val - RIDESHARE_PRICING_CONFIG.platform_fee - (driver_offer_val * tax_rate), 2)
 
     # Generate appropriate message
     message = None
     if client_status == "customer_offered":
         message = "Waiting for driver's response..."
     elif client_status == "driver_countered":
-        driver_offer = ride.get("driver_offer", 0)
-        message = f"Driver counter-offered ${driver_offer:.2f}"
+        driver_offer_val = ride.driver_offer or 0
+        message = f"Driver counter-offered ${driver_offer_val:.2f}"
     elif client_status == "accepted":
-        agreed = ride.get("agreed_fare", 0)
+        agreed = ride.agreed_fare or 0
         message = f"Fare agreed at ${agreed:.2f}! Driver is on the way."
     elif client_status == "rejected":
         message = "Driver declined the offer. Try a higher amount."
@@ -870,13 +953,13 @@ async def get_negotiation_status(
         success=True,
         ride_id=ride_id,
         negotiation_status=client_status,
-        customer_offer=ride.get("customer_offer"),
-        driver_offer=ride.get("driver_offer"),
-        agreed_fare=ride.get("agreed_fare"),
+        customer_offer=ride.customer_offer,
+        driver_offer=ride.driver_offer,
+        agreed_fare=ride.agreed_fare,
         platform_fee=RIDESHARE_PRICING_CONFIG.platform_fee,
-        driver_earnings=driver_earnings,
+        driver_earnings=driver_earnings_calc,
         message=message,
-        last_updated=ride.get("updated_at", datetime.now()).isoformat() if isinstance(ride.get("updated_at"), datetime) else str(ride.get("updated_at"))
+        last_updated=ride.updated_at.isoformat() if ride.updated_at else datetime.now().isoformat()
     )
 
 
@@ -892,13 +975,12 @@ async def driver_submit_counter_offer(
 
     Platform fee stays $1 regardless of negotiated fare.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
-
-    ride = rides_db[ride_id]
 
     # Validate counter offer meets minimum
     if counter_fare < RIDESHARE_PRICING_CONFIG.min_fare:
@@ -908,25 +990,25 @@ async def driver_submit_counter_offer(
         )
 
     # Store driver's counter offer
-    ride["driver_offer"] = counter_fare
-    ride["driver_id"] = driver_id
-    ride["negotiation_status"] = "driver_countered"
-    ride["updated_at"] = datetime.now()
+    ride.driver_offer = counter_fare
+    ride.driver_id = driver_id
+    ride.negotiation_status = "driver_countered"
+    ride.updated_at = datetime.now()
+    db.commit()
 
     # Calculate driver earnings from this offer
-    fare_breakdown = ride.get("fare_breakdown", {})
-    tax_rate = fare_breakdown.get("tax_rate_decimal", 0.08)
-    driver_earnings = round(counter_fare - RIDESHARE_PRICING_CONFIG.platform_fee - (counter_fare * tax_rate), 2)
+    tax_rate = ride.tax_rate or 0.08
+    driver_earnings_calc = round(counter_fare - RIDESHARE_PRICING_CONFIG.platform_fee - (counter_fare * tax_rate), 2)
 
-    print(f"[RIDESHARE] Driver {driver_id} counter-offered ${counter_fare:.2f} for ride {ride.get('ride_number')}")
-    print(f"[RIDESHARE] Driver would earn: ${driver_earnings:.2f} (after $1 platform fee)")
+    print(f"[RIDESHARE] Driver {driver_id} counter-offered ${counter_fare:.2f} for ride {ride.ride_number}")
+    print(f"[RIDESHARE] Driver would earn: ${driver_earnings_calc:.2f} (after $1 platform fee)")
 
     return {
         "success": True,
         "message": f"Counter-offer of ${counter_fare:.2f} sent to customer",
         "ride_id": ride_id,
         "driver_offer": counter_fare,
-        "driver_earnings": driver_earnings,
+        "driver_earnings": driver_earnings_calc,
         "platform_fee": RIDESHARE_PRICING_CONFIG.platform_fee,
         "status": "driver_countered"
     }
@@ -944,20 +1026,20 @@ async def create_payment_intent(
     In production, this would call Stripe API.
     For now, returns mock response.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Generate mock payment intent (in production, call Stripe)
     payment_intent_id = f"pi_{secrets.token_hex(12)}"
     client_secret = f"{payment_intent_id}_secret_{secrets.token_hex(12)}"
 
-    ride["payment_intent_id"] = payment_intent_id
-    ride["payment_amount"] = amount
+    ride.payment_intent_id = payment_intent_id
+    ride.payment_amount = amount
+    db.commit()
 
     return PaymentIntentResponse(
         success=True,
@@ -976,30 +1058,30 @@ async def confirm_payment(
     """
     Confirm ride payment was successful.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
     # Verify payment intent matches
-    if ride.get("payment_intent_id") != payment_intent_id:
+    if ride.payment_intent_id != payment_intent_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payment intent mismatch"
         )
 
     # Update ride as paid
-    ride["payment_status"] = "paid"
-    ride["paid_at"] = datetime.now()
+    ride.payment_status = "paid"
+    ride.paid_at = datetime.now()
+    db.commit()
 
     return PaymentConfirmationResponse(
         success=True,
         message="Payment successful! Thank you for riding with Dollor.ai",
         ride_id=ride_id,
-        paid_amount=ride.get("payment_amount", 0)
+        paid_amount=ride.payment_amount or 0
     )
 
 
@@ -1020,32 +1102,31 @@ async def get_available_rides(
     """
     available = []
 
-    for ride_id, ride in rides_db.items():
-        if ride.get("status") == "waiting_for_driver":
-            ride_info = {
-                "ride_id": ride_id,
-                "ride_number": ride.get("ride_number"),
-                "pickup_address": ride.get("pickup", {}).get("street", ""),
-                "dropoff_address": ride.get("dropoff", {}).get("street", ""),
-                "distance_miles": ride.get("fare_breakdown", {}).get("distance_miles", 0),
-                "duration_minutes": ride.get("fare_breakdown", {}).get("duration_minutes", 0),
-                "driver_earnings": ride.get("fare_breakdown", {}).get("driver_earnings", 0),
-                "tip": ride.get("fare_breakdown", {}).get("tip", 0),
-                "created_at": ride.get("created_at", datetime.now()).isoformat()
-            }
+    rides = db.query(Ride).filter(Ride.status == RideStatus.WAITING_FOR_DRIVER).all()
+    for ride in rides:
+        ride_info = {
+            "ride_id": ride.id,
+            "ride_number": ride.ride_number,
+            "pickup_address": ride.pickup_street or "",
+            "dropoff_address": ride.dropoff_street or "",
+            "distance_miles": ride.distance_miles or 0,
+            "duration_minutes": ride.duration_minutes or 0,
+            "driver_earnings": ride.driver_earnings or 0,
+            "tip": ride.tip or 0,
+            "created_at": ride.created_at.isoformat() if ride.created_at else datetime.now().isoformat()
+        }
 
-            # Filter by distance if driver location provided
-            if driver_lat and driver_lng:
-                pickup = ride.get("pickup", {})
-                distance_to_pickup = haversine_distance(
-                    driver_lat, driver_lng,
-                    pickup.get("lat", 0), pickup.get("lng", 0)
-                )
-                if distance_to_pickup <= max_distance:
-                    ride_info["distance_to_pickup"] = round(distance_to_pickup, 2)
-                    available.append(ride_info)
-            else:
+        # Filter by distance if driver location provided
+        if driver_lat and driver_lng and ride.pickup_lat and ride.pickup_lng:
+            distance_to_pickup = haversine_distance(
+                driver_lat, driver_lng,
+                ride.pickup_lat, ride.pickup_lng
+            )
+            if distance_to_pickup <= max_distance:
+                ride_info["distance_to_pickup"] = round(distance_to_pickup, 2)
                 available.append(ride_info)
+        else:
+            available.append(ride_info)
 
     # Sort by earnings (highest first)
     available.sort(key=lambda x: x.get("driver_earnings", 0), reverse=True)
@@ -1066,36 +1147,50 @@ async def driver_accept_ride(
     """
     Driver accepts a ride.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-
-    if ride.get("status") != "waiting_for_driver":
+    if ride.status != RideStatus.WAITING_FOR_DRIVER:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ride is no longer available"
         )
 
     # Assign driver
-    ride["driver_id"] = driver_id
-    ride["driver_name"] = driver_name
-    ride["driver_phone"] = driver_phone
-    ride["driver_latitude"] = driver_lat
-    ride["driver_longitude"] = driver_lng
-    ride["status"] = "driver_assigned"
-    ride["driver_accepted_at"] = datetime.now()
+    ride.driver_id = driver_id
+    ride.driver_name = driver_name
+    ride.driver_phone = driver_phone
+    ride.driver_latitude = driver_lat
+    ride.driver_longitude = driver_lng
+    ride.status = RideStatus.DRIVER_ASSIGNED
+    ride.driver_accepted_at = datetime.now()
+    db.commit()
 
     return {
         "success": True,
-        "message": f"Ride {ride.get('ride_number')} accepted",
+        "message": f"Ride {ride.ride_number} accepted",
         "ride_id": ride_id,
-        "pickup": ride.get("pickup"),
-        "dropoff": ride.get("dropoff"),
-        "earnings": ride.get("fare_breakdown", {}).get("driver_earnings", 0)
+        "pickup": {
+            "street": ride.pickup_street,
+            "city": ride.pickup_city,
+            "state": ride.pickup_state,
+            "zip": ride.pickup_zip,
+            "lat": ride.pickup_lat,
+            "lng": ride.pickup_lng
+        },
+        "dropoff": {
+            "street": ride.dropoff_street,
+            "city": ride.dropoff_city,
+            "state": ride.dropoff_state,
+            "zip": ride.dropoff_zip,
+            "lat": ride.dropoff_lat,
+            "lng": ride.dropoff_lng
+        },
+        "earnings": ride.driver_earnings or 0
     }
 
 
@@ -1109,16 +1204,17 @@ async def update_driver_location(
     """
     Update driver location for tracking.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-    ride["driver_latitude"] = driver_lat
-    ride["driver_longitude"] = driver_lng
-    ride["location_updated_at"] = datetime.now()
+    ride.driver_latitude = driver_lat
+    ride.driver_longitude = driver_lng
+    ride.updated_at = datetime.now()
+    db.commit()
 
     return {"success": True}
 
@@ -1131,15 +1227,16 @@ async def mark_customer_picked_up(
     """
     Driver marks customer as picked up.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-    ride["status"] = "in_progress"
-    ride["picked_up_at"] = datetime.now()
+    ride.status = RideStatus.IN_PROGRESS
+    ride.picked_up_at = datetime.now()
+    db.commit()
 
     return {
         "success": True,
@@ -1156,25 +1253,23 @@ async def complete_ride(
     """
     Driver completes the ride.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
-    ride["status"] = "completed"
-    ride["completed_at"] = datetime.now()
-
-    # Calculate final driver payout
-    driver_payout = ride.get("fare_breakdown", {}).get("driver_earnings", 0)
+    ride.status = RideStatus.COMPLETED
+    ride.completed_at = datetime.now()
+    db.commit()
 
     return {
         "success": True,
         "message": "Ride completed! Great job!",
         "status": "completed",
-        "driver_payout": driver_payout,
-        "ride_number": ride.get("ride_number")
+        "driver_payout": ride.driver_earnings or 0,
+        "ride_number": ride.ride_number
     }
 
 
@@ -1187,28 +1282,23 @@ async def get_rideshare_stats(db: Session = Depends(get_db)):
     """
     Get summary statistics for rideshare operations.
     """
-    total_rides = len(rides_db)
-    completed = sum(1 for r in rides_db.values() if r.get("status") == "completed")
-    cancelled = sum(1 for r in rides_db.values() if r.get("status") == "cancelled")
-    active = sum(1 for r in rides_db.values() if r.get("status") not in ["completed", "cancelled"])
+    from sqlalchemy import func
 
-    total_revenue = sum(
-        r.get("fare_breakdown", {}).get("total_fare", 0)
-        for r in rides_db.values()
-        if r.get("status") == "completed"
-    )
+    total_rides = db.query(Ride).count()
+    completed = db.query(Ride).filter(Ride.status == RideStatus.COMPLETED).count()
+    cancelled = db.query(Ride).filter(Ride.status == RideStatus.CANCELLED).count()
+    active = db.query(Ride).filter(Ride.status.notin_([RideStatus.COMPLETED, RideStatus.CANCELLED])).count()
 
-    platform_revenue = sum(
-        r.get("fare_breakdown", {}).get("platform_fee", PLATFORM_FEE)
-        for r in rides_db.values()
-        if r.get("status") == "completed"
-    )
+    # Get revenue stats from completed rides
+    revenue_stats = db.query(
+        func.sum(Ride.total_fare).label("total_revenue"),
+        func.sum(Ride.platform_fee).label("platform_revenue"),
+        func.sum(Ride.driver_earnings).label("driver_payouts")
+    ).filter(Ride.status == RideStatus.COMPLETED).first()
 
-    driver_payouts = sum(
-        r.get("fare_breakdown", {}).get("driver_earnings", 0)
-        for r in rides_db.values()
-        if r.get("status") == "completed"
-    )
+    total_revenue = float(revenue_stats.total_revenue or 0)
+    platform_revenue = float(revenue_stats.platform_revenue or 0)
+    driver_payouts = float(revenue_stats.driver_payouts or 0)
 
     return {
         "total_rides": total_rides,
@@ -1231,18 +1321,78 @@ async def get_ride_journal_entries(
     Get journal entries for a specific ride.
     For accounting/audit purposes.
     """
-    if ride_id not in rides_db:
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ride not found"
         )
 
-    ride = rides_db[ride_id]
+    # Build fare breakdown from ride model
+    fare_breakdown = {
+        "base_fare": ride.base_fare or 0,
+        "distance_fare": ride.distance_fare or 0,
+        "time_fare": ride.time_fare or 0,
+        "surge_amount": ride.surge_amount or 0,
+        "tax_amount": ride.tax_amount or 0,
+        "tip": ride.tip or 0,
+        "platform_fee": ride.platform_fee or RIDESHARE_PRICING_CONFIG.platform_fee,
+        "driver_earnings": ride.driver_earnings or 0,
+        "total_fare": ride.total_fare or 0
+    }
+
+    # Build journal entries for accounting
+    journal_entries = {}
+    if ride.status == RideStatus.COMPLETED and ride.total_fare:
+        journal_entries = {
+            "customer_charge": {
+                "account": "accounts_receivable",
+                "debit": ride.total_fare,
+                "credit": 0,
+                "description": f"Customer payment for ride {ride.ride_number}"
+            },
+            "platform_revenue": {
+                "account": "platform_revenue",
+                "debit": 0,
+                "credit": ride.platform_fee or RIDESHARE_PRICING_CONFIG.platform_fee,
+                "description": f"Platform fee for ride {ride.ride_number}"
+            },
+            "driver_payable": {
+                "account": "driver_payables",
+                "debit": 0,
+                "credit": ride.driver_earnings or 0,
+                "description": f"Driver earnings for ride {ride.ride_number}"
+            },
+            "tax_payable": {
+                "account": "tax_payables",
+                "debit": 0,
+                "credit": ride.tax_amount or 0,
+                "description": f"Tax collected for ride {ride.ride_number}"
+            }
+        }
+
+    # Build cancellation journal if applicable
+    cancellation_journal = None
+    if ride.status == RideStatus.CANCELLED and ride.cancellation_fee:
+        cancellation_journal = {
+            "cancellation_fee_revenue": {
+                "account": "cancellation_fee_revenue",
+                "debit": 0,
+                "credit": ride.cancellation_fee,
+                "description": f"Cancellation fee for ride {ride.ride_number}"
+            },
+            "refund_issued": {
+                "account": "refunds",
+                "debit": ride.refund_amount or 0,
+                "credit": 0,
+                "description": f"Refund for cancelled ride {ride.ride_number}"
+            }
+        }
 
     return {
         "ride_id": ride_id,
-        "ride_number": ride.get("ride_number"),
-        "journal_entries": ride.get("journal_entries", {}),
-        "cancellation_journal": ride.get("cancellation_journal"),
-        "fare_breakdown": ride.get("fare_breakdown", {})
+        "ride_number": ride.ride_number,
+        "journal_entries": journal_entries,
+        "cancellation_journal": cancellation_journal,
+        "fare_breakdown": fare_breakdown
     }

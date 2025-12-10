@@ -5,6 +5,7 @@ import Combine
 
 /// ChatManager handles real-time messaging between drivers and customers
 /// Enables direct communication for coordination, tips negotiation, and multi-stop deliveries
+/// Issues #19-22, #40 Fixed: Memory leaks, weak self, listener cleanup, error handling, race conditions
 class ChatManager: ObservableObject {
     static let shared = ChatManager()
 
@@ -22,34 +23,55 @@ class ChatManager: ObservableObject {
     private var messagesListener: ListenerRegistration?
     private var cancellables = Set<AnyCancellable>()
 
+    // Issue #40: Auth state listener handle
+    private var authStateListener: AuthStateDidChangeListenerHandle?
+
+    // Issue #22: Thread-safe tracking for preventing duplicate conversation creation
+    private var pendingConversationCreations: Set<String> = []
+    private let pendingCreationsQueue = DispatchQueue(label: "com.dollor.driver.chatmanager.pending")
+
     init() {
         setupAuthListener()
     }
 
+    /// Issue #20 Fixed: Proper cleanup of auth listener on deinit
     deinit {
         removeListeners()
+        // Issue #20: Remove auth state listener
+        if let listener = authStateListener {
+            Auth.auth().removeStateDidChangeListener(listener)
+        }
+        #if DEBUG
+        print("[ChatManager] Deinitialized, all listeners removed")
+        #endif
     }
 
-    private var authStateListener: AuthStateDidChangeListenerHandle?
-
+    /// Issue #40 Fixed: Proper weak self capture in auth listener
     private func setupAuthListener() {
         authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self = self else { return }
+
             if user != nil {
-                self?.fetchConversations()
+                self.fetchConversations()
             } else {
-                self?.removeListeners()
-                self?.conversations = []
-                self?.messages = []
+                self.removeListeners()
+                DispatchQueue.main.async {
+                    self.conversations = []
+                    self.messages = []
+                }
             }
         }
     }
 
     private func removeListeners() {
         conversationsListener?.remove()
+        conversationsListener = nil
         messagesListener?.remove()
+        messagesListener = nil
     }
 
     // MARK: - Fetch Conversations
+    /// Issue #19 Fixed: Proper weak self handling in snapshot listener
     func fetchConversations() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
@@ -59,22 +81,36 @@ class ChatManager: ObservableObject {
             .whereField("driverId", isEqualTo: uid)
             .order(by: "lastMessageAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
+                // Issue #19: Check self exists before dispatching
+                guard let self = self else { return }
+
+                if let error = error {
+                    #if DEBUG
+                    print("[ChatManager] Error fetching conversations: \(error.localizedDescription)")
+                    #endif
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Unable to load conversations"
+                    }
+                    return
+                }
+
                 guard let documents = snapshot?.documents else { return }
 
                 DispatchQueue.main.async {
-                    self?.conversations = documents.compactMap { doc -> Conversation? in
+                    self.conversations = documents.compactMap { doc -> Conversation? in
                         try? doc.data(as: Conversation.self)
                     }
 
                     // Calculate unread count
-                    self?.unreadCount = self?.conversations.reduce(0) { total, conv in
+                    self.unreadCount = self.conversations.reduce(0) { total, conv in
                         total + conv.unreadCountDriver
-                    } ?? 0
+                    }
                 }
             }
     }
 
     // MARK: - Fetch Messages for Conversation
+    /// Issue #19 Fixed: Proper weak self handling in snapshot listener
     func fetchMessages(for conversationId: String) {
         messagesListener?.remove()
 
@@ -83,10 +119,23 @@ class ChatManager: ObservableObject {
             .collection("messages")
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
+                // Issue #19: Check self exists before dispatching
+                guard let self = self else { return }
+
+                if let error = error {
+                    #if DEBUG
+                    print("[ChatManager] Error fetching messages: \(error.localizedDescription)")
+                    #endif
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Unable to load messages"
+                    }
+                    return
+                }
+
                 guard let documents = snapshot?.documents else { return }
 
                 DispatchQueue.main.async {
-                    self?.messages = documents.compactMap { doc -> ChatMessage? in
+                    self.messages = documents.compactMap { doc -> ChatMessage? in
                         try? doc.data(as: ChatMessage.self)
                     }
                 }
@@ -97,8 +146,12 @@ class ChatManager: ObservableObject {
     }
 
     // MARK: - Send Message
-    func sendMessage(text: String, to conversationId: String) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+    /// Issue #21 Fixed: Added error handling for message sending with user feedback
+    func sendMessage(text: String, to conversationId: String, completion: ((Bool) -> Void)? = nil) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            completion?(false)
+            return
+        }
 
         let messageData: [String: Any] = [
             "senderId": uid,
@@ -108,19 +161,37 @@ class ChatManager: ObservableObject {
             "isRead": false
         ]
 
-        // Add message to subcollection
+        // Issue #21: Add message with error handling
         db.collection("conversations")
             .document(conversationId)
             .collection("messages")
-            .addDocument(data: messageData)
+            .addDocument(data: messageData) { [weak self] error in
+                if let error = error {
+                    #if DEBUG
+                    print("[ChatManager] Error sending message: \(error.localizedDescription)")
+                    #endif
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Failed to send message. Please try again."
+                    }
+                    completion?(false)
+                    return
+                }
 
-        // Update conversation with last message
-        db.collection("conversations").document(conversationId).updateData([
-            "lastMessage": text,
-            "lastMessageAt": Int64(Date().timeIntervalSince1970 * 1000),
-            "lastMessageSender": "driver",
-            "unreadCountCustomer": FieldValue.increment(Int64(1))
-        ])
+                // Update conversation with last message
+                self?.db.collection("conversations").document(conversationId).updateData([
+                    "lastMessage": text,
+                    "lastMessageAt": Int64(Date().timeIntervalSince1970 * 1000),
+                    "lastMessageSender": "driver",
+                    "unreadCountCustomer": FieldValue.increment(Int64(1))
+                ]) { error in
+                    if let error = error {
+                        #if DEBUG
+                        print("[ChatManager] Error updating conversation: \(error.localizedDescription)")
+                        #endif
+                    }
+                    completion?(error == nil)
+                }
+            }
     }
 
     // MARK: - Send Voice Message
@@ -178,8 +249,37 @@ class ChatManager: ObservableObject {
     }
 
     // MARK: - Create Conversation for Order
+    /// Issue #22 Fixed: Thread-safe conversation creation using DispatchQueue
     func createConversation(for orderId: String, customerId: String, customerName: String, restaurantName: String) async -> String? {
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
+
+        // Issue #22: Check if creation is already in progress (thread-safe)
+        let alreadyInProgress = pendingCreationsQueue.sync { () -> Bool in
+            if pendingConversationCreations.contains(orderId) {
+                return true
+            }
+            pendingConversationCreations.insert(orderId)
+            return false
+        }
+
+        if alreadyInProgress {
+            #if DEBUG
+            print("[ChatManager] Conversation creation already in progress for order: \(orderId)")
+            #endif
+            // Wait and return existing
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            let existingQuery = try? await db.collection("conversations")
+                .whereField("orderId", isEqualTo: orderId)
+                .getDocuments()
+            return existingQuery?.documents.first?.documentID
+        }
+
+        // Cleanup when done
+        defer {
+            pendingCreationsQueue.sync {
+                _ = pendingConversationCreations.remove(orderId)
+            }
+        }
 
         // Check if conversation already exists
         let existingQuery = try? await db.collection("conversations")
@@ -224,10 +324,17 @@ class ChatManager: ObservableObject {
             ]
             try await docRef.collection("messages").addDocument(data: systemMessage)
 
+            #if DEBUG
+            print("[ChatManager] Created conversation \(docRef.documentID) for order \(orderId)")
+            #endif
+
             return docRef.documentID
         } catch {
+            #if DEBUG
+            print("[ChatManager] Error creating conversation: \(error.localizedDescription)")
+            #endif
             DispatchQueue.main.async {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = "Failed to start chat. Please try again."
             }
             return nil
         }

@@ -19,6 +19,21 @@ struct MultiRestaurantCartView: View {
         return cartVM.subtotal * (selectedTipPercentage / 100)
     }
 
+    /// Dynamic ETA calculation based on number of restaurants
+    private var estimatedDeliveryTime: String {
+        // Base time: 15-25 min for single restaurant
+        // Add 10-15 min per additional restaurant for pickup
+        let baseMin = 15
+        let baseMax = 25
+        let additionalPerRestaurant = 12
+
+        let restaurantCount = cartVM.restaurantCount
+        let minTime = baseMin + (max(0, restaurantCount - 1) * additionalPerRestaurant)
+        let maxTime = baseMax + (max(0, restaurantCount - 1) * additionalPerRestaurant)
+
+        return "\(minTime)-\(maxTime) min"
+    }
+
     var body: some View {
         Group {
             if cartVM.items.isEmpty {
@@ -108,7 +123,7 @@ struct MultiRestaurantCartView: View {
             Text(cartVM.errorMessage ?? "An error occurred")
         }
         .sheet(isPresented: $showCheckout) {
-            MultiRestaurantCheckoutView(cartVM: cartVM)
+            MultiRestaurantCheckoutView(cartVM: cartVM, scheduledDate: scheduledDate)
         }
         .sheet(isPresented: $showScheduleDelivery) {
             ScheduleDeliveryView(
@@ -209,7 +224,7 @@ struct MultiRestaurantCartView: View {
                             Text("ASAP")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                            Text("25-40 min")
+                            Text(estimatedDeliveryTime)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -642,7 +657,7 @@ struct CartTipButton: View {
                     .font(.caption)
                     .fontWeight(.medium)
 
-                Text("$\(String(format: "%.0f", amount))")
+                Text("$\(String(format: "%.2f", amount))")
                     .font(.subheadline)
                     .fontWeight(.bold)
             }

@@ -1,7 +1,7 @@
-import FirebaseFirestore
+import Foundation
 
 struct MenuItem: Identifiable, Codable, Sendable {
-    @DocumentID var id: String?
+    var id: String?
     var name: String
     var description: String
     var price: Double

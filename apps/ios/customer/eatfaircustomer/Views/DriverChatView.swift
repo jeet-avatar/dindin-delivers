@@ -1,7 +1,5 @@
 import SwiftUI
 import Combine
-import FirebaseFirestore
-import FirebaseAuth
 import EatFairShared
 
 struct DriverChatView: View {
@@ -271,82 +269,99 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var newMessage = ""
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     let orderId: String
-    var currentUserId: String { Auth.auth().currentUser?.uid ?? "" }
-    var currentUserName: String { Auth.auth().currentUser?.displayName ?? "Customer" }
+    var currentUserId: String {
+        if let customerId = P2PAPIService.shared.currentCustomerId {
+            return String(customerId)
+        }
+        return "customer"
+    }
+    var currentUserName: String {
+        UserDefaults.standard.string(forKey: "customer_name") ?? "Customer"
+    }
 
-    private let db = Firestore.firestore()
-    private var listener: ListenerRegistration?
+    private let p2pService = P2PAPIService.shared
+    private var pollTimer: Timer?
 
     init(orderId: String) {
         self.orderId = orderId
     }
 
     func startListening() {
-        listener = db.collection("chats")
-            .document(orderId)
-            .collection("messages")
-            .order(by: "timestamp", descending: false)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else { return }
+        // Fetch initial messages
+        fetchMessages()
 
-                DispatchQueue.main.async {
-                    self?.messages = documents.compactMap { doc -> ChatMessage? in
-                        let data = doc.data()
-                        guard let senderId = data["senderId"] as? String,
-                              let senderName = data["senderName"] as? String,
-                              let senderType = data["senderType"] as? String,
-                              let text = data["text"] as? String,
-                              let timestamp = data["timestamp"] as? Timestamp else {
-                            return nil
-                        }
-
-                        return ChatMessage(
-                            id: doc.documentID,
-                            orderId: self?.orderId ?? "",
-                            senderId: senderId,
-                            senderName: senderName,
-                            senderType: senderType,
-                            text: text,
-                            timestamp: timestamp.dateValue(),
-                            isRead: data["isRead"] as? Bool ?? false
-                        )
-                    }
-                }
-            }
+        // Start polling every 3 seconds
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.fetchMessages()
+        }
     }
 
     func stopListening() {
-        listener?.remove()
+        pollTimer?.invalidate()
+        pollTimer = nil
+    }
+
+    func fetchMessages() {
+        guard let orderIdInt = Int(orderId) else { return }
+
+        p2pService.fetchChatMessages(orderId: orderIdInt) { [weak self] result in
+            switch result {
+            case .success(let response):
+                let newMessages = response.messages.map { p2pMessage in
+                    ChatMessage(
+                        id: p2pMessage.id,
+                        orderId: self?.orderId ?? "",
+                        senderId: p2pMessage.senderType == "customer" ? (self?.currentUserId ?? "") : "driver",
+                        senderName: p2pMessage.senderType == "customer" ? (self?.currentUserName ?? "Customer") : "Driver",
+                        senderType: p2pMessage.senderType,
+                        text: p2pMessage.message,
+                        timestamp: ISO8601DateFormatter().date(from: p2pMessage.timestamp) ?? Date(),
+                        isRead: true
+                    )
+                }
+                DispatchQueue.main.async {
+                    self?.messages = newMessages
+                }
+            case .failure(let error):
+                #if DEBUG
+                print("[DriverChat] Fetch messages failed: \(error)")
+                #endif
+            }
+        }
     }
 
     func sendMessage() {
         guard !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let orderIdInt = Int(orderId) else { return }
 
-        let messageData: [String: Any] = [
-            "orderId": orderId,
-            "senderId": currentUserId,
-            "senderName": currentUserName,
-            "senderType": "customer",
-            "text": newMessage.trimmingCharacters(in: .whitespacesAndNewlines),
-            "timestamp": Timestamp(),
-            "isRead": false
-        ]
+        let messageText = newMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        isLoading = true
 
-        db.collection("chats")
-            .document(orderId)
-            .collection("messages")
-            .addDocument(data: messageData) { [weak self] error in
-                if error == nil {
-                    DispatchQueue.main.async {
-                        self?.newMessage = ""
-                    }
+        p2pService.sendChatMessage(
+            orderId: orderIdInt,
+            message: messageText,
+            senderType: "customer"
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success:
+                    self?.newMessage = ""
+                    self?.fetchMessages()
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    #if DEBUG
+                    print("[DriverChat] Send message failed: \(error)")
+                    #endif
                 }
             }
+        }
     }
 
     deinit {
-        listener?.remove()
+        pollTimer?.invalidate()
     }
 }

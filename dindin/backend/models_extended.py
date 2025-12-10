@@ -456,20 +456,7 @@ class Customer(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class CustomerFavorite(Base):
-    """Customer favorite restaurants and items"""
-    __tablename__ = "customer_favorites"
-
-    id = Column(Integer, primary_key=True, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-
-    # What is favorited
-    favorite_type = Column(String(50))  # restaurant, menu_item
-    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
-    menu_item_id = Column(Integer, ForeignKey("vendor_menu_items.id"), nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+# CustomerFavorite is defined in models.py - do not duplicate here
 
 
 # ==================== ANALYTICS MODELS ====================

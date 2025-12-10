@@ -20,6 +20,8 @@ public class P2PAPIService: ObservableObject {
     // MARK: - Secure Storage Keys (for non-sensitive data in UserDefaults)
     private enum UserDefaultsKey {
         static let vendorId = "p2p_vendor_id"
+        static let vendorName = "p2p_vendor_name"
+        static let vendorEmail = "p2p_vendor_email"
         static let customerId = "p2p_customer_id"
         static let driverId = "p2p_driver_id"
         static let driverCode = "p2p_driver_code"
@@ -178,7 +180,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response.restaurant))
                 } catch {
                     self?.error = "Failed to decode vendor profile: \(error.localizedDescription)"
-                    print("Vendor profile decode error: \(error)")
+                    #if DEBUG
+                    print("[P2PAPIService] Vendor profile decode error: \(error)")
+                    #endif
                     completion(.failure(error))
                 }
             }
@@ -220,7 +224,76 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(items))
                 } catch {
                     self?.error = "Failed to decode menu items: \(error.localizedDescription)"
-                    print("Decode error: \(error)")
+                    #if DEBUG
+                    print("[P2PAPIService] Decode error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Create a new menu item (Restaurant App)
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - menuItem: Dictionary containing menu item data
+    ///   - completion: Result with created menu item or error
+    public func createMenuItem(
+        vendorId: Int,
+        menuItem: P2PMenuItemCreate,
+        completion: @escaping (Result<P2PMenuItem, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/menu") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            request.httpBody = try encoder.encode(menuItem)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create menu item")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let item = try decoder.decode(P2PMenuItem.self, from: data)
+                    completion(.success(item))
+                } catch {
+                    self?.error = "Failed to decode created item: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
             }
@@ -242,6 +315,10 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: updates)
@@ -274,6 +351,106 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Delete a menu item (Restaurant App)
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - itemId: The menu item ID to delete
+    ///   - completion: Result with success or error
+    public func deleteMenuItem(
+        vendorId: Int,
+        itemId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/menu/\(itemId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode == 200 || httpResponse.statusCode == 204 {
+                        completion(.success(true))
+                    } else if httpResponse.statusCode >= 400 {
+                        if let data = data,
+                           let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Failed to delete menu item")))
+                        }
+                    } else {
+                        completion(.success(true))
+                    }
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get menu categories for a vendor (Restaurant App)
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - completion: Result with list of categories or error
+    public func getMenuCategories(
+        vendorId: Int,
+        completion: @escaping (Result<[String], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/menu/categories") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to get categories")))
+                    }
+                    return
+                }
+
+                do {
+                    let categoriesResponse = try JSONDecoder().decode(P2PMenuCategoriesResponse.self, from: data)
+                    completion(.success(categoriesResponse.categories))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Toggle menu item availability (Restaurant App)
     public func toggleItemAvailability(
         vendorId: Int,
@@ -289,6 +466,312 @@ public class P2PAPIService: ObservableObject {
                 completion(.failure(error))
             }
         }
+    }
+
+    // MARK: - Promotions API (Restaurant App)
+
+    /// Create a new promotion
+    public func createPromotion(
+        vendorId: Int,
+        promotion: P2PPromotionCreate,
+        completion: @escaping (Result<P2PPromotion, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/create?vendor_id=\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            request.httpBody = try encoder.encode(promotion)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create promotion")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let promo = try decoder.decode(P2PPromotion.self, from: data)
+                    completion(.success(promo))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get all promotions for a vendor
+    public func getVendorPromotions(
+        vendorId: Int,
+        completion: @escaping (Result<[P2PPromotion], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/vendor/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let response = try decoder.decode(P2PPromotionsResponse.self, from: data)
+                    completion(.success(response.promotions))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Update a promotion
+    public func updatePromotion(
+        promotionId: Int,
+        updates: [String: Any],
+        completion: @escaping (Result<P2PPromotion, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/\(promotionId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: updates)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let promo = try decoder.decode(P2PPromotion.self, from: data)
+                    completion(.success(promo))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete a promotion
+    public func deletePromotion(
+        promotionId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/\(promotionId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    completion(.success(httpResponse.statusCode == 200 || httpResponse.statusCode == 204))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get AI-suggested promotions
+    public func getPromotionSuggestions(
+        vendorId: Int,
+        completion: @escaping (Result<[P2PPromotionSuggestion], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/suggestions/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let response = try decoder.decode(P2PPromotionSuggestionsResponse.self, from: data)
+                    completion(.success(response.suggestions))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get promotion analytics
+    public func getPromotionAnalytics(
+        vendorId: Int,
+        completion: @escaping (Result<P2PPromotionAnalytics, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/analytics/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let analytics = try decoder.decode(P2PPromotionAnalytics.self, from: data)
+                    completion(.success(analytics))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Quick-create a promotion by type
+    public func quickCreatePromotion(
+        vendorId: Int,
+        promoType: String,
+        completion: @escaping (Result<P2PPromotion, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/quick-create/\(vendorId)/\(promoType)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let promo = try decoder.decode(P2PPromotion.self, from: data)
+                    completion(.success(promo))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
     }
 
     /// Assign stock images to menu items without images
@@ -453,6 +936,9 @@ public class P2PAPIService: ObservableObject {
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
+                    // Save vendor name and email for profile display
+                    UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
+                    UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -536,9 +1022,79 @@ public class P2PAPIService: ObservableObject {
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
+                    // Save vendor name and email for profile display
+                    UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
+                    UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Apple OAuth login/registration for vendors
+    /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    public func vendorAppleAuth(
+        email: String,
+        name: String,
+        appleId: String,
+        completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/auth/vendor/apple-auth") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "name": name,
+            "apple_id": appleId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Apple auth failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
+                    // Store the token securely in Keychain
+                    SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
+                    // Save vendor name and email for profile display
+                    UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
+                    UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
+                    completion(.success(loginResponse))
+                } catch {
+                    self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
             }
@@ -595,6 +1151,9 @@ public class P2PAPIService: ObservableObject {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
                     SecureStorage.shared.customerAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
+                    // Also save name and email for profile display
+                    UserDefaults.standard.set(loginResponse.fullName, forKey: "p2p_customer_name")
+                    UserDefaults.standard.set(loginResponse.email, forKey: "p2p_customer_email")
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -658,6 +1217,9 @@ public class P2PAPIService: ObservableObject {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
                     SecureStorage.shared.customerAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
+                    // Save customer name and email for profile display
+                    UserDefaults.standard.set(loginResponse.fullName, forKey: UserDefaultsKey.customerName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.customerEmail)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
@@ -721,11 +1283,57 @@ public class P2PAPIService: ObservableObject {
                     let loginResponse = try JSONDecoder().decode(P2PCustomerLoginResponse.self, from: data)
                     SecureStorage.shared.customerAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.customerId, forKey: UserDefaultsKey.customerId)
+                    // Also save name and email for profile display
+                    UserDefaults.standard.set(loginResponse.fullName, forKey: "p2p_customer_name")
+                    UserDefaults.standard.set(loginResponse.email, forKey: "p2p_customer_email")
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
+            }
+        }.resume()
+    }
+
+    /// Update customer profile name
+    public func updateCustomerProfile(
+        customerId: Int,
+        name: String,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/\(customerId)/profile") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = SecureStorage.shared.customerAccessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["full_name": name]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let data = data, let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to update profile")))
+                    }
+                    return
+                }
+
+                completion(.success(()))
             }
         }.resume()
     }
@@ -861,11 +1469,11 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Backend expects "name", not "full_name"
+        // Backend expects "full_name"
         let body: [String: Any] = [
             "email": email,
             "password": password,
-            "name": fullName,
+            "full_name": fullName,
             "phone": phone
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -929,6 +1537,518 @@ public class P2PAPIService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.customerEmail)
     }
 
+    // MARK: - Customer Address APIs
+
+    /// Fetch all addresses for a customer
+    public func fetchAddresses(
+        userId: Int,
+        completion: @escaping (Result<[P2PCustomerAddress], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let addresses = try JSONDecoder().decode([P2PCustomerAddress].self, from: data)
+                    completion(.success(addresses))
+                } catch {
+                    self?.error = "Failed to decode addresses: \(error.localizedDescription)"
+                    #if DEBUG
+                    print("[P2PAPIService] Address decode error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get default address for a customer
+    public func fetchDefaultAddress(
+        userId: Int,
+        completion: @escaping (Result<P2PCustomerAddress?, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)/default") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for 404 - no addresses
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 {
+                    completion(.success(nil))
+                    return
+                }
+
+                do {
+                    let address = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
+                    completion(.success(address))
+                } catch {
+                    self?.error = "Failed to decode address: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Create a new address for a customer
+    public func createAddress(
+        userId: Int,
+        address: Address,
+        completion: @escaping (Result<P2PCustomerAddress, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "location_name": address.locationName,
+            "street": address.street,
+            "unit": address.unit,
+            "city": address.city,
+            "state": address.state,
+            "zip_code": address.zipCode,
+            "instructions": address.instructions,
+            "address_type": address.type,
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+            "phone_number": address.phoneNumber,
+            "is_default": address.isDefault
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create address")))
+                    }
+                    return
+                }
+
+                do {
+                    let createdAddress = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
+                    completion(.success(createdAddress))
+                } catch {
+                    self?.error = "Failed to decode created address: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Update an existing address
+    public func updateAddress(
+        userId: Int,
+        addressId: Int,
+        address: Address,
+        completion: @escaping (Result<P2PCustomerAddress, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)/\(addressId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "location_name": address.locationName,
+            "street": address.street,
+            "unit": address.unit,
+            "city": address.city,
+            "state": address.state,
+            "zip_code": address.zipCode,
+            "instructions": address.instructions,
+            "address_type": address.type,
+            "latitude": address.latitude,
+            "longitude": address.longitude,
+            "phone_number": address.phoneNumber,
+            "is_default": address.isDefault
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to update address")))
+                    }
+                    return
+                }
+
+                do {
+                    let updatedAddress = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
+                    completion(.success(updatedAddress))
+                } catch {
+                    self?.error = "Failed to decode updated address: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete an address
+    public func deleteAddress(
+        userId: Int,
+        addressId: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)/\(addressId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let data = data,
+                       let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to delete address")))
+                    }
+                    return
+                }
+
+                completion(.success(()))
+            }
+        }.resume()
+    }
+
+    /// Set an address as default
+    public func setDefaultAddress(
+        userId: Int,
+        addressId: Int,
+        completion: @escaping (Result<P2PCustomerAddress, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/addresses/\(userId)/\(addressId)/set-default") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to set default address")))
+                    }
+                    return
+                }
+
+                do {
+                    let address = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
+                    completion(.success(address))
+                } catch {
+                    self?.error = "Failed to decode address: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Customer Favorites APIs
+
+    /// Fetch all favorites for a customer
+    public func fetchCustomerFavorites(
+        customerId: Int,
+        completion: @escaping (Result<P2PFavoritesResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/favorites/\(customerId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PFavoritesResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Decode favorites error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Add a restaurant to favorites
+    public func addFavorite(
+        customerId: Int,
+        vendorId: Int,
+        completion: @escaping (Result<P2PAddFavoriteResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/favorites") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "customer_id": customerId,
+            "vendor_id": vendorId
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PAddFavoriteResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Decode add favorite error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Remove a restaurant from favorites
+    public func removeFavorite(
+        customerId: Int,
+        vendorId: Int,
+        completion: @escaping (Result<P2PMessageResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/favorites/\(customerId)/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PMessageResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Decode remove favorite error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Check if a restaurant is in favorites
+    public func checkFavorite(
+        customerId: Int,
+        vendorId: Int,
+        completion: @escaping (Result<P2PCheckFavoriteResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/favorites/\(customerId)/check/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PCheckFavoriteResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Decode check favorite error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Customer Order APIs
 
     /// Fetch all orders for the current customer
@@ -970,7 +2090,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(orders))
                 } catch {
                     self?.error = "Failed to decode orders: \(error.localizedDescription)"
-                    print("Decode error: \(error)")
+                    #if DEBUG
+                    print("[P2PAPIService] Decode error: \(error)")
+                    #endif
                     completion(.failure(error))
                 }
             }
@@ -1077,6 +2199,8 @@ public class P2PAPIService: ObservableObject {
         deliveryInstructions: String?,
         items: [[String: Any]],
         tip: Double = 0.0,
+        scheduledFor: Date? = nil,
+        promoCode: String? = nil,
         completion: @escaping (Result<P2PCreateOrderResponse, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/erp/orders/create") else {
@@ -1088,7 +2212,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "vendor_id": vendorId,
             "customer_name": customerName,
             "customer_email": customerEmail,
@@ -1098,6 +2222,17 @@ public class P2PAPIService: ObservableObject {
             "items": items,
             "tip": tip
         ]
+
+        // Add scheduled delivery time if provided
+        if let scheduledFor = scheduledFor {
+            let formatter = ISO8601DateFormatter()
+            body["scheduled_for"] = formatter.string(from: scheduledFor)
+        }
+
+        // Add promo code if provided
+        if let promoCode = promoCode, !promoCode.isEmpty {
+            body["promo_code"] = promoCode
+        }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -1133,6 +2268,69 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(orderResponse))
                 } catch {
                     self?.error = "Failed to decode order response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Promo Code Validation API (Customer App)
+
+    /// Validate and apply a promo code to get discount amount
+    public func validatePromoCode(
+        promoCode: String,
+        orderTotal: Double,
+        customerId: Int? = nil,
+        completion: @escaping (Result<PromoCodeResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/promotions/apply") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = [
+            "promotion_code": promoCode,
+            "order_total": orderTotal
+        ]
+
+        if let customerId = customerId {
+            body["customer_id"] = customerId
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for error response
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Invalid promo code")))
+                    }
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(PromoCodeResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    self?.error = "Failed to decode promo response"
                     completion(.failure(error))
                 }
             }
@@ -1183,12 +2381,24 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Update order status via P2P backend
+    /// - Parameters:
+    ///   - orderId: The order ID to update
+    ///   - status: New status (PREPARING, READY_FOR_PICKUP, etc.)
+    ///   - estimatedMinutes: Optional estimated prep time in minutes (used when setting PREPARING status)
     public func updateOrderStatus(
         orderId: Int,
         status: String,
+        estimatedMinutes: Int? = nil,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/status?status=\(status.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? status)") else {
+        var urlString = "\(baseURL)/erp/orders/\(orderId)/status?status=\(status.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? status)"
+
+        // Add estimated_minutes parameter if provided (for prep time sync)
+        if let minutes = estimatedMinutes, minutes > 0 {
+            urlString += "&estimated_minutes=\(minutes)"
+        }
+
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1410,6 +2620,73 @@ public class P2PAPIService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverCode)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverName)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverEmail)
+    }
+
+    /// Apple OAuth login/registration for drivers
+    /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    public func driverAppleAuth(
+        email: String,
+        name: String,
+        appleId: String,
+        completion: @escaping (Result<P2PDriverLoginResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/auth/driver/apple-auth") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "name": name,
+            "apple_id": appleId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Apple auth failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let loginResponse = try JSONDecoder().decode(P2PDriverLoginResponse.self, from: data)
+                    // Store the token and driver info
+                    SecureStorage.shared.driverAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.driverId, forKey: UserDefaultsKey.driverId)
+                    UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
+                    UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
+                    completion(.success(loginResponse))
+                } catch {
+                    self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
     }
 
     /// Get driver profile from P2P API
@@ -1879,7 +3156,9 @@ public class P2PAPIService: ObservableObject {
                         // Save new token securely
                         SecureStorage.shared.driverAccessToken = newToken
                         DispatchQueue.main.async {
-                            print("[P2P] Token refreshed successfully")
+                            #if DEBUG
+                            print("[P2PAPIService] Token refreshed successfully")
+                            #endif
                             completion(.success(newToken))
                         }
                         return
@@ -1937,7 +3216,9 @@ public class P2PAPIService: ObservableObject {
             // Check for 401 Unauthorized - token expired
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401 {
                 if retryOnExpired {
-                    print("[P2P] Token expired, attempting refresh...")
+                    #if DEBUG
+                    print("[P2PAPIService] Token expired, attempting refresh...")
+                    #endif
                     self?.refreshDriverToken { result in
                         switch result {
                         case .success:
@@ -1950,7 +3231,9 @@ public class P2PAPIService: ObservableObject {
                             )
                         case .failure(let error):
                             // Token refresh failed - user needs to re-login
-                            print("[P2P] Token refresh failed: \(error)")
+                            #if DEBUG
+                            print("[P2PAPIService] Token refresh failed: \(error)")
+                            #endif
                             NotificationCenter.default.post(
                                 name: Notification.Name("DriverTokenExpired"),
                                 object: nil
@@ -2173,12 +3456,28 @@ public class P2PAPIService: ObservableObject {
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchAvailableRides network error: \(error.localizedDescription)")
+                    #endif
                     completion(.failure(error))
                     return
                 }
 
-                guard let data = data else {
-                    completion(.failure(P2PAPIError.noData))
+                // Check HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchAvailableRides status: \(httpResponse.statusCode)")
+                    #endif
+                    if httpResponse.statusCode == 404 {
+                        // Endpoint not available - return empty rides
+                        completion(.success([]))
+                        return
+                    }
+                }
+
+                guard let data = data, !data.isEmpty else {
+                    // No data - return empty rides instead of error
+                    completion(.success([]))
                     return
                 }
 
@@ -2186,8 +3485,14 @@ public class P2PAPIService: ObservableObject {
                     let response = try JSONDecoder().decode(P2PRidesResponse.self, from: data)
                     completion(.success(response.rides))
                 } catch {
-                    print("Ride decode error: \(error)")
-                    completion(.failure(error))
+                    #if DEBUG
+                    print("[P2PAPIService] Ride decode error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Raw response: \(jsonString.prefix(500))")
+                    }
+                    #endif
+                    // If decode fails, return empty rides instead of crashing
+                    completion(.success([]))
                 }
             }
         }.resume()
@@ -2384,7 +3689,9 @@ public class P2PAPIService: ObservableObject {
                     let response = try JSONDecoder().decode(RideRequestResponse.self, from: data)
                     completion(.success(response))
                 } catch {
-                    print("Ride request decode error: \(error)")
+                    #if DEBUG
+                    print("[P2PAPIService] Ride request decode error: \(error)")
+                    #endif
                     // Try to get error message from response
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -2401,7 +3708,7 @@ public class P2PAPIService: ObservableObject {
         rideId: Int,
         completion: @escaping (Result<RideTrackingInfo, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/orders/\(rideId)/full-tracking") else {
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/track") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -2533,7 +3840,9 @@ public class P2PAPIService: ObservableObject {
         currency: String = "usd",
         completion: @escaping (Result<StripePaymentIntentResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/create-payment-intent") else {
+        // Backend expects amount as query parameter, not POST body
+        // URL is /payment-intent not /create-payment-intent
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/payment-intent?amount=\(amount)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -2547,13 +3856,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = [
-            "amount": Int(amount * 100),  // Convert to cents for Stripe
-            "currency": currency,
-            "ride_id": rideId
-        ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        // No body needed - amount is passed as query parameter
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -2583,7 +3886,10 @@ public class P2PAPIService: ObservableObject {
         paymentIntentId: String,
         completion: @escaping (Result<RidePaymentConfirmation, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/confirm-payment") else {
+        // Backend expects payment_intent_id as query parameter, not POST body
+        // URL-encode the paymentIntentId to handle special characters
+        guard let encodedPaymentIntentId = paymentIntentId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/confirm-payment?payment_intent_id=\(encodedPaymentIntentId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -2597,11 +3903,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = [
-            "payment_intent_id": paymentIntentId
-        ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        // No body needed - payment_intent_id is passed as query parameter
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -2620,6 +3922,297 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Stripe Customer Card Management APIs
+
+    /// Fetch saved cards for a customer from Stripe
+    public func fetchSavedCards(
+        customerId: Int,
+        completion: @escaping (Result<[StripeCard], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/cards") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async { completion(.failure(P2PAPIError.noData)) }
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let response = try JSONDecoder().decode(StripeCardsResponse.self, from: data)
+                    completion(.success(response.cards))
+                } catch {
+                    // If decoding fails, return empty array (new customer)
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
+    /// Create/save a card for customer via Stripe
+    public func createCard(
+        customerId: Int,
+        cardNumber: String,
+        expMonth: Int,
+        expYear: Int,
+        cvc: String,
+        cardholderName: String,
+        completion: @escaping (Result<StripeCard, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/cards") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "card_number": cardNumber,
+            "exp_month": expMonth,
+            "exp_year": expYear,
+            "cvc": cvc,
+            "cardholder_name": cardholderName
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async { completion(.failure(P2PAPIError.noData)) }
+                return
+            }
+
+            // Check HTTP status
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode >= 400 {
+                    if let errorBody = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
+                        DispatchQueue.main.async {
+                            completion(.failure(P2PAPIError.serverError(errorBody.detail ?? "Card creation failed")))
+                        }
+                    } else {
+                        DispatchQueue.main.async {
+                            completion(.failure(P2PAPIError.serverError("Card creation failed")))
+                        }
+                    }
+                    return
+                }
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let card = try JSONDecoder().decode(StripeCard.self, from: data)
+                    completion(.success(card))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete a saved card
+    public func deleteCard(
+        customerId: Int,
+        cardId: String,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/cards/\(cardId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete card")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Set a card as the default payment method
+    public func setDefaultCard(
+        customerId: Int,
+        cardId: String,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/cards/\(cardId)/default") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Failed to set default card")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Account Deletion APIs (Apple App Store Requirement 5.1.1)
+
+    /// Delete driver account and all associated data
+    /// Required by Apple App Store Guidelines for account-based apps
+    public func deleteDriverAccount(
+        driverId: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/delete") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                // Clear driver session from secure storage
+                SecureStorage.shared.clearAuthTokens(type: .driver)
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete driver account")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete customer account and all associated data
+    /// Required by Apple App Store Guidelines for account-based apps
+    public func deleteCustomerAccount(
+        customerId: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customers/\(customerId)/delete") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                // Clear customer session from secure storage
+                SecureStorage.shared.clearAuthTokens(type: .customer)
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete customer account")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete vendor/restaurant account and all associated data
+    /// Required by Apple App Store Guidelines for account-based apps
+    public func deleteVendorAccount(
+        vendorId: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/delete") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                // Clear vendor session from secure storage
+                SecureStorage.shared.clearAuthTokens(type: .vendor)
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete vendor account")))
                 }
             }
         }.resume()
@@ -2686,7 +4279,8 @@ public class P2PAPIService: ObservableObject {
         proposedFare: Double,
         completion: @escaping (Result<FareNegotiationResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-negotiate") else {
+        // Backend expects proposed_fare as query parameter
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-negotiate?proposed_fare=\(proposedFare)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -2700,13 +4294,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = [
-            "proposed_fare": proposedFare,
-            "is_driver_offer": false,
-            "platform_fee_customer": 1.0  // $1 platform fee to customer
-        ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        // No body needed - fare is in query param
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -2736,7 +4324,8 @@ public class P2PAPIService: ObservableObject {
         acceptedFare: Double,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-accept-fare") else {
+        // Backend expects accepted_fare as query parameter, not POST body
+        guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-accept-fare?accepted_fare=\(acceptedFare)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -2750,12 +4339,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = [
-            "accepted_fare": acceptedFare,
-            "platform_fee_customer": 1.0
-        ]
-
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        // No body needed - fare is passed as query parameter
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -2841,6 +4425,60 @@ public struct RideNegotiationStatus: Codable {
 }
 
 // MARK: - Stripe Payment Models
+
+/// Stripe saved card model
+public struct StripeCard: Identifiable, Codable, Sendable {
+    public let id: String
+    public let last4: String
+    public let brand: CardBrand
+    public let expiryMonth: Int
+    public let expiryYear: Int
+    public var isDefault: Bool
+
+    public enum CardBrand: String, Codable, Sendable {
+        case visa, mastercard, amex, discover, unknown
+
+        public var displayName: String {
+            switch self {
+            case .visa: return "Visa"
+            case .mastercard: return "Mastercard"
+            case .amex: return "Amex"
+            case .discover: return "Discover"
+            case .unknown: return "Card"
+            }
+        }
+
+        public var icon: String {
+            switch self {
+            case .visa: return "creditcard.fill"
+            case .mastercard: return "creditcard.fill"
+            case .amex: return "creditcard.fill"
+            case .discover: return "creditcard.fill"
+            case .unknown: return "creditcard.fill"
+            }
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case last4
+        case brand
+        case expiryMonth = "exp_month"
+        case expiryYear = "exp_year"
+        case isDefault = "is_default"
+    }
+}
+
+/// Response wrapper for list of cards
+public struct StripeCardsResponse: Codable {
+    public let cards: [StripeCard]
+}
+
+/// API Error response
+public struct APIErrorResponse: Codable {
+    public let detail: String?
+    public let message: String?
+}
 
 /// Stripe PaymentIntent response
 public struct StripePaymentIntentResponse: Codable {
@@ -3371,6 +5009,166 @@ public struct P2PStockImageResponse: Codable {
     }
 }
 
+/// Menu item creation model (for Restaurant App)
+public struct P2PMenuItemCreate: Codable {
+    public let itemName: String
+    public let description: String?
+    public let category: String
+    public let price: Double
+    public let isAvailable: Bool
+    public let isVegetarian: Bool
+    public let isVegan: Bool
+    public let isGlutenFree: Bool
+    public let isSpicy: Bool
+    public let spiceLevel: Int
+    public let prepTime: Int?
+    public let calories: Int?
+    public let imageUrl: String?
+    public let inStock: Bool
+    public let dailyLimit: Int?
+
+    public init(
+        itemName: String,
+        description: String? = nil,
+        category: String,
+        price: Double,
+        isAvailable: Bool = true,
+        isVegetarian: Bool = false,
+        isVegan: Bool = false,
+        isGlutenFree: Bool = false,
+        isSpicy: Bool = false,
+        spiceLevel: Int = 0,
+        prepTime: Int? = nil,
+        calories: Int? = nil,
+        imageUrl: String? = nil,
+        inStock: Bool = true,
+        dailyLimit: Int? = nil
+    ) {
+        self.itemName = itemName
+        self.description = description
+        self.category = category
+        self.price = price
+        self.isAvailable = isAvailable
+        self.isVegetarian = isVegetarian
+        self.isVegan = isVegan
+        self.isGlutenFree = isGlutenFree
+        self.isSpicy = isSpicy
+        self.spiceLevel = spiceLevel
+        self.prepTime = prepTime
+        self.calories = calories
+        self.imageUrl = imageUrl
+        self.inStock = inStock
+        self.dailyLimit = dailyLimit
+    }
+}
+
+/// Menu categories response model
+public struct P2PMenuCategoriesResponse: Codable {
+    public let success: Bool
+    public let categories: [String]
+}
+
+// MARK: - Promotion Models
+
+/// Promotion creation model
+public struct P2PPromotionCreate: Codable {
+    public let name: String
+    public let description: String?
+    public let type: String  // percentage, flat_amount, bogo, free_delivery, free_item, bundle
+    public let value: Double
+    public let maxDiscount: Double?
+    public let minOrderAmount: Double?
+    public let targetAudience: String?
+    public let startDate: String?
+    public let endDate: String?
+    public let isRecurring: Bool
+    public let usageLimit: Int?
+    public let perCustomerLimit: Int
+    public let pushToApp: Bool
+
+    public init(
+        name: String,
+        description: String? = nil,
+        type: String,
+        value: Double,
+        maxDiscount: Double? = nil,
+        minOrderAmount: Double? = 0,
+        targetAudience: String? = "all",
+        startDate: String? = nil,
+        endDate: String? = nil,
+        isRecurring: Bool = false,
+        usageLimit: Int? = nil,
+        perCustomerLimit: Int = 1,
+        pushToApp: Bool = true
+    ) {
+        self.name = name
+        self.description = description
+        self.type = type
+        self.value = value
+        self.maxDiscount = maxDiscount
+        self.minOrderAmount = minOrderAmount
+        self.targetAudience = targetAudience
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isRecurring = isRecurring
+        self.usageLimit = usageLimit
+        self.perCustomerLimit = perCustomerLimit
+        self.pushToApp = pushToApp
+    }
+}
+
+/// Promotion model
+public struct P2PPromotion: Codable, Identifiable {
+    public let id: Int
+    public let promotionCode: String
+    public let vendorId: Int
+    public let name: String
+    public let description: String?
+    public let type: String
+    public let value: Double
+    public let maxDiscount: Double?
+    public let minOrderAmount: Double?
+    public let status: String
+    public let startDate: String?
+    public let endDate: String?
+    public let usageCount: Int?
+    public let totalDiscountGiven: Double?
+}
+
+/// Promotions list response
+public struct P2PPromotionsResponse: Codable {
+    public let success: Bool
+    public let promotions: [P2PPromotion]
+}
+
+/// Promotion suggestion from AI
+public struct P2PPromotionSuggestion: Codable, Identifiable {
+    public var id: String { suggestionType }
+    public let suggestionType: String
+    public let name: String
+    public let description: String
+    public let expectedImpact: String?
+    public let recommendedValue: Double?
+}
+
+/// Promotion suggestions response
+public struct P2PPromotionSuggestionsResponse: Codable {
+    public let success: Bool
+    public let suggestions: [P2PPromotionSuggestion]
+}
+
+/// Promotion analytics
+public struct P2PPromotionAnalytics: Codable {
+    public let success: Bool
+    public let vendorId: Int
+    public let totalPromotions: Int
+    public let activePromotions: Int
+    public let totalRedemptions: Int
+    public let totalDiscountGiven: Double
+    public let averageOrderValueWithPromo: Double?
+    public let conversionRate: Double?
+}
+
 public struct P2PVerificationStatus: Codable {
     public let success: Bool
     public let status: String
@@ -3739,7 +5537,89 @@ public struct P2PRideLocation: Codable {
     }
 }
 
+// MARK: - Customer Address Model (for saved delivery addresses)
+
+/// Customer address model matching backend /api/addresses response
+public struct P2PCustomerAddress: Codable, Identifiable {
+    public let id: Int
+    public let userId: Int
+    public let locationName: String
+    public let street: String
+    public let unit: String
+    public let city: String
+    public let state: String
+    public let zipCode: String
+    public let instructions: String
+    public let addressType: String
+    public let latitude: Double
+    public let longitude: Double
+    public let phoneNumber: String
+    public let isDefault: Bool
+    public let createdAt: String?
+    public let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case locationName = "location_name"
+        case street
+        case unit
+        case city
+        case state
+        case zipCode = "zip_code"
+        case instructions
+        case addressType = "address_type"
+        case latitude
+        case longitude
+        case phoneNumber = "phone_number"
+        case isDefault = "is_default"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    /// Convert P2PCustomerAddress to shared Address model
+    public func toAddress() -> Address {
+        return Address(
+            id: String(id),
+            userId: String(userId),
+            locationName: locationName,
+            street: street,
+            unit: unit,
+            city: city,
+            state: state,
+            zipCode: zipCode,
+            instructions: instructions,
+            type: addressType,
+            latitude: latitude,
+            longitude: longitude,
+            phoneNumber: phoneNumber,
+            isDefault: isDefault
+        )
+    }
+}
+
 // MARK: - Order Creation Response
+
+/// Response from promo code validation
+public struct PromoCodeResponse: Codable {
+    public let success: Bool
+    public let promotionCode: String
+    public let promotionName: String
+    public let discountAmount: Double
+    public let originalTotal: Double
+    public let finalTotal: Double
+    public let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case promotionCode = "promotion_code"
+        case promotionName = "promotion_name"
+        case discountAmount = "discount_amount"
+        case originalTotal = "original_total"
+        case finalTotal = "final_total"
+        case message
+    }
+}
 
 /// Response from backend when creating an order
 /// Contains the backend-generated order number for syncing across all apps
@@ -4323,7 +6203,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
         self.clientId = clientId
 
         guard let url = URL(string: "\(wsBaseURL)/\(clientType)/\(clientId)") else {
+            #if DEBUG
             print("[WebSocket] Invalid URL")
+            #endif
             return
         }
 
@@ -4337,7 +6219,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
         receiveMessage()
         startPingTimer()
 
+        #if DEBUG
         print("[WebSocket] Connecting to \(url.absoluteString)")
+        #endif
     }
 
     /// Disconnect from WebSocket server
@@ -4346,7 +6230,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
         DispatchQueue.main.async {
             self.isConnected = false
         }
+        #if DEBUG
         print("[WebSocket] Disconnected")
+        #endif
     }
 
     /// Receive messages recursively
@@ -4368,7 +6254,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
                 self?.receiveMessage()
 
             case .failure(let error):
+                #if DEBUG
                 print("[WebSocket] Receive error: \(error)")
+                #endif
                 DispatchQueue.main.async {
                     self?.isConnected = false
                 }
@@ -4389,9 +6277,13 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
                     userInfo: ["message": message]
                 )
             }
+            #if DEBUG
             print("[WebSocket] Received: \(message.type)")
+            #endif
         } catch {
+            #if DEBUG
             print("[WebSocket] Failed to decode message: \(error)")
+            #endif
         }
     }
 
@@ -4409,7 +6301,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
         if let data = try? JSONSerialization.data(withJSONObject: pingMessage) {
             webSocketTask?.send(.data(data)) { [weak self] error in
                 if let error = error {
+                    #if DEBUG
                     print("[WebSocket] Ping error: \(error)")
+                    #endif
                 } else {
                     self?.startPingTimer()
                 }
@@ -4420,14 +6314,18 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     // MARK: - URLSessionWebSocketDelegate
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        #if DEBUG
         print("[WebSocket] Connected")
+        #endif
         DispatchQueue.main.async {
             self.isConnected = true
         }
     }
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        #if DEBUG
         print("[WebSocket] Closed with code: \(closeCode)")
+        #endif
         DispatchQueue.main.async {
             self.isConnected = false
         }
@@ -4807,6 +6705,537 @@ extension P2PAPIService {
             }
         }.resume()
     }
+
+    // MARK: - Driver Rating & Tip APIs
+
+    /// Submit driver rating for an order
+    public func submitDriverRating(
+        orderId: Int,
+        driverId: Int,
+        rating: Int,
+        comment: String? = nil,
+        onTime: Bool = false,
+        friendly: Bool = false,
+        followedInstructions: Bool = false,
+        foodQuality: Bool = false,
+        completion: @escaping (Result<P2PRatingResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/rate-driver") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "order_id": orderId,
+            "driver_id": driverId,
+            "rating": rating,
+            "on_time": onTime,
+            "friendly": friendly,
+            "followed_instructions": followedInstructions,
+            "food_quality": foodQuality
+        ]
+        if let comment = comment, !comment.isEmpty {
+            body["comment"] = comment
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to submit rating")))
+                    }
+                    return
+                }
+
+                do {
+                    let ratingResponse = try JSONDecoder().decode(P2PRatingResponse.self, from: data)
+                    completion(.success(ratingResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Submit tip for driver
+    public func submitDriverTip(
+        orderId: Int,
+        driverId: Int,
+        amount: Double,
+        tipType: String = "custom",
+        percentage: Double? = nil,
+        completion: @escaping (Result<P2PTipResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/tip-driver") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "order_id": orderId,
+            "driver_id": driverId,
+            "amount": amount,
+            "tip_type": tipType
+        ]
+        if let percentage = percentage {
+            body["percentage"] = percentage
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to submit tip")))
+                    }
+                    return
+                }
+
+                do {
+                    let tipResponse = try JSONDecoder().decode(P2PTipResponse.self, from: data)
+                    completion(.success(tipResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Order Chat APIs
+
+    /// Send chat message for an order
+    public func sendChatMessage(
+        orderId: Int,
+        message: String,
+        senderType: String = "customer",
+        completion: @escaping (Result<P2PChatMessageResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "order_id": orderId,
+            "message": message,
+            "sender_type": senderType
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to send message")))
+                    }
+                    return
+                }
+
+                do {
+                    let chatResponse = try JSONDecoder().decode(P2PChatMessageResponse.self, from: data)
+                    completion(.success(chatResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Fetch chat messages for an order
+    public func fetchChatMessages(
+        orderId: Int,
+        completion: @escaping (Result<P2PChatMessagesResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to fetch messages")))
+                    }
+                    return
+                }
+
+                do {
+                    let messagesResponse = try JSONDecoder().decode(P2PChatMessagesResponse.self, from: data)
+                    completion(.success(messagesResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Order Cancellation & Refunds
+
+    /// Cancel an order and request refund
+    /// - Parameters:
+    ///   - orderId: The order ID to cancel
+    ///   - reason: Optional cancellation reason
+    ///   - reasonDetails: Optional detailed explanation
+    ///   - completion: Result with refund response or error
+    public func cancelOrder(
+        orderId: Int,
+        reason: String? = nil,
+        reasonDetails: String? = nil,
+        completion: @escaping (Result<P2PCancelOrderResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/cancel") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [:]
+        if let reason = reason {
+            body["reason"] = reason
+        }
+        if let reasonDetails = reasonDetails {
+            body["reason_details"] = reasonDetails
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to cancel order")))
+                    }
+                    return
+                }
+
+                do {
+                    let cancelResponse = try JSONDecoder().decode(P2PCancelOrderResponse.self, from: data)
+                    completion(.success(cancelResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get refund status for an order
+    /// - Parameters:
+    ///   - orderId: The order ID to check
+    ///   - completion: Result with refund status or error
+    public func getRefundStatus(
+        orderId: Int,
+        completion: @escaping (Result<P2PRefundStatusResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/refund-status") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to get refund status")))
+                    }
+                    return
+                }
+
+                do {
+                    let statusResponse = try JSONDecoder().decode(P2PRefundStatusResponse.self, from: data)
+                    completion(.success(statusResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - Order Cancellation Response Models
+
+public struct P2PCancelOrderResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let orderId: Int
+    public let refundNumber: String?
+    public let refundAmount: Double?
+    public let refundStatus: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case orderId = "order_id"
+        case refundNumber = "refund_number"
+        case refundAmount = "refund_amount"
+        case refundStatus = "refund_status"
+    }
+}
+
+public struct P2PRefundStatusResponse: Codable {
+    public let success: Bool
+    public let orderId: Int
+    public let refundStatus: String
+    public let refundAmount: Double?
+    public let refundNumber: String?
+    public let processedAt: String?
+    public let estimatedArrival: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case orderId = "order_id"
+        case refundStatus = "refund_status"
+        case refundAmount = "refund_amount"
+        case refundNumber = "refund_number"
+        case processedAt = "processed_at"
+        case estimatedArrival = "estimated_arrival"
+    }
+}
+
+// MARK: - Driver Rating & Tip Response Models
+
+public struct P2PRatingResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let orderId: Int
+    public let newDriverRating: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case orderId = "order_id"
+        case newDriverRating = "new_driver_rating"
+    }
+}
+
+public struct P2PTipResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let orderId: Int
+    public let tipAmount: Double
+    public let driverNewEarnings: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case orderId = "order_id"
+        case tipAmount = "tip_amount"
+        case driverNewEarnings = "driver_new_earnings"
+    }
+}
+
+public struct P2PChatMessageResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let chatMessage: P2PChatMessage
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case chatMessage = "chat_message"
+    }
+}
+
+public struct P2PChatMessagesResponse: Codable {
+    public let success: Bool
+    public let orderId: Int
+    public let messages: [P2PChatMessage]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case orderId = "order_id"
+        case messages
+    }
+}
+
+public struct P2PChatMessage: Codable, Identifiable {
+    public let id: String
+    public let orderId: Int
+    public let message: String
+    public let senderType: String
+    public let timestamp: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case orderId = "order_id"
+        case message
+        case senderType = "sender_type"
+        case timestamp
+    }
+}
+
+// MARK: - Customer Favorites Response Models
+
+public struct P2PFavorite: Codable, Identifiable {
+    public let id: Int
+    public let customerId: Int
+    public let vendorId: Int
+    public let restaurantName: String?
+    public let cuisine: String?
+    public let rating: Double?
+    public let imageUrl: String?
+    public let address: String?
+    public let latitude: Double?
+    public let longitude: Double?
+    public let phone: String?
+    public let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case customerId = "customer_id"
+        case vendorId = "vendor_id"
+        case restaurantName = "restaurant_name"
+        case cuisine
+        case rating
+        case imageUrl = "image_url"
+        case address
+        case latitude
+        case longitude
+        case phone
+        case createdAt = "created_at"
+    }
+}
+
+public struct P2PFavoritesResponse: Codable {
+    public let favorites: [P2PFavorite]
+    public let count: Int
+}
+
+public struct P2PAddFavoriteResponse: Codable {
+    public let message: String
+    public let favoriteId: Int?
+    public let restaurantName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case favoriteId = "favorite_id"
+        case restaurantName = "restaurant_name"
+    }
+}
+
+public struct P2PCheckFavoriteResponse: Codable {
+    public let isFavorite: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isFavorite = "is_favorite"
+    }
+}
+
+public struct P2PMessageResponse: Codable {
+    public let message: String
 }
 
 // MARK: - Enterprise Response Models

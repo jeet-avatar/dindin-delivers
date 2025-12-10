@@ -47,9 +47,42 @@ struct AIEmployeesView: View {
                         }
                     }
                 } else {
-                    // Active Employees Section
+                    // P2P AI Employees Section (from backend)
+                    if !viewModel.p2pEmployees.isEmpty {
+                        Section("P2P Backend AI Employees") {
+                            ForEach(viewModel.p2pEmployees, id: \.id) { employee in
+                                P2PAIEmployeeRow(employee: employee)
+                            }
+                        }
+
+                        // System Health Section
+                        if let health = viewModel.systemHealth {
+                            Section("System Health") {
+                                HStack {
+                                    Text("All Employees Online")
+                                    Spacer()
+                                    Image(systemName: health.allEmployeesOnline ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundColor(health.allEmployeesOnline ? .green : .red)
+                                }
+                                HStack {
+                                    Text("Processing Delay")
+                                    Spacer()
+                                    Text("\(health.processingDelayMs)ms")
+                                        .foregroundColor(health.processingDelayMs < 100 ? .green : (health.processingDelayMs < 500 ? .orange : .red))
+                                }
+                                HStack {
+                                    Text("Error Rate")
+                                    Spacer()
+                                    Text(health.errorRate)
+                                        .foregroundColor(health.errorRate == "0%" ? .green : .orange)
+                                }
+                            }
+                        }
+                    }
+
+                    // Firebase Active Employees Section
                     Section("Active AI Employees") {
-                        if viewModel.activeEmployees.isEmpty {
+                        if viewModel.activeEmployees.isEmpty && viewModel.p2pEmployees.isEmpty {
                             EmptyEmployeesCard()
                         } else {
                             ForEach(viewModel.activeEmployees) { employee in
@@ -914,6 +947,10 @@ class AIEmployeesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
+    // P2P API Data
+    @Published var p2pEmployees: [P2PAIEmployee] = []
+    @Published var systemHealth: P2PSystemHealth?
+
     private let service = AIEmployeeService.shared
 
     var activeEmployees: [AIEmployee] {
@@ -925,21 +962,39 @@ class AIEmployeesViewModel: ObservableObject {
     }
 
     var activeEmployeeCount: Int {
-        employees.filter { $0.status == .active }.count
+        // Prefer P2P data if available
+        if !p2pEmployees.isEmpty {
+            return p2pEmployees.filter { $0.status.lowercased() == "active" || $0.status.lowercased() == "online" }.count
+        }
+        return employees.filter { $0.status == .active }.count
     }
 
     var totalTasksToday: Int {
-        employees.reduce(0) { $0 + $1.tasksCompleted }
+        // Prefer P2P data if available
+        if !p2pEmployees.isEmpty {
+            return p2pEmployees.reduce(0) { $0 + $1.tasksToday }
+        }
+        return employees.reduce(0) { $0 + $1.tasksCompleted }
     }
 
     var platformStatus: String {
-        service.platformStatus
+        // Use system health from P2P if available
+        if let health = systemHealth {
+            if health.allEmployeesOnline && health.processingDelayMs < 100 {
+                return "Fully operational"
+            } else if health.allEmployeesOnline {
+                return "Operational (slight delay)"
+            } else {
+                return "Partially operational"
+            }
+        }
+        return service.platformStatus
     }
 
     func fetchEmployees() {
         service.fetchEmployees()
 
-        // Observe changes
+        // Observe Firebase changes
         service.$employees
             .receive(on: DispatchQueue.main)
             .assign(to: &$employees)
@@ -951,6 +1006,15 @@ class AIEmployeesViewModel: ObservableObject {
         service.$error
             .receive(on: DispatchQueue.main)
             .assign(to: &$error)
+
+        // Observe P2P API data
+        service.$p2pEmployees
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$p2pEmployees)
+
+        service.$systemHealth
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$systemHealth)
     }
 
     func createEmployee(
@@ -988,6 +1052,83 @@ class AIEmployeesViewModel: ObservableObject {
 
     func retireEmployee(_ id: String) {
         service.retireEmployee(id)
+    }
+}
+
+// MARK: - P2P AI Employee Row
+
+struct P2PAIEmployeeRow: View {
+    let employee: P2PAIEmployee
+
+    var statusColor: Color {
+        switch employee.status.lowercased() {
+        case "active", "online": return .green
+        case "idle": return .blue
+        case "busy": return .orange
+        case "offline", "error": return .red
+        default: return .gray
+        }
+    }
+
+    var roleIcon: String {
+        switch employee.role.lowercased() {
+        case "order_processor", "order processor": return "doc.text.fill"
+        case "driver_dispatcher", "driver dispatcher": return "car.fill"
+        case "customer_support", "customer support": return "person.fill.questionmark"
+        case "billing_agent", "billing agent": return "dollarsign.circle.fill"
+        case "fraud_detector", "fraud detector": return "shield.fill"
+        case "analytics_reporter", "analytics reporter": return "chart.bar.fill"
+        case "document_verifier", "document verifier": return "doc.badge.gearshape.fill"
+        default: return "cpu.fill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Role Icon
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: roleIcon)
+                    .foregroundColor(statusColor)
+            }
+
+            // Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(employee.name)
+                    .font(.headline)
+                Text(employee.role.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // Status & Metrics
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                    Text(employee.status.capitalized)
+                        .font(.caption)
+                        .foregroundColor(statusColor)
+                }
+
+                HStack(spacing: 4) {
+                    Text("\(employee.tasksToday) tasks")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    if !employee.efficiency.isEmpty {
+                        Text("• \(employee.efficiency)")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

@@ -445,6 +445,9 @@ struct VehicleDocumentsSection: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            // Document Verification Status (from P2P API)
+            DocumentVerificationCard(viewModel: viewModel)
+
             // Driver's License
             ProfileCard(title: "Driver's License", icon: "creditcard.fill") {
                 VStack(spacing: 12) {
@@ -897,6 +900,10 @@ struct SettingsSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
+    @State private var showDeleteAccountAlert = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
 
     var body: some View {
         VStack(spacing: 16) {
@@ -989,6 +996,42 @@ struct SettingsSection: View {
                 Text("Are you sure you want to logout?")
             }
 
+            // Delete Account (Apple App Store Requirement)
+            Button(action: { showDeleteAccountAlert = true }) {
+                HStack {
+                    Image(systemName: "trash.fill")
+                    Text("Delete Account")
+                }
+                .foregroundColor(.red)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(12)
+            }
+            .padding(.horizontal)
+            .disabled(isDeletingAccount)
+            .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    showDeleteConfirmation = true
+                }
+            } message: {
+                Text("Are you sure you want to delete your account? This action cannot be undone. All your data, earnings history, and profile information will be permanently removed.")
+            }
+            .alert("Final Confirmation", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Permanently Delete", role: .destructive) {
+                    performAccountDeletion()
+                }
+            } message: {
+                Text("This is your final warning. Your account and all associated data will be permanently deleted. This cannot be reversed.")
+            }
+            .alert("Error", isPresented: .constant(deleteError != nil)) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
+            }
+
             // App Version
             Text("Version \(AppConfig.shared.appVersion)")
                 .font(.caption)
@@ -1009,8 +1052,58 @@ struct SettingsSection: View {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverTermsAccepted)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverFCMToken)
         UserDefaults.standard.synchronize()
+    }
 
-        print("Driver logged out successfully")
+    private func performAccountDeletion() {
+        isDeletingAccount = true
+
+        // Get driver ID from P2P session
+        let driverId = UserDefaults.standard.integer(forKey: "p2p_driver_id")
+
+        guard driverId > 0 else {
+            deleteError = "Unable to identify account. Please try logging out and back in."
+            isDeletingAccount = false
+            return
+        }
+
+        // Call backend to delete account
+        P2PAPIService.shared.deleteDriverAccount(driverId: driverId) { result in
+            DispatchQueue.main.async {
+                self.isDeletingAccount = false
+
+                switch result {
+                case .success:
+                    // Clear all local data
+                    self.clearAllLocalData()
+                    // Logout
+                    self.authManager.logout()
+                    try? Auth.auth().signOut()
+
+                case .failure(let error):
+                    self.deleteError = "Failed to delete account: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func clearAllLocalData() {
+        // Remove all driver-related UserDefaults
+        let keysToRemove = [
+            "p2p_driver_id",
+            "p2p_driver_email",
+            "p2p_driver_name",
+            "p2p_driver_phone",
+            "p2p_driver_terms_accepted",
+            "p2p_driver_terms_accepted_at",
+            UserDefaultsKeys.driverTermsAccepted,
+            UserDefaultsKeys.driverTermsVersion,
+            UserDefaultsKeys.driverFCMToken
+        ]
+
+        for key in keysToRemove {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        UserDefaults.standard.synchronize()
     }
 }
 
@@ -1231,6 +1324,188 @@ struct VerificationStatusBadge: View {
         .padding(.vertical, 6)
         .background((isVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
         .cornerRadius(8)
+    }
+}
+
+// MARK: - Document Verification Status Card (P2P API)
+struct DocumentVerificationCard: View {
+    @ObservedObject var viewModel: DriverProfileViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .foregroundColor(Theme.brandRed)
+                Text("Document Verification Status")
+                    .font(.headline)
+                    .foregroundColor(Theme.textPrimary)
+                Spacer()
+                if viewModel.isLoadingDocuments {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+
+            if let response = viewModel.documentsResponse {
+                // Overall status
+                HStack {
+                    if response.allVerified {
+                        Image(systemName: "checkmark.shield.fill")
+                            .foregroundColor(Theme.statusActive)
+                        Text("All Documents Verified")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.statusActive)
+                    } else {
+                        Image(systemName: "exclamationmark.shield.fill")
+                            .foregroundColor(Theme.statusWarning)
+                        Text("\(response.documents.filter { $0.verified }.count)/\(response.count) Documents Verified")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.statusWarning)
+                    }
+                    Spacer()
+                }
+                .padding()
+                .background((response.allVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
+                .cornerRadius(8)
+
+                // Individual document statuses
+                VStack(spacing: 8) {
+                    ForEach(response.documents) { doc in
+                        DocumentStatusRow(document: doc)
+                    }
+                }
+
+                if response.documents.isEmpty {
+                    Text("No documents uploaded yet")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                        .padding()
+                }
+            } else if !viewModel.isLoadingDocuments {
+                VStack(spacing: 8) {
+                    Image(systemName: "doc.badge.plus")
+                        .font(.title2)
+                        .foregroundColor(Theme.textGrey)
+                    Text("Upload documents to get started")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            }
+        }
+        .padding()
+        .background(Theme.cardBackground)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .padding(.horizontal)
+    }
+}
+
+struct DocumentStatusRow: View {
+    let document: DriverDocument
+
+    private var statusColor: Color {
+        switch document.status.lowercased() {
+        case "verified", "approved":
+            return Theme.statusActive
+        case "pending", "pending_review", "under_review":
+            return Theme.statusWarning
+        case "rejected", "expired":
+            return Theme.statusError
+        default:
+            return Theme.textGrey
+        }
+    }
+
+    private var statusIcon: String {
+        switch document.status.lowercased() {
+        case "verified", "approved":
+            return "checkmark.circle.fill"
+        case "pending", "pending_review", "under_review":
+            return "clock.fill"
+        case "rejected":
+            return "xmark.circle.fill"
+        case "expired":
+            return "exclamationmark.triangle.fill"
+        default:
+            return "questionmark.circle"
+        }
+    }
+
+    private var displayName: String {
+        DriverDocumentType(rawValue: document.documentType)?.displayName ?? document.documentType.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Document type icon
+            Image(systemName: documentIcon)
+                .font(.system(size: 18))
+                .foregroundColor(Theme.brandRed)
+                .frame(width: 28)
+
+            // Document name and upload date
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Theme.textPrimary)
+
+                if let uploadDate = document.uploadDate {
+                    Text("Uploaded \(formatDate(uploadDate))")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            }
+
+            Spacer()
+
+            // Status badge
+            HStack(spacing: 4) {
+                Image(systemName: statusIcon)
+                    .font(.caption)
+                Text(document.status.capitalized.replacingOccurrences(of: "_", with: " "))
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .foregroundColor(statusColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(statusColor.opacity(0.1))
+            .cornerRadius(6)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Theme.backgroundGrey)
+        .cornerRadius(8)
+    }
+
+    private var documentIcon: String {
+        switch document.documentType {
+        case "license_front", "license_back", "drivers_license":
+            return "car.fill"
+        case "insurance", "insurance_card":
+            return "shield.fill"
+        case "vehicle_front", "vehicle_side", "vehicle_back":
+            return "camera.fill"
+        case "profile_photo":
+            return "person.fill"
+        default:
+            return "doc.fill"
+        }
+    }
+
+    private func formatDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            return displayFormatter.string(from: date)
+        }
+        return dateString
     }
 }
 

@@ -16,6 +16,12 @@ struct RestaurantSettingsView: View {
     @State private var showPaymentSettings = false
     @State private var showDocuments = false
 
+    // Account deletion states (Apple App Store Guideline 5.1.1)
+    @State private var showDeleteAccountAlert = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
+
     var body: some View {
         NavigationStack {
             List {
@@ -133,6 +139,9 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .tint(RestaurantTheme.brandBlue)
+                    .onChange(of: viewModel.acceptingDelivery) { _, _ in
+                        viewModel.updateSettings()
+                    }
 
                     Toggle(isOn: $viewModel.acceptingPickup) {
                         Label {
@@ -148,6 +157,9 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .tint(RestaurantTheme.brandPurple)
+                    .onChange(of: viewModel.acceptingPickup) { _, _ in
+                        viewModel.updateSettings()
+                    }
                 }
 
                 // Operating Hours Section
@@ -178,6 +190,9 @@ struct RestaurantSettingsView: View {
                         }
                         .pickerStyle(.menu)
                     }
+                    .onChange(of: viewModel.prepTimeBuffer) { _, _ in
+                        viewModel.updateSettings()
+                    }
 
                     HStack {
                         Label("Max Orders/Hour", systemImage: "number.circle.fill")
@@ -190,6 +205,9 @@ struct RestaurantSettingsView: View {
                             Text("50").tag(50)
                         }
                         .pickerStyle(.menu)
+                    }
+                    .onChange(of: viewModel.maxOrdersPerHour) { _, _ in
+                        viewModel.updateSettings()
                     }
                 }
 
@@ -213,11 +231,17 @@ struct RestaurantSettingsView: View {
                         Label("Order Sound Alerts", systemImage: "speaker.wave.2.fill")
                     }
                     .tint(RestaurantTheme.brandOrange)
+                    .onChange(of: viewModel.soundEnabled) { _, _ in
+                        viewModel.updateSettings()
+                    }
 
                     Toggle(isOn: $viewModel.vibrationEnabled) {
                         Label("Vibration", systemImage: "iphone.radiowaves.left.and.right")
                     }
                     .tint(RestaurantTheme.brandOrange)
+                    .onChange(of: viewModel.vibrationEnabled) { _, _ in
+                        viewModel.updateSettings()
+                    }
                 }
 
                 // Business Documents Section
@@ -288,6 +312,9 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .tint(.purple)
+                    .onChange(of: viewModel.aiDemandPrediction) { _, _ in
+                        viewModel.updateSettings()
+                    }
 
                     Toggle(isOn: $viewModel.aiPrepTimeOptimization) {
                         Label {
@@ -303,6 +330,9 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .tint(.blue)
+                    .onChange(of: viewModel.aiPrepTimeOptimization) { _, _ in
+                        viewModel.updateSettings()
+                    }
 
                     Toggle(isOn: $viewModel.aiMenuSuggestions) {
                         Label {
@@ -318,6 +348,9 @@ struct RestaurantSettingsView: View {
                         }
                     }
                     .tint(.yellow)
+                    .onChange(of: viewModel.aiMenuSuggestions) { _, _ in
+                        viewModel.updateSettings()
+                    }
                 }
 
                 // AI Workforce Section (TechCloudRPO Integration)
@@ -410,6 +443,23 @@ struct RestaurantSettingsView: View {
                             Spacer()
                         }
                     }
+
+                    // Delete Account (Apple App Store Guideline 5.1.1)
+                    Button(role: .destructive) {
+                        showDeleteAccountAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if isDeletingAccount {
+                                ProgressView()
+                                    .tint(.red)
+                            } else {
+                                Label("Delete Account", systemImage: "trash.fill")
+                            }
+                            Spacer()
+                        }
+                    }
+                    .disabled(isDeletingAccount)
                 }
 
                 // App Info Section
@@ -443,6 +493,27 @@ struct RestaurantSettingsView: View {
             } message: {
                 Text("Are you sure you want to sign out of your account?")
             }
+            .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Continue", role: .destructive) {
+                    showDeleteConfirmation = true
+                }
+            } message: {
+                Text("This will permanently delete your restaurant account, including all menu items, order history, and earnings data. This action cannot be undone.")
+            }
+            .alert("Final Confirmation", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete Forever", role: .destructive) {
+                    performAccountDeletion()
+                }
+            } message: {
+                Text("Are you absolutely sure? Your restaurant account and all associated data will be permanently deleted.")
+            }
+            .alert("Error", isPresented: .constant(deleteError != nil)) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
+            }
             .sheet(isPresented: $showEditProfile) {
                 EditRestaurantProfileView(viewModel: viewModel)
             }
@@ -456,6 +527,57 @@ struct RestaurantSettingsView: View {
                 PaymentSettingsView()
             }
         }
+    }
+
+    // MARK: - Account Deletion (Apple App Store Guideline 5.1.1)
+
+    private func performAccountDeletion() {
+        isDeletingAccount = true
+
+        guard let vendorId = viewModel.vendorId else {
+            deleteError = "Unable to identify account. Please try logging out and back in."
+            isDeletingAccount = false
+            return
+        }
+
+        P2PAPIService.shared.deleteVendorAccount(vendorId: vendorId) { result in
+            DispatchQueue.main.async {
+                self.isDeletingAccount = false
+
+                switch result {
+                case .success:
+                    // Clear all local data
+                    self.clearAllLocalData()
+                    // Sign out from Firebase
+                    try? Auth.auth().signOut()
+                    // P2P logout handled by deleteVendorAccount
+                case .failure(let error):
+                    self.deleteError = "Failed to delete account: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func clearAllLocalData() {
+        // Clear UserDefaults
+        let vendorKeys = [
+            "p2p_vendor_id",
+            "p2p_vendor_name",
+            "p2p_vendor_email",
+            "p2p_vendor_access_token",
+            "restaurant_name",
+            "restaurant_id",
+            "is_online",
+            "accepting_delivery",
+            "accepting_pickup"
+        ]
+        for key in vendorKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        UserDefaults.standard.synchronize()
+
+        // Clear Keychain
+        SecureStorage.shared.clearAuthTokens(type: .vendor)
     }
 }
 
@@ -603,9 +725,11 @@ class SettingsViewModel: ObservableObject {
                     self?.operatingHoursText = profile.operatingHours ?? ""
                     self?.acceptingDelivery = profile.deliveryAvailable
                     self?.acceptingPickup = profile.pickupAvailable
+                    #if DEBUG
                     print("Loaded vendor profile from P2P: \(profile.name)")
+                    #endif
                 case .failure(let error):
-                    print("Failed to fetch P2P vendor profile: \(error.localizedDescription)")
+                    print("Error: Failed to fetch vendor profile - \(error.localizedDescription)")
                 }
             }
         }

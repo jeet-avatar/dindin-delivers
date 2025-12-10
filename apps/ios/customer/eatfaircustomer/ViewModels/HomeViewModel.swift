@@ -6,7 +6,7 @@ import EatFairShared
 import CoreLocation
 import os.log
 
-private let logger = Logger(subsystem: "com.eatfair.customer", category: "HomeViewModel")
+private let logger = Logger(subsystem: "com.dollor.customer", category: "HomeViewModel")
 
 class HomeViewModel: ObservableObject {
     @Published var restaurants: [Restaurant] = []
@@ -133,8 +133,7 @@ class HomeViewModel: ObservableObject {
             .limit(to: 1)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
-                    if let error = error {
-                        print("Error checking active orders: \(error)")
+                    if error != nil {
                         self?.hasActiveOrder = false
                         return
                     }

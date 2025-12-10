@@ -1,6 +1,8 @@
 import SwiftUI
 import GoogleSignIn
 import EatFairShared
+import AuthenticationServices
+import CryptoKit
 
 struct LoginView: View {
     @State private var email = ""
@@ -10,9 +12,14 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var showForgotPassword = false
     @State private var showSignUp = false
+    @State private var currentNonce: String?
     @Binding var isLoggedIn: Bool
 
     private let p2pAPI = P2PAPIService.shared
+
+    // Keys for storing Apple user info (Apple only provides name on first sign-in)
+    private let appleUserNameKey = "vendor_apple_user_name"
+    private let appleUserIdKey = "vendor_apple_user_id"
 
     var body: some View {
         NavigationView {
@@ -168,6 +175,20 @@ struct LoginView: View {
                     .disabled(isLoading)
                     .padding(.horizontal)
 
+                    // Sign in with Apple Button (Required by Apple for App Store)
+                    SignInWithAppleButton(.signIn) { request in
+                        let nonce = randomNonceString()
+                        currentNonce = nonce
+                        request.requestedScopes = [.fullName, .email]
+                        request.nonce = sha256(nonce)
+                    } onCompletion: { result in
+                        handleAppleSignIn(result: result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 50)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     // Sign Up Link
                     HStack {
                         Text("Don't have an account?")
@@ -189,6 +210,96 @@ struct LoginView: View {
             }
             .sheet(isPresented: $showSignUp) {
                 SignUpView(isPresented: $showSignUp, isLoggedIn: $isLoggedIn)
+            }
+        }
+    }
+
+    // MARK: - Apple Sign-In Helper Functions
+
+    /// Generate random nonce for Apple Sign-In security
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        let nonce = randomBytes.map { byte in
+            charset[Int(byte) % charset.count]
+        }
+        return String(nonce)
+    }
+
+    /// SHA256 hash for nonce
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap { String(format: "%02x", $0) }.joined()
+        return hashString
+    }
+
+    /// Handle Apple Sign-In result
+    private func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                errorMessage = "Unable to get Apple ID credential"
+                return
+            }
+
+            guard let _ = currentNonce else {
+                errorMessage = "Invalid login state. Please try again."
+                return
+            }
+
+            isLoading = true
+            errorMessage = ""
+
+            // Extract user info
+            let appleUserId = appleIDCredential.user
+            let appleEmail = appleIDCredential.email ?? ""
+            var fullName = [appleIDCredential.fullName?.givenName, appleIDCredential.fullName?.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+
+            // IMPORTANT: Apple only provides name on FIRST sign-in
+            // Save name locally if provided, or retrieve saved name for subsequent logins
+            if !fullName.isEmpty {
+                // First sign-in - save the name locally for future logins
+                UserDefaults.standard.set(fullName, forKey: appleUserNameKey)
+                UserDefaults.standard.set(appleUserId, forKey: appleUserIdKey)
+            } else {
+                // Subsequent sign-in - try to retrieve saved name for this Apple ID
+                let savedAppleId = UserDefaults.standard.string(forKey: appleUserIdKey)
+                if savedAppleId == appleUserId, let savedName = UserDefaults.standard.string(forKey: appleUserNameKey), !savedName.isEmpty {
+                    fullName = savedName
+                }
+            }
+
+            // Call P2P backend for Apple auth
+            p2pAPI.vendorAppleAuth(
+                email: appleEmail,
+                name: fullName.isEmpty ? "My Restaurant" : fullName,
+                appleId: appleUserId
+            ) { [self] result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    switch result {
+                    case .success:
+                        self.isLoggedIn = true
+                    case .failure(let error):
+                        self.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+
+        case .failure(let error):
+            let nsError = error as NSError
+            // Don't show error if user cancelled
+            if nsError.code != ASAuthorizationError.canceled.rawValue {
+                errorMessage = error.localizedDescription
             }
         }
     }

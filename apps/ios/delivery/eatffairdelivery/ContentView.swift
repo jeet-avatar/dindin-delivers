@@ -3,6 +3,7 @@
 //  eatffairdelivery
 //
 //  Created by Jithesh Manoharan on 11/26/25.
+//  Issues #11-12 Fixed: Safe optional handling and proper error notifications
 //
 
 import SwiftUI
@@ -16,14 +17,29 @@ struct ContentView: View {
         animation: .default)
     private var items: FetchedResults<Item>
 
+    // Issue #12: State for error alerts in all configurations
+    @State private var showErrorAlert = false
+    @State private var errorAlertMessage = ""
+
     var body: some View {
         NavigationView {
             List {
                 ForEach(items) { item in
                     NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
+                        // Issue #11 Fixed: Safe optional binding instead of force unwrap
+                        if let timestamp = item.timestamp {
+                            Text("Item at \(timestamp, formatter: itemFormatter)")
+                        } else {
+                            Text("Item with unknown timestamp")
+                        }
                     } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                        // Issue #11 Fixed: Safe optional binding
+                        if let timestamp = item.timestamp {
+                            Text(timestamp, formatter: itemFormatter)
+                        } else {
+                            Text("No timestamp")
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 .onDelete(perform: deleteItems)
@@ -38,6 +54,12 @@ struct ContentView: View {
                     }
                 }
             }
+            // Issue #12: Error alert visible in all build configurations
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorAlertMessage)
+            }
             Text("Select an item")
         }
     }
@@ -50,10 +72,13 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                #if DEBUG
+                // Issue #12 Fixed: Show error to user in all configurations
                 let nsError = error as NSError
+                #if DEBUG
                 print("CoreData save error: \(nsError), \(nsError.userInfo)")
                 #endif
+                errorAlertMessage = "Failed to save item. Please try again."
+                showErrorAlert = true
             }
         }
     }
@@ -65,10 +90,13 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                #if DEBUG
+                // Issue #12 Fixed: Show error to user in all configurations
                 let nsError = error as NSError
+                #if DEBUG
                 print("CoreData delete error: \(nsError), \(nsError.userInfo)")
                 #endif
+                errorAlertMessage = "Failed to delete item. Please try again."
+                showErrorAlert = true
             }
         }
     }

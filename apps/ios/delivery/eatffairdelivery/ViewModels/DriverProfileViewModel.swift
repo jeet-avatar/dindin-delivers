@@ -5,6 +5,7 @@ import FirebaseFirestore
 import FirebaseStorage
 import EatFairShared
 
+/// Issues #31-33 Fixed: Profile save error handling, input validation, document upload retry
 @MainActor
 class DriverProfileViewModel: ObservableObject {
     // MARK: - Published Properties
@@ -68,6 +69,10 @@ class DriverProfileViewModel: ObservableObject {
     // MARK: - Expiration Alerts
     @Published var expirationAlerts: [ExpirationAlert] = []
 
+    // MARK: - Documents from P2P API
+    @Published var documentsResponse: DriverDocumentsResponse?
+    @Published var isLoadingDocuments = false
+
     struct ExpirationAlert: Identifiable {
         let id = UUID()
         let type: DocumentType
@@ -111,6 +116,61 @@ class DriverProfileViewModel: ObservableObject {
     private let storage = Storage.storage()
     private let p2pService = P2PAPIService.shared
 
+    // Issue #33: Retry configuration for document uploads
+    private let maxUploadRetries = 3
+    private var uploadRetryCount = 0
+
+    // MARK: - Issue #32: Input Validation
+
+    /// Validates phone number format (E.164 or US format)
+    var isPhoneValid: Bool {
+        guard !phone.isEmpty else { return true } // Empty is valid (optional)
+        let digitsOnly = phone.filter { $0.isNumber }
+        return digitsOnly.count >= 10 && digitsOnly.count <= 15
+    }
+
+    /// Validates routing number (9 digits, ABA checksum)
+    var isRoutingNumberValid: Bool {
+        guard !routingNumber.isEmpty else { return true } // Empty is valid (optional)
+        let digitsOnly = routingNumber.filter { $0.isNumber }
+        guard digitsOnly.count == 9 else { return false }
+
+        // ABA routing number checksum validation
+        let digits = digitsOnly.compactMap { Int(String($0)) }
+        guard digits.count == 9 else { return false }
+        let checksum = (3 * (digits[0] + digits[3] + digits[6]) +
+                        7 * (digits[1] + digits[4] + digits[7]) +
+                        1 * (digits[2] + digits[5] + digits[8])) % 10
+        return checksum == 0
+    }
+
+    /// Validates account number (4-17 digits)
+    var isAccountNumberValid: Bool {
+        guard !accountNumber.isEmpty else { return true } // Empty is valid (optional)
+        let digitsOnly = accountNumber.filter { $0.isNumber }
+        return digitsOnly.count >= 4 && digitsOnly.count <= 17
+    }
+
+    /// Returns validation error messages
+    var validationErrors: [String] {
+        var errors: [String] = []
+        if !phone.isEmpty && !isPhoneValid {
+            errors.append("Phone number must be 10-15 digits")
+        }
+        if !routingNumber.isEmpty && !isRoutingNumberValid {
+            errors.append("Invalid routing number")
+        }
+        if !accountNumber.isEmpty && !isAccountNumberValid {
+            errors.append("Account number must be 4-17 digits")
+        }
+        return errors
+    }
+
+    /// Check if all inputs are valid before saving
+    var canSaveProfile: Bool {
+        return isPhoneValid && isRoutingNumberValid && isAccountNumberValid
+    }
+
     // Helper to get current driver ID (P2P or Firebase)
     private var currentDriverId: String? {
         // Try P2P auth first
@@ -131,6 +191,92 @@ class DriverProfileViewModel: ObservableObject {
         }
 
         fetchP2PProfile(driverId: driverId)
+        fetchDriverDocuments(driverId: driverId)
+    }
+
+    // MARK: - Fetch Driver Documents
+    func fetchDriverDocuments(driverId: Int) {
+        isLoadingDocuments = true
+
+        p2pService.getDriverDocuments(driverId: driverId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoadingDocuments = false
+
+                switch result {
+                case .success(let response):
+                    self?.documentsResponse = response
+                    // Update expiration alerts from document data
+                    self?.checkDocumentExpirationsFromAPI(documents: response.documents)
+                case .failure(let error):
+                    #if DEBUG
+                    print("[DriverProfileViewModel] Failed to fetch documents: \(error.localizedDescription)")
+                    #endif
+                    // Don't show error - documents may not be uploaded yet
+                }
+            }
+        }
+    }
+
+    /// Check document expirations using data from P2P API
+    private func checkDocumentExpirationsFromAPI(documents: [DriverDocument]) {
+        var alerts: [ExpirationAlert] = []
+        let now = Date()
+        let alertThreshold = 60 // days
+
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+
+        for doc in documents {
+            guard let expiryString = doc.expiryDate,
+                  let expiryDate = dateFormatter.date(from: expiryString) else {
+                continue
+            }
+
+            let daysRemaining = Calendar.current.dateComponents([.day], from: now, to: expiryDate).day ?? 0
+
+            if daysRemaining <= alertThreshold {
+                let docType: DocumentType
+                switch doc.documentType {
+                case "license_front", "license_back", "drivers_license":
+                    docType = .license
+                case "insurance", "insurance_card":
+                    docType = .insurance
+                default:
+                    docType = .registration
+                }
+
+                alerts.append(ExpirationAlert(
+                    type: docType,
+                    documentName: DriverDocumentType(rawValue: doc.documentType)?.displayName ?? doc.documentType,
+                    expirationDate: expiryDate,
+                    daysRemaining: max(0, daysRemaining),
+                    isExpired: daysRemaining <= 0,
+                    isUrgent: daysRemaining <= 30
+                ))
+            }
+        }
+
+        // Sort by urgency (expired first, then by days remaining)
+        expirationAlerts = alerts.sorted { first, second in
+            if first.isExpired && !second.isExpired { return true }
+            if !first.isExpired && second.isExpired { return false }
+            return first.daysRemaining < second.daysRemaining
+        }
+    }
+
+    /// Get document by type from API response
+    func document(ofType type: String) -> DriverDocument? {
+        return documentsResponse?.documents.first { $0.documentType == type }
+    }
+
+    /// Check if specific document is verified
+    func isDocumentVerified(_ type: String) -> Bool {
+        return document(ofType: type)?.verified ?? false
+    }
+
+    /// Get verification status for document type
+    func documentStatus(_ type: String) -> String {
+        return document(ofType: type)?.status ?? "not_uploaded"
     }
 
     // MARK: - Fetch P2P Profile
@@ -452,19 +598,39 @@ class DriverProfileViewModel: ObservableObject {
     }
 
     // MARK: - Save Profile
-    func saveProfile() {
+    /// Issue #31 Fixed: Enhanced error handling with validation
+    /// Issue #44 Fixed: Added completion handler for callers to react to save result
+    func saveProfile(completion: ((Result<Void, Error>) -> Void)? = nil) {
+        // Issue #32: Validate inputs before saving
+        guard canSaveProfile else {
+            errorMessage = validationErrors.joined(separator: "\n")
+            showError = true
+            completion?(.failure(NSError(
+                domain: "DriverProfile",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: validationErrors.joined(separator: "\n")]
+            )))
+            return
+        }
+
         // Use P2P API - this is the only backend we use
         guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
             errorMessage = "Not logged in. Please login again."
             showError = true
+            completion?(.failure(NSError(
+                domain: "DriverProfile",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Not logged in. Please login again."]
+            )))
             return
         }
 
-        saveProfileViaP2P(driverId: driverId)
+        saveProfileViaP2P(driverId: driverId, completion: completion)
     }
 
     /// Save profile via P2P API (Dollor.ai backend)
-    private func saveProfileViaP2P(driverId: Int) {
+    /// Issue #44 Fixed: Added completion handler
+    private func saveProfileViaP2P(driverId: Int, completion: ((Result<Void, Error>) -> Void)? = nil) {
         isLoading = true
 
         // Parse name into first/last name
@@ -490,19 +656,15 @@ class DriverProfileViewModel: ObservableObject {
                 self?.isLoading = false
 
                 switch result {
-                case .success(let response):
-                    #if DEBUG
-                    print("[P2P] Profile update successful: \(response)")
-                    #endif
+                case .success:
                     self?.isEditing = false
                     self?.fetchProfile() // Refresh data
+                    completion?(.success(()))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                     self?.showError = true
-                    #if DEBUG
-                    print("[P2P] Profile update failed: \(error)")
-                    #endif
+                    completion?(.failure(error))
                 }
             }
         }
@@ -536,10 +698,6 @@ class DriverProfileViewModel: ObservableObject {
 
                 switch result {
                 case .success(let response):
-                    #if DEBUG
-                    print("[P2P] Profile image upload successful: \(response.message)")
-                    #endif
-
                     // Update local state with the returned URL
                     if let fileUrl = response.fileUrl {
                         self?.driver?.profileImageUrl = fileUrl
@@ -548,9 +706,6 @@ class DriverProfileViewModel: ObservableObject {
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                     self?.showError = true
-                    #if DEBUG
-                    print("[P2P] Profile image upload failed: \(error)")
-                    #endif
                 }
             }
         }
@@ -571,7 +726,8 @@ class DriverProfileViewModel: ObservableObject {
     }
 
     // MARK: - Upload Document via P2P API (with AI Verification)
-    private func uploadDocumentViaP2P(data: Data, type: String, driverId: Int) async {
+    /// Issue #33 Fixed: Retry logic for document upload failures
+    private func uploadDocumentViaP2P(data: Data, type: String, driverId: Int, retryCount: Int = 0) async {
         await MainActor.run { isLoading = true }
 
         // Map document type to P2P API document type
@@ -604,34 +760,27 @@ class DriverProfileViewModel: ObservableObject {
             imageData: data,
             expiryDate: expiryDate
         ) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
+            guard let self = self else { return }
 
+            Task { @MainActor in
                 switch result {
                 case .success(let response):
-                    #if DEBUG
-                    print("[P2P] Document upload successful: \(response.message)")
-                    print("[P2P] AI Verification Status: \(response.verificationStatus)")
-                    if let verificationId = response.aiVerificationId {
-                        print("[P2P] AI Verification ID: \(verificationId)")
-                    }
-                    #endif
-
+                    self.isLoading = false
                     // Update local state with the returned URL
                     if let fileUrl = response.fileUrl {
                         switch type {
                         case "license_front":
-                            self?.licenseFrontUrl = fileUrl
+                            self.licenseFrontUrl = fileUrl
                         case "license_back":
-                            self?.licenseBackUrl = fileUrl
+                            self.licenseBackUrl = fileUrl
                         case "vehicle_front":
-                            self?.vehicleFrontUrl = fileUrl
+                            self.vehicleFrontUrl = fileUrl
                         case "vehicle_side":
-                            self?.vehicleSideUrl = fileUrl
+                            self.vehicleSideUrl = fileUrl
                         case "vehicle_back":
-                            self?.vehicleBackUrl = fileUrl
+                            self.vehicleBackUrl = fileUrl
                         case "insurance_card":
-                            self?.insuranceCardUrl = fileUrl
+                            self.insuranceCardUrl = fileUrl
                         default:
                             break
                         }
@@ -639,15 +788,29 @@ class DriverProfileViewModel: ObservableObject {
 
                     // If the document was auto-verified, refresh profile to get updated status
                     if response.verificationStatus == "verified" {
-                        self?.fetchProfile()
+                        self.fetchProfile()
                     }
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                    self?.showError = true
-                    #if DEBUG
-                    print("[P2P] Document upload failed: \(error)")
-                    #endif
+                    // Issue #33: Retry logic for transient failures
+                    if retryCount < self.maxUploadRetries {
+                        #if DEBUG
+                        print("[DriverProfileViewModel] Upload failed, retrying (\(retryCount + 1)/\(self.maxUploadRetries)): \(error.localizedDescription)")
+                        #endif
+
+                        // Exponential backoff: 1s, 2s, 4s
+                        let delay = Double(1 << retryCount)
+                        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+
+                        await self.uploadDocumentViaP2P(data: data, type: type, driverId: driverId, retryCount: retryCount + 1)
+                    } else {
+                        self.isLoading = false
+                        self.errorMessage = "Failed to upload document after \(self.maxUploadRetries) attempts. Please try again later."
+                        self.showError = true
+                        #if DEBUG
+                        print("[DriverProfileViewModel] Upload failed after max retries: \(error.localizedDescription)")
+                        #endif
+                    }
                 }
             }
         }

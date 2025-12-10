@@ -11,14 +11,17 @@ import Stripe
 // MARK: - Multi-Restaurant Checkout View
 struct MultiRestaurantCheckoutView: View {
     @ObservedObject var cartVM: MultiRestaurantCartViewModel
+    var scheduledDate: Date?
     @EnvironmentObject var addressViewModel: AddressViewModel
     @Environment(\.dismiss) private var dismiss
 
-    // MARK: - Dummy Payment Mode (for testing)
-    // Uses centralized config from AppConfig which defaults to false in production
+    // MARK: - Dummy Payment Mode (DEBUG ONLY)
+    // This property only exists in DEBUG builds - completely removed from Release
+    #if DEBUG
     private var useDummyPayments: Bool {
         AppConfig.shared.isDummyPaymentMode
     }
+    #endif
 
     // State
     @State private var selectedPaymentMethod: PaymentMethodType = .applePay
@@ -40,9 +43,10 @@ struct MultiRestaurantCheckoutView: View {
     // Apple Pay
     @State private var canMakePayments = PKPaymentAuthorizationController.canMakePayments()
 
-    // Saved cards (mock data for now - in production fetch from backend)
-    @State private var savedCards: [SavedCard] = []
+    // Saved cards - fetch from Stripe backend
+    @State private var savedCards: [StripeCard] = []
     @State private var selectedCardId: String?
+    @State private var isLoadingCards = false
 
     // Stripe PaymentSheet
     @State private var stripePaymentSheet: PaymentSheet?
@@ -107,7 +111,7 @@ struct MultiRestaurantCheckoutView: View {
                 LocationPickerView(viewModel: addressViewModel, isPresented: $showLocationPicker)
             }
             .sheet(isPresented: $showAddCard) {
-                AddCardView(onCardAdded: { card in
+                StripeAddCardView(onCardAdded: { card in
                     savedCards.append(card)
                     selectedCardId = card.id
                     showAddCard = false
@@ -264,7 +268,8 @@ struct MultiRestaurantCheckoutView: View {
             }
 
             VStack(spacing: 8) {
-                // Apple Pay - Always show in dummy mode, otherwise check canMakePayments
+                // Apple Pay - Show if device supports payments (dummy mode only in DEBUG)
+                #if DEBUG
                 if useDummyPayments || canMakePayments {
                     PaymentMethodRow(
                         icon: "apple.logo",
@@ -275,6 +280,18 @@ struct MultiRestaurantCheckoutView: View {
                         selectedPaymentMethod = .applePay
                     }
                 }
+                #else
+                if canMakePayments {
+                    PaymentMethodRow(
+                        icon: "apple.logo",
+                        title: "Apple Pay",
+                        subtitle: "Pay with Face ID or Touch ID",
+                        isSelected: selectedPaymentMethod == .applePay
+                    ) {
+                        selectedPaymentMethod = .applePay
+                    }
+                }
+                #endif
 
                 // Saved Cards
                 ForEach(savedCards) { card in
@@ -289,7 +306,8 @@ struct MultiRestaurantCheckoutView: View {
                     }
                 }
 
-                // Stripe PaymentSheet - Real card payment (not dummy mode)
+                // Stripe PaymentSheet - Real card payment (always show in Release)
+                #if DEBUG
                 if !useDummyPayments {
                     PaymentMethodRow(
                         icon: "creditcard.fill",
@@ -303,6 +321,19 @@ struct MultiRestaurantCheckoutView: View {
                         }
                     }
                 }
+                #else
+                PaymentMethodRow(
+                    icon: "creditcard.fill",
+                    title: "Pay with Card (Stripe)",
+                    subtitle: "Secure checkout with any card",
+                    isSelected: selectedPaymentMethod == .stripeCard
+                ) {
+                    selectedPaymentMethod = .stripeCard
+                    if stripePaymentSheet == nil && !isLoadingStripe {
+                        prepareStripePaymentSheet()
+                    }
+                }
+                #endif
 
                 // Add New Card
                 Button(action: { showAddCard = true }) {
@@ -559,46 +590,62 @@ struct MultiRestaurantCheckoutView: View {
     // MARK: - Actions
 
     private func loadSavedCards() {
-        // DUMMY MODE: Load test cards for development
-        if useDummyPayments {
-            savedCards = [
-                SavedCard(
-                    id: "test_visa_1",
-                    last4: "4242",
-                    brand: .visa,
-                    expiryMonth: 12,
-                    expiryYear: 2027
-                ),
-                SavedCard(
-                    id: "test_mc_1",
-                    last4: "5555",
-                    brand: .mastercard,
-                    expiryMonth: 6,
-                    expiryYear: 2026
-                )
-            ]
+        // Get customer ID from session
+        let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+        guard customerId > 0 else {
+            savedCards = []
             return
         }
 
-        // PRODUCTION MODE: Fetch from Firebase or backend
-        savedCards = []
+        isLoadingCards = true
+
+        P2PAPIService.shared.fetchSavedCards(customerId: customerId) { result in
+            DispatchQueue.main.async {
+                self.isLoadingCards = false
+
+                switch result {
+                case .success(let cards):
+                    self.savedCards = cards
+                    // Auto-select default card if available
+                    if let defaultCard = cards.first(where: { $0.isDefault }) {
+                        self.selectedCardId = defaultCard.id
+                    }
+                case .failure(let error):
+                    #if DEBUG
+                    print("[Checkout] Failed to load cards: \(error)")
+                    #endif
+                    self.savedCards = []
+                }
+            }
+        }
     }
 
     private func applyPromoCode() {
-        // Simple promo code validation
-        let code = promotionCode.uppercased()
+        guard !promotionCode.isEmpty else { return }
 
-        // Mock promo codes for testing
-        switch code {
-        case "WELCOME10":
-            discount = cartVM.subtotal * 0.10
-            appliedPromoCode = code
-        case "SAVE5":
-            discount = 5.0
-            appliedPromoCode = code
-        default:
-            errorMessage = "Invalid promo code"
-            showError = true
+        isProcessing = true
+        let code = promotionCode.uppercased()
+        let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+
+        P2PAPIService.shared.validatePromoCode(
+            promoCode: code,
+            orderTotal: cartVM.subtotal,
+            customerId: customerId > 0 ? customerId : nil
+        ) { result in
+            DispatchQueue.main.async {
+                isProcessing = false
+
+                switch result {
+                case .success(let response):
+                    discount = response.discountAmount
+                    appliedPromoCode = response.promotionCode
+                    // Show success feedback
+                case .failure(let error):
+                    let errorMsg = (error as? P2PAPIError)?.localizedDescription ?? error.localizedDescription
+                    errorMessage = errorMsg.contains("Invalid") || errorMsg.contains("not active") ? errorMsg : "Invalid or expired promo code"
+                    showError = true
+                }
+            }
         }
     }
 
@@ -620,7 +667,8 @@ struct MultiRestaurantCheckoutView: View {
     }
 
     private func processApplePay() {
-        // DUMMY MODE: Skip actual Apple Pay and simulate success
+        #if DEBUG
+        // DUMMY MODE: Skip actual Apple Pay and simulate success (DEBUG only)
         if useDummyPayments {
             // Simulate payment processing delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -629,49 +677,75 @@ struct MultiRestaurantCheckoutView: View {
             }
             return
         }
+        #endif
 
-        // PRODUCTION MODE: Real Apple Pay integration
-        let request = PKPaymentRequest()
-        request.merchantIdentifier = "merchant.com.eatfair.customer"
-        request.supportedNetworks = [.visa, .masterCard, .amex, .discover]
-        request.merchantCapabilities = .threeDSecure
-        request.countryCode = "US"
-        request.currencyCode = "USD"
-
-        // Build payment items
-        var paymentItems: [PKPaymentSummaryItem] = []
-
-        paymentItems.append(PKPaymentSummaryItem(label: "Subtotal", amount: NSDecimalNumber(value: cartVM.subtotal)))
-        paymentItems.append(PKPaymentSummaryItem(label: "Delivery & Fees", amount: NSDecimalNumber(value: cartVM.platformFee + cartVM.deliveryFee)))
-        paymentItems.append(PKPaymentSummaryItem(label: "Tax", amount: NSDecimalNumber(value: cartVM.tax)))
-        paymentItems.append(PKPaymentSummaryItem(label: "Tip", amount: NSDecimalNumber(value: currentTip)))
-
-        if discount > 0 {
-            paymentItems.append(PKPaymentSummaryItem(label: "Discount", amount: NSDecimalNumber(value: -discount)))
-        }
-
-        paymentItems.append(PKPaymentSummaryItem(label: "EatFair", amount: NSDecimalNumber(value: finalTotal), type: .final))
-
-        request.paymentSummaryItems = paymentItems
-
-        let controller = PKPaymentAuthorizationController(paymentRequest: request)
-        controller.delegate = ApplePayDelegate.shared
-        ApplePayDelegate.shared.onCompletion = { success in
+        // PRODUCTION MODE: Stripe Apple Pay integration
+        // First, get a PaymentIntent from backend
+        PaymentService.shared.createPaymentIntent(amount: finalTotal) { result in
             DispatchQueue.main.async {
-                if success {
-                    self.placeOrder()
-                } else {
-                    self.isProcessing = false
-                }
-            }
-        }
+                switch result {
+                case .success(let paymentIntentData):
 
-        controller.present { presented in
-            if !presented {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Could not present Apple Pay"
-                    self.showError = true
+                    // Set the publishable key
+                    STPAPIClient.shared.publishableKey = paymentIntentData.publishableKey
+
+                    // Create payment request for Apple Pay
+                    let request = StripeAPI.paymentRequest(
+                        withMerchantIdentifier: "merchant.com.dollor.customer",
+                        country: "US",
+                        currency: "USD"
+                    )
+
+                    // Helper to round Double to 2 decimal places for Apple Pay
+                    func roundedAmount(_ value: Double) -> NSDecimalNumber {
+                        let rounded = (value * 100).rounded() / 100
+                        return NSDecimalNumber(value: rounded)
+                    }
+
+                    // Build payment items
+                    var paymentItems: [PKPaymentSummaryItem] = []
+                    paymentItems.append(PKPaymentSummaryItem(label: "Subtotal", amount: roundedAmount(self.cartVM.subtotal)))
+                    paymentItems.append(PKPaymentSummaryItem(label: "Delivery & Fees", amount: roundedAmount(self.cartVM.platformFee + self.cartVM.deliveryFee)))
+                    paymentItems.append(PKPaymentSummaryItem(label: "Tax", amount: roundedAmount(self.cartVM.tax)))
+                    paymentItems.append(PKPaymentSummaryItem(label: "Tip", amount: roundedAmount(self.currentTip)))
+
+                    if self.discount > 0 {
+                        paymentItems.append(PKPaymentSummaryItem(label: "Discount", amount: roundedAmount(-self.discount)))
+                    }
+
+                    paymentItems.append(PKPaymentSummaryItem(label: "Dollor", amount: roundedAmount(self.finalTotal), type: .final))
+                    request.paymentSummaryItems = paymentItems
+
+                    // Check if Apple Pay is available
+                    guard StripeAPI.canSubmitPaymentRequest(request) else {
+                        self.isProcessing = false
+                        self.errorMessage = "Apple Pay is not available on this device"
+                        self.showError = true
+                        return
+                    }
+
+                    // Create Stripe Apple Pay context
+                    StripeApplePayHandler.shared.handleApplePay(
+                        request: request,
+                        clientSecret: paymentIntentData.clientSecret
+                    ) { success, error in
+                        DispatchQueue.main.async {
+                            if success {
+                                self.placeOrder()
+                            } else {
+                                self.isProcessing = false
+                                if let error = error {
+                                    self.errorMessage = error.localizedDescription
+                                }
+                                self.showError = error != nil
+                            }
+                        }
+                    }
+
+                case .failure(let error):
                     self.isProcessing = false
+                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
+                    self.showError = true
                 }
             }
         }
@@ -705,7 +779,6 @@ struct MultiRestaurantCheckoutView: View {
                     self.stripePaymentReady = true
 
                 case .failure(let error):
-                    print("Failed to load Stripe payment sheet: \(error)")
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
                 }
@@ -719,7 +792,6 @@ struct MultiRestaurantCheckoutView: View {
             placeOrder()
         case .canceled:
             isProcessing = false
-            print("Stripe payment canceled")
         case .failed(let error):
             isProcessing = false
             errorMessage = "Payment failed: \(error.localizedDescription)"
@@ -744,20 +816,15 @@ struct MultiRestaurantCheckoutView: View {
             return
         }
 
-        // DUMMY MODE: Simulate order placement without requiring login or Firestore
+        #if DEBUG
+        // DUMMY MODE: Simulate order placement without requiring login or Firestore (DEBUG only)
         if useDummyPayments {
             // Simulate a brief delay for order processing
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                // Log the order details for debugging
                 print("=== DUMMY ORDER PLACED ===")
                 print("Items: \(self.cartVM.totalItemCount)")
                 print("Subtotal: $\(String(format: "%.2f", self.cartVM.subtotal))")
-                print("Delivery Fee: $\(String(format: "%.2f", self.cartVM.deliveryFee))")
-                print("Tax: $\(String(format: "%.2f", self.cartVM.tax))")
-                print("Tip: $\(String(format: "%.2f", self.currentTip))")
                 print("Total: $\(String(format: "%.2f", self.finalTotal))")
-                print("Delivery Address: \(address.street), \(address.city)")
-                print("Restaurants: \(self.cartVM.orderedRestaurants.map { $0.name }.joined(separator: ", "))")
                 print("==========================")
 
                 // Signal order placed - MainAppView will show success screen
@@ -766,6 +833,7 @@ struct MultiRestaurantCheckoutView: View {
             }
             return
         }
+        #endif
 
         // PRODUCTION MODE: Real order placement via Firebase
         let deliveryAddress = DeliveryAddress(
@@ -783,7 +851,9 @@ struct MultiRestaurantCheckoutView: View {
             deliveryAddress: deliveryAddress,
             deliveryInstructions: deliveryInstructions,
             tip: currentTip,
-            tipPercentage: useCustomTip ? nil : selectedTipPercentage
+            tipPercentage: useCustomTip ? nil : selectedTipPercentage,
+            scheduledFor: scheduledDate,
+            promoCode: appliedPromoCode
         ) { result in
             DispatchQueue.main.async {
                 isProcessing = false
@@ -828,37 +898,7 @@ enum PaymentMethodType {
     case cash
 }
 
-struct SavedCard: Identifiable, Codable {
-    let id: String
-    let last4: String
-    let brand: CardBrand
-    let expiryMonth: Int
-    let expiryYear: Int
-
-    enum CardBrand: String, Codable {
-        case visa, mastercard, amex, discover, unknown
-
-        var displayName: String {
-            switch self {
-            case .visa: return "Visa"
-            case .mastercard: return "Mastercard"
-            case .amex: return "Amex"
-            case .discover: return "Discover"
-            case .unknown: return "Card"
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .visa: return "creditcard.fill"
-            case .mastercard: return "creditcard.fill"
-            case .amex: return "creditcard.fill"
-            case .discover: return "creditcard.fill"
-            case .unknown: return "creditcard.fill"
-            }
-        }
-    }
-}
+// Note: SavedCard is now replaced with StripeCard from EatFairShared
 
 // MARK: - Supporting Views
 struct PaymentMethodRow: View {
@@ -913,7 +953,7 @@ struct CheckoutTipButton: View {
             VStack(spacing: 2) {
                 Text("\(Int(percentage))%")
                     .font(.caption2)
-                Text("$\(String(format: "%.0f", amount))")
+                Text("$\(String(format: "%.2f", amount))")
                     .font(.caption)
                     .fontWeight(.bold)
             }
@@ -945,115 +985,13 @@ struct PriceRow: View {
     }
 }
 
-// MARK: - Add Card View
-struct AddCardView: View {
-    @Environment(\.dismiss) private var dismiss
-    let onCardAdded: (SavedCard) -> Void
-
-    @State private var cardNumber = ""
-    @State private var expiryDate = ""
-    @State private var cvv = ""
-    @State private var cardholderName = ""
-    @State private var saveCard = true
-    @State private var isProcessing = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Card Details") {
-                    TextField("Card Number", text: $cardNumber)
-                        .keyboardType(.numberPad)
-
-                    HStack {
-                        TextField("MM/YY", text: $expiryDate)
-                            .keyboardType(.numberPad)
-
-                        SecureField("CVV", text: $cvv)
-                            .keyboardType(.numberPad)
-                    }
-
-                    TextField("Cardholder Name", text: $cardholderName)
-                        .textContentType(.name)
-                }
-
-                Section {
-                    Toggle("Save card for future orders", isOn: $saveCard)
-                }
-
-                Section {
-                    Button(action: addCard) {
-                        if isProcessing {
-                            ProgressView()
-                        } else {
-                            Text("Add Card")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .disabled(!isValidCard || isProcessing)
-                }
-            }
-            .navigationTitle("Add Card")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-
-    private var isValidCard: Bool {
-        cardNumber.count >= 15 &&
-        expiryDate.count >= 4 &&
-        cvv.count >= 3 &&
-        !cardholderName.isEmpty
-    }
-
-    private func addCard() {
-        isProcessing = true
-
-        // Simulate card tokenization
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            let last4 = String(cardNumber.suffix(4))
-            let brand = detectCardBrand(cardNumber)
-
-            // Parse expiry
-            let parts = expiryDate.split(separator: "/")
-            let month = Int(parts.first ?? "01") ?? 1
-            let year = Int(parts.last ?? "25") ?? 25
-
-            let card = SavedCard(
-                id: UUID().uuidString,
-                last4: last4,
-                brand: brand,
-                expiryMonth: month,
-                expiryYear: 2000 + year
-            )
-
-            onCardAdded(card)
-        }
-    }
-
-    private func detectCardBrand(_ number: String) -> SavedCard.CardBrand {
-        let cleaned = number.replacingOccurrences(of: " ", with: "")
-
-        if cleaned.hasPrefix("4") {
-            return .visa
-        } else if cleaned.hasPrefix("5") {
-            return .mastercard
-        } else if cleaned.hasPrefix("34") || cleaned.hasPrefix("37") {
-            return .amex
-        } else if cleaned.hasPrefix("6") {
-            return .discover
-        }
-        return .unknown
-    }
-}
+// MARK: - Add Card View (uses StripeAddCardView from PaymentMethodsView)
+// AddCardView is now StripeAddCardView which uses real Stripe integration
 
 // MARK: - Preview
 #if DEBUG
 #Preview {
-    MultiRestaurantCheckoutView(cartVM: .preview)
+    MultiRestaurantCheckoutView(cartVM: .preview, scheduledDate: nil)
         .environmentObject(AddressViewModel())
 }
 #endif

@@ -4,6 +4,12 @@ import Stripe
 import EatFairShared
 
 // MARK: - Fee Calculation Model (outside class for Swift 6 compatibility)
+
+// Helper function for decoding on background threads
+private func decodeACHFeeCalculation(from data: Data) -> ACHFeeCalculation? {
+    try? JSONDecoder().decode(ACHFeeCalculation.self, from: data)
+}
+
 struct ACHFeeCalculation: Decodable, Sendable {
     let amount: Int
     let currency: String
@@ -96,7 +102,7 @@ class ACHPaymentService {
                 return
             }
             if let data = data,
-               let response = try? JSONDecoder().decode(ACHFeeCalculation.self, from: data) {
+               let response = decodeACHFeeCalculation(from: data) {
                 cardFee = response.collection.fee
             }
         }.resume()
@@ -115,7 +121,7 @@ class ACHPaymentService {
                 return
             }
             if let data = data,
-               let response = try? JSONDecoder().decode(ACHFeeCalculation.self, from: data) {
+               let response = decodeACHFeeCalculation(from: data) {
                 achFee = response.collection.fee
                 customerDiscount = response.collection.customerDiscount
                 savings = response.collection.savingsVsCard ?? 0

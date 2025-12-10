@@ -398,9 +398,12 @@ async def create_order(
         total_amount = subtotal + tax_amount + delivery_fee + order_data.tip + platform_fee
         distance_miles = 3.0
 
-    # Generate order number
+    # Generate enterprise-level order number with full timestamp
+    # Format: EF-YYYYMMDD-HHMMSS-XXXX (e.g., EF-20251208-143525-0042)
+    # This ensures unique, sortable, and human-readable order IDs across all apps
     order_count = db.query(Order).count()
-    order_number = f"EF{datetime.now().strftime('%m%d')}{order_count + 1:05d}"
+    now = datetime.now()
+    order_number = f"EF-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}-{order_count + 1:04d}"
 
     # Create order - CRITICAL: Store delivery_distance_miles for accurate driver payout calculation
     new_order = Order(
@@ -720,6 +723,7 @@ async def get_vendor_orders(
 async def update_order_status(
     order_id: int,
     status: str,
+    estimated_minutes: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -733,6 +737,9 @@ async def update_order_status(
     - OUT_FOR_DELIVERY
     - DELIVERED
     - CANCELLED
+
+    Optional Parameters:
+    - estimated_minutes: Estimated prep time in minutes (used when setting PREPARING status)
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -770,6 +777,9 @@ async def update_order_status(
         order.confirmed_at = datetime.now()
     elif new_status == OrderStatus.PREPARING:
         order.preparing_at = datetime.now()
+        # Set estimated ready time if provided
+        if estimated_minutes and estimated_minutes > 0:
+            order.estimated_ready_at = datetime.now() + timedelta(minutes=estimated_minutes)
     elif new_status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now()
 

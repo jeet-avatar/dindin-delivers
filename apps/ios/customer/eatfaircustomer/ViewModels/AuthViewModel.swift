@@ -31,6 +31,10 @@ class AuthViewModel: NSObject, ObservableObject {
     // Apple Sign-In nonce for security
     private var currentNonce: String?
 
+    // Keys for storing Apple user info locally (Apple only provides name on first sign-in)
+    private let appleUserNameKey = "apple_signin_user_name"
+    private let appleUserIdKey = "apple_signin_user_id"
+
     override init() {
         super.init()
         // Check if already logged in via P2P
@@ -236,14 +240,19 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Generate random nonce for Apple Sign-In security
     private func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
+        let charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz"
+        guard length > 0 else {
+            return String((0..<32).compactMap { _ in charset.randomElement() })
+        }
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+            // Fallback to UUID-based nonce if secure random fails
+            let fallbackNonce = UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            return String(fallbackNonce.prefix(length))
         }
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        let nonce = randomBytes.map { byte in charset[Int(byte) % charset.count] }
+        let charsetArray: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        let nonce = randomBytes.map { byte in charsetArray[Int(byte) % charsetArray.count] }
         return String(nonce)
     }
 
@@ -297,14 +306,29 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
         // Extract user info
         let appleUserId = appleIDCredential.user
         let appleEmail = appleIDCredential.email ?? ""
-        let fullName = [appleIDCredential.fullName?.givenName, appleIDCredential.fullName?.familyName]
+        var fullName = [appleIDCredential.fullName?.givenName, appleIDCredential.fullName?.familyName]
             .compactMap { $0 }
             .joined(separator: " ")
 
+        // IMPORTANT: Apple only provides name on FIRST sign-in
+        // Save name locally if provided, or retrieve saved name for subsequent logins
+        if !fullName.isEmpty {
+            // First sign-in - save the name locally for future logins
+            UserDefaults.standard.set(fullName, forKey: appleUserNameKey)
+            UserDefaults.standard.set(appleUserId, forKey: appleUserIdKey)
+        } else {
+            // Subsequent sign-in - try to retrieve saved name for this Apple ID
+            let savedAppleId = UserDefaults.standard.string(forKey: appleUserIdKey)
+            if savedAppleId == appleUserId, let savedName = UserDefaults.standard.string(forKey: appleUserNameKey), !savedName.isEmpty {
+                fullName = savedName
+            }
+        }
+
         // Call P2P backend for Apple auth
+        // Send empty string if no name available - backend will preserve existing name
         p2pService.customerAppleAuth(
             email: appleEmail,
-            name: fullName.isEmpty ? "Apple User" : fullName,
+            name: fullName,
             appleId: appleUserId
         ) { [weak self] result in
             DispatchQueue.main.async {
@@ -322,10 +346,11 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        let nsError = error as NSError
         DispatchQueue.main.async {
             self.isLoading = false
             // Don't show error if user cancelled
-            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
+            if nsError.code != ASAuthorizationError.canceled.rawValue {
                 self.errorMessage = error.localizedDescription
             }
         }
@@ -335,10 +360,19 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
 // MARK: - ASAuthorizationControllerPresentationContextProviding
 extension AuthViewModel: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first else {
-            fatalError("Unable to find window for Apple Sign-In presentation")
+        // First try to get key window from connected scenes
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            if let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                return keyWindow
+            }
+            if let firstWindow = windowScene.windows.first {
+                return firstWindow
+            }
         }
-        return window
+
+        // Fallback: create a new window if none exists (should never happen in normal use)
+        let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
+        fallbackWindow.makeKeyAndVisible()
+        return fallbackWindow
     }
 }

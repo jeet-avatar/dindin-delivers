@@ -8,7 +8,6 @@
 
 import SwiftUI
 import Combine
-import FirebaseFirestore
 import EatFairShared
 
 struct TipDriverView: View {
@@ -199,45 +198,56 @@ class TipDriverViewModel: ObservableObject {
     @Published var customAmount: String = ""
     @Published var isCustomAmount: Bool = false
     @Published var tipAmount: Double = 0.0
-    
+    @Published var isSubmitting: Bool = false
+    @Published var errorMessage: String?
+
     let order: Order
-    private let db = Firestore.firestore()
-    
+    private let p2pService = P2PAPIService.shared
+
     init(order: Order) {
         self.order = order
     }
-    
+
     var suggestedTips: [(percentage: Double, amount: Double)] {
         TipCalculator.suggestedTips(orderTotal: order.total)
     }
-    
+
     var totalWithTip: Double {
         order.total + tipAmount
     }
-    
+
     func selectPresetTip(percentage: Double, amount: Double) {
         selectedPercentage = percentage
         isCustomAmount = false
         customAmount = ""
         tipAmount = amount
     }
-    
+
     func selectNoTip() {
         selectedPercentage = nil
         isCustomAmount = false
         customAmount = ""
         tipAmount = 0.0
     }
-    
+
     func submitTip() {
         guard let orderId = order.id,
-              let driverId = order.driverId else { return }
-        
+              let driverIdString = order.driverId,
+              let driverId = Int(driverIdString) else {
+            errorMessage = "Invalid order or driver info"
+            return
+        }
+
+        guard let orderIdInt = Int(orderId) else {
+            errorMessage = "Invalid order ID"
+            return
+        }
+
         // Parse custom amount if selected
         if isCustomAmount, let amount = Double(customAmount) {
             tipAmount = amount
         }
-        
+
         let tipType: String
         if isCustomAmount {
             tipType = "custom"
@@ -246,47 +256,26 @@ class TipDriverViewModel: ObservableObject {
         } else {
             tipType = "none"
         }
-        
-        let tip = Tip(
-            id: UUID().uuidString,
-            orderId: orderId,
-            customerId: order.customerId,
+
+        isSubmitting = true
+        errorMessage = nil
+
+        p2pService.submitDriverTip(
+            orderId: orderIdInt,
             driverId: driverId,
             amount: tipAmount,
             tipType: tipType,
-            percentage: selectedPercentage,
-            driverThankYouMessage: nil,
-            driverThankedAt: nil,
-            createdAt: Int64(Date().timeIntervalSince1970 * 1000)
-        )
-        
-        do {
-            try db.collection("tips").document(tip.id ?? UUID().uuidString).setData(from: tip)
-            
-            // Update order
-            let tipPercentageValue: Double = selectedPercentage ?? 0.0
-            db.collection("orders").document(orderId).updateData([
-                "tip": tipAmount,
-                "tipPercentage": tipPercentageValue,
-                "isTipped": true
-            ])
-            
-            // Update driver's earnings
-            updateDriverEarnings(driverId: driverId, tipAmount: tipAmount)
-        } catch {
-            print("Error saving tip: \(error)")
-        }
-    }
-    
-    private func updateDriverEarnings(driverId: String, tipAmount: Double) {
-        db.collection("drivers").document(driverId).getDocument { document, error in
-            if let data = document?.data(),
-               let stats = data["stats"] as? [String: Any],
-               let currentEarnings = stats["totalEarnings"] as? Double {
-                
-                self.db.collection("drivers").document(driverId).updateData([
-                    "stats.totalEarnings": currentEarnings + tipAmount
-                ])
+            percentage: selectedPercentage
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isSubmitting = false
+                switch result {
+                case .success(let response):
+                    print("[TipDriverView] Tip submitted: \(response.message)")
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    print("[TipDriverView] Tip failed: \(error)")
+                }
             }
         }
     }
