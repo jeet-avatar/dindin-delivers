@@ -2258,6 +2258,564 @@ async def get_privacy_html():
     """Returns the Privacy Policy page (alternate URL)"""
     return PRIVACY_POLICY_HTML
 
+# ===================== SUPPORT PAGE =====================
+SUPPORT_PAGE_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support - Dollor AI Service</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; --border-color: #e0e0e0; --success-color: #4CAF50; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); background-color: #f5f5f5; }
+        .header { background: linear-gradient(135deg, var(--primary-color), #ff8c5a); color: white; padding: 40px 20px; text-align: center; }
+        .header h1 { font-size: 2rem; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 1.1rem; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .contact-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 30px 0; }
+        .contact-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .contact-card h3 { color: var(--primary-color); margin-bottom: 10px; }
+        .contact-card p { color: #666; margin-bottom: 15px; font-size: 0.95rem; }
+        .contact-card a { display: inline-block; background: var(--primary-color); color: white; padding: 10px 25px; border-radius: 25px; text-decoration: none; font-weight: 500; }
+        .contact-card a:hover { background: #e55a28; }
+        .faq-section { background: white; border-radius: 12px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .faq-section h2 { color: var(--primary-color); margin-bottom: 20px; font-size: 1.5rem; }
+        .faq-item { border-bottom: 1px solid var(--border-color); padding: 15px 0; }
+        .faq-item:last-child { border-bottom: none; }
+        .faq-question { font-weight: 600; color: var(--text-color); margin-bottom: 8px; }
+        .faq-answer { color: #666; font-size: 0.95rem; }
+        .app-section { background: white; border-radius: 12px; padding: 30px; margin: 30px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .app-section h2 { color: var(--primary-color); margin-bottom: 20px; }
+        .app-list { list-style: none; }
+        .app-list li { padding: 12px 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .app-list li:last-child { border-bottom: none; }
+        .app-name { font-weight: 500; }
+        .app-link { color: var(--primary-color); text-decoration: none; }
+        .footer { text-align: center; padding: 30px 20px; color: #666; font-size: 0.9rem; }
+        .footer a { color: var(--primary-color); }
+        @media (max-width: 600px) { .header h1 { font-size: 1.5rem; } .contact-cards { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>How Can We Help?</h1>
+        <p>We're here 24/7 to assist you with any questions or issues</p>
+    </div>
+
+    <div class="container">
+        <div class="contact-cards">
+            <div class="contact-card">
+                <h3>Customer Support</h3>
+                <p>Questions about orders, deliveries, or your account</p>
+                <a href="mailto:support@dollor.ai">support@dollor.ai</a>
+            </div>
+            <div class="contact-card">
+                <h3>Driver Support</h3>
+                <p>Help with the driver app, earnings, or documentation</p>
+                <a href="mailto:driversupport@dollor.ai">driversupport@dollor.ai</a>
+            </div>
+            <div class="contact-card">
+                <h3>Restaurant Partners</h3>
+                <p>Menu management, orders, or partnership inquiries</p>
+                <a href="mailto:partners@dollor.ai">partners@dollor.ai</a>
+            </div>
+        </div>
+
+        <div class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I track my order?</div>
+                <div class="faq-answer">After placing an order, you'll see real-time tracking on the order status screen. You can see when your food is being prepared, when the driver picks it up, and track their location on the map.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">What if my order is wrong or missing items?</div>
+                <div class="faq-answer">Go to Order History in the app, select the order, and tap "Report Issue." You can describe what was wrong and we'll process a refund or credit within 24 hours.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I update my delivery address?</div>
+                <div class="faq-answer">Go to Profile > Saved Addresses to add, edit, or remove addresses. You can set a default address for faster checkout.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I delete my account?</div>
+                <div class="faq-answer">Go to Profile > Settings > Delete Account. This will permanently remove your account and all associated data within 30 days. This action cannot be undone.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How much does delivery cost?</div>
+                <div class="faq-answer">Dollor charges a flat $1 delivery fee for all orders, regardless of distance or order size. No surge pricing, no hidden fees.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do tips work?</div>
+                <div class="faq-answer">Tips are 100% optional and go directly to your delivery driver. You can tip during checkout or after your delivery is complete.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I become a driver?</div>
+                <div class="faq-answer">Download the Dollor Driver app and complete the sign-up process. You'll need a valid driver's license, vehicle insurance, and to pass a background check. Most applications are approved within 24 hours.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I add my restaurant to Dollor?</div>
+                <div class="faq-answer">Email partners@dollor.ai with your restaurant details. Our team will guide you through the onboarding process, which typically takes 2-3 business days.</div>
+            </div>
+        </div>
+
+        <div class="app-section">
+            <h2>Our Apps</h2>
+            <ul class="app-list">
+                <li>
+                    <span class="app-name">Dollor - $1 Delivery</span>
+                    <span class="app-link">Customer App</span>
+                </li>
+                <li>
+                    <span class="app-name">Dollor Driver</span>
+                    <span class="app-link">Delivery Partner App</span>
+                </li>
+                <li>
+                    <span class="app-name">Dollor Business</span>
+                    <span class="app-link">Restaurant Partner App</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="app-section">
+            <h2>Response Times</h2>
+            <ul class="app-list">
+                <li>
+                    <span class="app-name">Email Support</span>
+                    <span>Within 24 hours</span>
+                </li>
+                <li>
+                    <span class="app-name">Order Issues</span>
+                    <span>Within 4 hours</span>
+                </li>
+                <li>
+                    <span class="app-name">Account Issues</span>
+                    <span>Within 24 hours</span>
+                </li>
+                <li>
+                    <span class="app-name">Driver Application</span>
+                    <span>Within 24-48 hours</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+        <p style="margin-top: 10px;">
+            <a href="/terms">Terms of Service</a> |
+            <a href="/privacy">Privacy Policy</a>
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/support", response_class=HTMLResponse)
+async def get_support_page():
+    """Returns the Support page"""
+    return SUPPORT_PAGE_HTML
+
+# ===================== DRIVER TERMS PAGE =====================
+DRIVER_TERMS_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Terms - Dollor AI Service</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; --border-color: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); background-color: var(--bg-color); padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { color: var(--primary-color); font-size: 2rem; margin-bottom: 10px; border-bottom: 3px solid var(--primary-color); padding-bottom: 10px; }
+        h2 { color: var(--primary-color); font-size: 1.4rem; margin-top: 30px; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-bottom: 15px; padding-left: 25px; }
+        li { margin-bottom: 8px; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 30px; }
+        .important { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: #666; font-size: 0.9rem; }
+        a { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <h1>Driver Partner Terms</h1>
+    <p class="meta"><strong>Last Updated:</strong> December 9, 2024</p>
+
+    <div class="important">
+        <strong>INDEPENDENT CONTRACTOR AGREEMENT:</strong> By using the Dollor Driver app, you agree to provide delivery and transportation services as an independent contractor, not an employee.
+    </div>
+
+    <h2>1. Independent Contractor Status</h2>
+    <p>You acknowledge and agree that:</p>
+    <ul>
+        <li>You are an independent contractor, not an employee of Dollor</li>
+        <li>You have complete control over when, where, and whether to accept delivery requests</li>
+        <li>You are responsible for your own taxes, including self-employment taxes</li>
+        <li>Dollor does not provide workers' compensation, health insurance, or other employment benefits</li>
+        <li>You may work for other delivery platforms simultaneously</li>
+    </ul>
+
+    <h2>2. Requirements to Drive</h2>
+    <p>To be eligible to deliver with Dollor, you must:</p>
+    <ul>
+        <li>Be at least 18 years of age (21 for rideshare)</li>
+        <li>Possess a valid driver's license</li>
+        <li>Maintain valid auto insurance that meets state minimum requirements</li>
+        <li>Have a vehicle in good working condition</li>
+        <li>Pass a background check</li>
+        <li>Maintain an active smartphone with the Dollor Driver app</li>
+    </ul>
+
+    <h2>3. Background Checks</h2>
+    <p>Dollor conducts background checks through third-party providers. Checks include:</p>
+    <ul>
+        <li>Criminal history (7 years)</li>
+        <li>Driving record (motor vehicle report)</li>
+        <li>Sex offender registry check</li>
+    </ul>
+    <p>You authorize Dollor to conduct periodic re-checks to maintain platform safety.</p>
+
+    <h2>4. Earnings and Payment</h2>
+    <table>
+        <tr><th>Component</th><th>Description</th></tr>
+        <tr><td>Base Pay</td><td>Calculated based on distance, time, and complexity</td></tr>
+        <tr><td>Platform Fee</td><td>$1.00 per completed delivery</td></tr>
+        <tr><td>Tips</td><td>100% go to you, the driver</td></tr>
+        <tr><td>Payment Schedule</td><td>Weekly direct deposit (can request instant cashout)</td></tr>
+    </table>
+
+    <h2>5. Your Responsibilities</h2>
+    <ul>
+        <li>Deliver orders promptly and safely</li>
+        <li>Handle food with care to prevent damage or spillage</li>
+        <li>Communicate professionally with customers and restaurants</li>
+        <li>Follow all traffic laws and regulations</li>
+        <li>Maintain vehicle cleanliness and safety</li>
+        <li>Keep all required documents current (license, insurance, registration)</li>
+        <li>Report any accidents or incidents promptly</li>
+    </ul>
+
+    <h2>6. Prohibited Conduct</h2>
+    <ul>
+        <li>Driving under the influence of alcohol or drugs</li>
+        <li>Discriminating against customers based on protected characteristics</li>
+        <li>Tampering with or consuming customer orders</li>
+        <li>Sharing customer personal information</li>
+        <li>Accepting cash payments (all payments through app only)</li>
+        <li>Using the platform while your account is suspended</li>
+    </ul>
+
+    <h2>7. Insurance Requirements</h2>
+    <p>You must maintain:</p>
+    <ul>
+        <li>Personal auto liability insurance meeting state minimums</li>
+        <li>Comprehensive and collision coverage (recommended)</li>
+    </ul>
+    <p>Dollor provides contingent liability coverage while you are on an active delivery, but this is secondary to your personal insurance.</p>
+
+    <h2>8. Deactivation</h2>
+    <p>Dollor may deactivate your account for:</p>
+    <ul>
+        <li>Safety violations or dangerous driving</li>
+        <li>Customer complaints or low ratings (below 4.2 average)</li>
+        <li>Fraud or policy violations</li>
+        <li>Expired documents (license, insurance)</li>
+        <li>Failed background check update</li>
+    </ul>
+    <p>You may appeal deactivation by contacting driversupport@dollor.ai</p>
+
+    <h2>9. Data and Privacy</h2>
+    <p>When you use the Driver app:</p>
+    <ul>
+        <li>Location is tracked during active deliveries for customer transparency</li>
+        <li>Delivery performance data is collected for quality assurance</li>
+        <li>Customer data is shared only as needed for deliveries</li>
+    </ul>
+    <p>See our <a href="/privacy">Privacy Policy</a> for complete details.</p>
+
+    <h2>10. Dispute Resolution</h2>
+    <p>Disputes will be resolved through binding arbitration. You waive the right to participate in class actions. See general <a href="/terms">Terms of Service</a> for details.</p>
+
+    <h2>11. Contact</h2>
+    <ul>
+        <li><strong>Driver Support:</strong> driversupport@dollor.ai</li>
+        <li><strong>Urgent Issues:</strong> support@dollor.ai</li>
+    </ul>
+
+    <div class="footer">
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+        <p><a href="/terms">General Terms</a> | <a href="/privacy">Privacy Policy</a></p>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/driver-terms", response_class=HTMLResponse)
+async def get_driver_terms():
+    """Returns the Driver Terms page"""
+    return DRIVER_TERMS_HTML
+
+# ===================== RESTAURANT TERMS PAGE =====================
+RESTAURANT_TERMS_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Partner Terms - Dollor AI Service</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; --border-color: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); background-color: var(--bg-color); padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { color: var(--primary-color); font-size: 2rem; margin-bottom: 10px; border-bottom: 3px solid var(--primary-color); padding-bottom: 10px; }
+        h2 { color: var(--primary-color); font-size: 1.4rem; margin-top: 30px; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color); }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-bottom: 15px; padding-left: 25px; }
+        li { margin-bottom: 8px; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 30px; }
+        .highlight { background-color: #e8f4f8; border-left: 4px solid var(--primary-color); padding: 15px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: #666; font-size: 0.9rem; }
+        a { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <h1>Restaurant Partner Agreement</h1>
+    <p class="meta"><strong>Last Updated:</strong> December 9, 2024</p>
+
+    <div class="highlight">
+        <strong>Simple Pricing:</strong> Dollor charges a flat $1.00 platform fee per order. No percentage-based commissions, no hidden fees.
+    </div>
+
+    <h2>1. Partnership Overview</h2>
+    <p>By using the Dollor Business app, you agree to partner with Dollor to offer your menu for delivery and pickup through our platform. This agreement outlines the terms of our partnership.</p>
+
+    <h2>2. Platform Fees</h2>
+    <table>
+        <tr><th>Fee Type</th><th>Amount</th><th>Description</th></tr>
+        <tr><td>Platform Fee</td><td>$1.00 per order</td><td>Charged on completed orders</td></tr>
+        <tr><td>Commission</td><td>0%</td><td>No percentage-based commission</td></tr>
+        <tr><td>Setup Fee</td><td>$0</td><td>Free to join</td></tr>
+        <tr><td>Monthly Fee</td><td>$0</td><td>No subscription required</td></tr>
+    </table>
+    <p>Fees are deducted from your weekly payout. You receive: Order Total - $1.00 Platform Fee</p>
+
+    <h2>3. Your Responsibilities</h2>
+    <ul>
+        <li><strong>Menu Accuracy:</strong> Keep menu items, descriptions, and prices up to date</li>
+        <li><strong>Item Availability:</strong> Mark items unavailable promptly when out of stock</li>
+        <li><strong>Order Acceptance:</strong> Accept orders within 5 minutes or they may auto-cancel</li>
+        <li><strong>Preparation Time:</strong> Prepare orders within stated timeframes</li>
+        <li><strong>Food Safety:</strong> Comply with all health and safety regulations</li>
+        <li><strong>Packaging:</strong> Package orders securely for delivery</li>
+        <li><strong>Operating Hours:</strong> Keep business hours current in the app</li>
+    </ul>
+
+    <h2>4. Order Management</h2>
+    <p>Through the Dollor Business app, you can:</p>
+    <ul>
+        <li>Receive and accept incoming orders</li>
+        <li>Update order status (Preparing, Ready for Pickup)</li>
+        <li>Communicate with drivers about orders</li>
+        <li>View order history and analytics</li>
+        <li>Manage your menu in real-time</li>
+        <li>Set special hours or temporarily pause orders</li>
+    </ul>
+
+    <h2>5. Payment and Payouts</h2>
+    <ul>
+        <li>Payments are processed weekly via direct deposit</li>
+        <li>You will receive an itemized statement with each payout</li>
+        <li>Refunds for customer issues are deducted from future payouts</li>
+        <li>Tax documentation (1099) provided annually</li>
+    </ul>
+
+    <h2>6. Customer Refunds and Issues</h2>
+    <p>Refunds may be issued for:</p>
+    <table>
+        <tr><th>Issue Type</th><th>Responsibility</th></tr>
+        <tr><td>Wrong items sent</td><td>Restaurant</td></tr>
+        <tr><td>Missing items</td><td>Restaurant</td></tr>
+        <tr><td>Food quality issues</td><td>Restaurant</td></tr>
+        <tr><td>Delivery damage</td><td>Dollor/Driver</td></tr>
+        <tr><td>Late delivery</td><td>Dollor/Driver</td></tr>
+        <tr><td>Order never arrived</td><td>Dollor/Driver</td></tr>
+    </table>
+
+    <h2>7. Menu and Pricing</h2>
+    <ul>
+        <li>You control all menu items and pricing</li>
+        <li>Prices on Dollor should match in-store prices</li>
+        <li>Menu changes are reflected immediately</li>
+        <li>Photos must accurately represent items</li>
+    </ul>
+
+    <h2>8. Ratings and Reviews</h2>
+    <p>Customers can rate orders and leave reviews. Low ratings may affect:</p>
+    <ul>
+        <li>Search ranking in the customer app</li>
+        <li>Visibility in recommendations</li>
+        <li>Partnership status (extreme cases only)</li>
+    </ul>
+
+    <h2>9. Compliance</h2>
+    <p>You are responsible for:</p>
+    <ul>
+        <li>Valid business license and permits</li>
+        <li>Health department certifications</li>
+        <li>Food handler certifications</li>
+        <li>Compliance with local food safety laws</li>
+        <li>Accurate allergen information</li>
+    </ul>
+
+    <h2>10. Termination</h2>
+    <p>Either party may terminate this agreement with 7 days written notice. Dollor may terminate immediately for:</p>
+    <ul>
+        <li>Health code violations</li>
+        <li>Fraud or misrepresentation</li>
+        <li>Repeated customer complaints</li>
+        <li>Violation of these terms</li>
+    </ul>
+
+    <h2>11. Intellectual Property</h2>
+    <p>You grant Dollor a license to use your restaurant name, logo, and menu photos for marketing and display on our platform. You retain all ownership of your intellectual property.</p>
+
+    <h2>12. Contact</h2>
+    <ul>
+        <li><strong>Partner Support:</strong> partners@dollor.ai</li>
+        <li><strong>Onboarding:</strong> onboarding@dollor.ai</li>
+        <li><strong>Technical Issues:</strong> support@dollor.ai</li>
+    </ul>
+
+    <div class="footer">
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+        <p><a href="/terms">General Terms</a> | <a href="/privacy">Privacy Policy</a></p>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/restaurant-terms", response_class=HTMLResponse)
+async def get_restaurant_terms():
+    """Returns the Restaurant Partner Terms page"""
+    return RESTAURANT_TERMS_HTML
+
+# ===================== HOME/LANDING PAGE =====================
+HOME_PAGE_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dollor - $1 Food Delivery</title>
+    <style>
+        :root { --primary-color: #FF6B35; --text-color: #333; --bg-color: #fff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: var(--text-color); }
+        .hero { background: linear-gradient(135deg, var(--primary-color), #ff8c5a); color: white; padding: 80px 20px; text-align: center; }
+        .hero h1 { font-size: 3rem; margin-bottom: 15px; }
+        .hero p { font-size: 1.3rem; opacity: 0.95; margin-bottom: 30px; }
+        .hero-badge { background: white; color: var(--primary-color); padding: 8px 20px; border-radius: 25px; font-weight: bold; display: inline-block; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 60px 20px; }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin: 40px 0; }
+        .feature { text-align: center; padding: 30px; background: #f9f9f9; border-radius: 12px; }
+        .feature h3 { color: var(--primary-color); margin: 15px 0 10px; font-size: 1.3rem; }
+        .feature p { color: #666; }
+        .feature-icon { font-size: 3rem; }
+        .apps-section { background: #f5f5f5; padding: 60px 20px; text-align: center; }
+        .apps-section h2 { color: var(--primary-color); font-size: 2rem; margin-bottom: 40px; }
+        .apps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; max-width: 900px; margin: 0 auto; }
+        .app-card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .app-card h3 { color: var(--primary-color); margin-bottom: 10px; }
+        .app-card p { color: #666; font-size: 0.95rem; }
+        .footer { background: #333; color: white; padding: 40px 20px; text-align: center; }
+        .footer-links { margin-bottom: 20px; }
+        .footer-links a { color: white; margin: 0 15px; text-decoration: none; opacity: 0.8; }
+        .footer-links a:hover { opacity: 1; }
+        .footer p { opacity: 0.7; font-size: 0.9rem; }
+        @media (max-width: 600px) { .hero h1 { font-size: 2rem; } .hero p { font-size: 1rem; } }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Dollor</h1>
+        <p>Food delivery, reimagined. Just $1 delivery fee, always.</p>
+        <span class="hero-badge">$1 Flat Delivery Fee</span>
+    </div>
+
+    <div class="container">
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🍔</div>
+                <h3>Order Food</h3>
+                <p>Browse hundreds of local restaurants. Order your favorites or discover something new.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🚗</div>
+                <h3>Fast Delivery</h3>
+                <p>Track your order in real-time. Watch as your driver brings your food right to your door.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💵</div>
+                <h3>$1 Delivery</h3>
+                <p>No surge pricing. No hidden fees. Every delivery is just $1, guaranteed.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="apps-section">
+        <h2>Our Apps</h2>
+        <div class="apps-grid">
+            <div class="app-card">
+                <h3>Dollor</h3>
+                <p>Order food from local restaurants with $1 delivery. Available on iOS.</p>
+            </div>
+            <div class="app-card">
+                <h3>Dollor Driver</h3>
+                <p>Earn money delivering food on your schedule. Keep 100% of tips.</p>
+            </div>
+            <div class="app-card">
+                <h3>Dollor Business</h3>
+                <p>Manage your restaurant's orders and menu. Just $1 per order, no commission.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-links">
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/support">Support</a>
+            <a href="/driver-terms">Driver Terms</a>
+            <a href="/restaurant-terms">Restaurant Terms</a>
+        </div>
+        <p>&copy; 2024 Dollor AI Service. All rights reserved.</p>
+        <p style="margin-top: 10px;">Contact: support@dollor.ai</p>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/", response_class=HTMLResponse)
+async def get_home_page():
+    """Returns the home/landing page"""
+    return HOME_PAGE_HTML
+
 @app.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
