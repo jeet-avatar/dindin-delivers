@@ -6008,6 +6008,157 @@ def verify_dashboard_secret(secret: str):
     return True
 
 
+# Demo password for App Store review accounts
+DEMO_PASSWORD = "Demo2024!"
+
+@app.post("/api/admin/create-demo-accounts", tags=["Admin"])
+async def create_demo_accounts(
+    secret: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Create demo accounts for App Store review.
+    Requires admin secret query parameter.
+
+    Creates three accounts:
+    - demo@dollor.ai (Customer App)
+    - demodriver@dollor.ai (Driver App)
+    - demobusiness@dollor.ai (Restaurant App)
+
+    All accounts use password: Demo2024!
+    """
+    verify_dashboard_secret(secret)
+
+    from models import Driver, DriverStatus, Vendor, VendorStatus
+
+    results = {"customer": None, "driver": None, "restaurant": None}
+    demo_password_hash = get_password_hash(DEMO_PASSWORD)
+
+    try:
+        # 1. Customer Demo Account
+        customer_email = "demo@dollor.ai"
+        existing_customer = db.query(User).filter(User.email == customer_email).first()
+
+        if existing_customer:
+            existing_customer.password_hash = demo_password_hash
+            db.commit()
+            results["customer"] = {"status": "updated", "email": customer_email}
+        else:
+            customer_user = User(
+                email=customer_email,
+                password_hash=demo_password_hash,
+                full_name="Demo Customer",
+                role=UserRole.USER,
+                phone="5551234567"
+            )
+            db.add(customer_user)
+            db.commit()
+            results["customer"] = {"status": "created", "email": customer_email}
+
+        # 2. Driver Demo Account
+        driver_email = "demodriver@dollor.ai"
+        existing_driver_user = db.query(User).filter(User.email == driver_email).first()
+
+        if existing_driver_user:
+            existing_driver_user.password_hash = demo_password_hash
+            db.commit()
+            results["driver"] = {"status": "updated", "email": driver_email}
+        else:
+            # Create driver record first
+            existing_driver = db.query(Driver).filter(Driver.email == driver_email).first()
+
+            if not existing_driver:
+                driver_count = db.query(Driver).count()
+                new_driver = Driver(
+                    driver_id=f"DRV-DEMO-{driver_count + 1:05d}",
+                    first_name="Demo",
+                    last_name="Driver",
+                    email=driver_email,
+                    phone="5559876543",
+                    status=DriverStatus.APPROVED,
+                    vehicle_type="Car",
+                    vehicle_make="Toyota",
+                    vehicle_model="Camry",
+                    vehicle_year="2022",
+                    vehicle_color="Silver",
+                    license_plate="DEMO123"
+                )
+                db.add(new_driver)
+                db.commit()
+                db.refresh(new_driver)
+                existing_driver = new_driver
+
+            driver_user = User(
+                email=driver_email,
+                password_hash=demo_password_hash,
+                full_name="Demo Driver",
+                role=UserRole.DRIVER,
+                driver_id=existing_driver.id
+            )
+            db.add(driver_user)
+            db.commit()
+            results["driver"] = {"status": "created", "email": driver_email}
+
+        # 3. Restaurant/Vendor Demo Account
+        vendor_email = "demobusiness@dollor.ai"
+        existing_vendor_user = db.query(User).filter(User.email == vendor_email).first()
+
+        if existing_vendor_user:
+            existing_vendor_user.password_hash = demo_password_hash
+            db.commit()
+            results["restaurant"] = {"status": "updated", "email": vendor_email}
+        else:
+            # Create vendor record first
+            existing_vendor = db.query(Vendor).filter(Vendor.contact_email == vendor_email).first()
+
+            if not existing_vendor:
+                vendor_count = db.query(Vendor).count()
+                new_vendor = Vendor(
+                    vendor_id=f"VEN-DEMO-{vendor_count + 1:04d}",
+                    name="Demo Restaurant",
+                    contact_name="Demo Owner",
+                    contact_email=vendor_email,
+                    onboarding_status=VendorStatus.APPROVED,
+                    street="123 Demo Street",
+                    city="San Francisco",
+                    state="CA",
+                    zip_code="94102",
+                    country="US",
+                    phone="5555551234",
+                    cuisine_type="American",
+                    description="Demo restaurant for App Store review",
+                    is_active=True
+                )
+                db.add(new_vendor)
+                db.commit()
+                db.refresh(new_vendor)
+                existing_vendor = new_vendor
+
+            vendor_user = User(
+                email=vendor_email,
+                password_hash=demo_password_hash,
+                full_name="Demo Restaurant Owner",
+                role=UserRole.VENDOR,
+                vendor_id=existing_vendor.id
+            )
+            db.add(vendor_user)
+            db.commit()
+            results["restaurant"] = {"status": "created", "email": vendor_email}
+
+        logger.info("[ADMIN] Demo accounts created/updated successfully")
+
+        return {
+            "message": "Demo accounts ready for App Store review",
+            "password": DEMO_PASSWORD,
+            "accounts": results
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[ADMIN] Error creating demo accounts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating demo accounts: {str(e)}")
+
+
 @app.get("/api/dashboard/orders", tags=["Dashboard API"])
 async def get_dashboard_orders(
     secret: str,
