@@ -18,13 +18,26 @@ import {
   UploadOutlined,
   CameraOutlined,
   EditOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  WalletOutlined,
+  CustomerServiceOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
-import { Logo } from '../../components/brand/Logo';
-import brand from '../../config/brand';
+import { Link } from 'react-router-dom';
 import AIValidationStatus from '../../components/vendors/AIValidationStatus';
+
+// Dollor.ai brand colors
+const dollor = {
+  primary: '#ffd700',
+  secondary: '#ffed4a',
+  dark: '#1a1a2e',
+  darkAlt: '#16213e',
+  accent: '#0f3460',
+  success: '#10b981',
+  text: '#334155',
+  textLight: '#64748b'
+};
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -172,7 +185,7 @@ const RestaurantApplicationForm: React.FC = () => {
 
         message.success({
           content: `Nova imported ${items.length} items & all restaurant details!`,
-          icon: <RobotOutlined style={{ color: brand.colors.primary }} />,
+          icon: <RobotOutlined style={{ color: dollor.primary }} />,
           duration: 4,
         });
       } else {
@@ -217,7 +230,7 @@ const RestaurantApplicationForm: React.FC = () => {
 
           message.info({
             content: 'Nova imported restaurant details! Menu uses a POS system - you can add items after approval.',
-            icon: <RobotOutlined style={{ color: brand.colors.primary }} />,
+            icon: <RobotOutlined style={{ color: dollor.primary }} />,
             duration: 5,
           });
         } else {
@@ -351,7 +364,7 @@ const RestaurantApplicationForm: React.FC = () => {
             <AIValidationStatus
               vendorId={parseInt(applicationId)}
               onActivate={() => {
-                message.success('Congratulations! Your restaurant is now live on ' + brand.name);
+                message.success('Congratulations! Your restaurant is now live on ' + 'Dollor.ai');
               }}
             />
           </div>
@@ -425,7 +438,7 @@ const RestaurantApplicationForm: React.FC = () => {
             display: flex;
             align-items: center;
             gap: 10px;
-            background: linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.secondary} 100%);
+            background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.dark} 100%);
             border: none;
             color: white;
             padding: 16px 32px;
@@ -498,7 +511,7 @@ const RestaurantApplicationForm: React.FC = () => {
           .success-icon-wrap {
             width: 100px;
             height: 100px;
-            background: linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.secondary} 100%);
+            background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.dark} 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -559,7 +572,7 @@ const RestaurantApplicationForm: React.FC = () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            color: ${brand.colors.primary};
+            color: ${dollor.primary};
             font-size: 18px;
           }
           .check-email-text {
@@ -577,28 +590,31 @@ const RestaurantApplicationForm: React.FC = () => {
       {/* Left Panel - Hero Section */}
       <div className="hero-panel">
         <div className="hero-content">
-          <Logo variant="full" size="lg" theme="dark" />
+          <Link to="/" className="logo-link">
+            <DollarOutlined className="logo-icon" />
+            <span className="logo-text">Dollor.ai</span>
+          </Link>
 
           <h1 className="hero-title">
-            Grow your restaurant with <span className="gradient-text">{brand.name}</span>
+            Grow Your Restaurant with <span className="gradient-text">Dollor.ai</span>
           </h1>
 
           <p className="hero-subtitle">
-            Join thousands of restaurants reaching new customers every day
+            Join thousands of restaurants reaching new customers every day with AI-powered delivery
           </p>
 
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-value">50K+</div>
-              <div className="stat-label">Active Customers</div>
+              <div className="stat-value">5,000+</div>
+              <div className="stat-label">Restaurant Partners</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">4.9</div>
-              <div className="stat-label">Partner Rating</div>
+              <div className="stat-value">+45%</div>
+              <div className="stat-label">Avg Revenue Increase</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">24hr</div>
-              <div className="stat-label">Avg Approval</div>
+              <div className="stat-label">Go Live Time</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">$0</div>
@@ -608,10 +624,10 @@ const RestaurantApplicationForm: React.FC = () => {
 
           <div className="features-list">
             {[
-              { icon: <ThunderboltOutlined />, text: 'AI-powered menu import' },
-              { icon: <RobotOutlined />, text: 'Automated quality validation' },
-              { icon: <DollarOutlined />, text: 'Weekly payouts to your bank' },
-              { icon: <StarOutlined />, text: 'Premium visibility & promotions' },
+              { icon: <ThunderboltOutlined />, text: 'AI-powered menu import in seconds' },
+              { icon: <DollarOutlined />, text: 'Zero commission - transparent pricing' },
+              { icon: <WalletOutlined />, text: 'Weekly payouts to your bank' },
+              { icon: <CustomerServiceOutlined />, text: '24/7 dedicated partner support' },
             ].map((feature, i) => (
               <div key={i} className="feature-item">
                 <div className="feature-icon">{feature.icon}</div>
@@ -625,6 +641,11 @@ const RestaurantApplicationForm: React.FC = () => {
           <div className="trust-badges">
             <SafetyCertificateOutlined />
             <span>Secure & Encrypted</span>
+          </div>
+          <div className="footer-links">
+            <Link to="/terms">Terms</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/vendor/login">Login</Link>
           </div>
         </div>
       </div>
@@ -654,8 +675,8 @@ const RestaurantApplicationForm: React.FC = () => {
             percent={(currentStep / 3) * 100}
             showInfo={false}
             strokeColor={{
-              '0%': brand.colors.primary,
-              '100%': brand.colors.secondary,
+              '0%': dollor.primary,
+              '100%': dollor.dark,
             }}
             trailColor="rgba(0,0,0,0.06)"
             style={{ marginBottom: 32 }}
@@ -724,7 +745,7 @@ const RestaurantApplicationForm: React.FC = () => {
               {infoImported && (
                 <div className="info-imported-notice">
                   <div className="info-imported-header">
-                    <CheckCircleOutlined style={{ color: brand.colors.primary }} />
+                    <CheckCircleOutlined style={{ color: dollor.primary }} />
                     <span><strong>Restaurant details imported!</strong></span>
                   </div>
                   <p className="info-imported-text">
@@ -1047,11 +1068,11 @@ const RestaurantApplicationForm: React.FC = () => {
                   <div className="terms-list">
                     <div className="term-item">
                       <span className="term-label">Platform Fee</span>
-                      <span className="term-value">${brand.commission.restaurantFlatFee.toFixed(2)} per order</span>
+                      <span className="term-value">$0.00 per order*</span>
                     </div>
                     <div className="term-item">
                       <span className="term-label">Payment Processing</span>
-                      <span className="term-value">{brand.commission.stripePercent}% + ${brand.commission.stripeFixed.toFixed(2)}</span>
+                      <span className="term-value">2.9% + $0.30</span>
                     </div>
                     <div className="term-item">
                       <span className="term-label">Payouts</span>
@@ -1118,7 +1139,7 @@ const RestaurantApplicationForm: React.FC = () => {
         .hero-panel {
           width: 45%;
           min-height: 100vh;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+          background: linear-gradient(135deg, ${dollor.dark} 0%, ${dollor.darkAlt} 50%, ${dollor.accent} 100%);
           padding: 48px;
           display: flex;
           flex-direction: column;
@@ -1134,16 +1155,37 @@ const RestaurantApplicationForm: React.FC = () => {
           justify-content: center;
         }
 
+        .logo-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-decoration: none;
+          margin-bottom: 16px;
+        }
+
+        .logo-icon {
+          font-size: 36px;
+          color: ${dollor.primary};
+        }
+
+        .logo-text {
+          font-size: 28px;
+          font-weight: 800;
+          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
         .hero-title {
           font-size: 42px;
           font-weight: 800;
           color: white;
           line-height: 1.2;
-          margin: 32px 0 16px 0;
+          margin: 24px 0 16px 0;
         }
 
         .gradient-text {
-          background: linear-gradient(135deg, ${brand.colors.primary} 0%, #34d399 100%);
+          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -1180,7 +1222,7 @@ const RestaurantApplicationForm: React.FC = () => {
         .stat-value {
           font-size: 28px;
           font-weight: 700;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           margin-bottom: 4px;
         }
 
@@ -1208,18 +1250,21 @@ const RestaurantApplicationForm: React.FC = () => {
         .feature-icon {
           width: 40px;
           height: 40px;
-          background: rgba(16, 185, 129, 0.15);
+          background: rgba(255, 215, 0, 0.15);
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           font-size: 18px;
         }
 
         .hero-footer {
           padding-top: 32px;
           border-top: 1px solid rgba(255,255,255,0.1);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
         }
 
         .trust-badges {
@@ -1228,6 +1273,22 @@ const RestaurantApplicationForm: React.FC = () => {
           gap: 8px;
           color: rgba(255,255,255,0.5);
           font-size: 14px;
+        }
+
+        .footer-links {
+          display: flex;
+          gap: 24px;
+        }
+
+        .footer-links a {
+          color: rgba(255,255,255,0.5);
+          text-decoration: none;
+          font-size: 14px;
+          transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+          color: ${dollor.primary};
         }
 
         /* Form Panel */
@@ -1275,12 +1336,12 @@ const RestaurantApplicationForm: React.FC = () => {
         }
 
         .step-item.active .step-icon-wrap {
-          background: linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.secondary} 100%);
+          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.dark} 100%);
           color: white;
         }
 
         .step-item.completed .step-icon-wrap {
-          background: ${brand.colors.primary};
+          background: ${dollor.primary};
           color: white;
         }
 
@@ -1298,7 +1359,7 @@ const RestaurantApplicationForm: React.FC = () => {
         /* AI Import Card */
         .ai-import-card {
           background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-          border: 2px solid ${brand.colors.primary}30;
+          border: 2px solid ${dollor.primary}30;
           border-radius: 20px;
           padding: 24px;
           margin-bottom: 32px;
@@ -1313,8 +1374,8 @@ const RestaurantApplicationForm: React.FC = () => {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          background: ${brand.colors.primary}15;
-          color: ${brand.colors.primary};
+          background: ${dollor.primary}15;
+          color: ${dollor.primary};
           padding: 6px 14px;
           border-radius: 100px;
           font-size: 12px;
@@ -1368,15 +1429,15 @@ const RestaurantApplicationForm: React.FC = () => {
         }
 
         .ai-input:focus {
-          border-color: ${brand.colors.primary};
-          box-shadow: 0 0 0 4px ${brand.colors.primary}15;
+          border-color: ${dollor.primary};
+          box-shadow: 0 0 0 4px ${dollor.primary}15;
         }
 
         .ai-import-btn {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.secondary} 100%);
+          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.dark} 100%);
           border: none;
           color: white;
           padding: 0 24px;
@@ -1390,7 +1451,7 @@ const RestaurantApplicationForm: React.FC = () => {
 
         .ai-import-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 10px 25px ${brand.colors.primary}40;
+          box-shadow: 0 10px 25px ${dollor.primary}40;
         }
 
         .ai-import-btn:disabled {
@@ -1404,9 +1465,9 @@ const RestaurantApplicationForm: React.FC = () => {
           gap: 10px;
           margin-top: 16px;
           padding: 12px 16px;
-          background: ${brand.colors.primary}15;
+          background: ${dollor.primary}15;
           border-radius: 10px;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           font-size: 14px;
           font-weight: 500;
         }
@@ -1427,9 +1488,9 @@ const RestaurantApplicationForm: React.FC = () => {
           margin-bottom: 20px;
           padding: 14px 18px;
           background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-          border: 1px solid ${brand.colors.primary}30;
+          border: 1px solid ${dollor.primary}30;
           border-radius: 12px;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           font-size: 14px;
           font-weight: 500;
         }
@@ -1443,7 +1504,7 @@ const RestaurantApplicationForm: React.FC = () => {
           margin-top: 20px;
           padding: 20px;
           background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-          border: 1px solid ${brand.colors.primary}30;
+          border: 1px solid ${dollor.primary}30;
           border-radius: 16px;
         }
 
@@ -1453,7 +1514,7 @@ const RestaurantApplicationForm: React.FC = () => {
           gap: 10px;
           margin-bottom: 12px;
           font-size: 16px;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
         }
 
         .info-imported-header .anticon {
@@ -1490,9 +1551,9 @@ const RestaurantApplicationForm: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: ${brand.colors.primary}15;
+          background: ${dollor.primary}15;
           border-radius: 8px;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           font-size: 18px;
           flex-shrink: 0;
         }
@@ -1518,10 +1579,10 @@ const RestaurantApplicationForm: React.FC = () => {
           align-items: center;
           gap: 8px;
           padding: 12px 14px;
-          background: ${brand.colors.primary}10;
+          background: ${dollor.primary}10;
           border-radius: 8px;
           font-size: 13px;
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
           font-weight: 500;
         }
 
@@ -1570,8 +1631,8 @@ const RestaurantApplicationForm: React.FC = () => {
         }
 
         .styled-input input:focus, .styled-textarea textarea:focus {
-          border-color: ${brand.colors.primary} !important;
-          box-shadow: 0 0 0 4px ${brand.colors.primary}15 !important;
+          border-color: ${dollor.primary} !important;
+          box-shadow: 0 0 0 4px ${dollor.primary}15 !important;
         }
 
         .hours-grid {
@@ -1590,7 +1651,7 @@ const RestaurantApplicationForm: React.FC = () => {
         /* Review Step */
         .menu-preview-card {
           background: #f0fdf4;
-          border: 1px solid ${brand.colors.primary}30;
+          border: 1px solid ${dollor.primary}30;
           border-radius: 16px;
           overflow: hidden;
           margin-bottom: 24px;
@@ -1601,8 +1662,8 @@ const RestaurantApplicationForm: React.FC = () => {
           align-items: center;
           gap: 10px;
           padding: 16px 20px;
-          background: ${brand.colors.primary}15;
-          color: ${brand.colors.primary};
+          background: ${dollor.primary}15;
+          color: ${dollor.primary};
           font-weight: 600;
         }
 
@@ -1675,7 +1736,7 @@ const RestaurantApplicationForm: React.FC = () => {
         }
 
         .doc-item .anticon {
-          color: ${brand.colors.primary};
+          color: ${dollor.primary};
         }
 
         .terms-section {
@@ -1746,13 +1807,13 @@ const RestaurantApplicationForm: React.FC = () => {
         }
 
         .next-btn, .submit-btn {
-          background: linear-gradient(135deg, ${brand.colors.primary} 0%, ${brand.colors.secondary} 100%);
+          background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.dark} 100%);
           color: white;
         }
 
         .next-btn:hover, .submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 10px 25px ${brand.colors.primary}40;
+          box-shadow: 0 10px 25px ${dollor.primary}40;
         }
 
         .submit-btn:disabled {
@@ -1815,8 +1876,8 @@ const RestaurantApplicationForm: React.FC = () => {
 
         .ant-input:focus, .ant-input-affix-wrapper:focus, .ant-input-affix-wrapper-focused,
         .ant-select-focused .ant-select-selector {
-          border-color: ${brand.colors.primary} !important;
-          box-shadow: 0 0 0 4px ${brand.colors.primary}15 !important;
+          border-color: ${dollor.primary} !important;
+          box-shadow: 0 0 0 4px ${dollor.primary}15 !important;
         }
 
         .ant-select-selector {
