@@ -83,7 +83,9 @@ const DriverApplication: React.FC = () => {
         first_name: submitData.first_name,
         last_name: submitData.last_name,
         phone: submitData.phone,
-        vehicle_type: submitData.vehicle_type
+        vehicle_type: submitData.vehicle_type,
+        license_number: submitData.license_number,
+        date_of_birth: submitData.date_of_birth
       });
 
       message.success('Application submitted successfully!');

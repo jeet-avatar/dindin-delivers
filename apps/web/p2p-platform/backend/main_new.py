@@ -531,6 +531,9 @@ class DriverRegisterRequest(BaseModel):
     first_name: str
     last_name: str
     phone: str
+    vehicle_type: Optional[str] = None  # car, motorcycle, bicycle
+    license_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
 
 class DriverLoginResponse(BaseModel):
     access_token: str
@@ -627,6 +630,9 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         last_name=request.last_name,
         email=request.email,
         phone=request.phone,
+        vehicle_type=request.vehicle_type,
+        license_number=request.license_number,
+        date_of_birth=request.date_of_birth,
         status=DriverStatus.PENDING  # Needs approval
     )
     db.add(new_driver)
@@ -734,6 +740,95 @@ def update_driver_location(latitude: float, longitude: float, current_user: User
     db.commit()
 
     return {"success": True, "latitude": latitude, "longitude": longitude}
+
+
+@app.post("/api/auth/driver/documents")
+async def upload_driver_document(
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a document for a driver (license, insurance, etc.)"""
+    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a driver account"
+        )
+
+    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    # Validate document type
+    valid_types = ['drivers_license', 'insurance', 'vehicle_registration']
+    if document_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {valid_types}")
+
+    # Create upload directory
+    upload_dir = "uploads/driver_documents"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate unique filename
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
+    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+
+    # Update driver record
+    url_path = f"/uploads/driver_documents/{unique_filename}"
+    if document_type == 'drivers_license':
+        driver.drivers_license = True
+        driver.drivers_license_url = url_path
+    elif document_type == 'insurance':
+        driver.insurance = True
+        driver.insurance_url = url_path
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"{document_type} uploaded successfully",
+        "file_path": url_path,
+        "document_type": document_type
+    }
+
+
+@app.get("/api/auth/driver/documents")
+def get_driver_documents(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get driver's uploaded documents status"""
+    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a driver account"
+        )
+
+    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    return {
+        "documents": {
+            "drivers_license": {
+                "uploaded": driver.drivers_license,
+                "url": driver.drivers_license_url,
+                "expiry": driver.drivers_license_expiry.isoformat() if driver.drivers_license_expiry else None
+            },
+            "insurance": {
+                "uploaded": driver.insurance,
+                "url": driver.insurance_url,
+                "expiry": driver.insurance_expiry.isoformat() if driver.insurance_expiry else None
+            },
+            "background_check": {
+                "completed": driver.background_check,
+                "date": driver.background_check_date.isoformat() if driver.background_check_date else None
+            }
+        }
+    }
 
 
 # ==================== CUSTOMER AUTHENTICATION ====================

@@ -509,6 +509,8 @@ class Driver(Base):
     email = Column(String(255), unique=True, nullable=False)
     phone = Column(String(50))
     password_hash = Column(String(255))  # For driver app authentication
+    date_of_birth = Column(String(20))  # YYYY-MM-DD format
+    license_number = Column(String(50))  # Driver's license number
 
     # Address
     street = Column(Text)
