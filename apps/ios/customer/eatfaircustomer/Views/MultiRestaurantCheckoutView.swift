@@ -886,7 +886,9 @@ struct MultiRestaurantCheckoutView: View {
 
                     var configuration = PaymentSheet.Configuration()
                     configuration.merchantDisplayName = "EatFair"
-                    configuration.customer = .init(id: keys.customer, ephemeralKeySecret: keys.ephemeralKey)
+                    if let customerId = keys.customer, let ephemeralKey = keys.ephemeralKey {
+                        configuration.customer = .init(id: customerId, ephemeralKeySecret: ephemeralKey)
+                    }
                     configuration.allowsDelayedPaymentMethods = false
 
                     self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)

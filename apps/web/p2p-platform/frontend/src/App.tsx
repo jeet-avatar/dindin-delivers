@@ -18,6 +18,8 @@ import VendorPayouts from './app/screens/accounting/VendorPayouts';
 import LandingPage from './app/screens/public/LandingPage';
 import RestaurantApplication from './app/screens/public/RestaurantApplication';
 import DriverApplication from './app/screens/public/DriverApplication';
+import TermsOfService from './app/screens/public/TermsOfService';
+import PrivacyPolicy from './app/screens/public/PrivacyPolicy';
 import MainLayout from './app/components/layout/MainLayout';
 import VendorLayout from './app/components/layout/VendorLayout';
 import DriverLayout from './app/components/layout/DriverLayout';
@@ -56,6 +58,10 @@ function App() {
         {/* Public Application Routes */}
         <Route path="/restaurant/apply" element={<RestaurantApplication />} />
         <Route path="/driver/apply" element={<DriverApplication />} />
+
+        {/* Legal Pages */}
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
 
         {/* Admin/Business Portal Routes */}
         <Route path="/admin" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

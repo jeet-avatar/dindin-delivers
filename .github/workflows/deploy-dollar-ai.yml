@@ -1,4 +1,4 @@
-name: Deploy to Dollar.ai
+name: Deploy to Dollor.ai
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
       - feature/dollar-ai-deployment
     paths:
-      - 'dindin/**'
+      - 'apps/web/p2p-platform/**'
       - '.github/workflows/deploy-dollar-ai.yml'
   workflow_dispatch:
 
@@ -30,18 +30,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: dindin/frontend/package-lock.json
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: dindin/frontend
+        working-directory: apps/web/p2p-platform/frontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: dindin/frontend
+        working-directory: apps/web/p2p-platform/frontend
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.API_URL }}
-          VITE_APP_NAME: EatFair P2P Platform
+          VITE_API_URL: https://api.dollor.ai
+          VITE_APP_NAME: Dollor.ai
           VITE_ENVIRONMENT: production
 
       - name: Configure AWS credentials
@@ -52,7 +52,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
-        working-directory: dindin/frontend
+        working-directory: apps/web/p2p-platform/frontend
         run: |
           aws s3 sync dist/ s3://${{ env.S3_BUCKET }}/ --delete
 
@@ -81,14 +81,14 @@ jobs:
       - name: Deploy backend to EC2
         run: |
           # Sync backend files (excluding venv and __pycache__)
-          rsync -avz --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' \
+          rsync -avz --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' \
             -e "ssh -o StrictHostKeyChecking=no" \
-            dindin/backend/ ec2-user@${{ env.EC2_HOST }}:/opt/eatfair-backend/
+            apps/web/p2p-platform/backend/ ec2-user@${{ env.EC2_HOST }}:/opt/dollor-backend/
 
       - name: Install dependencies and restart service
         run: |
           ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
-            cd /opt/eatfair-backend
+            cd /opt/dollor-backend
 
             # Create virtual environment if it doesn't exist
             if [ ! -d "venv" ]; then
@@ -99,13 +99,21 @@ jobs:
             source venv/bin/activate
             pip install -r requirements.txt
 
+            # Run database migrations/seeding if needed
+            # python seed_menu_items.py
+
             # Restart the service using PM2 or systemd
             if command -v pm2 &> /dev/null; then
-              pm2 restart eatfair-backend || pm2 start "uvicorn main_new:app --host 0.0.0.0 --port 3000" --name eatfair-backend
+              pm2 restart dollor-backend || pm2 start "uvicorn main_new:app --host 0.0.0.0 --port 3000" --name dollor-backend
             else
-              # Fallback to direct run in background
-              pkill -f "uvicorn main_new:app" || true
-              nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /tmp/eatfair-backend.log 2>&1 &
+              # Use systemd if available
+              if systemctl is-active --quiet dollor-backend; then
+                sudo systemctl restart dollor-backend
+              else
+                # Fallback to direct run in background
+                pkill -f "uvicorn main_new:app" || true
+                nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /var/log/dollor-backend.log 2>&1 &
+              fi
             fi
 
             echo "Backend deployment complete!"
@@ -121,12 +129,21 @@ jobs:
       - name: Deployment Summary
         run: |
           echo "==================================="
-          echo "Deployment to Dollar.ai Complete!"
+          echo "Deployment to Dollor.ai Complete!"
           echo "==================================="
           echo ""
           echo "Frontend: https://d3pus2gxlb5cer.cloudfront.net"
           echo "Backend API: http://${{ env.EC2_HOST }}:3000"
           echo ""
-          echo "Custom Domain (after DNS setup):"
-          echo "  Frontend: https://dollar.ai"
-          echo "  API: https://api.dollar.ai"
+          echo "Production URLs:"
+          echo "  Frontend: https://dollor.ai"
+          echo "  API: https://api.dollor.ai"
+          echo ""
+          echo "Pages deployed:"
+          echo "  - Landing Page: https://dollor.ai/"
+          echo "  - Vendor Login: https://dollor.ai/vendor/login"
+          echo "  - Driver Login: https://dollor.ai/driver/login"
+          echo "  - Restaurant Application: https://dollor.ai/restaurant/apply"
+          echo "  - Driver Application: https://dollor.ai/driver/apply"
+          echo "  - Terms of Service: https://dollor.ai/terms"
+          echo "  - Privacy Policy: https://dollor.ai/privacy"

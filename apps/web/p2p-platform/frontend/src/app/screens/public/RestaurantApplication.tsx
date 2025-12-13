@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Form, Input, Select, message, Spin, Progress, Upload } from 'antd';
+import { Form, Input, Select, message, Spin, Progress, Upload, Modal } from 'antd';
 import {
   CheckCircleOutlined,
   GlobalOutlined,
@@ -294,12 +294,36 @@ const RestaurantApplicationForm: React.FC = () => {
     } catch (error: any) {
       let errorMsg = 'Failed to submit application. Please try again.';
       const detail = error.response?.data?.detail;
+      const status = error.response?.status;
+
       if (typeof detail === 'string') {
         errorMsg = detail;
       } else if (Array.isArray(detail) && detail.length > 0) {
         errorMsg = detail[0]?.msg || errorMsg;
       }
-      message.error(errorMsg);
+
+      // Handle duplicate email (409 Conflict) with a helpful modal
+      if (status === 409) {
+        Modal.info({
+          title: 'Account Already Exists',
+          content: (
+            <div>
+              <p>{errorMsg}</p>
+              <p style={{ marginTop: 16 }}>
+                <a href="/vendor/login" style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                  Click here to login →
+                </a>
+              </p>
+            </div>
+          ),
+          okText: 'Go to Login',
+          onOk: () => {
+            window.location.href = '/vendor/login';
+          }
+        });
+      } else {
+        message.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }

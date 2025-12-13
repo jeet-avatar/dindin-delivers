@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Use environment variable for API URL, fallback to production
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://dollor.ai:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,

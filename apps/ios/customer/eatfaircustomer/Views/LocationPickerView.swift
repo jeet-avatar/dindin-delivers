@@ -301,7 +301,7 @@ struct AddAddressWithPrefillView: View {
             state: state,
             zipCode: zipCode,
             instructions: instructions,
-            type: locationName,
+            addressType: locationName,
             latitude: latitude,
             longitude: longitude,
             phoneNumber: phoneNumber,

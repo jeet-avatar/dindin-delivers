@@ -105,14 +105,14 @@ struct MarkItemsUnavailableView: View {
                 ItemSelectionRow(
                     item: item,
                     itemIndex: index,
-                    isSelected: selectedItems.contains(item.id ?? "\(index)"),
-                    selectedReason: unavailabilityReasons[item.id ?? "\(index)"] ?? "out_of_stock",
+                    isSelected: selectedItems.contains(item.id),
+                    selectedReason: unavailabilityReasons[item.id] ?? "out_of_stock",
                     reasons: reasons,
                     onToggle: {
                         toggleItem(item, index: index)
                     },
                     onReasonChange: { reason in
-                        unavailabilityReasons[item.id ?? "\(index)"] = reason
+                        unavailabilityReasons[item.id] = reason
                     }
                 )
             }
@@ -188,7 +188,7 @@ struct MarkItemsUnavailableView: View {
     // MARK: - Helper Functions
 
     private func toggleItem(_ item: OrderItem, index: Int) {
-        let itemId = item.id ?? "\(index)"
+        let itemId = item.id
         if selectedItems.contains(itemId) {
             selectedItems.remove(itemId)
             unavailabilityReasons.removeValue(forKey: itemId)
@@ -210,7 +210,7 @@ struct MarkItemsUnavailableView: View {
         var unavailableItems: [[String: Any]] = []
 
         for (index, item) in order.items.enumerated() {
-            let itemId = item.id ?? "\(index)"
+            let itemId = item.id
             if selectedItems.contains(itemId) {
                 unavailableItems.append([
                     "item_index": index,
@@ -237,7 +237,7 @@ struct MarkItemsUnavailableView: View {
                 if response.success {
                     onSuccess()
                 } else {
-                    errorMessage = response.message ?? "Failed to mark items unavailable"
+                    errorMessage = response.message
                 }
             case .failure(let error):
                 errorMessage = error.localizedDescription

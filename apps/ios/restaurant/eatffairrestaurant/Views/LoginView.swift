@@ -334,6 +334,10 @@ struct LoginView: View {
                             errorMessage = "No response from server. Please check your connection."
                         case .decodingError:
                             errorMessage = "Server returned an unexpected response."
+                        case .encodingFailed:
+                            errorMessage = "Failed to send request. Please try again."
+                        case .httpError(let code):
+                            errorMessage = "Server error (\(code)). Please try again later."
                         }
                     } else {
                         errorMessage = "Login failed. Please check your credentials."

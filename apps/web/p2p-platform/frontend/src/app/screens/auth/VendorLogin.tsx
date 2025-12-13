@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, message, Space, Divider } from 'antd';
-import { UserOutlined, LockOutlined, ShopOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Checkbox } from 'antd';
+import { UserOutlined, LockOutlined, ShopOutlined, RocketOutlined, DollarOutlined, SafetyCertificateOutlined, CustomerServiceOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
 const VendorLogin: React.FC = () => {
@@ -27,13 +27,10 @@ const VendorLogin: React.FC = () => {
         }
       );
 
-      // Store token and user info
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      message.success('Login successful!');
-      
-      // Redirect to vendor dashboard
+
+      message.success('Welcome back! Redirecting to your dashboard...');
       navigate('/vendor/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
@@ -54,114 +51,440 @@ const VendorLogin: React.FC = () => {
   };
 
   return (
-    <div className="vendor-login-container">
-      <Card className="vendor-login-card">
-        <div className="login-header">
-          <ShopOutlined className="login-icon" />
-          <h1>Vendor Portal</h1>
-          <p>Sign in to manage your restaurant</p>
+    <div className="vendor-login-page">
+      {/* Left Side - Branding */}
+      <div className="brand-section">
+        <div className="brand-content">
+          <div className="logo-container">
+            <DollarOutlined className="logo-icon" />
+            <span className="logo-text">Dollor.ai</span>
+          </div>
+
+          <h1 className="brand-headline">
+            Empower Your Restaurant.<br />
+            <span className="highlight">Maximize Your Revenue.</span>
+          </h1>
+
+          <p className="brand-tagline">
+            Join thousands of restaurants using AI-powered insights to grow their business,
+            reduce costs, and deliver exceptional customer experiences.
+          </p>
+
+          <div className="features-list">
+            <div className="feature-item">
+              <RocketOutlined className="feature-icon" />
+              <div>
+                <strong>Smart Analytics</strong>
+                <p>AI-powered insights to optimize your menu and pricing</p>
+              </div>
+            </div>
+            <div className="feature-item">
+              <SafetyCertificateOutlined className="feature-icon" />
+              <div>
+                <strong>Zero Commission*</strong>
+                <p>Keep more of what you earn with transparent pricing</p>
+              </div>
+            </div>
+            <div className="feature-item">
+              <CustomerServiceOutlined className="feature-icon" />
+              <div>
+                <strong>24/7 Support</strong>
+                <p>Dedicated partner success team at your service</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="trust-badges">
+            <span>Trusted by 5,000+ restaurants</span>
+            <span>•</span>
+            <span>$50M+ in partner revenue</span>
+          </div>
         </div>
 
-        <Form
-          name="vendor_login"
-          onFinish={onFinish}
-          autoComplete="off"
-          layout="vertical"
-        >
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: 'Please enter your email' },
-              { type: 'email', message: 'Please enter a valid email' }
-            ]}
-          >
-            <Input
-              prefix={<UserOutlined />}
-              placeholder="Email"
-              size="large"
-            />
-          </Form.Item>
+        <div className="brand-footer">
+          <p>© 2024 Dollor.ai — Empowering Local Businesses</p>
+        </div>
+      </div>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="Password"
-              size="large"
-            />
-          </Form.Item>
+      {/* Right Side - Login Form */}
+      <div className="login-section">
+        <div className="login-container">
+          <div className="login-header">
+            <ShopOutlined className="header-icon" />
+            <h2>Restaurant Partner Portal</h2>
+            <p>Sign in to manage your restaurant and orders</p>
+          </div>
 
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              size="large"
-              block
+          <Form
+            name="vendor_login"
+            onFinish={onFinish}
+            autoComplete="off"
+            layout="vertical"
+            className="login-form"
+          >
+            <Form.Item
+              name="email"
+              label="Email Address"
+              rules={[
+                { required: true, message: 'Please enter your email' },
+                { type: 'email', message: 'Please enter a valid email' }
+              ]}
             >
-              Sign In
-            </Button>
-          </Form.Item>
-        </Form>
+              <Input
+                prefix={<UserOutlined />}
+                placeholder="your@restaurant.com"
+                size="large"
+              />
+            </Form.Item>
 
-        <Divider>New to DinDin?</Divider>
+            <Form.Item
+              name="password"
+              label="Password"
+              rules={[{ required: true, message: 'Please enter your password' }]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="••••••••"
+                size="large"
+              />
+            </Form.Item>
 
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Button block size="large" onClick={() => navigate('/restaurant/apply')}>
+            <div className="form-options">
+              <Checkbox>Remember me</Checkbox>
+              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
+            </div>
+
+            <Form.Item>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                block
+                className="login-button"
+              >
+                Sign In to Dashboard
+              </Button>
+            </Form.Item>
+          </Form>
+
+          <div className="divider">
+            <span>New to Dollor.ai?</span>
+          </div>
+
+          <Button
+            size="large"
+            block
+            onClick={() => navigate('/restaurant/apply')}
+            className="apply-button"
+          >
             Apply as Restaurant Partner
           </Button>
-          <Button type="link" block onClick={() => navigate('/')}>
-            ← Back to Home
-          </Button>
-        </Space>
-      </Card>
+
+          <div className="login-footer">
+            <p>
+              By signing in, you agree to our{' '}
+              <Link to="/terms">Terms of Service</Link> and{' '}
+              <Link to="/privacy">Privacy Policy</Link>
+            </p>
+          </div>
+        </div>
+      </div>
 
       <style>{`
-        .vendor-login-container {
+        .vendor-login-page {
           min-height: 100vh;
+          display: flex;
+          background: #f8fafc;
+        }
+
+        /* Brand Section - Left Side */
+        .brand-section {
+          flex: 1;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+          color: white;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 48px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .brand-section::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -50%;
+          width: 100%;
+          height: 100%;
+          background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%);
+          pointer-events: none;
+        }
+
+        .brand-content {
+          position: relative;
+          z-index: 1;
+        }
+
+        .logo-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 48px;
+        }
+
+        .logo-icon {
+          font-size: 40px;
+          color: #ffd700;
+        }
+
+        .logo-text {
+          font-size: 32px;
+          font-weight: 800;
+          letter-spacing: -1px;
+          background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .brand-headline {
+          font-size: 42px;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 24px;
+        }
+
+        .brand-headline .highlight {
+          color: #ffd700;
+        }
+
+        .brand-tagline {
+          font-size: 18px;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.8);
+          margin-bottom: 48px;
+          max-width: 500px;
+        }
+
+        .features-list {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          margin-bottom: 48px;
+        }
+
+        .feature-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .feature-icon {
+          font-size: 28px;
+          color: #ffd700;
+          margin-top: 4px;
+        }
+
+        .feature-item strong {
+          display: block;
+          font-size: 16px;
+          margin-bottom: 4px;
+        }
+
+        .feature-item p {
+          font-size: 14px;
+          color: rgba(255,255,255,0.7);
+          margin: 0;
+        }
+
+        .trust-badges {
+          display: flex;
+          gap: 16px;
+          font-size: 14px;
+          color: rgba(255,255,255,0.6);
+        }
+
+        .brand-footer {
+          position: relative;
+          z-index: 1;
+        }
+
+        .brand-footer p {
+          font-size: 14px;
+          color: rgba(255,255,255,0.5);
+          margin: 0;
+        }
+
+        /* Login Section - Right Side */
+        .login-section {
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 20px;
+          padding: 48px;
+          max-width: 600px;
         }
-        .vendor-login-card {
+
+        .login-container {
           width: 100%;
-          max-width: 450px;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-          border-radius: 12px;
+          max-width: 420px;
         }
+
         .login-header {
           text-align: center;
-          margin-bottom: 32px;
+          margin-bottom: 40px;
         }
-        .login-icon {
-          font-size: 64px;
-          color: #667eea;
+
+        .header-icon {
+          font-size: 48px;
+          color: #1a1a2e;
           margin-bottom: 16px;
         }
-        .login-header h1 {
+
+        .login-header h2 {
           font-size: 28px;
+          font-weight: 700;
+          color: #1a1a2e;
           margin: 0 0 8px 0;
-          color: #1a1a1a;
         }
+
         .login-header p {
-          font-size: 14px;
-          color: #666;
+          font-size: 16px;
+          color: #64748b;
           margin: 0;
         }
+
+        .login-form .ant-form-item-label > label {
+          font-weight: 600;
+          color: #334155;
+        }
+
+        .login-form .ant-input-affix-wrapper {
+          border-radius: 8px;
+          border: 2px solid #e2e8f0;
+          transition: all 0.3s;
+        }
+
+        .login-form .ant-input-affix-wrapper:hover,
+        .login-form .ant-input-affix-wrapper:focus,
+        .login-form .ant-input-affix-wrapper-focused {
+          border-color: #1a1a2e;
+          box-shadow: 0 0 0 3px rgba(26,26,46,0.1);
+        }
+
+        .form-options {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+        }
+
+        .forgot-link {
+          color: #1a1a2e;
+          font-weight: 500;
+        }
+
+        .forgot-link:hover {
+          color: #ffd700;
+        }
+
+        .login-button {
+          height: 48px;
+          font-size: 16px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+          border: none;
+          border-radius: 8px;
+        }
+
+        .login-button:hover {
+          background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(26,26,46,0.3);
+        }
+
+        .divider {
+          display: flex;
+          align-items: center;
+          margin: 32px 0;
+          color: #94a3b8;
+          font-size: 14px;
+        }
+
+        .divider::before,
+        .divider::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: #e2e8f0;
+        }
+
+        .divider span {
+          padding: 0 16px;
+        }
+
+        .apply-button {
+          height: 48px;
+          font-size: 16px;
+          font-weight: 600;
+          border: 2px solid #1a1a2e;
+          color: #1a1a2e;
+          border-radius: 8px;
+        }
+
+        .apply-button:hover {
+          background: #ffd700;
+          border-color: #ffd700;
+          color: #1a1a2e;
+        }
+
         .login-footer {
           text-align: center;
-          margin-top: 24px;
-          padding-top: 24px;
-          border-top: 1px solid #f0f0f0;
+          margin-top: 32px;
         }
+
         .login-footer p {
-          margin: 0 0 8px 0;
-          color: #666;
-          font-size: 14px;
+          font-size: 13px;
+          color: #94a3b8;
+        }
+
+        .login-footer a {
+          color: #1a1a2e;
+          font-weight: 500;
+        }
+
+        .login-footer a:hover {
+          color: #ffd700;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+          .vendor-login-page {
+            flex-direction: column;
+          }
+
+          .brand-section {
+            padding: 32px;
+          }
+
+          .brand-headline {
+            font-size: 32px;
+          }
+
+          .login-section {
+            max-width: none;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .brand-section {
+            display: none;
+          }
+
+          .login-section {
+            padding: 24px;
+          }
         }
       `}</style>
     </div>

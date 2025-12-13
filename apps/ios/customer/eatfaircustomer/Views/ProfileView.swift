@@ -14,6 +14,12 @@ struct ProfileView: View {
     @State private var isDeletingAccount = false
     @State private var deleteError: String?
 
+    // Debug seeder state (DEBUG builds only)
+    #if DEBUG
+    @State private var isSeeding = false
+    @State private var seedingMessage: String?
+    #endif
+
     private let availableLanguages = ["English", "Spanish", "French", "Chinese", "Hindi"]
 
     // Use P2P backend data via AuthViewModel
@@ -182,6 +188,110 @@ struct ProfileView: View {
                         }
                         .padding(.horizontal)
                         .padding(.top, 10)
+
+                        // Debug Section - Only in DEBUG builds
+                        #if DEBUG
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("DEVELOPER TOOLS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                                .padding(.leading, 20)
+                                .padding(.bottom, 10)
+
+                            VStack(spacing: 0) {
+                                // Seed Showcase Orders
+                                Button(action: {
+                                    isSeeding = true
+                                    seedingMessage = nil
+                                    DatabaseSeeder.shared.seedShowcaseOrders()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                        isSeeding = false
+                                        seedingMessage = "Successfully seeded 10 showcase orders!"
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "ladybug.fill")
+                                            .foregroundColor(.orange)
+                                            .font(.title3)
+                                            .frame(width: 30)
+
+                                        VStack(alignment: .leading) {
+                                            Text("Seed Showcase Orders")
+                                                .font(.body)
+                                                .foregroundColor(Theme.brandBlack)
+                                            Text("Creates 10 orders with promotions")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+
+                                        Spacer()
+
+                                        if isSeeding {
+                                            ProgressView()
+                                                .tint(.orange)
+                                        } else {
+                                            Image(systemName: "chevron.right")
+                                                .foregroundColor(.gray)
+                                                .font(.caption)
+                                        }
+                                    }
+                                    .padding()
+                                }
+                                .disabled(isSeeding)
+
+                                Divider()
+
+                                // Cleanup Showcase Data
+                                Button(action: {
+                                    isSeeding = true
+                                    seedingMessage = nil
+                                    DatabaseSeeder.shared.cleanupTestData()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                        isSeeding = false
+                                        seedingMessage = "Showcase data cleaned up!"
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "trash.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.title3)
+                                            .frame(width: 30)
+
+                                        VStack(alignment: .leading) {
+                                            Text("Cleanup Showcase Data")
+                                                .font(.body)
+                                                .foregroundColor(Theme.brandBlack)
+                                            Text("Removes test orders")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.gray)
+                                            .font(.caption)
+                                    }
+                                    .padding()
+                                }
+                                .disabled(isSeeding)
+                            }
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(12)
+
+                            // Seeding status message
+                            if let message = seedingMessage {
+                                Text(message)
+                                    .font(.caption)
+                                    .foregroundColor(message.contains("Error") ? .red : .green)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 8)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                        #endif
 
                         // Delete Account Button (Apple App Store Guideline 5.1.1)
                         Button(action: {

@@ -135,7 +135,7 @@ struct DeliveryDecisionView: View {
             HStack {
                 Image(systemName: "person.fill")
                     .foregroundColor(.gray)
-                Text(order.customerName ?? "Customer")
+                Text(order.customerName)
                     .font(.subheadline)
             }
 

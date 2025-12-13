@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Card, Typography, message, Divider, Space } from 'antd';
-import { CarOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Checkbox } from 'antd';
+import { UserOutlined, LockOutlined, CarOutlined, DollarOutlined, ClockCircleOutlined, WalletOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
-import brand from '../../config/brand';
-
-const { Title, Text } = Typography;
 
 const DriverLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const API_URL = getApiUrl();
 
-  const onFinish = async (values: { email: string; password: string }) => {
+  const onFinish = async (values: any) => {
     setLoading(true);
     try {
       const formData = new URLSearchParams();
@@ -37,147 +34,461 @@ const DriverLogin: React.FC = () => {
       localStorage.setItem('driver_name', `${response.data.first_name} ${response.data.last_name}`);
       localStorage.setItem('driver_status', response.data.status);
 
-      message.success('Login successful!');
+      message.success('Welcome back! Redirecting to your dashboard...');
       navigate('/driver/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
-      let errorMsg = 'Login failed. Please check your credentials.';
-      const detail = error.response?.data?.detail;
-      if (typeof detail === 'string') {
-        errorMsg = detail;
-      } else if (Array.isArray(detail) && detail.length > 0) {
-        errorMsg = detail[0]?.msg || errorMsg;
+      const getErrorMsg = (defaultMsg: string) => {
+        const detail = error.response?.data?.detail;
+        if (typeof detail === 'string') return detail;
+        if (Array.isArray(detail) && detail.length > 0) return detail[0]?.msg || defaultMsg;
+        return defaultMsg;
+      };
+      if (error.response?.status === 403) {
+        message.error(getErrorMsg('Your driver account is pending approval'));
+      } else {
+        message.error(getErrorMsg('Login failed. Please check your credentials.'));
       }
-      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="driver-login">
-      <Card className="login-card">
-        <div className="login-header">
-          <div className="icon-wrapper">
-            <CarOutlined />
+    <div className="driver-login-page">
+      {/* Left Side - Branding */}
+      <div className="brand-section">
+        <div className="brand-content">
+          <div className="logo-container">
+            <DollarOutlined className="logo-icon" />
+            <span className="logo-text">Dollor.ai</span>
           </div>
-          <Title level={3}>Driver Portal</Title>
-          <Text type="secondary">Sign in to manage your deliveries</Text>
+
+          <h1 className="brand-headline">
+            Drive Your Future.<br />
+            <span className="highlight">Earn On Your Terms.</span>
+          </h1>
+
+          <p className="brand-tagline">
+            Join the fastest-growing delivery network. Set your own schedule,
+            keep more of your earnings, and be part of a community that values you.
+          </p>
+
+          <div className="features-list">
+            <div className="feature-item">
+              <ClockCircleOutlined className="feature-icon" />
+              <div>
+                <strong>Flexible Schedule</strong>
+                <p>Work when you want, as much as you want</p>
+              </div>
+            </div>
+            <div className="feature-item">
+              <WalletOutlined className="feature-icon" />
+              <div>
+                <strong>Instant Payouts</strong>
+                <p>Get paid daily with instant cash-out options</p>
+              </div>
+            </div>
+            <div className="feature-item">
+              <EnvironmentOutlined className="feature-icon" />
+              <div>
+                <strong>Smart Routing</strong>
+                <p>AI-optimized routes for maximum earnings</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="trust-badges">
+            <span>10,000+ Active Drivers</span>
+            <span>•</span>
+            <span>$2M+ Weekly Payouts</span>
+          </div>
         </div>
 
-        <Form
-          name="driver_login"
-          onFinish={onFinish}
-          layout="vertical"
-          size="large"
-        >
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: 'Please enter your email' },
-              { type: 'email', message: 'Please enter a valid email' }
-            ]}
-          >
-            <Input
-              prefix={<MailOutlined className="input-icon" />}
-              placeholder="Email address"
-            />
-          </Form.Item>
+        <div className="brand-footer">
+          <p>© 2024 Dollor.ai — Empowering Local Delivery</p>
+        </div>
+      </div>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: 'Please enter your password' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="input-icon" />}
-              placeholder="Password"
-            />
-          </Form.Item>
+      {/* Right Side - Login Form */}
+      <div className="login-section">
+        <div className="login-container">
+          <div className="login-header">
+            <CarOutlined className="header-icon" />
+            <h2>Driver Portal</h2>
+            <p>Sign in to manage your deliveries and earnings</p>
+          </div>
 
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              block
-              className="submit-button"
+          <Form
+            name="driver_login"
+            onFinish={onFinish}
+            autoComplete="off"
+            layout="vertical"
+            className="login-form"
+          >
+            <Form.Item
+              name="email"
+              label="Email Address"
+              rules={[
+                { required: true, message: 'Please enter your email' },
+                { type: 'email', message: 'Please enter a valid email' }
+              ]}
             >
-              Sign In
-            </Button>
-          </Form.Item>
-        </Form>
+              <Input
+                prefix={<UserOutlined />}
+                placeholder="your@email.com"
+                size="large"
+              />
+            </Form.Item>
 
-        <Divider>New to {brand.name}?</Divider>
+            <Form.Item
+              name="password"
+              label="Password"
+              rules={[{ required: true, message: 'Please enter your password' }]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="••••••••"
+                size="large"
+              />
+            </Form.Item>
 
-        <Space direction="vertical" style={{ width: '100%' }}>
+            <div className="form-options">
+              <Checkbox>Remember me</Checkbox>
+              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
+            </div>
+
+            <Form.Item>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                block
+                className="login-button"
+              >
+                Sign In to Dashboard
+              </Button>
+            </Form.Item>
+          </Form>
+
+          <div className="divider">
+            <span>Ready to start driving?</span>
+          </div>
+
           <Button
-            block
             size="large"
+            block
             onClick={() => navigate('/driver/apply')}
+            className="apply-button"
           >
             Apply as Delivery Partner
           </Button>
-          <Button
-            type="link"
-            block
-            onClick={() => navigate('/')}
-          >
-            Back to Home
-          </Button>
-        </Space>
-      </Card>
+
+          <div className="login-footer">
+            <p>
+              By signing in, you agree to our{' '}
+              <Link to="/terms">Terms of Service</Link> and{' '}
+              <Link to="/privacy">Privacy Policy</Link>
+            </p>
+          </div>
+        </div>
+      </div>
 
       <style>{`
-        .driver-login {
+        .driver-login-page {
           min-height: 100vh;
-          background: ${brand.gradients.secondary};
+          display: flex;
+          background: #f8fafc;
+        }
+
+        /* Brand Section - Left Side */
+        .brand-section {
+          flex: 1;
+          background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #415a77 100%);
+          color: white;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 48px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .brand-section::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -50%;
+          width: 100%;
+          height: 100%;
+          background: radial-gradient(circle, rgba(76,201,240,0.15) 0%, transparent 70%);
+          pointer-events: none;
+        }
+
+        .brand-content {
+          position: relative;
+          z-index: 1;
+        }
+
+        .logo-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 48px;
+        }
+
+        .logo-icon {
+          font-size: 40px;
+          color: #4cc9f0;
+        }
+
+        .logo-text {
+          font-size: 32px;
+          font-weight: 800;
+          letter-spacing: -1px;
+          background: linear-gradient(135deg, #4cc9f0 0%, #7209b7 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .brand-headline {
+          font-size: 42px;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 24px;
+        }
+
+        .brand-headline .highlight {
+          color: #4cc9f0;
+        }
+
+        .brand-tagline {
+          font-size: 18px;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.8);
+          margin-bottom: 48px;
+          max-width: 500px;
+        }
+
+        .features-list {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          margin-bottom: 48px;
+        }
+
+        .feature-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .feature-icon {
+          font-size: 28px;
+          color: #4cc9f0;
+          margin-top: 4px;
+        }
+
+        .feature-item strong {
+          display: block;
+          font-size: 16px;
+          margin-bottom: 4px;
+        }
+
+        .feature-item p {
+          font-size: 14px;
+          color: rgba(255,255,255,0.7);
+          margin: 0;
+        }
+
+        .trust-badges {
+          display: flex;
+          gap: 16px;
+          font-size: 14px;
+          color: rgba(255,255,255,0.6);
+        }
+
+        .brand-footer {
+          position: relative;
+          z-index: 1;
+        }
+
+        .brand-footer p {
+          font-size: 14px;
+          color: rgba(255,255,255,0.5);
+          margin: 0;
+        }
+
+        /* Login Section - Right Side */
+        .login-section {
+          flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 48px;
+          max-width: 600px;
         }
 
-        .login-card {
+        .login-container {
           width: 100%;
           max-width: 420px;
-          border-radius: 16px !important;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;
         }
 
         .login-header {
           text-align: center;
-          margin-bottom: 30px;
+          margin-bottom: 40px;
         }
 
-        .icon-wrapper {
-          width: 70px;
-          height: 70px;
-          border-radius: 50%;
-          background: ${brand.gradients.secondary};
+        .header-icon {
+          font-size: 48px;
+          color: #0d1b2a;
+          margin-bottom: 16px;
+        }
+
+        .login-header h2 {
+          font-size: 28px;
+          font-weight: 700;
+          color: #0d1b2a;
+          margin: 0 0 8px 0;
+        }
+
+        .login-header p {
+          font-size: 16px;
+          color: #64748b;
+          margin: 0;
+        }
+
+        .login-form .ant-form-item-label > label {
+          font-weight: 600;
+          color: #334155;
+        }
+
+        .login-form .ant-input-affix-wrapper {
+          border-radius: 8px;
+          border: 2px solid #e2e8f0;
+          transition: all 0.3s;
+        }
+
+        .login-form .ant-input-affix-wrapper:hover,
+        .login-form .ant-input-affix-wrapper:focus,
+        .login-form .ant-input-affix-wrapper-focused {
+          border-color: #0d1b2a;
+          box-shadow: 0 0 0 3px rgba(13,27,42,0.1);
+        }
+
+        .form-options {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+        }
+
+        .forgot-link {
+          color: #0d1b2a;
+          font-weight: 500;
+        }
+
+        .forgot-link:hover {
+          color: #4cc9f0;
+        }
+
+        .login-button {
+          height: 48px;
+          font-size: 16px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #0d1b2a 0%, #415a77 100%);
+          border: none;
+          border-radius: 8px;
+        }
+
+        .login-button:hover {
+          background: linear-gradient(135deg, #415a77 0%, #0d1b2a 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(13,27,42,0.3);
+        }
+
+        .divider {
           display: flex;
           align-items: center;
-          justify-content: center;
-          margin: 0 auto 16px;
+          margin: 32px 0;
+          color: #94a3b8;
+          font-size: 14px;
         }
 
-        .icon-wrapper .anticon {
-          font-size: 32px;
-          color: white;
+        .divider::before,
+        .divider::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: #e2e8f0;
         }
 
-        .login-header h3 {
-          margin: 0 0 4px 0 !important;
+        .divider span {
+          padding: 0 16px;
         }
 
-        .input-icon {
-          color: ${brand.colors.textLight} !important;
+        .apply-button {
+          height: 48px;
+          font-size: 16px;
+          font-weight: 600;
+          border: 2px solid #0d1b2a;
+          color: #0d1b2a;
+          border-radius: 8px;
         }
 
-        .submit-button {
-          height: 48px !important;
-          background: ${brand.gradients.secondary} !important;
-          border: none !important;
-          font-weight: 600 !important;
+        .apply-button:hover {
+          background: #4cc9f0;
+          border-color: #4cc9f0;
+          color: #0d1b2a;
+        }
+
+        .login-footer {
+          text-align: center;
+          margin-top: 32px;
+        }
+
+        .login-footer p {
+          font-size: 13px;
+          color: #94a3b8;
+        }
+
+        .login-footer a {
+          color: #0d1b2a;
+          font-weight: 500;
+        }
+
+        .login-footer a:hover {
+          color: #4cc9f0;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+          .driver-login-page {
+            flex-direction: column;
+          }
+
+          .brand-section {
+            padding: 32px;
+          }
+
+          .brand-headline {
+            font-size: 32px;
+          }
+
+          .login-section {
+            max-width: none;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .brand-section {
+            display: none;
+          }
+
+          .login-section {
+            padding: 24px;
+          }
         }
       `}</style>
     </div>

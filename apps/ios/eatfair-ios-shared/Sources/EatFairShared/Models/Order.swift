@@ -288,7 +288,7 @@ public struct Order: Identifiable, Codable {
         isTipped = try container.decodeIfPresent(Bool.self, forKey: .isTipped) ?? false
     }
     
-    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isTipped: Bool = false) {
+    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isTipped: Bool = false) {
         self.id = id
         self.orderId = orderId
         self.customerId = customerId
@@ -317,6 +317,10 @@ public struct Order: Identifiable, Codable {
         self.total = total
         self.status = status
         self.placedAt = placedAt
+        self.acceptedAt = acceptedAt
+        self.preparedAt = preparedAt
+        self.pickedUpAt = pickedUpAt
+        self.deliveredAt = deliveredAt
         self.estimatedDeliveryTime = estimatedDeliveryTime
         self.driverId = driverId
         self.driverName = driverName

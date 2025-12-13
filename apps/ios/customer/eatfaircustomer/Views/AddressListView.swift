@@ -235,7 +235,7 @@ struct AddAddressView: View {
             state: state,
             zipCode: zipCode,
             instructions: instructions,
-            type: locationName, // Use locationName as type
+            addressType: locationName, // Use locationName as type
             latitude: latitude,
             longitude: longitude,
             phoneNumber: phoneNumber,

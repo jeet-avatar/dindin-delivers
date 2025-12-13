@@ -1542,13 +1542,31 @@ class VendorResponse(BaseModel):
 def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
     """Public endpoint for restaurant applications - no auth required"""
     from models import Vendor
-    
+
     print("=" * 60)
     print("🍽️  RESTAURANT APPLICATION RECEIVED")
     print(f"Restaurant: {vendor.restaurant_name}")
     print(f"Contact: {vendor.contact_email}")
     print("=" * 60)
-    
+
+    # Check if email already exists (vendor or user)
+    if vendor.contact_email:
+        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == vendor.contact_email).first()
+        if existing_vendor:
+            print(f"⚠️ Email already registered: {vendor.contact_email}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"A business with email '{vendor.contact_email}' is already registered. Please login using your credentials at /vendor/login"
+            )
+
+        existing_user = db.query(User).filter(User.email == vendor.contact_email).first()
+        if existing_user:
+            print(f"⚠️ User account exists: {vendor.contact_email}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"An account with email '{vendor.contact_email}' already exists. Please login using your credentials at /vendor/login"
+            )
+
     try:
         # Generate vendor ID
         count = db.query(Vendor).count()
