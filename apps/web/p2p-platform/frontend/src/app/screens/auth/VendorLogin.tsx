@@ -458,7 +458,7 @@ const VendorLogin: React.FC = () => {
           color: #ffd700;
         }
 
-        /* Responsive */
+        /* Responsive - Tablet */
         @media (max-width: 1024px) {
           .vendor-login-page {
             flex-direction: column;
@@ -466,24 +466,140 @@ const VendorLogin: React.FC = () => {
 
           .brand-section {
             padding: 32px;
+            min-height: auto;
+            position: relative;
+            height: auto;
           }
 
           .brand-headline {
             font-size: 32px;
           }
 
+          .features-list {
+            display: none;
+          }
+
+          .trust-badges {
+            margin-top: 24px;
+          }
+
           .login-section {
             max-width: none;
+            padding: 32px;
           }
         }
 
+        /* Responsive - Mobile */
         @media (max-width: 768px) {
           .brand-section {
+            padding: 24px;
+          }
+
+          .logo-container {
+            margin-bottom: 24px;
+          }
+
+          .logo-icon {
+            font-size: 32px;
+          }
+
+          .logo-text {
+            font-size: 24px;
+          }
+
+          .brand-headline {
+            font-size: 24px;
+            margin-bottom: 16px;
+          }
+
+          .brand-tagline {
+            font-size: 14px;
+            margin-bottom: 24px;
+          }
+
+          .trust-badges {
+            font-size: 12px;
+            gap: 12px;
+          }
+
+          .brand-footer {
             display: none;
           }
 
           .login-section {
-            padding: 24px;
+            padding: 24px 16px;
+          }
+
+          .login-container {
+            max-width: 100%;
+          }
+
+          .login-header {
+            margin-bottom: 28px;
+          }
+
+          .header-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+          }
+
+          .login-header h2 {
+            font-size: 22px;
+          }
+
+          .login-header p {
+            font-size: 14px;
+          }
+
+          .login-form .ant-input-affix-wrapper {
+            height: 48px;
+          }
+
+          .form-options {
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+          }
+
+          .login-button {
+            height: 52px;
+            font-size: 15px;
+          }
+
+          .divider {
+            margin: 24px 0;
+          }
+
+          .apply-button {
+            height: 52px;
+            font-size: 15px;
+          }
+
+          .login-footer {
+            margin-top: 24px;
+          }
+
+          .login-footer p {
+            font-size: 12px;
+          }
+        }
+
+        /* Responsive - Small Mobile */
+        @media (max-width: 375px) {
+          .brand-section {
+            padding: 20px 16px;
+          }
+
+          .brand-headline {
+            font-size: 20px;
+          }
+
+          .login-section {
+            padding: 20px 12px;
+          }
+
+          .login-header h2 {
+            font-size: 20px;
           }
         }
       `}</style>

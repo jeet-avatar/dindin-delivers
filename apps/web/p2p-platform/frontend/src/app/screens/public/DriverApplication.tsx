@@ -784,7 +784,7 @@ const DriverApplication: React.FC = () => {
           box-shadow: 0 0 0 4px rgba(76, 201, 240, 0.15) !important;
         }
 
-        /* Responsive */
+        /* Responsive - Tablet */
         @media (max-width: 1024px) {
           .hero-panel {
             display: none;
@@ -792,6 +792,155 @@ const DriverApplication: React.FC = () => {
 
           .form-panel {
             padding: 24px;
+          }
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 768px) {
+          .form-panel {
+            padding: 16px;
+          }
+
+          .form-container {
+            max-width: 100%;
+          }
+
+          .steps-header {
+            gap: 8px;
+            margin-bottom: 24px;
+          }
+
+          .step-dot .anticon {
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
+          }
+
+          .step-label {
+            font-size: 11px;
+          }
+
+          .form-card {
+            border-radius: 16px !important;
+            padding: 20px 16px;
+          }
+
+          .form-title {
+            font-size: 20px;
+          }
+
+          .form-subtitle {
+            font-size: 13px;
+          }
+
+          .form-nav {
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+
+          .nav-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 120px;
+            justify-content: center;
+          }
+
+          .back-home {
+            margin-top: 16px;
+          }
+
+          /* Success Page Mobile */
+          .success-page {
+            padding: 24px 16px;
+          }
+
+          .success-container {
+            max-width: 100%;
+          }
+
+          .success-icon-wrap {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+          }
+
+          .success-check {
+            font-size: 36px;
+          }
+
+          .success-title {
+            font-size: 24px;
+            margin-bottom: 8px;
+          }
+
+          .success-subtitle {
+            font-size: 15px;
+            margin-bottom: 28px;
+          }
+
+          .next-steps-card {
+            padding: 20px 16px;
+            margin-bottom: 24px;
+          }
+
+          .next-steps-card h3 {
+            font-size: 16px;
+            margin-bottom: 20px;
+          }
+
+          .step-item {
+            gap: 12px;
+          }
+
+          .step-num {
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+          }
+
+          .success-actions {
+            gap: 10px;
+          }
+
+          .primary-btn {
+            height: 48px;
+            font-size: 14px;
+            border-radius: 10px;
+          }
+        }
+
+        /* Responsive - Small Mobile */
+        @media (max-width: 375px) {
+          .form-panel {
+            padding: 12px;
+          }
+
+          .form-card {
+            padding: 16px 12px;
+          }
+
+          .form-title {
+            font-size: 18px;
+          }
+
+          .step-dot .anticon {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+          }
+
+          .step-label {
+            font-size: 10px;
+          }
+
+          .nav-btn {
+            padding: 10px 16px;
+            font-size: 13px;
+          }
+
+          .success-title {
+            font-size: 20px;
           }
         }
       `}</style>

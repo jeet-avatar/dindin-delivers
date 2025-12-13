@@ -1821,7 +1821,7 @@ const RestaurantApplicationForm: React.FC = () => {
           cursor: not-allowed;
         }
 
-        /* Responsive */
+        /* Responsive - Tablet */
         @media (max-width: 1024px) {
           .hero-panel {
             display: none;
@@ -1860,6 +1860,147 @@ const RestaurantApplicationForm: React.FC = () => {
           .ai-import-btn {
             justify-content: center;
             padding: 14px 24px;
+          }
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 768px) {
+          .form-panel {
+            padding: 16px;
+          }
+
+          .form-container {
+            max-width: 100%;
+          }
+
+          .steps-container {
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+          }
+
+          .step-item {
+            padding: 8px;
+          }
+
+          .step-number {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+          }
+
+          .form-card {
+            padding: 20px 16px;
+            border-radius: 16px;
+          }
+
+          .card-title {
+            font-size: 20px;
+          }
+
+          .card-subtitle {
+            font-size: 13px;
+          }
+
+          .ai-section {
+            padding: 16px;
+            border-radius: 12px;
+          }
+
+          .ai-section h3 {
+            font-size: 16px;
+          }
+
+          .ai-input-group {
+            gap: 8px;
+          }
+
+          .ai-import-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+          }
+
+          .nav-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+          }
+
+          .submit-btn {
+            padding: 14px 24px;
+            font-size: 15px;
+          }
+
+          .back-home {
+            margin-top: 16px;
+          }
+
+          .success-container {
+            padding: 24px 16px;
+          }
+
+          .success-icon-wrap {
+            width: 80px;
+            height: 80px;
+          }
+
+          .success-check {
+            font-size: 36px;
+          }
+
+          .success-title {
+            font-size: 24px;
+          }
+
+          .success-subtitle {
+            font-size: 15px;
+          }
+
+          .next-steps-card {
+            padding: 20px 16px;
+          }
+
+          .step-item-success {
+            gap: 12px;
+          }
+
+          .step-num-success {
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+          }
+
+          .success-actions {
+            gap: 10px;
+          }
+
+          .primary-btn, .secondary-btn {
+            height: 48px;
+            font-size: 14px;
+          }
+        }
+
+        /* Responsive - Small Mobile */
+        @media (max-width: 375px) {
+          .form-panel {
+            padding: 12px;
+          }
+
+          .form-card {
+            padding: 16px 12px;
+          }
+
+          .card-title {
+            font-size: 18px;
+          }
+
+          .step-number {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+          }
+
+          .success-title {
+            font-size: 20px;
           }
         }
 

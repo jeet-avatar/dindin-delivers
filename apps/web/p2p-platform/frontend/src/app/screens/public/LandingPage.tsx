@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button, Row, Col } from 'antd';
+import { Button, Row, Col, Drawer } from 'antd';
 import {
   ShopOutlined,
   CarOutlined,
@@ -10,11 +10,14 @@ import {
   LineChartOutlined,
   WalletOutlined,
   StarFilled,
-  ArrowRightOutlined
+  ArrowRightOutlined,
+  MenuOutlined,
+  CloseOutlined
 } from '@ant-design/icons';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="landing-page">
@@ -36,8 +39,49 @@ const LandingPage: React.FC = () => {
             <Button ghost onClick={() => navigate('/driver/login')}>Driver Login</Button>
             <Button type="primary" className="admin-btn" onClick={() => navigate('/login')}>Admin</Button>
           </div>
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
+            <MenuOutlined />
+          </button>
         </div>
       </nav>
+
+      {/* Mobile Menu Drawer */}
+      <Drawer
+        placement="right"
+        onClose={() => setMobileMenuOpen(false)}
+        open={mobileMenuOpen}
+        width={280}
+        className="mobile-drawer"
+        closeIcon={<CloseOutlined style={{ color: 'white', fontSize: 20 }} />}
+        styles={{
+          header: { background: '#1a1a2e', borderBottom: '1px solid rgba(255,255,255,0.1)' },
+          body: { background: '#1a1a2e', padding: 0 }
+        }}
+      >
+        <div className="mobile-menu">
+          <div className="mobile-menu-links">
+            <Link to="/restaurant/apply" onClick={() => setMobileMenuOpen(false)}>
+              <ShopOutlined /> For Restaurants
+            </Link>
+            <Link to="/driver/apply" onClick={() => setMobileMenuOpen(false)}>
+              <CarOutlined /> For Drivers
+            </Link>
+            <Link to="/terms" onClick={() => setMobileMenuOpen(false)}>Terms</Link>
+            <Link to="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy</Link>
+          </div>
+          <div className="mobile-menu-actions">
+            <Button block size="large" className="mobile-btn" onClick={() => { navigate('/vendor/login'); setMobileMenuOpen(false); }}>
+              Restaurant Login
+            </Button>
+            <Button block size="large" className="mobile-btn" onClick={() => { navigate('/driver/login'); setMobileMenuOpen(false); }}>
+              Driver Login
+            </Button>
+            <Button block size="large" type="primary" className="mobile-btn-primary" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
+              Admin Portal
+            </Button>
+          </div>
+        </div>
+      </Drawer>
 
       {/* Hero Section */}
       <section className="hero">
@@ -1010,10 +1054,88 @@ const LandingPage: React.FC = () => {
           font-size: 14px;
         }
 
-        /* Responsive */
+        /* Mobile Menu Button */
+        .mobile-menu-btn {
+          display: none;
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.3);
+          border-radius: 8px;
+          padding: 8px 12px;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+        }
+
+        .mobile-menu-btn:hover {
+          border-color: #ffd700;
+          color: #ffd700;
+        }
+
+        /* Mobile Menu Drawer */
+        .mobile-menu {
+          padding: 24px;
+        }
+
+        .mobile-menu-links {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-bottom: 32px;
+        }
+
+        .mobile-menu-links a {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: rgba(255,255,255,0.8);
+          text-decoration: none;
+          padding: 16px;
+          border-radius: 12px;
+          font-size: 16px;
+          transition: all 0.3s;
+        }
+
+        .mobile-menu-links a:hover {
+          background: rgba(255,215,0,0.1);
+          color: #ffd700;
+        }
+
+        .mobile-menu-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .mobile-btn {
+          background: transparent !important;
+          border: 1px solid rgba(255,255,255,0.3) !important;
+          color: white !important;
+          height: 48px;
+          border-radius: 12px;
+        }
+
+        .mobile-btn:hover {
+          border-color: #ffd700 !important;
+          color: #ffd700 !important;
+        }
+
+        .mobile-btn-primary {
+          background: #ffd700 !important;
+          border: none !important;
+          color: #1a1a2e !important;
+          height: 48px;
+          border-radius: 12px;
+          font-weight: 600;
+        }
+
+        /* Responsive - Tablet */
         @media (max-width: 1024px) {
           .nav-links {
             display: none;
+          }
+
+          .mobile-menu-btn {
+            display: flex;
           }
 
           .hero-title {
@@ -1023,11 +1145,25 @@ const LandingPage: React.FC = () => {
           .footer-top {
             grid-template-columns: 1fr 1fr;
           }
+
+          .visual-stats {
+            flex-direction: column;
+            gap: 20px;
+          }
         }
 
+        /* Responsive - Mobile */
         @media (max-width: 768px) {
           .nav-container {
-            padding: 16px 24px;
+            padding: 12px 16px;
+          }
+
+          .logo-icon {
+            font-size: 24px;
+          }
+
+          .logo-text {
+            font-size: 20px;
           }
 
           .nav-actions {
@@ -1035,48 +1171,226 @@ const LandingPage: React.FC = () => {
           }
 
           .hero {
-            padding: 100px 24px 60px;
+            padding: 80px 16px 48px;
+            min-height: auto;
+          }
+
+          .hero-badge {
+            font-size: 12px;
+            padding: 8px 16px;
+            margin-bottom: 20px;
           }
 
           .hero-title {
-            font-size: 36px;
+            font-size: 28px;
+            margin-bottom: 16px;
           }
 
           .hero-subtitle {
-            font-size: 16px;
+            font-size: 15px;
+            margin-bottom: 28px;
           }
 
           .hero-cta {
             flex-direction: column;
+            gap: 12px;
+            margin-bottom: 40px;
+          }
+
+          .cta-primary, .cta-secondary {
+            width: 100%;
+            height: 52px;
+            padding: 0 24px;
           }
 
           .hero-stats {
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
+          }
+
+          .stat-value {
+            font-size: 28px;
+          }
+
+          .stat-label {
+            font-size: 13px;
           }
 
           .stat-divider {
             display: none;
           }
 
-          .features, .partner-section, .how-it-works, .testimonials, .final-cta {
-            padding: 60px 24px;
+          .features, .partner-section, .testimonials {
+            padding: 48px 16px;
           }
 
-          .section-header h2, .partner-content h2, .final-cta h2 {
-            font-size: 28px;
+          .how-it-works, .final-cta {
+            padding: 48px 16px;
+          }
+
+          .section-header {
+            margin-bottom: 40px;
+          }
+
+          .section-header h2 {
+            font-size: 24px;
+          }
+
+          .section-header p {
+            font-size: 15px;
+          }
+
+          .feature-card {
+            padding: 28px 20px;
+          }
+
+          .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+          }
+
+          .feature-icon .anticon {
+            font-size: 24px;
+          }
+
+          .feature-card h3 {
+            font-size: 18px;
+          }
+
+          .partner-badge {
+            font-size: 13px;
+            padding: 6px 16px;
+          }
+
+          .partner-content h2 {
+            font-size: 24px;
+          }
+
+          .partner-desc {
+            font-size: 15px;
+          }
+
+          .partner-benefits li {
+            font-size: 14px;
+          }
+
+          .partner-cta {
+            width: 100%;
+            height: 52px;
+          }
+
+          .visual-card {
+            padding: 32px 24px;
+          }
+
+          .visual-icon {
+            font-size: 56px;
+            margin-bottom: 24px;
+          }
+
+          .visual-stats {
+            flex-direction: row;
+            gap: 24px;
+          }
+
+          .visual-stat .value {
+            font-size: 24px;
+          }
+
+          .visual-stat .label {
+            font-size: 12px;
+          }
+
+          .step-card {
+            padding: 24px 16px;
+          }
+
+          .step-number {
+            width: 52px;
+            height: 52px;
+            font-size: 22px;
+          }
+
+          .step-card h3 {
+            font-size: 18px;
+          }
+
+          .testimonial-card {
+            padding: 28px 20px;
+          }
+
+          .testimonial-card p {
+            font-size: 15px;
+          }
+
+          .final-cta h2 {
+            font-size: 24px;
+          }
+
+          .final-cta p {
+            font-size: 15px;
           }
 
           .cta-buttons {
             flex-direction: column;
+            gap: 12px;
+          }
+
+          .cta-btn-light, .cta-btn-outline {
+            width: 100%;
+            height: 52px;
+          }
+
+          .main-footer {
+            padding: 48px 16px 32px;
           }
 
           .footer-top {
             grid-template-columns: 1fr;
+            gap: 32px;
+          }
+
+          .footer-brand p {
+            font-size: 14px;
+          }
+
+          .footer-links-group h4 {
+            font-size: 15px;
+            margin-bottom: 16px;
+          }
+
+          .footer-links-group a {
+            font-size: 14px;
+            margin-bottom: 10px;
           }
 
           .driver-visual-col {
             order: 2;
+          }
+        }
+
+        /* Responsive - Small Mobile */
+        @media (max-width: 375px) {
+          .hero-title {
+            font-size: 24px;
+          }
+
+          .hero-subtitle {
+            font-size: 14px;
+          }
+
+          .section-header h2, .partner-content h2, .final-cta h2 {
+            font-size: 22px;
+          }
+
+          .stat-value {
+            font-size: 24px;
+          }
+
+          .visual-stats {
+            flex-direction: column;
+            gap: 16px;
           }
         }
       `}</style>
