@@ -69,7 +69,22 @@ class RideRequestViewModel: ObservableObject {
     private let config = AppConfig.shared
 
     // MARK: - Computed Properties (from AppConfig)
-    var platformFee: Double { config.ridePlatformFee }
+    // Platform fee is now TIERED based on fare amount:
+    //   - Fare ≤ $15:     $1
+    //   - Fare $15-$35:   $2
+    //   - Fare > $35:     $3
+    var platformFee: Double {
+        // Calculate driver portion first to determine tier
+        let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
+        return config.getRidesharePlatformFee(fareAmount: driverPortion)
+    }
+
+    /// Platform fee tier description for UI display
+    var platformFeeTierDescription: String {
+        let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
+        return config.getRideshareTierDescription(fareAmount: driverPortion)
+    }
+
     var baseFareConst: Double { config.rideBaseFare }
     var perMileRate: Double { config.ridePerMileRate }
     var perMinuteRate: Double { config.ridePerMinuteRate }

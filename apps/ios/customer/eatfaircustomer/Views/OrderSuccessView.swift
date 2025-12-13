@@ -449,6 +449,10 @@ class OrderSuccessViewModel: ObservableObject {
 
     private let db = Firestore.firestore()
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     func fetchLatestOrder() {
         guard let userId = Auth.auth().currentUser?.uid else {
             // No user logged in - this is expected in test mode

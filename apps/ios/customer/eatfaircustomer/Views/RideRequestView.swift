@@ -410,7 +410,22 @@ struct RideBottomSheet: View {
                     // Suggested Payment Breakdown (Driver sets final price)
                     VStack(spacing: 6) {
                         FareLineItem(label: "Suggested Driver Payment", amount: viewModel.baseFare + viewModel.distanceFee + viewModel.timeFee)
-                        FareLineItem(label: "Connection Fee", amount: viewModel.platformFee)
+
+                        // Tiered Connection Fee with tier description
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Connection Fee")
+                                    .font(.subheadline)
+                                Text(viewModel.platformFeeTierDescription)
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                            Spacer()
+                            Text("$\(String(format: "%.2f", viewModel.platformFee))")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+
                         if viewModel.taxAmount > 0 {
                             FareLineItem(
                                 label: "Tax (\(String(format: "%.2f", viewModel.taxRate * 100))%)",
@@ -487,7 +502,7 @@ struct RideBottomSheet: View {
                         HStack(spacing: 4) {
                             Image(systemName: "info.circle")
                                 .font(.caption2)
-                            Text("Connection fee: $\(String(format: "%.2f", viewModel.platformFee)) • Driver sets final price")
+                            Text("Connection fee: $\(String(format: "%.2f", viewModel.platformFee)) (tiered $1-$3) • Driver sets final price")
                                 .font(.caption2)
                         }
                         .foregroundColor(.secondary)
@@ -535,12 +550,12 @@ struct RideBottomSheet: View {
                 }
                 .disabled(!viewModel.canRequestRide)
 
-                // Info text - P2P matchmaking disclaimer
+                // Info text - P2P matchmaking disclaimer with tiered pricing
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle.fill")
                         .font(.caption2)
                         .foregroundColor(Theme.brandGreen)
-                    Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee • Drivers are independent")
+                    Text("$1-$3 tiered connection fee • Drivers are independent")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -966,24 +981,49 @@ struct RideLocationSearchView: View {
     }
 
     private func selectResult(_ result: SearchResult) {
-        let components = result.address.components(separatedBy: ", ")
-        let street = components.first ?? result.address
-        let city = components.count > 1 ? components[1] : ""
-        let stateZip = components.count > 2 ? components[2] : ""
-        let stateParts = stateZip.components(separatedBy: " ")
-        let state = stateParts.first ?? ""
-        let zip = stateParts.count > 1 ? stateParts[1] : ""
+        // Use reverse geocoding to get proper address components
+        let location = CLLocation(latitude: result.lat, longitude: result.lng)
+        let geocoder = CLGeocoder()
 
-        let address = RideAddressInput(
-            street: street,
-            city: city,
-            state: state,
-            zip: zip,
-            lat: result.lat,
-            lng: result.lng
-        )
+        geocoder.reverseGeocodeLocation(location) { placemarks, error in
+            let address: RideAddressInput
 
-        onSelect(address)
+            if let placemark = placemarks?.first {
+                // Properly extract address components from placemark
+                let streetNumber = placemark.subThoroughfare ?? ""
+                let streetName = placemark.thoroughfare ?? ""
+                let street = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+
+                address = RideAddressInput(
+                    street: street.isEmpty ? result.name : street,
+                    city: placemark.locality ?? "",
+                    state: placemark.administrativeArea ?? "",
+                    zip: placemark.postalCode ?? "",
+                    lat: result.lat,
+                    lng: result.lng
+                )
+            } else {
+                // Fallback: Parse from formatted string if geocoding fails
+                let components = result.address.components(separatedBy: ", ")
+                let street = components.first ?? result.address
+                let city = components.count > 1 ? components[1] : ""
+                let stateZip = components.count > 2 ? components[2] : ""
+                let stateParts = stateZip.components(separatedBy: " ")
+                let state = stateParts.first ?? ""
+                let zip = stateParts.count > 1 ? stateParts[1] : ""
+
+                address = RideAddressInput(
+                    street: street,
+                    city: city,
+                    state: state,
+                    zip: zip,
+                    lat: result.lat,
+                    lng: result.lng
+                )
+            }
+
+            onSelect(address)
+        }
     }
 
     private func useCurrentLocation() {

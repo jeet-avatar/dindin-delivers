@@ -130,6 +130,31 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             "platform": "iOS",
             "lastUpdated": FieldValue.serverTimestamp()
         ], merge: true)
+
+        // Also save to P2P backend for unified notifications
+        saveTokenToP2PBackend(token)
+    }
+
+    private func saveTokenToP2PBackend(_ token: String) {
+        // Get customer ID from UserDefaults (set during login)
+        guard let customerIdString = UserDefaults.standard.string(forKey: "p2p_customer_id"),
+              let customerId = Int(customerIdString) else {
+            #if DEBUG
+            print("CustomerApp: No customer ID found, skipping P2P FCM registration")
+            #endif
+            return
+        }
+
+        P2PAPIService.shared.saveCustomerFCMToken(customerId: customerId, token: token) { result in
+            #if DEBUG
+            switch result {
+            case .success:
+                print("CustomerApp: FCM token saved to P2P backend")
+            case .failure(let error):
+                print("CustomerApp: Failed to save FCM token to P2P: \(error.localizedDescription)")
+            }
+            #endif
+        }
     }
 }
 

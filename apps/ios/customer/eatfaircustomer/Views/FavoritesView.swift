@@ -90,6 +90,10 @@ class FavoritesViewModel: ObservableObject {
 
     private let p2pService = P2PAPIService.shared
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     func fetchFavorites() {
         guard let customerId = p2pService.currentCustomerId else { return }
 

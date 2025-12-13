@@ -288,11 +288,34 @@ class VendorMenuItem(Base):
 class OrderStatus(enum.Enum):
     PENDING_PAYMENT = "PENDING_PAYMENT"
     CONFIRMED = "CONFIRMED"
+    PENDING_MODIFICATION = "PENDING_MODIFICATION"  # Awaiting customer approval for partial order
+
+    # NEW: Restaurant Delivery Decision Flow (60-second window)
+    PENDING_RESTAURANT_DELIVERY = "PENDING_RESTAURANT_DELIVERY"  # Restaurant has 60s to decide if they deliver
+    RESTAURANT_DELIVERING = "RESTAURANT_DELIVERING"  # Restaurant chose to deliver themselves
+    AWAITING_DRIVER = "AWAITING_DRIVER"  # Restaurant declined/timeout - posted to driver pool
+
     PREPARING = "PREPARING"
     READY_FOR_PICKUP = "READY_FOR_PICKUP"
     OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY"
     DELIVERED = "DELIVERED"
     CANCELLED = "CANCELLED"
+
+
+class DeliveryMethod(enum.Enum):
+    """Who is delivering the order"""
+    PENDING = "pending"          # Not yet decided
+    RESTAURANT = "restaurant"    # Restaurant staff delivering
+    DRIVER = "driver"            # Dollor driver delivering
+    CUSTOMER_PICKUP = "pickup"   # Customer picking up (no delivery)
+
+
+class ModificationStatus(enum.Enum):
+    """Status of order modification requests"""
+    PENDING = "pending"           # Waiting for customer response
+    ACCEPTED = "accepted"         # Customer accepted partial order
+    REJECTED = "rejected"         # Customer rejected, wants full refund
+    EXPIRED = "expired"           # Customer didn't respond in time (auto-refund)
 
 class Order(Base):
     __tablename__ = "orders"
@@ -328,6 +351,12 @@ class Order(Base):
     delivery_longitude = Column(Float)
     delivery_distance_miles = Column(Float)  # Actual distance stored at order creation - CRITICAL for accurate payout calculation
     driver_location = Column(Text)  # JSON: {"latitude": ..., "longitude": ..., "updated_at": ...}
+
+    # Restaurant Delivery Decision (60-second window)
+    delivery_method = Column(SQLEnum(DeliveryMethod), default=DeliveryMethod.PENDING)
+    restaurant_delivery_decision_at = Column(DateTime)  # When restaurant made decision
+    restaurant_delivery_deadline = Column(DateTime)  # 60-second deadline for restaurant to decide
+    restaurant_deliverer_name = Column(String(255))  # Name of restaurant staff delivering (if restaurant delivers)
     
     # Status
     status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING_PAYMENT)
@@ -349,16 +378,26 @@ class Order(Base):
     coupa_invoice_id = Column(String(100))
     coupa_status = Column(String(50))
     
+    # Delivery Address Fields (for easier access)
+    delivery_street = Column(String(500))
+    delivery_city = Column(String(100))
+    delivery_state = Column(String(100))
+    delivery_zip = Column(String(20))
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     confirmed_at = Column(DateTime)
     preparing_at = Column(DateTime)
+    ready_at = Column(DateTime)  # When order is ready for pickup
+    picked_up_at = Column(DateTime)  # When driver picked up
     delivered_at = Column(DateTime)
     estimated_ready_at = Column(DateTime)  # Restaurant's estimated time when order will be ready
-    
+    estimated_delivery_time = Column(DateTime)  # Estimated delivery time for customer
+
     # Relationships
     vendor = relationship("Vendor")
+    driver = relationship("Driver", foreign_keys=[driver_id], primaryjoin="Order.driver_id == Driver.id")
 
 class StripePaymentLog(Base):
     __tablename__ = "stripe_payment_logs"
@@ -425,10 +464,62 @@ class VendorPayout(Base):
 
 class DriverStatus(enum.Enum):
     PENDING = "pending"
+    DOCUMENTS_REQUIRED = "documents_required"
+    BACKGROUND_CHECK_PENDING = "background_check_pending"
+    UNDER_REVIEW = "under_review"
     APPROVED = "approved"
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
+    DEACTIVATED = "deactivated"
+
+
+class BackgroundCheckStatus(enum.Enum):
+    NOT_STARTED = "not_started"
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    CLEAR = "clear"
+    CONSIDER = "consider"  # Requires manual review
+    FAILED = "failed"
+    EXPIRED = "expired"
+
+
+class InsuranceType(enum.Enum):
+    PERSONAL = "personal"
+    COMMERCIAL = "commercial"
+    RIDESHARE = "rideshare"  # Period 1/2/3 coverage
+
+
+class DocumentType(enum.Enum):
+    DRIVERS_LICENSE = "drivers_license"
+    INSURANCE_CARD = "insurance_card"
+    VEHICLE_REGISTRATION = "vehicle_registration"
+    VEHICLE_PHOTO_FRONT = "vehicle_photo_front"
+    VEHICLE_PHOTO_BACK = "vehicle_photo_back"
+    VEHICLE_PHOTO_INTERIOR = "vehicle_photo_interior"
+    PROFILE_PHOTO = "profile_photo"
+    PROOF_OF_ADDRESS = "proof_of_address"
+    VEHICLE_INSPECTION = "vehicle_inspection"
+    BACKGROUND_CHECK_CONSENT = "background_check_consent"
+    SSN_VERIFICATION = "ssn_verification"
+
+
+class DocumentStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class ConsentType(enum.Enum):
+    TERMS_OF_SERVICE = "terms_of_service"
+    PRIVACY_POLICY = "privacy_policy"
+    DRIVER_AGREEMENT = "driver_agreement"
+    INDEPENDENT_CONTRACTOR = "independent_contractor"
+    BACKGROUND_CHECK_AUTH = "background_check_auth"
+    INSURANCE_DISCLOSURE = "insurance_disclosure"
+    SAFETY_GUIDELINES = "safety_guidelines"
+    RIDER_TERMS = "rider_terms"
 
 
 class Driver(Base):
@@ -443,35 +534,107 @@ class Driver(Base):
     email = Column(String(255), unique=True, nullable=False)
     phone = Column(String(50))
     password_hash = Column(String(255))  # For driver app authentication
+    password_reset_token = Column(String(100), nullable=True)  # Token for password reset
+    password_reset_expiry = Column(DateTime, nullable=True)  # Token expiry time
+    date_of_birth = Column(DateTime)
+    ssn_last_four = Column(String(4))  # Last 4 digits for verification display
 
     # Address
     street = Column(Text)
     city = Column(String(100))
     state = Column(String(100))
     zip_code = Column(String(20))
+    country = Column(String(100), default="US")
 
-    # Vehicle Information
-    vehicle_type = Column(String(50))  # car, motorcycle, bicycle
+    # ============== DRIVER LICENSE VERIFICATION ==============
+    drivers_license = Column(Boolean, default=False)
+    drivers_license_url = Column(String(500))  # Front of license
+    drivers_license_back_url = Column(String(500))  # Back of license
+    drivers_license_number = Column(String(50))
+    drivers_license_state = Column(String(10))
+    drivers_license_expiry = Column(DateTime)
+    drivers_license_verified = Column(Boolean, default=False)
+    drivers_license_verified_at = Column(DateTime)
+    drivers_license_status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
+    drivers_license_rejection_reason = Column(Text)
+
+    # ============== BACKGROUND CHECK ==============
+    background_check = Column(Boolean, default=False)
+    background_check_status = Column(SQLEnum(BackgroundCheckStatus), default=BackgroundCheckStatus.NOT_STARTED)
+    background_check_provider = Column(String(100))  # e.g., "Checkr", "Sterling", "HireRight"
+    background_check_report_id = Column(String(255))
+    background_check_requested_at = Column(DateTime)
+    background_check_completed_at = Column(DateTime)
+    background_check_expiry = Column(DateTime)  # Usually 1 year
+    background_check_clear = Column(Boolean, default=False)
+    background_check_notes = Column(Text)  # Admin notes for "consider" results
+    criminal_record_check = Column(Boolean, default=False)
+    dmv_record_check = Column(Boolean, default=False)
+    sex_offender_check = Column(Boolean, default=False)
+
+    # ============== INSURANCE VERIFICATION ==============
+    insurance = Column(Boolean, default=False)
+    insurance_url = Column(String(500))
+    insurance_type = Column(SQLEnum(InsuranceType), default=InsuranceType.PERSONAL)
+    insurance_provider = Column(String(100))
+    insurance_policy_number = Column(String(100))
+    insurance_expiry = Column(DateTime)
+    insurance_verified = Column(Boolean, default=False)
+    insurance_verified_at = Column(DateTime)
+    insurance_status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
+    insurance_rejection_reason = Column(Text)
+    insurance_liability_amount = Column(Float)  # Coverage amount in dollars
+    insurance_has_rideshare_coverage = Column(Boolean, default=False)  # Critical for TNC compliance
+
+    # ============== VEHICLE VERIFICATION ==============
+    vehicle_type = Column(String(50))  # car, motorcycle, bicycle, scooter
     vehicle_make = Column(String(100))
     vehicle_model = Column(String(100))
     vehicle_year = Column(Integer)
     vehicle_color = Column(String(50))
     license_plate = Column(String(20))
+    license_plate_state = Column(String(10))
+    vehicle_vin = Column(String(50))
+    vehicle_registration_url = Column(String(500))
+    vehicle_registration_expiry = Column(DateTime)
+    vehicle_registration_verified = Column(Boolean, default=False)
+    vehicle_registration_status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
+    vehicle_doors = Column(Integer, default=4)  # Most TNCs require 4-door
+    vehicle_seats = Column(Integer, default=5)
+    vehicle_meets_requirements = Column(Boolean, default=False)  # Year, doors, condition
 
-    # Documents
-    drivers_license = Column(Boolean, default=False)
-    drivers_license_url = Column(String(500))
-    drivers_license_expiry = Column(DateTime)
-    insurance = Column(Boolean, default=False)
-    insurance_url = Column(String(500))
-    insurance_expiry = Column(DateTime)
-    background_check = Column(Boolean, default=False)
-    background_check_date = Column(DateTime)
+    # Vehicle Photos (for verification)
+    vehicle_front_url = Column(String(500))  # Front view of vehicle
+    vehicle_side_url = Column(String(500))   # Side view of vehicle
+    vehicle_back_url = Column(String(500))   # Back view showing license plate
+
+    # ============== VEHICLE INSPECTION ==============
+    vehicle_inspection_required = Column(Boolean, default=True)
+    vehicle_inspection_date = Column(DateTime)
+    vehicle_inspection_expiry = Column(DateTime)
+    vehicle_inspection_passed = Column(Boolean, default=False)
+    vehicle_inspection_url = Column(String(500))
+    vehicle_inspection_notes = Column(Text)
+
+    # ============== PROFILE PHOTO ==============
+    profile_photo_url = Column(String(500))
+    profile_photo_verified = Column(Boolean, default=False)
+    profile_photo_status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
+
+    # ============== VERIFICATION STATUS ==============
+    verification_complete = Column(Boolean, default=False)  # All required docs verified
+    verification_completed_at = Column(DateTime)
+    onboarding_step = Column(Integer, default=1)  # Track progress: 1=personal, 2=docs, 3=vehicle, 4=background, 5=complete
+    can_accept_rides = Column(Boolean, default=False)  # Final flag: only True when fully verified
 
     # Status and Ratings
     status = Column(SQLEnum(DriverStatus), default=DriverStatus.PENDING)
+    status_reason = Column(Text)  # Why suspended/deactivated
     rating = Column(Float, default=5.0)
     total_deliveries = Column(Integer, default=0)
+    total_rides = Column(Integer, default=0)
+    acceptance_rate = Column(Float, default=100.0)
+    cancellation_rate = Column(Float, default=0.0)
 
     # Real-time tracking
     current_latitude = Column(Float)
@@ -488,13 +651,40 @@ class Driver(Base):
     stripe_account_id = Column(String(255))
     stripe_onboarded = Column(Boolean, default=False)
 
+    # ============== CONSENT TRACKING ==============
+    tos_accepted = Column(Boolean, default=False)
+    tos_accepted_at = Column(DateTime)
+    tos_version = Column(String(20))
+    privacy_policy_accepted = Column(Boolean, default=False)
+    privacy_policy_accepted_at = Column(DateTime)
+    privacy_policy_version = Column(String(20))
+    driver_agreement_accepted = Column(Boolean, default=False)
+    driver_agreement_accepted_at = Column(DateTime)
+    driver_agreement_version = Column(String(20))
+    background_check_consent = Column(Boolean, default=False)
+    background_check_consent_at = Column(DateTime)
+    insurance_disclosure_accepted = Column(Boolean, default=False)
+    insurance_disclosure_accepted_at = Column(DateTime)
+    safety_guidelines_accepted = Column(Boolean, default=False)
+    safety_guidelines_accepted_at = Column(DateTime)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     approved_at = Column(DateTime)
+    last_active = Column(DateTime)
+    deactivated_at = Column(DateTime)
+
+    # Admin Notes
+    admin_notes = Column(Text)
+    reviewed_by = Column(String(100))  # Admin who approved/rejected
+    reviewed_at = Column(DateTime)
 
     # Relationships
     payouts = relationship("DriverPayout", back_populates="driver")
+    documents = relationship("DriverDocument", back_populates="driver", cascade="all, delete-orphan")
+    consents = relationship("DriverConsent", back_populates="driver", cascade="all, delete-orphan")
+    verification_history = relationship("DriverVerificationHistory", back_populates="driver", cascade="all, delete-orphan")
 
 
 class DriverPayout(Base):
@@ -902,6 +1092,70 @@ class OrderInvoice(Base):
     vendor = relationship("Vendor")
 
 
+# ==================== ORDER MODIFICATION SYSTEM ====================
+
+class OrderModification(Base):
+    """
+    Tracks order modifications when restaurant marks items unavailable.
+    Customer can accept partial order or reject for full refund.
+    """
+    __tablename__ = "order_modifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    modification_number = Column(String(50), unique=True, nullable=False, index=True)  # MOD-20251210-00001
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+
+    # Original Order Details
+    original_items = Column(Text)  # JSON: Original items list
+    original_subtotal = Column(Float)
+    original_tax = Column(Float)
+    original_total = Column(Float)
+
+    # Unavailable Items
+    unavailable_items = Column(Text)  # JSON: [{"name": "...", "price": 12.99, "quantity": 1, "reason": "out of stock"}]
+    unavailable_count = Column(Integer, default=0)
+    unavailable_total = Column(Float, default=0.0)
+
+    # Modified Order (after removing unavailable items)
+    modified_items = Column(Text)  # JSON: Remaining available items
+    modified_subtotal = Column(Float)
+    modified_tax = Column(Float)
+    modified_delivery_fee = Column(Float)  # Delivery fee stays same
+    modified_platform_fee = Column(Float)  # Platform fee stays $1
+    modified_tip = Column(Float)  # Tip proportionally adjusted
+    modified_total = Column(Float)
+
+    # Refund Amount (difference customer gets back if they accept)
+    partial_refund_amount = Column(Float)
+
+    # Status
+    status = Column(String(50), default="pending")  # pending, accepted, rejected, expired
+
+    # Customer Response
+    customer_response = Column(String(50))  # "accept_partial" or "reject_full_refund"
+    customer_responded_at = Column(DateTime)
+
+    # Notification Tracking
+    notification_sent = Column(Boolean, default=False)
+    notification_sent_at = Column(DateTime)
+    push_notification_id = Column(String(255))
+
+    # Expiration (customer has 10 minutes to respond)
+    expires_at = Column(DateTime)
+
+    # Created by restaurant
+    created_by_restaurant_id = Column(Integer, ForeignKey("vendors.id"))
+    created_by_restaurant_name = Column(String(255))
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    order = relationship("Order")
+    vendor = relationship("Vendor")
+
+
 # ==================== RIDESHARE SYSTEM ====================
 
 class RideStatus(enum.Enum):
@@ -1026,3 +1280,316 @@ class CustomerFavorite(Base):
 
     # Relationships
     vendor = relationship("Vendor")
+
+
+# ==================== DRIVER VERIFICATION SYSTEM ====================
+
+class DriverDocument(Base):
+    """Stores driver uploaded documents with verification status"""
+    __tablename__ = "driver_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+
+    # Document Details
+    document_type = Column(SQLEnum(DocumentType), nullable=False)
+    document_url = Column(String(500), nullable=False)
+    document_name = Column(String(255))  # Original filename
+    file_size = Column(Integer)  # bytes
+    mime_type = Column(String(100))
+
+    # Verification
+    status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
+    verified_by = Column(String(100))  # Admin who verified
+    verified_at = Column(DateTime)
+    rejection_reason = Column(Text)
+
+    # Expiration (for licenses, insurance, etc.)
+    expiry_date = Column(DateTime)
+    expiry_notification_sent = Column(Boolean, default=False)
+    expiry_notification_sent_at = Column(DateTime)
+
+    # Metadata
+    metadata_json = Column(Text)  # JSON for document-specific data
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    driver = relationship("Driver", back_populates="documents")
+
+
+class DriverConsent(Base):
+    """Tracks all legal consents given by drivers"""
+    __tablename__ = "driver_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+
+    # Consent Details
+    consent_type = Column(SQLEnum(ConsentType), nullable=False)
+    consent_version = Column(String(20), nullable=False)  # e.g., "1.0", "2.1"
+    consent_text_hash = Column(String(64))  # SHA256 hash of consent text at time of signing
+
+    # Agreement
+    agreed = Column(Boolean, default=False)
+    agreed_at = Column(DateTime)
+    ip_address = Column(String(45))  # IPv6 compatible
+    user_agent = Column(String(500))
+    device_id = Column(String(255))
+
+    # Signature (for important agreements)
+    electronic_signature = Column(String(255))  # Name as typed
+    signature_image_url = Column(String(500))  # If signature image captured
+
+    # Revocation (users can revoke some consents)
+    revoked = Column(Boolean, default=False)
+    revoked_at = Column(DateTime)
+    revocation_reason = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    driver = relationship("Driver", back_populates="consents")
+
+
+class DriverVerificationHistory(Base):
+    """Audit trail for all driver verification status changes"""
+    __tablename__ = "driver_verification_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+
+    # Status Change
+    previous_status = Column(String(50))
+    new_status = Column(String(50))
+    change_type = Column(String(50))  # status_change, document_approved, document_rejected, background_check_update
+
+    # Details
+    field_changed = Column(String(100))  # Which field changed
+    old_value = Column(Text)
+    new_value = Column(Text)
+    reason = Column(Text)
+
+    # Who made the change
+    changed_by = Column(String(100))  # Admin username or "system"
+    changed_by_type = Column(String(20))  # admin, system, driver
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    driver = relationship("Driver", back_populates="verification_history")
+
+
+# ==================== CUSTOMER CONSENT SYSTEM ====================
+
+class Customer(Base):
+    """Customer accounts with consent tracking"""
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Identity
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(50))
+    full_name = Column(String(255))
+    password_hash = Column(String(255))  # For email login
+
+    # Auth Providers
+    apple_user_id = Column(String(255), unique=True, index=True)
+    google_user_id = Column(String(255), unique=True, index=True)
+
+    # Profile
+    profile_photo_url = Column(String(500))
+
+    # Address
+    default_address = Column(Text)  # JSON
+
+    # Payment
+    stripe_customer_id = Column(String(255))
+    default_payment_method = Column(String(255))
+
+    # ============== CONSENT TRACKING ==============
+    tos_accepted = Column(Boolean, default=False)
+    tos_accepted_at = Column(DateTime)
+    tos_version = Column(String(20))
+    privacy_policy_accepted = Column(Boolean, default=False)
+    privacy_policy_accepted_at = Column(DateTime)
+    privacy_policy_version = Column(String(20))
+    rider_terms_accepted = Column(Boolean, default=False)
+    rider_terms_accepted_at = Column(DateTime)
+    rider_terms_version = Column(String(20))
+    marketing_consent = Column(Boolean, default=False)
+    marketing_consent_at = Column(DateTime)
+
+    # Status
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+
+    # Device
+    device_id = Column(String(255))
+    push_token = Column(String(500))
+    platform = Column(String(20))
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime)
+
+    # Relationships
+    consents = relationship("CustomerConsent", back_populates="customer", cascade="all, delete-orphan")
+
+
+class CustomerAddress(Base):
+    """Customer saved addresses - matches database schema from addresses.py"""
+    __tablename__ = "customer_addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, nullable=False, index=True)
+
+    # Address Details (matching addresses.py schema)
+    location_name = Column(String(100))  # "Home", "Work", etc.
+    street = Column(String(255), nullable=False)
+    unit = Column(String(50))
+    city = Column(String(100), nullable=False)
+    state = Column(String(50), nullable=False)
+    zip_code = Column(String(20), nullable=False)
+    instructions = Column(String(500))
+    address_type = Column(String(20), default="Home")
+
+    # Coordinates
+    latitude = Column(Float, default=0.0)
+    longitude = Column(Float, default=0.0)
+
+    # Contact
+    phone_number = Column(String(20))
+
+    # Flags
+    is_default = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomerConsent(Base):
+    """Tracks all legal consents given by customers/riders"""
+    __tablename__ = "customer_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+
+    # Consent Details
+    consent_type = Column(SQLEnum(ConsentType), nullable=False)
+    consent_version = Column(String(20), nullable=False)
+    consent_text_hash = Column(String(64))
+
+    # Agreement
+    agreed = Column(Boolean, default=False)
+    agreed_at = Column(DateTime)
+    ip_address = Column(String(45))
+    user_agent = Column(String(500))
+    device_id = Column(String(255))
+
+    # Revocation
+    revoked = Column(Boolean, default=False)
+    revoked_at = Column(DateTime)
+    revocation_reason = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    customer = relationship("Customer", back_populates="consents")
+
+
+# ==================== LEGAL DOCUMENT VERSIONS ====================
+
+class LegalDocument(Base):
+    """Stores versions of legal documents (TOS, Privacy Policy, etc.)"""
+    __tablename__ = "legal_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Document Identity
+    document_type = Column(SQLEnum(ConsentType), nullable=False)
+    version = Column(String(20), nullable=False)  # e.g., "1.0", "1.1", "2.0"
+
+    # Content
+    title = Column(String(255), nullable=False)
+    content_text = Column(Text, nullable=False)  # Full text of document
+    content_hash = Column(String(64), nullable=False)  # SHA256 hash
+    content_url = Column(String(500))  # URL to hosted version
+
+    # Metadata
+    effective_date = Column(DateTime, nullable=False)
+    supersedes_version = Column(String(20))  # Which version this replaces
+    summary_of_changes = Column(Text)  # What changed from previous version
+
+    # Status
+    is_current = Column(Boolean, default=False)  # Is this the active version
+    is_published = Column(Boolean, default=False)
+    published_at = Column(DateTime)
+
+    # Approval
+    approved_by = Column(String(100))
+    approved_at = Column(DateTime)
+    legal_review_completed = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ==================== BACKGROUND CHECK INTEGRATION ====================
+
+class BackgroundCheckRequest(Base):
+    """Tracks background check requests to third-party providers (Checkr, etc.)"""
+    __tablename__ = "background_check_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+
+    # Provider Details
+    provider = Column(String(100), nullable=False)  # checkr, sterling, etc.
+    provider_request_id = Column(String(255))
+    provider_report_id = Column(String(255))
+    provider_candidate_id = Column(String(255))
+
+    # Request Details
+    package_type = Column(String(100))  # basic, standard, premium
+    checks_requested = Column(Text)  # JSON array of check types
+
+    # Status
+    status = Column(SQLEnum(BackgroundCheckStatus), default=BackgroundCheckStatus.PENDING)
+    status_detail = Column(String(100))
+
+    # Results (high-level - detailed in reports)
+    overall_result = Column(String(50))  # clear, consider, fail
+    criminal_check_result = Column(String(50))
+    mvr_check_result = Column(String(50))  # Motor Vehicle Record
+    ssn_verification_result = Column(String(50))
+
+    # Timing
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime)
+    expires_at = Column(DateTime)  # Background checks typically valid for 1 year
+
+    # Report
+    report_url = Column(String(500))  # Secure URL to full report
+    report_json = Column(Text)  # Cached report data
+
+    # Webhooks
+    webhook_received = Column(Boolean, default=False)
+    webhook_received_at = Column(DateTime)
+    webhook_payload = Column(Text)  # JSON
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    driver = relationship("Driver")

@@ -54,7 +54,9 @@ struct RestaurantDashboardView: View {
 
 struct OrdersView: View {
     @StateObject private var viewModel = RestaurantViewModel()
-    
+    @State private var orderToMarkUnavailable: Order?
+    @State private var showSuccessMessage = false
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -72,12 +74,12 @@ struct OrdersView: View {
                     .background(Color(.systemBackground))
                     .cornerRadius(12)
                     .shadow(radius: 2)
-                    
+
                     if viewModel.isLoading {
                         ProgressView("Loading orders...")
                             .padding()
                     }
-                    
+
                     // New Orders Section
                     if !viewModel.newOrders.isEmpty {
                         VStack(alignment: .leading) {
@@ -86,19 +88,27 @@ struct OrdersView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(.gray)
                                 .padding(.leading)
-                            
+
                             ForEach(viewModel.newOrders) { order in
-                                OrderCard(order: order, onAccept: {
-                                    viewModel.updateStatus(order: order, newStatus: "Preparing")
-                                }, onReject: {
-                                    viewModel.updateStatus(order: order, newStatus: "Rejected")
-                                }, onMarkReady: {
-                                    // Not applicable for new orders
-                                })
+                                OrderCard(
+                                    order: order,
+                                    onAccept: {
+                                        viewModel.updateStatus(order: order, newStatus: "Preparing")
+                                    },
+                                    onReject: {
+                                        viewModel.updateStatus(order: order, newStatus: "Rejected")
+                                    },
+                                    onMarkReady: {
+                                        // Not applicable for new orders
+                                    },
+                                    onMarkUnavailable: {
+                                        orderToMarkUnavailable = order
+                                    }
+                                )
                             }
                         }
                     }
-                    
+
                     // In Progress Section
                     if !viewModel.inProgressOrders.isEmpty {
                         VStack(alignment: .leading) {
@@ -107,15 +117,21 @@ struct OrdersView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(.gray)
                                 .padding(.leading)
-                            
+
                             ForEach(viewModel.inProgressOrders) { order in
-                                OrderCard(order: order, onAccept: {}, onReject: {}, onMarkReady: {
-                                    viewModel.updateStatus(order: order, newStatus: "Ready")
-                                })
+                                OrderCard(
+                                    order: order,
+                                    onAccept: {},
+                                    onReject: {},
+                                    onMarkReady: {
+                                        viewModel.updateStatus(order: order, newStatus: "Ready")
+                                    },
+                                    onMarkUnavailable: {}
+                                )
                             }
                         }
                     }
-                    
+
                     if viewModel.newOrders.isEmpty && viewModel.inProgressOrders.isEmpty && !viewModel.isLoading {
                         Text("No active orders")
                             .foregroundColor(.gray)
@@ -129,6 +145,24 @@ struct OrdersView: View {
             .onAppear {
                 viewModel.fetchOrders()
             }
+            .sheet(item: $orderToMarkUnavailable) { order in
+                MarkItemsUnavailableView(
+                    order: order,
+                    onDismiss: {
+                        orderToMarkUnavailable = nil
+                    },
+                    onSuccess: {
+                        orderToMarkUnavailable = nil
+                        showSuccessMessage = true
+                        viewModel.fetchOrders() // Refresh orders
+                    }
+                )
+            }
+            .alert("Customer Notified", isPresented: $showSuccessMessage) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("The customer has been notified and has 10 minutes to respond. The order status has been updated to 'Pending Modification'.")
+            }
         }
     }
 }
@@ -138,9 +172,28 @@ struct OrderCard: View {
     var onAccept: () -> Void
     var onReject: () -> Void
     var onMarkReady: () -> Void
-    
+    var onMarkUnavailable: () -> Void
+    var onDeliveryDecision: ((Bool, String?) -> Void)? = nil  // NEW: Delivery decision callback
+
+    @State private var showDeliveryDecisionSheet = false
+    @State private var deliveryDecisionRemainingSeconds: Int = 60
+    @State private var deliveryDecisionTimer: Timer?
+
+    /// Check if this order is pending restaurant delivery decision
+    private var isPendingDeliveryDecision: Bool {
+        order.status == "PENDING_RESTAURANT_DELIVERY"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // NEW: Delivery Decision Banner (if applicable)
+            if isPendingDeliveryDecision {
+                DeliveryDecisionBanner(remainingSeconds: deliveryDecisionRemainingSeconds) {
+                    showDeliveryDecisionSheet = true
+                }
+                .padding(.bottom, 4)
+            }
+
             HStack {
                 Text("#\(order.id?.prefix(4).uppercased() ?? "----")")
                     .font(.headline)
@@ -150,7 +203,7 @@ struct OrderCard: View {
                     .font(.caption)
                     .foregroundColor(.gray)
             }
-            
+
             ForEach(order.items, id: \.id) { item in
                 HStack {
                     Text("\(item.quantity)x \(item.name)")
@@ -158,9 +211,9 @@ struct OrderCard: View {
                         .foregroundColor(.primary)
                 }
             }
-            
+
             Divider()
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Subtotal")
@@ -190,29 +243,47 @@ struct OrderCard: View {
                 }
             }
             .font(.caption)
-            
+
             Spacer()
-                
-                if order.status == "Placed" {
-                    HStack(spacing: 12) {
-                        Button(action: onReject) {
-                            Text("Reject")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.red.opacity(0.1))
-                                .cornerRadius(8)
+
+                if order.status == "Placed" || order.status == "Confirmed" {
+                    VStack(spacing: 8) {
+                        // Main action buttons
+                        HStack(spacing: 12) {
+                            Button(action: onReject) {
+                                Text("Reject")
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.red.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+
+                            Button(action: onAccept) {
+                                Text("Accept")
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.green)
+                                    .cornerRadius(8)
+                            }
                         }
-                        
-                        Button(action: onAccept) {
-                            Text("Accept")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.green)
-                                .cornerRadius(8)
+
+                        // Partial order option
+                        Button(action: onMarkUnavailable) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                Text("Some Items Unavailable")
+                                    .font(.caption)
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(6)
                         }
                     }
                 } else if order.status == "Preparing" {
@@ -229,19 +300,84 @@ struct OrderCard: View {
                     Text("Ready for Pickup")
                         .fontWeight(.bold)
                         .foregroundColor(.green)
+                } else if order.status == "PENDING_MODIFICATION" {
+                    HStack {
+                        Image(systemName: "clock")
+                        Text("Waiting for Customer Response")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(6)
+                } else if isPendingDeliveryDecision {
+                    // NEW: Show delivery decision status
+                    HStack {
+                        Image(systemName: "clock.badge.exclamationmark")
+                        Text("Delivery Decision Pending (\(deliveryDecisionRemainingSeconds)s)")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(6)
+                    .onTapGesture {
+                        showDeliveryDecisionSheet = true
+                    }
                 }
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(radius: 2)
+        .sheet(isPresented: $showDeliveryDecisionSheet) {
+            DeliveryDecisionView(
+                order: order,
+                onDecision: { willDeliver, delivererName in
+                    showDeliveryDecisionSheet = false
+                    onDeliveryDecision?(willDeliver, delivererName)
+                },
+                onDismiss: {
+                    showDeliveryDecisionSheet = false
+                }
+            )
+        }
+        .onAppear {
+            // Start countdown timer if pending delivery decision
+            if isPendingDeliveryDecision {
+                startDeliveryDecisionTimer()
+            }
+        }
+        .onDisappear {
+            deliveryDecisionTimer?.invalidate()
+            deliveryDecisionTimer = nil
+        }
+    }
+
+    /// Start the countdown timer for delivery decision
+    private func startDeliveryDecisionTimer() {
+        // In production, this would sync with server time
+        // For now, start at 60 and count down
+        deliveryDecisionTimer?.invalidate()
+        deliveryDecisionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] timer in
+            if deliveryDecisionRemainingSeconds > 0 {
+                deliveryDecisionRemainingSeconds -= 1
+            } else {
+                timer.invalidate()
+                deliveryDecisionTimer = nil
+            }
+        }
     }
 }
 
 // Placeholder Views
 struct EarningsView: View {
     @StateObject private var viewModel = EarningsViewModel()
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -252,7 +388,40 @@ struct EarningsView: View {
                         SummaryCard(title: "Total Orders", value: "\(viewModel.totalOrders)", icon: "cart.fill", color: .blue)
                     }
                     .padding(.horizontal)
-                    
+
+                    // TIERED Platform Fee Info Card
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "star.fill")
+                                .foregroundColor(.orange)
+                            Text("Dollor Tiered Fee Structure")
+                                .font(.headline)
+                        }
+
+                        Text("Pay only a simple flat fee per order:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        VStack(spacing: 8) {
+                            TieredFeeRow(orderRange: "Orders ≤ $35", fee: "$1")
+                            TieredFeeRow(orderRange: "Orders $35-$70", fee: "$2")
+                            TieredFeeRow(orderRange: "Orders > $70", fee: "$3")
+                        }
+
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                            Text("vs 15-30% on DoorDash/Uber!")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     // Recent Transactions / Orders
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Recent Completed Orders")
@@ -303,7 +472,7 @@ struct SummaryCard: View {
     let value: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -323,6 +492,28 @@ struct SummaryCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(radius: 2)
+    }
+}
+
+/// Helper view for displaying tiered fee rows in restaurant earnings
+struct TieredFeeRow: View {
+    let orderRange: String
+    let fee: String
+
+    var body: some View {
+        HStack {
+            Text(orderRange)
+                .font(.subheadline)
+            Spacer()
+            Text(fee)
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.orange)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color.white.opacity(0.5))
+        .cornerRadius(6)
     }
 }
 

@@ -223,8 +223,8 @@ class AnalyticsViewModel: ObservableObject {
         }
 
         // Convert to array
-        hourlyData = hourlyDict.keys.sorted().map { hour in
-            let data = hourlyDict[hour]!
+        hourlyData = hourlyDict.keys.sorted().compactMap { hour in
+            guard let data = hourlyDict[hour] else { return nil }
             let hourString = formatHour(hour)
             let avgOrder = data.orders > 0 ? data.revenue / Double(data.orders) : 0
             return HourlyAnalytics(

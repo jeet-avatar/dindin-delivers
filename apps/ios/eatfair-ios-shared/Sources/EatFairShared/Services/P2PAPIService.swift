@@ -62,7 +62,10 @@ public class P2PAPIService: ObservableObject {
         cuisine: String? = nil,
         completion: @escaping (Result<[P2PRestaurant], Error>) -> Void
     ) {
-        var urlComponents = URLComponents(string: "\(baseURL)/public/restaurants")!
+        guard var urlComponents = URLComponents(string: "\(baseURL)/public/restaurants") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
         var queryItems: [URLQueryItem] = []
 
         if let city = city {
@@ -88,20 +91,51 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchRestaurants network error: \(error)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
-                guard let data = data else {
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        #if DEBUG
+                        print("[P2PAPIService] fetchRestaurants: Invalid HTTP status \(httpResponse.statusCode)")
+                        #endif
+                        let error = P2PAPIError.httpError(httpResponse.statusCode)
+                        self?.error = "Server error: \(httpResponse.statusCode)"
+                        completion(.failure(error))
+                        return
+                    }
+                }
+
+                guard let data = data, !data.isEmpty else {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchRestaurants: No data received")
+                    if let httpResponse = response as? HTTPURLResponse {
+                        print("[P2PAPIService] HTTP status: \(httpResponse.statusCode)")
+                    }
+                    #endif
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
+
+                #if DEBUG
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("[P2PAPIService] fetchRestaurants response (\(data.count) bytes): \(jsonString.prefix(500))")
+                }
+                #endif
 
                 do {
                     let response = try JSONDecoder().decode(P2PRestaurantsResponse.self, from: data)
                     completion(.success(response.restaurants))
                 } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchRestaurants decode error: \(error)")
+                    #endif
                     self?.error = "Failed to decode restaurants: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -129,6 +163,16 @@ public class P2PAPIService: ObservableObject {
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
+                }
+
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        let error = P2PAPIError.httpError(httpResponse.statusCode)
+                        self?.error = "Server error: \(httpResponse.statusCode)"
+                        completion(.failure(error))
+                        return
+                    }
                 }
 
                 guard let data = data else {
@@ -466,6 +510,109 @@ public class P2PAPIService: ObservableObject {
                 completion(.failure(error))
             }
         }
+    }
+
+    // MARK: - Promotions API (Customer App)
+
+    /// Get all active promotions for customers to browse
+    public func getActivePromotions(
+        completion: @escaping (Result<P2PActivePromotionsResponse, Error>) -> Void
+    ) {
+        let endpoint = "\(baseURL)/api/promotions/active"
+
+        guard let url = URL(string: endpoint) else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PActivePromotionsResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get featured deals for homepage banner
+    public func getFeaturedDeals(
+        completion: @escaping (Result<P2PFeaturedDealsResponse, Error>) -> Void
+    ) {
+        let endpoint = "\(baseURL)/promotions/featured"
+
+        guard let url = URL(string: endpoint) else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    #if DEBUG
+                    print("[P2PAPIService] getFeaturedDeals network error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data, !data.isEmpty else {
+                    #if DEBUG
+                    print("[P2PAPIService] getFeaturedDeals: No data received")
+                    #endif
+                    // Return empty response instead of error
+                    let emptyResponse = P2PFeaturedDealsResponse(success: true, featured: [], count: 0)
+                    completion(.success(emptyResponse))
+                    return
+                }
+
+                #if DEBUG
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("[P2PAPIService] getFeaturedDeals response: \(jsonString.prefix(300))")
+                }
+                #endif
+
+                do {
+                    let response = try JSONDecoder().decode(P2PFeaturedDealsResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] getFeaturedDeals decode error: \(error)")
+                    #endif
+                    // Return empty response on decode error
+                    let emptyResponse = P2PFeaturedDealsResponse(success: true, featured: [], count: 0)
+                    completion(.success(emptyResponse))
+                }
+            }
+        }.resume()
     }
 
     // MARK: - Promotions API (Restaurant App)
@@ -1028,6 +1175,73 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Google OAuth login/registration for vendors
+    /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    public func vendorGoogleAuth(
+        email: String,
+        name: String,
+        googleId: String,
+        completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/auth/vendor/google-auth") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "name": name,
+            "google_id": googleId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Google auth failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
+                    // Store the token securely in Keychain
+                    SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
+                    // Save vendor name and email for profile display
+                    UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
+                    UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
+                    completion(.success(loginResponse))
+                } catch {
+                    self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
             }
@@ -1636,10 +1850,21 @@ public class P2PAPIService: ObservableObject {
         address: Address,
         completion: @escaping (Result<P2PCustomerAddress, Error>) -> Void
     ) {
+        #if DEBUG
+        print("[P2PAPIService] createAddress called for userId: \(userId)")
+        #endif
+
         guard let url = URL(string: "\(baseURL)/addresses/\(userId)") else {
+            #if DEBUG
+            print("[P2PAPIService] createAddress: Invalid URL")
+            #endif
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
+
+        #if DEBUG
+        print("[P2PAPIService] createAddress URL: \(url.absoluteString)")
+        #endif
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -1647,6 +1872,13 @@ public class P2PAPIService: ObservableObject {
 
         if let token = customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            #if DEBUG
+            print("[P2PAPIService] createAddress: Auth token present")
+            #endif
+        } else {
+            #if DEBUG
+            print("[P2PAPIService] createAddress: WARNING - No auth token!")
+            #endif
         }
 
         let body: [String: Any] = [
@@ -1665,6 +1897,10 @@ public class P2PAPIService: ObservableObject {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
+        #if DEBUG
+        print("[P2PAPIService] createAddress body: \(body)")
+        #endif
+
         isLoading = true
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
@@ -1672,17 +1908,32 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    #if DEBUG
+                    print("[P2PAPIService] createAddress network error: \(error)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    #if DEBUG
+                    print("[P2PAPIService] createAddress: No data received")
+                    #endif
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
+                #if DEBUG
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("[P2PAPIService] createAddress response: \(jsonString)")
+                }
+                #endif
+
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    #if DEBUG
+                    print("[P2PAPIService] createAddress HTTP error: \(httpResponse.statusCode)")
+                    #endif
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -1693,8 +1944,14 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let createdAddress = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
+                    #if DEBUG
+                    print("[P2PAPIService] createAddress success: id=\(createdAddress.id)")
+                    #endif
                     completion(.success(createdAddress))
                 } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] createAddress decode error: \(error)")
+                    #endif
                     self?.error = "Failed to decode created address: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -2086,14 +2343,21 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 do {
+                    // First try to decode as array (success case)
                     let orders = try JSONDecoder().decode([P2PCustomerOrder].self, from: data)
                     completion(.success(orders))
                 } catch {
-                    self?.error = "Failed to decode orders: \(error.localizedDescription)"
-                    #if DEBUG
-                    print("[P2PAPIService] Decode error: \(error)")
-                    #endif
-                    completion(.failure(error))
+                    // If array decode fails, try decoding as error response with orders array
+                    do {
+                        let errorResponse = try JSONDecoder().decode(P2POrdersErrorResponse.self, from: data)
+                        completion(.success(errorResponse.orders ?? []))
+                    } catch {
+                        self?.error = "Failed to decode orders: \(error.localizedDescription)"
+                        #if DEBUG
+                        print("[P2PAPIService] Decode error: \(error)")
+                        #endif
+                        completion(.failure(error))
+                    }
                 }
             }
         }.resume()
@@ -2896,27 +3160,47 @@ public class P2PAPIService: ObservableObject {
         var body = Data()
 
         // Add document type field
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n".data(using: .utf8)!)
-        body.append("\(documentType.rawValue)\r\n".data(using: .utf8)!)
+        guard let boundaryData1 = "--\(boundary)\r\n".data(using: .utf8),
+              let contentDisp1 = "Content-Disposition: form-data; name=\"document_type\"\r\n\r\n".data(using: .utf8),
+              let docTypeData = "\(documentType.rawValue)\r\n".data(using: .utf8) else {
+            completion(.failure(P2PAPIError.encodingFailed))
+            return
+        }
+        body.append(boundaryData1)
+        body.append(contentDisp1)
+        body.append(docTypeData)
 
         // Add expiry date if provided
         if let expiryDate = expiryDate {
             let formatter = ISO8601DateFormatter()
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"expiry_date\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(formatter.string(from: expiryDate))\r\n".data(using: .utf8)!)
+            guard let boundaryData2 = "--\(boundary)\r\n".data(using: .utf8),
+                  let contentDisp2 = "Content-Disposition: form-data; name=\"expiry_date\"\r\n\r\n".data(using: .utf8),
+                  let expiryData = "\(formatter.string(from: expiryDate))\r\n".data(using: .utf8) else {
+                completion(.failure(P2PAPIError.encodingFailed))
+                return
+            }
+            body.append(boundaryData2)
+            body.append(contentDisp2)
+            body.append(expiryData)
         }
 
         // Add file
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(documentType.rawValue).jpg\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        guard let boundaryData3 = "--\(boundary)\r\n".data(using: .utf8),
+              let contentDisp3 = "Content-Disposition: form-data; name=\"file\"; filename=\"\(documentType.rawValue).jpg\"\r\n".data(using: .utf8),
+              let contentType = "Content-Type: image/jpeg\r\n\r\n".data(using: .utf8),
+              let newline = "\r\n".data(using: .utf8),
+              let closeBoundary = "--\(boundary)--\r\n".data(using: .utf8) else {
+            completion(.failure(P2PAPIError.encodingFailed))
+            return
+        }
+        body.append(boundaryData3)
+        body.append(contentDisp3)
+        body.append(contentType)
         body.append(imageData)
-        body.append("\r\n".data(using: .utf8)!)
+        body.append(newline)
 
         // Close boundary
-        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        body.append(closeBoundary)
 
         request.httpBody = body
 
@@ -3289,6 +3573,64 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 completion(.success(true))
+            }
+        }.resume()
+    }
+
+    /// Fetch driver earnings dashboard from V5 API
+    public func getDriverDashboard(
+        driverId: String,
+        completion: @escaping (Result<DriverDashboardResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/v5/driver/\(driverId)/dashboard") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for HTTP errors
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = errorJson["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(httpResponse.statusCode)")))
+                    }
+                    return
+                }
+
+                do {
+                    let dashboard = try JSONDecoder().decode(DriverDashboardResponse.self, from: data)
+                    completion(.success(dashboard))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Failed to decode driver dashboard: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Raw response: \(jsonString)")
+                    }
+                    #endif
+                    completion(.failure(error))
+                }
             }
         }.resume()
     }
@@ -4691,7 +5033,9 @@ public enum P2PAPIError: Error, LocalizedError {
     case invalidURL
     case noData
     case decodingError
+    case encodingFailed
     case serverError(String)
+    case httpError(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -4701,8 +5045,12 @@ public enum P2PAPIError: Error, LocalizedError {
             return "No data received from server"
         case .decodingError:
             return "Failed to decode server response"
+        case .encodingFailed:
+            return "Failed to encode data"
         case .serverError(let message):
             return message
+        case .httpError(let statusCode):
+            return "HTTP error: \(statusCode)"
         }
     }
 }
@@ -4713,6 +5061,17 @@ public struct P2PRestaurantsResponse: Codable {
     public let success: Bool
     public let count: Int
     public let restaurants: [P2PRestaurant]
+
+    enum CodingKeys: String, CodingKey {
+        case success, count, restaurants
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
+        restaurants = try container.decodeIfPresent([P2PRestaurant].self, forKey: .restaurants) ?? []
+    }
 }
 
 public struct P2PRestaurant: Identifiable, Codable {
@@ -4749,6 +5108,25 @@ public struct P2PRestaurant: Identifiable, Codable {
         case rating
         case isOpen = "is_open"
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        vendorId = try container.decode(String.self, forKey: .vendorId)
+        name = try container.decode(String.self, forKey: .name)
+        cuisineType = try container.decodeIfPresent(String.self, forKey: .cuisineType)
+        address = try container.decode(P2PAddress.self, forKey: .address)
+        location = try container.decode(P2PLocation.self, forKey: .location)
+        contact = try container.decode(P2PContact.self, forKey: .contact)
+        operatingHours = try container.decodeIfPresent(String.self, forKey: .operatingHours)
+        deliveryAvailable = try container.decodeIfPresent(Bool.self, forKey: .deliveryAvailable) ?? true
+        pickupAvailable = try container.decodeIfPresent(Bool.self, forKey: .pickupAvailable) ?? true
+        averagePrepTime = try container.decodeIfPresent(Int.self, forKey: .averagePrepTime)
+        menuItemsCount = try container.decodeIfPresent(Int.self, forKey: .menuItemsCount) ?? 0
+        previewImages = try container.decodeIfPresent([String].self, forKey: .previewImages) ?? []
+        rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
+        isOpen = try container.decodeIfPresent(Bool.self, forKey: .isOpen) ?? true
+    }
 }
 
 public struct P2PAddress: Codable {
@@ -4765,16 +5143,56 @@ public struct P2PAddress: Codable {
         case country
         case fullAddress = "full_address"
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        street = try container.decodeIfPresent(String.self, forKey: .street)
+        city = try container.decodeIfPresent(String.self, forKey: .city)
+        state = try container.decodeIfPresent(String.self, forKey: .state)
+        zipCode = try container.decodeIfPresent(String.self, forKey: .zipCode)
+        country = try container.decodeIfPresent(String.self, forKey: .country)
+        // Build fullAddress from components if not provided
+        if let full = try container.decodeIfPresent(String.self, forKey: .fullAddress) {
+            fullAddress = full
+        } else {
+            var parts: [String] = []
+            if let s = street, !s.isEmpty { parts.append(s) }
+            if let c = city, !c.isEmpty { parts.append(c) }
+            if let st = state, !st.isEmpty { parts.append(st) }
+            if let z = zipCode, !z.isEmpty { parts.append(z) }
+            fullAddress = parts.isEmpty ? "Address not available" : parts.joined(separator: ", ")
+        }
+    }
 }
 
 public struct P2PLocation: Codable {
     public let latitude: Double?
     public let longitude: Double?
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        latitude = try container.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try container.decodeIfPresent(Double.self, forKey: .longitude)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case latitude, longitude
+    }
 }
 
 public struct P2PContact: Codable {
     public let phone: String?
     public let email: String?
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        email = try container.decodeIfPresent(String.self, forKey: .email)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case phone, email
+    }
 }
 
 // MARK: - Vendor Profile (for Restaurant App Settings)
@@ -4813,6 +5231,23 @@ public struct P2PVendorProfile: Codable {
         case averagePrepTime = "average_prep_time"
         case rating
         case reviewsCount = "reviews_count"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        vendorId = try container.decode(String.self, forKey: .vendorId)
+        name = try container.decode(String.self, forKey: .name)
+        cuisineType = try container.decodeIfPresent(String.self, forKey: .cuisineType)
+        address = try container.decode(P2PAddress.self, forKey: .address)
+        location = try container.decode(P2PLocation.self, forKey: .location)
+        contact = try container.decode(P2PContact.self, forKey: .contact)
+        operatingHours = try container.decodeIfPresent(String.self, forKey: .operatingHours)
+        deliveryAvailable = try container.decodeIfPresent(Bool.self, forKey: .deliveryAvailable) ?? true
+        pickupAvailable = try container.decodeIfPresent(Bool.self, forKey: .pickupAvailable) ?? true
+        averagePrepTime = try container.decodeIfPresent(Int.self, forKey: .averagePrepTime)
+        rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
+        reviewsCount = try container.decodeIfPresent(Int.self, forKey: .reviewsCount) ?? 0
     }
 }
 
@@ -4903,6 +5338,23 @@ public struct P2PRestaurantInfo: Codable {
         case averagePrepTime = "average_prep_time"
         case rating
         case reviewsCount = "reviews_count"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        vendorId = try container.decode(String.self, forKey: .vendorId)
+        name = try container.decode(String.self, forKey: .name)
+        cuisineType = try container.decodeIfPresent(String.self, forKey: .cuisineType)
+        address = try container.decode(P2PAddress.self, forKey: .address)
+        location = try container.decode(P2PLocation.self, forKey: .location)
+        contact = try container.decode(P2PContact.self, forKey: .contact)
+        operatingHours = try container.decodeIfPresent(String.self, forKey: .operatingHours)
+        deliveryAvailable = try container.decodeIfPresent(Bool.self, forKey: .deliveryAvailable) ?? true
+        pickupAvailable = try container.decodeIfPresent(Bool.self, forKey: .pickupAvailable) ?? true
+        averagePrepTime = try container.decodeIfPresent(Int.self, forKey: .averagePrepTime)
+        rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
+        reviewsCount = try container.decodeIfPresent(Int.self, forKey: .reviewsCount) ?? 0
     }
 }
 
@@ -5169,6 +5621,96 @@ public struct P2PPromotionAnalytics: Codable {
     public let conversionRate: Double?
 }
 
+/// Customer-facing promotion with vendor name
+public struct P2PCustomerPromotion: Codable, Identifiable {
+    public let id: Int
+    public let promotionCode: String
+    public let vendorId: Int
+    public let vendorName: String
+    public let name: String
+    public let description: String?
+    public let type: String
+    public let value: Double
+    public let maxDiscount: Double?
+    public let minOrderAmount: Double?
+    public let targetAudience: String?
+    public let startDate: String?
+    public let endDate: String?
+    public let usageCount: Int?
+    public let usageLimit: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case promotionCode = "promotion_code"
+        case vendorId = "vendor_id"
+        case vendorName = "vendor_name"
+        case name, description, type, value
+        case maxDiscount = "max_discount"
+        case minOrderAmount = "min_order_amount"
+        case targetAudience = "target_audience"
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case usageCount = "usage_count"
+        case usageLimit = "usage_limit"
+    }
+}
+
+/// Active promotions response for customers
+public struct P2PActivePromotionsResponse: Codable {
+    public let success: Bool
+    public let promotions: [P2PCustomerPromotion]
+    public let count: Int
+}
+
+/// Featured deal for homepage
+public struct P2PFeaturedDeal: Codable, Identifiable {
+    public let id: Int
+    public let promotionCode: String
+    public let vendorId: Int
+    public let vendorName: String
+    public let headline: String
+    public let name: String
+    public let description: String?
+    public let type: String
+    public let value: Double
+    public let minOrderAmount: Double?
+    public let endDate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case promotionCode = "promotion_code"
+        case vendorId = "vendor_id"
+        case vendorName = "vendor_name"
+        case headline, name, description, type, value
+        case minOrderAmount = "min_order_amount"
+        case endDate = "end_date"
+    }
+}
+
+/// Featured deals response
+public struct P2PFeaturedDealsResponse: Codable {
+    public let success: Bool
+    public let featured: [P2PFeaturedDeal]
+    public let count: Int
+
+    enum CodingKeys: String, CodingKey {
+        case success, featured, count
+    }
+
+    public init(success: Bool, featured: [P2PFeaturedDeal], count: Int) {
+        self.success = success
+        self.featured = featured
+        self.count = count
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        featured = try container.decodeIfPresent([P2PFeaturedDeal].self, forKey: .featured) ?? []
+        count = try container.decodeIfPresent(Int.self, forKey: .count) ?? 0
+    }
+}
+
 public struct P2PVerificationStatus: Codable {
     public let success: Bool
     public let status: String
@@ -5197,7 +5739,7 @@ public extension P2PRestaurant {
             name: name,
             cuisine: cuisineType ?? "General",
             rating: rating,
-            deliveryTime: averagePrepTime != nil ? "\(averagePrepTime!)-\(averagePrepTime! + 15) min" : "30-45 min",
+            deliveryTime: averagePrepTime.map { "\($0)-\($0 + 15) min" } ?? "30-45 min",
             imageUrl: previewImages.first ?? "",
             address: address.fullAddress,
             latitude: location.latitude ?? 0,
@@ -5349,6 +5891,104 @@ public struct DriverDocumentsResponse: Codable {
         case documents
         case count
         case allVerified = "all_verified"
+    }
+}
+
+// MARK: - Driver Dashboard Response Models (V5 API)
+
+public struct DriverDashboardResponse: Codable {
+    public let driverId: String
+    public let snapshotTime: String
+    public let today: DriverEarningsPeriod
+    public let thisWeek: DriverEarningsPeriod
+    public let thisMonth: DriverEarningsPeriod
+    public let taxInfo: DriverTaxInfo?
+    public let platformFeesPaid: DriverPlatformFees?
+    public let paymentMethods: DriverPaymentMethods?
+    public let ratings: DriverRatings?
+
+    enum CodingKeys: String, CodingKey {
+        case driverId = "driver_id"
+        case snapshotTime = "snapshot_time"
+        case today
+        case thisWeek = "this_week"
+        case thisMonth = "this_month"
+        case taxInfo = "tax_info"
+        case platformFeesPaid = "platform_fees_paid"
+        case paymentMethods = "payment_methods"
+        case ratings
+    }
+}
+
+public struct DriverEarningsPeriod: Codable {
+    public let deliveries: Int
+    public let grossEarnings: Double
+    public let totalMiles: Double?
+    public let activeHours: Double?
+    public let effectiveHourlyRate: Double?
+    public let perDeliveryAverage: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case deliveries
+        case grossEarnings = "gross_earnings"
+        case totalMiles = "total_miles"
+        case activeHours = "active_hours"
+        case effectiveHourlyRate = "effective_hourly_rate"
+        case perDeliveryAverage = "per_delivery_average"
+    }
+}
+
+public struct DriverTaxInfo: Codable {
+    public let totalMilesYtd: Double?
+    public let mileageDeductionYtd: Double?
+    public let grossEarningsYtd: Double?
+    public let estimatedTaxableAfterMileage: Double?
+    public let note: String?
+    public let otherDeductions: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case totalMilesYtd = "total_miles_ytd"
+        case mileageDeductionYtd = "mileage_deduction_ytd"
+        case grossEarningsYtd = "gross_earnings_ytd"
+        case estimatedTaxableAfterMileage = "estimated_taxable_after_mileage"
+        case note
+        case otherDeductions = "other_deductions"
+    }
+}
+
+public struct DriverPlatformFees: Codable {
+    public let toDollor: Double?
+    public let note: String?
+
+    enum CodingKeys: String, CodingKey {
+        case toDollor = "to_dollor"
+        case note
+    }
+}
+
+public struct DriverPaymentMethods: Codable {
+    public let primary: String?
+    public let backup: String?
+    public let acceptsCash: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case primary
+        case backup
+        case acceptsCash = "accepts_cash"
+    }
+}
+
+public struct DriverRatings: Codable {
+    public let overall: Double?
+    public let totalReviews: Int?
+    public let onTimePercentage: Int?
+    public let customerCompliments: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case overall
+        case totalReviews = "total_reviews"
+        case onTimePercentage = "on_time_percentage"
+        case customerCompliments = "customer_compliments"
     }
 }
 
@@ -5562,6 +6202,7 @@ public struct P2PCustomerAddress: Codable, Identifiable {
         case id
         case userId = "user_id"
         case locationName = "location_name"
+        case label  // API returns "label" instead of "location_name"
         case street
         case unit
         case city
@@ -5577,6 +6218,51 @@ public struct P2PCustomerAddress: Codable, Identifiable {
         case updatedAt = "updated_at"
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        userId = try container.decodeIfPresent(Int.self, forKey: .userId) ?? 0
+        // Try location_name first, then label
+        locationName = try container.decodeIfPresent(String.self, forKey: .locationName)
+            ?? container.decodeIfPresent(String.self, forKey: .label)
+            ?? "Home"
+        street = try container.decodeIfPresent(String.self, forKey: .street) ?? ""
+        unit = try container.decodeIfPresent(String.self, forKey: .unit) ?? ""
+        city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
+        state = try container.decodeIfPresent(String.self, forKey: .state) ?? ""
+        zipCode = try container.decodeIfPresent(String.self, forKey: .zipCode) ?? ""
+        instructions = try container.decodeIfPresent(String.self, forKey: .instructions) ?? ""
+        addressType = try container.decodeIfPresent(String.self, forKey: .addressType)
+            ?? container.decodeIfPresent(String.self, forKey: .label)
+            ?? "Home"
+        latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0.0
+        longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0.0
+        phoneNumber = try container.decodeIfPresent(String.self, forKey: .phoneNumber) ?? ""
+        isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(locationName, forKey: .locationName)
+        try container.encode(street, forKey: .street)
+        try container.encode(unit, forKey: .unit)
+        try container.encode(city, forKey: .city)
+        try container.encode(state, forKey: .state)
+        try container.encode(zipCode, forKey: .zipCode)
+        try container.encode(instructions, forKey: .instructions)
+        try container.encode(addressType, forKey: .addressType)
+        try container.encode(latitude, forKey: .latitude)
+        try container.encode(longitude, forKey: .longitude)
+        try container.encode(phoneNumber, forKey: .phoneNumber)
+        try container.encode(isDefault, forKey: .isDefault)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+    }
+
     /// Convert P2PCustomerAddress to shared Address model
     public func toAddress() -> Address {
         return Address(
@@ -5589,7 +6275,7 @@ public struct P2PCustomerAddress: Codable, Identifiable {
             state: state,
             zipCode: zipCode,
             instructions: instructions,
-            type: addressType,
+            addressType: addressType,
             latitude: latitude,
             longitude: longitude,
             phoneNumber: phoneNumber,
@@ -5908,6 +6594,13 @@ public struct P2PCustomerLoginResponse: Codable {
 
 // MARK: - Customer Order Models
 
+/// Error response from orders endpoint (when exception occurs)
+public struct P2POrdersErrorResponse: Codable {
+    public let error: String?
+    public let traceback: String?
+    public let orders: [P2PCustomerOrder]?
+}
+
 /// Order model as returned by the customer orders endpoint
 public struct P2PCustomerOrder: Codable, Identifiable {
     public let id: Int
@@ -6100,7 +6793,7 @@ public struct P2PCustomerOrder: Codable, Identifiable {
             total: totalAmount,
             status: displayStatus,
             placedAt: timestamp,
-            driverId: driverId != nil ? String(driverId!) : nil
+            driverId: driverId.map { String($0) }
         )
     }
 }
@@ -6185,7 +6878,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     @Published public var lastMessage: P2PWebSocketMessage?
 
     private var webSocketTask: URLSessionWebSocketTask?
-    private var session: URLSession!
+    private var session: URLSession?
     private var clientType: String = "customer"
     private var clientId: String = ""
 
@@ -6209,7 +6902,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
             return
         }
 
-        webSocketTask = session.webSocketTask(with: url)
+        webSocketTask = session?.webSocketTask(with: url)
         webSocketTask?.resume()
 
         DispatchQueue.main.async {
@@ -7067,6 +7760,256 @@ extension P2PAPIService {
             }
         }.resume()
     }
+
+    // MARK: - Partial Order / Order Modification APIs
+
+    /// Get pending order modification details
+    /// - Parameters:
+    ///   - orderId: The order ID to check
+    ///   - completion: Result with modification details or error
+    public func getOrderModification(
+        orderId: Int,
+        completion: @escaping (Result<P2POrderModificationResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/modification") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to get modification details")))
+                    }
+                    return
+                }
+
+                do {
+                    let modResponse = try JSONDecoder().decode(P2POrderModificationResponse.self, from: data)
+                    completion(.success(modResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Respond to order modification (accept partial or reject for full refund)
+    /// - Parameters:
+    ///   - orderId: The order ID
+    ///   - response: "accept_partial" or "reject_full_refund"
+    ///   - completion: Result with response or error
+    public func respondToOrderModification(
+        orderId: Int,
+        response: String,
+        completion: @escaping (Result<P2PModificationResponseResult, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/modification/respond") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["response": response]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to respond to modification")))
+                    }
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(P2PModificationResponseResult.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Restaurant marks items as unavailable
+    /// - Parameters:
+    ///   - orderId: The order ID
+    ///   - unavailableItems: Array of items that are unavailable
+    ///   - completion: Result with modification details or error
+    public func markItemsUnavailable(
+        orderId: Int,
+        unavailableItems: [[String: Any]],
+        restaurantNote: String? = nil,
+        completion: @escaping (Result<P2PMarkUnavailableResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/mark-unavailable") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["unavailable_items": unavailableItems]
+        if let note = restaurantNote {
+            body["restaurant_note"] = note
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to mark items unavailable")))
+                    }
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(P2PMarkUnavailableResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - Partial Order Response Models
+
+public struct P2POrderModificationResponse: Codable {
+    public let hasPendingModification: Bool
+    public let isExpired: Bool?
+    public let modificationNumber: String?
+    public let unavailableItems: [UnavailableItem]?
+    public let unavailableCount: Int?
+    public let availableItems: [ModifiedOrderItem]?
+    public let availableCount: Int?
+    public let originalTotal: Double?
+    public let newTotal: Double?
+    public let partialRefundAmount: Double?
+    public let timeRemainingSeconds: Int?
+    public let expiresAt: String?
+    public let restaurantName: String?
+    public let orderStatus: String?
+
+    enum CodingKeys: String, CodingKey {
+        case hasPendingModification = "has_pending_modification"
+        case isExpired = "is_expired"
+        case modificationNumber = "modification_number"
+        case unavailableItems = "unavailable_items"
+        case unavailableCount = "unavailable_count"
+        case availableItems = "available_items"
+        case availableCount = "available_count"
+        case originalTotal = "original_total"
+        case newTotal = "new_total"
+        case partialRefundAmount = "partial_refund_amount"
+        case timeRemainingSeconds = "time_remaining_seconds"
+        case expiresAt = "expires_at"
+        case restaurantName = "restaurant_name"
+        case orderStatus = "order_status"
+    }
+}
+
+public struct P2PModificationResponseResult: Codable {
+    public let success: Bool
+    public let response: String
+    public let message: String
+    public let orderId: Int
+    public let orderNumber: String
+    public let orderStatus: String
+    public let refundAmount: Double?
+    public let refundNumber: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, response, message
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case orderStatus = "order_status"
+        case refundAmount = "refund_amount"
+        case refundNumber = "refund_number"
+    }
+}
+
+public struct P2PMarkUnavailableResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let modificationNumber: String
+    public let orderId: Int
+    public let orderNumber: String
+    public let originalTotal: Double
+    public let newTotal: Double
+    public let partialRefundIfAccepted: Double
+    public let expiresInMinutes: Int
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case modificationNumber = "modification_number"
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case originalTotal = "original_total"
+        case newTotal = "new_total"
+        case partialRefundIfAccepted = "partial_refund_if_accepted"
+        case expiresInMinutes = "expires_in_minutes"
+    }
 }
 
 // MARK: - Order Cancellation Response Models
@@ -7444,5 +8387,299 @@ public struct P2PSystemHealth: Codable {
         case allEmployeesOnline = "all_employees_online"
         case processingDelayMs = "processing_delay_ms"
         case errorRate = "error_rate"
+    }
+}
+
+// MARK: - Restaurant Delivery Decision Models (60-Second Window)
+
+/// Delivery method options
+public enum DeliveryMethod: String, Codable, CaseIterable {
+    case pending = "pending"
+    case restaurant = "restaurant"
+    case driver = "driver"
+    case pickup = "pickup"
+
+    public var displayName: String {
+        switch self {
+        case .pending: return "Pending"
+        case .restaurant: return "Restaurant Delivery"
+        case .driver: return "Dollor Driver"
+        case .pickup: return "Customer Pickup"
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .pending: return "clock"
+        case .restaurant: return "storefront"
+        case .driver: return "car.fill"
+        case .pickup: return "figure.walk"
+        }
+    }
+}
+
+/// Response for delivery decision status
+public struct DeliveryDecisionStatus: Codable {
+    public let orderId: Int
+    public let orderNumber: String
+    public let status: String
+    public let deliveryMethod: String
+    public let deadline: String?
+    public let remainingSeconds: Int?
+    public let decisionMadeAt: String?
+    public let delivererName: String?
+    public let canDecide: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case status
+        case deliveryMethod = "delivery_method"
+        case deadline
+        case remainingSeconds = "remaining_seconds"
+        case decisionMadeAt = "decision_made_at"
+        case delivererName = "deliverer_name"
+        case canDecide = "can_decide"
+    }
+}
+
+/// Response for starting delivery decision
+public struct StartDeliveryDecisionResponse: Codable {
+    public let success: Bool
+    public let orderId: Int
+    public let orderNumber: String
+    public let status: String
+    public let deadline: String?
+    public let timeoutSeconds: Int
+    public let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case status
+        case deadline
+        case timeoutSeconds = "timeout_seconds"
+        case message
+    }
+}
+
+/// Response for making delivery decision
+public struct DeliveryDecisionResponse: Codable {
+    public let success: Bool
+    public let orderId: Int
+    public let orderNumber: String
+    public let status: String
+    public let deliveryMethod: String
+    public let delivererName: String?
+    public let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case status
+        case deliveryMethod = "delivery_method"
+        case delivererName = "deliverer_name"
+        case message
+    }
+}
+
+/// Order pending restaurant delivery decision
+public struct PendingDeliveryOrder: Identifiable, Codable {
+    public var id: Int { orderId }
+    public let orderId: Int
+    public let orderNumber: String
+    public let customerName: String?
+    public let subtotal: Double
+    public let totalAmount: Double
+    public let deliveryAddress: String?
+    public let deadline: String?
+    public let remainingSeconds: Int
+    public let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case orderId = "order_id"
+        case orderNumber = "order_number"
+        case customerName = "customer_name"
+        case subtotal
+        case totalAmount = "total_amount"
+        case deliveryAddress = "delivery_address"
+        case deadline
+        case remainingSeconds = "remaining_seconds"
+        case createdAt = "created_at"
+    }
+}
+
+/// Response for pending delivery orders
+public struct PendingDeliveryOrdersResponse: Codable {
+    public let success: Bool
+    public let count: Int
+    public let orders: [PendingDeliveryOrder]
+}
+
+// MARK: - P2PAPIService Extension for Delivery Decision
+
+extension P2PAPIService {
+
+    /// Start the 60-second delivery decision window for an order
+    public func startDeliveryDecision(
+        orderId: Int,
+        completion: @escaping (Result<StartDeliveryDecisionResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/orders/\(orderId)/start-delivery-decision") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(StartDeliveryDecisionResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Restaurant makes delivery decision
+    /// - Parameters:
+    ///   - orderId: The order ID
+    ///   - willDeliver: true if restaurant will deliver, false to pass to driver pool
+    ///   - delivererName: Name of restaurant staff who will deliver (if willDeliver is true)
+    public func makeDeliveryDecision(
+        orderId: Int,
+        willDeliver: Bool,
+        delivererName: String? = nil,
+        completion: @escaping (Result<DeliveryDecisionResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/orders/\(orderId)/restaurant-delivery-decision") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = ["will_deliver": willDeliver]
+        if let name = delivererName {
+            body["deliverer_name"] = name
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(DeliveryDecisionResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get delivery decision status for an order
+    public func getDeliveryDecisionStatus(
+        orderId: Int,
+        completion: @escaping (Result<DeliveryDecisionStatus, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/orders/\(orderId)/delivery-decision-status") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(DeliveryDecisionStatus.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get all orders pending restaurant delivery decision
+    public func getPendingDeliveryOrders(
+        vendorId: Int? = nil,
+        completion: @escaping (Result<PendingDeliveryOrdersResponse, Error>) -> Void
+    ) {
+        var urlString = "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/orders/pending-restaurant-delivery"
+        if let vendorId = vendorId {
+            urlString += "?vendor_id=\(vendorId)"
+        }
+
+        guard let url = URL(string: urlString) else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(PendingDeliveryOrdersResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
     }
 }

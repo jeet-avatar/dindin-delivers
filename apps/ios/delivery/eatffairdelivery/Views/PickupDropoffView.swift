@@ -101,8 +101,40 @@ struct DriverDeliveryMapView: View {
     let showPickupLocation: Bool
     let showDropoffLocation: Bool
 
+    @StateObject private var locationManager = LocationManager.shared
+
     var body: some View {
         Map(position: $mapPosition) {
+            // Driver's current location (custom blue dot with pulse)
+            if let driverLocation = locationManager.currentCoordinate {
+                Annotation("You", coordinate: driverLocation) {
+                    ZStack {
+                        // Pulse animation circle
+                        Circle()
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: 60, height: 60)
+
+                        // Inner circle
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 3)
+                            )
+                            .shadow(color: .blue.opacity(0.5), radius: 8)
+
+                        // Direction arrow if heading available
+                        if let heading = locationManager.heading {
+                            Image(systemName: "location.north.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .rotationEffect(.degrees(heading.trueHeading))
+                        }
+                    }
+                }
+            }
+
             // Pickup (Restaurant) Marker
             if showPickupLocation {
                 Annotation("Pickup", coordinate: CLLocationCoordinate2D(
@@ -122,22 +154,35 @@ struct DriverDeliveryMapView: View {
                     DriverDropoffMarker()
                 }
             }
-
-            // Driver's current location annotation
-            UserAnnotation()
         }
-        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .mapStyle(.standard(elevation: .realistic, pointsOfInterest: .excludingAll))
         .mapControls {
             MapUserLocationButton()
             MapCompass()
+            MapScaleView()
         }
         .onAppear {
+            // Start tracking driver's location
+            locationManager.requestPermission()
+            locationManager.startTracking()
             updateMapRegion()
+        }
+        .onChange(of: locationManager.currentCoordinate) { _, newLocation in
+            // Optionally update map to follow driver
+            if let location = newLocation {
+                // Smoothly animate to new position while keeping destinations visible
+                updateMapRegionWithDriver(driverLocation: location)
+            }
         }
     }
 
     private func updateMapRegion() {
         var coordinates: [CLLocationCoordinate2D] = []
+
+        // Include driver's location if available
+        if let driverLocation = locationManager.currentCoordinate {
+            coordinates.append(driverLocation)
+        }
 
         if showPickupLocation {
             coordinates.append(CLLocationCoordinate2D(
@@ -158,10 +203,15 @@ struct DriverDeliveryMapView: View {
         let latitudes = coordinates.map { $0.latitude }
         let longitudes = coordinates.map { $0.longitude }
 
-        let centerLat = (latitudes.min()! + latitudes.max()!) / 2
-        let centerLon = (longitudes.min()! + longitudes.max()!) / 2
-        let spanLat = (latitudes.max()! - latitudes.min()!) * 1.5 + 0.02
-        let spanLon = (longitudes.max()! - longitudes.min()!) * 1.5 + 0.02
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else { return }
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = (maxLat - minLat) * 1.5 + 0.02
+        let spanLon = (maxLon - minLon) * 1.5 + 0.02
 
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
@@ -169,6 +219,46 @@ struct DriverDeliveryMapView: View {
         )
 
         mapPosition = .region(region)
+    }
+
+    private func updateMapRegionWithDriver(driverLocation: CLLocationCoordinate2D) {
+        var coordinates: [CLLocationCoordinate2D] = [driverLocation]
+
+        if showPickupLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.restaurant.latitude,
+                longitude: order.restaurant.longitude
+            ))
+        }
+
+        if showDropoffLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.deliveryAddress.latitude,
+                longitude: order.deliveryAddress.longitude
+            ))
+        }
+
+        let latitudes = coordinates.map { $0.latitude }
+        let longitudes = coordinates.map { $0.longitude }
+
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else { return }
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = (maxLat - minLat) * 1.5 + 0.02
+        let spanLon = (maxLon - minLon) * 1.5 + 0.02
+
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+            span: MKCoordinateSpan(latitudeDelta: max(spanLat, 0.02), longitudeDelta: max(spanLon, 0.02))
+        )
+
+        withAnimation(.easeInOut(duration: 0.5)) {
+            mapPosition = .region(region)
+        }
     }
 }
 

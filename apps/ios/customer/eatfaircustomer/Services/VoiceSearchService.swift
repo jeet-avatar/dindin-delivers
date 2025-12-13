@@ -21,7 +21,7 @@ class VoiceSearchService: ObservableObject {
 
     func checkPermissions() {
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 switch status {
                 case .authorized:
                     self?.isAuthorized = true

@@ -37,6 +37,7 @@ from database import get_db
 from models import Ride, RideStatus
 from pricing_config import (
     RIDESHARE_PRICING_CONFIG,
+    TIERED_PRICING,
     STATE_TAX_RATES,
     DEFAULT_TAX_RATE,
     PAYMENT_PROCESSING_CONFIG,
@@ -136,6 +137,15 @@ class PaymentConfirmationResponse(BaseModel):
     message: str
     ride_id: int
     paid_amount: float
+
+
+class DriverAcceptRequest(BaseModel):
+    """Request body for driver accepting a ride"""
+    driver_id: int
+    driver_name: str
+    driver_phone: str
+    driver_lat: float
+    driver_lng: float
 
 
 # =============================================================================
@@ -307,10 +317,16 @@ def calculate_fare(
     """
     Calculate ride fare breakdown - MUST MATCH iOS RideRequestViewModel.
 
+    NEW TIERED PRICING MODEL (Dec 2024):
+    - Fare ≤ $15:     $1 platform fee
+    - Fare $15-$35:   $2 platform fee
+    - Fare > $35:     $3 platform fee
+
     Formula:
     - Driver earnings = (base + distance + time) × surge + tip
+    - Platform fee = TIERED based on driver earnings (before tip)
     - Total fare = driver earnings + platform fee + tax
-    - Platform gets: $1 flat fee only
+    - Platform gets: $1-$3 tiered fee only
 
     Returns breakdown matching iOS RideRequestResponse fields.
     """
@@ -324,13 +340,16 @@ def calculate_fare(
     # Apply surge to driver portion only
     driver_earnings_before_tip = driver_base * surge_multiplier
 
+    # Calculate TIERED platform fee based on driver earnings
+    platform_fee = TIERED_PRICING.get_rideshare_platform_fee(driver_earnings_before_tip)
+
     # Fare before tax = driver earnings + platform fee
-    fare_before_tax = driver_earnings_before_tip + RIDESHARE_PRICING_CONFIG.platform_fee
+    fare_before_tax = driver_earnings_before_tip + platform_fee
 
     # Apply minimum fare
     if fare_before_tax < RIDESHARE_PRICING_CONFIG.min_fare:
         # Adjust driver earnings to meet minimum
-        driver_earnings_before_tip = RIDESHARE_PRICING_CONFIG.min_fare - RIDESHARE_PRICING_CONFIG.platform_fee
+        driver_earnings_before_tip = RIDESHARE_PRICING_CONFIG.min_fare - platform_fee
         fare_before_tax = RIDESHARE_PRICING_CONFIG.min_fare
 
     # Calculate tax based on pickup state
@@ -344,13 +363,18 @@ def calculate_fare(
     # Final driver earnings (includes tip)
     driver_earnings = round(driver_earnings_before_tip + tip, 2)
 
+    # Get tier description for transparency
+    fee_tier = TIERED_PRICING.get_fee_tier_description(driver_earnings_before_tip, "rideshare")
+
     return {
         "base_fare": round(RIDESHARE_PRICING_CONFIG.base_fare, 2),
         "distance_fee": distance_fee,
         "time_fee": time_fee,
         "surge_multiplier": round(surge_multiplier, 2),
         "driver_earnings": driver_earnings,
-        "platform_fee": RIDESHARE_PRICING_CONFIG.platform_fee,
+        "driver_earnings_before_tip": round(driver_earnings_before_tip, 2),
+        "platform_fee": platform_fee,
+        "fee_tier": fee_tier,
         "tax_rate": f"{tax_rate * 100:.2f}%",
         "tax_rate_decimal": tax_rate,
         "tax_amount": tax_amount,
@@ -1137,15 +1161,12 @@ async def get_available_rides(
 @router.post("/{ride_id}/accept")
 async def driver_accept_ride(
     ride_id: int,
-    driver_id: int,
-    driver_name: str,
-    driver_phone: str,
-    driver_lat: float,
-    driver_lng: float,
+    request: DriverAcceptRequest,
     db: Session = Depends(get_db)
 ):
     """
     Driver accepts a ride.
+    Accepts JSON body with driver_id, driver_name, driver_phone, driver_lat, driver_lng
     """
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
@@ -1160,12 +1181,12 @@ async def driver_accept_ride(
             detail="Ride is no longer available"
         )
 
-    # Assign driver
-    ride.driver_id = driver_id
-    ride.driver_name = driver_name
-    ride.driver_phone = driver_phone
-    ride.driver_latitude = driver_lat
-    ride.driver_longitude = driver_lng
+    # Assign driver from request body
+    ride.driver_id = request.driver_id
+    ride.driver_name = request.driver_name
+    ride.driver_phone = request.driver_phone
+    ride.driver_latitude = request.driver_lat
+    ride.driver_longitude = request.driver_lng
     ride.status = RideStatus.DRIVER_ASSIGNED
     ride.driver_accepted_at = datetime.now()
     db.commit()
@@ -1331,9 +1352,9 @@ async def get_ride_journal_entries(
     # Build fare breakdown from ride model
     fare_breakdown = {
         "base_fare": ride.base_fare or 0,
-        "distance_fare": ride.distance_fare or 0,
-        "time_fare": ride.time_fare or 0,
-        "surge_amount": ride.surge_amount or 0,
+        "distance_fee": ride.distance_fee or 0,
+        "time_fee": ride.time_fee or 0,
+        "surge_multiplier": ride.surge_multiplier or 1.0,
         "tax_amount": ride.tax_amount or 0,
         "tip": ride.tip or 0,
         "platform_fee": ride.platform_fee or RIDESHARE_PRICING_CONFIG.platform_fee,

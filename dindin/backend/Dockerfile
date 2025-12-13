@@ -1,5 +1,5 @@
-# EatFair P2P Backend - Production Dockerfile
-# Optimized for AWS App Runner / Fargate
+# Dollor.ai P2P Backend - Production Dockerfile
+# Optimized for ECS Fargate
 
 FROM python:3.11-slim
 
@@ -34,7 +34,7 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Expose port (App Runner uses 8080 by default)
+# Expose port (ECS Fargate uses 8080)
 EXPOSE ${PORT}
 
 # Run with production settings

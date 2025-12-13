@@ -35,3 +35,7 @@ httpx==0.28.1
 
 # PDF Generation
 reportlab==4.0.7
+
+# Web Scraping (for auto-onboarding)
+beautifulsoup4==4.12.2
+lxml==5.1.0

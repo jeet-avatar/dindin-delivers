@@ -383,9 +383,14 @@ async def process_stripe_refund(
 ) -> dict:
     """Process refund through Stripe"""
     if not order.stripe_payment_intent_id:
+        # For orders without Stripe payment (test orders, cash payments, etc.)
+        # We can still cancel but no Stripe refund is processed
         return {
-            "success": False,
-            "error": "No payment intent found for this order"
+            "success": True,
+            "refund_id": f"MANUAL-{order.id}",
+            "status": "manual",
+            "amount": refund_amount,
+            "note": "No Stripe payment to refund - order cancelled without payment processing"
         }
 
     try:
@@ -450,14 +455,11 @@ def create_refund_journal_entry(db: Session, order: Order, refund: Refund, amoun
 
     journal_entry = JournalEntry(
         entry_number=entry_number,
-        entry_date=datetime.utcnow(),
-        description=f"Refund for Order {order.order_number} - {refund.reason.value}",
-        reference_type="refund",
-        reference_id=refund.id,
-        total_debit=amounts["total_refund"],
-        total_credit=amounts["total_refund"],
+        order_id=order.id,
+        entry_type="REFUND",
+        description=f"Refund for Order {order.order_number} - {refund.reason.value} | Total: ${amounts['total_refund']:.2f}",
         status="posted",
-        created_by_ai_id=6,  # FinanceBot
+        created_by_ai="AI_EMP_006",
         created_by_ai_name=AI_EMPLOYEE_FINANCE["name"],
         posted_at=datetime.utcnow()
     )
@@ -629,7 +631,16 @@ async def generate_invoice_pdf(invoice_id: int, db: Session):
 
 
 def generate_invoice_html(invoice: OrderInvoice) -> str:
-    """Generate HTML invoice content"""
+    """
+    Generate LEGALLY COMPLIANT HTML invoice content
+
+    TRANSPARENCY REQUIREMENTS:
+    - All fees clearly itemized
+    - Tax calculation shown
+    - Platform fee breakdown visible
+    - Order/Invoice/Delivery numbers consistent
+    - Date and time displayed
+    """
     items = []
     if invoice.items:
         try:
@@ -652,103 +663,173 @@ def generate_invoice_html(invoice: OrderInvoice) -> str:
         </tr>
         """
 
+    # Format dates properly
+    invoice_datetime = invoice.invoice_date.strftime('%B %d, %Y at %I:%M %p') if invoice.invoice_date else "N/A"
+    order_datetime = invoice.order_date.strftime('%B %d, %Y at %I:%M %p') if invoice.order_date else "N/A"
+
+    # Get tiered fee explanation based on subtotal
+    subtotal = float(invoice.subtotal or 0)
+    if subtotal <= 35.0:
+        fee_tier = "Tier 1 (orders up to $35)"
+    elif subtotal <= 70.0:
+        fee_tier = "Tier 2 (orders $35.01-$70)"
+    else:
+        fee_tier = "Tier 3 (orders over $70)"
+
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8">
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; }}
-            .header {{ display: flex; justify-content: space-between; margin-bottom: 30px; }}
-            .logo {{ font-size: 24px; font-weight: bold; color: #e74c3c; }}
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 40px; background: #f5f5f5; }}
+            .invoice-container {{ max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            .header {{ display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 3px solid #FF6B35; padding-bottom: 20px; }}
+            .logo {{ font-size: 32px; font-weight: bold; color: #FF6B35; }}
+            .logo span {{ color: #333; }}
             .invoice-info {{ text-align: right; }}
-            .customer-info {{ margin-bottom: 20px; }}
+            .invoice-info h2 {{ color: #FF6B35; margin: 0 0 10px 0; }}
+            .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }}
+            .info-box {{ background: #f9f9f9; padding: 20px; border-radius: 8px; }}
+            .info-box h3 {{ margin: 0 0 15px 0; color: #333; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }}
+            .info-box p {{ margin: 5px 0; color: #555; }}
             table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-            th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-            th {{ background-color: #f8f9fa; }}
-            .totals {{ width: 300px; margin-left: auto; }}
-            .totals td {{ border: none; }}
-            .total-row {{ font-weight: bold; font-size: 18px; }}
-            .footer {{ margin-top: 40px; text-align: center; color: #666; font-size: 12px; }}
+            th {{ background-color: #FF6B35; color: white; padding: 12px; text-align: left; }}
+            td {{ padding: 12px; border-bottom: 1px solid #eee; }}
+            .totals {{ width: 350px; margin-left: auto; background: #f9f9f9; border-radius: 8px; padding: 20px; }}
+            .totals table {{ margin: 0; }}
+            .totals td {{ border: none; padding: 8px 0; }}
+            .totals .subtotal-row {{ border-bottom: 1px solid #ddd; }}
+            .totals .total-row {{ font-weight: bold; font-size: 20px; color: #FF6B35; border-top: 2px solid #FF6B35; padding-top: 15px; }}
+            .transparency-box {{ background: #e8f5e9; border: 1px solid #4caf50; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .transparency-box h3 {{ color: #2e7d32; margin: 0 0 15px 0; }}
+            .transparency-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }}
+            .transparency-item {{ text-align: center; }}
+            .transparency-item .label {{ font-size: 12px; color: #666; text-transform: uppercase; }}
+            .transparency-item .value {{ font-size: 18px; font-weight: bold; color: #333; }}
+            .legal-notice {{ background: #fff3e0; border-left: 4px solid #FF6B35; padding: 15px; margin: 20px 0; font-size: 12px; color: #666; }}
+            .footer {{ margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }}
+            .badge {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }}
+            .badge-success {{ background: #e8f5e9; color: #2e7d32; }}
+            .badge-pending {{ background: #fff3e0; color: #e65100; }}
         </style>
     </head>
     <body>
-        <div class="header">
-            <div class="logo">EatFair</div>
-            <div class="invoice-info">
-                <h2>INVOICE</h2>
-                <p><strong>Invoice #:</strong> {invoice.invoice_number}</p>
-                <p><strong>Date:</strong> {invoice.invoice_date.strftime('%B %d, %Y')}</p>
-                <p><strong>Order #:</strong> {invoice.order_id}</p>
+        <div class="invoice-container">
+            <div class="header">
+                <div class="logo">Dollor<span>.ai</span></div>
+                <div class="invoice-info">
+                    <h2>INVOICE / RECEIPT</h2>
+                    <p><strong>Invoice #:</strong> {invoice.invoice_number}</p>
+                    <p><strong>Order #:</strong> {invoice.order_id}</p>
+                    <p><strong>Invoice Date:</strong> {invoice_datetime}</p>
+                    <p><strong>Order Date:</strong> {order_datetime}</p>
+                </div>
             </div>
-        </div>
 
-        <div class="customer-info">
-            <h3>Bill To:</h3>
-            <p><strong>{invoice.customer_name}</strong></p>
-            <p>{invoice.customer_email}</p>
-            <p>{invoice.customer_phone or ''}</p>
-        </div>
+            <div class="info-grid">
+                <div class="info-box">
+                    <h3>Bill To (Customer)</h3>
+                    <p><strong>{invoice.customer_name}</strong></p>
+                    <p>{invoice.customer_email}</p>
+                    <p>{invoice.customer_phone or ''}</p>
+                    <p style="margin-top: 10px;"><strong>Delivery Address:</strong></p>
+                    <p>{invoice.delivery_address or 'N/A'}</p>
+                </div>
+                <div class="info-box">
+                    <h3>From (Restaurant)</h3>
+                    <p><strong>{invoice.restaurant_name}</strong></p>
+                    <p>{invoice.restaurant_address or ''}</p>
+                    <p style="margin-top: 10px;"><strong>Payment Status:</strong>
+                        <span class="badge {'badge-success' if invoice.payment_status == 'completed' else 'badge-pending'}">{invoice.payment_status.upper()}</span>
+                    </p>
+                    <p><strong>Payment Method:</strong> {invoice.payment_method}</p>
+                </div>
+            </div>
 
-        <div class="restaurant-info">
-            <h3>From:</h3>
-            <p><strong>{invoice.restaurant_name}</strong></p>
-            <p>{invoice.restaurant_address or ''}</p>
-        </div>
+            <h3 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Order Items</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item Description</th>
+                        <th style="text-align: center; width: 80px;">Qty</th>
+                        <th style="text-align: right; width: 100px;">Unit Price</th>
+                        <th style="text-align: right; width: 100px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items_html}
+                </tbody>
+            </table>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th style="text-align: center;">Qty</th>
-                    <th style="text-align: right;">Unit Price</th>
-                    <th style="text-align: right;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {items_html}
-            </tbody>
-        </table>
+            <div class="totals">
+                <table>
+                    <tr class="subtotal-row">
+                        <td>Food Subtotal:</td>
+                        <td style="text-align: right;">${invoice.subtotal:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Sales Tax ({(invoice.tax_rate or 0.0725) * 100:.2f}%):</td>
+                        <td style="text-align: right;">${invoice.tax_amount:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Delivery Fee (100% to Driver):</td>
+                        <td style="text-align: right;">${invoice.delivery_fee:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Driver Tip (100% to Driver):</td>
+                        <td style="text-align: right;">${invoice.tip:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Platform Fee ({fee_tier}):</td>
+                        <td style="text-align: right;">${invoice.platform_fee:.2f}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>TOTAL CHARGED:</td>
+                        <td style="text-align: right;">${invoice.total_amount:.2f}</td>
+                    </tr>
+                </table>
+            </div>
 
-        <table class="totals">
-            <tr>
-                <td>Subtotal:</td>
-                <td style="text-align: right;">${invoice.subtotal:.2f}</td>
-            </tr>
-            <tr>
-                <td>Tax ({invoice.tax_rate * 100:.1f}%):</td>
-                <td style="text-align: right;">${invoice.tax_amount:.2f}</td>
-            </tr>
-            <tr>
-                <td>Delivery Fee:</td>
-                <td style="text-align: right;">${invoice.delivery_fee:.2f}</td>
-            </tr>
-            <tr>
-                <td>Tip:</td>
-                <td style="text-align: right;">${invoice.tip:.2f}</td>
-            </tr>
-            <tr>
-                <td>Platform Fee:</td>
-                <td style="text-align: right;">${invoice.platform_fee:.2f}</td>
-            </tr>
-            <tr class="total-row">
-                <td>TOTAL:</td>
-                <td style="text-align: right;">${invoice.total_amount:.2f}</td>
-            </tr>
-        </table>
+            <div class="transparency-box">
+                <h3>💡 Fee Transparency - Where Your Money Goes</h3>
+                <div class="transparency-grid">
+                    <div class="transparency-item">
+                        <div class="label">Restaurant Receives</div>
+                        <div class="value">${invoice.subtotal - invoice.platform_fee:.2f}</div>
+                        <div class="label" style="font-size: 10px;">Food - Platform Fee</div>
+                    </div>
+                    <div class="transparency-item">
+                        <div class="label">Driver Receives</div>
+                        <div class="value">${invoice.delivery_fee + invoice.tip:.2f}</div>
+                        <div class="label" style="font-size: 10px;">100% of Delivery + Tip</div>
+                    </div>
+                    <div class="transparency-item">
+                        <div class="label">Platform Fees</div>
+                        <div class="value">${invoice.platform_fee * 2:.2f}</div>
+                        <div class="label" style="font-size: 10px;">Customer + Restaurant Fee</div>
+                    </div>
+                </div>
+            </div>
 
-        <div>
-            <p><strong>Payment Status:</strong> {invoice.payment_status.upper()}</p>
-            <p><strong>Payment Method:</strong> {invoice.payment_method}</p>
-        </div>
+            <div class="legal-notice">
+                <strong>LEGAL DISCLOSURES:</strong><br>
+                • <strong>Platform Fee Model:</strong> Dollor.ai charges flat tiered fees (not percentage-based commissions)<br>
+                • <strong>Driver Compensation:</strong> Drivers receive 100% of delivery fees and 100% of tips - Dollor takes zero margin<br>
+                • <strong>Sales Tax:</strong> California state sales tax collected and remitted to the CA State Board of Equalization<br>
+                • <strong>No Surge Pricing:</strong> Platform fees are fixed regardless of demand or time of day<br>
+                • <strong>Tiered Pricing:</strong> Orders ≤$35: $1 fee | $35-$70: $2 fee | $70+: $3 fee (applies to both customer and restaurant)<br>
+                • <strong>Refund Policy:</strong> Full refunds available for cancelled orders before restaurant confirmation
+            </div>
 
-        <div>
-            <h3>Delivery Address:</h3>
-            <p>{invoice.delivery_address or 'N/A'}</p>
-        </div>
-
-        <div class="footer">
-            <p>Thank you for ordering with EatFair!</p>
-            <p>Questions? Contact support@eatfair.com</p>
+            <div class="footer">
+                <p style="font-size: 14px;"><strong>Thank you for ordering with Dollor.ai!</strong></p>
+                <p>Questions? Contact support@dollor.ai | Visit dollor.ai/support</p>
+                <p style="margin-top: 15px; color: #999;">
+                    Dollor AI Service | dollor.ai<br>
+                    This receipt serves as proof of purchase for tax and expense reporting purposes.
+                </p>
+            </div>
         </div>
     </body>
     </html>

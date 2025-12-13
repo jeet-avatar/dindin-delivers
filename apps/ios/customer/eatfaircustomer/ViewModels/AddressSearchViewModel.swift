@@ -16,7 +16,7 @@ class AddressSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleter
         super.init()
         completer.delegate = self
         completer.resultTypes = .address
-        
+
         cancellable = $searchQuery
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] query in
@@ -26,6 +26,10 @@ class AddressSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleter
                     self?.completer.queryFragment = query
                 }
             }
+    }
+
+    deinit {
+        cancellable?.cancel()
     }
     
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {

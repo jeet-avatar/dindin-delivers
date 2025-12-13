@@ -43,6 +43,14 @@ public class GoogleMapsService: ObservableObject {
                     return
                 }
 
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
+                }
+
                 guard let data = data else {
                     completion(.failure(GoogleMapsError.noData))
                     return
@@ -102,6 +110,14 @@ public class GoogleMapsService: ObservableObject {
                     return
                 }
 
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
+                }
+
                 guard let data = data else {
                     completion(.failure(GoogleMapsError.noData))
                     return
@@ -154,6 +170,14 @@ public class GoogleMapsService: ObservableObject {
                     return
                 }
 
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
+                }
+
                 guard let data = data else {
                     completion(.failure(GoogleMapsError.noData))
                     return
@@ -195,6 +219,14 @@ public class GoogleMapsService: ObservableObject {
                 if let error = error {
                     completion(.failure(error))
                     return
+                }
+
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
                 }
 
                 guard let data = data else {
@@ -252,6 +284,14 @@ public class GoogleMapsService: ObservableObject {
                     return
                 }
 
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
+                }
+
                 guard let data = data else {
                     completion(.failure(GoogleMapsError.noData))
                     return
@@ -294,6 +334,14 @@ public class GoogleMapsService: ObservableObject {
                 if let error = error {
                     completion(.failure(error))
                     return
+                }
+
+                // Validate HTTP status code
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        completion(.failure(GoogleMapsError.httpError(httpResponse.statusCode)))
+                        return
+                    }
                 }
 
                 guard let data = data else {
@@ -382,6 +430,7 @@ public class GoogleMapsService: ObservableObject {
 public enum GoogleMapsError: Error, LocalizedError {
     case invalidURL
     case noData
+    case httpError(Int)
     case apiError(String)
 
     public var errorDescription: String? {
@@ -390,6 +439,8 @@ public enum GoogleMapsError: Error, LocalizedError {
             return "Invalid URL"
         case .noData:
             return "No data received"
+        case .httpError(let statusCode):
+            return "HTTP error: \(statusCode)"
         case .apiError(let status):
             return "Google Maps API error: \(status)"
         }

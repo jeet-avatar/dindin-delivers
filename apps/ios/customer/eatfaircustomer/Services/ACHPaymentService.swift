@@ -39,6 +39,12 @@ class ACHPaymentService {
 
     private var paymentSheet: PaymentSheet?
 
+    /// Lock for thread-safe payment operations
+    private let paymentLock = NSLock()
+
+    /// Track in-progress payments to prevent duplicate submissions
+    private var pendingPaymentIds = Set<String>()
+
     private init() {}
 
     // MARK: - Payment Response Models
@@ -71,6 +77,7 @@ class ACHPaymentService {
     // MARK: - Calculate Fees
 
     /// Calculate and compare fees between card and ACH payments
+    /// Thread-safe implementation using actor-like synchronization
     /// - Parameters:
     ///   - amountCents: Amount in cents
     ///   - completion: Callback with card fees, ACH fees, and savings
@@ -80,13 +87,15 @@ class ACHPaymentService {
     ) {
         let baseURL = AppConfig.shared.p2pAPIBaseURL
 
-        // Fetch both fee calculations in parallel
-        let group = DispatchGroup()
+        // Thread-safe result collection
+        let resultQueue = DispatchQueue(label: "com.dollor.fees.result")
         var cardFee: Double = 0
         var achFee: Double = 0
         var savings: Double = 0
         var customerDiscount: Double = 0
         var fetchError: Error?
+
+        let group = DispatchGroup()
 
         // Card fees
         group.enter()
@@ -97,13 +106,15 @@ class ACHPaymentService {
 
         URLSession.shared.dataTask(with: cardURL) { data, _, error in
             defer { group.leave() }
-            if let error = error {
-                fetchError = error
-                return
-            }
-            if let data = data,
-               let response = decodeACHFeeCalculation(from: data) {
-                cardFee = response.collection.fee
+            resultQueue.sync {
+                if let error = error, fetchError == nil {
+                    fetchError = error
+                    return
+                }
+                if let data = data,
+                   let response = decodeACHFeeCalculation(from: data) {
+                    cardFee = response.collection.fee
+                }
             }
         }.resume()
 
@@ -116,30 +127,35 @@ class ACHPaymentService {
 
         URLSession.shared.dataTask(with: achURL) { data, _, error in
             defer { group.leave() }
-            if let error = error {
-                fetchError = error
-                return
-            }
-            if let data = data,
-               let response = decodeACHFeeCalculation(from: data) {
-                achFee = response.collection.fee
-                customerDiscount = response.collection.customerDiscount
-                savings = response.collection.savingsVsCard ?? 0
+            resultQueue.sync {
+                if let error = error, fetchError == nil {
+                    fetchError = error
+                    return
+                }
+                if let data = data,
+                   let response = decodeACHFeeCalculation(from: data) {
+                    achFee = response.collection.fee
+                    customerDiscount = response.collection.customerDiscount
+                    savings = response.collection.savingsVsCard ?? 0
+                }
             }
         }.resume()
 
         group.notify(queue: .main) {
-            if let error = fetchError {
-                completion(.failure(error))
-            } else {
-                completion(.success((cardFee, achFee, savings, customerDiscount)))
+            resultQueue.sync {
+                if let error = fetchError {
+                    completion(.failure(error))
+                } else {
+                    completion(.success((cardFee, achFee, savings, customerDiscount)))
+                }
             }
         }
     }
 
     // MARK: - Create ACH Payment
 
-    /// Create an ACH payment intent
+    /// Create an ACH payment intent with idempotency protection
+    /// Prevents duplicate payments from double-taps or network retries
     /// - Parameters:
     ///   - amountCents: Amount in cents
     ///   - customerEmail: Customer's email for receipt
@@ -151,8 +167,22 @@ class ACHPaymentService {
         orderId: String? = nil,
         completion: @escaping (Result<ACHPaymentResponse, Error>) -> Void
     ) {
+        // Generate idempotency key to prevent duplicate payments
+        let idempotencyKey = "\(orderId ?? "ach")-\(amountCents)-\(Int(Date().timeIntervalSince1970))"
+
+        // Check for duplicate payment attempt
+        paymentLock.lock()
+        if pendingPaymentIds.contains(idempotencyKey) {
+            paymentLock.unlock()
+            completion(.failure(PaymentError.duplicatePayment))
+            return
+        }
+        pendingPaymentIds.insert(idempotencyKey)
+        paymentLock.unlock()
+
         let baseURL = AppConfig.shared.p2pAPIBaseURL
         guard let url = URL(string: "\(baseURL)/api/enterprise/payments/create") else {
+            removePendingPayment(idempotencyKey)
             completion(.failure(PaymentError.invalidURL))
             return
         }
@@ -160,6 +190,7 @@ class ACHPaymentService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
 
         // Add auth token if available
         if let token = SecureStorage.shared.customerAccessToken {
@@ -169,7 +200,8 @@ class ACHPaymentService {
         var body: [String: Any] = [
             "amount": amountCents,
             "currency": "usd",
-            "payment_method": "ach"
+            "payment_method": "ach",
+            "idempotency_key": idempotencyKey
         ]
 
         if let email = customerEmail {
@@ -182,8 +214,10 @@ class ACHPaymentService {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async { [weak self] in
+                self?.removePendingPayment(idempotencyKey)
+
                 if let error = error {
                     completion(.failure(error))
                     return
@@ -202,6 +236,12 @@ class ACHPaymentService {
                 }
             }
         }.resume()
+    }
+
+    private func removePendingPayment(_ key: String) {
+        paymentLock.lock()
+        pendingPaymentIds.remove(key)
+        paymentLock.unlock()
     }
 
     // MARK: - Present ACH Payment Sheet
@@ -243,7 +283,7 @@ class ACHPaymentService {
                 )
 
                 // Present the sheet
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     let presentingVC: UIViewController? = viewController ?? {
                         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                               let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
@@ -281,6 +321,7 @@ class ACHPaymentService {
         case noClientSecret
         case canceled
         case noViewController
+        case duplicatePayment
 
         var errorDescription: String? {
             switch self {
@@ -294,6 +335,8 @@ class ACHPaymentService {
                 return "Payment was canceled"
             case .noViewController:
                 return "Cannot present payment sheet"
+            case .duplicatePayment:
+                return "Payment already in progress. Please wait."
             }
         }
     }

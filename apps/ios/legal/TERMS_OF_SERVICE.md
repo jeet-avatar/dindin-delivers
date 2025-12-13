@@ -2,9 +2,9 @@
 
 **Dollor AI Service**
 
-**Last Updated: December 7, 2024**
+**Last Updated: December 11, 2024**
 
-**Effective Date: December 7, 2024**
+**Effective Date: December 11, 2024**
 
 ---
 
@@ -32,11 +32,32 @@ Customers can browse restaurant menus, place orders, and have food delivered to 
 ### 2.2 Rideshare Services
 Customers can request rides from independent drivers. Our platform facilitates fare negotiation between customers and drivers.
 
-### 2.3 Platform Fee Structure
-- Customers pay a platform fee of $1.00 per order/ride
-- Restaurants pay a platform fee of $1.00 per order
-- Drivers receive the fare minus the platform fee
+### 2.3 Platform Fee Structure (Tiered Pricing)
+
+**Food Delivery Fees:**
+| Order Value | Customer Delivery Fee | Restaurant Platform Fee |
+|-------------|----------------------|------------------------|
+| ≤ $35 | $1.00 | $1.00 |
+| $35.01 - $70 | $2.00 | $2.00 |
+| > $70 | $3.00 | $3.00 |
+
+**Rideshare Connection Fees:**
+| Fare Amount | Platform Connection Fee |
+|-------------|------------------------|
+| ≤ $15 | $1.00 |
+| $15.01 - $35 | $2.00 |
+| > $35 | $3.00 |
+
+- Drivers receive 100% of the fare and 100% of tips
 - All fees are clearly displayed before transaction confirmation
+- No hidden fees, no percentage-based commissions
+
+### 2.4 Restaurant Delivery Option
+Restaurants may choose to deliver orders using their own staff ("Restaurant Delivery") or pass orders to independent Dollor drivers. When an order is placed:
+- Restaurants have 60 seconds to decide whether to self-deliver
+- If restaurant accepts delivery, their staff completes the delivery
+- If restaurant declines or timeout occurs, order is assigned to Dollor driver pool
+- The platform fee structure remains the same regardless of delivery method
 
 ---
 

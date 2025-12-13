@@ -14,6 +14,10 @@ struct HomeView: View {
     @State private var sortOption: SortOption = .recommended
     @State private var showVoiceSearch = false
 
+    // Featured Deals State
+    @State private var featuredDeals: [P2PFeaturedDeal] = []
+    @State private var isLoadingDeals = false
+
     enum SortOption: String, CaseIterable {
         case recommended = "Recommended"
         case topRated = "Top Rated"
@@ -38,6 +42,11 @@ struct HomeView: View {
 
                     // MARK: - AI Recommendation Banner
                     aiRecommendationBanner
+
+                    // MARK: - Featured Deals Section
+                    if !featuredDeals.isEmpty {
+                        featuredDealsSection
+                    }
 
                     // MARK: - Multi-Restaurant Promo
                     if multiCartViewModel.items.isEmpty {
@@ -67,6 +76,7 @@ struct HomeView: View {
         .onAppear {
             viewModel.fetchRestaurants()
             viewModel.checkActiveOrders()
+            fetchFeaturedDeals()
         }
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerView(viewModel: addressViewModel, isPresented: $showLocationPicker)
@@ -269,6 +279,51 @@ struct HomeView: View {
             .padding()
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Featured Deals Section
+    private var featuredDealsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "flame.fill")
+                    .foregroundColor(.orange)
+                Text("Hot Deals")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.top)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(featuredDeals) { deal in
+                        HomeFeaturedDealCard(deal: deal)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Fetch Featured Deals
+    private func fetchFeaturedDeals() {
+        isLoadingDeals = true
+
+        P2PAPIService.shared.getFeaturedDeals { result in
+            isLoadingDeals = false
+
+            switch result {
+            case .success(let response):
+                featuredDeals = response.featured
+            case .failure(let error):
+                #if DEBUG
+                print("[HomeView] Failed to fetch featured deals: \(error)")
+                #endif
+                featuredDeals = []
+            }
+        }
     }
 
     // MARK: - Multi-Restaurant Promo Banner
@@ -1198,6 +1253,86 @@ struct VoiceSearchSheet: View {
             .onDisappear {
                 voiceSearch.stopListening()
             }
+        }
+    }
+}
+
+// MARK: - Home Featured Deal Card (Compact)
+struct HomeFeaturedDealCard: View {
+    let deal: P2PFeaturedDeal
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Headline Badge
+            Text(deal.headline)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+
+            Text(deal.vendorName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.white.opacity(0.9))
+
+            if let desc = deal.description, !desc.isEmpty {
+                Text(desc)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            HStack {
+                // Promo code
+                HStack(spacing: 4) {
+                    Image(systemName: "ticket.fill")
+                        .font(.caption2)
+                    Text(deal.promotionCode)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.3))
+                .cornerRadius(6)
+                .foregroundColor(.white)
+
+                Spacer()
+
+                // Min order if applicable
+                if let minOrder = deal.minOrderAmount, minOrder > 0 {
+                    Text("Min $\(String(format: "%.0f", minOrder))")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+        }
+        .padding()
+        .frame(width: 200, height: 140)
+        .background(
+            LinearGradient(
+                colors: gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
+        .shadow(color: gradientColors[0].opacity(0.4), radius: 8, x: 0, y: 4)
+    }
+
+    private var gradientColors: [Color] {
+        switch deal.type {
+        case "percentage":
+            return [Color.orange, Color.red]
+        case "flat_amount":
+            return [Color.purple, Color.pink]
+        case "free_delivery":
+            return [Color.green, Color.teal]
+        case "bogo":
+            return [Color.blue, Color.purple]
+        default:
+            return [Color.orange, Color.red]
         }
     }
 }

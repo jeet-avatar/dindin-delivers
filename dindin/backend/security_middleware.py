@@ -36,11 +36,12 @@ class SecurityConfig:
     """Security configuration - override with environment variables"""
 
     # Rate Limiting
-    RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))  # requests per window
+    RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "200"))  # requests per window
     RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # seconds
 
-    # Auth Rate Limiting (stricter for login endpoints)
-    AUTH_RATE_LIMIT_REQUESTS = int(os.getenv("AUTH_RATE_LIMIT_REQUESTS", "5"))
+    # Auth Rate Limiting (reasonable limits for production - prevents brute force but allows normal usage)
+    # 30 auth requests per minute allows: multiple login attempts, OAuth flows, password resets
+    AUTH_RATE_LIMIT_REQUESTS = int(os.getenv("AUTH_RATE_LIMIT_REQUESTS", "30"))
     AUTH_RATE_LIMIT_WINDOW = int(os.getenv("AUTH_RATE_LIMIT_WINDOW", "60"))
 
     # Brute Force Protection
@@ -433,7 +434,7 @@ def add_security_middleware(app: FastAPI):
 
     print("[SECURITY] All security middleware enabled:")
     print("  - Request validation (SQL injection, XSS protection)")
-    print("  - Rate limiting (100 req/min general, 5 req/min auth)")
+    print("  - Rate limiting (200 req/min general, 30 req/min auth)")
     print("  - Security headers (HSTS, CSP, X-Frame-Options)")
     print("  - Secure CORS configuration")
 

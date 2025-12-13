@@ -47,9 +47,11 @@ public struct GoogleMapsConfig {
 
         // APP STORE FIX: No hardcoded fallback in Release builds
         #if DEBUG
-        // Only allow fallback in debug builds for development convenience
-        print("[GoogleMapsConfig] WARNING: Using debug API key - configure GOOGLE_MAPS_API_KEY in Info.plist for production")
-        return "AIzaSyDuoM1JHPbHWCg-p8mLHjT3K2-TAR66boM"
+        // SECURITY: Never hardcode API keys - developers must configure in Info.plist
+        print("[GoogleMapsConfig] ERROR: GOOGLE_MAPS_API_KEY not configured!")
+        print("[GoogleMapsConfig] Add your Google Maps API key to Info.plist or GoogleService-Info.plist")
+        print("[GoogleMapsConfig] Get your key from: https://console.cloud.google.com/apis/credentials")
+        return "" // Return empty - maps features will be disabled until properly configured
         #else
         // In Release builds, crash early if API key is not configured
         // This prevents shipping an app without proper configuration

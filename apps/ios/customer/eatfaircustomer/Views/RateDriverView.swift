@@ -214,6 +214,10 @@ class RateDriverViewModel: ObservableObject {
         self.order = order
     }
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     func submitRating() {
         guard let orderId = order.id,
               let driverIdString = order.driverId,

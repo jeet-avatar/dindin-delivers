@@ -715,12 +715,21 @@ class DriverProfileViewModel: ObservableObject {
     func uploadDocument(_ data: Data, type: String) async {
         // Use P2P API - this is the only backend we use
         guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
+            #if DEBUG
+            print("[DriverProfileViewModel] uploadDocument failed - driverId not found in UserDefaults")
+            print("[DriverProfileViewModel] UserDefaults.driverId key: \(UserDefaultsKeys.driverId)")
+            print("[DriverProfileViewModel] Token available: \(SecureStorage.shared.driverAccessToken != nil)")
+            #endif
             await MainActor.run {
                 self.errorMessage = "Not logged in. Please login again."
                 self.showError = true
             }
             return
         }
+
+        #if DEBUG
+        print("[DriverProfileViewModel] uploadDocument starting - driverId: \(driverId), type: \(type), dataSize: \(data.count) bytes")
+        #endif
 
         await uploadDocumentViaP2P(data: data, type: type, driverId: driverId)
     }

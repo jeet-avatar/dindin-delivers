@@ -45,9 +45,105 @@ except ImportError as e:
     EMAIL_ENABLED = False
     print(f"[ORDER_FLOW] Email functions not available: {e}")
 from models import (
-    Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
+    Order, OrderStatus, DeliveryMethod, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine
 )
+
+# Import realtime events for WebSocket notifications
+try:
+    from realtime_events import trigger_new_order, trigger_order_status_change
+    REALTIME_ENABLED = True
+    print("[ORDER_FLOW] Realtime events imported successfully")
+except ImportError as e:
+    REALTIME_ENABLED = False
+    print(f"[ORDER_FLOW] Realtime events not available: {e}")
+
+# Firebase Admin SDK for Android app sync
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore as firebase_firestore
+
+    # Initialize Firebase if not already initialized
+    if not firebase_admin._apps:
+        # Try to load credentials from environment or file
+        cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json")
+        if os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            print("[ORDER_FLOW] Firebase initialized from credentials file")
+        else:
+            # Use default credentials (for Cloud Run, etc.)
+            try:
+                firebase_admin.initialize_app()
+                print("[ORDER_FLOW] Firebase initialized with default credentials")
+            except Exception as e:
+                print(f"[ORDER_FLOW] Firebase init failed: {e}")
+
+    FIREBASE_ENABLED = True
+    firestore_db = firebase_firestore.client()
+    print("[ORDER_FLOW] Firebase Firestore client ready")
+except Exception as e:
+    FIREBASE_ENABLED = False
+    firestore_db = None
+    print(f"[ORDER_FLOW] Firebase not available: {e}")
+
+
+async def sync_order_to_firestore(order: Order, vendor: Vendor = None, db: Session = None):
+    """
+    Sync order to Firebase Firestore for Android app real-time updates
+    This bridges the gap between SQL backend and Android's Firestore listeners
+    """
+    if not FIREBASE_ENABLED or not firestore_db:
+        print(f"[FIRESTORE] Sync skipped - Firebase not enabled")
+        return
+
+    try:
+        # Get vendor info if not provided
+        if not vendor and db and order.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+
+        # Parse items
+        items = []
+        items_data = getattr(order, 'items_json', None) or getattr(order, 'items', None)
+        if items_data:
+            try:
+                items = json.loads(items_data) if isinstance(items_data, str) else items_data
+            except:
+                items = []
+
+        # Build Firestore document matching Android OrderTracking model
+        order_doc = {
+            "orderId": order.order_number,
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "customerName": order.customer_name or "Customer",
+            "customerPhone": order.customer_phone or "",
+            "customerEmail": order.customer_email or "",
+            "deliveryAddress": order.delivery_address or "",
+            "deliveryInstructions": order.delivery_instructions or "",
+            "items": items,
+            "subtotal": float(order.subtotal or 0),
+            "deliveryFee": float(order.delivery_fee or 0),
+            "tax": float(getattr(order, 'tax_amount', None) or getattr(order, 'tax', None) or 0),
+            "totalAmount": float(order.total_amount or 0),
+            "estimatedTime": "30-45 mins",
+            "vendorId": order.vendor_id,
+            "restaurantName": vendor.restaurant_name if vendor else "Restaurant",
+            "restaurantAddress": vendor.address if vendor else "",
+            "createdAt": firebase_firestore.SERVER_TIMESTAMP if not order.created_at else order.created_at.isoformat(),
+            "updatedAt": firebase_firestore.SERVER_TIMESTAMP,
+            "isDelayed": False,
+            "driverName": None,
+            "driverPhone": None,
+        }
+
+        # Write to Firestore using order_number as document ID
+        doc_ref = firestore_db.collection("orders").document(order.order_number)
+        doc_ref.set(order_doc, merge=True)
+
+        print(f"[FIRESTORE] Order {order.order_number} synced to Firestore")
+
+    except Exception as e:
+        print(f"[FIRESTORE] Error syncing order {order.order_number}: {e}")
 
 # Helper function to format datetime for iOS compatibility
 # iOS ISO8601DateFormatter expects 'Z' suffix for UTC dates
@@ -97,9 +193,24 @@ DEFAULT_PAGINATION_LIMIT = 50
 
 # Define valid state transitions - CRITICAL for business logic integrity
 # Format: {current_state: [allowed_next_states]}
+#
+# NEW FLOW: Restaurant Delivery Decision (60-second window)
+# CONFIRMED -> PENDING_RESTAURANT_DELIVERY (restaurant gets 60s to decide)
+#   -> RESTAURANT_DELIVERING (restaurant chose to deliver)
+#   -> AWAITING_DRIVER (restaurant declined or timeout)
 ORDER_STATE_TRANSITIONS = {
     OrderStatus.PENDING_PAYMENT: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-    OrderStatus.CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+    OrderStatus.CONFIRMED: [OrderStatus.PENDING_RESTAURANT_DELIVERY, OrderStatus.PREPARING, OrderStatus.CANCELLED],
+
+    # NEW: Restaurant delivery decision flow
+    OrderStatus.PENDING_RESTAURANT_DELIVERY: [
+        OrderStatus.RESTAURANT_DELIVERING,  # Restaurant accepts delivery
+        OrderStatus.AWAITING_DRIVER,        # Restaurant declines or timeout
+        OrderStatus.CANCELLED
+    ],
+    OrderStatus.RESTAURANT_DELIVERING: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],  # Restaurant staff en route
+    OrderStatus.AWAITING_DRIVER: [OrderStatus.PREPARING, OrderStatus.CANCELLED],  # Posted to driver pool
+
     OrderStatus.PREPARING: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
     OrderStatus.READY_FOR_PICKUP: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
     OrderStatus.OUT_FOR_DELIVERY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
@@ -109,12 +220,18 @@ ORDER_STATE_TRANSITIONS = {
 
 # Order timeout configuration (in minutes)
 ORDER_TIMEOUTS = {
-    OrderStatus.PENDING_PAYMENT: 30,      # 30 min to complete payment
-    OrderStatus.CONFIRMED: 60,            # 1 hour for restaurant to start preparing
-    OrderStatus.PREPARING: 120,           # 2 hours max prep time
-    OrderStatus.READY_FOR_PICKUP: 60,     # 1 hour for driver to pick up
-    OrderStatus.OUT_FOR_DELIVERY: 90,     # 1.5 hours max delivery time
+    OrderStatus.PENDING_PAYMENT: 30,                    # 30 min to complete payment
+    OrderStatus.CONFIRMED: 60,                          # 1 hour for restaurant to start preparing
+    OrderStatus.PENDING_RESTAURANT_DELIVERY: 1,         # 60 SECONDS (1 min) for restaurant to decide on delivery
+    OrderStatus.RESTAURANT_DELIVERING: 60,              # 1 hour for restaurant staff to deliver
+    OrderStatus.AWAITING_DRIVER: 30,                    # 30 min to find a driver
+    OrderStatus.PREPARING: 120,                         # 2 hours max prep time
+    OrderStatus.READY_FOR_PICKUP: 60,                   # 1 hour for driver to pick up
+    OrderStatus.OUT_FOR_DELIVERY: 90,                   # 1.5 hours max delivery time
 }
+
+# Restaurant delivery decision timeout in seconds
+RESTAURANT_DELIVERY_DECISION_TIMEOUT_SECONDS = 60
 
 
 def validate_state_transition(current_status: OrderStatus, new_status: OrderStatus) -> Tuple[bool, str]:
@@ -255,9 +372,10 @@ AI_EMPLOYEES = {
     }
 }
 
-# Import centralized pricing configuration
+# Import centralized pricing configuration with TIERED PRICING support
 try:
     from pricing_config import (
+        TIERED_PRICING,  # NEW: Tiered pricing for customer & restaurant fees
         PLATFORM_FEE_CONFIG,
         DELIVERY_FEE_CONFIG,
         DRIVER_PAYOUT_CONFIG,
@@ -270,14 +388,33 @@ try:
         calculate_order_totals
     )
     PRICING_CONFIG_LOADED = True
-    print("[PRICING] Centralized pricing configuration loaded")
+    print("[PRICING] Centralized pricing configuration loaded with TIERED PRICING")
 except ImportError as e:
     PRICING_CONFIG_LOADED = False
     print(f"[PRICING] Using fallback pricing: {e}")
     # Fallback values if pricing_config not available - should match pricing_config.py defaults
-    PLATFORM_FEE = 1.00      # Matches PLATFORM_FEE_CONFIG.flat_fee
+    PLATFORM_FEE = 1.00      # Matches PLATFORM_FEE_CONFIG.flat_fee (legacy)
     DELIVERY_FEE = 2.99      # Matches DELIVERY_FEE_CONFIG.base_fee (min_fee)
     TAX_RATE = 0.08          # Matches DEFAULT_TAX_RATE
+
+    # Fallback tiered pricing function
+    def get_tiered_customer_fee(subtotal: float) -> float:
+        """Fallback tiered customer delivery fee"""
+        if subtotal <= 35.0:
+            return 1.0
+        elif subtotal <= 70.0:
+            return 2.0
+        else:
+            return 3.0
+
+    def get_tiered_restaurant_fee(subtotal: float) -> float:
+        """Fallback tiered restaurant platform fee"""
+        if subtotal <= 35.0:
+            return 1.0
+        elif subtotal <= 70.0:
+            return 2.0
+        else:
+            return 3.0
 
 
 # ==================== REQUEST MODELS ====================
@@ -390,11 +527,12 @@ async def create_order(
         platform_fee = PLATFORM_FEE_CONFIG.calculate(subtotal)
         total_amount = subtotal + tax_amount + delivery_fee + order_data.tip + platform_fee
     else:
-        # Fallback to hardcoded values
+        # Fallback to tiered pricing (hardcoded)
         tax_rate = TAX_RATE
         tax_amount = subtotal * tax_rate
         delivery_fee = DELIVERY_FEE
-        platform_fee = PLATFORM_FEE
+        # Use tiered platform fee based on subtotal
+        platform_fee = get_tiered_customer_fee(subtotal)
         total_amount = subtotal + tax_amount + delivery_fee + order_data.tip + platform_fee
         distance_miles = 3.0
 
@@ -525,6 +663,23 @@ async def confirm_payment(
             print(f"[EMAIL] New order notification queued for restaurant {restaurant_email}")
         except Exception as e:
             print(f"[EMAIL] Failed to send restaurant notification: {e}")
+
+    # === CRITICAL: Sync to Firebase for Android apps ===
+    # This enables Android Restaurant/Driver apps to receive real-time order updates
+    try:
+        await sync_order_to_firestore(order, vendor, db)
+        print(f"[FIRESTORE] Order {order.order_number} synced for Android apps")
+    except Exception as e:
+        print(f"[FIRESTORE] Failed to sync order: {e}")
+
+    # === CRITICAL: Trigger WebSocket notification to restaurant ===
+    # This sends real-time push to connected restaurant apps (iOS & Android)
+    if REALTIME_ENABLED:
+        try:
+            await trigger_new_order(order.id, db)
+            print(f"[REALTIME] New order notification sent for order {order.order_number}")
+        except Exception as e:
+            print(f"[REALTIME] Failed to trigger new order notification: {e}")
 
     return {
         "success": True,
@@ -785,6 +940,21 @@ async def update_order_status(
 
     db.commit()
 
+    # === Sync status change to Firebase for Android apps ===
+    try:
+        await sync_order_to_firestore(order, db=db)
+        print(f"[FIRESTORE] Order {order.order_number} status updated to {new_status.value}")
+    except Exception as e:
+        print(f"[FIRESTORE] Failed to sync status update: {e}")
+
+    # === Trigger WebSocket notification for status change ===
+    if REALTIME_ENABLED:
+        try:
+            await trigger_order_status_change(order.id, new_status.value, db)
+            print(f"[REALTIME] Status change notification sent for order {order.order_number}")
+        except Exception as e:
+            print(f"[REALTIME] Failed to trigger status change: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
@@ -835,8 +1005,8 @@ async def assign_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    if driver.status != DriverStatus.ACTIVE:
-        raise HTTPException(status_code=400, detail="Driver is not active")
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+        raise HTTPException(status_code=400, detail="Driver is not active or approved")
 
     # Check if driver is suspended or has pending issues
     if hasattr(driver, 'is_suspended') and driver.is_suspended:
@@ -978,40 +1148,55 @@ async def order_delivered(
     db.add(journal_entry)
     db.flush()  # Get the ID
 
-    # Calculate payouts using centralized pricing config
+    # ==========================================================================
+    # TRANSPARENT FEE CALCULATION - LEGALLY COMPLIANT
+    # ==========================================================================
+    #
+    # DOLLOR.AI TRANSPARENT PRICING MODEL:
+    # ------------------------------------
+    # 1. Customer Platform Fee: Tiered ($1-$3 based on order value)
+    # 2. Restaurant Platform Fee: Tiered ($1-$3 based on order value)
+    # 3. Driver receives: 100% of Delivery Fee + 100% of Tips (NO MARGIN TAKEN)
+    # 4. Restaurant receives: 100% of Food Subtotal - Restaurant Platform Fee
+    # 5. Tax: Collected and remitted to appropriate tax authority
+    #
+    # LEGAL TRANSPARENCY REQUIREMENTS:
+    # - All fees clearly disclosed before transaction
+    # - No hidden fees or surge pricing
+    # - Driver compensation fully transparent
+    # - Restaurant commission clearly stated
+    # ==========================================================================
+
+    # Get tiered fees based on order subtotal
     if PRICING_CONFIG_LOADED:
-        # Restaurant payout: Subtotal minus restaurant commission
-        restaurant_commission = RESTAURANT_COMMISSION_CONFIG.calculate_commission(order.subtotal)
-        restaurant_payout = RESTAURANT_COMMISSION_CONFIG.calculate_restaurant_payout(order.subtotal)
-
-        # Driver payout: Base pay + per-mile pay + 100% of tip
-        # Estimate distance from delivery fee (or default to 3 miles)
-        estimated_distance = 3.0
-        if order.delivery_fee > 0:
-            # Reverse-engineer distance from delivery fee if possible
-            # delivery_fee = base + (per_mile * distance), solve for distance
-            base = DELIVERY_FEE_CONFIG.base_fee
-            per_mile = DELIVERY_FEE_CONFIG.per_mile_fee
-            if per_mile > 0 and order.delivery_fee >= base:
-                estimated_distance = (order.delivery_fee - base) / per_mile
-
-        driver_base_pay = DRIVER_PAYOUT_CONFIG.calculate_base_payout(estimated_distance)
-        driver_tip = order.tip * DRIVER_PAYOUT_CONFIG.tip_percentage
-        driver_payout = driver_base_pay + driver_tip
-
-        # Calculate Stripe fees (2.9% + $0.30)
+        customer_platform_fee = PLATFORM_FEE_CONFIG.calculate(order.subtotal)
+        restaurant_platform_fee = RESTAURANT_COMMISSION_CONFIG.calculate_commission(order.subtotal)
         stripe_fee = PAYMENT_PROCESSING_CONFIG.calculate_stripe_fee(order.total_amount)
-
-        # Platform fee (stored on order)
-        platform_fee = order.platform_fee
     else:
-        # Fallback to simple calculation
-        restaurant_payout = max(0.0, order.subtotal - PLATFORM_FEE)  # Never negative
-        restaurant_commission = PLATFORM_FEE
-        driver_payout = order.delivery_fee + order.tip
+        # Fallback tiered pricing
+        customer_platform_fee = get_tiered_customer_fee(order.subtotal)
+        restaurant_platform_fee = get_tiered_restaurant_fee(order.subtotal)
         stripe_fee = round(order.total_amount * 0.029 + 0.30, 2)
-        platform_fee = PLATFORM_FEE
-        estimated_distance = 3.0
+
+    # Use stored platform fee if available (should match customer_platform_fee)
+    platform_fee = order.platform_fee if order.platform_fee else customer_platform_fee
+    restaurant_commission = restaurant_platform_fee
+
+    # DRIVER PAYOUT: 100% of delivery fee + 100% of tips (NO MARGIN)
+    # This is the core of our transparent model - drivers keep everything
+    driver_payout = (order.delivery_fee or 0) + (order.tip or 0)
+
+    # RESTAURANT PAYOUT: Food subtotal minus restaurant platform fee
+    restaurant_payout = max(0.0, (order.subtotal or 0) - restaurant_commission)
+
+    # PLATFORM REVENUE: Customer fee + Restaurant fee ONLY (no delivery margin)
+    # This is legally transparent - we only keep the disclosed platform fees
+    total_platform_revenue = platform_fee + restaurant_commission
+
+    # NO DELIVERY MARGIN - drivers get 100%
+    delivery_margin = 0.0
+
+    estimated_distance = 3.0  # Default for records
 
     # CRITICAL: Never allow negative payouts
     restaurant_payout = max(0.0, restaurant_payout)
@@ -1072,14 +1257,14 @@ async def order_delivered(
             credit=driver_payout,
             description=f"Payable to {order.driver_name or 'Driver'}"
         ),
-        # CREDIT: Platform revenue
+        # CREDIT: Platform revenue (customer fee + restaurant fee ONLY - transparent pricing)
         JournalEntryLine(
             journal_entry_id=journal_entry.id,
             account_code="4000",
             account_name="Platform Revenue",
             debit=0,
-            credit=platform_fee,
-            description=f"Platform fee (${platform_fee:.2f})"
+            credit=total_platform_revenue,
+            description=f"Platform revenue: Customer fee ${platform_fee:.2f} + Restaurant fee ${restaurant_commission:.2f} = ${total_platform_revenue:.2f} (NO delivery margin - drivers keep 100%)"
         ),
         # CREDIT: Tax collected (pass-through liability)
         JournalEntryLine(
@@ -1094,7 +1279,7 @@ async def order_delivered(
 
     # Verify double-entry balance (debits must equal credits)
     total_debits = net_cash_received + stripe_fee
-    total_credits = restaurant_payout + driver_payout + platform_fee + order.tax_amount
+    total_credits = restaurant_payout + driver_payout + total_platform_revenue + order.tax_amount
     imbalance = abs(total_debits - total_credits)
 
     # CRITICAL FIX: Throw exception if accounting is imbalanced (prevents posting bad entries)
@@ -1103,7 +1288,7 @@ async def order_delivered(
         print(f"  Debits: ${total_debits:.2f}, Credits: ${total_credits:.2f}")
         print(f"  Difference: ${imbalance:.2f}")
         print(f"  Breakdown - Cash: ${net_cash_received:.2f}, Stripe: ${stripe_fee:.2f}")
-        print(f"  Breakdown - Restaurant: ${restaurant_payout:.2f}, Driver: ${driver_payout:.2f}, Platform: ${platform_fee:.2f}, Tax: ${order.tax_amount:.2f}")
+        print(f"  Breakdown - Restaurant: ${restaurant_payout:.2f}, Driver: ${driver_payout:.2f}, Platform: ${total_platform_revenue:.2f} (customer fee: ${platform_fee:.2f} + restaurant fee: ${restaurant_commission:.2f}), Tax: ${order.tax_amount:.2f}")
 
         # Rollback and raise exception - cannot post imbalanced journal entries
         db.rollback()
@@ -1181,16 +1366,54 @@ async def order_delivered(
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
-        "status": "Delivered",
+        "status": "DELIVERED",
         "delivered_at": format_datetime_iso(order.delivered_at),
         "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
         "accounting": {
             "journal_entry": entry_number,
-            "restaurant_payout": restaurant_payout,
-            "driver_payout": driver_payout,
-            "platform_revenue": platform_fee,
-            "stripe_fees": stripe_fee,
-            "tax_collected": order.tax_amount
+            # TRANSPARENT BREAKDOWN - All parties see exactly where money goes
+            "transparency_model": "DOLLOR_FLAT_FEE_V1",
+            "customer_paid": {
+                "food_subtotal": order.subtotal,
+                "delivery_fee": order.delivery_fee,
+                "platform_fee": platform_fee,
+                "tax": order.tax_amount,
+                "tip": order.tip,
+                "total": order.total_amount
+            },
+            "restaurant_receives": {
+                "food_revenue": order.subtotal,
+                "platform_fee_deducted": -restaurant_commission,
+                "net_payout": restaurant_payout
+            },
+            "driver_receives": {
+                "delivery_fee": order.delivery_fee,
+                "tip": order.tip,
+                "platform_margin": 0.0,  # We take ZERO margin from drivers
+                "net_payout": driver_payout
+            },
+            "platform_keeps": {
+                "customer_platform_fee": platform_fee,
+                "restaurant_platform_fee": restaurant_commission,
+                "delivery_margin": 0.0,  # ZERO - transparent model
+                "total_platform_revenue": total_platform_revenue
+            },
+            "payment_processing": {
+                "processor": "Stripe",
+                "fee_rate": "2.9% + $0.30",
+                "stripe_fee": stripe_fee
+            },
+            "tax_collected": {
+                "sales_tax": order.tax_amount,
+                "tax_rate": "7.25%",
+                "remitted_to": "California State Board of Equalization"
+            }
+        },
+        "legal_disclosure": {
+            "fee_model": "Flat tiered pricing - no percentage commissions",
+            "driver_compensation": "100% of delivery fee and tips go to driver",
+            "no_surge_pricing": True,
+            "fees_disclosed_upfront": True
         }
     }
 
@@ -1794,4 +2017,221 @@ async def get_state_machine_info():
         },
         "terminal_states": ["DELIVERED", "CANCELLED"],
         "description": "Orders must follow valid state transitions. Orders exceeding timeout thresholds are considered stuck and should be reviewed."
+    }
+
+
+# ==================== RESTAURANT DELIVERY DECISION (60-Second Window) ====================
+
+class RestaurantDeliveryDecisionRequest(BaseModel):
+    """Request model for restaurant delivery decision"""
+    will_deliver: bool  # True = restaurant delivers, False = pass to driver
+    deliverer_name: Optional[str] = None  # Name of restaurant staff who will deliver
+
+
+@router.post("/orders/{order_id}/start-delivery-decision")
+async def start_delivery_decision(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Start the 60-second restaurant delivery decision window.
+    Called when order is confirmed and ready for delivery assignment.
+
+    Flow:
+    1. Order moves to PENDING_RESTAURANT_DELIVERY
+    2. Restaurant gets 60 seconds to decide
+    3. If restaurant accepts -> RESTAURANT_DELIVERING
+    4. If restaurant declines or timeout -> AWAITING_DRIVER (posted to driver pool)
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Validate state
+    if order.status != OrderStatus.CONFIRMED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot start delivery decision. Order status is {order.status.value}, must be CONFIRMED"
+        )
+
+    # Set deadline 60 seconds from now
+    deadline = datetime.utcnow() + timedelta(seconds=RESTAURANT_DELIVERY_DECISION_TIMEOUT_SECONDS)
+
+    # Update order
+    order.status = OrderStatus.PENDING_RESTAURANT_DELIVERY
+    order.delivery_method = DeliveryMethod.PENDING
+    order.restaurant_delivery_deadline = deadline
+    order.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    # Schedule auto-timeout to driver pool
+    background_tasks.add_task(
+        auto_timeout_to_driver_pool,
+        order_id=order_id,
+        timeout_seconds=RESTAURANT_DELIVERY_DECISION_TIMEOUT_SECONDS
+    )
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "deadline": format_datetime_iso(deadline),
+        "timeout_seconds": RESTAURANT_DELIVERY_DECISION_TIMEOUT_SECONDS,
+        "message": f"Restaurant has {RESTAURANT_DELIVERY_DECISION_TIMEOUT_SECONDS} seconds to decide on delivery"
+    }
+
+
+@router.post("/orders/{order_id}/restaurant-delivery-decision")
+async def restaurant_delivery_decision(
+    order_id: int,
+    decision: RestaurantDeliveryDecisionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant makes delivery decision.
+    - If will_deliver=True: Restaurant staff will deliver (keeps food fresh!)
+    - If will_deliver=False: Pass to driver pool
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Validate state
+    if order.status != OrderStatus.PENDING_RESTAURANT_DELIVERY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot make delivery decision. Order status is {order.status.value}, must be PENDING_RESTAURANT_DELIVERY"
+        )
+
+    # Check if deadline has passed
+    if order.restaurant_delivery_deadline and datetime.utcnow() > order.restaurant_delivery_deadline:
+        raise HTTPException(
+            status_code=400,
+            detail="Delivery decision deadline has passed. Order has been assigned to driver pool."
+        )
+
+    order.restaurant_delivery_decision_at = datetime.utcnow()
+
+    if decision.will_deliver:
+        # Restaurant accepts - they will deliver
+        order.status = OrderStatus.RESTAURANT_DELIVERING
+        order.delivery_method = DeliveryMethod.RESTAURANT
+        order.restaurant_deliverer_name = decision.deliverer_name or "Restaurant Staff"
+        message = f"Restaurant will deliver via {order.restaurant_deliverer_name}"
+    else:
+        # Restaurant declines - pass to driver pool
+        order.status = OrderStatus.AWAITING_DRIVER
+        order.delivery_method = DeliveryMethod.DRIVER
+        message = "Order posted to driver pool for pickup"
+
+    order.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "delivery_method": order.delivery_method.value,
+        "deliverer_name": order.restaurant_deliverer_name,
+        "message": message
+    }
+
+
+@router.get("/orders/{order_id}/delivery-decision-status")
+async def get_delivery_decision_status(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get current delivery decision status for an order.
+    Used by restaurant app to show countdown timer and current state.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Calculate remaining time if in pending state
+    remaining_seconds = None
+    if order.status == OrderStatus.PENDING_RESTAURANT_DELIVERY and order.restaurant_delivery_deadline:
+        remaining = order.restaurant_delivery_deadline - datetime.utcnow()
+        remaining_seconds = max(0, int(remaining.total_seconds()))
+
+    return {
+        "order_id": order_id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "delivery_method": order.delivery_method.value if order.delivery_method else "pending",
+        "deadline": format_datetime_iso(order.restaurant_delivery_deadline),
+        "remaining_seconds": remaining_seconds,
+        "decision_made_at": format_datetime_iso(order.restaurant_delivery_decision_at),
+        "deliverer_name": order.restaurant_deliverer_name,
+        "can_decide": order.status == OrderStatus.PENDING_RESTAURANT_DELIVERY and remaining_seconds is not None and remaining_seconds > 0
+    }
+
+
+async def auto_timeout_to_driver_pool(order_id: int, timeout_seconds: int):
+    """
+    Background task that auto-assigns order to driver pool after timeout.
+    Called 60 seconds after PENDING_RESTAURANT_DELIVERY starts.
+    """
+    import asyncio
+    from database import SessionLocal
+
+    # Wait for timeout
+    await asyncio.sleep(timeout_seconds)
+
+    # Create new DB session for background task
+    db = SessionLocal()
+    try:
+        order = db.query(Order).filter(Order.id == order_id).first()
+
+        # Only timeout if still in PENDING_RESTAURANT_DELIVERY
+        if order and order.status == OrderStatus.PENDING_RESTAURANT_DELIVERY:
+            order.status = OrderStatus.AWAITING_DRIVER
+            order.delivery_method = DeliveryMethod.DRIVER
+            order.restaurant_delivery_decision_at = datetime.utcnow()
+            order.updated_at = datetime.utcnow()
+            db.commit()
+            print(f"[DELIVERY_TIMEOUT] Order {order.order_number} auto-assigned to driver pool after {timeout_seconds}s timeout")
+    except Exception as e:
+        print(f"[DELIVERY_TIMEOUT ERROR] Failed to timeout order {order_id}: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+@router.get("/orders/pending-restaurant-delivery")
+async def get_pending_restaurant_delivery_orders(
+    vendor_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders pending restaurant delivery decision.
+    Used by restaurant app to show orders needing immediate decision.
+    """
+    query = db.query(Order).filter(Order.status == OrderStatus.PENDING_RESTAURANT_DELIVERY)
+
+    if vendor_id:
+        query = query.filter(Order.vendor_id == vendor_id)
+
+    orders = query.order_by(Order.restaurant_delivery_deadline.asc()).all()
+
+    return {
+        "success": True,
+        "count": len(orders),
+        "orders": [{
+            "order_id": o.id,
+            "order_number": o.order_number,
+            "customer_name": o.customer_name,
+            "subtotal": o.subtotal,
+            "total_amount": o.total_amount,
+            "delivery_address": o.delivery_address,
+            "deadline": format_datetime_iso(o.restaurant_delivery_deadline),
+            "remaining_seconds": max(0, int((o.restaurant_delivery_deadline - datetime.utcnow()).total_seconds())) if o.restaurant_delivery_deadline else 0,
+            "created_at": format_datetime_iso(o.created_at)
+        } for o in orders]
     }

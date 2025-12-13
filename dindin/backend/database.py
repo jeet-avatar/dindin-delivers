@@ -51,6 +51,8 @@ def init_db():
     from models_extended import (
         Promotion, PromotionRedemption, RestaurantInvitation,
         OnboardingLog, ScrapedMenuItem, RealTimeEvent,
-        Communication, Customer, CustomerFavorite, VendorAnalytics
+        Communication, VendorAnalytics
     )
+    # Customer and CustomerFavorite are in models.py
+    from models import Customer, CustomerFavorite
     Base.metadata.create_all(bind=engine)

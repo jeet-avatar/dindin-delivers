@@ -13,6 +13,10 @@ struct RestaurantDetailView: View {
     @State private var showCartFull = false
     @State private var showMenuSearch = false
     @State private var menuSearchText = ""
+
+    // Promotions state
+    @State private var activePromotions: [P2PCustomerPromotion] = []
+    @State private var isLoadingPromotions = false
     
     /*
     // Mock Menu Items for now
@@ -114,7 +118,34 @@ struct RestaurantDetailView: View {
                     .padding()
                     .background(Color.white)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    
+
+                    // Active Promotions Section
+                    if !activePromotions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "tag.fill")
+                                    .foregroundColor(.orange)
+                                Text("Available Deals")
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(activePromotions) { promo in
+                                        RestaurantPromotionCard(promotion: promo)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                        }
+                        .padding(.bottom)
+                        .background(Color.white)
+                    }
+
                     // Menu List
                     VStack(alignment: .leading, spacing: 20) {
                         Text("Featured Items")
@@ -157,6 +188,7 @@ struct RestaurantDetailView: View {
             .onAppear {
                 if let id = restaurant.id {
                     menuViewModel.fetchMenu(for: id)
+                    fetchPromotions(for: id)
                 }
             }
             
@@ -224,6 +256,129 @@ struct RestaurantDetailView: View {
                     selectedItem = item
                 }
             )
+        }
+    }
+
+    // MARK: - Fetch Promotions
+    private func fetchPromotions(for restaurantId: String) {
+        isLoadingPromotions = true
+
+        // Fetch active promotions and filter by this restaurant
+        P2PAPIService.shared.getActivePromotions { result in
+            isLoadingPromotions = false
+
+            switch result {
+            case .success(let response):
+                // Filter promotions for this restaurant (using numeric vendor_id from backend)
+                // The restaurant.id from Firebase might be a string, need to match with vendorId
+                if let vendorIdInt = Int(restaurantId) {
+                    activePromotions = response.promotions.filter { $0.vendorId == vendorIdInt }
+                } else {
+                    // Fallback: match by vendor name if available
+                    activePromotions = response.promotions.filter {
+                        $0.vendorName.lowercased() == restaurant.name.lowercased()
+                    }
+                }
+            case .failure(let error):
+                #if DEBUG
+                print("[RestaurantDetail] Failed to fetch promotions: \(error)")
+                #endif
+                activePromotions = []
+            }
+        }
+    }
+}
+
+// MARK: - Restaurant Promotion Card
+struct RestaurantPromotionCard: View {
+    let promotion: P2PCustomerPromotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Promo type badge
+            HStack {
+                Text(promoHeadline)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                Spacer()
+            }
+
+            Text(promotion.name)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.9))
+
+            if let desc = promotion.description, !desc.isEmpty {
+                Text(desc)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+                    .lineLimit(2)
+            }
+
+            HStack {
+                // Code badge
+                HStack(spacing: 4) {
+                    Image(systemName: "ticket.fill")
+                        .font(.caption2)
+                    Text(promotion.promotionCode)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.3))
+                .cornerRadius(6)
+
+                Spacer()
+
+                // Min order if applicable
+                if let minOrder = promotion.minOrderAmount, minOrder > 0 {
+                    Text("Min $\(String(format: "%.0f", minOrder))")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+        }
+        .padding()
+        .frame(width: 220)
+        .background(
+            LinearGradient(
+                colors: gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
+        .shadow(color: gradientColors[0].opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+
+    private var promoHeadline: String {
+        switch promotion.type {
+        case "percentage":
+            return "\(Int(promotion.value))% OFF"
+        case "flat_amount":
+            return "$\(String(format: "%.0f", promotion.value)) OFF"
+        case "free_delivery":
+            return "FREE DELIVERY"
+        case "bogo":
+            return "BUY 1 GET 1"
+        default:
+            return promotion.name.uppercased()
+        }
+    }
+
+    private var gradientColors: [Color] {
+        switch promotion.type {
+        case "percentage":
+            return [Color.orange, Color.red]
+        case "flat_amount":
+            return [Color.purple, Color.pink]
+        case "free_delivery":
+            return [Color.green, Color.teal]
+        case "bogo":
+            return [Color.blue, Color.purple]
+        default:
+            return [Color.orange, Color.red]
         }
     }
 }

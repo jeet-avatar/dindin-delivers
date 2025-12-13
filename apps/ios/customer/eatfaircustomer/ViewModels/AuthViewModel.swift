@@ -25,8 +25,18 @@ class AuthViewModel: NSObject, ObservableObject {
 
     private let p2pService = P2PAPIService.shared
 
-    // Google Client ID from GoogleService-Info.plist
-    private let googleClientID = "107524350806-ign58n65jrc4i0ab8audp3qgp24b37if.apps.googleusercontent.com"
+    /// Load Google Client ID from GoogleService-Info.plist - no hardcoded credentials
+    private var googleClientID: String {
+        guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let clientID = plist["CLIENT_ID"] as? String else {
+            #if DEBUG
+            print("[AuthViewModel] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
+            #endif
+            return ""
+        }
+        return clientID
+    }
 
     // Apple Sign-In nonce for security
     private var currentNonce: String?
@@ -43,8 +53,24 @@ class AuthViewModel: NSObject, ObservableObject {
         }
     }
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     /// Email/password login via P2P backend
     func login(email: String, password: String) {
+        // Validate email
+        guard isValidEmail(email) else {
+            errorMessage = "Please enter a valid email address"
+            return
+        }
+
+        // Validate password
+        guard !password.isEmpty else {
+            errorMessage = "Password cannot be empty"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -65,6 +91,30 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Register new customer
     func register(email: String, password: String, fullName: String, phone: String) {
+        // Validate email
+        guard isValidEmail(email) else {
+            errorMessage = "Please enter a valid email address"
+            return
+        }
+
+        // Validate password
+        guard isValidPassword(password) else {
+            errorMessage = "Password must be at least 8 characters long and contain at least one letter and one number"
+            return
+        }
+
+        // Validate full name
+        guard !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            errorMessage = "Please enter your full name"
+            return
+        }
+
+        // Validate phone
+        guard isValidPhone(phone) else {
+            errorMessage = "Please enter a valid phone number"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -103,6 +153,12 @@ class AuthViewModel: NSObject, ObservableObject {
         #if DEBUG
         print("AuthViewModel: signInWithGoogle() called")
         #endif
+
+        guard !googleClientID.isEmpty else {
+            errorMessage = "Google Sign-In not configured. Please contact support."
+            return
+        }
+
         let config = GIDConfiguration(clientID: googleClientID)
         GIDSignIn.sharedInstance.configuration = config
 
@@ -177,6 +233,12 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Request password reset - sends code to email
     func requestPasswordReset(email: String) {
+        // Validate email
+        guard isValidEmail(email) else {
+            errorMessage = "Please enter a valid email address"
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         resetEmail = email
@@ -200,6 +262,12 @@ class AuthViewModel: NSObject, ObservableObject {
     func confirmPasswordReset() {
         guard !resetCode.isEmpty, !newPassword.isEmpty else {
             errorMessage = "Please enter the reset code and new password"
+            return
+        }
+
+        // Validate new password
+        guard isValidPassword(newPassword) else {
+            errorMessage = "Password must be at least 8 characters long and contain at least one letter and one number"
             return
         }
 
@@ -281,6 +349,29 @@ class AuthViewModel: NSObject, ObservableObject {
         authorizationController.delegate = self
         authorizationController.presentationContextProvider = self
         authorizationController.performRequests()
+    }
+
+    // MARK: - Input Validation
+
+    /// Validate email format
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        return emailPredicate.evaluate(with: email)
+    }
+
+    /// Validate password (at least 8 characters, contains letter and number)
+    private func isValidPassword(_ password: String) -> Bool {
+        guard password.count >= 8 else { return false }
+        let hasLetter = password.rangeOfCharacter(from: .letters) != nil
+        let hasNumber = password.rangeOfCharacter(from: .decimalDigits) != nil
+        return hasLetter && hasNumber
+    }
+
+    /// Validate phone number (10 digits, optional formatting)
+    private func isValidPhone(_ phone: String) -> Bool {
+        let digits = phone.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        return digits.count >= 10
     }
 }
 

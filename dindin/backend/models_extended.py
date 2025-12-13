@@ -401,62 +401,8 @@ class Communication(Base):
 
 
 # ==================== CUSTOMER MODELS ====================
-
-class Customer(Base):
-    """Customer accounts for tracking orders, loyalty, etc."""
-    __tablename__ = "customers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    customer_id = Column(String(50), unique=True, nullable=False, index=True)
-
-    # Basic Info
-    first_name = Column(String(100))
-    last_name = Column(String(100))
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    phone = Column(String(50))
-
-    # Addresses
-    default_address = Column(JSON)
-    saved_addresses = Column(JSON)  # Array of addresses
-
-    # Preferences
-    dietary_preferences = Column(JSON)  # ["vegetarian", "gluten_free"]
-    favorite_cuisines = Column(JSON)
-    notification_preferences = Column(JSON)
-
-    # Loyalty
-    loyalty_points = Column(Integer, default=0)
-    loyalty_tier = Column(String(50), default="bronze")  # bronze, silver, gold, platinum
-
-    # Stats
-    total_orders = Column(Integer, default=0)
-    total_spent = Column(Float, default=0.0)
-    average_order_value = Column(Float, default=0.0)
-
-    # Engagement
-    first_order_at = Column(DateTime)
-    last_order_at = Column(DateTime)
-    days_since_last_order = Column(Integer)
-
-    # Mobile App
-    device_id = Column(String(255))
-    push_token = Column(String(500))
-    platform = Column(String(20))  # ios, android
-    app_version = Column(String(20))
-
-    # Stripe
-    stripe_customer_id = Column(String(255))
-
-    # Status
-    is_active = Column(Boolean, default=True)
-    is_verified = Column(Boolean, default=False)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-# CustomerFavorite is defined in models.py - do not duplicate here
+# NOTE: Customer class is defined in models.py - using that as the primary definition
+# to avoid SQLAlchemy class registry conflicts. Do not duplicate here.
 
 
 # ==================== ANALYTICS MODELS ====================

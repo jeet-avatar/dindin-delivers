@@ -129,6 +129,10 @@ class PaymentMethodsViewModel: ObservableObject {
         return id > 0 ? id : nil
     }
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     func loadSavedCards() {
         guard let customerId = customerId else {
             savedCards = []

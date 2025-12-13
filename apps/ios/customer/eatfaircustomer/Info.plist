@@ -39,7 +39,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.107524350806-i9ek47g1o6345b7f83q3i2nlhog7emgr</string>
+				<string>com.googleusercontent.apps.107524350806-ign58n65jrc4i0ab8audp3qgp24b37if</string>
 			</array>
 		</dict>
 	</array>
@@ -59,7 +59,6 @@
 	<string>Contacts access allows you to quickly share your delivery address from your contacts.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>location</string>
 		<string>remote-notification</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>

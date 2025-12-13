@@ -36,9 +36,16 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-# Demo account credentials
-DEMO_PASSWORD = "Demo2024!"
-DEMO_PASSWORD_HASH = get_password_hash(DEMO_PASSWORD)
+# Demo account credentials - MUST match APP_STORE_METADATA.md
+# Using consistent password for all demo accounts for App Store review
+DEMO_CUSTOMER_PASSWORD = "DollorDemo2024!"
+DEMO_DRIVER_PASSWORD = "DollorDriver2024!"
+DEMO_RESTAURANT_PASSWORD = "DollorBiz2024!"
+
+# Hash passwords
+DEMO_CUSTOMER_HASH = get_password_hash(DEMO_CUSTOMER_PASSWORD)
+DEMO_DRIVER_HASH = get_password_hash(DEMO_DRIVER_PASSWORD)
+DEMO_RESTAURANT_HASH = get_password_hash(DEMO_RESTAURANT_PASSWORD)
 
 def create_demo_accounts():
     """Create all demo accounts for App Store review"""
@@ -64,13 +71,13 @@ def create_demo_accounts():
         if existing_customer:
             print(f"  - Customer account already exists: {customer_email}")
             # Update password to ensure it matches
-            existing_customer.password_hash = DEMO_PASSWORD_HASH
+            existing_customer.password_hash = DEMO_CUSTOMER_HASH
             db.commit()
-            print(f"  - Password updated to: {DEMO_PASSWORD}")
+            print(f"  - Password updated to: {DEMO_CUSTOMER_PASSWORD}")
         else:
             customer_user = User(
                 email=customer_email,
-                password_hash=DEMO_PASSWORD_HASH,
+                password_hash=DEMO_CUSTOMER_HASH,
                 full_name="Demo Customer",
                 role=UserRole.USER,
                 phone="5551234567"
@@ -78,7 +85,7 @@ def create_demo_accounts():
             db.add(customer_user)
             db.commit()
             print(f"  - Created: {customer_email}")
-            print(f"  - Password: {DEMO_PASSWORD}")
+            print(f"  - Password: {DEMO_CUSTOMER_PASSWORD}")
 
         # =============================================
         # 2. DRIVER DEMO ACCOUNT
@@ -90,9 +97,9 @@ def create_demo_accounts():
 
         if existing_driver_user:
             print(f"  - Driver user account already exists: {driver_email}")
-            existing_driver_user.password_hash = DEMO_PASSWORD_HASH
+            existing_driver_user.password_hash = DEMO_DRIVER_HASH
             db.commit()
-            print(f"  - Password updated to: {DEMO_PASSWORD}")
+            print(f"  - Password updated to: {DEMO_DRIVER_PASSWORD}")
         else:
             # Create driver record first
             existing_driver = db.query(Driver).filter(Driver.email == driver_email).first()
@@ -124,7 +131,7 @@ def create_demo_accounts():
             # Create user linked to driver
             driver_user = User(
                 email=driver_email,
-                password_hash=DEMO_PASSWORD_HASH,
+                password_hash=DEMO_DRIVER_HASH,
                 full_name="Demo Driver",
                 role=UserRole.DRIVER,
                 driver_id=driver.id
@@ -132,7 +139,7 @@ def create_demo_accounts():
             db.add(driver_user)
             db.commit()
             print(f"  - Created: {driver_email}")
-            print(f"  - Password: {DEMO_PASSWORD}")
+            print(f"  - Password: {DEMO_DRIVER_PASSWORD}")
             print(f"  - Status: APPROVED (ready for delivery)")
 
         # =============================================
@@ -145,9 +152,9 @@ def create_demo_accounts():
 
         if existing_vendor_user:
             print(f"  - Vendor user account already exists: {vendor_email}")
-            existing_vendor_user.password_hash = DEMO_PASSWORD_HASH
+            existing_vendor_user.password_hash = DEMO_RESTAURANT_HASH
             db.commit()
-            print(f"  - Password updated to: {DEMO_PASSWORD}")
+            print(f"  - Password updated to: {DEMO_RESTAURANT_PASSWORD}")
         else:
             # Create vendor record first
             existing_vendor = db.query(Vendor).filter(Vendor.contact_email == vendor_email).first()
@@ -159,7 +166,8 @@ def create_demo_accounts():
                 vendor_count = db.query(Vendor).count()
                 vendor = Vendor(
                     vendor_id=f"VEN-DEMO-{vendor_count + 1:04d}",
-                    name="Demo Restaurant",
+                    company_name="Demo Restaurant",
+                    restaurant_name="Demo Restaurant",
                     contact_name="Demo Owner",
                     contact_email=vendor_email,
                     onboarding_status=VendorStatus.APPROVED,  # Pre-approved for demo
@@ -181,7 +189,7 @@ def create_demo_accounts():
             # Create user linked to vendor
             vendor_user = User(
                 email=vendor_email,
-                password_hash=DEMO_PASSWORD_HASH,
+                password_hash=DEMO_RESTAURANT_HASH,
                 full_name="Demo Restaurant Owner",
                 role=UserRole.VENDOR,
                 vendor_id=vendor.id
@@ -189,7 +197,7 @@ def create_demo_accounts():
             db.add(vendor_user)
             db.commit()
             print(f"  - Created: {vendor_email}")
-            print(f"  - Password: {DEMO_PASSWORD}")
+            print(f"  - Password: {DEMO_RESTAURANT_PASSWORD}")
             print(f"  - Status: APPROVED (ready to receive orders)")
 
         # =============================================
@@ -201,15 +209,15 @@ def create_demo_accounts():
         print("\nFor App Store Review, use these credentials:\n")
         print("CUSTOMER APP (Dollor - Food Delivery):")
         print(f"  Email: demo@dollor.ai")
-        print(f"  Password: {DEMO_PASSWORD}")
+        print(f"  Password: {DEMO_CUSTOMER_PASSWORD}")
         print()
         print("DRIVER APP (Dollor Driver):")
         print(f"  Email: demodriver@dollor.ai")
-        print(f"  Password: {DEMO_PASSWORD}")
+        print(f"  Password: {DEMO_DRIVER_PASSWORD}")
         print()
         print("RESTAURANT APP (Dollor Business):")
         print(f"  Email: demobusiness@dollor.ai")
-        print(f"  Password: {DEMO_PASSWORD}")
+        print(f"  Password: {DEMO_RESTAURANT_PASSWORD}")
         print()
         print("=" * 60)
 
@@ -236,20 +244,21 @@ def verify_accounts():
     db = SessionLocal()
 
     try:
+        # Account credentials must match APP_STORE_METADATA.md
         accounts = [
-            ("demo@dollor.ai", "Customer"),
-            ("demodriver@dollor.ai", "Driver"),
-            ("demobusiness@dollor.ai", "Restaurant")
+            ("demo@dollor.ai", "Customer", DEMO_CUSTOMER_PASSWORD),
+            ("demodriver@dollor.ai", "Driver", DEMO_DRIVER_PASSWORD),
+            ("demobusiness@dollor.ai", "Restaurant", DEMO_RESTAURANT_PASSWORD)
         ]
 
         all_valid = True
 
-        for email, account_type in accounts:
+        for email, account_type, password in accounts:
             user = db.query(User).filter(User.email == email).first()
             if user:
                 # Verify password works
-                if pwd_context.verify(DEMO_PASSWORD, user.password_hash):
-                    print(f"  [OK] {account_type}: {email}")
+                if pwd_context.verify(password, user.password_hash):
+                    print(f"  [OK] {account_type}: {email} / {password}")
                 else:
                     print(f"  [FAIL] {account_type}: {email} - Password mismatch")
                     all_valid = False

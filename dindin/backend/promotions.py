@@ -20,11 +20,11 @@ import json
 import uuid
 
 from database import get_db
-from models import Vendor, Order, OrderStatus
+from models import Vendor, Order, OrderStatus, Customer
 from models_extended import (
     Promotion, PromotionType, PromotionStatus, PromotionTargetAudience,
     PromotionRedemption, RealTimeEvent, Communication, CommunicationChannel,
-    CommunicationStatus, RecipientType, Customer, VendorAnalytics
+    CommunicationStatus, RecipientType, VendorAnalytics
 )
 
 # Import pricing config for delivery fee
@@ -895,3 +895,114 @@ async def quick_create_promotion(
     )
 
     return await create_promotion(vendor_id, request, background_tasks, db)
+
+
+# ==================== CUSTOMER-FACING ENDPOINTS ====================
+
+@router.get("/active")
+async def get_active_promotions(
+    db: Session = Depends(get_db)
+):
+    """Get all active promotions for customers to browse"""
+    now = datetime.now()
+
+    # Query for active promotions that haven't expired
+    promotions = db.query(Promotion).join(Vendor).filter(
+        Promotion.status == PromotionStatus.ACTIVE,
+        Promotion.pushed_to_app == True
+    ).filter(
+        # Either no end date or end date is in the future
+        (Promotion.end_date.is_(None)) | (Promotion.end_date > now)
+    ).order_by(
+        Promotion.value.desc()  # Best deals first
+    ).all()
+
+    result = []
+    for p in promotions:
+        vendor = db.query(Vendor).filter(Vendor.id == p.vendor_id).first()
+        result.append({
+            "id": p.id,
+            "promotion_code": p.promotion_code,
+            "vendor_id": p.vendor_id,
+            "vendor_name": vendor.name if vendor else "Restaurant",
+            "name": p.name,
+            "description": p.description,
+            "type": p.type.value,
+            "value": p.value,
+            "max_discount": p.max_discount,
+            "min_order_amount": p.min_order_amount,
+            "target_audience": p.target_audience.value,
+            "start_date": p.start_date.isoformat() if p.start_date else None,
+            "end_date": p.end_date.isoformat() if p.end_date else None,
+            "usage_count": p.usage_count,
+            "usage_limit": p.usage_limit
+        })
+
+    return {
+        "success": True,
+        "promotions": result,
+        "count": len(result)
+    }
+
+
+@router.get("/featured")
+async def get_featured_deals(
+    db: Session = Depends(get_db)
+):
+    """Get featured/best deals for homepage banner"""
+    try:
+        now = datetime.now()
+
+        # Get best percentage and BOGO deals
+        featured = db.query(Promotion).join(Vendor).filter(
+            Promotion.status == PromotionStatus.ACTIVE,
+            Promotion.pushed_to_app == True,
+            Promotion.type.in_([PromotionType.PERCENTAGE, PromotionType.BOGO, PromotionType.FREE_DELIVERY])
+        ).filter(
+            (Promotion.end_date.is_(None)) | (Promotion.end_date > now)
+        ).order_by(
+            Promotion.value.desc()
+        ).limit(5).all()
+
+        result = []
+        for p in featured:
+            vendor = db.query(Vendor).filter(Vendor.id == p.vendor_id).first()
+
+            # Create catchy headline based on promo type
+            if p.type == PromotionType.PERCENTAGE:
+                headline = f"{int(p.value)}% OFF"
+            elif p.type == PromotionType.BOGO:
+                headline = "BUY 1 GET 1 FREE"
+            elif p.type == PromotionType.FREE_DELIVERY:
+                headline = "FREE DELIVERY"
+            elif p.type == PromotionType.FLAT_AMOUNT:
+                headline = f"${p.value:.0f} OFF"
+            else:
+                headline = p.name
+
+            result.append({
+                "id": p.id,
+                "promotion_code": p.promotion_code,
+                "vendor_id": p.vendor_id,
+                "vendor_name": vendor.name if vendor else "Restaurant",
+                "headline": headline,
+                "name": p.name,
+                "description": p.description,
+                "type": p.type.value,
+                "value": p.value,
+                "min_order_amount": p.min_order_amount,
+                "end_date": p.end_date.isoformat() if p.end_date else None
+            })
+
+        return {
+            "success": True,
+            "featured": result,
+            "count": len(result)
+        }
+    except Exception as e:
+        # Return empty deals on any error (table might not exist, etc.)
+        return {
+            "success": True,
+            "featured": [],
+            "count": 0
+        }

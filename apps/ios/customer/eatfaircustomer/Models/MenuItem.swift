@@ -1,5 +1,6 @@
 import Foundation
 
+/// Menu item model - aligned with Android and backend (Uber/DoorDash pattern)
 struct MenuItem: Identifiable, Codable, Sendable {
     var id: String?
     var name: String
@@ -10,10 +11,60 @@ struct MenuItem: Identifiable, Codable, Sendable {
     var category: String?
     var isAvailable: Bool?
     var preparationTime: Int? // in minutes
+    var quantity: Int = 1 // Cart quantity
+
+    // Dietary information - aligned with Android
+    var isVegetarian: Bool?
+    var isVegan: Bool?
+    var isGlutenFree: Bool?
+    var spiceLevel: Int?  // 0-5 scale
+    var calories: Int?
+    var allergens: [String]?
+    var dietaryTags: [String]?  // ["vegetarian", "vegan", "gluten-free"]
 
     // Customization options
     var customizations: [MenuItemCustomization]?
     var selectedCustomizations: [SelectedCustomization]?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case price
+        case imageUrl = "image_url"
+        case selectedSpiceLevel
+        case category
+        case isAvailable = "is_available"
+        case preparationTime = "prep_time_minutes"
+        case quantity
+        case isVegetarian = "is_vegetarian"
+        case isVegan = "is_vegan"
+        case isGlutenFree = "is_gluten_free"
+        case spiceLevel = "spice_level"
+        case calories
+        case allergens
+        case dietaryTags = "dietary_tags"
+        case customizations
+        case selectedCustomizations
+    }
+
+    // Dietary display helpers
+    var dietaryBadges: [String] {
+        var badges: [String] = []
+        if isVegetarian == true { badges.append("🥬 Vegetarian") }
+        if isVegan == true { badges.append("🌱 Vegan") }
+        if isGlutenFree == true { badges.append("🌾 Gluten-Free") }
+        return badges
+    }
+
+    var spiceLevelDisplay: String? {
+        guard let level = spiceLevel, level > 0 else { return nil }
+        return String(repeating: "🌶️", count: min(level, 5))
+    }
+
+    var hasDietaryInfo: Bool {
+        isVegetarian == true || isVegan == true || isGlutenFree == true || (spiceLevel ?? 0) > 0
+    }
 }
 
 // MARK: - Menu Item Customization

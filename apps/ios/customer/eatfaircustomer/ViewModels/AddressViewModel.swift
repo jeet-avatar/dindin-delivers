@@ -34,6 +34,10 @@ class AddressViewModel: ObservableObject {
         fetchAddresses()
     }
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     // MARK: - Fetch Addresses from P2P Backend
     func fetchAddresses() {
         guard let userId = currentUserId else {
@@ -71,11 +75,23 @@ class AddressViewModel: ObservableObject {
 
     // MARK: - Add Address
     func addAddress(address: Address, completion: @escaping (Bool) -> Void) {
+        #if DEBUG
+        print("[AddressViewModel] addAddress called")
+        print("[AddressViewModel] currentUserId: \(String(describing: currentUserId))")
+        #endif
+
         guard let userId = currentUserId else {
+            #if DEBUG
+            print("[AddressViewModel] ERROR: No user ID - user not logged in")
+            #endif
             errorMessage = "Please log in to save addresses"
             completion(false)
             return
         }
+
+        #if DEBUG
+        print("[AddressViewModel] User ID found: \(userId)")
+        #endif
 
         isLoading = true
         errorMessage = nil
@@ -89,12 +105,25 @@ class AddressViewModel: ObservableObject {
         let geocoder = CLGeocoder()
         let addressString = "\(address.street), \(address.city), \(address.state) \(address.zipCode)"
 
+        #if DEBUG
+        print("[AddressViewModel] Geocoding: \(addressString)")
+        #endif
+
         geocoder.geocodeAddressString(addressString) { [weak self] placemarks, error in
             guard let self = self else { return }
+
+            if let error = error {
+                #if DEBUG
+                print("[AddressViewModel] Geocoding error: \(error.localizedDescription)")
+                #endif
+            }
 
             if let location = placemarks?.first?.location {
                 newAddress.latitude = location.coordinate.latitude
                 newAddress.longitude = location.coordinate.longitude
+                #if DEBUG
+                print("[AddressViewModel] Geocoded: lat=\(newAddress.latitude), lng=\(newAddress.longitude)")
+                #endif
             }
             // If geocoding fails, lat/long will be 0.0
 
@@ -102,6 +131,10 @@ class AddressViewModel: ObservableObject {
             if self.addresses.isEmpty {
                 newAddress.isDefault = true
             }
+
+            #if DEBUG
+            print("[AddressViewModel] Calling P2P API createAddress...")
+            #endif
 
             // Create address via P2P API
             self.apiService.createAddress(userId: userId, address: newAddress) { [weak self] result in
@@ -111,6 +144,9 @@ class AddressViewModel: ObservableObject {
 
                 switch result {
                 case .success(let p2pAddress):
+                    #if DEBUG
+                    print("[AddressViewModel] Address saved successfully: id=\(p2pAddress.id)")
+                    #endif
                     let savedAddress = p2pAddress.toAddress()
                     self.addresses.append(savedAddress)
 
@@ -119,7 +155,10 @@ class AddressViewModel: ObservableObject {
 
                     completion(true)
 
-                case .failure:
+                case .failure(let error):
+                    #if DEBUG
+                    print("[AddressViewModel] Failed to save address: \(error)")
+                    #endif
                     self.errorMessage = "Failed to save address"
                     completion(false)
                 }

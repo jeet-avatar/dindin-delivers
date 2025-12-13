@@ -343,10 +343,26 @@ struct LoginView: View {
         }
     }
 
-    // Google Client ID from GoogleService-Info.plist
-    private let googleClientID = "107524350806-ign58n65jrc4i0ab8audp3qgp24b37if.apps.googleusercontent.com"
+    /// Load Google Client ID from GoogleService-Info.plist instead of hardcoding
+    /// Falls back to plist value only - no hardcoded credentials in source code
+    private var googleClientID: String {
+        guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let clientID = plist["CLIENT_ID"] as? String else {
+            #if DEBUG
+            print("[LoginView] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
+            #endif
+            // Return empty string - will fail gracefully in googleLogin()
+            return ""
+        }
+        return clientID
+    }
 
     func googleLogin() {
+        guard !googleClientID.isEmpty else {
+            errorMessage = "Google Sign-In not configured. Please contact support."
+            return
+        }
         let config = GIDConfiguration(clientID: googleClientID)
         GIDSignIn.sharedInstance.configuration = config
 
@@ -362,6 +378,13 @@ struct LoginView: View {
         GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [self] result, error in
             if let error = error {
                 DispatchQueue.main.async {
+                    // Check if user cancelled
+                    let nsError = error as NSError
+                    if nsError.domain == "com.google.GIDSignIn" && nsError.code == -5 {
+                        // User cancelled - don't show error
+                        self.isLoading = false
+                        return
+                    }
                     self.isLoading = false
                     self.errorMessage = error.localizedDescription
                 }
@@ -377,48 +400,39 @@ struct LoginView: View {
             }
 
             // Extract Google user info
-            let googleEmail = user.profile?.email ?? ""
+            guard let googleEmail = user.profile?.email, !googleEmail.isEmpty else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.errorMessage = "Unable to retrieve email from Google account"
+                }
+                return
+            }
+
             let googleName = user.profile?.name ?? "My Restaurant"
             let googleUserId = user.userID ?? ""
 
-            // Use Google info to login/register with P2P backend
-            // Password is derived from Google user ID (user can't login with password directly)
-            let derivedPassword = "google_oauth_\(googleUserId)"
-
-            // Try login first
-            self.p2pAPI.vendorLogin(email: googleEmail, password: derivedPassword) { result in
-                switch result {
-                case .success(let response):
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        print("Google Sign-In: Vendor login successful - \(response.user.fullName)")
+            // Use proper OAuth endpoint - handles both login and registration
+            self.p2pAPI.vendorGoogleAuth(
+                email: googleEmail,
+                name: googleName,
+                googleId: googleUserId
+            ) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    switch result {
+                    case .success(let response):
+                        print("Google Sign-In: Vendor auth successful - \(response.user.fullName)")
                         self.isLoggedIn = true
-                    }
-                case .failure:
-                    // User doesn't exist, register them as a new vendor
-                    self.p2pAPI.vendorRegister(
-                        email: googleEmail,
-                        password: derivedPassword,
-                        restaurantName: googleName
-                    ) { regResult in
-                        DispatchQueue.main.async {
-                            self.isLoading = false
-                            switch regResult {
-                            case .success(let response):
-                                print("Google Sign-In: Vendor registration successful - \(response.user.fullName)")
-                                self.isLoggedIn = true
-                            case .failure(let error):
-                                if let apiError = error as? P2PAPIError {
-                                    switch apiError {
-                                    case .serverError(let message):
-                                        self.errorMessage = message
-                                    default:
-                                        self.errorMessage = "Failed to create vendor account"
-                                    }
-                                } else {
-                                    self.errorMessage = error.localizedDescription
-                                }
+                    case .failure(let error):
+                        if let apiError = error as? P2PAPIError {
+                            switch apiError {
+                            case .serverError(let message):
+                                self.errorMessage = message
+                            default:
+                                self.errorMessage = "Google sign-in failed. Please try again."
                             }
+                        } else {
+                            self.errorMessage = error.localizedDescription
                         }
                     }
                 }

@@ -3,7 +3,8 @@ import Combine
 import EatFairShared
 
 /// AuthManager for P2P-based driver authentication
-/// Manages driver login state using P2P API tokens stored in UserDefaults
+/// Manages driver login state using P2P API tokens stored in SecureStorage (Keychain)
+/// Note: Tokens are stored in SecureStorage, other info (driverId, name, email) in UserDefaults
 class AuthManager: ObservableObject {
     @Published var isLoggedIn: Bool = false
     @Published var driverName: String = ""
@@ -17,20 +18,32 @@ class AuthManager: ObservableObject {
     }
 
     private func checkLoginState() {
-        if let _ = UserDefaults.standard.string(forKey: UserDefaultsKeys.driverAccessToken),
-           let _ = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) {
+        // Check for token in SecureStorage (Keychain) - this is where P2PAPIService stores it
+        let hasToken = SecureStorage.shared.driverAccessToken != nil
+        let hasDriverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) != nil
+
+        if hasToken && hasDriverId {
             isLoggedIn = true
-            // Load cached driver info
+            // Load cached driver info from UserDefaults
             driverName = UserDefaults.standard.string(forKey: UserDefaultsKeys.driverName) ?? ""
             driverEmail = UserDefaults.standard.string(forKey: UserDefaultsKeys.driverEmail) ?? ""
+
+            #if DEBUG
+            print("[AuthManager] Driver logged in - ID: \(UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) ?? "nil")")
+            #endif
         } else {
             isLoggedIn = false
+            #if DEBUG
+            print("[AuthManager] Not logged in - hasToken: \(hasToken), hasDriverId: \(hasDriverId)")
+            #endif
         }
     }
 
     func logout() {
-        // Clear all stored driver data
-        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverAccessToken)
+        // Clear token from SecureStorage (Keychain)
+        SecureStorage.shared.clearAuthTokens(type: .driver)
+
+        // Clear all stored driver data from UserDefaults
         UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverId)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverCode)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.driverName)
@@ -41,6 +54,10 @@ class AuthManager: ObservableObject {
             self.driverName = ""
             self.driverEmail = ""
         }
+
+        #if DEBUG
+        print("[AuthManager] Logged out - cleared all driver data")
+        #endif
     }
 
     func refreshLoginState() {

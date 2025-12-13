@@ -19,7 +19,7 @@ class CustomerAddress(Base):
     __tablename__ = "customer_addresses"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    customer_id = Column(Integer, nullable=False, index=True)  # Renamed from user_id
 
     # Address details
     location_name = Column(String(100))  # "Home", "Work", etc.
@@ -109,7 +109,7 @@ router = APIRouter(prefix="/api/addresses", tags=["Customer Addresses"])
 def get_user_addresses(user_id: int, db: Session = Depends(get_db)):
     """Get all addresses for a user"""
     addresses = db.query(CustomerAddress).filter(
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).order_by(CustomerAddress.is_default.desc(), CustomerAddress.created_at.desc()).all()
 
     return addresses
@@ -119,14 +119,14 @@ def get_user_addresses(user_id: int, db: Session = Depends(get_db)):
 def get_default_address(user_id: int, db: Session = Depends(get_db)):
     """Get user's default address"""
     address = db.query(CustomerAddress).filter(
-        CustomerAddress.user_id == user_id,
+        CustomerAddress.customer_id == user_id,
         CustomerAddress.is_default == True
     ).first()
 
     if not address:
         # Return first address if no default set
         address = db.query(CustomerAddress).filter(
-            CustomerAddress.user_id == user_id
+            CustomerAddress.customer_id == user_id
         ).first()
 
     if not address:
@@ -142,16 +142,16 @@ def create_address(user_id: int, address: AddressCreate, db: Session = Depends(g
     # If this is marked as default, unmark all others
     if address.is_default:
         db.query(CustomerAddress).filter(
-            CustomerAddress.user_id == user_id
+            CustomerAddress.customer_id == user_id
         ).update({"is_default": False})
 
     # Check if this is first address - auto-set as default
     existing_count = db.query(CustomerAddress).filter(
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).count()
 
     new_address = CustomerAddress(
-        user_id=user_id,
+        customer_id=user_id,
         location_name=address.location_name or "",
         street=address.street,
         unit=address.unit or "",
@@ -186,7 +186,7 @@ def update_address(
 
     address = db.query(CustomerAddress).filter(
         CustomerAddress.id == address_id,
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).first()
 
     if not address:
@@ -195,7 +195,7 @@ def update_address(
     # If marking as default, unmark others
     if address_update.is_default:
         db.query(CustomerAddress).filter(
-            CustomerAddress.user_id == user_id,
+            CustomerAddress.customer_id == user_id,
             CustomerAddress.id != address_id
         ).update({"is_default": False})
 
@@ -221,7 +221,7 @@ def delete_address(user_id: int, address_id: int, db: Session = Depends(get_db))
 
     address = db.query(CustomerAddress).filter(
         CustomerAddress.id == address_id,
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).first()
 
     if not address:
@@ -235,7 +235,7 @@ def delete_address(user_id: int, address_id: int, db: Session = Depends(get_db))
     # If deleted address was default, set another as default
     if was_default:
         next_address = db.query(CustomerAddress).filter(
-            CustomerAddress.user_id == user_id
+            CustomerAddress.customer_id == user_id
         ).first()
         if next_address:
             next_address.is_default = True
@@ -252,7 +252,7 @@ def set_default_address(user_id: int, address_id: int, db: Session = Depends(get
 
     address = db.query(CustomerAddress).filter(
         CustomerAddress.id == address_id,
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).first()
 
     if not address:
@@ -260,7 +260,7 @@ def set_default_address(user_id: int, address_id: int, db: Session = Depends(get
 
     # Unmark all others
     db.query(CustomerAddress).filter(
-        CustomerAddress.user_id == user_id
+        CustomerAddress.customer_id == user_id
     ).update({"is_default": False})
 
     # Mark this as default

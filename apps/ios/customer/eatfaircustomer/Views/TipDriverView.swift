@@ -208,6 +208,10 @@ class TipDriverViewModel: ObservableObject {
         self.order = order
     }
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     var suggestedTips: [(percentage: Double, amount: Double)] {
         TipCalculator.suggestedTips(orderTotal: order.total)
     }
@@ -267,7 +271,7 @@ class TipDriverViewModel: ObservableObject {
             tipType: tipType,
             percentage: selectedPercentage
         ) { [weak self] result in
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 self?.isSubmitting = false
                 switch result {
                 case .success(let response):

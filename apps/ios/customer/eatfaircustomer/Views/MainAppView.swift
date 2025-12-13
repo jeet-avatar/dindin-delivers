@@ -33,10 +33,10 @@ struct MainAppView: View {
                         .tag(1)
 
                         NavigationStack {
-                            DeliveryTrackingView()
+                            DealsView()
                         }
                         .tabItem {
-                            Label("Track", systemImage: "location.fill")
+                            Label("Deals", systemImage: "tag.fill")
                         }
                         .tag(2)
 
@@ -394,6 +394,10 @@ class SearchViewModel: ObservableObject {
     @Published var aiRecommendation: String = ""
 
     private let p2pService = P2PAPIService.shared
+
+    deinit {
+        // Clean up any resources if needed
+    }
 
     // Convert P2P restaurants to standard Restaurant type
     var restaurants: [Restaurant] {

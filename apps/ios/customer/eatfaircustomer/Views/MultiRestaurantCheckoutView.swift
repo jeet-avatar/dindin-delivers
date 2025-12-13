@@ -39,6 +39,7 @@ struct MultiRestaurantCheckoutView: View {
     @State private var isProcessing = false
     @State private var errorMessage: String?
     @State private var showError = false
+    @State private var showFeeBreakdown = false
 
     // Apple Pay
     @State private var canMakePayments = PKPaymentAuthorizationController.canMakePayments()
@@ -116,6 +117,9 @@ struct MultiRestaurantCheckoutView: View {
                     selectedCardId = card.id
                     showAddCard = false
                 })
+            }
+            .sheet(isPresented: $showFeeBreakdown) {
+                FeeBreakdownDetailView()
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
@@ -492,20 +496,110 @@ struct MultiRestaurantCheckoutView: View {
     // MARK: - Price Breakdown Section
     private var priceBreakdownSection: some View {
         VStack(spacing: 12) {
+            // Header with fee info button
             HStack {
                 Image(systemName: "receipt")
                     .foregroundColor(.blue)
                 Text("Order Total")
                     .font(.headline)
                 Spacer()
+                Button(action: { showFeeBreakdown = true }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "info.circle")
+                        Text("Fee Details")
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.green)
+                }
             }
 
             VStack(spacing: 8) {
-                PriceRow(label: "Subtotal", value: cartVM.subtotal)
-                PriceRow(label: "Platform Fee", value: cartVM.platformFee)
-                PriceRow(label: "Delivery Fee", value: cartVM.deliveryFee)
-                PriceRow(label: "Tax", value: cartVM.tax)
-                PriceRow(label: "Tip", value: currentTip)
+                // Food subtotal with recipient indicator
+                HStack {
+                    Text("Food Subtotal")
+                        .font(.subheadline)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", cartVM.subtotal))")
+                            .font(.subheadline)
+                        Text("100% → Restaurant")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+                }
+
+                // Platform fee with recipient
+                HStack {
+                    Text("Platform Fee")
+                        .font(.subheadline)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", cartVM.platformFee))")
+                            .font(.subheadline)
+                        Text("→ Dollor.ai")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                }
+
+                // Delivery with recipient
+                HStack {
+                    Text("Delivery Fee")
+                        .font(.subheadline)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", cartVM.deliveryFee))")
+                            .font(.subheadline)
+                        Text("100% → Driver")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
+
+                // Tax with recipient
+                HStack {
+                    Text("Tax (8.5%)")
+                        .font(.subheadline)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", cartVM.tax))")
+                            .font(.subheadline)
+                        Text("→ Government")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+
+                // Tip with recipient
+                HStack {
+                    Text("Driver Tip")
+                        .font(.subheadline)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", currentTip))")
+                            .font(.subheadline)
+                        Text("100% → Driver")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+                }
+
+                // Processing fee
+                let processingFee = (cartVM.subtotal + cartVM.deliveryFee + cartVM.tax + cartVM.platformFee + currentTip) * 0.029 + 0.30
+                HStack {
+                    Text("Processing (2.9%+$0.30)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$\(String(format: "%.2f", processingFee))")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Text("→ Stripe")
+                            .font(.caption2)
+                            .foregroundColor(.purple)
+                    }
+                }
 
                 if discount > 0 {
                     HStack {
@@ -528,6 +622,26 @@ struct MultiRestaurantCheckoutView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
+                }
+
+                // Money flow visual
+                VStack(alignment: .leading, spacing: 4) {
+                    Divider()
+                    Text("WHERE YOUR MONEY GOES")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray)
+                        .padding(.top, 4)
+
+                    HStack(spacing: 4) {
+                        MoneyFlowChip(label: "Restaurant", amount: cartVM.subtotal, color: .green)
+                        MoneyFlowChip(label: "Driver", amount: cartVM.deliveryFee + currentTip, color: .blue)
+                        MoneyFlowChip(label: "Tax", amount: cartVM.tax, color: .gray)
+                    }
+                    HStack(spacing: 4) {
+                        MoneyFlowChip(label: "Dollor.ai", amount: cartVM.platformFee, color: .orange)
+                        MoneyFlowChip(label: "Stripe", amount: processingFee, color: .purple)
+                    }
                 }
             }
         }

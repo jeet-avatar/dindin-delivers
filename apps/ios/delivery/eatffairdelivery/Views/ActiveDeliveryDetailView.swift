@@ -335,6 +335,7 @@ struct ActiveDeliveryDetailView: View {
         case .pickedUp, .outForDelivery: return "Deliver to Customer"
         case .delivered: return "Order Completed"
         case .cancelled: return "Order Cancelled"
+        case .pendingModification: return "Order Pending"
         }
     }
 
@@ -344,6 +345,7 @@ struct ActiveDeliveryDetailView: View {
         case .pickedUp, .outForDelivery: return "shippingbox"
         case .delivered: return "checkmark.circle"
         case .cancelled: return "xmark.circle"
+        case .pendingModification: return "clock"
         }
     }
 
@@ -353,6 +355,7 @@ struct ActiveDeliveryDetailView: View {
         case .pickedUp, .outForDelivery: return Theme.statusInfo
         case .delivered: return Theme.statusActive
         case .cancelled: return Theme.statusError
+        case .pendingModification: return Theme.brandOrange
         }
     }
 
@@ -397,9 +400,42 @@ struct ActiveDeliveryDetailView: View {
 struct DeliveryMapView: View {
     let order: Order
     @Binding var region: MKCoordinateRegion
-    
+    @StateObject private var locationManager = LocationManager.shared
+    @State private var mapPosition: MapCameraPosition = .automatic
+
     var body: some View {
-        Map(position: .constant(.region(region))) {
+        Map(position: $mapPosition) {
+            // Driver's Current Location (Blue Dot with Pulse)
+            if let driverLocation = locationManager.currentCoordinate {
+                Annotation("You", coordinate: driverLocation) {
+                    ZStack {
+                        // Pulse animation circle
+                        Circle()
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: 60, height: 60)
+
+                        // Inner circle
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white, lineWidth: 3)
+                            )
+                            .shadow(color: .blue.opacity(0.5), radius: 8)
+
+                        // Direction arrow if heading available
+                        if let heading = locationManager.heading {
+                            Image(systemName: "location.north.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .rotationEffect(.degrees(heading.trueHeading))
+                        }
+                    }
+                }
+            }
+
+            // Pickup Location (Restaurant)
             Annotation("Pickup", coordinate: CLLocationCoordinate2D(
                 latitude: order.restaurant.latitude,
                 longitude: order.restaurant.longitude
@@ -412,7 +448,7 @@ struct DeliveryMapView: View {
                         .background(Theme.brandOrange)
                         .clipShape(Circle())
                         .shadow(radius: 4)
-                    
+
                     Text("Pickup")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -423,7 +459,8 @@ struct DeliveryMapView: View {
                         .cornerRadius(8)
                 }
             }
-            
+
+            // Dropoff Location (Customer)
             Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
                 latitude: order.deliveryAddress.latitude,
                 longitude: order.deliveryAddress.longitude
@@ -436,7 +473,7 @@ struct DeliveryMapView: View {
                         .background(Theme.statusActive)
                         .clipShape(Circle())
                         .shadow(radius: 4)
-                    
+
                     Text("Dropoff")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -448,6 +485,67 @@ struct DeliveryMapView: View {
                 }
             }
         }
+        .mapStyle(.standard(elevation: .realistic))
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+            MapScaleView()
+        }
+        .onAppear {
+            // Start tracking driver location
+            locationManager.startTracking()
+
+            // Set initial map position to show all annotations
+            updateMapPosition()
+        }
+        .onChange(of: locationManager.currentCoordinate) { _, newLocation in
+            // Update map to follow driver
+            if let location = newLocation {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    mapPosition = .camera(MapCamera(
+                        centerCoordinate: location,
+                        distance: 2000,
+                        heading: locationManager.heading?.trueHeading ?? 0,
+                        pitch: 45
+                    ))
+                }
+            }
+        }
+    }
+
+    private func updateMapPosition() {
+        // Calculate region to fit all points
+        let pickupCoord = CLLocationCoordinate2D(
+            latitude: order.restaurant.latitude,
+            longitude: order.restaurant.longitude
+        )
+        let dropoffCoord = CLLocationCoordinate2D(
+            latitude: order.deliveryAddress.latitude,
+            longitude: order.deliveryAddress.longitude
+        )
+
+        var coordinates = [pickupCoord, dropoffCoord]
+        if let driverCoord = locationManager.currentCoordinate {
+            coordinates.append(driverCoord)
+        }
+
+        // Calculate center and span
+        let minLat = coordinates.map { $0.latitude }.min() ?? 0
+        let maxLat = coordinates.map { $0.latitude }.max() ?? 0
+        let minLon = coordinates.map { $0.longitude }.min() ?? 0
+        let maxLon = coordinates.map { $0.longitude }.max() ?? 0
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        let span = MKCoordinateSpan(
+            latitudeDelta: (maxLat - minLat) * 1.5 + 0.01,
+            longitudeDelta: (maxLon - minLon) * 1.5 + 0.01
+        )
+
+        mapPosition = .region(MKCoordinateRegion(center: center, span: span))
     }
 }
 

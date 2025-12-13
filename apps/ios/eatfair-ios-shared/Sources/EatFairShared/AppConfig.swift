@@ -8,7 +8,8 @@ public class AppConfig: ObservableObject {
 
     // MARK: - P2P API Configuration
     /// Dollar.ai backend base URL - all data comes from here
-    @Published public var p2pAPIBaseURL: String = "https://dollor.ai"
+    /// Uses CloudFront CDN for HTTPS (App Store requirement)
+    @Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
@@ -21,17 +22,77 @@ public class AppConfig: ObservableObject {
     @Published public var smallOrderThreshold: Double = 10.0
     @Published public var smallOrderFee: Double = 2.0
 
-    // MARK: - $1 Dollar Store Fee Structure - World's First!
+    // MARK: - TIERED Fee Structure - Revolutionary Pricing!
     // ==============================================
-    // Customer pays: Food + Tax + Delivery Fee + Platform Fee + Tip
-    // Restaurant pays: $1 flat commission (deducted from their payout)
+    // NEW TIERED MODEL (Dec 2024):
+    //
+    // Customer Delivery Fee:
+    //   - Order ≤ $35:    $1
+    //   - Order $35-$70:  $2
+    //   - Order > $70:    $3
+    //
+    // Restaurant Platform Fee:
+    //   - Order ≤ $35:    $1
+    //   - Order $35-$70:  $2
+    //   - Order > $70:    $3
+    //
     // Driver receives: Base pay + per-mile pay + 100% of tip
-    // Platform receives: $1 platform fee from customer + $1 commission from restaurant
+    // Platform receives: Tiered fee from customer + tiered fee from restaurant
     // ==============================================
-    // NOTE: These MUST match pricing_config.py in the backend
-    @Published public var serviceFee: Double = 1.00  // $1 platform fee to customer (matches PLATFORM_FEE_CONFIG.flat_fee)
-    @Published public var deliveryFee: Double = 2.99  // $2.99 base delivery fee (matches DELIVERY_FEE_CONFIG.base_fee)
-    @Published public var restaurantPlatformFee: Double = 1.0  // $1 flat commission from restaurant (matches RESTAURANT_COMMISSION_CONFIG.flat_commission)
+    // NOTE: These MUST match pricing_config.py TIERED_PRICING in the backend
+
+    // Tier thresholds
+    @Published public var tier1MaxOrder: Double = 35.00   // Orders up to $35
+    @Published public var tier2MaxOrder: Double = 70.00   // Orders $35.01 to $70
+    // tier3: Everything above $70
+
+    // Customer delivery fees (tiered)
+    @Published public var customerTier1Fee: Double = 1.00  // $1 for orders ≤ $35
+    @Published public var customerTier2Fee: Double = 2.00  // $2 for orders $35.01-$70
+    @Published public var customerTier3Fee: Double = 3.00  // $3 for orders > $70
+
+    // Restaurant platform fees (same tiers)
+    @Published public var restaurantTier1Fee: Double = 1.00  // $1 for orders ≤ $35
+    @Published public var restaurantTier2Fee: Double = 2.00  // $2 for orders $35.01-$70
+    @Published public var restaurantTier3Fee: Double = 3.00  // $3 for orders > $70
+
+    // Legacy flat fees (kept for backwards compatibility)
+    @Published public var serviceFee: Double = 1.00  // Legacy - use getCustomerDeliveryFee() instead
+    @Published public var deliveryFee: Double = 2.99  // Base delivery fee (legacy)
+    @Published public var restaurantPlatformFee: Double = 1.0  // Legacy - use getRestaurantPlatformFee() instead
+
+    /// Get customer delivery fee based on order subtotal (TIERED)
+    public func getCustomerDeliveryFee(orderSubtotal: Double) -> Double {
+        if orderSubtotal <= tier1MaxOrder {
+            return customerTier1Fee
+        } else if orderSubtotal <= tier2MaxOrder {
+            return customerTier2Fee
+        } else {
+            return customerTier3Fee
+        }
+    }
+
+    /// Get restaurant platform fee based on order subtotal (TIERED)
+    public func getRestaurantPlatformFee(orderSubtotal: Double) -> Double {
+        if orderSubtotal <= tier1MaxOrder {
+            return restaurantTier1Fee
+        } else if orderSubtotal <= tier2MaxOrder {
+            return restaurantTier2Fee
+        } else {
+            return restaurantTier3Fee
+        }
+    }
+
+    /// Get fee tier description for UI display
+    public func getFeeTierDescription(orderSubtotal: Double) -> String {
+        if orderSubtotal <= tier1MaxOrder {
+            return "Tier 1 (≤$\(Int(tier1MaxOrder))): $\(Int(customerTier1Fee))"
+        } else if orderSubtotal <= tier2MaxOrder {
+            return "Tier 2 ($\(Int(tier1MaxOrder)+1)-$\(Int(tier2MaxOrder))): $\(Int(customerTier2Fee))"
+        } else {
+            return "Tier 3 (>$\(Int(tier2MaxOrder))): $\(Int(customerTier3Fee))"
+        }
+    }
 
     // Driver/Delivery Config (matches pricing_config.py)
     @Published public var perMileDeliveryFee: Double = 0.50  // Per mile fee (matches DELIVERY_FEE_CONFIG.per_mile_fee)
@@ -53,11 +114,16 @@ public class AppConfig: ObservableObject {
     @Published public var maxPrepTimeMinutes: Int = 60
     @Published public var additionalPrepTimePerOrder: Int = 3
 
-    // MARK: - Rideshare Pricing (matches pricing_config.py RIDESHARE_PRICING_CONFIG)
+    // MARK: - Rideshare TIERED Pricing (matches pricing_config.py RIDESHARE_PRICING_CONFIG)
+    // NEW TIERED MODEL (Dec 2024):
+    //   - Fare ≤ $15:     $1 platform fee
+    //   - Fare $15-$35:   $2 platform fee
+    //   - Fare > $35:     $3 platform fee
+
     @Published public var rideBaseFare: Double = 2.00          // Base fare for rideshare
     @Published public var ridePerMileRate: Double = 1.00       // Per mile rate
     @Published public var ridePerMinuteRate: Double = 0.15     // Per minute rate
-    @Published public var ridePlatformFee: Double = 1.00       // $1 platform fee (same as delivery)
+    @Published public var ridePlatformFee: Double = 1.00       // Legacy $1 platform fee - use getRidesharePlatformFee()
     @Published public var rideMinFare: Double = 5.00           // Minimum fare
     @Published public var rideCancellationFee: Double = 5.00   // Cancellation fee (base)
     @Published public var rideCancellationFeeDriverEnRoute: Double = 5.00  // Fee when driver assigned
@@ -65,8 +131,40 @@ public class AppConfig: ObservableObject {
     @Published public var rideSurgeEnabled: Bool = true        // Surge pricing enabled
     @Published public var rideMaxSurgeMultiplier: Double = 3.0 // Maximum surge multiplier
 
-    // Support
-    @Published public var supportUrl: String = "https://dollor.ai/support"
+    // Rideshare tiered pricing thresholds (different from delivery)
+    @Published public var rideshareTier1MaxFare: Double = 15.00   // Fares up to $15
+    @Published public var rideshareTier2MaxFare: Double = 35.00   // Fares $15.01 to $35
+    // tier3: Everything above $35
+
+    // Rideshare platform fees (tiered)
+    @Published public var rideshareTier1Fee: Double = 1.00  // $1 for fares ≤ $15
+    @Published public var rideshareTier2Fee: Double = 2.00  // $2 for fares $15.01-$35
+    @Published public var rideshareTier3Fee: Double = 3.00  // $3 for fares > $35
+
+    /// Get rideshare platform fee based on fare amount (TIERED)
+    public func getRidesharePlatformFee(fareAmount: Double) -> Double {
+        if fareAmount <= rideshareTier1MaxFare {
+            return rideshareTier1Fee
+        } else if fareAmount <= rideshareTier2MaxFare {
+            return rideshareTier2Fee
+        } else {
+            return rideshareTier3Fee
+        }
+    }
+
+    /// Get rideshare fee tier description for UI display
+    public func getRideshareTierDescription(fareAmount: Double) -> String {
+        if fareAmount <= rideshareTier1MaxFare {
+            return "Tier 1 (≤$\(Int(rideshareTier1MaxFare))): $\(Int(rideshareTier1Fee))"
+        } else if fareAmount <= rideshareTier2MaxFare {
+            return "Tier 2 ($\(Int(rideshareTier1MaxFare)+1)-$\(Int(rideshareTier2MaxFare))): $\(Int(rideshareTier2Fee))"
+        } else {
+            return "Tier 3 (>$\(Int(rideshareTier2MaxFare))): $\(Int(rideshareTier3Fee))"
+        }
+    }
+
+    // Support - Using CloudFront CDN for HTTPS
+    @Published public var supportUrl: String = "https://d3kuu45w6kl8hr.cloudfront.net/support"
     @Published public var supportPhone: String = "+1-800-365-5671"
     @Published public var supportEmail: String = "support@dollor.ai"
 
@@ -231,7 +329,7 @@ public struct OrderStatusConstants {
 // All data comes from Dollar.ai P2P backend
 
 public struct APIEndpoints {
-    public static let baseURL = "https://dollor.ai"
+    public static let baseURL = "https://d3kuu45w6kl8hr.cloudfront.net"
 
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
@@ -322,8 +420,9 @@ public struct AppConstants {
     public static let termsVersion = "1.1"
 
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
-    public static let termsOfServiceURL = "https://dollor.ai/terms"
-    public static let privacyPolicyURL = "https://dollor.ai/privacy"
+    // Using CloudFront CDN for HTTPS support
+    public static let termsOfServiceURL = "https://d3kuu45w6kl8hr.cloudfront.net/terms"
+    public static let privacyPolicyURL = "https://d3kuu45w6kl8hr.cloudfront.net/privacy"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)

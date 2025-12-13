@@ -2,9 +2,9 @@
 
 **Dollor AI Service**
 
-**Last Updated: December 7, 2024**
+**Last Updated: December 11, 2024**
 
-**Effective Date: December 7, 2024**
+**Effective Date: December 11, 2024**
 
 ---
 

@@ -197,8 +197,17 @@ public final class EnterpriseLogger {
         startPeriodicFlush()
     }
 
+    deinit {
+        stopPeriodicFlush()
+    }
+
     public func configure(with config: NetworkConfig) {
         self.config = config
+    }
+
+    private func stopPeriodicFlush() {
+        flushTimer?.invalidate()
+        flushTimer = nil
     }
 
     public func log(

@@ -11,6 +11,10 @@ class CartViewModel: ObservableObject {
 
     private let p2pAPI = P2PAPIService.shared
 
+    deinit {
+        // Clean up any resources if needed
+    }
+
     var subtotal: Double {
         items.reduce(0) { $0 + $1.price }
     }

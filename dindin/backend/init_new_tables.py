@@ -17,8 +17,9 @@ from models import Base
 from models_extended import (
     Promotion, PromotionRedemption, RestaurantInvitation,
     OnboardingLog, ScrapedMenuItem, RealTimeEvent,
-    Communication, Customer, CustomerFavorite, VendorAnalytics
+    Communication, VendorAnalytics
 )
+from models import Customer, CustomerFavorite
 
 def create_tables():
     print("=" * 60)

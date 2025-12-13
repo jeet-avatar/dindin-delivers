@@ -28,8 +28,78 @@ struct CheckoutView: View {
 
     // ACH Payment State
     @State private var achDiscount: Double = 0.50  // $0.50 discount for ACH
-    
+
     @State private var correctedCoordinates: CLLocationCoordinate2D?
+
+    // Fee Transparency State
+    @State private var showFeeBreakdown = false
+    @State private var driverTip: Double = 3.0  // Default $3 tip
+    @State private var estimatedDistance: Double = 3.0  // Default 3 miles
+
+    // MARK: - Computed Fee Properties (Full Transparency)
+
+    /// Food subtotal - 100% goes to restaurant
+    private var foodSubtotal: Double {
+        cartViewModel.items.reduce(0.0) { result, item in
+            result + (item.price * Double(item.quantity))
+        }
+    }
+
+    /// Delivery fee - 100% goes to driver
+    private var deliveryFee: Double {
+        let baseFee = 2.99
+        let extraMiles = max(0, estimatedDistance - 2.0)
+        let distanceCharge = extraMiles * 0.50
+        return baseFee + distanceCharge
+    }
+
+    /// California state tax (7.25%)
+    private var stateTax: Double {
+        (foodSubtotal + deliveryFee) * 0.0725
+    }
+
+    /// City tax (1.25%)
+    private var cityTax: Double {
+        (foodSubtotal + deliveryFee) * 0.0125
+    }
+
+    /// Special district tax (1.0%)
+    private var districtTax: Double {
+        (foodSubtotal + deliveryFee) * 0.01
+    }
+
+    /// Total tax
+    private var totalTax: Double {
+        stateTax + cityTax + districtTax
+    }
+
+    /// Platform fee - TIERED based on order value
+    /// ≤$35: $1, $35-$70: $2, >$70: $3
+    private var platformFee: Double {
+        AppConfig.shared.getCustomerDeliveryFee(orderSubtotal: foodSubtotal)
+    }
+
+    /// Platform fee tier description for display
+    private var platformFeeTierDescription: String {
+        AppConfig.shared.getFeeTierDescription(orderSubtotal: foodSubtotal)
+    }
+
+    /// Small order fee (orders under $15)
+    private var smallOrderFee: Double {
+        foodSubtotal < 15.0 ? 2.00 : 0.0
+    }
+
+    /// Payment processing fee (Stripe: 2.9% + $0.30) - passed through at cost
+    private var processingFee: Double {
+        let subtotalBeforeProcessing = foodSubtotal + deliveryFee + totalTax + platformFee + smallOrderFee + driverTip
+        return (subtotalBeforeProcessing * 0.029) + 0.30
+    }
+
+    /// Calculate grand total with all fees
+    private func calculateGrandTotal() -> Double {
+        let totalDiscount = discount + (selectedPaymentMethod == "ACH" ? achDiscount : 0)
+        return foodSubtotal + deliveryFee + totalTax + platformFee + smallOrderFee + processingFee + driverTip - totalDiscount
+    }
     
     var body: some View {
         ZStack {
@@ -204,57 +274,289 @@ struct CheckoutView: View {
                         }
                         .padding(.horizontal)
                         
-                        // 3. Order Summary
+                        // 3. Order Summary - FULL FEE TRANSPARENCY
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("ORDER SUMMARY")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(Theme.textGrey)
-                            
-                            VStack(spacing: 10) {
-                                ForEach(cartViewModel.items) { item in
+                            HStack {
+                                Text("ORDER SUMMARY")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(Theme.textGrey)
+                                Spacer()
+                                // Fee transparency info button
+                                Button(action: { showFeeBreakdown = true }) {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "info.circle")
+                                        Text("Fee Details")
+                                    }
+                                    .font(.caption2)
+                                    .foregroundColor(Theme.brandGreen)
+                                }
+                            }
+
+                            VStack(spacing: 8) {
+                                // Food Items Section
+                                VStack(alignment: .leading, spacing: 4) {
                                     HStack {
-                                        Text(item.name)
+                                        Text("Food Items")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Text("100% → Restaurant")
+                                            .font(.caption2)
+                                            .foregroundColor(.green)
+                                    }
+                                    ForEach(Array(cartViewModel.items.enumerated()), id: \.offset) { index, item in
+                                        HStack {
+                                            Text("  \(item.quantity)x \(item.name)")
+                                                .font(.caption)
+                                                .foregroundColor(Theme.textGrey)
+                                            Spacer()
+                                            Text("$\(String(format: "%.2f", item.price * Double(item.quantity)))")
+                                                .font(.caption)
+                                        }
+                                    }
+                                    HStack {
+                                        Text("  Subtotal")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Text("$\(String(format: "%.2f", foodSubtotal))")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+
+                                Divider()
+
+                                // Delivery Fee Section
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Delivery")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Text("100% → Driver")
+                                            .font(.caption2)
+                                            .foregroundColor(.green)
+                                    }
+                                    HStack {
+                                        Text("  Base delivery fee")
+                                            .font(.caption)
                                             .foregroundColor(Theme.textGrey)
                                         Spacer()
-                                        Text("$\(String(format: "%.2f", item.price))")
+                                        Text("$2.99")
+                                            .font(.caption)
                                     }
-                                }
-
-                                if discount > 0 {
                                     HStack {
-                                        Text("Promo Discount")
-                                            .foregroundColor(.green)
+                                        Text("  Distance (\(String(format: "%.1f", estimatedDistance)) mi)")
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textGrey)
                                         Spacer()
-                                        Text("-$\(String(format: "%.2f", discount))")
-                                            .foregroundColor(.green)
+                                        Text("$\(String(format: "%.2f", max(0, (estimatedDistance - 2.0) * 0.50)))")
+                                            .font(.caption)
                                     }
                                 }
 
-                                // Show ACH discount when ACH is selected
-                                if selectedPaymentMethod == "ACH" {
+                                Divider()
+
+                                // Taxes Section - Itemized
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Taxes")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Text("→ Government")
+                                            .font(.caption2)
+                                            .foregroundColor(.blue)
+                                    }
+                                    HStack {
+                                        Text("  CA State Tax (7.25%)")
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textGrey)
+                                        Spacer()
+                                        Text("$\(String(format: "%.2f", stateTax))")
+                                            .font(.caption)
+                                    }
+                                    HStack {
+                                        Text("  City Tax (1.25%)")
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textGrey)
+                                        Spacer()
+                                        Text("$\(String(format: "%.2f", cityTax))")
+                                            .font(.caption)
+                                    }
+                                    HStack {
+                                        Text("  District Tax (1.0%)")
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textGrey)
+                                        Spacer()
+                                        Text("$\(String(format: "%.2f", districtTax))")
+                                            .font(.caption)
+                                    }
+                                }
+
+                                Divider()
+
+                                // Fees Section - Transparent
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Fees")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                    }
                                     HStack {
                                         HStack(spacing: 4) {
-                                            Image(systemName: "building.columns.fill")
-                                                .font(.caption)
-                                            Text("ACH Bank Discount")
+                                            Image(systemName: "app.connected.to.app.below.fill")
+                                                .font(.caption2)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Platform Fee")
+                                                    .font(.caption)
+                                                Text(platformFeeTierDescription)
+                                                    .font(.caption2)
+                                                    .foregroundColor(.orange)
+                                            }
                                         }
-                                        .foregroundColor(.green)
+                                        .foregroundColor(Theme.textGrey)
                                         Spacer()
-                                        Text("-$\(String(format: "%.2f", achDiscount))")
-                                            .foregroundColor(.green)
+                                        VStack(alignment: .trailing) {
+                                            Text("$\(String(format: "%.2f", platformFee))")
+                                                .font(.caption)
+                                            Text("→ Dollor.ai")
+                                                .font(.caption2)
+                                                .foregroundColor(.orange)
+                                        }
+                                    }
+                                    HStack {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "creditcard")
+                                                .font(.caption2)
+                                            Text("Processing (2.9% + $0.30)")
+                                                .font(.caption)
+                                        }
+                                        .foregroundColor(Theme.textGrey)
+                                        Spacer()
+                                        VStack(alignment: .trailing) {
+                                            Text("$\(String(format: "%.2f", processingFee))")
+                                                .font(.caption)
+                                            Text("→ Stripe")
+                                                .font(.caption2)
+                                                .foregroundColor(.purple)
+                                        }
+                                    }
+                                    if foodSubtotal < 15.0 {
+                                        HStack {
+                                            Text("  Small order fee")
+                                                .font(.caption)
+                                                .foregroundColor(Theme.textGrey)
+                                            Spacer()
+                                            Text("$2.00")
+                                                .font(.caption)
+                                        }
                                     }
                                 }
 
-                                let totalDiscount = discount + (selectedPaymentMethod == "ACH" ? achDiscount : 0)
-                                let finalTotal = cartViewModel.total - totalDiscount
+                                // Discounts
+                                if discount > 0 || selectedPaymentMethod == "ACH" {
+                                    Divider()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Discounts")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.green)
+                                        if discount > 0 {
+                                            HStack {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "tag.fill")
+                                                        .font(.caption2)
+                                                    Text("Promo: \(appliedPromoCode ?? "")")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(.green)
+                                                Spacer()
+                                                Text("-$\(String(format: "%.2f", discount))")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                            }
+                                        }
+                                        if selectedPaymentMethod == "ACH" {
+                                            HStack {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "building.columns.fill")
+                                                        .font(.caption2)
+                                                    Text("ACH Bank Discount")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(.green)
+                                                Spacer()
+                                                Text("-$\(String(format: "%.2f", achDiscount))")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Driver Tip
                                 Divider()
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Driver Tip")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Text("100% → Driver")
+                                            .font(.caption2)
+                                            .foregroundColor(.green)
+                                    }
+                                    HStack(spacing: 8) {
+                                        ForEach([0.0, 2.0, 3.0, 5.0], id: \.self) { tip in
+                                            Button(action: { driverTip = tip }) {
+                                                Text(tip == 0 ? "No tip" : "$\(Int(tip))")
+                                                    .font(.caption)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 6)
+                                                    .background(driverTip == tip ? Theme.brandGreen : Color.gray.opacity(0.2))
+                                                    .foregroundColor(driverTip == tip ? .white : Theme.brandBlack)
+                                                    .cornerRadius(16)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Grand Total
+                                Divider().padding(.vertical, 4)
+                                let _ = discount + (selectedPaymentMethod == "ACH" ? achDiscount : 0)
+                                let grandTotal = calculateGrandTotal()
                                 HStack {
-                                    Text("Total")
+                                    Text("TOTAL")
                                         .fontWeight(.bold)
                                     Spacer()
-                                    Text("$\(String(format: "%.2f", max(0, finalTotal)))")
+                                    Text("$\(String(format: "%.2f", max(0, grandTotal)))")
+                                        .font(.title3)
                                         .fontWeight(.bold)
+                                        .foregroundColor(Theme.brandGreen)
+                                }
+
+                                // Money Flow Summary
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Divider()
+                                    Text("WHERE YOUR MONEY GOES")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(Theme.textGrey)
+                                        .padding(.top, 4)
+
+                                    HStack(spacing: 4) {
+                                        MoneyFlowChip(label: "Restaurant", amount: foodSubtotal, color: .green)
+                                        MoneyFlowChip(label: "Driver", amount: deliveryFee + driverTip, color: .blue)
+                                        MoneyFlowChip(label: "Tax", amount: totalTax, color: .gray)
+                                    }
+                                    HStack(spacing: 4) {
+                                        MoneyFlowChip(label: "Dollor.ai", amount: platformFee, color: .orange)
+                                        MoneyFlowChip(label: "Stripe", amount: processingFee, color: .purple)
+                                    }
                                 }
                             }
                             .padding()
@@ -369,6 +671,10 @@ struct CheckoutView: View {
         // Mock payment alert removed for production - Stripe is properly integrated
         .alert(isPresented: $showingError) {
             Alert(title: Text("Error"), message: Text(errorMessage ?? "Unknown error"), dismissButton: .default(Text("OK")))
+        }
+        // Fee transparency detail sheet
+        .sheet(isPresented: $showFeeBreakdown) {
+            FeeBreakdownDetailView()
         }
         .navigationTitle("Checkout")
         .onAppear {
@@ -607,7 +913,7 @@ struct PaymentOptionRow: View {
     let title: String
     let icon: String
     let isSelected: Bool
-    
+
     var body: some View {
         HStack {
             Image(systemName: icon)
@@ -625,5 +931,189 @@ struct PaymentOptionRow: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - Money Flow Chip (Fee Transparency)
+/// Visual chip showing where customer's money goes
+struct MoneyFlowChip: View {
+    let label: String
+    let amount: Double
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.white)
+            Text("$\(String(format: "%.2f", amount))")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.8))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Fee Breakdown Detail View
+/// Full explanation of all fees for customer education
+struct FeeBreakdownDetailView: View {
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Header
+                    VStack(alignment: .center, spacing: 8) {
+                        Image(systemName: "chart.pie.fill")
+                            .font(.largeTitle)
+                            .foregroundColor(Theme.brandGreen)
+                        Text("Fee Transparency")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        Text("Every penny accounted for")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+
+                    // Food Cost
+                    FeeExplanationCard(
+                        icon: "fork.knife",
+                        title: "Food Cost",
+                        recipient: "100% to Restaurant",
+                        recipientColor: .green,
+                        explanation: "The full menu price goes directly to the restaurant. We charge restaurants ZERO commission - unlike DoorDash (25%) or Uber Eats (30%)."
+                    )
+
+                    // Delivery Fee
+                    FeeExplanationCard(
+                        icon: "car.fill",
+                        title: "Delivery Fee",
+                        recipient: "100% to Driver",
+                        recipientColor: .blue,
+                        explanation: "Base $2.99 + $0.50/mile after 2 miles. This entire amount goes to your driver for picking up and delivering your food."
+                    )
+
+                    // Driver Tip
+                    FeeExplanationCard(
+                        icon: "heart.fill",
+                        title: "Driver Tip",
+                        recipient: "100% to Driver",
+                        recipientColor: .green,
+                        explanation: "We NEVER take a cut of tips. 100% of what you tip goes directly to your driver - every single penny."
+                    )
+
+                    // Taxes
+                    FeeExplanationCard(
+                        icon: "building.columns.fill",
+                        title: "Taxes",
+                        recipient: "Government",
+                        recipientColor: .gray,
+                        explanation: "Sales taxes are required by law and vary by location. In California: State (7.25%) + City (1.25%) + District (1%). We itemize every tax so you know exactly what goes where."
+                    )
+
+                    // Platform Fee - TIERED
+                    FeeExplanationCard(
+                        icon: "app.connected.to.app.below.fill",
+                        title: "Platform Fee ($1-$3)",
+                        recipient: "Dollor.ai",
+                        recipientColor: .orange,
+                        explanation: "This is how we make money - a simple tiered fee:\n• Orders ≤$35: $1\n• Orders $35-$70: $2\n• Orders >$70: $3\n\nNo hidden fees, no inflated prices. Competitors charge 15-30% commission!"
+                    )
+
+                    // Processing Fee
+                    FeeExplanationCard(
+                        icon: "creditcard.fill",
+                        title: "Processing Fee (2.9% + $0.30)",
+                        recipient: "Stripe",
+                        recipientColor: .purple,
+                        explanation: "Payment processing costs charged by Stripe. We pass this through at exact cost with ZERO markup. This is the industry standard rate."
+                    )
+
+                    // Our Promise
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("OUR TRANSPARENCY PROMISE")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(Theme.textGrey)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            PromiseRow(icon: "checkmark.circle.fill", text: "No hidden fees in menu prices")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "100% of tips go to drivers")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "$1-$3 flat fee to restaurants (vs 30% competitors)")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "Simple tiered platform fee ($1-$3)")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "All fees clearly itemized")
+                        }
+                        .padding()
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.bottom, 40)
+            }
+            .navigationTitle("How Fees Work")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct FeeExplanationCard: View {
+    let icon: String
+    let title: String
+    let recipient: String
+    let recipientColor: Color
+    let explanation: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(Theme.brandOrange)
+                Text(title)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(recipient)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(recipientColor.opacity(0.2))
+                    .foregroundColor(recipientColor)
+                    .cornerRadius(12)
+            }
+            Text(explanation)
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .padding(.horizontal)
+    }
+}
+
+struct PromiseRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.green)
+            Text(text)
+                .font(.subheadline)
+        }
     }
 }

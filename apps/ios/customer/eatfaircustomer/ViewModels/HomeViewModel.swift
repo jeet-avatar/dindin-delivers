@@ -133,7 +133,7 @@ class HomeViewModel: ObservableObject {
             .limit(to: 1)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
-                    if error != nil {
+                    if let _ = error {
                         self?.hasActiveOrder = false
                         return
                     }

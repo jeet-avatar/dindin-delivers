@@ -18,6 +18,11 @@ class RestaurantMenuViewModel: ObservableObject {
 
     private var db = Firestore.firestore()
     private let p2pAPI = P2PAPIService.shared
+    private var menuListener: ListenerRegistration?
+
+    deinit {
+        menuListener?.remove()
+    }
 
     // Configurable vendor ID for P2P backend (set this when restaurant logs in)
     var p2pVendorId: Int {
@@ -83,7 +88,9 @@ class RestaurantMenuViewModel: ObservableObject {
     }
 
     private func fetchFirebaseMenu() {
-        db.collection("restaurants").document(restaurantId).collection("menu")
+        // Remove existing listener before adding a new one
+        menuListener?.remove()
+        menuListener = db.collection("restaurants").document(restaurantId).collection("menu")
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false

@@ -412,8 +412,8 @@ class MultiRestaurantCartViewModel: ObservableObject {
 
                 // STEP 2: Save to Firebase with the same order number
                 do {
-                    try db.collection("orders").addDocument(from: syncedOrder) { error in
-                        DispatchQueue.main.async {
+                    try db.collection("orders").addDocument(from: syncedOrder) { [weak self] error in
+                        DispatchQueue.main.async { [weak self] in
                             self?.isLoading = false
                             // P2P succeeded but Firebase may have failed - still return success
                             // The order exists in P2P backend which is primary
@@ -422,7 +422,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
                         }
                     }
                 } catch {
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.async { [weak self] in
                         self?.isLoading = false
                         // P2P succeeded, Firebase encoding failed
                         self?.clearCart()
@@ -445,7 +445,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
     ) {
         do {
             try db.collection("orders").addDocument(from: order) { [weak self] error in
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     self?.isLoading = false
 
                     if let error = error {
@@ -460,6 +460,12 @@ class MultiRestaurantCartViewModel: ObservableObject {
             isLoading = false
             completion(.failure(error))
         }
+    }
+
+    // MARK: - Cleanup
+
+    deinit {
+        // Clean up any resources if needed
     }
 
     // MARK: - Persistence (Optional)

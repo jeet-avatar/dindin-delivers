@@ -8,8 +8,13 @@ class RestaurantViewModel: ObservableObject {
     @Published var newOrders: [Order] = []
     @Published var inProgressOrders: [Order] = []
     @Published var isLoading = false
-    
+
     private var db = Firestore.firestore()
+    private var ordersListener: ListenerRegistration?
+
+    deinit {
+        ordersListener?.remove()
+    }
     
     private var restaurantId: String {
         Auth.auth().currentUser?.uid ?? "12" // Fallback to 12 for testing if not logged in (shouldn't happen)
@@ -25,7 +30,9 @@ class RestaurantViewModel: ObservableObject {
         // The Customer App saves 'restaurantName'. It doesn't seem to save 'restaurantId' in the top level Order object based on my previous read.
         // Let's check Order.swift in Customer App again.
         
-        db.collection("orders")
+        // Remove existing listener before adding a new one
+        ordersListener?.remove()
+        ordersListener = db.collection("orders")
             // .whereField("restaurantId", isEqualTo: restaurantId) // Uncomment when added
             // .order(by: "placedAt", descending: true) // Removed to avoid index error, sort client-side
             .addSnapshotListener { [weak self] snapshot, error in

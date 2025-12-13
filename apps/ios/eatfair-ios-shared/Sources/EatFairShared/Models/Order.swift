@@ -9,6 +9,7 @@ public enum DeliveryOrderStatus: String, CaseIterable {
     case outForDelivery = "Out for Delivery"
     case delivered = "Delivered"
     case cancelled = "Cancelled"
+    case pendingModification = "pending_modification"  // Restaurant marked items unavailable, awaiting customer
 
     /// Display name for UI
     public var displayName: String {
@@ -21,6 +22,8 @@ public enum DeliveryOrderStatus: String, CaseIterable {
             return "Delivered"
         case .cancelled:
             return "Cancelled"
+        case .pendingModification:
+            return "Action Required"
         }
     }
 
@@ -36,9 +39,116 @@ public enum DeliveryOrderStatus: String, CaseIterable {
             return .delivered
         case "cancelled", "canceled":
             return .cancelled
+        case "pending_modification", "pendingmodification":
+            return .pendingModification
         default:
             return .ready
         }
+    }
+}
+
+// MARK: - Order Modification (Partial Order Support)
+public struct OrderModification: Codable, Identifiable {
+    public var id: String { modificationNumber }
+    public let modificationNumber: String
+    public let orderId: Int
+
+    // Unavailable items
+    public let unavailableItems: [UnavailableItem]
+    public let unavailableCount: Int
+
+    // Available items (what customer will receive)
+    public let availableItems: [ModifiedOrderItem]
+    public let availableCount: Int
+
+    // Pricing
+    public let originalTotal: Double
+    public let newTotal: Double
+    public let partialRefundAmount: Double
+
+    // Timing
+    public let timeRemainingSeconds: Int
+    public let expiresAt: String
+    public let isExpired: Bool
+
+    // Restaurant
+    public let restaurantName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case modificationNumber = "modification_number"
+        case orderId = "order_id"
+        case unavailableItems = "unavailable_items"
+        case unavailableCount = "unavailable_count"
+        case availableItems = "available_items"
+        case availableCount = "available_count"
+        case originalTotal = "original_total"
+        case newTotal = "new_total"
+        case partialRefundAmount = "partial_refund_amount"
+        case timeRemainingSeconds = "time_remaining_seconds"
+        case expiresAt = "expires_at"
+        case isExpired = "is_expired"
+        case restaurantName = "restaurant_name"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        modificationNumber = try container.decodeIfPresent(String.self, forKey: .modificationNumber) ?? ""
+        orderId = try container.decodeIfPresent(Int.self, forKey: .orderId) ?? 0
+        unavailableItems = try container.decodeIfPresent([UnavailableItem].self, forKey: .unavailableItems) ?? []
+        unavailableCount = try container.decodeIfPresent(Int.self, forKey: .unavailableCount) ?? 0
+        availableItems = try container.decodeIfPresent([ModifiedOrderItem].self, forKey: .availableItems) ?? []
+        availableCount = try container.decodeIfPresent(Int.self, forKey: .availableCount) ?? 0
+        originalTotal = try container.decodeIfPresent(Double.self, forKey: .originalTotal) ?? 0
+        newTotal = try container.decodeIfPresent(Double.self, forKey: .newTotal) ?? 0
+        partialRefundAmount = try container.decodeIfPresent(Double.self, forKey: .partialRefundAmount) ?? 0
+        timeRemainingSeconds = try container.decodeIfPresent(Int.self, forKey: .timeRemainingSeconds) ?? 0
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt) ?? ""
+        isExpired = try container.decodeIfPresent(Bool.self, forKey: .isExpired) ?? false
+        restaurantName = try container.decodeIfPresent(String.self, forKey: .restaurantName)
+    }
+}
+
+public struct UnavailableItem: Codable, Identifiable {
+    public var id: String { name }
+    public let name: String
+    public let price: Double
+    public let quantity: Int
+    public let reason: String
+    public let itemIndex: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case name, price, quantity, reason
+        case itemIndex = "item_index"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        price = try container.decodeIfPresent(Double.self, forKey: .price) ?? 0
+        quantity = try container.decodeIfPresent(Int.self, forKey: .quantity) ?? 1
+        reason = try container.decodeIfPresent(String.self, forKey: .reason) ?? "out of stock"
+        itemIndex = try container.decodeIfPresent(Int.self, forKey: .itemIndex)
+    }
+}
+
+public struct ModifiedOrderItem: Codable, Identifiable {
+    public var id: String { name }
+    public let name: String
+    public let price: Double
+    public let quantity: Int
+    public let totalPrice: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case name, price, quantity
+        case totalPrice = "total_price"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        price = try container.decodeIfPresent(Double.self, forKey: .price) ?? 0
+        quantity = try container.decodeIfPresent(Int.self, forKey: .quantity) ?? 1
+        totalPrice = try container.decodeIfPresent(Double.self, forKey: .totalPrice)
     }
 }
 
@@ -63,12 +173,13 @@ public struct Order: Identifiable, Codable {
     public var serviceFee: Double
     public var priorityFee: Double
     public var smallOrderFee: Double
-    
+    public var platformFee: Double // Tiered: $1 (≤$35), $2 ($35-$70), $3 (>$70)
+
     // Promotions & Discounts
     public var promotionCode: String?
     public var discount: Double
     public var discountType: String? // "percentage" | "fixed"
-    
+
     // Tax Details
     public var tax: Double
     public var taxRate: Double // Actual percentage (e.g., 7.25)
@@ -105,7 +216,7 @@ public struct Order: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id, orderId, customerId, customerName, customerPhone, customerEmail
         case deliveryAddress, deliveryInstructions, restaurant, items, itemsCount
-        case subtotal, deliveryFee, serviceFee, priorityFee, smallOrderFee
+        case subtotal, deliveryFee, serviceFee, priorityFee, smallOrderFee, platformFee
         case promotionCode, discount, discountType
         case tax, taxRate, taxState
         case tip, tipPercentage
@@ -136,7 +247,8 @@ public struct Order: Identifiable, Codable {
         serviceFee = try container.decodeIfPresent(Double.self, forKey: .serviceFee) ?? 0.0
         priorityFee = try container.decodeIfPresent(Double.self, forKey: .priorityFee) ?? 0.0
         smallOrderFee = try container.decodeIfPresent(Double.self, forKey: .smallOrderFee) ?? 0.0
-        
+        platformFee = try container.decodeIfPresent(Double.self, forKey: .platformFee) ?? 0.0
+
         promotionCode = try container.decodeIfPresent(String.self, forKey: .promotionCode)
         discount = try container.decodeIfPresent(Double.self, forKey: .discount) ?? 0.0
         discountType = try container.decodeIfPresent(String.self, forKey: .discountType)
@@ -176,7 +288,7 @@ public struct Order: Identifiable, Codable {
         isTipped = try container.decodeIfPresent(Bool.self, forKey: .isTipped) ?? false
     }
     
-    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isTipped: Bool = false) {
+    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isTipped: Bool = false) {
         self.id = id
         self.orderId = orderId
         self.customerId = customerId
@@ -193,6 +305,7 @@ public struct Order: Identifiable, Codable {
         self.serviceFee = serviceFee
         self.priorityFee = priorityFee
         self.smallOrderFee = smallOrderFee
+        self.platformFee = platformFee
         self.promotionCode = promotionCode
         self.discount = discount
         self.discountType = discountType
@@ -229,6 +342,7 @@ public struct Order: Identifiable, Codable {
         self.serviceFee = 0.0
         self.priorityFee = 0.0
         self.smallOrderFee = 0.0
+        self.platformFee = 0.0
         self.promotionCode = nil
         self.discount = 0.0
         self.discountType = nil
