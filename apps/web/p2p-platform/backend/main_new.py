@@ -742,6 +742,222 @@ def update_driver_location(latitude: float, longitude: float, current_user: User
     return {"success": True, "latitude": latitude, "longitude": longitude}
 
 
+# ==================== iOS APP COMPATIBLE ENDPOINTS ====================
+# These endpoints match what the iOS driver app expects
+
+@app.get("/erp/drivers/{driver_id}")
+def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
+    """Get driver profile by ID (iOS app compatible endpoint)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    return {
+        "id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "full_name": f"{driver.first_name} {driver.last_name}",
+        "first_name": driver.first_name,
+        "last_name": driver.last_name,
+        "email": driver.email,
+        "phone": driver.phone,
+        "phone_number": driver.phone,
+        "date_of_birth": driver.date_of_birth,
+        "status": driver.status.value,
+        "approval_status": driver.status.value,
+        "rating": driver.rating,
+        "total_deliveries": driver.total_deliveries,
+        "is_online": driver.is_online,
+        "latitude": driver.current_latitude,
+        "longitude": driver.current_longitude,
+        "vehicle_type": driver.vehicle_type,
+        "vehicle_make": driver.vehicle_make,
+        "vehicle_model": driver.vehicle_model,
+        "vehicle_year": driver.vehicle_year,
+        "vehicle_color": driver.vehicle_color,
+        "license_plate": driver.license_plate,
+        "profile_image": None,  # TODO: Add profile image support
+        "license_number": driver.license_number,
+        "drivers_license_url": driver.drivers_license_url,
+        "insurance_url": driver.insurance_url,
+        "created_at": driver.created_at.isoformat() if driver.created_at else None
+    }
+
+
+@app.put("/drivers/{driver_id}")
+def update_driver_profile_by_id(
+    driver_id: int,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    phone: Optional[str] = None,
+    vehicle_type: Optional[str] = None,
+    vehicle_make: Optional[str] = None,
+    vehicle_model: Optional[str] = None,
+    vehicle_year: Optional[int] = None,
+    vehicle_color: Optional[str] = None,
+    license_plate: Optional[str] = None,
+    license_number: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Update driver profile by ID (iOS app compatible endpoint)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Update fields if provided
+    if first_name is not None:
+        driver.first_name = first_name
+    if last_name is not None:
+        driver.last_name = last_name
+    if phone is not None:
+        driver.phone = phone
+    if vehicle_type is not None:
+        driver.vehicle_type = vehicle_type
+    if vehicle_make is not None:
+        driver.vehicle_make = vehicle_make
+    if vehicle_model is not None:
+        driver.vehicle_model = vehicle_model
+    if vehicle_year is not None:
+        driver.vehicle_year = vehicle_year
+    if vehicle_color is not None:
+        driver.vehicle_color = vehicle_color
+    if license_plate is not None:
+        driver.license_plate = license_plate
+    if license_number is not None:
+        driver.license_number = license_number
+
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": "Profile updated successfully",
+        "driver": {
+            "id": driver.id,
+            "name": f"{driver.first_name} {driver.last_name}",
+            "email": driver.email
+        }
+    }
+
+
+@app.get("/drivers/{driver_id}/documents")
+def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
+    """Get driver documents status (iOS app compatible endpoint)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    documents = []
+
+    # Driver's license
+    if driver.drivers_license:
+        documents.append({
+            "document_type": "drivers_license",
+            "status": "verified" if driver.drivers_license else "pending",
+            "verified": driver.drivers_license,
+            "file_url": driver.drivers_license_url,
+            "expiry_date": driver.drivers_license_expiry.isoformat() if driver.drivers_license_expiry else None,
+            "upload_date": driver.updated_at.isoformat() if driver.updated_at else None
+        })
+
+    # Insurance
+    if driver.insurance:
+        documents.append({
+            "document_type": "insurance",
+            "status": "verified" if driver.insurance else "pending",
+            "verified": driver.insurance,
+            "file_url": driver.insurance_url,
+            "expiry_date": driver.insurance_expiry.isoformat() if driver.insurance_expiry else None,
+            "upload_date": driver.updated_at.isoformat() if driver.updated_at else None
+        })
+
+    # Background check
+    if driver.background_check:
+        documents.append({
+            "document_type": "background_check",
+            "status": "verified" if driver.background_check else "pending",
+            "verified": driver.background_check,
+            "file_url": None,
+            "expiry_date": None,
+            "upload_date": driver.background_check_date.isoformat() if driver.background_check_date else None
+        })
+
+    all_verified = all(doc.get("verified", False) for doc in documents) if documents else False
+
+    return {
+        "success": True,
+        "count": len(documents),
+        "all_verified": all_verified,
+        "documents": documents
+    }
+
+
+@app.post("/drivers/{driver_id}/documents")
+async def upload_driver_document_by_id(
+    driver_id: int,
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    expiry_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Upload driver document (iOS app compatible endpoint)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Validate document type
+    valid_types = ['drivers_license', 'license_front', 'license_back', 'insurance', 'insurance_card',
+                   'vehicle_front', 'vehicle_side', 'vehicle_back', 'profile_photo']
+    if document_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {valid_types}")
+
+    # Create upload directory
+    upload_dir = "uploads/driver_documents"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate unique filename
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".jpg"
+    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+
+    # Update driver record
+    url_path = f"/uploads/driver_documents/{unique_filename}"
+
+    if document_type in ['drivers_license', 'license_front', 'license_back']:
+        driver.drivers_license = True
+        driver.drivers_license_url = url_path
+        if expiry_date:
+            try:
+                driver.drivers_license_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+            except:
+                pass
+    elif document_type in ['insurance', 'insurance_card']:
+        driver.insurance = True
+        driver.insurance_url = url_path
+        if expiry_date:
+            try:
+                driver.insurance_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+            except:
+                pass
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"{document_type} uploaded successfully",
+        "file_url": url_path,
+        "file_path": url_path,
+        "document_type": document_type,
+        "verification_status": "pending"
+    }
+
+
 @app.post("/api/auth/driver/documents")
 async def upload_driver_document(
     document_type: str = Form(...),
