@@ -223,10 +223,48 @@ def generate_invoice_number(db: Session) -> str:
     
     return f"{prefix}-{new_num:04d}"
 
+# Database migration function
+def run_migrations():
+    """Run database migrations to add missing columns"""
+    from sqlalchemy import text
+    from database import engine
+
+    migrations = [
+        # Orders table columns
+        ("orders", "dispatched_at", "TIMESTAMP"),
+        ("orders", "auto_dispatched", "BOOLEAN DEFAULT FALSE"),
+        ("orders", "broadcast_to_drivers", "BOOLEAN DEFAULT FALSE"),
+        ("orders", "broadcast_at", "TIMESTAMP"),
+        ("orders", "broadcast_radius_km", "FLOAT"),
+        # Drivers table columns
+        ("drivers", "date_of_birth", "VARCHAR(20)"),
+        ("drivers", "license_number", "VARCHAR(50)"),
+        ("drivers", "location_updated_at", "TIMESTAMP"),
+        ("drivers", "went_online_at", "TIMESTAMP"),
+        ("drivers", "went_offline_at", "TIMESTAMP"),
+        ("drivers", "fcm_token", "VARCHAR(500)"),
+        ("drivers", "device_type", "VARCHAR(20)"),
+        ("drivers", "fcm_token_updated_at", "TIMESTAMP"),
+        ("drivers", "photo_url", "VARCHAR(500)"),
+    ]
+
+    try:
+        with engine.connect() as conn:
+            for table, col_name, col_type in migrations:
+                try:
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))
+                except Exception as e:
+                    print(f"Migration {table}.{col_name}: {e}")
+            conn.commit()
+            print("Database migrations completed successfully")
+    except Exception as e:
+        print(f"Migration error: {e}")
+
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    run_migrations()
 
 # Routes
 @app.get("/")
