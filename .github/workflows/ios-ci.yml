@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  XCODE_VERSION: '15.0'
+  XCODE_VERSION: '16.1'
 
 jobs:
   lint:
@@ -62,14 +62,14 @@ jobs:
             -workspace eatfaircustomer.xcworkspace \
             -scheme eatfaircustomer \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || xcodebuild build \
               -project eatfaircustomer.xcodeproj \
               -scheme eatfaircustomer \
               -sdk iphonesimulator \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
               -configuration Debug \
               CODE_SIGNING_ALLOWED=NO
 
@@ -99,14 +99,14 @@ jobs:
             -workspace eatffairrestaurant.xcworkspace \
             -scheme eatffairrestaurant \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || xcodebuild build \
               -project eatffairrestaurant.xcodeproj \
               -scheme eatffairrestaurant \
               -sdk iphonesimulator \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
               -configuration Debug \
               CODE_SIGNING_ALLOWED=NO
 
@@ -136,14 +136,14 @@ jobs:
             -workspace eatffairdelivery.xcworkspace \
             -scheme eatffairdelivery \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || xcodebuild build \
               -project eatffairdelivery.xcodeproj \
               -scheme eatffairdelivery \
               -sdk iphonesimulator \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
               -configuration Debug \
               CODE_SIGNING_ALLOWED=NO
 
