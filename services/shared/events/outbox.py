@@ -99,7 +99,7 @@ class EventStore(Base):
     aggregate_id = Column(String(36), nullable=False, index=True)
     sequence_number = Column(Integer, nullable=False)  # Per-aggregate sequence
     payload = Column(JSONB, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    event_metadata = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
@@ -211,7 +211,7 @@ class OutboxRepository:
             aggregate_id=aggregate_id,
             sequence_number=sequence_number,
             payload=event.to_dict(),
-            metadata=event.metadata.to_dict(),
+            event_metadata=event.metadata.to_dict() if hasattr(event, 'metadata') else None,
         )
 
         session.add(store_entry)
@@ -349,7 +349,7 @@ CREATE TABLE IF NOT EXISTS event_store (
     aggregate_id VARCHAR(36) NOT NULL,
     sequence_number INTEGER NOT NULL,
     payload JSONB NOT NULL,
-    metadata JSONB,
+    event_metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

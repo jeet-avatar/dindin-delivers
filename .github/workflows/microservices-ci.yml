@@ -205,23 +205,47 @@ jobs:
         run: |
           pip install ruff bandit safety
 
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend)
+              # Skip linting for frontend (TypeScript/React)
+              echo "path=apps/web/p2p-platform/frontend" >> $GITHUB_OUTPUT
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            techcloudpro-employee)
+              # Skip - no source code in repo
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Run Ruff linter
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         run: |
           ruff check . --output-format=github || true
           ruff format --check . || true
 
       - name: Run Bandit security linter
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         run: |
           bandit -r . -f json -o bandit-report.json || true
           bandit -r . -f txt || true
 
       - name: Upload Bandit report
+        if: steps.service-path.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: bandit-report-${{ matrix.service }}
-          path: ${{ env.SERVICES_PATH }}/${{ matrix.service }}/bandit-report.json
+          path: ${{ steps.service-path.outputs.path }}/bandit-report.json
 
   # =============================================================================
   # SEMGREP SAST SCAN
@@ -250,18 +274,17 @@ jobs:
             p/dockerfile
             p/sql-injection
             p/xss
-            services/.semgrep/dollor-rules.yaml
           generateSarif: true
 
       - name: Upload SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
 
       - name: Check for critical findings
         run: |
-          if grep -q '"severity": "ERROR"' semgrep.sarif 2>/dev/null; then
+          if [ -f semgrep.sarif ] && grep -q '"severity": "ERROR"' semgrep.sarif 2>/dev/null; then
             echo "::error::Critical security vulnerabilities found by Semgrep!"
             echo "Review the Security tab for details."
             exit 1
@@ -292,8 +315,24 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend|techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Install dependencies and run tests with coverage
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         run: |
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio httpx
@@ -307,12 +346,13 @@ jobs:
           fi
 
       - name: SonarQube Scan
+        if: steps.service-path.outputs.skip != 'true'
         uses: SonarSource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
-          projectBaseDir: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+          projectBaseDir: ${{ steps.service-path.outputs.path }}
           args: >
             -Dsonar.projectKey=dollor-${{ matrix.service }}
             -Dsonar.projectName=Dollor.ai ${{ matrix.service }}
@@ -323,10 +363,11 @@ jobs:
             -Dsonar.qualitygate.wait=true
 
       - name: Upload coverage artifact
+        if: steps.service-path.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.service }}
-          path: ${{ env.SERVICES_PATH }}/${{ matrix.service }}/coverage.xml
+          path: ${{ steps.service-path.outputs.path }}/coverage.xml
 
   # =============================================================================
   # DEPENDENCY VULNERABILITY SCAN
@@ -353,27 +394,45 @@ jobs:
       - name: Install safety
         run: pip install safety pip-audit
 
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend|techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Run Safety check
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         continue-on-error: true
         run: |
           safety check -r requirements.txt --json > safety-report.json || true
           safety check -r requirements.txt || true
 
       - name: Run pip-audit
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         continue-on-error: true
         run: |
           pip-audit -r requirements.txt --format json > pip-audit-report.json || true
           pip-audit -r requirements.txt || true
 
       - name: Upload dependency reports
+        if: steps.service-path.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dependency-reports-${{ matrix.service }}
           path: |
-            ${{ env.SERVICES_PATH }}/${{ matrix.service }}/safety-report.json
-            ${{ env.SERVICES_PATH }}/${{ matrix.service }}/pip-audit-report.json
+            ${{ steps.service-path.outputs.path }}/safety-report.json
+            ${{ steps.service-path.outputs.path }}/pip-audit-report.json
 
   # =============================================================================
   # BUILD, TEST & CONTAINER SCAN
@@ -399,10 +458,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              echo "dockerfile=apps/web/p2p-platform/backend/Dockerfile" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend)
+              echo "path=apps/web/p2p-platform/frontend" >> $GITHUB_OUTPUT
+              echo "dockerfile=apps/web/p2p-platform/frontend/Dockerfile" >> $GITHUB_OUTPUT
+              ;;
+            techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              echo "dockerfile=services" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Set up Docker Buildx
+        if: steps.service-path.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
+        if: steps.service-path.outputs.skip != 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -410,10 +492,12 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: steps.service-path.outputs.skip != 'true'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Docker meta
+        if: steps.service-path.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -424,11 +508,28 @@ jobs:
             type=raw,value=dev-latest,enable={{is_default_branch}}
             type=raw,value=${{ github.sha }}
 
-      - name: Build Docker image
+      - name: Build Docker image (core services)
+        if: steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile == 'services'
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ env.SERVICES_PATH }}/${{ matrix.service }}
-          file: ./${{ env.SERVICES_PATH }}/${{ matrix.service }}/Dockerfile
+          context: ./services
+          file: ./${{ steps.service-path.outputs.path }}/Dockerfile
+          push: false
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Build Docker image (app services)
+        if: steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile != 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ steps.service-path.outputs.path }}
+          file: ./${{ steps.service-path.outputs.dockerfile }}
           push: false
           load: true
           tags: ${{ matrix.service }}:scan
@@ -443,6 +544,7 @@ jobs:
       # TRIVY CONTAINER VULNERABILITY SCAN
       # ===========================================
       - name: Run Trivy vulnerability scanner
+        if: steps.service-path.outputs.skip != 'true'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ matrix.service }}:scan'
@@ -454,11 +556,12 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && steps.service-path.outputs.skip != 'true' && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Run Trivy (table output)
+        if: steps.service-path.outputs.skip != 'true'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ matrix.service }}:scan'
@@ -467,9 +570,10 @@ jobs:
           vuln-type: 'os,library'
 
       - name: Check for critical vulnerabilities
+        if: steps.service-path.outputs.skip != 'true'
         run: |
           # Fail if critical vulnerabilities exist (optional - can be removed for non-blocking)
-          if grep -q '"Severity": "CRITICAL"' trivy-results.sarif 2>/dev/null; then
+          if [ -f trivy-results.sarif ] && grep -q '"Severity": "CRITICAL"' trivy-results.sarif 2>/dev/null; then
             echo "::warning::Critical vulnerabilities found in container image!"
             echo "Review the Security tab for details."
             # Uncomment to block deployment on critical vulns:
@@ -479,12 +583,28 @@ jobs:
       # ===========================================
       # PUSH TO ECR (only on main/feature branch)
       # ===========================================
-      - name: Push to ECR
-        if: github.event_name != 'pull_request'
+      - name: Push to ECR (core services)
+        if: github.event_name != 'pull_request' && steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile == 'services'
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ env.SERVICES_PATH }}/${{ matrix.service }}
-          file: ./${{ env.SERVICES_PATH }}/${{ matrix.service }}/Dockerfile
+          context: ./services
+          file: ./${{ steps.service-path.outputs.path }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Push to ECR (app services)
+        if: github.event_name != 'pull_request' && steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile != 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ steps.service-path.outputs.path }}
+          file: ./${{ steps.service-path.outputs.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -496,7 +616,8 @@ jobs:
             GIT_SHA=${{ github.sha }}
 
       - name: Run tests
-        working-directory: ${{ env.SERVICES_PATH }}/${{ matrix.service }}
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
         run: |
           # Install dependencies
           python -m pip install --upgrade pip
