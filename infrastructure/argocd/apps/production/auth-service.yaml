@@ -1,0 +1,61 @@
+# Dollor.ai Auth Service - ArgoCD Application (Production)
+# =========================================================
+# Deploys auth-service to production environment
+# REQUIRES EXECUTIVE APPROVAL
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: authentication
+    app.kubernetes.io/part-of: dollor-platform
+    environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: dollor-releases
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: dollor-alerts
+spec:
+  project: dollor-production
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/auth-service/overlays/production
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+
+  # Manual sync for production - no auto-deploy
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - Validate=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "Authentication service for Dollor.ai platform (Production)"
+    - name: Port
+      value: "8001"
+    - name: Endpoints
+      value: "/api/auth/*"
+    - name: ApprovalRequired
+      value: "Executive approval required for sync"

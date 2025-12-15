@@ -1,0 +1,54 @@
+# Staging Backend Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dollor-backend-staging
+  namespace: argocd
+  labels:
+    environment: staging
+    app: backend
+  annotations:
+    # Notifications
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: deployments
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-staging
+  source:
+    repoURL: https://github.com/your-org/eatfair-ios.git
+    targetRevision: develop
+    path: infrastructure/helm/backend
+    helm:
+      valueFiles:
+        - values-staging.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    # AUTO-SYNC enabled for staging (canary handles rollout)
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Ignore rollout status differences
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Rollout
+      jsonPointers:
+        - /status
+    - group: argoproj.io
+      kind: AnalysisRun
+      jsonPointers:
+        - /status
