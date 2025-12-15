@@ -1,4 +1,4 @@
-# Dollor.ai Order Service Dependencies
+# Dollor.ai Order Service Dependencies (CQRS Architecture)
 
 # FastAPI Framework
 fastapi==0.109.0
@@ -25,6 +25,11 @@ opentelemetry-instrumentation-fastapi==0.43b0
 
 # Health checks
 httpx==0.26.0
+
+# CQRS Infrastructure
+aiokafka==0.10.0           # Async Kafka client
+elasticsearch==8.11.0       # Elasticsearch client for read models
+redis==5.0.1               # Redis client for caching
 
 # Testing
 pytest==7.4.4

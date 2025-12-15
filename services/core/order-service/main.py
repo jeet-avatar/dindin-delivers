@@ -1,14 +1,11 @@
 """
-Dollor.ai - Order Service
-=========================
+Dollor.ai - Order Service (CQRS Architecture)
+==============================================
 
-Microservice handling food order operations:
-- Order creation and management
-- Order status updates (pending -> confirmed -> preparing -> ready -> out_for_delivery -> delivered)
-- Order cancellation
-- Driver assignment
-- Order history by customer/restaurant
-- Real-time order tracking status
+Microservice handling food order operations with CQRS pattern:
+- Commands: Create, Update, Cancel orders (write to PostgreSQL + Outbox)
+- Queries: Search, Filter, Track orders (read from PostgreSQL/Elasticsearch)
+- Events: Published via Kafka for eventual consistency
 
 Port: 8005
 Error Prefix: ORD
@@ -16,45 +13,66 @@ Error Prefix: ORD
 
 import os
 import sys
-import json
+import asyncio
 from datetime import datetime
 from typing import Optional, List
-import random
+from contextlib import asynccontextmanager
 
-from fastapi import Depends, HTTPException, status, Query
-from pydantic import BaseModel, EmailStr
+from fastapi import FastAPI, Depends, HTTPException, status, Query, BackgroundTasks
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, Enum as SQLEnum, create_engine, ForeignKey, desc
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.ext.declarative import declarative_base
-import enum
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 # Add shared library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
 
-from common import (
-    MicroserviceFactory,
-    create_logger,
-    OrderErrors,
-    ErrorResponse,
+from common import MicroserviceFactory, create_logger, ErrorResponse
+from events import KafkaConfig, KafkaProducer, KafkaConsumer, OutboxProcessor
+from events.outbox import Base as OutboxBase, CREATE_OUTBOX_SQL, CREATE_EVENT_STORE_SQL
+
+# Local imports
+from models import Base, Order, OrderStatus, PaymentStatus
+from cqrs.commands import (
+    CreateOrderCommand,
+    UpdateOrderCommand,
+    UpdateOrderStatusCommand,
+    AssignDriverCommand,
+    CancelOrderCommand,
+    UpdatePaymentStatusCommand,
+    UpdateDriverLocationCommand,
+    OrderCommandHandler,
 )
+from cqrs.queries import (
+    GetOrderQuery,
+    GetCustomerOrdersQuery,
+    GetRestaurantOrdersQuery,
+    GetDriverOrdersQuery,
+    SearchOrdersQuery,
+    TrackOrderQuery,
+    GetOrderStatsQuery,
+    OrderQueryHandler,
+)
+from cqrs.projections import OrderElasticsearchProjection
+
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
 SERVICE_NAME = "order-service"
-SERVICE_VERSION = "1.0.0"
+SERVICE_VERSION = "2.0.0"  # CQRS version
 SERVICE_PORT = 8005
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dollor:dollor_dev_password@localhost:5432/dollor")
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # =============================================================================
 # DATABASE SETUP
 # =============================================================================
 
-Base = declarative_base()
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -69,107 +87,29 @@ def get_db():
 
 
 # =============================================================================
-# DATABASE MODELS
+# ELASTICSEARCH CLIENT (Optional)
 # =============================================================================
 
-class OrderStatus(enum.Enum):
-    PENDING = "pending"
-    PENDING_PAYMENT = "pending_payment"
-    CONFIRMED = "confirmed"
-    PREPARING = "preparing"
-    READY_FOR_PICKUP = "ready_for_pickup"
-    OUT_FOR_DELIVERY = "out_for_delivery"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
-
-
-class PaymentStatus(enum.Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    REFUNDED = "refunded"
-
-
-class Order(Base):
-    """Food orders"""
-    __tablename__ = "orders"
-
-    id = Column(Integer, primary_key=True, index=True)
-    order_number = Column(String(50), unique=True, nullable=False, index=True)
-
-    # Customer & Vendor & Driver
-    customer_id = Column(Integer)
-    customer_name = Column(String(255))
-    customer_email = Column(String(255))
-    customer_phone = Column(String(50))
-    vendor_id = Column(Integer, nullable=False)
-    vendor_name = Column(String(255))
-    driver_id = Column(Integer, nullable=True)
-    driver_name = Column(String(255), nullable=True)
-
-    # Order Items (JSON array)
-    items = Column(Text)  # JSON: [{"menu_item_id": 1, "name": "...", "quantity": 2, "price": 15.99}]
-
-    # Amounts
-    subtotal = Column(Float, nullable=False)
-    tax_rate = Column(Float, default=0.0)
-    tax_amount = Column(Float, default=0.0)
-    delivery_fee = Column(Float, default=0.0)
-    tip = Column(Float, default=0.0)
-    platform_fee = Column(Float, default=0.0)
-    total_amount = Column(Float, nullable=False)
-
-    # Delivery Details
-    delivery_address = Column(Text)  # JSON: {"street": "...", "city": "...", ...}
-    delivery_instructions = Column(Text)
-    delivery_latitude = Column(Float)
-    delivery_longitude = Column(Float)
-    driver_location = Column(Text)  # JSON: {"latitude": ..., "longitude": ..., "updated_at": ...}
-
-    # Status
-    status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING)
-    payment_status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.PENDING)
-
-    # Stripe Integration
-    stripe_payment_intent_id = Column(String(255))
-    stripe_charge_id = Column(String(255))
-    stripe_customer_id = Column(String(255))
-    payment_method = Column(String(50))
-
-    # Invoice Reference
-    invoice_number = Column(String(50))
-    invoice_generated = Column(Boolean, default=False)
-    invoice_pdf_url = Column(String(500))
-
-    # Coupa Integration (for accounting)
-    coupa_synced = Column(Boolean, default=False)
-    coupa_invoice_id = Column(String(100))
-    coupa_status = Column(String(50))
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    confirmed_at = Column(DateTime)
-    preparing_at = Column(DateTime)
-    ready_at = Column(DateTime)
-    delivered_at = Column(DateTime)
-    dispatched_at = Column(DateTime)
-
-    # Auto-Dispatch System
-    auto_dispatched = Column(Boolean, default=False)
-    broadcast_to_drivers = Column(Boolean, default=False)
-    broadcast_at = Column(DateTime)
-    broadcast_radius_km = Column(Float)
-
-    # Cancellation
-    cancelled_at = Column(DateTime)
-    cancellation_reason = Column(Text)
-    cancelled_by = Column(String(50))  # customer, restaurant, driver, system
+elasticsearch_client = None
+try:
+    from elasticsearch import Elasticsearch
+    elasticsearch_client = Elasticsearch([ELASTICSEARCH_URL])
+    if not elasticsearch_client.ping():
+        elasticsearch_client = None
+except Exception:
+    pass  # Elasticsearch not available, will use PostgreSQL for queries
 
 
 # =============================================================================
-# PYDANTIC MODELS
+# KAFKA PRODUCER (Global)
+# =============================================================================
+
+kafka_producer: Optional[KafkaProducer] = None
+outbox_processor: Optional[OutboxProcessor] = None
+
+
+# =============================================================================
+# PYDANTIC MODELS (API Contracts)
 # =============================================================================
 
 class OrderItemCreate(BaseModel):
@@ -233,25 +173,7 @@ class DriverLocationUpdate(BaseModel):
 
 class OrderCancellation(BaseModel):
     reason: str
-    cancelled_by: str  # customer, restaurant, driver, system
-
-
-class OrderItemResponse(BaseModel):
-    menu_item_id: int
-    name: str
-    quantity: int
-    price: float
-    notes: Optional[str] = None
-
-
-class DeliveryAddressResponse(BaseModel):
-    street: str
-    apartment: Optional[str] = None
-    city: str
-    state: str
-    zip_code: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    cancelled_by: str
 
 
 class OrderResponse(BaseModel):
@@ -277,7 +199,7 @@ class OrderResponse(BaseModel):
     delivery_instructions: Optional[str] = None
     status: str
     payment_status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     confirmed_at: Optional[datetime] = None
     preparing_at: Optional[datetime] = None
     ready_at: Optional[datetime] = None
@@ -306,140 +228,112 @@ class OrderTrackingResponse(BaseModel):
 
 logger = create_logger(SERVICE_NAME)
 
-app = MicroserviceFactory.create(
-    name=SERVICE_NAME,
+
+@asynccontextmanager
+async def lifespan(app):
+    """Startup and shutdown events."""
+    global kafka_producer, outbox_processor
+
+    # Create database tables
+    Base.metadata.create_all(bind=engine)
+    OutboxBase.metadata.create_all(bind=engine)
+
+    # Create outbox tables manually if needed
+    with engine.connect() as conn:
+        try:
+            conn.execute(CREATE_OUTBOX_SQL)
+            conn.execute(CREATE_EVENT_STORE_SQL)
+            conn.commit()
+        except Exception:
+            pass  # Tables may already exist
+
+    # Initialize Kafka producer
+    try:
+        kafka_config = KafkaConfig(
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            client_id=SERVICE_NAME,
+        )
+        kafka_producer = KafkaProducer(kafka_config)
+        await kafka_producer.start()
+        logger.info("Kafka producer started")
+
+        # Start outbox processor
+        outbox_processor = OutboxProcessor(
+            producer=kafka_producer,
+            session_factory=SessionLocal,
+            poll_interval_seconds=1.0,
+        )
+        asyncio.create_task(outbox_processor.run())
+        logger.info("Outbox processor started")
+    except Exception as e:
+        logger.warning(f"Kafka not available: {e}")
+
+    # Initialize Elasticsearch projection
+    if elasticsearch_client:
+        try:
+            projection = OrderElasticsearchProjection(elasticsearch_client)
+            await projection.initialize()
+            logger.info("Elasticsearch projection initialized")
+        except Exception as e:
+            logger.warning(f"Elasticsearch initialization failed: {e}")
+
+    logger.info(f"{SERVICE_NAME} v{SERVICE_VERSION} started on port {SERVICE_PORT}")
+
+    yield
+
+    # Shutdown
+    if kafka_producer:
+        await kafka_producer.stop()
+    if outbox_processor:
+        outbox_processor.stop()
+    logger.info(f"{SERVICE_NAME} shutdown complete")
+
+
+# Create the FastAPI app directly with our custom CQRS lifespan
+app = FastAPI(
+    title="Dollor.ai Order Service",
+    description="Food order management service with CQRS architecture",
     version=SERVICE_VERSION,
-    description="Food order management service"
+    lifespan=lifespan,
 )
 
 
 # =============================================================================
-# HELPER FUNCTIONS
+# HEALTH ENDPOINT
 # =============================================================================
 
-def generate_order_number(db: Session) -> str:
-    """Generate unique order number"""
-    while True:
-        order_number = f"ORD-{random.randint(100000, 999999)}"
-        existing = db.query(Order).filter(Order.order_number == order_number).first()
-        if not existing:
-            return order_number
-
-
-def validate_status_transition(current_status: OrderStatus, new_status: str) -> bool:
-    """Validate if status transition is allowed"""
-    allowed_transitions = {
-        OrderStatus.PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-        OrderStatus.PENDING_PAYMENT: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-        OrderStatus.CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
-        OrderStatus.PREPARING: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
-        OrderStatus.READY_FOR_PICKUP: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-        OrderStatus.OUT_FOR_DELIVERY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
-        OrderStatus.DELIVERED: [],  # Terminal state
-        OrderStatus.CANCELLED: []  # Terminal state
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for container orchestration."""
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
     }
 
-    try:
-        new_status_enum = OrderStatus[new_status.upper().replace(" ", "_")]
-        return new_status_enum in allowed_transitions.get(current_status, [])
-    except (KeyError, AttributeError):
-        return False
-
-
-def create_order_timeline(order: Order) -> List[dict]:
-    """Create timeline of order events"""
-    timeline = [
-        {
-            "status": "created",
-            "timestamp": order.created_at.isoformat() if order.created_at else None,
-            "description": "Order placed"
-        }
-    ]
-
-    if order.confirmed_at:
-        timeline.append({
-            "status": "confirmed",
-            "timestamp": order.confirmed_at.isoformat(),
-            "description": "Order confirmed by restaurant"
-        })
-
-    if order.preparing_at:
-        timeline.append({
-            "status": "preparing",
-            "timestamp": order.preparing_at.isoformat(),
-            "description": "Restaurant is preparing your order"
-        })
-
-    if order.ready_at:
-        timeline.append({
-            "status": "ready",
-            "timestamp": order.ready_at.isoformat(),
-            "description": "Order ready for pickup"
-        })
-
-    if order.dispatched_at:
-        timeline.append({
-            "status": "dispatched",
-            "timestamp": order.dispatched_at.isoformat(),
-            "description": f"Driver {order.driver_name} assigned"
-        })
-
-    if order.delivered_at:
-        timeline.append({
-            "status": "delivered",
-            "timestamp": order.delivered_at.isoformat(),
-            "description": "Order delivered"
-        })
-
-    if order.cancelled_at:
-        timeline.append({
-            "status": "cancelled",
-            "timestamp": order.cancelled_at.isoformat(),
-            "description": f"Order cancelled: {order.cancellation_reason}"
-        })
-
-    return timeline
-
 
 # =============================================================================
-# ORDER ENDPOINTS
+# COMMAND ENDPOINTS (Write Operations)
 # =============================================================================
 
 @app.post("/api/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
-    """Create a new order"""
-    # Validate items
-    if not order_data.items or len(order_data.items) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-101",
-                message="Invalid order items",
-                details={"reason": "Order must have at least one item"}
-            ).model_dump()
-        )
+    """
+    Create a new order.
 
-    # Validate amounts
-    if order_data.total_amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-101",
-                message="Invalid order items",
-                details={"reason": "Total amount must be greater than 0"}
-            ).model_dump()
-        )
-
-    # Create order
-    db_order = Order(
-        order_number=generate_order_number(db),
+    Command: CreateOrderCommand
+    Event: ORDER_CREATED → Kafka → Elasticsearch
+    """
+    command = CreateOrderCommand(
         customer_id=order_data.customer_id,
         customer_name=order_data.customer_name,
         customer_email=order_data.customer_email,
         customer_phone=order_data.customer_phone,
         vendor_id=order_data.vendor_id,
         vendor_name=order_data.vendor_name,
-        items=json.dumps([item.model_dump() for item in order_data.items]),
+        items=[item.model_dump() for item in order_data.items],
+        delivery_address=order_data.delivery_address.model_dump(),
+        delivery_instructions=order_data.delivery_instructions,
         subtotal=order_data.subtotal,
         tax_rate=order_data.tax_rate,
         tax_amount=order_data.tax_amount,
@@ -447,420 +341,270 @@ async def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
         tip=order_data.tip,
         platform_fee=order_data.platform_fee,
         total_amount=order_data.total_amount,
-        delivery_address=json.dumps(order_data.delivery_address.model_dump()),
-        delivery_instructions=order_data.delivery_instructions,
-        delivery_latitude=order_data.delivery_address.latitude,
-        delivery_longitude=order_data.delivery_address.longitude,
-        status=OrderStatus.PENDING_PAYMENT if order_data.payment_method else OrderStatus.PENDING,
         payment_method=order_data.payment_method,
-        stripe_customer_id=order_data.stripe_customer_id
+        stripe_customer_id=order_data.stripe_customer_id,
     )
 
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
 
-    logger.info(f"Created order: {db_order.order_number}")
-
-    # Parse JSON fields for response
-    order_dict = {
-        **db_order.__dict__,
-        'items': json.loads(db_order.items),
-        'delivery_address': json.loads(db_order.delivery_address),
-        'status': db_order.status.value,
-        'payment_status': db_order.payment_status.value
-    }
-
-    return order_dict
-
-
-@app.get("/api/orders/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: str, db: Session = Depends(get_db)):
-    """Get order by ID or order number"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
-
-    if not order:
+    if not result.success:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
+                code=result.error_code,
+                message=result.error_message,
             ).model_dump()
         )
 
-    # Parse JSON fields for response
-    order_dict = {
-        **order.__dict__,
-        'items': json.loads(order.items),
-        'delivery_address': json.loads(order.delivery_address),
-        'status': order.status.value,
-        'payment_status': order.payment_status.value
-    }
+    db.commit()
+    logger.info(f"Created order: {result.order_number}")
 
-    return order_dict
+    # Fetch the full order for response
+    query_handler = OrderQueryHandler(db, elasticsearch_client)
+    query_result = query_handler.handle(GetOrderQuery(order_id=result.order_number))
+
+    return query_result.data
 
 
 @app.put("/api/orders/{order_id}", response_model=OrderResponse)
 async def update_order(order_id: str, update: OrderUpdate, db: Session = Depends(get_db)):
-    """Update order details (before confirmation)"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
+    """
+    Update order details (before confirmation).
 
-    if not order:
+    Command: UpdateOrderCommand
+    """
+    command = UpdateOrderCommand(
+        order_id=order_id,
+        delivery_instructions=update.delivery_instructions,
+        tip=update.tip,
+    )
+
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
+        status_code = status.HTTP_404_NOT_FOUND if result.error_code == "ORD-301" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
+            status_code=status_code,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    # Check if order can be modified
-    if order.status not in [OrderStatus.PENDING, OrderStatus.PENDING_PAYMENT]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-402",
-                message="Cannot modify - order already confirmed",
-                details={"order_id": order_id, "status": order.status.value}
-            ).model_dump()
-        )
-
-    update_data = update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(order, key, value)
-
-    order.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(order)
 
-    logger.info(f"Updated order: {order.order_number}")
+    query_handler = OrderQueryHandler(db, elasticsearch_client)
+    query_result = query_handler.handle(GetOrderQuery(order_id=order_id))
+    return query_result.data
 
-    # Parse JSON fields for response
-    order_dict = {
-        **order.__dict__,
-        'items': json.loads(order.items),
-        'delivery_address': json.loads(order.delivery_address),
-        'status': order.status.value,
-        'payment_status': order.payment_status.value
-    }
-
-    return order_dict
-
-
-# =============================================================================
-# ORDER STATUS ENDPOINTS
-# =============================================================================
 
 @app.put("/api/orders/{order_id}/status")
-async def update_order_status(
-    order_id: str,
-    status_update: OrderStatusUpdate,
-    db: Session = Depends(get_db)
-):
-    """Update order status"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
+async def update_order_status(order_id: str, status_update: OrderStatusUpdate, db: Session = Depends(get_db)):
+    """
+    Update order status.
 
-    if not order:
+    Command: UpdateOrderStatusCommand
+    Events: ORDER_CONFIRMED, ORDER_PREPARING, ORDER_READY, etc.
+    """
+    command = UpdateOrderStatusCommand(
+        order_id=order_id,
+        new_status=status_update.status,
+        notes=status_update.notes,
+    )
+
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
+        status_code = status.HTTP_404_NOT_FOUND if result.error_code == "ORD-301" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
+            status_code=status_code,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    # Validate status transition
-    if not validate_status_transition(order.status, status_update.status):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-405",
-                message="Invalid order status transition",
-                details={
-                    "current_status": order.status.value,
-                    "requested_status": status_update.status
-                }
-            ).model_dump()
-        )
-
-    # Update status
-    try:
-        new_status = OrderStatus[status_update.status.upper().replace(" ", "_")]
-        order.status = new_status
-        order.updated_at = datetime.utcnow()
-
-        # Update timestamp fields
-        if new_status == OrderStatus.CONFIRMED:
-            order.confirmed_at = datetime.utcnow()
-        elif new_status == OrderStatus.PREPARING:
-            order.preparing_at = datetime.utcnow()
-        elif new_status == OrderStatus.READY_FOR_PICKUP:
-            order.ready_at = datetime.utcnow()
-        elif new_status == OrderStatus.DELIVERED:
-            order.delivered_at = datetime.utcnow()
-
-        db.commit()
-
-        logger.info(f"Updated order {order.order_number} status to {new_status.value}")
-
-        return {
-            "order_number": order.order_number,
-            "status": new_status.value,
-            "updated_at": order.updated_at.isoformat()
-        }
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-101",
-                message="Invalid status value",
-                details={"status": status_update.status}
-            ).model_dump()
-        )
+    db.commit()
+    return result.data
 
 
 @app.post("/api/orders/{order_id}/confirm")
 async def confirm_order(order_id: str, db: Session = Depends(get_db)):
-    """Confirm order (restaurant accepts)"""
-    return await update_order_status(
-        order_id,
-        OrderStatusUpdate(status="confirmed"),
-        db
-    )
+    """Confirm order (restaurant accepts)."""
+    return await update_order_status(order_id, OrderStatusUpdate(status="confirmed"), db)
 
 
 @app.post("/api/orders/{order_id}/preparing")
 async def start_preparing(order_id: str, db: Session = Depends(get_db)):
-    """Mark order as preparing"""
-    return await update_order_status(
-        order_id,
-        OrderStatusUpdate(status="preparing"),
-        db
-    )
+    """Mark order as preparing."""
+    return await update_order_status(order_id, OrderStatusUpdate(status="preparing"), db)
 
 
 @app.post("/api/orders/{order_id}/ready")
 async def mark_ready(order_id: str, db: Session = Depends(get_db)):
-    """Mark order as ready for pickup"""
-    return await update_order_status(
-        order_id,
-        OrderStatusUpdate(status="ready_for_pickup"),
-        db
-    )
+    """Mark order as ready for pickup."""
+    return await update_order_status(order_id, OrderStatusUpdate(status="ready_for_pickup"), db)
 
 
 @app.post("/api/orders/{order_id}/out-for-delivery")
 async def mark_out_for_delivery(order_id: str, db: Session = Depends(get_db)):
-    """Mark order as out for delivery"""
-    return await update_order_status(
-        order_id,
-        OrderStatusUpdate(status="out_for_delivery"),
-        db
-    )
+    """Mark order as out for delivery."""
+    return await update_order_status(order_id, OrderStatusUpdate(status="out_for_delivery"), db)
 
 
 @app.post("/api/orders/{order_id}/delivered")
 async def mark_delivered(order_id: str, db: Session = Depends(get_db)):
-    """Mark order as delivered"""
-    return await update_order_status(
-        order_id,
-        OrderStatusUpdate(status="delivered"),
-        db
-    )
+    """Mark order as delivered."""
+    return await update_order_status(order_id, OrderStatusUpdate(status="delivered"), db)
 
-
-# =============================================================================
-# DRIVER ASSIGNMENT ENDPOINTS
-# =============================================================================
 
 @app.post("/api/orders/{order_id}/assign-driver")
-async def assign_driver(
-    order_id: str,
-    assignment: DriverAssignment,
-    db: Session = Depends(get_db)
-):
-    """Assign driver to order"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
+async def assign_driver(order_id: str, assignment: DriverAssignment, db: Session = Depends(get_db)):
+    """
+    Assign driver to order.
 
-    if not order:
+    Command: AssignDriverCommand
+    Event: DRIVER_ASSIGNED
+    """
+    command = AssignDriverCommand(
+        order_id=order_id,
+        driver_id=assignment.driver_id,
+        driver_name=assignment.driver_name,
+    )
+
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
+        status_code = status.HTTP_404_NOT_FOUND if result.error_code == "ORD-301" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
+            status_code=status_code,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    # Check if order can be assigned
-    if order.status not in [OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-405",
-                message="Order not ready for driver assignment",
-                details={"status": order.status.value}
-            ).model_dump()
-        )
-
-    # Check if already assigned
-    if order.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-404",
-                message="Order already assigned to a driver",
-                details={"driver_id": order.driver_id}
-            ).model_dump()
-        )
-
-    order.driver_id = assignment.driver_id
-    order.driver_name = assignment.driver_name
-    order.dispatched_at = datetime.utcnow()
-    order.updated_at = datetime.utcnow()
     db.commit()
-
-    logger.info(f"Assigned driver {assignment.driver_id} to order {order.order_number}")
-
-    return {
-        "order_number": order.order_number,
-        "driver_id": order.driver_id,
-        "driver_name": order.driver_name,
-        "dispatched_at": order.dispatched_at.isoformat()
-    }
+    return result.data
 
 
 @app.put("/api/orders/{order_id}/driver-location")
-async def update_driver_location(
-    order_id: str,
-    location: DriverLocationUpdate,
-    db: Session = Depends(get_db)
-):
-    """Update driver location for order"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
+async def update_driver_location(order_id: str, location: DriverLocationUpdate, db: Session = Depends(get_db)):
+    """Update driver location for order."""
+    command = UpdateDriverLocationCommand(
+        order_id=order_id,
+        latitude=location.latitude,
+        longitude=location.longitude,
+    )
 
-    if not order:
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    location_data = {
-        "latitude": location.latitude,
-        "longitude": location.longitude,
-        "updated_at": datetime.utcnow().isoformat()
-    }
-
-    order.driver_location = json.dumps(location_data)
-    order.updated_at = datetime.utcnow()
     db.commit()
+    return result.data
 
-    return {
-        "order_number": order.order_number,
-        "driver_location": location_data
-    }
-
-
-# =============================================================================
-# CANCELLATION ENDPOINTS
-# =============================================================================
 
 @app.post("/api/orders/{order_id}/cancel")
-async def cancel_order(
+async def cancel_order(order_id: str, cancellation: OrderCancellation, db: Session = Depends(get_db)):
+    """
+    Cancel order.
+
+    Command: CancelOrderCommand
+    Event: ORDER_CANCELLED
+    """
+    command = CancelOrderCommand(
+        order_id=order_id,
+        reason=cancellation.reason,
+        cancelled_by=cancellation.cancelled_by,
+    )
+
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
+        status_code = status.HTTP_404_NOT_FOUND if result.error_code == "ORD-301" else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(
+            status_code=status_code,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
+        )
+
+    db.commit()
+    return result.data
+
+
+@app.put("/api/orders/{order_id}/payment-status")
+async def update_payment_status(
     order_id: str,
-    cancellation: OrderCancellation,
+    payment_status: str,
+    stripe_payment_intent_id: Optional[str] = None,
+    stripe_charge_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Cancel order"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
+    """Update payment status for order."""
+    command = UpdatePaymentStatusCommand(
+        order_id=order_id,
+        payment_status=payment_status,
+        stripe_payment_intent_id=stripe_payment_intent_id,
+        stripe_charge_id=stripe_charge_id,
+    )
 
-    if not order:
+    handler = OrderCommandHandler(db, SERVICE_NAME)
+    result = handler.handle(command)
+
+    if not result.success:
+        status_code = status.HTTP_404_NOT_FOUND if result.error_code == "ORD-301" else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(
+            status_code=status_code,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
+        )
+
+    db.commit()
+    return result.data
+
+
+# =============================================================================
+# QUERY ENDPOINTS (Read Operations)
+# =============================================================================
+
+@app.get("/api/orders/{order_id}", response_model=OrderResponse)
+async def get_order(order_id: str, db: Session = Depends(get_db)):
+    """
+    Get order by ID or order number.
+
+    Query: GetOrderQuery
+    Source: PostgreSQL (primary) or Elasticsearch (if available)
+    """
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(GetOrderQuery(order_id=order_id))
+
+    if not result.success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    # Check if order can be cancelled
-    if order.status == OrderStatus.DELIVERED:
+    return result.data
+
+
+@app.get("/api/orders/{order_id}/track", response_model=OrderTrackingResponse)
+async def track_order(order_id: str, db: Session = Depends(get_db)):
+    """
+    Get real-time tracking information for order.
+
+    Query: TrackOrderQuery
+    """
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(TrackOrderQuery(order_id=order_id))
+
+    if not result.success:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-401",
-                message="Cannot cancel - order already delivered",
-                details={"order_id": order_id}
-            ).model_dump()
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorResponse(code=result.error_code, message=result.error_message).model_dump()
         )
 
-    if order.status == OrderStatus.CANCELLED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-401",
-                message="Order already cancelled",
-                details={"order_id": order_id}
-            ).model_dump()
-        )
+    return result.data
 
-    if order.status == OrderStatus.OUT_FOR_DELIVERY:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-401",
-                message="Cannot cancel - order already picked up",
-                details={"order_id": order_id}
-            ).model_dump()
-        )
-
-    order.status = OrderStatus.CANCELLED
-    order.cancelled_at = datetime.utcnow()
-    order.cancellation_reason = cancellation.reason
-    order.cancelled_by = cancellation.cancelled_by
-    order.updated_at = datetime.utcnow()
-    db.commit()
-
-    logger.info(f"Cancelled order {order.order_number} by {cancellation.cancelled_by}")
-
-    return {
-        "order_number": order.order_number,
-        "status": "cancelled",
-        "cancelled_at": order.cancelled_at.isoformat(),
-        "cancelled_by": cancellation.cancelled_by,
-        "reason": cancellation.reason
-    }
-
-
-# =============================================================================
-# HISTORY ENDPOINTS
-# =============================================================================
 
 @app.get("/api/orders/customer/{customer_id}", response_model=List[OrderResponse])
 async def get_customer_orders(
@@ -870,31 +614,16 @@ async def get_customer_orders(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Get order history for customer"""
-    query = db.query(Order).filter(Order.customer_id == customer_id)
+    """Get order history for customer."""
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(GetCustomerOrdersQuery(
+        customer_id=customer_id,
+        status=status,
+        limit=limit,
+        offset=offset,
+    ))
 
-    if status:
-        try:
-            status_enum = OrderStatus[status.upper().replace(" ", "_")]
-            query = query.filter(Order.status == status_enum)
-        except KeyError:
-            pass
-
-    orders = query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
-
-    # Parse JSON fields for response
-    orders_list = []
-    for order in orders:
-        order_dict = {
-            **order.__dict__,
-            'items': json.loads(order.items),
-            'delivery_address': json.loads(order.delivery_address),
-            'status': order.status.value,
-            'payment_status': order.payment_status.value
-        }
-        orders_list.append(order_dict)
-
-    return orders_list
+    return result.data
 
 
 @app.get("/api/orders/restaurant/{vendor_id}", response_model=List[OrderResponse])
@@ -905,31 +634,16 @@ async def get_restaurant_orders(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Get order history for restaurant"""
-    query = db.query(Order).filter(Order.vendor_id == vendor_id)
+    """Get order history for restaurant."""
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(GetRestaurantOrdersQuery(
+        vendor_id=vendor_id,
+        status=status,
+        limit=limit,
+        offset=offset,
+    ))
 
-    if status:
-        try:
-            status_enum = OrderStatus[status.upper().replace(" ", "_")]
-            query = query.filter(Order.status == status_enum)
-        except KeyError:
-            pass
-
-    orders = query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
-
-    # Parse JSON fields for response
-    orders_list = []
-    for order in orders:
-        order_dict = {
-            **order.__dict__,
-            'items': json.loads(order.items),
-            'delivery_address': json.loads(order.delivery_address),
-            'status': order.status.value,
-            'payment_status': order.payment_status.value
-        }
-        orders_list.append(order_dict)
-
-    return orders_list
+    return result.data
 
 
 @app.get("/api/orders/driver/{driver_id}", response_model=List[OrderResponse])
@@ -940,147 +654,17 @@ async def get_driver_orders(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Get order history for driver"""
-    query = db.query(Order).filter(Order.driver_id == driver_id)
+    """Get order history for driver."""
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(GetDriverOrdersQuery(
+        driver_id=driver_id,
+        status=status,
+        limit=limit,
+        offset=offset,
+    ))
 
-    if status:
-        try:
-            status_enum = OrderStatus[status.upper().replace(" ", "_")]
-            query = query.filter(Order.status == status_enum)
-        except KeyError:
-            pass
+    return result.data
 
-    orders = query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
-
-    # Parse JSON fields for response
-    orders_list = []
-    for order in orders:
-        order_dict = {
-            **order.__dict__,
-            'items': json.loads(order.items),
-            'delivery_address': json.loads(order.delivery_address),
-            'status': order.status.value,
-            'payment_status': order.payment_status.value
-        }
-        orders_list.append(order_dict)
-
-    return orders_list
-
-
-# =============================================================================
-# TRACKING ENDPOINTS
-# =============================================================================
-
-@app.get("/api/orders/{order_id}/track", response_model=OrderTrackingResponse)
-async def track_order(order_id: str, db: Session = Depends(get_db)):
-    """Get real-time tracking information for order"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
-
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
-        )
-
-    # Calculate estimated delivery time (simplified)
-    estimated_delivery = None
-    if order.status == OrderStatus.PREPARING:
-        estimated_delivery = "30-40 minutes"
-    elif order.status == OrderStatus.READY_FOR_PICKUP:
-        estimated_delivery = "20-30 minutes"
-    elif order.status == OrderStatus.OUT_FOR_DELIVERY:
-        estimated_delivery = "10-15 minutes"
-
-    # Parse driver location
-    driver_location = None
-    if order.driver_location:
-        driver_location = json.loads(order.driver_location)
-
-    return OrderTrackingResponse(
-        order_number=order.order_number,
-        status=order.status.value,
-        estimated_delivery_time=estimated_delivery,
-        driver_name=order.driver_name,
-        driver_location=driver_location,
-        delivery_address=json.loads(order.delivery_address),
-        timeline=create_order_timeline(order)
-    )
-
-
-# =============================================================================
-# PAYMENT STATUS ENDPOINTS
-# =============================================================================
-
-@app.put("/api/orders/{order_id}/payment-status")
-async def update_payment_status(
-    order_id: str,
-    payment_status: str,
-    stripe_payment_intent_id: Optional[str] = None,
-    stripe_charge_id: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """Update payment status for order"""
-    order = db.query(Order).filter(
-        (Order.order_number == order_id) |
-        (Order.id == int(order_id) if order_id.isdigit() else False)
-    ).first()
-
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorResponse(
-                code="ORD-301",
-                message="Order not found",
-                details={"order_id": order_id}
-            ).model_dump()
-        )
-
-    try:
-        payment_status_enum = PaymentStatus[payment_status.upper()]
-        order.payment_status = payment_status_enum
-
-        if stripe_payment_intent_id:
-            order.stripe_payment_intent_id = stripe_payment_intent_id
-        if stripe_charge_id:
-            order.stripe_charge_id = stripe_charge_id
-
-        # If payment succeeded and order is pending_payment, move to confirmed
-        if payment_status_enum == PaymentStatus.SUCCEEDED and order.status == OrderStatus.PENDING_PAYMENT:
-            order.status = OrderStatus.CONFIRMED
-            order.confirmed_at = datetime.utcnow()
-
-        order.updated_at = datetime.utcnow()
-        db.commit()
-
-        logger.info(f"Updated payment status for order {order.order_number} to {payment_status}")
-
-        return {
-            "order_number": order.order_number,
-            "payment_status": payment_status_enum.value,
-            "order_status": order.status.value,
-            "updated_at": order.updated_at.isoformat()
-        }
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ErrorResponse(
-                code="ORD-101",
-                message="Invalid payment status value",
-                details={"payment_status": payment_status}
-            ).model_dump()
-        )
-
-
-# =============================================================================
-# SEARCH ENDPOINTS
-# =============================================================================
 
 @app.get("/api/orders", response_model=List[OrderResponse])
 async def search_orders(
@@ -1093,61 +677,79 @@ async def search_orders(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Search orders with filters"""
-    query = db.query(Order)
+    """
+    Search orders with filters.
 
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Order.order_number.ilike(search_term)) |
-            (Order.customer_name.ilike(search_term)) |
-            (Order.customer_email.ilike(search_term)) |
-            (Order.vendor_name.ilike(search_term))
-        )
+    Query: SearchOrdersQuery
+    Source: Elasticsearch (if search term provided and ES available), otherwise PostgreSQL
+    """
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(SearchOrdersQuery(
+        search=search,
+        status=status,
+        customer_id=customer_id,
+        vendor_id=vendor_id,
+        driver_id=driver_id,
+        limit=limit,
+        offset=offset,
+    ))
 
-    if status:
+    return result.data
+
+
+@app.get("/api/orders/stats")
+async def get_order_stats(
+    vendor_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
+    driver_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Get order statistics."""
+    handler = OrderQueryHandler(db, elasticsearch_client)
+    result = handler.handle(GetOrderStatsQuery(
+        vendor_id=vendor_id,
+        customer_id=customer_id,
+        driver_id=driver_id,
+    ))
+
+    return result.data
+
+
+# =============================================================================
+# HEALTH & INFO ENDPOINTS
+# =============================================================================
+
+@app.get("/api/orders/health/cqrs")
+async def cqrs_health():
+    """Check CQRS infrastructure health."""
+    health = {
+        "postgresql": "healthy",
+        "elasticsearch": "not_configured",
+        "kafka": "not_configured",
+        "outbox_processor": "not_configured",
+    }
+
+    if elasticsearch_client:
         try:
-            status_enum = OrderStatus[status.upper().replace(" ", "_")]
-            query = query.filter(Order.status == status_enum)
-        except KeyError:
-            pass
+            if elasticsearch_client.ping():
+                health["elasticsearch"] = "healthy"
+            else:
+                health["elasticsearch"] = "unhealthy"
+        except Exception:
+            health["elasticsearch"] = "unhealthy"
 
-    if customer_id:
-        query = query.filter(Order.customer_id == customer_id)
+    if kafka_producer and kafka_producer._started:
+        health["kafka"] = "healthy"
 
-    if vendor_id:
-        query = query.filter(Order.vendor_id == vendor_id)
+    if outbox_processor and outbox_processor._running:
+        health["outbox_processor"] = "healthy"
 
-    if driver_id:
-        query = query.filter(Order.driver_id == driver_id)
-
-    orders = query.order_by(desc(Order.created_at)).offset(offset).limit(limit).all()
-
-    # Parse JSON fields for response
-    orders_list = []
-    for order in orders:
-        order_dict = {
-            **order.__dict__,
-            'items': json.loads(order.items),
-            'delivery_address': json.loads(order.delivery_address),
-            'status': order.status.value,
-            'payment_status': order.payment_status.value
-        }
-        orders_list.append(order_dict)
-
-    return orders_list
+    return health
 
 
 # =============================================================================
-# STARTUP
+# MAIN
 # =============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database tables on startup"""
-    Base.metadata.create_all(bind=engine)
-    logger.info(f"{SERVICE_NAME} v{SERVICE_VERSION} started on port {SERVICE_PORT}")
-
 
 if __name__ == "__main__":
     import uvicorn
