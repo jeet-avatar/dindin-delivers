@@ -5,8 +5,6 @@
 # View logs: docker-compose logs -f
 # Stop all: docker-compose down
 
-version: '3.8'
-
 networks:
   dollor-network:
     driver: bridge
@@ -62,8 +60,8 @@ services:
 
   auth-service:
     build:
-      context: ./core/auth-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/auth-service/Dockerfile
     container_name: dollor-auth-service
     environment:
       - ENVIRONMENT=development
@@ -88,8 +86,8 @@ services:
 
   user-service:
     build:
-      context: ./core/user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/user-service/Dockerfile
     container_name: dollor-user-service
     environment:
       - ENVIRONMENT=development
@@ -110,8 +108,8 @@ services:
 
   driver-service:
     build:
-      context: ./core/driver-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/driver-service/Dockerfile
     container_name: dollor-driver-service
     environment:
       - ENVIRONMENT=development
@@ -133,8 +131,8 @@ services:
 
   restaurant-service:
     build:
-      context: ./core/restaurant-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/restaurant-service/Dockerfile
     container_name: dollor-restaurant-service
     environment:
       - ENVIRONMENT=development
@@ -155,8 +153,8 @@ services:
 
   order-service:
     build:
-      context: ./core/order-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/order-service/Dockerfile
     container_name: dollor-order-service
     environment:
       - ENVIRONMENT=development
@@ -183,8 +181,8 @@ services:
 
   payment-service:
     build:
-      context: ./core/payment-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/payment-service/Dockerfile
     container_name: dollor-payment-service
     environment:
       - ENVIRONMENT=development
@@ -207,8 +205,8 @@ services:
 
   location-service:
     build:
-      context: ./core/location-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/location-service/Dockerfile
     container_name: dollor-location-service
     environment:
       - ENVIRONMENT=development
@@ -231,8 +229,8 @@ services:
 
   menu-service:
     build:
-      context: ./core/menu-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/menu-service/Dockerfile
     container_name: dollor-menu-service
     environment:
       - ENVIRONMENT=development
@@ -255,8 +253,8 @@ services:
 
   notification-service:
     build:
-      context: ./core/notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/notification-service/Dockerfile
     container_name: dollor-notification-service
     environment:
       - ENVIRONMENT=development
@@ -281,8 +279,8 @@ services:
 
   rating-service:
     build:
-      context: ./core/rating-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/rating-service/Dockerfile
     container_name: dollor-rating-service
     environment:
       - ENVIRONMENT=development
@@ -303,8 +301,8 @@ services:
 
   ride-service:
     build:
-      context: ./core/ride-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/ride-service/Dockerfile
     container_name: dollor-ride-service
     environment:
       - ENVIRONMENT=development
@@ -332,8 +330,8 @@ services:
 
   pricing-service:
     build:
-      context: ./core/pricing-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./core/pricing-service/Dockerfile
     container_name: dollor-pricing-service
     environment:
       - ENVIRONMENT=development
