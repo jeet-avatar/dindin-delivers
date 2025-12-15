@@ -32,7 +32,18 @@ jobs:
           pytest --cov=. --cov-report=xml:coverage.xml || echo "No tests or tests skipped"
         continue-on-error: true
 
+      - name: Check SonarCloud Token
+        id: check-token
+        run: |
+          if [ -z "${{ secrets.SONAR_TOKEN }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::warning::SONAR_TOKEN not configured - skipping SonarCloud analysis"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: SonarCloud Scan
+        if: steps.check-token.outputs.skip != 'true'
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
