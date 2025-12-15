@@ -1,0 +1,250 @@
+# Dollor.ai P2P Backend Service - Kubernetes Deployment
+# ======================================================
+# Deploy with: kubectl apply -f deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p2p-backend
+  labels:
+    app: p2p-backend
+    tier: backend
+    domain: p2p
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: p2p-backend
+  template:
+    metadata:
+      labels:
+        app: p2p-backend
+        tier: backend
+        domain: p2p
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: p2p-backend
+      containers:
+        - name: p2p-backend
+          image: dollor/p2p-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: ENVIRONMENT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: DATABASE_URL
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: JWT_SECRET_KEY
+            - name: JWT_ALGORITHM
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: JWT_ALGORITHM
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: STRIPE_SECRET_KEY
+            - name: STRIPE_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: STRIPE_PUBLISHABLE_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: STRIPE_WEBHOOK_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+            - name: AWS_S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: AWS_S3_BUCKET
+                  optional: true
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: AWS_REGION
+                  optional: true
+            - name: PLATFORM_FEE_RATE
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: PLATFORM_FEE_RATE
+            - name: TAX_RATE
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: TAX_RATE
+            - name: DELIVERY_FEE
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: DELIVERY_FEE
+            - name: SMTP_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: SMTP_HOST
+                  optional: true
+            - name: SMTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: SMTP_PORT
+                  optional: true
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: SMTP_USER
+                  optional: true
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: SMTP_PASSWORD
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: p2p-backend-config
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: p2p-backend
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: p2p-backend
+  labels:
+    app: p2p-backend
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: p2p-backend
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p2p-backend
+  labels:
+    app: p2p-backend
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p2p-backend-config
+  labels:
+    app: p2p-backend
+data:
+  ENVIRONMENT: "development"
+  JWT_ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+  PLATFORM_FEE_RATE: "0.15"
+  TAX_RATE: "0.08"
+  DELIVERY_FEE: "5.99"
+  AWS_S3_BUCKET: "dollor-p2p-invoices"
+  AWS_REGION: "us-east-1"
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability:4317"
+
+---
+# Note: Secrets should be created separately or via sealed-secrets
+# This is a placeholder - DO NOT commit actual secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: p2p-backend-secrets
+  labels:
+    app: p2p-backend
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://postgres:postgres@postgresql:5432/invoice_db"
+  JWT_SECRET_KEY: "CHANGE-THIS-IN-PRODUCTION-use-sealed-secrets"
+  STRIPE_SECRET_KEY: "sk_test_CHANGE-THIS-IN-PRODUCTION"
+  STRIPE_PUBLISHABLE_KEY: "pk_test_CHANGE-THIS-IN-PRODUCTION"
+  STRIPE_WEBHOOK_SECRET: "whsec_CHANGE-THIS-IN-PRODUCTION"
+  AWS_ACCESS_KEY_ID: "CHANGE-THIS-IN-PRODUCTION"
+  AWS_SECRET_ACCESS_KEY: "CHANGE-THIS-IN-PRODUCTION"
+  SMTP_USER: "your-email@gmail.com"
+  SMTP_PASSWORD: "your-app-password"

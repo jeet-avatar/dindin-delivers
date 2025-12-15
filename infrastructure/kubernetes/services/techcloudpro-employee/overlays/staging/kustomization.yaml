@@ -1,0 +1,59 @@
+# Dollor.ai TechCloudPro AI Video Service - Staging Overlay
+# ===========================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: staging
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: techcloudpro-employee
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: techcloudpro-employee
+                resources:
+                  requests:
+                    cpu: 1000m
+                    memory: 2Gi
+                  limits:
+                    cpu: 4000m
+                    memory: 8Gi
+            affinity:
+              nodeAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 50
+                    preference:
+                      matchExpressions:
+                        - key: accelerator
+                          operator: In
+                          values:
+                            - nvidia-gpu
+            tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule
+
+configMapGenerator:
+  - name: techcloudpro-employee-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - FLASK_ENV=staging
+      - CUDA_VISIBLE_DEVICES=0
+      - MAX_VIDEO_DURATION=45
+      - MAX_CONCURRENT_JOBS=2
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/techcloudpro-employee
+    newTag: staging-latest

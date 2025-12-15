@@ -50,6 +50,9 @@ on:
           - rating-service
           - ride-service
           - pricing-service
+          - p2p-backend
+          - p2p-frontend
+          - techcloudpro-employee
       environment:
         description: 'Target environment'
         required: true
@@ -105,6 +108,9 @@ jobs:
             "rating-service"
             "ride-service"
             "pricing-service"
+            "p2p-backend"
+            "p2p-frontend"
+            "techcloudpro-employee"
           )
 
           # Get changed files
@@ -130,6 +136,14 @@ jobs:
               SERVICE_CHANGED[$svc]=true
             fi
           done
+
+          # Special handling for web applications
+          if echo "$CHANGED_FILES" | grep -q "apps/web/p2p-platform/backend/"; then
+            SERVICE_CHANGED["p2p-backend"]=true
+          fi
+          if echo "$CHANGED_FILES" | grep -q "apps/web/p2p-platform/frontend/"; then
+            SERVICE_CHANGED["p2p-frontend"]=true
+          fi
 
           # Manual trigger overrides
           INPUT_SERVICE="${{ github.event.inputs.service }}"

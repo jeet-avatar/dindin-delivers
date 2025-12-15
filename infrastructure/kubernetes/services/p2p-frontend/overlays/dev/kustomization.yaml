@@ -1,0 +1,34 @@
+# Dollor.ai P2P Frontend - Dev Overlay
+# ======================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: p2p-frontend
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: p2p-frontend
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 32Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+
+images:
+  - name: dollor/p2p-frontend
+    newTag: dev-latest

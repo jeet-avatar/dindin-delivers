@@ -323,6 +323,77 @@ data:
               second: 20
               policy: local
 
+      # P2P BACKEND (Admin/Vendor Portal API)
+      - name: p2p-backend
+        url: http://p2p-backend.production.svc.cluster.local:8080
+        connect_timeout: 10000
+        write_timeout: 120000
+        read_timeout: 120000
+        retries: 3
+        routes:
+          - name: p2p-api-routes
+            paths:
+              - /api/p2p
+              - /api/vendor
+              - /api/admin
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 1000
+              policy: local
+
+      # P2P FRONTEND (Admin/Vendor Portal Web App)
+      - name: p2p-frontend
+        url: http://p2p-frontend.production.svc.cluster.local:80
+        connect_timeout: 5000
+        write_timeout: 30000
+        read_timeout: 30000
+        retries: 2
+        routes:
+          - name: p2p-frontend-routes
+            paths:
+              - /portal
+              - /vendor
+              - /admin
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      # TECHCLOUDPRO EMPLOYEE (AI Video Service)
+      - name: techcloudpro-employee
+        url: http://techcloudpro-employee.production.svc.cluster.local:5000
+        connect_timeout: 30000
+        write_timeout: 300000
+        read_timeout: 300000
+        retries: 1
+        routes:
+          - name: techcloudpro-routes
+            paths:
+              - /api/video
+              - /api/ai
+              - /employee
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 50
+              policy: local
+
     # ==========================================================================
     # CONSUMERS - API Consumers (for rate limiting tiers)
     # ==========================================================================

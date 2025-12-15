@@ -1,0 +1,50 @@
+# Dollor.ai P2P Backend Service - Dev Overlay
+# =============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: p2p-backend
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: p2p-backend
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+
+configMapGenerator:
+  - name: p2p-backend-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - PLATFORM_FEE_RATE=0.15
+      - TAX_RATE=0.08
+      - DELIVERY_FEE=5.99
+      - AWS_S3_BUCKET=dollor-p2p-invoices-dev
+      - AWS_REGION=us-east-1
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/p2p-backend
+    newTag: dev-latest

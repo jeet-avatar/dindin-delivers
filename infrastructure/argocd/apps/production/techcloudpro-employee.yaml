@@ -1,0 +1,65 @@
+# Dollor.ai TechCloudPro AI Video Service - ArgoCD Application (Production)
+# ============================================================================
+# Deploys TechCloudPro AI video generation service to production environment
+# REQUIRES EXECUTIVE APPROVAL
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: techcloudpro-employee-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: techcloudpro-employee
+    app.kubernetes.io/component: ai-video-generation
+    app.kubernetes.io/part-of: dollor-platform
+    environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: dollor-releases
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: dollor-alerts
+spec:
+  project: dollor-production
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/techcloudpro-employee/overlays/production
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+
+  # Manual sync for production - no auto-deploy
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - Validate=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "AI-powered video generation service using PyTorch and diffusers (Production)"
+    - name: Port
+      value: "5000"
+    - name: Technology
+      value: "Flask, PyTorch, Transformers, Diffusers"
+    - name: GPU
+      value: "NVIDIA GPU required (1x per pod)"
+    - name: Replicas
+      value: "2"
+    - name: ApprovalRequired
+      value: "Executive approval required for sync"

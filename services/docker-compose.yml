@@ -14,6 +14,8 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  techcloudpro_models:
+  techcloudpro_outputs:
 
 services:
   # ==========================================================================
@@ -351,3 +353,81 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ==========================================================================
+  # WEB APPLICATIONS
+  # ==========================================================================
+
+  p2p-backend:
+    build:
+      context: ../apps/web/p2p-platform/backend
+      dockerfile: Dockerfile
+    container_name: dollor-p2p-backend
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8009
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  p2p-frontend:
+    build:
+      context: ../apps/web/p2p-platform/frontend
+      dockerfile: Dockerfile
+    container_name: dollor-p2p-frontend
+    environment:
+      - VITE_API_URL=http://p2p-backend:8080
+      - VITE_AUTH_URL=http://auth-service:8001
+    ports:
+      - "3000:80"
+    depends_on:
+      - p2p-backend
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  techcloudpro-employee:
+    build:
+      context: /Users/jeet/techcloudpro-website/backend
+      dockerfile: Dockerfile
+    container_name: dollor-techcloudpro
+    environment:
+      - ENVIRONMENT=development
+      - FLASK_ENV=development
+      - CUDA_VISIBLE_DEVICES=
+      - MODEL_PATH=/app/models
+      - OUTPUT_PATH=/app/outputs
+    ports:
+      - "5000:5000"
+    volumes:
+      - techcloudpro_models:/app/models
+      - techcloudpro_outputs:/app/outputs
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+
