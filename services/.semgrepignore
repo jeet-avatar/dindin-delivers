@@ -1,0 +1,37 @@
+# Dollor.ai Microservices - Semgrep Ignore File
+# ==============================================
+
+# Test files (may contain intentional vulnerable patterns for testing)
+**/tests/**
+**/*_test.py
+**/test_*.py
+
+# Build artifacts
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/venv/**
+**/.venv/**
+**/.git/**
+
+# Documentation
+**/*.md
+**/*.rst
+**/*.txt
+
+# Configuration files (handled separately)
+**/*.json
+**/*.yaml
+**/*.yml
+**/*.toml
+
+# IDE/Editor
+**/.idea/**
+**/.vscode/**
+**/*.swp
+**/*.swo
+
+# Coverage reports
+**/coverage/**
+**/htmlcov/**
+**/.coverage

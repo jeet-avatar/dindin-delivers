@@ -1,0 +1,36 @@
+# Dollor.ai Notification Service Dependencies
+# ============================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# Validation
+pydantic[email]==2.5.3
+email-validator==2.1.0
+
+# Push Notifications
+firebase-admin==6.4.0
+
+# SMS (Twilio)
+twilio==8.10.0
+
+# Observability
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-fastapi==0.43b0
+opentelemetry-exporter-otlp==1.22.0
+prometheus-client==0.19.0
+
+# HTTP Client
+httpx==0.26.0
+
+# Environment
+python-dotenv==1.0.0
+
+# Utilities
+structlog==24.1.0

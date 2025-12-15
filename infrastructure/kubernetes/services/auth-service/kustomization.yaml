@@ -1,0 +1,23 @@
+# Dollor.ai Auth Service - Kustomize Base
+# ========================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: auth-service
+
+namespace: production
+
+commonLabels:
+  app.kubernetes.io/name: auth-service
+  app.kubernetes.io/component: authentication
+  app.kubernetes.io/part-of: dollor-platform
+
+resources:
+  - deployment.yaml
+
+images:
+  - name: dollor/auth-service
+    newName: dollor/auth-service
+    newTag: latest

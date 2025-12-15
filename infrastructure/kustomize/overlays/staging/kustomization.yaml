@@ -1,0 +1,90 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: dollor-backend-staging
+
+namespace: staging
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - rollout.yaml
+  - analysistemplate.yaml
+
+namePrefix: staging-
+
+commonLabels:
+  environment: staging
+
+commonAnnotations:
+  app.kubernetes.io/environment: staging
+
+images:
+  - name: dollor-api
+    newName: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+    newTag: staging-latest
+
+# Remove base deployment since we use Argo Rollout
+patches:
+  # Delete the base deployment (replaced by Rollout)
+  - target:
+      kind: Deployment
+      name: dollor-backend
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: dollor-backend
+
+  # Patch ingress for staging domain
+  - target:
+      kind: Ingress
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: staging-api.dollor.ai
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: staging-api.dollor.ai
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: staging-dollor-backend-tls
+
+  # Update HPA for staging
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 5
+      - op: replace
+        path: /spec/scaleTargetRef/kind
+        value: Rollout
+      - op: replace
+        path: /spec/scaleTargetRef/apiVersion
+        value: argoproj.io/v1alpha1
+
+  # Update PDB for staging
+  - target:
+      kind: PodDisruptionBudget
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 1
+
+configMapGenerator:
+  - name: dollor-backend-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=https://staging.dollor.ai
+      - RATE_LIMIT=500
