@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY ./core/driver-service/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Production
@@ -34,10 +34,10 @@ WORKDIR /app
 COPY --from=builder /root/.local /home/dollor/.local
 
 # Copy shared library
-COPY --chown=dollor:dollor ../shared /app/shared
+COPY --chown=dollor:dollor ./shared /app/shared
 
 # Copy application
-COPY --chown=dollor:dollor main.py .
+COPY --chown=dollor:dollor ./core/driver-service/main.py .
 
 # Set environment
 ENV PATH=/home/dollor/.local/bin:$PATH

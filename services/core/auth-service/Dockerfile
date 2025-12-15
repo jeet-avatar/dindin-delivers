@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
-COPY requirements.txt .
+COPY ./core/auth-service/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Production
@@ -35,10 +35,10 @@ COPY --from=builder /root/.local /home/appuser/.local
 ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Copy shared library
-COPY --chown=appuser:appuser ../shared /app/shared
+COPY --chown=appuser:appuser ./shared /app/shared
 
 # Copy service code
-COPY --chown=appuser:appuser . /app/auth-service
+COPY --chown=appuser:appuser ./core/auth-service /app/auth-service
 
 WORKDIR /app/auth-service
 
