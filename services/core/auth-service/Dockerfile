@@ -48,6 +48,7 @@ USER appuser
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/shared:/app/auth-service \
     ENVIRONMENT=production \
     SERVICE_NAME=auth-service \
     PORT=8001
