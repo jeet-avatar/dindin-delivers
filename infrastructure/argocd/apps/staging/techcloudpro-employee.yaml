@@ -1,0 +1,59 @@
+# Dollor.ai TechCloudPro AI Video Service - ArgoCD Application (Staging)
+# =========================================================================
+# Deploys TechCloudPro AI video generation service to staging environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: techcloudpro-employee-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: techcloudpro-employee
+    app.kubernetes.io/component: ai-video-generation
+    app.kubernetes.io/part-of: dollor-platform
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-staging
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/techcloudpro-employee/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "AI-powered video generation service using PyTorch and diffusers (Staging)"
+    - name: Port
+      value: "5000"
+    - name: Technology
+      value: "Flask, PyTorch, Transformers, Diffusers"
+    - name: GPU
+      value: "Optional GPU support"

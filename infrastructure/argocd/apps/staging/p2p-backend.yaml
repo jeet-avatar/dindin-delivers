@@ -1,0 +1,58 @@
+# Dollor.ai P2P Backend Service - ArgoCD Application (Staging)
+# ==============================================================
+# Deploys p2p-backend to staging environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: p2p-backend-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: p2p-backend
+    app.kubernetes.io/component: p2p-platform
+    app.kubernetes.io/part-of: dollor-platform
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-staging
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/p2p-backend/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health checks
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "P2P Platform Backend API for Dollor.ai"
+    - name: Port
+      value: "8080"
+    - name: Endpoints
+      value: "/api/*, /docs, /webhooks/stripe"

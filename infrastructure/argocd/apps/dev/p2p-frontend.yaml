@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: p2p-frontend-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: p2p-frontend
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  project: dollor-dev
+  source:
+    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
+    targetRevision: main
+    path: infrastructure/kubernetes/services/p2p-frontend/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
