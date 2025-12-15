@@ -1,0 +1,39 @@
+// Development Environment Configuration
+// Used for local development and testing
+
+// Environment
+ENVIRONMENT = Development
+API_BASE_URL = https:/$()/dev-api.dollor.ai
+ENABLE_DEBUG_LOGGING = YES
+ENABLE_MOCK_DATA = YES
+
+// App Settings
+IS_DUMMY_PAYMENT_MODE = YES
+ENABLE_AI_FEATURES = YES
+ENABLE_DYNAMIC_PRICING = NO
+
+// Bundle ID Suffix (for separate installs)
+BUNDLE_ID_SUFFIX = .dev
+APP_DISPLAY_NAME_SUFFIX = (Dev)
+
+// Firebase Project
+FIREBASE_PROJECT = dollor-dev
+
+// Feature Flags
+ENABLE_ANALYTICS = NO
+ENABLE_CRASH_REPORTING = NO
+ENABLE_PERFORMANCE_MONITORING = NO
+
+// Code Signing (Development)
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = $(DEVELOPMENT_TEAM)
+
+// Build Settings
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+GCC_OPTIMIZATION_LEVEL = 0
+ENABLE_TESTABILITY = YES
+
+// Server URLs
+WEBSOCKET_URL = wss:/$()/dev-ws.dollor.ai
+CDN_URL = https:/$()/dev-cdn.dollor.ai

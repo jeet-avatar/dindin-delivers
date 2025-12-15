@@ -1,0 +1,44 @@
+// Production Environment Configuration
+// Used for App Store releases
+
+// Environment
+ENVIRONMENT = Production
+API_BASE_URL = https:/$()/api.dollor.ai
+ENABLE_DEBUG_LOGGING = NO
+ENABLE_MOCK_DATA = NO
+
+// App Settings
+IS_DUMMY_PAYMENT_MODE = NO
+ENABLE_AI_FEATURES = YES
+ENABLE_DYNAMIC_PRICING = YES
+
+// Bundle ID (no suffix for production)
+BUNDLE_ID_SUFFIX =
+APP_DISPLAY_NAME_SUFFIX =
+
+// Firebase Project
+FIREBASE_PROJECT = dollor-production
+
+// Feature Flags
+ENABLE_ANALYTICS = YES
+ENABLE_CRASH_REPORTING = YES
+ENABLE_PERFORMANCE_MONITORING = YES
+
+// Code Signing (App Store Distribution)
+CODE_SIGN_IDENTITY = Apple Distribution
+DEVELOPMENT_TEAM = $(DEVELOPMENT_TEAM)
+
+// Build Settings
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+SWIFT_OPTIMIZATION_LEVEL = -O
+GCC_OPTIMIZATION_LEVEL = s
+ENABLE_TESTABILITY = NO
+SWIFT_COMPILATION_MODE = wholemodule
+
+// Security
+ENABLE_BITCODE = NO
+STRIP_SWIFT_SYMBOLS = YES
+
+// Server URLs
+WEBSOCKET_URL = wss:/$()/ws.dollor.ai
+CDN_URL = https:/$()/cdn.dollor.ai
