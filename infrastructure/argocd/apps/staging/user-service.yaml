@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/env: staging
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  project: dollor-staging
+  source:
+    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
+    targetRevision: main
+    path: infrastructure/kubernetes/services/user-service
+    kustomize:
+      images:
+        - name: dollor/user-service
+          newTag: staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,42 @@
+# Dollor.ai Ride Service - Production Overlay
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ride-service
+      spec:
+        replicas: 3
+        template:
+          spec:
+            containers:
+              - name: ride-service
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 256Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 1Gi
+
+configMapGenerator:
+  - name: ride-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - SERVICE_PORT=8014
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/ride-service
+    newTag: v1.0.0

@@ -32,17 +32,24 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: 'Service to deploy (all, auth-service, notification-service, driver-service)'
+        description: 'Service to deploy'
         required: true
         default: 'all'
         type: choice
         options:
           - all
           - auth-service
-          - notification-service
+          - user-service
           - driver-service
-          - food-order-service
+          - restaurant-service
+          - order-service
+          - payment-service
           - location-service
+          - menu-service
+          - notification-service
+          - rating-service
+          - ride-service
+          - pricing-service
       environment:
         description: 'Target environment'
         required: true
@@ -74,9 +81,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       services: ${{ steps.changes.outputs.services }}
-      auth-service: ${{ steps.changes.outputs.auth-service }}
-      notification-service: ${{ steps.changes.outputs.notification-service }}
-      driver-service: ${{ steps.changes.outputs.driver-service }}
       shared: ${{ steps.changes.outputs.shared }}
     steps:
       - name: Checkout code
@@ -87,66 +91,76 @@ jobs:
       - name: Detect changes
         id: changes
         run: |
-          # Get changed files
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          else
-            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          fi
+          # All available services
+          ALL_SERVICES=(
+            "auth-service"
+            "user-service"
+            "driver-service"
+            "restaurant-service"
+            "order-service"
+            "payment-service"
+            "location-service"
+            "menu-service"
+            "notification-service"
+            "rating-service"
+            "ride-service"
+            "pricing-service"
+          )
 
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
-          # Detect service changes
-          AUTH_CHANGED=false
-          NOTIFICATION_CHANGED=false
-          DRIVER_CHANGED=false
+          # Check if shared library changed
           SHARED_CHANGED=false
-
-          if echo "$CHANGED_FILES" | grep -q "services/core/auth-service/"; then
-            AUTH_CHANGED=true
-          fi
-          if echo "$CHANGED_FILES" | grep -q "services/core/notification-service/"; then
-            NOTIFICATION_CHANGED=true
-          fi
-          if echo "$CHANGED_FILES" | grep -q "services/core/driver-service/"; then
-            DRIVER_CHANGED=true
-          fi
           if echo "$CHANGED_FILES" | grep -q "services/shared/"; then
             SHARED_CHANGED=true
-            # If shared changed, rebuild all services
-            AUTH_CHANGED=true
-            NOTIFICATION_CHANGED=true
-            DRIVER_CHANGED=true
           fi
+
+          # Detect which services changed
+          declare -A SERVICE_CHANGED
+          for svc in "${ALL_SERVICES[@]}"; do
+            SERVICE_CHANGED[$svc]=false
+            if echo "$CHANGED_FILES" | grep -q "services/core/$svc/"; then
+              SERVICE_CHANGED[$svc]=true
+            fi
+            # If shared changed, rebuild all services
+            if [ "$SHARED_CHANGED" == "true" ]; then
+              SERVICE_CHANGED[$svc]=true
+            fi
+          done
 
           # Manual trigger overrides
-          if [ "${{ github.event.inputs.service }}" == "all" ]; then
-            AUTH_CHANGED=true
-            NOTIFICATION_CHANGED=true
-            DRIVER_CHANGED=true
-          elif [ "${{ github.event.inputs.service }}" == "auth-service" ]; then
-            AUTH_CHANGED=true
-          elif [ "${{ github.event.inputs.service }}" == "notification-service" ]; then
-            NOTIFICATION_CHANGED=true
-          elif [ "${{ github.event.inputs.service }}" == "driver-service" ]; then
-            DRIVER_CHANGED=true
+          INPUT_SERVICE="${{ github.event.inputs.service }}"
+          if [ "$INPUT_SERVICE" == "all" ]; then
+            for svc in "${ALL_SERVICES[@]}"; do
+              SERVICE_CHANGED[$svc]=true
+            done
+          elif [ -n "$INPUT_SERVICE" ] && [ "$INPUT_SERVICE" != "all" ]; then
+            # Reset all to false, enable only selected
+            for svc in "${ALL_SERVICES[@]}"; do
+              SERVICE_CHANGED[$svc]=false
+            done
+            SERVICE_CHANGED[$INPUT_SERVICE]=true
           fi
 
-          # Build services list
-          SERVICES="[]"
-          if [ "$AUTH_CHANGED" == "true" ] || [ "$NOTIFICATION_CHANGED" == "true" ] || [ "$DRIVER_CHANGED" == "true" ]; then
-            SERVICES="["
-            [ "$AUTH_CHANGED" == "true" ] && SERVICES="${SERVICES}\"auth-service\","
-            [ "$NOTIFICATION_CHANGED" == "true" ] && SERVICES="${SERVICES}\"notification-service\","
-            [ "$DRIVER_CHANGED" == "true" ] && SERVICES="${SERVICES}\"driver-service\","
-            SERVICES="${SERVICES%,}]"
-          fi
+          # Build services JSON array
+          SERVICES="["
+          FIRST=true
+          for svc in "${ALL_SERVICES[@]}"; do
+            if [ "${SERVICE_CHANGED[$svc]}" == "true" ]; then
+              if [ "$FIRST" == "true" ]; then
+                FIRST=false
+              else
+                SERVICES="${SERVICES},"
+              fi
+              SERVICES="${SERVICES}\"$svc\""
+            fi
+          done
+          SERVICES="${SERVICES}]"
 
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
-          echo "auth-service=$AUTH_CHANGED" >> $GITHUB_OUTPUT
-          echo "notification-service=$NOTIFICATION_CHANGED" >> $GITHUB_OUTPUT
-          echo "driver-service=$DRIVER_CHANGED" >> $GITHUB_OUTPUT
           echo "shared=$SHARED_CHANGED" >> $GITHUB_OUTPUT
 
           echo "Services to build: $SERVICES"
@@ -862,9 +876,18 @@ jobs:
           echo "==========================================="
           echo "Service Endpoints (Dev)"
           echo "==========================================="
-          echo "  - Auth Service:         https://dev.dollor.ai/api/auth"
-          echo "  - Notification Service: https://dev.dollor.ai/api/notifications"
-          echo "  - Driver Service:       https://dev.dollor.ai/api/driver"
+          echo "  - Auth Service:         https://dev.dollor.ai/api/v1/auth         (8001)"
+          echo "  - User Service:         https://dev.dollor.ai/api/v1/users        (8002)"
+          echo "  - Driver Service:       https://dev.dollor.ai/api/v1/drivers      (8003)"
+          echo "  - Restaurant Service:   https://dev.dollor.ai/api/v1/restaurants  (8004)"
+          echo "  - Order Service:        https://dev.dollor.ai/api/v1/orders       (8005)"
+          echo "  - Payment Service:      https://dev.dollor.ai/api/v1/payments     (8006)"
+          echo "  - Location Service:     https://dev.dollor.ai/api/v1/locations    (8007)"
+          echo "  - Menu Service:         https://dev.dollor.ai/api/v1/menus        (8008)"
+          echo "  - Notification Service: https://dev.dollor.ai/api/v1/notifications(8009)"
+          echo "  - Rating Service:       https://dev.dollor.ai/api/v1/ratings      (8013)"
+          echo "  - Ride Service:         https://dev.dollor.ai/api/v1/rides        (8014)"
+          echo "  - Pricing Service:      https://dev.dollor.ai/api/v1/pricing      (8015)"
           echo ""
           echo "==========================================="
           echo "Security Dashboards"

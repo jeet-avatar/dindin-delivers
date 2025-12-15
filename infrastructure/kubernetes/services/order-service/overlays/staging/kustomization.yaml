@@ -1,0 +1,42 @@
+# Dollor.ai Order Service - Staging Overlay
+# ===========================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: staging
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: order-service
+      spec:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: order-service
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+
+configMapGenerator:
+  - name: order-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - SERVICE_PORT=8005
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/order-service
+    newTag: staging-latest

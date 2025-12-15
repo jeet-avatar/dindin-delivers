@@ -1,0 +1,42 @@
+# Dollor.ai User Service - Dev Overlay
+# ======================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: user-service
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: user-service
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi
+
+configMapGenerator:
+  - name: user-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - SERVICE_PORT=8002
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/user-service
+    newTag: dev-latest

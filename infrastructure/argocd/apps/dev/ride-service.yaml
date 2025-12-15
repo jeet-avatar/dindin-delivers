@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ride-service-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ride-service
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  project: dollor-dev
+  source:
+    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
+    targetRevision: main
+    path: infrastructure/kubernetes/services/ride-service
+    kustomize:
+      images:
+        - name: dollor/ride-service
+          newTag: dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
