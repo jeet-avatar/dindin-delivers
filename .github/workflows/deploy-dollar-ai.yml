@@ -1,0 +1,196 @@
+name: Deploy to Dollor.ai
+
+on:
+  push:
+    branches:
+      - main
+      - feature/dollar-ai-deployment
+    paths:
+      - 'apps/web/p2p-platform/**'
+      - '.github/workflows/deploy-dollar-ai.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: dollar-ai-frontend
+  CLOUDFRONT_DISTRIBUTION_ID: E1TL8YTTU1SF3A
+  EC2_HOST: 44.192.34.143
+  ECR_REPOSITORY: dollor-api
+  ECS_CLUSTER: dollor-production
+  ECS_SERVICE: dollor-api-service
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend to CloudFront
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.dollor.ai
+          VITE_APP_NAME: Dollor.ai
+          VITE_ENVIRONMENT: production
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        working-directory: apps/web/p2p-platform/frontend
+        run: |
+          aws s3 sync dist/ s3://${{ env.S3_BUCKET }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  deploy-backend:
+    name: Deploy Backend to EC2
+    runs-on: ubuntu-latest
+    needs: deploy-frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy backend to EC2
+        run: |
+          # Sync backend files (excluding venv and __pycache__)
+          rsync -avz --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            apps/web/p2p-platform/backend/ ec2-user@${{ env.EC2_HOST }}:/opt/dollor-backend/
+
+      - name: Install dependencies and restart service
+        run: |
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
+            cd /opt/dollor-backend
+
+            # Create virtual environment if it doesn't exist
+            if [ ! -d "venv" ]; then
+              python3.11 -m venv venv
+            fi
+
+            # Activate and install dependencies
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            # Run database migrations/seeding if needed
+            # python seed_menu_items.py
+
+            # Restart the service using PM2 or systemd
+            if command -v pm2 &> /dev/null; then
+              pm2 restart dollor-backend || pm2 start "uvicorn main_new:app --host 0.0.0.0 --port 3000" --name dollor-backend
+            else
+              # Use systemd if available
+              if systemctl is-active --quiet dollor-backend; then
+                sudo systemctl restart dollor-backend
+              else
+                # Fallback to direct run in background
+                pkill -f "uvicorn main_new:app" || true
+                nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /var/log/dollor-backend.log 2>&1 &
+              fi
+            fi
+
+            echo "Backend deployment complete!"
+          EOF
+
+  deploy-ecs:
+    name: Deploy Backend to ECS
+    runs-on: ubuntu-latest
+    needs: deploy-frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force-new-deployment
+
+      - name: Wait for ECS deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
+          echo "ECS deployment complete!"
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend, deploy-ecs]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "==================================="
+          echo "Deployment to Dollor.ai Complete!"
+          echo "==================================="
+          echo ""
+          echo "Frontend: https://d3pus2gxlb5cer.cloudfront.net"
+          echo "Backend API: http://${{ env.EC2_HOST }}:3000"
+          echo ""
+          echo "Production URLs:"
+          echo "  Frontend: https://dollor.ai"
+          echo "  API: https://api.dollor.ai"
+          echo ""
+          echo "Pages deployed:"
+          echo "  - Landing Page: https://dollor.ai/"
+          echo "  - Vendor Login: https://dollor.ai/vendor/login"
+          echo "  - Driver Login: https://dollor.ai/driver/login"
+          echo "  - Restaurant Application: https://dollor.ai/restaurant/apply"
+          echo "  - Driver Application: https://dollor.ai/driver/apply"
+          echo "  - Terms of Service: https://dollor.ai/terms"
+          echo "  - Privacy Policy: https://dollor.ai/privacy"

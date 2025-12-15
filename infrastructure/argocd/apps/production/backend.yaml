@@ -1,0 +1,52 @@
+# Production Backend Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dollor-backend-production
+  namespace: argocd
+  labels:
+    environment: production
+    app: backend
+  annotations:
+    # Notifications for production
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: production-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: production-deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: production-deployments
+    notifications.argoproj.io/subscribe.on-sync-running.slack: production-deployments
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-production
+  source:
+    repoURL: https://github.com/your-org/eatfair-ios.git
+    targetRevision: main
+    path: infrastructure/helm/backend
+    helm:
+      valueFiles:
+        - values-production.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    # MANUAL SYNC for production - requires approval
+    # automated: disabled
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  # Ignore rollout status differences
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Rollout
+      jsonPointers:
+        - /status
+    - group: argoproj.io
+      kind: AnalysisRun
+      jsonPointers:
+        - /status

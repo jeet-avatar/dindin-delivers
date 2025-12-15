@@ -1,0 +1,482 @@
+# Dollor.ai - Kong API Gateway Configuration
+# ==========================================
+#
+# This configuration sets up Kong as the API Gateway for all microservices.
+# Features:
+# - Request routing to microservices
+# - Rate limiting
+# - JWT authentication
+# - CORS handling
+# - Request/Response transformation
+# - Load balancing
+#
+# Deploy with: kubectl apply -f kong-config.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kong
+  labels:
+    app: kong
+    environment: production
+
+---
+# Kong Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: kong
+data:
+  KONG_DATABASE: "off"
+  KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+  KONG_PROXY_ACCESS_LOG: /dev/stdout
+  KONG_ADMIN_ACCESS_LOG: /dev/stdout
+  KONG_PROXY_ERROR_LOG: /dev/stderr
+  KONG_ADMIN_ERROR_LOG: /dev/stderr
+  KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+  KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+  KONG_PLUGINS: "bundled,jwt,rate-limiting,cors,request-transformer,response-transformer"
+
+---
+# Kong Declarative Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-declarative-config
+  namespace: kong
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    _transform: true
+
+    # ==========================================================================
+    # SERVICES - Backend Microservices
+    # ==========================================================================
+
+    services:
+      # AUTH SERVICE
+      - name: auth-service
+        url: http://auth-service.production.svc.cluster.local:8001
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: auth-routes
+            paths:
+              - /api/auth
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: local
+          - name: cors
+            config:
+              origins: ["*"]
+              methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+              headers: ["Authorization", "Content-Type", "X-Correlation-ID"]
+              exposed_headers: ["X-Correlation-ID", "X-Trace-ID"]
+              max_age: 3600
+
+      # USER SERVICE
+      - name: user-service
+        url: http://user-service.production.svc.cluster.local:8002
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: user-routes
+            paths:
+              - /api/users
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+
+      # DRIVER SERVICE
+      - name: driver-service
+        url: http://driver-service.production.svc.cluster.local:8003
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: driver-routes
+            paths:
+              - /api/drivers
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+
+      # RESTAURANT SERVICE
+      - name: restaurant-service
+        url: http://restaurant-service.production.svc.cluster.local:8004
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: restaurant-routes
+            paths:
+              - /api/restaurants
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      # ORDER SERVICE
+      - name: order-service
+        url: http://order-service.production.svc.cluster.local:8005
+        connect_timeout: 10000
+        write_timeout: 120000
+        read_timeout: 120000
+        retries: 3
+        routes:
+          - name: order-routes
+            paths:
+              - /api/orders
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 300
+              policy: local
+
+      # PAYMENT SERVICE
+      - name: payment-service
+        url: http://payment-service.production.svc.cluster.local:8006
+        connect_timeout: 10000
+        write_timeout: 120000
+        read_timeout: 120000
+        retries: 2
+        routes:
+          - name: payment-routes
+            paths:
+              - /api/payments
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: local
+
+      # LOCATION SERVICE
+      - name: location-service
+        url: http://location-service.production.svc.cluster.local:8007
+        connect_timeout: 5000
+        write_timeout: 30000
+        read_timeout: 30000
+        retries: 2
+        routes:
+          - name: location-routes
+            paths:
+              - /api/location
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              second: 10
+              policy: local
+
+      # MENU SERVICE
+      - name: menu-service
+        url: http://menu-service.production.svc.cluster.local:8008
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: menu-routes
+            paths:
+              - /api/menus
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      # NOTIFICATION SERVICE
+      - name: notification-service
+        url: http://notification-service.production.svc.cluster.local:8009
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: notification-routes
+            paths:
+              - /api/notifications
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+
+      # RATING SERVICE
+      - name: rating-service
+        url: http://rating-service.production.svc.cluster.local:8013
+        connect_timeout: 10000
+        write_timeout: 60000
+        read_timeout: 60000
+        retries: 3
+        routes:
+          - name: rating-routes
+            paths:
+              - /api/ratings
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+
+    # ==========================================================================
+    # CONSUMERS - API Consumers (for rate limiting tiers)
+    # ==========================================================================
+
+    consumers:
+      - username: ios-customer-app
+        custom_id: ios-customer
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      - username: ios-driver-app
+        custom_id: ios-driver
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 1000
+              policy: local
+
+      - username: ios-restaurant-app
+        custom_id: ios-restaurant
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      - username: web-portal
+        custom_id: web-portal
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 2000
+              policy: local
+
+    # ==========================================================================
+    # GLOBAL PLUGINS
+    # ==========================================================================
+
+    plugins:
+      # Global CORS
+      - name: cors
+        config:
+          origins: ["*"]
+          methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Correlation-ID
+            - X-Request-ID
+            - Accept
+          exposed_headers:
+            - X-Correlation-ID
+            - X-Trace-ID
+            - X-RateLimit-Remaining
+          max_age: 3600
+          credentials: true
+
+      # Request ID injection
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - "X-Correlation-ID:$(uuid)"
+
+      # Response transformer (add service info)
+      - name: response-transformer
+        config:
+          add:
+            headers:
+              - "X-Powered-By:Dollor-API-Gateway"
+
+---
+# Kong Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.5
+          ports:
+            - name: proxy
+              containerPort: 8000
+            - name: proxy-ssl
+              containerPort: 8443
+            - name: admin
+              containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: kong-config
+          volumeMounts:
+            - name: kong-declarative-config
+              mountPath: /kong/declarative
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: kong-declarative-config
+          configMap:
+            name: kong-declarative-config
+
+---
+# Kong Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: kong
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+    - name: https
+      port: 443
+      targetPort: 8443
+  selector:
+    app: kong
+
+---
+# Kong Admin Service (internal only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin
+  namespace: kong
+spec:
+  type: ClusterIP
+  ports:
+    - name: admin
+      port: 8001
+      targetPort: 8001
+  selector:
+    app: kong
+
+---
+# Ingress for Kong
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kong-ingress
+  namespace: kong
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  tls:
+    - hosts:
+        - api.dollor.ai
+      secretName: dollor-api-tls
+  rules:
+    - host: api.dollor.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kong-proxy
+                port:
+                  number: 80

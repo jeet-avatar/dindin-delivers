@@ -1,0 +1,832 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		104405B22ED79B7900ED321A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 104405B12ED79B7900ED321A /* GoogleSignIn */; };
+		104405B42ED79B7900ED321A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 104405B32ED79B7900ED321A /* GoogleSignInSwift */; };
+		104405B72ED7D97400ED321A /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = 104405B62ED7D97400ED321A /* Stripe */; };
+		104405B92ED7D97400ED321A /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = 104405B82ED7D97400ED321A /* StripeApplePay */; };
+		104405BB2ED7D97400ED321A /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = 104405BA2ED7D97400ED321A /* StripeCardScan */; };
+		104405BD2ED7D97400ED321A /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = 104405BC2ED7D97400ED321A /* StripeConnect */; };
+		104405BF2ED7D97400ED321A /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 104405BE2ED7D97400ED321A /* StripeFinancialConnections */; };
+		104405C22ED7DC3900ED321A /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C12ED7DC3900ED321A /* FirebaseAnalytics */; };
+		104405C42ED7DC3900ED321A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C32ED7DC3900ED321A /* FirebaseAuth */; };
+		104405C62ED7DC3900ED321A /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C52ED7DC3900ED321A /* FirebaseCore */; };
+		104405C82ED7DC3900ED321A /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C72ED7DC3900ED321A /* FirebaseFirestore */; };
+		104405CA2ED7DC3900ED321A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 104405C92ED7DC3900ED321A /* FirebaseStorage */; };
+		104407A92ED83E4700ED321A /* EatFairShared in Frameworks */ = {isa = PBXBuildFile; productRef = 104407A82ED83E4700ED321A /* EatFairShared */; };
+		C8EFDC0952F083F53C017870 /* Pods_eatffairdelivery.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		104405942ED797EC00ED321A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 104405792ED797EA00ED321A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 104405802ED797EA00ED321A;
+			remoteInfo = eatffairdelivery;
+		};
+		1044059E2ED797EC00ED321A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 104405792ED797EA00ED321A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 104405802ED797EA00ED321A;
+			remoteInfo = eatffairdelivery;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		104405812ED797EA00ED321A /* EatFair Driver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EatFair Driver.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairdeliveryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairdeliveryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairdelivery.release.xcconfig"; path = "Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery.release.xcconfig"; sourceTree = "<group>"; };
+		5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_eatffairdelivery.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairdelivery.debug.xcconfig"; path = "Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery.debug.xcconfig"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		104405D42ED7DF9D00ED321A /* Exceptions for "eatffairdelivery" folder in "eatffairdelivery" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 104405802ED797EA00ED321A /* eatffairdelivery */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		104405832ED797EA00ED321A /* eatffairdelivery */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				104405D42ED7DF9D00ED321A /* Exceptions for "eatffairdelivery" folder in "eatffairdelivery" target */,
+			);
+			path = eatffairdelivery;
+			sourceTree = "<group>";
+		};
+		104405962ED797EC00ED321A /* eatffairdeliveryTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = eatffairdeliveryTests;
+			sourceTree = "<group>";
+		};
+		104405A02ED797EC00ED321A /* eatffairdeliveryUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = eatffairdeliveryUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1044057E2ED797EA00ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				104405B22ED79B7900ED321A /* GoogleSignIn in Frameworks */,
+				104405B92ED7D97400ED321A /* StripeApplePay in Frameworks */,
+				104407A92ED83E4700ED321A /* EatFairShared in Frameworks */,
+				104405C22ED7DC3900ED321A /* FirebaseAnalytics in Frameworks */,
+				104405B42ED79B7900ED321A /* GoogleSignInSwift in Frameworks */,
+				104405C42ED7DC3900ED321A /* FirebaseAuth in Frameworks */,
+				104405CA2ED7DC3900ED321A /* FirebaseStorage in Frameworks */,
+				104405BF2ED7D97400ED321A /* StripeFinancialConnections in Frameworks */,
+				104405C62ED7DC3900ED321A /* FirebaseCore in Frameworks */,
+				104405BB2ED7D97400ED321A /* StripeCardScan in Frameworks */,
+				104405BD2ED7D97400ED321A /* StripeConnect in Frameworks */,
+				104405C82ED7DC3900ED321A /* FirebaseFirestore in Frameworks */,
+				104405B72ED7D97400ED321A /* Stripe in Frameworks */,
+				C8EFDC0952F083F53C017870 /* Pods_eatffairdelivery.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104405902ED797EC00ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1044059A2ED797EC00ED321A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		104405782ED797EA00ED321A = {
+			isa = PBXGroup;
+			children = (
+				104405832ED797EA00ED321A /* eatffairdelivery */,
+				104405962ED797EC00ED321A /* eatffairdeliveryTests */,
+				104405A02ED797EC00ED321A /* eatffairdeliveryUITests */,
+				104405822ED797EA00ED321A /* Products */,
+				6B73B94BBE1E422B546F8F9F /* Pods */,
+				B429DC235F7187D94DCB5738 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		104405822ED797EA00ED321A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				104405812ED797EA00ED321A /* EatFair Driver.app */,
+				104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */,
+				1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6B73B94BBE1E422B546F8F9F /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */,
+				267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		B429DC235F7187D94DCB5738 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5B580EEBE2DF4874D04E5CBB /* Pods_eatffairdelivery.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		104405802ED797EA00ED321A /* eatffairdelivery */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104405A72ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdelivery" */;
+			buildPhases = (
+				7094AD67DC4E4466106C1207 /* [CP] Check Pods Manifest.lock */,
+				1044057D2ED797EA00ED321A /* Sources */,
+				1044057E2ED797EA00ED321A /* Frameworks */,
+				1044057F2ED797EA00ED321A /* Resources */,
+				06118FCD39633CBE88BF251F /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				104405832ED797EA00ED321A /* eatffairdelivery */,
+			);
+			name = eatffairdelivery;
+			packageProductDependencies = (
+				104405B12ED79B7900ED321A /* GoogleSignIn */,
+				104405B32ED79B7900ED321A /* GoogleSignInSwift */,
+				104405B62ED7D97400ED321A /* Stripe */,
+				104405B82ED7D97400ED321A /* StripeApplePay */,
+				104405BA2ED7D97400ED321A /* StripeCardScan */,
+				104405BC2ED7D97400ED321A /* StripeConnect */,
+				104405BE2ED7D97400ED321A /* StripeFinancialConnections */,
+				104405C12ED7DC3900ED321A /* FirebaseAnalytics */,
+				104405C32ED7DC3900ED321A /* FirebaseAuth */,
+				104405C52ED7DC3900ED321A /* FirebaseCore */,
+				104405C72ED7DC3900ED321A /* FirebaseFirestore */,
+				104405C92ED7DC3900ED321A /* FirebaseStorage */,
+				104407A82ED83E4700ED321A /* EatFairShared */,
+			);
+			productName = eatffairdelivery;
+			productReference = 104405812ED797EA00ED321A /* EatFair Driver.app */;
+			productType = "com.apple.product-type.application";
+		};
+		104405922ED797EC00ED321A /* eatffairdeliveryTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104405AA2ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdeliveryTests" */;
+			buildPhases = (
+				1044058F2ED797EC00ED321A /* Sources */,
+				104405902ED797EC00ED321A /* Frameworks */,
+				104405912ED797EC00ED321A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				104405952ED797EC00ED321A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				104405962ED797EC00ED321A /* eatffairdeliveryTests */,
+			);
+			name = eatffairdeliveryTests;
+			productName = eatffairdeliveryTests;
+			productReference = 104405932ED797EC00ED321A /* eatffairdeliveryTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		1044059C2ED797EC00ED321A /* eatffairdeliveryUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 104405AD2ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdeliveryUITests" */;
+			buildPhases = (
+				104405992ED797EC00ED321A /* Sources */,
+				1044059A2ED797EC00ED321A /* Frameworks */,
+				1044059B2ED797EC00ED321A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1044059F2ED797EC00ED321A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				104405A02ED797EC00ED321A /* eatffairdeliveryUITests */,
+			);
+			name = eatffairdeliveryUITests;
+			productName = eatffairdeliveryUITests;
+			productReference = 1044059D2ED797EC00ED321A /* eatffairdeliveryUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		104405792ED797EA00ED321A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2610;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					104405802ED797EA00ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
+					104405922ED797EC00ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = 104405802ED797EA00ED321A;
+					};
+					1044059C2ED797EC00ED321A = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = 104405802ED797EA00ED321A;
+					};
+				};
+			};
+			buildConfigurationList = 1044057C2ED797EA00ED321A /* Build configuration list for PBXProject "eatffairdelivery" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 104405782ED797EA00ED321A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
+				104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 104405822ED797EA00ED321A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				104405802ED797EA00ED321A /* eatffairdelivery */,
+				104405922ED797EC00ED321A /* eatffairdeliveryTests */,
+				1044059C2ED797EC00ED321A /* eatffairdeliveryUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1044057F2ED797EA00ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104405912ED797EC00ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1044059B2ED797EC00ED321A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		06118FCD39633CBE88BF251F /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7094AD67DC4E4466106C1207 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-eatffairdelivery-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1044057D2ED797EA00ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1044058F2ED797EC00ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		104405992ED797EC00ED321A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		104405952ED797EC00ED321A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 104405802ED797EA00ED321A /* eatffairdelivery */;
+			targetProxy = 104405942ED797EC00ED321A /* PBXContainerItemProxy */;
+		};
+		1044059F2ED797EC00ED321A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 104405802ED797EA00ED321A /* eatffairdelivery */;
+			targetProxy = 1044059E2ED797EC00ED321A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		104405A52ED797EC00ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		104405A62ED797EC00ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		104405A82ED797EC00ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 69E3766EA0AB5AE35F8A7F52 /* Pods-eatffairdelivery.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = eatffairdelivery/eatffairdelivery.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = eatffairdelivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver;
+				PRODUCT_NAME = "EatFair Driver";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		104405A92ED797EC00ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 267D5E13AA244B1E5537B0EB /* Pods-eatffairdelivery.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = eatffairdelivery/eatffairdelivery.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = eatffairdelivery/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver;
+				PRODUCT_NAME = "EatFair Driver";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		104405AB2ED797EC00ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/eatffairdelivery.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/eatffairdelivery";
+			};
+			name = Debug;
+		};
+		104405AC2ED797EC00ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/eatffairdelivery.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/eatffairdelivery";
+			};
+			name = Release;
+		};
+		104405AE2ED797EC00ED321A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = eatffairdelivery;
+			};
+			name = Debug;
+		};
+		104405AF2ED797EC00ED321A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YRHVAY595K;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.driver.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = eatffairdelivery;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1044057C2ED797EA00ED321A /* Build configuration list for PBXProject "eatffairdelivery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104405A52ED797EC00ED321A /* Debug */,
+				104405A62ED797EC00ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104405A72ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdelivery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104405A82ED797EC00ED321A /* Debug */,
+				104405A92ED797EC00ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104405AA2ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdeliveryTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104405AB2ED797EC00ED321A /* Debug */,
+				104405AC2ED797EC00ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		104405AD2ED797EC00ED321A /* Build configuration list for PBXNativeTarget "eatffairdeliveryUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				104405AE2ED797EC00ED321A /* Debug */,
+				104405AF2ED797EC00ED321A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../eatfair-ios-shared";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 25.1.1;
+			};
+		};
+		104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		104405B12ED79B7900ED321A /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		104405B32ED79B7900ED321A /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		104405B62ED7D97400ED321A /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = Stripe;
+		};
+		104405B82ED7D97400ED321A /* StripeApplePay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeApplePay;
+		};
+		104405BA2ED7D97400ED321A /* StripeCardScan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeCardScan;
+		};
+		104405BC2ED7D97400ED321A /* StripeConnect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeConnect;
+		};
+		104405BE2ED7D97400ED321A /* StripeFinancialConnections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */;
+			productName = StripeFinancialConnections;
+		};
+		104405C12ED7DC3900ED321A /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		104405C32ED7DC3900ED321A /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		104405C52ED7DC3900ED321A /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		104405C72ED7DC3900ED321A /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		104405C92ED7DC3900ED321A /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		104407A82ED83E4700ED321A /* EatFairShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */;
+			productName = EatFairShared;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 104405792ED797EA00ED321A /* Project object */;
+}

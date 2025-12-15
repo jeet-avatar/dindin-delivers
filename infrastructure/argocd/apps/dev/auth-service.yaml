@@ -1,0 +1,58 @@
+# Dollor.ai Auth Service - ArgoCD Application (Dev)
+# ==================================================
+# Deploys auth-service to development environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: authentication
+    app.kubernetes.io/part-of: dollor-platform
+    environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-dev
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/auth-service/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health checks
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "Authentication service for Dollor.ai platform"
+    - name: Port
+      value: "8001"
+    - name: Endpoints
+      value: "/api/auth/*"

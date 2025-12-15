@@ -1,0 +1,37 @@
+{
+  "customer_name": "John Doe",
+  "customer_email": "john.doe@example.com",
+  "customer_phone": "+14155551234",
+  "vendor_id": 1,
+  "items": [
+    {
+      "menu_item_id": 1,
+      "name": "Margherita Pizza",
+      "quantity": 2,
+      "price": 15.99
+    },
+    {
+      "menu_item_id": 2,
+      "name": "Caesar Salad",
+      "quantity": 1,
+      "price": 8.99
+    },
+    {
+      "menu_item_id": 3,
+      "name": "Garlic Bread",
+      "quantity": 1,
+      "price": 4.99
+    }
+  ],
+  "delivery_address": {
+    "street": "303 2nd Street",
+    "suite": "Suite 800",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94107",
+    "country": "USA"
+  },
+  "delivery_instructions": "Ring doorbell twice. Leave at front door if no answer.",
+  "delivery_latitude": 37.7856,
+  "delivery_longitude": -122.3923
+}

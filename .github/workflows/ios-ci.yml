@@ -1,0 +1,235 @@
+name: iOS CI/CD
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  XCODE_VERSION: '15.0'
+
+jobs:
+  lint:
+    name: SwiftLint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging --config .swiftlint.yml || true
+
+  build-shared:
+    name: Build Shared Module
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Build EatFairShared
+        run: |
+          cd apps/ios/eatfair-ios-shared
+          swift build
+
+  build-customer:
+    name: Build Customer App
+    runs-on: macos-14
+    needs: build-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/customer
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
+
+      - name: Build Customer App
+        run: |
+          cd apps/ios/customer
+          xcodebuild build \
+            -workspace eatfaircustomer.xcworkspace \
+            -scheme eatfaircustomer \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatfaircustomer.xcodeproj \
+              -scheme eatfaircustomer \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  build-restaurant:
+    name: Build Restaurant App
+    runs-on: macos-14
+    needs: build-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/restaurant
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_RESTAURANT }}' > apps/ios/restaurant/eatffairrestaurant/GoogleService-Info.plist
+
+      - name: Build Restaurant App
+        run: |
+          cd apps/ios/restaurant
+          xcodebuild build \
+            -workspace eatffairrestaurant.xcworkspace \
+            -scheme eatffairrestaurant \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatffairrestaurant.xcodeproj \
+              -scheme eatffairrestaurant \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  build-delivery:
+    name: Build Delivery App
+    runs-on: macos-14
+    needs: build-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/delivery
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_DELIVERY }}' > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
+
+      - name: Build Delivery App
+        run: |
+          cd apps/ios/delivery
+          xcodebuild build \
+            -workspace eatffairdelivery.xcworkspace \
+            -scheme eatffairdelivery \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatffairdelivery.xcodeproj \
+              -scheme eatffairdelivery \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  test:
+    name: Run Tests
+    runs-on: macos-14
+    needs: [build-customer, build-restaurant, build-delivery]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Run Unit Tests (Shared)
+        run: |
+          cd apps/ios/eatfair-ios-shared
+          swift test
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results/**'
+
+  archive:
+    name: Archive for App Store
+    runs-on: macos-14
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        app: [customer, restaurant, delivery]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install Apple Certificate
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Install Provisioning Profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: Archive App
+        run: |
+          cd apps/ios/${{ matrix.app }}
+          xcodebuild archive \
+            -project eatfair${{ matrix.app }}.xcodeproj \
+            -scheme eatfair${{ matrix.app }} \
+            -archivePath $RUNNER_TEMP/eatfair${{ matrix.app }}.xcarchive \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.PROVISIONING_PROFILE_NAME }}"
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/eatfair${{ matrix.app }}.xcarchive \
+            -exportPath $RUNNER_TEMP/export \
+            -exportOptionsPlist apps/ios/${{ matrix.app }}/ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-ipa
+          path: $RUNNER_TEMP/export/*.ipa

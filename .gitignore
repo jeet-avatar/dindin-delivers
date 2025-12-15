@@ -85,3 +85,27 @@ google-services.json
 dist/
 lib/
 out/
+apps/ios/eatfair-ios-shared/.build/
+
+# Swift Package Manager build artifacts
+apps/ios/eatfair-ios-shared/.build/
+apps/ios/eatfair-ios-shared/.swiftpm/
+apps/ios/customer/Pods/
+apps/ios/delivery/Pods/
+apps/ios/restaurant/Pods/
+*.xcframework/
+*.pack
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

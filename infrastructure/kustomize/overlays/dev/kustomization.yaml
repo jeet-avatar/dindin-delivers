@@ -1,0 +1,83 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: dollor-backend-dev
+
+namespace: dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+namePrefix: dev-
+
+commonLabels:
+  environment: development
+
+commonAnnotations:
+  app.kubernetes.io/environment: development
+
+images:
+  - name: dollor-api
+    newName: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+    newTag: dev-latest
+
+replicas:
+  - name: dollor-backend
+    count: 1
+
+patches:
+  # Patch deployment for dev settings
+  - target:
+      kind: Deployment
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 50m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 128Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 250m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 256Mi
+
+  # Patch ingress for dev domain
+  - target:
+      kind: Ingress
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: dev-api.dollor.ai
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: dev-api.dollor.ai
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: dev-dollor-backend-tls
+
+  # Disable HPA in dev
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: dollor-backend
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+
+configMapGenerator:
+  - name: dollor-backend-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - CORS_ORIGINS=https://dev.dollor.ai,http://localhost:3000
+      - RATE_LIMIT=1000

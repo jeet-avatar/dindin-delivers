@@ -1,0 +1,148 @@
+# Dollor.ai Custom Semgrep Rules
+# ===============================
+# Custom security rules specific to Dollor.ai platform
+
+rules:
+  # ===========================================================================
+  # AUTHENTICATION SECURITY
+  # ===========================================================================
+  - id: dollor-hardcoded-jwt-secret
+    pattern: |
+      JWT_SECRET_KEY = "..."
+    message: "Hardcoded JWT secret detected. Use environment variables."
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A3:2017 - Sensitive Data Exposure"
+
+  - id: dollor-weak-password-validation
+    patterns:
+      - pattern: len($PASSWORD) < 8
+      - pattern: len($PASSWORD) >= 6
+    message: "Weak password length requirement. Minimum should be 8 characters."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-521: Weak Password Requirements"
+
+  # ===========================================================================
+  # SQL INJECTION PREVENTION
+  # ===========================================================================
+  - id: dollor-raw-sql-query
+    patterns:
+      - pattern: |
+          db.execute(f"...")
+      - pattern: |
+          db.execute("..." + $VAR)
+      - pattern: |
+          db.execute("..." % $VAR)
+    message: "Potential SQL injection. Use parameterized queries with text() binding."
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A1:2017 - Injection"
+    fix: |
+      Use SQLAlchemy text() with bound parameters:
+      db.execute(text("SELECT * FROM users WHERE id = :id"), {"id": user_id})
+
+  # ===========================================================================
+  # API SECURITY
+  # ===========================================================================
+  - id: dollor-missing-rate-limit
+    patterns:
+      - pattern: |
+          @app.$METHOD("/api/auth/...")
+          async def $FUNC(...):
+              ...
+      - pattern-not: |
+          @limiter.limit(...)
+          @app.$METHOD(...)
+    message: "Authentication endpoint without rate limiting. Add @limiter.limit() decorator."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-770: Allocation of Resources Without Limits"
+
+  - id: dollor-sensitive-data-logging
+    patterns:
+      - pattern: logger.$METHOD(..., password=..., ...)
+      - pattern: logger.$METHOD(..., token=..., ...)
+      - pattern: logger.$METHOD(..., secret=..., ...)
+      - pattern: print(...password...)
+    message: "Sensitive data may be logged. Remove passwords/tokens from logs."
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-532: Information Exposure Through Log Files"
+
+  # ===========================================================================
+  # INPUT VALIDATION
+  # ===========================================================================
+  - id: dollor-unvalidated-redirect
+    patterns:
+      - pattern: |
+          return RedirectResponse(url=$URL)
+      - pattern-not-inside: |
+          if $URL in ALLOWED_REDIRECTS:
+              ...
+    message: "Potential open redirect vulnerability. Validate redirect URLs."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site"
+
+  - id: dollor-unvalidated-file-path
+    patterns:
+      - pattern: open($PATH, ...)
+      - pattern: Path($PATH)
+      - pattern-not-inside: |
+          if $PATH.startswith(ALLOWED_DIR):
+              ...
+    message: "File path may not be validated. Ensure path traversal prevention."
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+
+  # ===========================================================================
+  # MICROSERVICE SPECIFIC
+  # ===========================================================================
+  - id: dollor-service-health-no-db-check
+    patterns:
+      - pattern: |
+          @app.get("/health")
+          async def $FUNC():
+              return {"status": "healthy"}
+    message: "Health endpoint doesn't check database connectivity. Add db health check."
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: best-practice
+
+  - id: dollor-missing-error-code
+    patterns:
+      - pattern: |
+          raise HTTPException(
+              status_code=...,
+              detail="..."
+          )
+      - pattern-not: |
+          raise HTTPException(
+              status_code=...,
+              detail={"code": "...", ...}
+          )
+    message: "HTTPException should include error code in format {code: 'SVC-XXX', message: '...'}."
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: best-practice
+      dollor-standard: "Error codes must follow format: SERVICE-CATEGORY-NUMBER"
