@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  location-service:
+    build: .
+    container_name: dollor-location-service
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_TTL=300
+      - SERVICE_AREA_CENTER_LAT=37.7749
+      - SERVICE_AREA_CENTER_LON=-122.4194
+      - SERVICE_AREA_RADIUS_KM=50
+      - MAX_DELIVERY_RADIUS_KM=10
+      - AVERAGE_SPEED_KMH=40
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: dollor-location-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=dollor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dollor-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: dollor-location-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dollor-network
+
+networks:
+  dollor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

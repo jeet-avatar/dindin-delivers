@@ -1,0 +1,11 @@
+# Dollor.ai Event Infrastructure Dependencies
+# ============================================
+
+# Async Kafka client
+aiokafka==0.10.0
+
+# JSON Schema validation (optional, for CloudEvents validation)
+jsonschema==4.21.1
+
+# H3 hexagonal grid (for location services)
+h3==3.7.6
