@@ -34,7 +34,7 @@ jobs:
       - name: Build EatFairShared
         run: |
           cd apps/ios/eatfair-ios-shared
-          swift build
+          xcodebuild -scheme EatFairShared -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' build
 
   build-customer:
     name: Build Customer App
