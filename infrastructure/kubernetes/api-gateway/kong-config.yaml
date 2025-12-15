@@ -281,6 +281,48 @@ data:
               minute: 200
               policy: local
 
+      # RIDE SERVICE (Rideshare)
+      - name: ride-service
+        url: http://ride-service.production.svc.cluster.local:8014
+        connect_timeout: 10000
+        write_timeout: 120000
+        read_timeout: 120000
+        retries: 3
+        routes:
+          - name: ride-routes
+            paths:
+              - /api/rides
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: jwt
+            config:
+              key_claim_name: kid
+              claims_to_verify: ["exp"]
+          - name: rate-limiting
+            config:
+              minute: 500
+              policy: local
+
+      # PRICING SERVICE (Rideshare)
+      - name: pricing-service
+        url: http://pricing-service.production.svc.cluster.local:8015
+        connect_timeout: 5000
+        write_timeout: 30000
+        read_timeout: 30000
+        retries: 2
+        routes:
+          - name: pricing-routes
+            paths:
+              - /api/pricing
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              second: 20
+              policy: local
+
     # ==========================================================================
     # CONSUMERS - API Consumers (for rate limiting tiers)
     # ==========================================================================
