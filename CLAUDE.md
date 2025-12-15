@@ -244,6 +244,247 @@ frontend/src/app/
 | **ride-service** | 8014 | Rideshare | Ride requests, matching |
 | **pricing-service** | 8015 | Rideshare | Surge, fare calculation |
 
+---
+
+## EVENT-DRIVEN CQRS ARCHITECTURE (Uber/DoorDash Scale)
+
+> **CRITICAL**: This architecture is designed for Uber/DoorDash-level scale (millions of users,
+> thousands of concurrent orders/rides, real-time tracking). Implementation is in phases.
+
+### Architecture Overview
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          EVENT-DRIVEN CQRS ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐      │
+│  │   Mobile     │   │   Web        │   │   Partner    │   │   Admin      │      │
+│  │   Apps       │   │   Portal     │   │   Apps       │   │   Portal     │      │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘      │
+│         │                  │                  │                  │               │
+│         └──────────────────┼──────────────────┼──────────────────┘               │
+│                            │                  │                                   │
+│                   ┌────────▼──────────────────▼────────┐                         │
+│                   │           API GATEWAY              │                         │
+│                   │    (Kong / AWS API Gateway)        │                         │
+│                   └────────────────┬───────────────────┘                         │
+│                                    │                                              │
+│         ┌──────────────────────────┼──────────────────────────┐                  │
+│         │                          │                          │                  │
+│         ▼                          ▼                          ▼                  │
+│  ┌─────────────┐          ┌─────────────┐          ┌─────────────┐              │
+│  │  COMMAND    │          │   QUERY     │          │  REAL-TIME  │              │
+│  │  SERVICES   │          │  SERVICES   │          │  SERVICES   │              │
+│  │             │          │             │          │             │              │
+│  │ • Orders    │          │ • Search    │          │ • Location  │              │
+│  │ • Rides     │          │ • Menu      │          │ • Tracking  │              │
+│  │ • Payments  │          │ • Profile   │          │ • WebSocket │              │
+│  └──────┬──────┘          └──────┬──────┘          └──────┬──────┘              │
+│         │                        │                        │                      │
+│         │   ┌────────────────────┼────────────────────────┘                      │
+│         │   │                    │                                               │
+│         ▼   ▼                    ▼                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐        │
+│  │                      APACHE KAFKA                                    │        │
+│  │                   (Event Bus / Stream)                               │        │
+│  │                                                                      │        │
+│  │  Topics:                                                             │        │
+│  │  • orders.created, orders.updated, orders.completed                  │        │
+│  │  • rides.requested, rides.matched, rides.completed                   │        │
+│  │  • payments.processed, payments.failed                               │        │
+│  │  • drivers.location, drivers.status                                  │        │
+│  │  • notifications.send                                                │        │
+│  └─────────────────────────────────────────────────────────────────────┘        │
+│         │                        │                        │                      │
+│         ▼                        ▼                        ▼                      │
+│  ┌─────────────┐          ┌─────────────┐          ┌─────────────┐              │
+│  │ PostgreSQL  │          │ Elasticsearch│          │  Redis Geo  │              │
+│  │  (Commands) │          │  (Queries)   │          │ (Location)  │              │
+│  │             │          │              │          │             │              │
+│  │ • Orders    │          │ • Search     │          │ • Driver    │              │
+│  │ • Rides     │          │ • Menu       │          │   Positions │              │
+│  │ • Users     │          │ • Analytics  │          │ • H3 Index  │              │
+│  └─────────────┘          └─────────────┘          └─────────────┘              │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### CQRS Pattern Implementation
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CQRS FOR ORDER SERVICE                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  COMMAND SIDE                    │    QUERY SIDE                 │
+│  (Write Operations)              │    (Read Operations)          │
+│                                  │                               │
+│  ┌────────────────────┐          │    ┌────────────────────┐    │
+│  │ CreateOrderCommand │          │    │ GetOrderQuery      │    │
+│  │ UpdateOrderCommand │          │    │ ListOrdersQuery    │    │
+│  │ CancelOrderCommand │          │    │ SearchOrdersQuery  │    │
+│  └─────────┬──────────┘          │    └─────────┬──────────┘    │
+│            │                     │              │                │
+│            ▼                     │              ▼                │
+│  ┌────────────────────┐          │    ┌────────────────────┐    │
+│  │  Command Handler   │          │    │   Query Handler    │    │
+│  │  (Business Logic)  │          │    │   (Read Model)     │    │
+│  └─────────┬──────────┘          │    └─────────┬──────────┘    │
+│            │                     │              │                │
+│            ▼                     │              ▼                │
+│  ┌────────────────────┐          │    ┌────────────────────┐    │
+│  │  PostgreSQL        │──Events──┼───▶│  Elasticsearch     │    │
+│  │  (Event Store)     │   via    │    │  (Read Replica)    │    │
+│  │                    │  Kafka   │    │                    │    │
+│  └────────────────────┘          │    └────────────────────┘    │
+│                                  │                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Event Store with Outbox Pattern
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     OUTBOX PATTERN                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Command arrives                                              │
+│     │                                                            │
+│     ▼                                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  BEGIN TRANSACTION                                  │         │
+│  │  ├── INSERT INTO orders (...)                       │         │
+│  │  ├── INSERT INTO event_outbox (event_data)          │         │
+│  │  COMMIT                                             │         │
+│  └────────────────────────────────────────────────────┘         │
+│     │                                                            │
+│     │  (Atomic - both succeed or both fail)                     │
+│     ▼                                                            │
+│  2. Outbox Processor (separate process)                          │
+│     │                                                            │
+│     ▼                                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  SELECT * FROM event_outbox WHERE published = false │         │
+│  │  ├── Publish to Kafka                               │         │
+│  │  ├── UPDATE event_outbox SET published = true       │         │
+│  └────────────────────────────────────────────────────┘         │
+│     │                                                            │
+│     ▼                                                            │
+│  3. Event consumers update read models                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Polyglot Persistence Strategy
+| Data Type | Storage | Use Case | Scale |
+|-----------|---------|----------|-------|
+| **Transactional** | PostgreSQL | Orders, Rides, Users, Payments | ACID, consistency |
+| **Search/Analytics** | Elasticsearch | Menu search, Order history | Full-text, aggregations |
+| **Real-time Location** | Redis Geo + H3 | Driver positions, ETA | Sub-second updates |
+| **Time-series** | ClickHouse | Metrics, analytics, reporting | Billions of rows |
+| **Cache** | Redis | Sessions, hot data | Low latency |
+| **Events** | Kafka | All domain events | High throughput |
+
+### Real-time Location System (H3 Hexagonal Grid)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              REAL-TIME LOCATION ARCHITECTURE                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Driver App                                                      │
+│     │                                                            │
+│     │ GPS Update (every 3-5 seconds)                             │
+│     ▼                                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  Location Service                                   │         │
+│  │  ├── Convert lat/lng to H3 hexagon (resolution 9)   │         │
+│  │  ├── GEOADD driver:positions {lng} {lat} {driver_id}│         │
+│  │  ├── SET driver:{id}:h3 {h3_index}                  │         │
+│  │  └── Publish to Kafka: drivers.location             │         │
+│  └────────────────────────────────────────────────────┘         │
+│     │                                                            │
+│     ▼                                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  Matching Service (for new orders/rides)            │         │
+│  │  ├── Get customer H3 hexagon                        │         │
+│  │  ├── Find nearby H3 cells (k-ring neighbors)        │         │
+│  │  ├── GEORADIUS driver:positions {lng} {lat} 5 km    │         │
+│  │  └── Rank by: distance, rating, acceptance rate     │         │
+│  └────────────────────────────────────────────────────┘         │
+│     │                                                            │
+│     ▼                                                            │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  WebSocket Server (real-time updates)               │         │
+│  │  ├── Subscribe to Kafka: drivers.location           │         │
+│  │  ├── Filter by active order/ride                    │         │
+│  │  └── Push to customer app via WebSocket             │         │
+│  └────────────────────────────────────────────────────┘         │
+│                                                                  │
+│  H3 Hexagon Benefits:                                           │
+│  • Consistent cell sizes (no distortion at poles)               │
+│  • Efficient neighbor lookups (k-ring algorithm)                │
+│  • Resolution 9 = ~0.1 km² cells (perfect for delivery)         │
+│  • Used by Uber, DoorDash, Lyft                                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Kafka Topics Structure
+| Topic | Partitions | Purpose | Retention |
+|-------|------------|---------|-----------|
+| `orders.commands` | 12 | Order create/update/cancel commands | 7 days |
+| `orders.events` | 12 | Order domain events | 30 days |
+| `rides.commands` | 12 | Ride request/match/complete commands | 7 days |
+| `rides.events` | 12 | Ride domain events | 30 days |
+| `payments.events` | 6 | Payment processed/failed events | 90 days |
+| `drivers.location` | 24 | Driver GPS updates (high volume) | 1 hour |
+| `drivers.status` | 12 | Driver online/offline/busy status | 7 days |
+| `notifications.send` | 6 | Push/SMS/Email triggers | 3 days |
+
+### Event Schema (CloudEvents Standard)
+```json
+{
+  "specversion": "1.0",
+  "type": "dollor.orders.created",
+  "source": "/services/food-order-service",
+  "id": "A234-1234-1234",
+  "time": "2025-12-15T12:00:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "order_id": "ord_123",
+    "customer_id": "cust_456",
+    "restaurant_id": "rest_789",
+    "items": [...],
+    "total": 45.99
+  }
+}
+```
+
+### Implementation Phases
+
+#### PHASE 1: Event Infrastructure (Current)
+- [ ] Add Kafka + Zookeeper to docker-compose
+- [ ] Create base event classes (CloudEvents format)
+- [ ] Implement Event Store with Outbox pattern
+- [ ] Create event publisher/consumer utilities
+- [ ] Add Kafka topics for orders and drivers
+
+#### PHASE 2: CQRS for Order Service
+- [ ] Separate command handlers from query handlers
+- [ ] Create Elasticsearch read model for orders
+- [ ] Implement order projections from events
+- [ ] Add order search and filtering
+
+#### PHASE 3: Real-time Location System
+- [ ] Implement H3 hexagonal grid indexing
+- [ ] Add Redis Geo for driver positions
+- [ ] Create WebSocket server for live tracking
+- [ ] Implement driver matching algorithm
+
+#### PHASE 4: Analytics Pipeline
+- [ ] Add ClickHouse for time-series data
+- [ ] Create materialized views for metrics
+- [ ] Implement real-time dashboard feeds
+- [ ] Add business intelligence queries
+
 ### Error Code System
 **Format**: `{SERVICE}-{CATEGORY}{NUMBER}`
 
@@ -440,6 +681,98 @@ cd /Users/jeet/StudioProjects/eatfair-android
 
 ---
 
+## LOCAL DEVELOPMENT INFRASTRUCTURE
+
+### Docker Services (docker-compose)
+```bash
+cd /Users/jeet/StudioProjects/eatfair-ios/services
+docker-compose up -d postgres redis zookeeper kafka kafka-ui
+```
+
+| Service | Container | Port | Purpose |
+|---------|-----------|------|---------|
+| PostgreSQL | dollor-postgres | 5432 | Primary database |
+| Redis | dollor-redis | 6379 | Cache, sessions, Geo |
+| Zookeeper | dollor-zookeeper | 2181 | Kafka coordination |
+| Kafka | dollor-kafka | 9093 (host) / 29092 (internal) | Event streaming |
+| Kafka UI | dollor-kafka-ui | 8088 | Kafka monitoring |
+
+**Kafka UI:** http://localhost:8088
+
+### Kafka Topics (Pre-configured)
+| Topic | Partitions | Purpose |
+|-------|------------|---------|
+| `orders.events` | 12 | Order domain events |
+| `orders.commands` | 12 | Order commands |
+| `rides.events` | 12 | Ride domain events |
+| `drivers.location` | 24 | Real-time driver GPS |
+| `drivers.status` | 12 | Driver online/offline |
+| `payments.events` | 6 | Payment events |
+| `notifications.send` | 6 | Notification triggers |
+
+---
+
+## GIT WORKTREE - HOTFIX WORKFLOW
+
+### Repository Structure
+```
+/Users/jeet/StudioProjects/
+├── eatfair-ios/              # Main development (branch: main)
+│   └── scripts/hotfix.sh     # Hotfix helper script
+│
+└── eatfair-ios-hotfix/       # Hotfix worktree (branch: hotfix/base)
+                              # Use for emergency production fixes
+```
+
+### Hotfix Script Commands
+```bash
+# Show status of worktrees
+./scripts/hotfix.sh status
+
+# Create a new hotfix
+./scripts/hotfix.sh create payment-crash
+
+# After making fixes, create PR
+./scripts/hotfix.sh finish payment-crash
+
+# Sync worktrees after merge
+./scripts/hotfix.sh sync
+
+# List active hotfixes
+./scripts/hotfix.sh list
+```
+
+### Manual Hotfix Workflow
+```bash
+# 1. Go to hotfix worktree
+cd /Users/jeet/StudioProjects/eatfair-ios-hotfix
+
+# 2. Create hotfix branch from latest main
+git fetch origin && git checkout -b hotfix/critical-fix origin/main
+
+# 3. Make fix and commit
+git add . && git commit -m "fix: Critical production bug"
+
+# 4. Push and create PR
+git push -u origin hotfix/critical-fix
+gh pr create --base main --title "Hotfix: Critical fix"
+
+# 5. After merge, sync both worktrees
+cd /Users/jeet/StudioProjects/eatfair-ios && git pull
+cd /Users/jeet/StudioProjects/eatfair-ios-hotfix && git checkout hotfix/base && git reset --hard origin/main
+```
+
+### When to Use Hotfix Worktree
+| Scenario | Use Hotfix Worktree? |
+|----------|---------------------|
+| Production is down | ✅ Yes |
+| Critical security vulnerability | ✅ Yes |
+| Payment processing broken | ✅ Yes |
+| Minor bug (can wait) | ❌ No, use normal flow |
+| New feature | ❌ No, use feature branch |
+
+---
+
 ## AI EMPLOYEE PROTOCOLS
 
 ### When Implementing Features
@@ -482,7 +815,8 @@ cd /Users/jeet/StudioProjects/eatfair-android
 
 ---
 
-*Last Updated: December 2024*
+*Last Updated: December 15, 2025*
 *AI Employee: TechCloudPro Claude Instance*
 *Platform: Dollor.ai (Food Delivery + Rideshare)*
-*Status: Migration to Microservices in Progress*
+*Status: Phase 1 Complete - Event Infrastructure (Kafka, CloudEvents, Outbox Pattern)*
+*Next: Phase 2 - CQRS for Order Service*
