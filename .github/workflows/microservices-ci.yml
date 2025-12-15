@@ -10,7 +10,7 @@
 #
 # Security Tools:
 # - Semgrep: SAST scanning for OWASP Top 10, secrets, security audit
-# - SonarQube: Code quality, coverage, security hotspots
+# - SonarCloud: Code quality, coverage, security hotspots
 # - Trivy: Container image vulnerability scanning
 
 name: Microservices CI/CD
@@ -73,7 +73,6 @@ env:
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
   SERVICES_PATH: services/core
   PYTHON_VERSION: '3.11'
-  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
 jobs:
   # =============================================================================
@@ -292,13 +291,14 @@ jobs:
           echo "No critical security issues found."
 
   # =============================================================================
-  # SONARQUBE ANALYSIS
+  # SONARCLOUD ANALYSIS
   # =============================================================================
-  sonarqube:
-    name: SonarQube Analysis
+  sonarcloud:
+    name: SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: [detect-changes, lint]
     if: needs.detect-changes.outputs.services != '[]' && github.event.inputs.skip_security != 'true'
+    continue-on-error: true  # Don't fail pipeline if SonarCloud not configured
     strategy:
       fail-fast: false
       matrix:
@@ -345,22 +345,22 @@ jobs:
             echo '<?xml version="1.0" ?><coverage></coverage>' > coverage.xml
           fi
 
-      - name: SonarQube Scan
-        if: steps.service-path.outputs.skip != 'true'
-        uses: SonarSource/sonarqube-scan-action@master
+      - name: SonarCloud Scan
+        if: steps.service-path.outputs.skip != 'true' && env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarcloud-github-action@master
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           projectBaseDir: ${{ steps.service-path.outputs.path }}
           args: >
-            -Dsonar.projectKey=dollor-${{ matrix.service }}
+            -Dsonar.projectKey=jeet-avatar_dollor-${{ matrix.service }}
+            -Dsonar.organization=jeet-avatar
             -Dsonar.projectName=Dollor.ai ${{ matrix.service }}
             -Dsonar.sources=.
             -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/venv/**
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.python.version=3.11
-            -Dsonar.qualitygate.wait=true
 
       - name: Upload coverage artifact
         if: steps.service-path.outputs.skip != 'true'
@@ -637,7 +637,7 @@ jobs:
   security-gate:
     name: Security Gate
     runs-on: ubuntu-latest
-    needs: [lint, semgrep, sonarqube, dependency-scan, build]
+    needs: [lint, semgrep, sonarcloud, dependency-scan, build]
     if: always()
 
     steps:
@@ -649,7 +649,7 @@ jobs:
           echo ""
           echo "Lint:           ${{ needs.lint.result }}"
           echo "Semgrep SAST:   ${{ needs.semgrep.result }}"
-          echo "SonarQube:      ${{ needs.sonarqube.result }}"
+          echo "SonarCloud:     ${{ needs.sonarcloud.result }}"
           echo "Dependency:     ${{ needs.dependency-scan.result }}"
           echo "Build + Trivy:  ${{ needs.build.result }}"
           echo ""
@@ -976,7 +976,7 @@ jobs:
   notify:
     name: Send Notifications
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint, semgrep, sonarqube, dependency-scan, build, security-gate, deploy-dev]
+    needs: [detect-changes, lint, semgrep, sonarcloud, dependency-scan, build, security-gate, deploy-dev]
     if: always()
 
     steps:
@@ -997,7 +997,7 @@ jobs:
           echo "==========================================="
           echo "Lint (Ruff + Bandit):     ${{ needs.lint.result }}"
           echo "Semgrep SAST:             ${{ needs.semgrep.result }}"
-          echo "SonarQube Analysis:       ${{ needs.sonarqube.result }}"
+          echo "SonarCloud Analysis:      ${{ needs.sonarcloud.result }}"
           echo "Dependency Scan:          ${{ needs.dependency-scan.result }}"
           echo "Container Scan (Trivy):   ${{ needs.build.result }}"
           echo "Security Gate:            ${{ needs.security-gate.result }}"
@@ -1028,7 +1028,7 @@ jobs:
           echo "Security Dashboards"
           echo "==========================================="
           echo "  - GitHub Security:      https://github.com/${{ github.repository }}/security"
-          echo "  - SonarQube:            ${{ env.SONAR_HOST_URL }}/dashboard"
+          echo "  - SonarCloud:           https://sonarcloud.io/organizations/jeet-avatar/projects"
           echo ""
 
           # Final status
