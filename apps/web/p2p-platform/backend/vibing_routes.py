@@ -321,9 +321,19 @@ async def vibing_upload_image(
     upload_dir = "uploads/menu_images"
     os.makedirs(upload_dir, exist_ok=True)
 
-    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    # Sanitize file extension to prevent path traversal
+    raw_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    file_extension = ''.join(c for c in raw_extension if c.isalnum())[:10]
+    if file_extension not in ['jpg', 'jpeg', 'png', 'webp']:
+        file_extension = 'jpg'
     filename = f"{menu_item_id}_{int(datetime.now().timestamp())}.{file_extension}"
     filepath = os.path.join(upload_dir, filename)
+
+    # Verify filepath stays within upload directory
+    abs_upload_dir = os.path.abspath(upload_dir)
+    abs_filepath = os.path.abspath(filepath)
+    if not abs_filepath.startswith(abs_upload_dir):
+        raise HTTPException(status_code=400, detail="Invalid filename")
 
     with open(filepath, "wb") as f:
         f.write(contents)

@@ -273,23 +273,23 @@ const RestaurantApplicationForm: React.FC = () => {
     }
   };
 
-  // Handle menu file upload
-  const handleMenuFileUpload = async (file: File) => {
+  // Handle menu file upload - returns false to prevent automatic upload
+  const handleMenuFileUpload = (file: File): boolean => {
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       message.error('Please upload a PDF or image file (JPEG, PNG, WebP)');
-      return false;
+      return false; // Prevent upload - invalid type
     }
 
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       message.error('File size must be less than 10MB');
-      return false;
+      return false; // Prevent upload - file too large
     }
 
     setMenuFile(file);
     message.success(`Menu file "${file.name}" ready for upload!`);
-    return false; // Prevent default upload behavior
+    return true; // File accepted - but form handles actual submission
   };
 
   // Fields required for each step

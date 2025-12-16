@@ -17,10 +17,10 @@ def check_postgres_running():
     """Check if PostgreSQL is accessible"""
     try:
         conn = psycopg2.connect(
-            host="localhost",
-            port="5432",
-            user="postgres",
-            password="postgres",
+            host=os.environ.get("POSTGRES_HOST", "localhost"),
+            port=os.environ.get("POSTGRES_PORT", "5432"),
+            user=os.environ.get("POSTGRES_USER", "postgres"),
+            password=os.environ.get("POSTGRES_PASSWORD", ""),
             database="postgres"
         )
         conn.close()
@@ -36,10 +36,10 @@ def check_database_exists():
     """Check if invoice_db database exists"""
     try:
         conn = psycopg2.connect(
-            host="localhost",
-            port="5432",
-            user="postgres",
-            password="postgres",
+            host=os.environ.get("POSTGRES_HOST", "localhost"),
+            port=os.environ.get("POSTGRES_PORT", "5432"),
+            user=os.environ.get("POSTGRES_USER", "postgres"),
+            password=os.environ.get("POSTGRES_PASSWORD", ""),
             database="postgres"
         )
         conn.autocommit = True
