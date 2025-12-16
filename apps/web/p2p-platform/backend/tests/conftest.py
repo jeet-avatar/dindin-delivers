@@ -52,6 +52,8 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
+    # Drop all tables first to avoid duplicate index issues
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
