@@ -593,7 +593,7 @@ struct PreRequestNegotiationSheet: View {
     @State private var selectedQuickOffer: Double? = nil
 
     private var estimatedFare: Double { viewModel.estimatedFare }
-    private var platformFee: Double { AppConfig.shared.ridePlatformFee }
+    private var platformFee: Double { AppConfig.shared.calculateRidesharePlatformFee(fareAmount: estimatedFare) }
 
     private var minFare: Double { AppConfig.shared.rideMinFare }
 
@@ -1331,7 +1331,7 @@ struct RideStatusCard: View {
                                     Text("Driver Counter-Offer")
                                         .font(.subheadline)
                                         .fontWeight(.semibold)
-                                    Text("Platform fee: only $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee))")
+                                    Text("Platform fee: only $\(String(format: "%.0f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: driverOffer)))")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
@@ -1349,7 +1349,7 @@ struct RideStatusCard: View {
                                 Image(systemName: "person.fill.checkmark")
                                     .font(.caption)
                                     .foregroundColor(.green)
-                                Text("Driver earns: $\(String(format: "%.2f", driverOffer - AppConfig.shared.ridePlatformFee))")
+                                Text("Driver earns: $\(String(format: "%.2f", driverOffer - AppConfig.shared.calculateRidesharePlatformFee(fareAmount: driverOffer)))")
                                     .font(.caption)
                                     .foregroundColor(.green)
                                 Spacer()
@@ -1543,7 +1543,7 @@ struct CustomerNegotiationSheet: View {
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("Only $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) platform fee to you + $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) to driver")
+                    Text("Only $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) platform fee to you + $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) to driver")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1602,7 +1602,7 @@ struct CustomerNegotiationSheet: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
 
-                    Text("Driver receives your offer minus $\(String(format: "%.2f", AppConfig.shared.ridePlatformFee)) platform fee")
+                    Text("Driver receives your offer minus $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) platform fee")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

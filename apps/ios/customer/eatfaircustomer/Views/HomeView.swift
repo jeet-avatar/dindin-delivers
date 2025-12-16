@@ -1077,7 +1077,7 @@ struct MultiRestaurantInfoSheet: View {
     }
 }
 
-struct FeatureRow: View {
+private struct FeatureRow: View {
     let icon: String
     let title: String
     let description: String

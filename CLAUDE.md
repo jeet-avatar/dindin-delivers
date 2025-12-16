@@ -259,15 +259,29 @@ You own the entire technical stack:
 │   │               ├── screens/    # Admin pages
 │   │               └── components/ # UI components
 │   │
-│   ├── services/                   # MICROSERVICES (Migration Target)
-│   │   ├── shared/common/          # Shared libraries
-│   │   │   ├── errors/             # Error codes
-│   │   │   ├── logging/            # Structured logging
-│   │   │   ├── tracing/            # OpenTelemetry
-│   │   │   ├── metrics/            # Prometheus
-│   │   │   └── health/             # Health checks
+│   ├── services/                   # MICROSERVICES (IMPLEMENTED)
+│   │   ├── shared/                 # Shared libraries
+│   │   │   └── common.py           # MicroserviceFactory, StructuredLogger, ErrorCodes
 │   │   │
-│   │   └── core/                   # Core microservices (to be implemented)
+│   │   ├── core/                   # Core microservices (ALL IMPLEMENTED)
+│   │   │   ├── auth-service/       # Port 8001 - Authentication, JWT, OAuth
+│   │   │   ├── user-service/       # Port 8002 - Customer/Rider profiles
+│   │   │   ├── driver-service/     # Port 8003 - Driver profiles, documents
+│   │   │   ├── restaurant-service/ # Port 8004 - Restaurant profiles
+│   │   │   ├── order-service/      # Port 8005 - Food order lifecycle
+│   │   │   ├── payment-service/    # Port 8006 - Stripe, payouts
+│   │   │   ├── location-service/   # Port 8007 - Real-time tracking
+│   │   │   ├── menu-service/       # Port 8008 - Menu management
+│   │   │   ├── notification-service/ # Port 8009 - Push, SMS, Email
+│   │   │   ├── rating-service/     # Port 8013 - Reviews, ratings
+│   │   │   ├── ride-service/       # Port 8014 - Ride requests
+│   │   │   ├── pricing-service/    # Port 8015 - Fare calculation
+│   │   │   ├── analytics-service/  # Port 8016 - ClickHouse analytics
+│   │   │   ├── negotiation-service/ # Port 8017 - Price negotiation
+│   │   │   ├── chat-service/       # Port 8018 - Real-time messaging
+│   │   │   └── call-service/       # Port 8019 - Phone masking
+│   │   │
+│   │   └── docker-compose.yml      # Full local development environment
 │   │
 │   ├── infrastructure/             # DEPLOYMENT (K8s, ArgoCD, Helm)
 │   │   ├── argocd/apps/            # ArgoCD applications
@@ -350,7 +364,10 @@ frontend/src/app/
 
 ---
 
-## MICROSERVICES ARCHITECTURE (Target State)
+## MICROSERVICES ARCHITECTURE (IMPLEMENTED)
+
+> **STATUS**: All 16 microservices are implemented and deployed. Use `docker-compose up` in
+> `/services/` to run locally, or push to main/feature/microservices branch to trigger CI/CD.
 
 ### Service Catalog
 | Service | Port | Domain | Responsibility |
@@ -371,6 +388,53 @@ frontend/src/app/
 | **negotiation-service** | 8017 | Both | Real-time price negotiation |
 | **chat-service** | 8018 | Both | Real-time messaging |
 | **call-service** | 8019 | Both | Phone masking via Twilio |
+
+### Microservices Local Development
+```bash
+# Start all infrastructure + microservices
+cd /Users/jeet/StudioProjects/eatfair-ios/services
+docker-compose up -d
+
+# Start specific services only
+docker-compose up -d postgres redis auth-service driver-service
+
+# View logs
+docker-compose logs -f auth-service driver-service
+
+# Test health endpoints
+curl http://localhost:8001/health  # auth-service
+curl http://localhost:8003/health  # driver-service
+curl http://localhost:8009/health  # notification-service
+
+# Stop all
+docker-compose down
+```
+
+### Microservices CI/CD Deployment
+**Workflow**: `.github/workflows/deploy-microservices.yml`
+
+| Trigger | Action |
+|---------|--------|
+| Push to `main` or `feature/microservices` | Auto-detect changed services, build & deploy |
+| Manual workflow_dispatch | Select environment (dev/staging/production) |
+
+**Pipeline Steps**:
+1. **Detect Changes** - Identifies which services have code changes
+2. **Build & Push** - Matrix builds Docker images, pushes to ECR
+3. **Security Scan** - Trivy container vulnerability scan
+4. **Deploy to EKS** - Kustomize applies overlays for target environment
+5. **Integration Tests** - Health checks on staging/dev environments
+
+```bash
+# Trigger manual deployment
+gh workflow run deploy-microservices.yml -f environment=staging -f services=all
+
+# View deployment status
+gh run list --workflow=deploy-microservices.yml
+
+# Deploy specific services only
+gh workflow run deploy-microservices.yml -f environment=dev -f services=auth-service,driver-service
+```
 
 ---
 

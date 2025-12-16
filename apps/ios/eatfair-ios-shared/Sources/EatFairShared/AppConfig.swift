@@ -89,6 +89,11 @@ public class AppConfig: ObservableObject {
         return "$1 Matchmaking Fee"
     }
 
+    /// Legacy method - use getFoodFeeDescription() instead
+    public func getFeeTierDescription(orderSubtotal: Double) -> String {
+        return getFoodFeeDescription()
+    }
+
     /// Calculate tiered platform fee for RIDESHARE based on fare value.
     public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
         if fareAmount <= rideshareTier1Max {
@@ -298,7 +303,7 @@ public class AppConfig: ObservableObject {
                 if let rideBaseFare = json["rideBaseFare"] as? Double { self.rideBaseFare = rideBaseFare }
                 if let ridePerMileRate = json["ridePerMileRate"] as? Double { self.ridePerMileRate = ridePerMileRate }
                 if let ridePerMinuteRate = json["ridePerMinuteRate"] as? Double { self.ridePerMinuteRate = ridePerMinuteRate }
-                if let ridePlatformFee = json["ridePlatformFee"] as? Double { self.ridePlatformFee = ridePlatformFee }
+                // ridePlatformFee is now tiered - use rideshareTier1Fee, rideshareTier2Fee, rideshareTier3Fee instead
                 if let rideMinFare = json["rideMinFare"] as? Double { self.rideMinFare = rideMinFare }
                 if let rideCancellationFee = json["rideCancellationFee"] as? Double { self.rideCancellationFee = rideCancellationFee }
                 if let rideCancellationFeeDriverEnRoute = json["rideCancellationFeeDriverEnRoute"] as? Double { self.rideCancellationFeeDriverEnRoute = rideCancellationFeeDriverEnRoute }

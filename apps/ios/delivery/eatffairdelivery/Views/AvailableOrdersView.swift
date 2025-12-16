@@ -384,7 +384,7 @@ struct AvailableOrdersView: View {
                     .fontWeight(.bold)
                     .foregroundColor(Theme.textPrimary)
 
-                Text("Rider connection requests will appear here.\nOnly $\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee!")
+                Text("Rider connection requests will appear here.\nOnly $\(String(format: "%.0f", AppConfig.shared.rideshareTier1Fee)) connection fee!")
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
                     .multilineTextAlignment(.center)
@@ -1145,7 +1145,7 @@ struct RideCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "dollarsign.circle.fill")
                             .font(.caption2)
-                        Text("$\(String(format: "%.0f", AppConfig.shared.ridePlatformFee)) connection fee")
+                        Text("$\(String(format: "%.0f", AppConfig.shared.rideshareTier1Fee)) connection fee")
                             .font(.caption2)
                             .fontWeight(.bold)
                     }
@@ -1347,7 +1347,7 @@ struct FareNegotiationSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var counterOffer: String = ""
 
-    private var platformFee: Double { AppConfig.shared.ridePlatformFee }
+    private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
 
     var body: some View {
         NavigationView {

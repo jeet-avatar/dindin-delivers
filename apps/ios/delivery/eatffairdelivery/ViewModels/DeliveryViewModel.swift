@@ -600,8 +600,8 @@ class DeliveryViewModel: ObservableObject {
                             customerOffer: response.customerOffer,
                             driverOffer: counterFare,
                             status: response.status,
-                            platformFeeDriver: AppConfig.shared.ridePlatformFee,
-                            platformFeeCustomer: AppConfig.shared.ridePlatformFee
+                            platformFeeDriver: AppConfig.shared.calculateRidesharePlatformFee(fareAmount: counterFare),
+                            platformFeeCustomer: AppConfig.shared.calculateRidesharePlatformFee(fareAmount: counterFare)
                         )
                     }
 
