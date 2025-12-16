@@ -11,6 +11,7 @@ Provides:
 import pytest
 import os
 import sys
+import tempfile
 from datetime import datetime
 from typing import Generator, Dict, Any
 from unittest.mock import MagicMock, patch
@@ -19,9 +20,9 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import StaticPool, NullPool
 
 # Import app and models
 from main_new import app, get_db, create_access_token, get_password_hash
@@ -29,14 +30,26 @@ from database import Base
 from models import User, Vendor, Driver, Customer
 
 
-# Test database URL (in-memory SQLite for fast tests)
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# Get database URL from environment or use a temp SQLite file
+# Using temp file instead of :memory: to avoid index conflict issues
+_temp_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+_temp_db_path = _temp_db_file.name
+_temp_db_file.close()
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+# Check if we're in CI with PostgreSQL available
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and "postgresql" in DATABASE_URL:
+    # Use PostgreSQL in CI
+    engine = create_engine(DATABASE_URL, poolclass=NullPool)
+else:
+    # Use SQLite temp file for local testing
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{_temp_db_path}"
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -52,11 +65,20 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    # Drop all tables first to avoid duplicate index issues
-    Base.metadata.drop_all(bind=engine)
+    try:
+        # Drop all tables first to avoid duplicate index issues
+        Base.metadata.drop_all(bind=engine)
+    except Exception:
+        pass  # Ignore errors when tables don't exist
+
+    # Create all tables
     Base.metadata.create_all(bind=engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+
+    try:
+        Base.metadata.drop_all(bind=engine)
+    except Exception:
+        pass  # Ignore errors on cleanup
 
 
 @pytest.fixture(scope="function")
