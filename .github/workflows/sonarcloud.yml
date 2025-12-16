@@ -10,6 +10,21 @@ jobs:
   sonarcloud:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,18 +34,33 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install dependencies
+        working-directory: apps/web/p2p-platform/backend
         run: |
-          cd apps/web/p2p-platform/backend
-          pip install -r requirements.txt || true
-          pip install pytest pytest-cov || true
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist
 
       - name: Run tests with coverage
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
         run: |
-          cd apps/web/p2p-platform/backend
-          pytest --cov=. --cov-report=xml:coverage.xml || echo "No tests or tests skipped"
-        continue-on-error: true
+          pytest tests/ \
+            -v \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -n auto \
+            --tb=short
 
       - name: Check SonarCloud Token
         id: check-token
@@ -48,3 +78,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.python.coverage.reportPaths=apps/web/p2p-platform/backend/coverage.xml
+            -Dsonar.coverage.exclusions=**/tests/**,**/*_test.py,**/test_*.py
