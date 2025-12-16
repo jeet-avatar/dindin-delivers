@@ -24,6 +24,27 @@ from document_verification_service import (
 
 load_dotenv()
 
+
+def sanitize_file_extension(filename: str, allowed_extensions: list[str], default: str = "pdf") -> str:
+    """Sanitize file extension to prevent path traversal attacks."""
+    if not filename or '.' not in filename:
+        return default
+    ext = filename.rsplit('.', 1)[-1].lower()
+    # Only keep alphanumeric characters
+    ext = ''.join(c for c in ext if c.isalnum())[:10]
+    return ext if ext in allowed_extensions else default
+
+
+def secure_file_path(upload_dir: str, filename: str) -> str:
+    """Create a secure file path, ensuring it stays within upload directory."""
+    file_path = os.path.join(upload_dir, filename)
+    abs_upload_dir = os.path.abspath(upload_dir)
+    abs_file_path = os.path.abspath(file_path)
+    if not abs_file_path.startswith(abs_upload_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    return file_path
+
+
 app = FastAPI(title="Invoice Management System")
 
 # CORS - Allow dollor.ai, vibingticket.com, and local development
@@ -198,9 +219,12 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def create_access_token(data: dict):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -1959,10 +1983,11 @@ async def upload_driver_document_by_id(
     upload_dir = "uploads/driver_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".jpg"
-    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{file_ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
+    # Generate unique filename with sanitized extension
+    allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'jpg')
+    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.{file_ext}"
+    file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
     with open(file_path, "wb") as buffer:
@@ -2028,10 +2053,11 @@ async def upload_driver_document(
     upload_dir = "uploads/driver_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
-    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{file_ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
+    # Generate unique filename with sanitized extension
+    allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
+    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.{file_ext}"
+    file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
     with open(file_path, "wb") as buffer:
@@ -3011,10 +3037,11 @@ async def upload_vendor_document_public(
     upload_dir = "uploads/vendor_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else '.pdf'
-    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}{file_ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
+    # Generate unique filename with sanitized extension
+    allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
+    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
     with open(file_path, "wb") as f:
@@ -3127,12 +3154,14 @@ async def create_vendor_public_with_menu(
         print(f"Menu file: {menu_file.filename}")
         print("=" * 60)
 
-        # Save the uploaded file
-        file_ext = menu_file.filename.split('.')[-1] if '.' in menu_file.filename else 'pdf'
+        # Save the uploaded file with sanitized extension
+        allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+        file_ext = sanitize_file_extension(menu_file.filename, allowed_exts, 'pdf')
         file_id = str(uuid.uuid4())
         uploads_dir = "uploads/menus"
         os.makedirs(uploads_dir, exist_ok=True)
-        file_path = f"{uploads_dir}/{file_id}.{file_ext}"
+        unique_filename = f"{file_id}.{file_ext}"
+        file_path = secure_file_path(uploads_dir, unique_filename)
 
         with open(file_path, "wb") as buffer:
             content = await menu_file.read()
@@ -3641,10 +3670,11 @@ async def upload_vendor_document(
     upload_dir = "uploads/vendor_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1]
-    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}{file_ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
+    # Generate unique filename with sanitized extension
+    allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
+    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
     with open(file_path, "wb") as f:
