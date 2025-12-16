@@ -1203,7 +1203,7 @@ def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Se
 
 
 @app.post("/api/auth/customer/register")
-def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
     print(f"Customer registration attempt for: {request.email}")
 
@@ -2090,27 +2090,11 @@ def get_driver_documents(current_user: User = Depends(get_current_user), db: Ses
     }
 
 
-# ==================== CUSTOMER AUTHENTICATION ====================
-
-class CustomerRegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
-    phone: Optional[str] = None
-
-class CustomerLoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    customer_id: int
-    name: str
-    email: str
-
-    class Config:
-        from_attributes = True
-
+# ==================== CUSTOMER AUTHENTICATION (FOOD DELIVERY) ====================
+# Note: CustomerRegisterRequest is already defined above for rideshare
 
 @app.post("/api/customer/register")
-def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+def customer_food_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account"""
     print(f"Customer registration attempt for: {request.email}")
 
