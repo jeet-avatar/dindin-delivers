@@ -103,6 +103,33 @@ class CancellationReason(enum.Enum):
     OTHER = "other"
 
 
+class VehicleType(enum.Enum):
+    """Vehicle types available for rides - requires valid registration"""
+    CAR = "car"           # Requires: Valid registration, insurance, inspection
+    SUV = "suv"           # Requires: Valid registration, insurance, inspection
+    VAN = "van"           # Requires: Valid registration, insurance, inspection, commercial if 9+ seats
+    MOTORCYCLE = "motorcycle"  # Requires: Valid registration, motorcycle license endorsement
+    BICYCLE = "bicycle"   # No vehicle registration required
+    ELECTRIC = "electric"  # Requires: Valid registration, insurance
+
+
+class DriverLicenseStatus(enum.Enum):
+    """Driver license verification status"""
+    PENDING = "pending"
+    VERIFIED = "verified"
+    EXPIRED = "expired"
+    SUSPENDED = "suspended"
+    REJECTED = "rejected"
+
+
+class VehicleRegistrationStatus(enum.Enum):
+    """Vehicle registration verification status"""
+    PENDING = "pending"
+    VERIFIED = "verified"
+    EXPIRED = "expired"
+    REJECTED = "rejected"
+
+
 class Ride(Base):
     """Ride requests and tracking"""
     __tablename__ = "rides"
@@ -351,6 +378,76 @@ class RideCancellation(BaseModel):
 class RideRating(BaseModel):
     rating: float
     feedback: Optional[str] = None
+
+
+class RideUpdate(BaseModel):
+    """Model for updating ride details"""
+    status: Optional[str] = None
+    driver_id: Optional[int] = None
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    # Vehicle info (requires verified registration)
+    vehicle_plate: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    vehicle_year: Optional[int] = None
+    vehicle_type: Optional[str] = None
+    # Driver verification status
+    driver_license_verified: Optional[bool] = None
+    vehicle_registration_verified: Optional[bool] = None
+    insurance_verified: Optional[bool] = None
+    # Real-time location
+    current_latitude: Optional[float] = None
+    current_longitude: Optional[float] = None
+    estimated_arrival_minutes: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class DriverVerificationRequest(BaseModel):
+    """
+    Request model for driver verification - LEGAL REQUIREMENTS
+
+    All rideshare drivers MUST provide:
+    1. Valid government-issued driver's license
+    2. Vehicle registration in their name or authorized use
+    3. Valid auto insurance meeting state minimums
+    4. Background check consent
+    """
+    driver_id: int
+    # License info
+    license_number: str
+    license_state: str
+    license_expiry: str  # ISO format date
+    license_class: str  # A, B, C, CDL, etc.
+    # Vehicle registration
+    vehicle_registration_number: str
+    vehicle_registration_state: str
+    vehicle_registration_expiry: str  # ISO format date
+    vehicle_vin: str  # Vehicle Identification Number
+    # Insurance
+    insurance_provider: str
+    insurance_policy_number: str
+    insurance_expiry: str  # ISO format date
+    insurance_coverage_amount: float  # Minimum required varies by state
+    # Background check
+    background_check_consent: bool
+    background_check_date: Optional[str] = None
+
+
+class DriverComplianceStatus(BaseModel):
+    """Driver legal compliance status"""
+    driver_id: int
+    license_status: str  # DriverLicenseStatus value
+    license_expiry: Optional[str] = None
+    vehicle_registration_status: str  # VehicleRegistrationStatus value
+    vehicle_registration_expiry: Optional[str] = None
+    insurance_status: str
+    insurance_expiry: Optional[str] = None
+    background_check_status: str
+    background_check_date: Optional[str] = None
+    is_eligible_to_drive: bool  # True only if ALL requirements met
+    compliance_notes: Optional[str] = None
 
 
 # =============================================================================

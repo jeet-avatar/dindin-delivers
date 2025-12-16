@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, Text, ForeignKey, create_engine, and_, or_
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
+import enum
 
 # Add shared library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
@@ -110,6 +111,41 @@ class VendorMenuItem(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# =============================================================================
+# ENUMS
+# =============================================================================
+
+class MenuItemStatus(enum.Enum):
+    """
+    Menu item availability status
+    Note: Restaurant partners are responsible for ensuring their menu items
+    comply with local food safety regulations and accurate allergen labeling.
+    """
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SOLD_OUT = "sold_out"
+    SEASONAL = "seasonal"
+    DISCONTINUED = "discontinued"
+
+
+class CategoryType(enum.Enum):
+    """
+    Menu category types
+    Partners are responsible for accurate categorization of their items,
+    especially for dietary and allergen information.
+    """
+    APPETIZERS = "appetizers"
+    MAIN_COURSE = "main_course"
+    SIDES = "sides"
+    DESSERTS = "desserts"
+    BEVERAGES = "beverages"
+    BREAKFAST = "breakfast"
+    LUNCH = "lunch"
+    DINNER = "dinner"
+    SPECIALS = "specials"
+    KIDS_MENU = "kids_menu"
 
 
 # =============================================================================
@@ -218,6 +254,45 @@ class MenuStats(BaseModel):
     available_items: int
     out_of_stock_items: int
     categories: List[CategorySummary]
+
+
+class CategoryCreate(BaseModel):
+    """
+    Create menu category request
+
+    Note: Restaurant partners are responsible for ensuring menu categories
+    and item classifications comply with local food labeling regulations.
+    Allergen information must be accurately disclosed.
+    """
+    name: str
+    description: Optional[str] = None
+    category_type: str = "main_course"  # CategoryType value
+    display_order: int = 0
+    is_active: bool = True
+    image_url: Optional[str] = None
+
+
+class CategoryUpdate(BaseModel):
+    """Update menu category request"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category_type: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+    image_url: Optional[str] = None
+
+
+class CategoryResponse(BaseModel):
+    """Menu category response"""
+    id: int
+    vendor_id: int
+    name: str
+    description: Optional[str] = None
+    category_type: str
+    display_order: int
+    is_active: bool
+    image_url: Optional[str] = None
+    item_count: int = 0
 
 
 # =============================================================================
