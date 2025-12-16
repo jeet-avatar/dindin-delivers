@@ -56,26 +56,91 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 # Pricing Configuration - Dollor.ai Matchmaking Platform
 # ========================================================
 # Dollor.ai is a MATCHMAKING SERVICE, not a delivery/transportation company
-# We use a simple FLAT FEE model - no percentage commissions!
 #
-# Food Delivery: $1 from customer + $1 from restaurant = $2 platform revenue
-# Rideshare: $1 from rider + $1 from driver = $2 platform revenue
-# Tips: 100% go to driver (zero platform fee on tips)
+# FOOD DELIVERY - FLAT $1 PRICING (No tiered pricing):
+#   Customer pays: $1 flat per order (regardless of order value)
+#   Restaurant pays: $1 flat per restaurant in order
+#   Driver pays: $0 (FREE - no commission)
+#   Tips: 100% go to driver
+#
+# RIDESHARE - TIERED PRICING (Based on fare value):
+#   Up to $35 fare:     $1 rider + $1 driver
+#   $35.01 - $70 fare:  $2 rider + $2 driver
+#   Above $70 fare:     $3 rider + $3 driver
+#   Tips: 100% go to driver
 
 BASE_DELIVERY_FEE = 2.99
 BASE_FARE_PER_MILE = 1.50
 BASE_FARE_PER_MINUTE = 0.35
 MINIMUM_RIDE_FARE = 5.00
 
-# FLAT PLATFORM FEES (matchmaking fees)
-PLATFORM_FEE_CUSTOMER_FOOD = 1.00    # $1 matchmaking fee from customer (food)
-PLATFORM_FEE_RESTAURANT = 1.00       # $1 platform listing fee from restaurant
-PLATFORM_FEE_RIDER = 1.00            # $1 matchmaking fee from rider (rideshare)
-PLATFORM_FEE_DRIVER_RIDE = 1.00      # $1 platform access fee from driver (rideshare)
-PLATFORM_FEE_DRIVER_DELIVERY = 0.00  # $0 - drivers keep 100% of delivery fees
+# =============================================================================
+# FOOD DELIVERY - FLAT $1 FEES (No tiered pricing)
+# =============================================================================
+FOOD_CUSTOMER_FEE = 1.00        # $1 flat per order (regardless of order value)
+FOOD_RESTAURANT_FEE = 1.00      # $1 flat per restaurant
+FOOD_DRIVER_FEE = 0.00          # FREE - drivers keep 100%
 
-TAX_RATE = 0.0825  # 8.25% tax (California)
+# =============================================================================
+# RIDESHARE - TIERED PRICING (Based on fare value)
+# =============================================================================
+# Tier thresholds
+RIDESHARE_TIER_1_MAX = 35.00    # Fares up to $35
+RIDESHARE_TIER_2_MAX = 70.00    # Fares $35.01 to $70
+# Tier 3: Fares above $70
+
+# Platform fees per tier (same for rider and driver)
+RIDESHARE_TIER_1_FEE = 1.00     # $1 for fares <= $35
+RIDESHARE_TIER_2_FEE = 2.00     # $2 for fares $35.01-$70
+RIDESHARE_TIER_3_FEE = 3.00     # $3 for fares > $70
+
+# Legacy constants for backward compatibility
+PLATFORM_FEE_FOOD = 1.00  # Same as FOOD_CUSTOMER_FEE
+SERVICE_FEE_PERCENTAGE = 0.0  # No additional service fee
+PLATFORM_FEE_RIDE_PERCENTAGE = 0.0  # Using tiered fees instead
+
+TAX_RATE = 0.0825  # 8.25% tax (California default)
 TIP_PLATFORM_FEE = 0.00  # 0% - 100% of tips go to drivers
+
+
+def get_food_platform_fee(order_value: float) -> float:
+    """
+    Get FLAT platform fee for food delivery.
+    Always $1 regardless of order value - no tiered pricing for food.
+    Returns fee for customer (restaurant pays same amount separately).
+    """
+    return FOOD_CUSTOMER_FEE
+
+
+def get_food_restaurant_fee(order_value: float) -> float:
+    """
+    Get FLAT platform fee for restaurant.
+    Always $1 per restaurant regardless of order value.
+    """
+    return FOOD_RESTAURANT_FEE
+
+
+def get_rideshare_platform_fee(fare_value: float) -> float:
+    """
+    Calculate TIERED platform fee for rideshare based on fare value.
+    Returns fee for BOTH rider AND driver (same amount each).
+    """
+    if fare_value <= RIDESHARE_TIER_1_MAX:
+        return RIDESHARE_TIER_1_FEE
+    elif fare_value <= RIDESHARE_TIER_2_MAX:
+        return RIDESHARE_TIER_2_FEE
+    else:
+        return RIDESHARE_TIER_3_FEE
+
+
+def get_rideshare_tier(fare_value: float) -> int:
+    """Get tier number (1, 2, or 3) for rideshare fare."""
+    if fare_value <= RIDESHARE_TIER_1_MAX:
+        return 1
+    elif fare_value <= RIDESHARE_TIER_2_MAX:
+        return 2
+    else:
+        return 3
 
 # =============================================================================
 # DATABASE SETUP
@@ -767,18 +832,22 @@ async def estimate_ride_price(request: RideEstimateRequest, db: Session = Depend
         db
     )
 
-    # Subtotal before surge
+    # Subtotal before surge (driver earnings base)
     pre_surge_subtotal = base_fare + distance_fare + time_fare
     surge_amount = pre_surge_subtotal * (surge_multiplier - 1.0)
 
-    # Platform fee (percentage for rides)
-    platform_fee = pre_surge_subtotal * PLATFORM_FEE_RIDE_PERCENTAGE
+    # Driver fare (what rider pays to driver)
+    driver_fare = pre_surge_subtotal + surge_amount
 
-    # Service fee
-    service_fee = pre_surge_subtotal * SERVICE_FEE_PERCENTAGE
+    # Platform fee - TIERED based on fare value (rider pays this)
+    # Note: Driver also pays matching platform fee, but that's separate
+    platform_fee = get_rideshare_platform_fee(driver_fare)
 
-    # Subtotal
-    subtotal = pre_surge_subtotal + surge_amount + platform_fee + service_fee
+    # No service fee in matchmaking model (platform fee covers it)
+    service_fee = 0.0
+
+    # Subtotal (driver fare + platform fee)
+    subtotal = driver_fare + platform_fee
 
     # Tax
     tax = subtotal * TAX_RATE
@@ -886,14 +955,15 @@ async def estimate_delivery_price(request: DeliveryEstimateRequest, db: Session 
 
     surge_amount = delivery_fee * (surge_multiplier - 1.0)
 
-    # Platform fee (flat $1 for food)
-    platform_fee = PLATFORM_FEE_FOOD
+    # Platform fee - TIERED based on order value (customer pays this)
+    # Note: Restaurant also pays matching platform fee, but that's separate
+    platform_fee = get_food_platform_fee(request.order_subtotal)
 
-    # Service fee
-    service_fee = request.order_subtotal * SERVICE_FEE_PERCENTAGE
+    # No service fee in matchmaking model (platform fee covers it)
+    service_fee = 0.0
 
-    # Subtotal (delivery fees only, not including food cost)
-    subtotal = delivery_fee + surge_amount + platform_fee + service_fee
+    # Subtotal (delivery fees + platform fee, NOT including food cost)
+    subtotal = delivery_fee + surge_amount + platform_fee
 
     # Tax (on delivery fees only)
     tax = subtotal * TAX_RATE
@@ -1163,16 +1233,63 @@ async def get_pricing_analytics(
 
 @app.get("/api/pricing/config")
 async def get_pricing_config():
-    """Get current pricing configuration"""
+    """Get current pricing configuration - Dollor.ai Matchmaking Model"""
     return {
+        # Base delivery/ride configuration
         "base_delivery_fee": BASE_DELIVERY_FEE,
         "base_fare_per_mile": BASE_FARE_PER_MILE,
         "base_fare_per_minute": BASE_FARE_PER_MINUTE,
         "minimum_ride_fare": MINIMUM_RIDE_FARE,
-        "platform_fee_food": PLATFORM_FEE_FOOD,
-        "platform_fee_ride_percentage": PLATFORM_FEE_RIDE_PERCENTAGE,
         "tax_rate": TAX_RATE,
-        "service_fee_percentage": SERVICE_FEE_PERCENTAGE
+
+        # Food Delivery Tiered Platform Fees
+        "food_delivery": {
+            "tier1": {
+                "max_order_value": FOOD_DELIVERY_THRESHOLD_TIER1,
+                "customer_fee": FOOD_DELIVERY_FEE_TIER1,
+                "restaurant_fee": FOOD_DELIVERY_FEE_TIER1
+            },
+            "tier2": {
+                "max_order_value": FOOD_DELIVERY_THRESHOLD_TIER2,
+                "customer_fee": FOOD_DELIVERY_FEE_TIER2,
+                "restaurant_fee": FOOD_DELIVERY_FEE_TIER2
+            },
+            "tier3": {
+                "min_order_value": FOOD_DELIVERY_THRESHOLD_TIER2,
+                "customer_fee": FOOD_DELIVERY_FEE_TIER3,
+                "restaurant_fee": FOOD_DELIVERY_FEE_TIER3
+            }
+        },
+
+        # Rideshare Tiered Platform Fees
+        "rideshare": {
+            "tier1": {
+                "max_fare_value": RIDESHARE_THRESHOLD_TIER1,
+                "rider_fee": RIDESHARE_FEE_TIER1,
+                "driver_fee": RIDESHARE_FEE_TIER1
+            },
+            "tier2": {
+                "max_fare_value": RIDESHARE_THRESHOLD_TIER2,
+                "rider_fee": RIDESHARE_FEE_TIER2,
+                "driver_fee": RIDESHARE_FEE_TIER2
+            },
+            "tier3": {
+                "min_fare_value": RIDESHARE_THRESHOLD_TIER2,
+                "rider_fee": RIDESHARE_FEE_TIER3,
+                "driver_fee": RIDESHARE_FEE_TIER3
+            }
+        },
+
+        # Tip handling - 100% goes to drivers
+        "tips": {
+            "platform_fee_percentage": TIP_PLATFORM_FEE,
+            "driver_percentage": 100.0,
+            "message": "100% of tips go directly to drivers"
+        },
+
+        # Model type
+        "pricing_model": "matchmaking",
+        "model_description": "Flat tiered fees - no percentage commission"
     }
 
 
