@@ -242,17 +242,21 @@ jobs:
           REDIS_URL: redis://localhost:6379
           SECRET_KEY: test-secret-key-for-ci
           TESTING: "true"
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
         run: |
           echo "::group::Backend Tests (pytest)"
           pytest tests/ \
             -v \
             --cov=. \
-            --cov-report=xml:coverage-backend.xml \
-            --cov-report=html:htmlcov-backend \
-            --cov-fail-under=70 \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
             -n auto \
-            --tb=short \
-            || echo "Tests completed (some may have failed)"
+            --tb=short
           echo "::endgroup::"
 
       # ----- Frontend Tests (vitest) -----
@@ -279,7 +283,7 @@ jobs:
       - name: Upload backend coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: apps/web/p2p-platform/backend/coverage-backend.xml
+          files: apps/web/p2p-platform/backend/coverage.xml
           flags: backend
           fail_ci_if_error: false
 
@@ -295,8 +299,8 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            apps/web/p2p-platform/backend/coverage-backend.xml
-            apps/web/p2p-platform/backend/htmlcov-backend/
+            apps/web/p2p-platform/backend/coverage.xml
+            apps/web/p2p-platform/backend/htmlcov/
             apps/web/p2p-platform/frontend/coverage/
 
   # ============================================
@@ -332,9 +336,11 @@ jobs:
             -Dsonar.projectKey=jeet-avatar_dindin-delivers
             -Dsonar.organization=jeet-avatar
             -Dsonar.sources=apps/web/p2p-platform
-            -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/venv/**,**/tests/**,**/coverage/**
-            -Dsonar.python.coverage.reportPaths=coverage/coverage-backend.xml
+            -Dsonar.tests=apps/web/p2p-platform/backend/tests
+            -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/venv/**,**/coverage/**,**/htmlcov/**
+            -Dsonar.python.coverage.reportPaths=coverage/coverage.xml
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=**/tests/**,**/*_test.py,**/test_*.py
             -Dsonar.qualitygate.wait=true
 
       - name: Quality Gate Check
