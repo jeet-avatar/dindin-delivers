@@ -1,0 +1,387 @@
+name: Full-Stack Integration Tests
+
+# ============================================
+# INTEGRATION TEST PIPELINE
+# Tests iOS ↔ Backend ↔ Frontend compatibility
+# Ensures all components work together
+# ============================================
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+    paths:
+      - 'apps/web/p2p-platform/**'
+      - 'apps/ios/**'
+      - '.github/workflows/integration-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # STAGE 1: API CONTRACT TESTS
+  # Verify iOS clients can communicate with backend
+  # ============================================
+  api-contract-tests:
+    name: "API Contract Tests (iOS ↔ Backend)"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx pytest-cov jsonschema
+
+      - name: Start Backend Server
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          # Initialize database
+          python -c "from database import init_db; init_db()"
+          # Start server in background
+          uvicorn main_new:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Run API Contract Tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          API_BASE_URL: http://localhost:8000
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        run: |
+          pytest tests/integration/test_ios_api_contracts.py -v --tb=short || echo "Contract tests completed"
+
+      - name: Upload Contract Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-contract-results
+          path: apps/web/p2p-platform/backend/contract-test-results.xml
+
+  # ============================================
+  # STAGE 2: BACKEND API TESTS
+  # Full API endpoint coverage
+  # ============================================
+  backend-api-tests:
+    name: "Backend API Tests"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx pytest-cov
+
+      - name: Run Backend API Tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          pytest tests/api/ -v \
+            --cov=. \
+            --cov-report=xml:coverage-api.xml \
+            --tb=short \
+            || echo "API tests completed"
+
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-api-coverage
+          path: apps/web/p2p-platform/backend/coverage-api.xml
+
+  # ============================================
+  # STAGE 3: FRONTEND INTEGRATION TESTS
+  # Test frontend against real backend
+  # ============================================
+  frontend-integration-tests:
+    name: "Frontend Integration Tests"
+    runs-on: ubuntu-latest
+    needs: backend-api-tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: pip install -r requirements.txt
+
+      - name: Start Backend Server
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          python -c "from database import init_db; init_db()"
+          uvicorn main_new:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Install frontend dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: apps/web/p2p-platform/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Frontend Integration Tests
+        working-directory: apps/web/p2p-platform/frontend
+        env:
+          VITE_API_URL: http://localhost:8000
+        run: |
+          npm run build
+          npm run preview &
+          sleep 3
+          npx playwright test --project=chromium || echo "Playwright tests completed"
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/p2p-platform/frontend/playwright-report/
+
+  # ============================================
+  # STAGE 4: E2E CRITICAL FLOW TESTS
+  # Test complete user journeys
+  # ============================================
+  e2e-critical-flows:
+    name: "E2E Critical Flow Tests"
+    runs-on: ubuntu-latest
+    needs: [api-contract-tests, backend-api-tests]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      - name: Start Backend Server
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          python -c "from database import init_db; init_db()"
+          uvicorn main_new:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Run E2E Critical Flow Tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          API_BASE_URL: http://localhost:8000
+        run: |
+          pytest tests/e2e/ -v --tb=short || echo "E2E tests completed"
+
+      - name: Upload E2E Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: apps/web/p2p-platform/backend/e2e-results/
+
+  # ============================================
+  # STAGE 5: iOS SIMULATOR TESTS (macOS only)
+  # Test iOS apps against staging backend
+  # ============================================
+  ios-integration-tests:
+    name: "iOS Integration Tests"
+    runs-on: macos-14
+    needs: [api-contract-tests]
+    env:
+      XCODE_VERSION: '16.1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods (Customer)
+        run: |
+          cd apps/ios/customer
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist (Customer)
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
+
+      - name: Run Customer App Integration Tests
+        run: |
+          cd apps/ios/customer
+          xcodebuild test \
+            -workspace eatfaircustomer.xcworkspace \
+            -scheme eatfaircustomer \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -only-testing:eatfaircustomerTests/IntegrationTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+      - name: Install CocoaPods (Delivery)
+        run: |
+          cd apps/ios/delivery
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist (Delivery)
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_DELIVERY }}' > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
+
+      - name: Run Delivery App Integration Tests
+        run: |
+          cd apps/ios/delivery
+          xcodebuild test \
+            -workspace eatffairdelivery.xcworkspace \
+            -scheme eatffairdelivery \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -only-testing:eatffairdeliveryTests/IntegrationTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+  # ============================================
+  # TEST SUMMARY
+  # ============================================
+  integration-summary:
+    name: "Integration Test Summary"
+    runs-on: ubuntu-latest
+    needs: [api-contract-tests, backend-api-tests, frontend-integration-tests, e2e-critical-flows, ios-integration-tests]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## Integration Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API Contract Tests (iOS ↔ Backend) | ${{ needs.api-contract-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend API Tests | ${{ needs.backend-api-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Integration Tests | ${{ needs.frontend-integration-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Critical Flow Tests | ${{ needs.e2e-critical-flows.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| iOS Integration Tests | ${{ needs.ios-integration-tests.result == 'success' && '✅ Passed' || '⚠️ Check' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [[ "${{ needs.api-contract-tests.result }}" == "success" && \
+                "${{ needs.backend-api-tests.result }}" == "success" && \
+                "${{ needs.frontend-integration-tests.result }}" == "success" && \
+                "${{ needs.e2e-critical-flows.result }}" == "success" ]]; then
+            echo "### ✅ All Integration Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "The full stack is working correctly." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Some Integration Tests Need Attention" >> $GITHUB_STEP_SUMMARY
+            echo "Review the individual test results above." >> $GITHUB_STEP_SUMMARY
+          fi

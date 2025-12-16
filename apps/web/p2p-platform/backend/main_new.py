@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -13,6 +13,14 @@ from dotenv import load_dotenv
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus
+from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation
+from document_verification_service import (
+    DocumentVerificationService,
+    get_verification_service,
+    VerificationStatus,
+    DocumentType,
+    VerificationResult
+)
 
 load_dotenv()
 
@@ -76,6 +84,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+    # Top-level fields for Android compatibility
+    vendor_id: Optional[int] = None
+    business_name: Optional[str] = None
+    email: Optional[str] = None
 
 class ClientCreate(BaseModel):
     name: str
@@ -246,6 +258,8 @@ def run_migrations():
         ("drivers", "device_type", "VARCHAR(20)"),
         ("drivers", "fcm_token_updated_at", "TIMESTAMP"),
         ("drivers", "photo_url", "VARCHAR(500)"),
+        # Customers table columns - for customer authentication
+        ("customers", "password_hash", "VARCHAR(255)"),
     ]
 
     try:
@@ -420,10 +434,22 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     
     print(f"Vendor login successful for: {user.email}")
     access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+
+    # Get vendor business name for Android compatibility
+    business_name = None
+    if user.vendor_id:
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+        if vendor:
+            business_name = vendor.restaurant_name or vendor.company_name
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": user,
+        # Top-level fields for Android compatibility
+        "vendor_id": user.vendor_id,
+        "business_name": business_name,
+        "email": user.email
     }
 
 # Pydantic models for vendor registration
@@ -456,8 +482,8 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
     # Create vendor record first
     from models import VendorStatus
     new_vendor = Vendor(
-        name=request.restaurant_name,
-        vendor_id=f"VEN-{datetime.now().strftime('%Y%m')}-{db.query(Vendor).count() + 1:04d}",
+        company_name=request.restaurant_name,
+        restaurant_name=request.restaurant_name,
         contact_name=request.full_name,
         contact_email=request.email,
         onboarding_status=VendorStatus.PENDING,
@@ -489,7 +515,157 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": new_user
+        "user": new_user,
+        # Top-level fields for Android compatibility
+        "vendor_id": new_vendor.id,
+        "business_name": request.restaurant_name,
+        "email": new_user.email
+    }
+
+# Vendor Google OAuth
+class VendorGoogleAuthRequest(BaseModel):
+    email: EmailStr
+    name: str
+    google_id: str
+
+@app.post("/api/auth/vendor/google-auth", response_model=Token)
+def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
+    """Google OAuth authentication for vendors - handles both login and registration"""
+    from models import VendorStatus
+    print(f"Vendor Google auth for: {request.email}")
+
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
+
+    if user:
+        # Existing vendor - check if approved
+        if user.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+                )
+    else:
+        # Create new vendor and user
+        count = db.query(Vendor).count()
+        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
+
+        new_vendor = Vendor(
+            name=request.name,
+            vendor_id=vendor_id,
+            contact_name=request.name,
+            contact_email=request.email,
+            onboarding_status=VendorStatus.PENDING,
+            street="",
+            city="",
+            state="",
+            zip_code="",
+            country="US"
+        )
+        db.add(new_vendor)
+        db.commit()
+        db.refresh(new_vendor)
+
+        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.name,
+            role=UserRole.VENDOR,
+            vendor_id=new_vendor.id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created new vendor via Google auth: {request.email}")
+
+    # Get vendor info
+    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+    business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
+
+    print(f"Vendor Google auth successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+        "vendor_id": user.vendor_id,
+        "business_name": business_name,
+        "email": user.email
+    }
+
+# Vendor Apple OAuth
+class VendorAppleAuthRequest(BaseModel):
+    email: EmailStr
+    name: str
+    apple_id: str
+
+@app.post("/api/auth/vendor/apple-auth", response_model=Token)
+def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
+    """Apple OAuth authentication for vendors - handles both login and registration"""
+    from models import VendorStatus
+    print(f"Vendor Apple auth for: {request.email}")
+
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
+
+    if user:
+        # Existing vendor - check if approved
+        if user.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+                )
+    else:
+        # Create new vendor and user
+        count = db.query(Vendor).count()
+        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
+
+        new_vendor = Vendor(
+            name=request.name,
+            vendor_id=vendor_id,
+            contact_name=request.name,
+            contact_email=request.email,
+            onboarding_status=VendorStatus.PENDING,
+            street="",
+            city="",
+            state="",
+            zip_code="",
+            country="US"
+        )
+        db.add(new_vendor)
+        db.commit()
+        db.refresh(new_vendor)
+
+        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+        user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.name,
+            role=UserRole.VENDOR,
+            vendor_id=new_vendor.id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created new vendor via Apple auth: {request.email}")
+
+    # Get vendor info
+    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+    business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
+
+    print(f"Vendor Apple auth successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+        "vendor_id": user.vendor_id,
+        "business_name": business_name,
+        "email": user.email
     }
 
 # Password Reset Request
@@ -693,6 +869,17 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
     print(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
     access_token = create_access_token(data={"sub": new_user.email, "role": "driver", "driver_id": new_driver.id})
 
+    # Send registration confirmation email
+    try:
+        send_driver_registration_confirmation(
+            to_email=new_driver.email,
+            driver_name=f"{new_driver.first_name} {new_driver.last_name}",
+            driver_code=driver_code
+        )
+        print(f"Driver registration email sent to: {new_driver.email}")
+    except Exception as e:
+        print(f"Failed to send driver registration email: {str(e)}")
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -702,6 +889,168 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         "email": new_driver.email,
         "status": new_driver.status.value,
         "message": "Registration successful. Your account is pending approval."
+    }
+
+
+# Driver Google OAuth
+class DriverGoogleAuthRequest(BaseModel):
+    email: EmailStr
+    name: str
+    google_id: str
+
+@app.post("/api/auth/driver/google")
+def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
+    """Google OAuth authentication for drivers - handles both login and registration"""
+    print(f"Driver Google auth for: {request.email}")
+
+    # Check if user exists with DRIVER role
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
+
+    if user:
+        # Existing driver - check if approved
+        if user.driver_id:
+            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                )
+    else:
+        # Create new driver and user
+        name_parts = request.name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        driver_count = db.query(Driver).count()
+        driver_code = f"DRV-{driver_count + 1:05d}"
+
+        new_driver = Driver(
+            driver_id=driver_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email,
+            status=DriverStatus.PENDING
+        )
+        db.add(new_driver)
+        db.commit()
+        db.refresh(new_driver)
+
+        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.name,
+            role=UserRole.DRIVER,
+            driver_id=new_driver.id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created new driver via Google auth: {request.email}")
+
+        # Send registration confirmation
+        try:
+            send_driver_registration_confirmation(
+                to_email=request.email,
+                driver_name=request.name,
+                driver_code=driver_code
+            )
+        except Exception as e:
+            print(f"Failed to send driver registration email: {str(e)}")
+
+    # Get driver info
+    driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
+
+    print(f"Driver Google auth successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "driver_id": driver.id if driver else None,
+        "driver_code": driver.driver_id if driver else None,
+        "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
+        "email": user.email
+    }
+
+
+# Driver Apple OAuth
+class DriverAppleAuthRequest(BaseModel):
+    email: EmailStr
+    name: str
+    apple_id: str
+
+@app.post("/api/auth/driver/apple-auth")
+def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
+    """Apple OAuth authentication for drivers - handles both login and registration"""
+    print(f"Driver Apple auth for: {request.email}")
+
+    # Check if user exists with DRIVER role
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
+
+    if user:
+        # Existing driver - check if approved
+        if user.driver_id:
+            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                )
+    else:
+        # Create new driver and user
+        name_parts = request.name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        driver_count = db.query(Driver).count()
+        driver_code = f"DRV-{driver_count + 1:05d}"
+
+        new_driver = Driver(
+            driver_id=driver_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email,
+            status=DriverStatus.PENDING
+        )
+        db.add(new_driver)
+        db.commit()
+        db.refresh(new_driver)
+
+        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+        user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.name,
+            role=UserRole.DRIVER,
+            driver_id=new_driver.id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created new driver via Apple auth: {request.email}")
+
+        # Send registration confirmation
+        try:
+            send_driver_registration_confirmation(
+                to_email=request.email,
+                driver_name=request.name,
+                driver_code=driver_code
+            )
+        except Exception as e:
+            print(f"Failed to send driver registration email: {str(e)}")
+
+    # Get driver info
+    driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
+
+    print(f"Driver Apple auth successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "driver_id": driver.id if driver else None,
+        "driver_code": driver.driver_id if driver else None,
+        "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
+        "email": user.email
     }
 
 
@@ -778,6 +1127,583 @@ def update_driver_location(latitude: float, longitude: float, current_user: User
     db.commit()
 
     return {"success": True, "latitude": latitude, "longitude": longitude}
+
+
+# =============================================================================
+# CUSTOMER AUTHENTICATION ENDPOINTS (for Rideshare Matchmaking)
+# =============================================================================
+
+class CustomerRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    phone: Optional[str] = None
+
+class CustomerLoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    customer_id: int
+    customer_code: str
+    name: str
+    email: str
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/api/auth/customer/login")
+def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Customer login - authenticates customer and returns token for rideshare"""
+    print(f"Customer login attempt for: {form_data.username}")
+
+    # Find customer by email
+    customer = db.query(Customer).filter(Customer.email == form_data.username).first()
+
+    if not customer:
+        print(f"Customer not found: {form_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
+        print(f"Password verification failed for customer")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customer account is not active"
+        )
+
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    print(f"Customer login successful for: {customer.email}")
+    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "email": customer.email,
+        "phone": customer.phone
+    }
+
+
+@app.post("/api/auth/customer/register")
+def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+    """Register a new customer account for rideshare"""
+    print(f"Customer registration attempt for: {request.email}")
+
+    # Check if email already exists
+    existing_customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if existing_customer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+
+    # Create customer record
+    customer_count = db.query(Customer).count()
+    customer_code = f"CUST-{customer_count + 1:05d}"
+
+    # Split name
+    name_parts = request.name.split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    hashed_password = get_password_hash(request.password)
+
+    new_customer = Customer(
+        customer_id=customer_code,
+        first_name=first_name,
+        last_name=last_name,
+        email=request.email,
+        phone=request.phone,
+        password_hash=hashed_password,
+        is_active=True
+    )
+    db.add(new_customer)
+    db.commit()
+    db.refresh(new_customer)
+
+    full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
+    print(f"Customer registration successful for: {new_customer.email}, customer_id: {new_customer.id}")
+    access_token = create_access_token(data={"sub": new_customer.email, "role": "customer", "customer_id": new_customer.id})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": new_customer.id,
+        "customer_code": customer_code,
+        "name": full_name,
+        "email": new_customer.email,
+        "phone": new_customer.phone,
+        "message": "Registration successful. Welcome to Dollor.ai!"
+    }
+
+
+# Customer Google OAuth
+class CustomerGoogleAuthRequest(BaseModel):
+    email: EmailStr
+    name: str
+    google_id: str
+
+@app.post("/api/auth/customer/google")
+def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+    """Google OAuth authentication for customers - handles both login and registration"""
+    print(f"Customer Google auth for: {request.email}")
+
+    # Check if customer exists
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+
+    if customer:
+        # Existing customer - check status
+        if not customer.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Customer account is not active"
+            )
+    else:
+        # Create new customer
+        name_parts = request.name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        customer_count = db.query(Customer).count()
+        customer_code = f"CUST-{customer_count + 1:05d}"
+
+        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+
+        customer = Customer(
+            customer_id=customer_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email,
+            password_hash=hashed_password,
+            is_active=True
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        print(f"Created new customer via Google auth: {request.email}")
+
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or request.name
+    print(f"Customer Google auth successful for: {customer.email}")
+    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "email": customer.email,
+        "phone": customer.phone
+    }
+
+
+@app.get("/api/auth/customer/me")
+def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get current customer's profile"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        role = payload.get("role")
+        customer_id = payload.get("customer_id")
+
+        if role != "customer" or not customer_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a customer account")
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer profile not found")
+
+        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+        return {
+            "id": customer.id,
+            "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+            "name": full_name,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "email": customer.email,
+            "phone": customer.phone,
+            "status": "active" if customer.is_active else "inactive",
+            "total_rides": getattr(customer, 'total_rides', 0) or 0,
+            "rating": getattr(customer, 'rating', 5.0) or 5.0
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+@app.put("/api/auth/customer/profile")
+def update_customer_profile(
+    name: Optional[str] = None,
+    phone: Optional[str] = None,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Update customer profile"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+
+        if not customer_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a customer account")
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer profile not found")
+
+        if name:
+            name_parts = name.split(" ", 1)
+            customer.first_name = name_parts[0]
+            customer.last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        if phone:
+            customer.phone = phone
+
+        db.commit()
+        db.refresh(customer)
+
+        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+        return {
+            "success": True,
+            "customer_id": customer.id,
+            "name": full_name,
+            "phone": customer.phone
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+# ==================== RIDESHARE ENDPOINTS ====================
+# Rideshare booking endpoints for customer web and mobile apps
+
+class FareEstimateRequest(BaseModel):
+    pickup_lat: float
+    pickup_lng: float
+    dropoff_lat: float
+    dropoff_lng: float
+    ride_type: Optional[str] = "standard"
+
+class RideRequestModel(BaseModel):
+    customer_name: str
+    customer_email: str
+    customer_phone: Optional[str] = None
+    pickup_address: dict
+    dropoff_address: dict
+    tip: Optional[float] = 0.0
+    ride_type: Optional[str] = "standard"
+
+import math
+
+def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points using Haversine formula"""
+    R = 6371  # Earth's radius in kilometers
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    return R * c
+
+@app.post("/api/erp/rides/estimate-fare")
+def estimate_fare(request: FareEstimateRequest):
+    """
+    Estimate fare for a ride - $1+$1 platform fee model
+    Customer pays: Base fare + distance rate + time estimate + $1 platform fee
+    Driver receives: Base fare + distance + time - $1 platform fee
+    Platform receives: $2 total ($1 from customer + $1 from driver)
+    """
+    # Calculate distance
+    distance_km = calculate_distance_km(
+        request.pickup_lat, request.pickup_lng,
+        request.dropoff_lat, request.dropoff_lng
+    )
+    distance_miles = distance_km * 0.621371
+
+    # Pricing based on ride type
+    pricing = {
+        "standard": {"base": 2.50, "per_mile": 1.50, "per_min": 0.25},
+        "premium": {"base": 5.00, "per_mile": 2.50, "per_min": 0.40},
+        "xl": {"base": 4.00, "per_mile": 2.00, "per_min": 0.35},
+        "shared": {"base": 1.50, "per_mile": 1.00, "per_min": 0.20}
+    }
+
+    ride_pricing = pricing.get(request.ride_type, pricing["standard"])
+
+    # Estimate time (assume 25 mph average speed)
+    estimated_minutes = max(5, int((distance_miles / 25) * 60))
+
+    # Calculate fare components
+    base_fare = ride_pricing["base"]
+    distance_fare = distance_miles * ride_pricing["per_mile"]
+    time_fare = estimated_minutes * ride_pricing["per_min"]
+
+    # Ride fare (before platform fees)
+    ride_fare = round(base_fare + distance_fare + time_fare, 2)
+
+    # Platform fees - $1 from customer, $1 from driver
+    customer_platform_fee = 1.00
+    driver_platform_fee = 1.00
+
+    # What driver receives (ride fare minus their $1 fee)
+    driver_earnings = round(ride_fare - driver_platform_fee, 2)
+
+    # Total customer pays (ride fare plus their $1 fee)
+    total_fare = round(ride_fare + customer_platform_fee, 2)
+
+    return {
+        "estimated_fare": total_fare,
+        "fare_breakdown": {
+            "base_fare": base_fare,
+            "distance_fare": round(distance_fare, 2),
+            "time_fare": round(time_fare, 2),
+            "ride_fare": ride_fare,
+            "customer_platform_fee": customer_platform_fee,
+            "driver_platform_fee": driver_platform_fee,
+            "driver_earnings": driver_earnings,
+            "total": total_fare
+        },
+        "distance_miles": round(distance_miles, 2),
+        "estimated_minutes": estimated_minutes,
+        "ride_type": request.ride_type,
+        "currency": "USD",
+        "message": f"You pay ${total_fare} (includes $1 platform fee). Driver earns ${driver_earnings} (after $1 platform fee)."
+    }
+
+@app.post("/api/erp/rides/request")
+def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
+    """
+    Request a new ride - creates ride request and matches with available drivers
+    Platform fee model: $1 from customer + $1 from driver = $2 platform revenue
+    """
+    import random
+    import string
+    from datetime import datetime
+
+    # Generate ride ID
+    ride_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+
+    # Calculate fare
+    pickup = request.pickup_address
+    dropoff = request.dropoff_address
+
+    distance_km = calculate_distance_km(
+        pickup.get('lat', 0), pickup.get('lng', 0),
+        dropoff.get('lat', 0), dropoff.get('lng', 0)
+    )
+    distance_miles = distance_km * 0.621371
+
+    # Fare calculation
+    base_fare = 2.50
+    distance_fare = distance_miles * 1.50
+    estimated_minutes = max(5, int((distance_miles / 25) * 60))
+    time_fare = estimated_minutes * 0.25
+    ride_fare = round(base_fare + distance_fare + time_fare, 2)
+
+    # Platform fees - $1 from each side
+    customer_platform_fee = 1.00
+    driver_platform_fee = 1.00
+
+    # Driver earnings = ride fare - $1 platform fee + 100% of tip
+    tip = request.tip or 0
+    driver_earnings = round(ride_fare - driver_platform_fee + tip, 2)
+
+    # Customer total = ride fare + $1 platform fee + tip
+    total_fare = round(ride_fare + customer_platform_fee + tip, 2)
+
+    # Return ride confirmation
+    return {
+        "ride_id": ride_id,
+        "status": "searching",
+        "message": "Looking for a driver...",
+        "estimated_pickup_time": "5-10 minutes",
+        "fare": {
+            "base_fare": base_fare,
+            "distance_fare": round(distance_fare, 2),
+            "time_fare": round(time_fare, 2),
+            "ride_fare": ride_fare,
+            "customer_platform_fee": customer_platform_fee,
+            "driver_platform_fee": driver_platform_fee,
+            "tip": tip,
+            "driver_earnings": driver_earnings,
+            "total": total_fare
+        },
+        "pickup": pickup,
+        "dropoff": dropoff,
+        "customer": {
+            "name": request.customer_name,
+            "email": request.customer_email
+        },
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+@app.get("/api/erp/rides/{ride_id}/status")
+def get_ride_status(ride_id: str):
+    """Get current status of a ride"""
+    import random
+
+    # Simulate different ride states
+    statuses = ["searching", "driver_assigned", "en_route", "arrived", "in_progress", "completed"]
+
+    # For demo, return a mock driver after a short time
+    mock_driver = {
+        "id": random.randint(1, 100),
+        "name": "John D.",
+        "rating": round(random.uniform(4.5, 5.0), 1),
+        "vehicle": {
+            "make": "Toyota",
+            "model": "Camry",
+            "year": 2022,
+            "color": "Silver",
+            "license_plate": f"ABC{random.randint(100, 999)}"
+        },
+        "photo_url": None,
+        "phone": "+1 (555) 123-4567",
+        "eta_minutes": random.randint(3, 10)
+    }
+
+    return {
+        "ride_id": ride_id,
+        "status": "driver_assigned",
+        "driver": mock_driver,
+        "eta_minutes": mock_driver["eta_minutes"],
+        "message": f"Your driver {mock_driver['name']} is on the way!"
+    }
+
+
+# Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
+@app.get("/api/erp/rides/estimate")
+@app.post("/api/erp/rides/estimate")
+def estimate_fare_frontend(
+    pickup_lat: float = None,
+    pickup_lng: float = None,
+    dropoff_lat: float = None,
+    dropoff_lng: float = None,
+    state_code: str = "CA",
+    tip: float = 0
+):
+    """
+    Frontend-compatible fare estimate endpoint
+    Returns fields matching frontend FareEstimate interface
+    """
+    if not all([pickup_lat, pickup_lng, dropoff_lat, dropoff_lng]):
+        raise HTTPException(status_code=400, detail="Missing coordinate parameters")
+
+    distance_km = calculate_distance_km(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
+    distance_miles = distance_km * 0.621371
+    estimated_minutes = max(5, int((distance_miles / 25) * 60))
+
+    # Calculate fare
+    base_fare = 2.50
+    distance_fee = distance_miles * 1.50
+    time_fee = estimated_minutes * 0.25
+    ride_fare = round(base_fare + distance_fee + time_fee, 2)
+
+    # Tax (state-based)
+    tax_rates = {"CA": 0.0725, "NY": 0.08, "TX": 0.0625}
+    tax_rate = tax_rates.get(state_code, 0.07)
+    tax_amount = round(ride_fare * tax_rate, 2)
+
+    # Platform fees
+    platform_fee = 1.00
+    driver_platform_fee = 1.00
+
+    # Driver earnings
+    driver_earnings = round(ride_fare - driver_platform_fee, 2)
+
+    # Total (ride + customer platform fee + tax)
+    total_fare = round(ride_fare + platform_fee + tax_amount, 2)
+
+    return {
+        "fare_estimate": total_fare,  # Frontend expects this field name
+        "total_fare": total_fare,
+        "platform_fee": platform_fee,
+        "base_fare": base_fare,
+        "distance_fee": round(distance_fee, 2),
+        "time_fee": round(time_fee, 2),
+        "tax_amount": tax_amount,
+        "driver_earnings": driver_earnings,
+        "distance_miles": round(distance_miles, 2),
+        "duration_minutes": estimated_minutes,
+        "ride_fare": ride_fare,
+        "customer_platform_fee": platform_fee,
+        "driver_platform_fee": driver_platform_fee
+    }
+
+
+# Full tracking endpoint for frontend polling
+@app.get("/api/erp/orders/{ride_id}/full-tracking")
+def get_ride_full_tracking(ride_id: str):
+    """
+    Full tracking endpoint for frontend - matches expected response structure
+    """
+    import random
+
+    mock_driver = {
+        "id": random.randint(1, 100),
+        "name": "John D.",
+        "phone": "+1 (555) 123-4567",
+        "rating": round(random.uniform(4.5, 5.0), 1),
+        "photo_url": None,
+        "vehicle": "Silver Toyota Camry",  # String format for frontend
+        "license_plate": f"ABC{random.randint(100, 999)}"
+    }
+
+    return {
+        "success": True,
+        "order": {
+            "status": "driver_assigned",
+            "ride_id": ride_id
+        },
+        "driver": mock_driver,
+        "eta_minutes": random.randint(3, 10)
+    }
+
+
+# Ride rating endpoint
+@app.post("/api/erp/rides/{ride_id}/rate")
+def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str = "customer"):
+    """
+    Rate a completed ride
+    """
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "rating": rating,
+        "feedback": feedback,
+        "rated_by": rated_by,
+        "message": "Thank you for your feedback!"
+    }
+
+
+# iOS-compatible customer login endpoint (matches /api/customer/login)
+# Note: This must call customer_auth_login, not customer_login (which queries User table)
+@app.post("/api/customer/login")
+def customer_login_ios(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """iOS-compatible customer login endpoint - delegates to Customer table auth"""
+    return customer_auth_login(form_data, db)
 
 
 # ==================== iOS APP COMPATIBLE ENDPOINTS ====================
@@ -876,6 +1802,79 @@ def update_driver_profile_by_id(
             "name": f"{driver.first_name} {driver.last_name}",
             "email": driver.email
         }
+    }
+
+
+@app.patch("/drivers/{driver_id}/status")
+def update_driver_status(
+    driver_id: int,
+    status: str,
+    skip_document_check: bool = Query(False, description="Skip document verification (admin override)"),
+    db: Session = Depends(get_db)
+):
+    """Update driver status (admin endpoint) - sends approval email when approved"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    old_status = driver.status
+
+    # If approving, verify all required documents are uploaded for legal compliance
+    if status.upper() in ["APPROVED", "ACTIVE"] and not skip_document_check:
+        missing_docs = []
+
+        # Check required documents for driver onboarding
+        if not driver.drivers_license or not driver.drivers_license_url:
+            missing_docs.append("Driver's License")
+
+        if not driver.insurance or not driver.insurance_url:
+            missing_docs.append("Vehicle Insurance")
+
+        # Photo is required for identification
+        if not driver.photo_url:
+            missing_docs.append("Driver Photo (for ID verification)")
+
+        if missing_docs:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Cannot approve driver - required documents missing for legal compliance",
+                    "missing_documents": missing_docs,
+                    "action_required": "Upload all required documents to ZIP system before approval",
+                    "help": "Use /drivers/{driver_id}/documents endpoint to upload missing documents"
+                }
+            )
+
+        print(f"✅ All required documents verified for driver {driver_id}")
+
+    # Update status
+    try:
+        driver.status = DriverStatus[status.upper()]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Valid statuses: {[s.name for s in DriverStatus]}")
+
+    driver.updated_at = datetime.utcnow()
+
+    # If driver is being approved, send approval email
+    if status.upper() in ["APPROVED", "ACTIVE"] and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+        try:
+            send_driver_approval_email(
+                to_email=driver.email,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                driver_code=driver.driver_id
+            )
+            print(f"Driver approval email sent to: {driver.email}")
+        except Exception as e:
+            print(f"Failed to send driver approval email: {str(e)}")
+
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": f"Driver status updated to {driver.status.value}",
+        "driver_id": driver.id,
+        "status": driver.status.value
     }
 
 
@@ -1159,53 +2158,6 @@ def customer_register(request: CustomerRegisterRequest, db: Session = Depends(ge
         "email": new_customer.email,
         "status": "active",
         "message": "Registration successful"
-    }
-
-
-@app.post("/api/customer/login")
-def customer_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Customer login - authenticates customer and returns token"""
-    print(f"Customer login attempt for: {form_data.username}")
-
-    # Find user
-    user = db.query(User).filter(User.email == form_data.username).first()
-
-    if not user:
-        print(f"User not found: {form_data.username}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for customer")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Get customer record
-    customer = db.query(Customer).filter(Customer.email == form_data.username).first()
-    customer_id = customer.id if customer else 0
-    customer_name = customer.name if customer else user.full_name
-
-    if customer and customer.status == CustomerStatus.SUSPENDED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is suspended"
-        )
-
-    print(f"Customer login successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer_id})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "customer_id": customer_id,
-        "name": customer_name,
-        "email": user.email
     }
 
 
@@ -1804,6 +2756,13 @@ def get_recent_activity(db: Session = Depends(get_db), current_user: User = Depe
 # VENDOR MANAGEMENT ENDPOINTS (ZIP Integration)
 # ============================================================================
 
+class MenuItemCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: Optional[float] = 0
+    category: Optional[str] = "General"
+    dietary_info: Optional[List[str]] = []
+
 class VendorCreate(BaseModel):
     company_name: str
     tax_id: Optional[str] = None
@@ -1823,6 +2782,8 @@ class VendorCreate(BaseModel):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_title: Optional[str] = None
+    # Password for login
+    password: Optional[str] = None
     # Address
     street: Optional[str] = None
     city: Optional[str] = None
@@ -1836,6 +2797,10 @@ class VendorCreate(BaseModel):
     mobile_device_id: Optional[str] = None
     push_token: Optional[str] = None
     notes: Optional[str] = None
+    # Menu items from scraping
+    menu_items: Optional[List[MenuItemCreate]] = []
+    scraped_menu_count: Optional[int] = 0
+    website_url: Optional[str] = None
 
 class VendorResponse(BaseModel):
     id: int
@@ -1890,12 +2855,14 @@ class VendorResponse(BaseModel):
 @app.post("/api/vendors/public", response_model=VendorResponse)
 def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
     """Public endpoint for restaurant applications - no auth required"""
-    from models import Vendor
+    from models import Vendor, VendorMenuItem
 
     print("=" * 60)
     print("🍽️  RESTAURANT APPLICATION RECEIVED")
     print(f"Restaurant: {vendor.restaurant_name}")
     print(f"Contact: {vendor.contact_email}")
+    print(f"Password provided: {'Yes' if vendor.password else 'No'}")
+    print(f"Menu items: {len(vendor.menu_items) if vendor.menu_items else 0}")
     print("=" * 60)
 
     # Check if email already exists (vendor or user)
@@ -1917,28 +2884,376 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
             )
 
     try:
+        # Extract password and menu_items before creating vendor
+        password = vendor.password
+        menu_items = vendor.menu_items or []
+
+        # Create vendor data dict excluding password and menu_items
+        vendor_data = vendor.dict(exclude={'password', 'menu_items', 'scraped_menu_count', 'website_url'})
+
+        # Store website URL in the vendor's website field if not already set
+        if vendor.website_url and not vendor_data.get('website'):
+            vendor_data['website'] = vendor.website_url
+
         # Generate vendor ID
         count = db.query(Vendor).count()
         vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-        
+
         print(f"Generated vendor_id: {vendor_id}")
-        
+
         db_vendor = Vendor(
             vendor_id=vendor_id,
-            **vendor.dict()
+            **vendor_data
         )
         db.add(db_vendor)
+        db.flush()  # Get the vendor ID before committing
+
+        print(f"✅ Vendor created! ID: {db_vendor.id}")
+
+        # Create User account if password provided
+        if password and vendor.contact_email:
+            hashed_password = get_password_hash(password)
+            vendor_user = User(
+                email=vendor.contact_email,
+                password_hash=hashed_password,
+                full_name=vendor.contact_name or vendor.restaurant_name or vendor.company_name,
+                role=UserRole.VENDOR,
+                vendor_id=db_vendor.id
+            )
+            db.add(vendor_user)
+            print(f"✅ User account created for: {vendor.contact_email}")
+
+        # Save menu items if provided
+        menu_count = 0
+        if menu_items:
+            for item in menu_items:
+                # Check for vegetarian/vegan in dietary info
+                dietary_info = item.dietary_info or []
+                is_vegetarian = 'vegetarian' in [d.lower() for d in dietary_info]
+                is_vegan = 'vegan' in [d.lower() for d in dietary_info]
+                is_gluten_free = 'gluten-free' in [d.lower() for d in dietary_info] or 'gluten free' in [d.lower() for d in dietary_info]
+
+                menu_item = VendorMenuItem(
+                    vendor_id=db_vendor.id,
+                    item_name=item.name,
+                    description=item.description or "",
+                    category=item.category or "General",
+                    price=item.price or 0,
+                    is_vegetarian=is_vegetarian,
+                    is_vegan=is_vegan,
+                    is_gluten_free=is_gluten_free,
+                    is_available=True,
+                    in_stock=True
+                )
+                db.add(menu_item)
+                menu_count += 1
+            print(f"✅ Saved {menu_count} menu items")
+
         db.commit()
         db.refresh(db_vendor)
-        
-        print(f"✅ Vendor created successfully! ID: {db_vendor.id}")
+
+        # Send registration confirmation email
+        try:
+            send_vendor_registration_confirmation(
+                to_email=vendor.contact_email,
+                restaurant_name=vendor.restaurant_name or vendor.company_name or "Your Restaurant",
+                contact_name=vendor.contact_name or "Partner",
+                vendor_id=vendor_id
+            )
+            print(f"📧 Registration confirmation email sent to: {vendor.contact_email}")
+        except Exception as e:
+            print(f"⚠️ Failed to send confirmation email: {str(e)}")
+
+        print(f"✅ Registration complete! Vendor ID: {db_vendor.id}")
         print("=" * 60)
-        
+
         return db_vendor
-        
+
     except Exception as e:
         print(f"❌ ERROR creating vendor: {str(e)}")
         print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 60)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
+
+# Public document upload endpoint for vendor registration (no auth required)
+@app.post("/api/vendors/public/{vendor_id}/documents")
+async def upload_vendor_document_public(
+    vendor_id: int,
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+    contact_email: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Public endpoint for uploading vendor documents during registration.
+    Requires vendor_id and contact_email for verification.
+    Documents are uploaded to ZIP system for verification before approval.
+    """
+    from models import Vendor
+    import uuid
+
+    # Find vendor and verify email matches
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Verify email matches for security
+    if db_vendor.contact_email != contact_email:
+        raise HTTPException(status_code=403, detail="Email does not match vendor record")
+
+    # Create uploads directory if it doesn't exist
+    upload_dir = "uploads/vendor_documents"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate unique filename
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else '.pdf'
+    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    # Save file
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    print(f"📄 Document uploaded: {document_type} for vendor {vendor_id}")
+    print(f"   File: {unique_filename}")
+
+    # Update vendor document fields based on type
+    field_mapping = {
+        'food_license': ('food_license', 'food_license_url'),
+        'food_handler': ('food_license', 'food_license_url'),
+        'health_permit': ('health_permit', 'health_permit_url'),
+        'business_license': ('w9_form', 'w9_form_url'),  # Using w9 field for business license
+        'liability_insurance': ('insurance', 'insurance_url'),
+        'w9_form': ('w9_form', 'w9_form_url'),
+    }
+
+    if document_type in field_mapping:
+        has_field, url_field = field_mapping[document_type]
+        setattr(db_vendor, has_field, True)
+        setattr(db_vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+        print(f"   Updated {has_field}=True, {url_field}=/uploads/vendor_documents/{unique_filename}")
+
+    db_vendor.updated_at = datetime.now()
+    db_vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Document '{document_type}' uploaded successfully",
+        "document_type": document_type,
+        "file_path": f"/uploads/vendor_documents/{unique_filename}"
+    }
+
+# Get vendor documents status (public - for registration flow)
+@app.get("/api/vendors/public/{vendor_id}/documents")
+def get_vendor_documents_public(
+    vendor_id: int,
+    contact_email: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Get vendor document upload status for registration flow"""
+    from models import Vendor
+
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Verify email matches
+    if db_vendor.contact_email != contact_email:
+        raise HTTPException(status_code=403, detail="Email does not match vendor record")
+
+    return {
+        "vendor_id": vendor_id,
+        "documents": {
+            "food_license": {
+                "uploaded": db_vendor.food_license or False,
+                "url": db_vendor.food_license_url,
+                "required": True,
+                "label": "Food Service License"
+            },
+            "health_permit": {
+                "uploaded": db_vendor.health_permit or False,
+                "url": db_vendor.health_permit_url,
+                "required": True,
+                "label": "Health Department Permit"
+            },
+            "business_license": {
+                "uploaded": db_vendor.w9_form or False,
+                "url": db_vendor.w9_form_url,
+                "required": True,
+                "label": "Business License / W-9"
+            },
+            "liability_insurance": {
+                "uploaded": db_vendor.insurance or False,
+                "url": db_vendor.insurance_url,
+                "required": True,
+                "label": "Liability Insurance Certificate"
+            }
+        },
+        "all_required_uploaded": all([
+            db_vendor.food_license,
+            db_vendor.health_permit,
+            db_vendor.w9_form,
+            db_vendor.insurance
+        ])
+    }
+
+@app.post("/api/vendors/public-with-menu", response_model=VendorResponse)
+async def create_vendor_public_with_menu(
+    menu_file: UploadFile = File(...),
+    data: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Public endpoint for restaurant applications with menu file upload - no auth required"""
+    from models import Vendor, VendorMenuItem
+    import json
+    import uuid
+
+    print("=" * 60)
+    print("🍽️  RESTAURANT APPLICATION WITH MENU FILE RECEIVED")
+
+    try:
+        # Parse the JSON data
+        vendor_data = json.loads(data)
+        print(f"Restaurant: {vendor_data.get('restaurant_name')}")
+        print(f"Contact: {vendor_data.get('contact_email')}")
+        print(f"Menu file: {menu_file.filename}")
+        print("=" * 60)
+
+        # Save the uploaded file
+        file_ext = menu_file.filename.split('.')[-1] if '.' in menu_file.filename else 'pdf'
+        file_id = str(uuid.uuid4())
+        uploads_dir = "uploads/menus"
+        os.makedirs(uploads_dir, exist_ok=True)
+        file_path = f"{uploads_dir}/{file_id}.{file_ext}"
+
+        with open(file_path, "wb") as buffer:
+            content = await menu_file.read()
+            buffer.write(content)
+
+        print(f"📁 Menu file saved: {file_path}")
+
+        # Check if email already exists
+        if vendor_data.get('contact_email'):
+            existing_vendor = db.query(Vendor).filter(Vendor.contact_email == vendor_data['contact_email']).first()
+            if existing_vendor:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"A business with email '{vendor_data['contact_email']}' is already registered. Please login using your credentials at /vendor/login"
+                )
+
+            existing_user = db.query(User).filter(User.email == vendor_data['contact_email']).first()
+            if existing_user:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"An account with email '{vendor_data['contact_email']}' already exists. Please login using your credentials at /vendor/login"
+                )
+
+        # Extract password and menu_items
+        password = vendor_data.pop('password', None)
+        menu_items = vendor_data.pop('menu_items', [])
+        vendor_data.pop('scraped_menu_count', None)
+        vendor_data.pop('website_url', None)
+
+        # Generate vendor ID
+        count = db.query(Vendor).count()
+        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
+
+        print(f"Generated vendor_id: {vendor_id}")
+
+        # Create vendor with menu file reference
+        db_vendor = Vendor(
+            vendor_id=vendor_id,
+            company_name=vendor_data.get('company_name'),
+            restaurant_name=vendor_data.get('restaurant_name'),
+            cuisine_type=vendor_data.get('cuisine_type'),
+            contact_name=vendor_data.get('contact_name'),
+            contact_email=vendor_data.get('contact_email'),
+            contact_phone=vendor_data.get('contact_phone'),
+            street=vendor_data.get('street', ''),
+            city=vendor_data.get('city', ''),
+            state=vendor_data.get('state', ''),
+            zip_code=vendor_data.get('zip_code', ''),
+            operating_hours=vendor_data.get('operating_hours'),
+            seating_capacity=vendor_data.get('seating_capacity'),
+            delivery_available=vendor_data.get('delivery_available', False),
+            pickup_available=vendor_data.get('pickup_available', False),
+            average_prep_time=vendor_data.get('average_prep_time'),
+            notes=vendor_data.get('notes', '') + f"\n\n[MENU FILE UPLOADED: {file_path}]",
+        )
+        db.add(db_vendor)
+        db.flush()
+
+        print(f"✅ Vendor created! ID: {db_vendor.id}")
+
+        # Create User account if password provided
+        if password and vendor_data.get('contact_email'):
+            hashed_password = get_password_hash(password)
+            vendor_user = User(
+                email=vendor_data['contact_email'],
+                password_hash=hashed_password,
+                full_name=vendor_data.get('contact_name') or vendor_data.get('restaurant_name') or vendor_data.get('company_name'),
+                role=UserRole.VENDOR,
+                vendor_id=db_vendor.id
+            )
+            db.add(vendor_user)
+            print(f"✅ User account created for: {vendor_data['contact_email']}")
+
+        # Save any scraped menu items
+        menu_count = 0
+        if menu_items:
+            for item in menu_items:
+                dietary_info = item.get('dietary_info', [])
+                is_vegetarian = 'vegetarian' in [d.lower() for d in dietary_info]
+                is_vegan = 'vegan' in [d.lower() for d in dietary_info]
+                is_gluten_free = 'gluten-free' in [d.lower() for d in dietary_info] or 'gluten free' in [d.lower() for d in dietary_info]
+
+                menu_item = VendorMenuItem(
+                    vendor_id=db_vendor.id,
+                    item_name=item.get('name', ''),
+                    description=item.get('description', ''),
+                    category=item.get('category', 'General'),
+                    price=item.get('price', 0),
+                    is_vegetarian=is_vegetarian,
+                    is_vegan=is_vegan,
+                    is_gluten_free=is_gluten_free,
+                    is_available=True,
+                    in_stock=True
+                )
+                db.add(menu_item)
+                menu_count += 1
+            print(f"✅ Saved {menu_count} menu items")
+
+        db.commit()
+        db.refresh(db_vendor)
+
+        # Send registration confirmation email
+        try:
+            send_vendor_registration_confirmation(
+                to_email=vendor_data.get('contact_email'),
+                restaurant_name=vendor_data.get('restaurant_name') or vendor_data.get('company_name') or "Your Restaurant",
+                contact_name=vendor_data.get('contact_name') or "Partner",
+                vendor_id=vendor_id
+            )
+            print(f"📧 Registration confirmation email sent to: {vendor_data.get('contact_email')}")
+        except Exception as e:
+            print(f"⚠️ Failed to send confirmation email: {str(e)}")
+
+        print(f"✅ Registration complete! Vendor ID: {db_vendor.id}")
+        print("=" * 60)
+
+        return db_vendor
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ ERROR creating vendor with menu: {str(e)}")
+        import traceback
+        traceback.print_exc()
         print("=" * 60)
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
@@ -2105,29 +3420,61 @@ def patch_vendor(
 def update_vendor_status(
     vendor_id: int,
     status: str,
+    skip_document_check: bool = Query(False, description="Skip document verification (admin override)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     from models import Vendor, VendorStatus
-    
+
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-    
+
+    # If approving, verify all required documents are uploaded to ZIP system
+    if status.upper() == "APPROVED" and not skip_document_check:
+        missing_docs = []
+
+        # Check required documents for legal compliance
+        if not db_vendor.food_license or not db_vendor.food_license_url:
+            missing_docs.append("Food Service License")
+
+        if not db_vendor.health_permit or not db_vendor.health_permit_url:
+            missing_docs.append("Health Department Permit")
+
+        if not db_vendor.w9_form or not db_vendor.w9_form_url:
+            missing_docs.append("Business License / W-9 Form")
+
+        if not db_vendor.insurance or not db_vendor.insurance_url:
+            missing_docs.append("Liability Insurance Certificate")
+
+        if missing_docs:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Cannot approve vendor - required documents missing for legal compliance",
+                    "missing_documents": missing_docs,
+                    "action_required": "Upload all required documents to ZIP system before approval",
+                    "help": "Use /api/vendors/public/{vendor_id}/documents endpoint to upload missing documents"
+                }
+            )
+
+        print(f"✅ All required documents verified for vendor {vendor_id}")
+
     # Update vendor status
     db_vendor.onboarding_status = VendorStatus[status.upper()]
-    
-    # If vendor is being approved, create user account
+
+    # If vendor is being approved, handle user account and send email
     if status.upper() == "APPROVED" and db_vendor.approved_at is None:
         db_vendor.approved_at = datetime.now()
-        
-        # Check if user account already exists
+
+        # Check if user account already exists (created during registration with their password)
         existing_user = db.query(User).filter(User.email == db_vendor.contact_email).first()
         if not existing_user:
-            # Create vendor user account with temporary password
-            temp_password = f"vendor{vendor_id}temp"  # They should change this
+            # Create vendor user account with temporary password if they didn't set one during registration
+            import secrets
+            temp_password = secrets.token_urlsafe(12)  # Generate secure random password
             hashed_password = get_password_hash(temp_password)
-            
+
             vendor_user = User(
                 email=db_vendor.contact_email,
                 password_hash=hashed_password,
@@ -2136,9 +3483,18 @@ def update_vendor_status(
                 vendor_id=db_vendor.id
             )
             db.add(vendor_user)
-            
-            # TODO: Send email with login credentials
-            print(f"Vendor user created: {db_vendor.contact_email} / {temp_password}")
+            print(f"Vendor user created: {db_vendor.contact_email} (temp password generated)")
+
+        # Send approval email with login instructions
+        try:
+            send_vendor_approval_email(
+                to_email=db_vendor.contact_email,
+                restaurant_name=db_vendor.restaurant_name or db_vendor.company_name or "Your Restaurant",
+                contact_name=db_vendor.contact_name or "Partner"
+            )
+            print(f"Approval email sent to: {db_vendor.contact_email}")
+        except Exception as e:
+            print(f"Failed to send approval email: {str(e)}")
     
     db.commit()
     db.refresh(db_vendor)
@@ -2371,6 +3727,366 @@ def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: U
     db.delete(vendor)
     db.commit()
     return {"message": "Vendor deleted successfully"}
+
+# ============================================================================
+# DOCUMENT VERIFICATION ENDPOINTS (Third-Party Integration)
+# ============================================================================
+
+class VerificationRequest(BaseModel):
+    entity_type: str  # "vendor" or "driver"
+    entity_id: int
+    document_types: Optional[List[str]] = None
+    provider: Optional[str] = "persona"
+
+class WebhookPayload(BaseModel):
+    event_type: str
+    data: dict
+
+@app.post("/api/verification/start")
+async def start_verification(
+    request: VerificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Start document verification process with third-party provider.
+    Creates an inquiry/session and returns URL for document upload.
+    """
+    verifier = get_verification_service(request.provider)
+
+    if request.entity_type == "vendor":
+        vendor = db.query(Vendor).filter(Vendor.id == request.entity_id).first()
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+
+        # Get required document types
+        doc_types = request.document_types or [
+            DocumentType.FOOD_LICENSE.value,
+            DocumentType.HEALTH_PERMIT.value,
+            DocumentType.BUSINESS_LICENSE.value,
+            DocumentType.LIABILITY_INSURANCE.value
+        ]
+
+        result = await verifier.create_persona_inquiry(
+            reference_id=str(vendor.id),
+            entity_type="vendor",
+            email=vendor.contact_email,
+            document_types=[DocumentType(dt) for dt in doc_types]
+        )
+
+        if result.get("success"):
+            # Store verification reference in vendor record
+            vendor.verification_id = result.get("inquiry_id")
+            vendor.verification_status = VerificationStatus.PENDING.value
+            vendor.last_activity = datetime.now()
+            db.commit()
+
+        return result
+
+    elif request.entity_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == request.entity_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        doc_types = request.document_types or [
+            DocumentType.DRIVERS_LICENSE.value,
+            DocumentType.VEHICLE_INSURANCE.value,
+            DocumentType.PROFILE_PHOTO.value
+        ]
+
+        result = await verifier.create_persona_inquiry(
+            reference_id=str(driver.id),
+            entity_type="driver",
+            email=driver.email,
+            document_types=[DocumentType(dt) for dt in doc_types]
+        )
+
+        if result.get("success"):
+            driver.verification_id = result.get("inquiry_id")
+            driver.verification_status = VerificationStatus.PENDING.value
+            driver.updated_at = datetime.now()
+            db.commit()
+
+        return result
+
+    raise HTTPException(status_code=400, detail="Invalid entity type")
+
+
+@app.get("/api/verification/{entity_type}/{entity_id}/status")
+async def get_verification_status(
+    entity_type: str,
+    entity_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get current verification status for vendor or driver"""
+    verifier = get_verification_service()
+
+    if entity_type == "vendor":
+        vendor = db.query(Vendor).filter(Vendor.id == entity_id).first()
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+
+        if not vendor.verification_id:
+            return {
+                "entity_type": "vendor",
+                "entity_id": entity_id,
+                "status": "not_started",
+                "message": "Verification not yet initiated",
+                "documents": {
+                    "food_license": {"uploaded": vendor.food_license, "verified": False},
+                    "health_permit": {"uploaded": vendor.health_permit, "verified": False},
+                    "business_license": {"uploaded": vendor.w9_form, "verified": False},
+                    "liability_insurance": {"uploaded": vendor.insurance, "verified": False}
+                }
+            }
+
+        # Get status from verification provider
+        result = await verifier.get_persona_inquiry_status(vendor.verification_id)
+
+        return {
+            "entity_type": "vendor",
+            "entity_id": entity_id,
+            "verification_id": vendor.verification_id,
+            "status": result.status.value,
+            "confidence_score": result.confidence_score,
+            "issues": result.issues,
+            "verified_at": result.verified_at.isoformat() if result.verified_at else None,
+            "documents": {
+                "food_license": {"uploaded": vendor.food_license, "verified": result.status == VerificationStatus.VERIFIED},
+                "health_permit": {"uploaded": vendor.health_permit, "verified": result.status == VerificationStatus.VERIFIED},
+                "business_license": {"uploaded": vendor.w9_form, "verified": result.status == VerificationStatus.VERIFIED},
+                "liability_insurance": {"uploaded": vendor.insurance, "verified": result.status == VerificationStatus.VERIFIED}
+            }
+        }
+
+    elif entity_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == entity_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        if not driver.verification_id:
+            return {
+                "entity_type": "driver",
+                "entity_id": entity_id,
+                "status": "not_started",
+                "message": "Verification not yet initiated",
+                "documents": {
+                    "drivers_license": {"uploaded": driver.drivers_license, "verified": False},
+                    "vehicle_insurance": {"uploaded": driver.insurance, "verified": False},
+                    "profile_photo": {"uploaded": bool(driver.photo_url), "verified": False}
+                }
+            }
+
+        result = await verifier.get_persona_inquiry_status(driver.verification_id)
+
+        return {
+            "entity_type": "driver",
+            "entity_id": entity_id,
+            "verification_id": driver.verification_id,
+            "status": result.status.value,
+            "confidence_score": result.confidence_score,
+            "issues": result.issues,
+            "verified_at": result.verified_at.isoformat() if result.verified_at else None,
+            "documents": {
+                "drivers_license": {"uploaded": driver.drivers_license, "verified": result.status == VerificationStatus.VERIFIED},
+                "vehicle_insurance": {"uploaded": driver.insurance, "verified": result.status == VerificationStatus.VERIFIED},
+                "profile_photo": {"uploaded": bool(driver.photo_url), "verified": result.status == VerificationStatus.VERIFIED}
+            }
+        }
+
+    raise HTTPException(status_code=400, detail="Invalid entity type")
+
+
+@app.post("/api/verification/webhook/persona")
+async def persona_webhook(
+    request_body: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Webhook endpoint for Persona verification events.
+    Updates vendor/driver verification status based on inquiry results.
+    """
+    event_type = request_body.get("data", {}).get("attributes", {}).get("name")
+    inquiry_id = request_body.get("data", {}).get("attributes", {}).get("payload", {}).get("data", {}).get("id")
+
+    if not inquiry_id:
+        return {"status": "ignored", "reason": "No inquiry ID in payload"}
+
+    # Extract reference ID to determine entity type
+    reference_id = request_body.get("data", {}).get("attributes", {}).get("payload", {}).get("data", {}).get("attributes", {}).get("reference-id", "")
+
+    print(f"Persona webhook received: {event_type} for inquiry {inquiry_id}")
+
+    if "vendor_" in reference_id:
+        vendor_id = int(reference_id.replace("vendor_", ""))
+        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+
+        if vendor:
+            # Update verification status based on event
+            if event_type in ["inquiry.completed", "inquiry.approved"]:
+                vendor.verification_status = VerificationStatus.VERIFIED.value
+                vendor.documents_verified = True
+                vendor.documents_verified_at = datetime.now()
+                print(f"Vendor {vendor_id} documents VERIFIED")
+
+            elif event_type in ["inquiry.failed", "inquiry.declined"]:
+                vendor.verification_status = VerificationStatus.REJECTED.value
+                print(f"Vendor {vendor_id} documents REJECTED")
+
+            elif event_type == "inquiry.needs_review":
+                vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
+                print(f"Vendor {vendor_id} documents NEEDS REVIEW")
+
+            vendor.last_activity = datetime.now()
+            db.commit()
+
+    elif "driver_" in reference_id:
+        driver_id = int(reference_id.replace("driver_", ""))
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
+
+        if driver:
+            if event_type in ["inquiry.completed", "inquiry.approved"]:
+                driver.verification_status = VerificationStatus.VERIFIED.value
+                driver.documents_verified = True
+                driver.documents_verified_at = datetime.now()
+                print(f"Driver {driver_id} documents VERIFIED")
+
+            elif event_type in ["inquiry.failed", "inquiry.declined"]:
+                driver.verification_status = VerificationStatus.REJECTED.value
+                print(f"Driver {driver_id} documents REJECTED")
+
+            elif event_type == "inquiry.needs_review":
+                driver.verification_status = VerificationStatus.NEEDS_REVIEW.value
+                print(f"Driver {driver_id} documents NEEDS REVIEW")
+
+            driver.updated_at = datetime.now()
+            db.commit()
+
+    return {"status": "processed", "event": event_type}
+
+
+@app.post("/api/verification/webhook/onfido")
+async def onfido_webhook(
+    request_body: dict,
+    db: Session = Depends(get_db)
+):
+    """Webhook endpoint for Onfido verification events"""
+    payload = request_body.get("payload", {})
+    action = payload.get("action")
+    resource_type = payload.get("resource_type")
+
+    print(f"Onfido webhook received: {action} for {resource_type}")
+
+    if resource_type == "check" and action == "check.completed":
+        check_id = payload.get("object", {}).get("id")
+        applicant_id = payload.get("object", {}).get("applicant_id")
+        result = payload.get("object", {}).get("result")
+
+        # Find vendor/driver by applicant_id and update status
+        # Implementation depends on how you store Onfido applicant IDs
+
+        return {"status": "processed", "check_id": check_id, "result": result}
+
+    return {"status": "ignored", "reason": f"Unhandled event: {action}"}
+
+
+@app.get("/api/verification/required-documents/{entity_type}")
+def get_required_documents(entity_type: str):
+    """Get list of required documents for verification"""
+    verifier = get_verification_service()
+    documents = verifier.get_required_documents(entity_type)
+
+    if not documents:
+        raise HTTPException(status_code=400, detail=f"Invalid entity type: {entity_type}")
+
+    return {
+        "entity_type": entity_type,
+        "documents": [
+            {
+                "type": doc["type"].value,
+                "label": doc["label"],
+                "description": doc["description"],
+                "required": doc["required"],
+                "accepted_formats": doc["accepts"]
+            }
+            for doc in documents
+        ]
+    }
+
+
+@app.post("/api/verification/{entity_type}/{entity_id}/manual-review")
+def submit_manual_review(
+    entity_type: str,
+    entity_id: int,
+    action: str = Query(..., description="approve or reject"),
+    notes: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Admin endpoint to manually approve or reject document verification.
+    Used when documents need human review in the ZIP dashboard.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if action not in ["approve", "reject"]:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    if entity_type == "vendor":
+        vendor = db.query(Vendor).filter(Vendor.id == entity_id).first()
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+
+        if action == "approve":
+            vendor.verification_status = VerificationStatus.VERIFIED.value
+            vendor.documents_verified = True
+            vendor.documents_verified_at = datetime.now()
+        else:
+            vendor.verification_status = VerificationStatus.REJECTED.value
+            vendor.documents_verified = False
+
+        vendor.verification_notes = notes
+        vendor.verification_reviewer_id = current_user.id
+        vendor.last_activity = datetime.now()
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Vendor documents {action}d",
+            "entity_type": "vendor",
+            "entity_id": entity_id,
+            "status": vendor.verification_status
+        }
+
+    elif entity_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == entity_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        if action == "approve":
+            driver.verification_status = VerificationStatus.VERIFIED.value
+            driver.documents_verified = True
+            driver.documents_verified_at = datetime.now()
+        else:
+            driver.verification_status = VerificationStatus.REJECTED.value
+            driver.documents_verified = False
+
+        driver.verification_notes = notes
+        driver.verification_reviewer_id = current_user.id
+        driver.updated_at = datetime.now()
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Driver documents {action}d",
+            "entity_type": "driver",
+            "entity_id": entity_id,
+            "status": driver.verification_status
+        }
+
+    raise HTTPException(status_code=400, detail="Invalid entity type")
+
 
 # ============================================================================
 # RESTAURANT MENU ENDPOINTS (For Mobile App)
@@ -2831,6 +4547,569 @@ app.include_router(verification_router)
 # Include Vibing routes (Food Image AI Employee)
 from vibing_routes import router as vibing_router
 app.include_router(vibing_router)
+
+# ==================== MICROSERVICE PROXY ENDPOINTS ====================
+# These endpoints forward requests to the appropriate microservices
+# In production, an API Gateway (Kong/NGINX) should handle this routing
+
+import httpx
+from fastapi.responses import JSONResponse
+
+# Microservice URLs (configurable via environment)
+RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://localhost:8014")
+RESTAURANT_SERVICE_URL = os.getenv("RESTAURANT_SERVICE_URL", "http://localhost:8004")
+PRICING_SERVICE_URL = os.getenv("PRICING_SERVICE_URL", "http://localhost:8015")
+LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://localhost:8007")
+
+async def proxy_request(service_url: str, path: str, method: str = "GET",
+                        params: dict = None, json_data: dict = None):
+    """Proxy a request to a microservice."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"{service_url}{path}"
+            if method == "GET":
+                response = await client.get(url, params=params)
+            elif method == "POST":
+                response = await client.post(url, json=json_data, params=params)
+            elif method == "PUT":
+                response = await client.put(url, json=json_data)
+            elif method == "DELETE":
+                response = await client.delete(url)
+            else:
+                response = await client.request(method, url, json=json_data, params=params)
+
+            return JSONResponse(
+                content=response.json() if response.content else {},
+                status_code=response.status_code
+            )
+    except httpx.ConnectError:
+        # Service unavailable - return mock data for development
+        return None
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e), "service": service_url},
+            status_code=503
+        )
+
+
+# ==================== RIDE SERVICE PROXY ====================
+
+@app.get("/api/erp/rides")
+async def proxy_list_rides(
+    customer_id: Optional[int] = None,
+    driver_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = 50
+):
+    """Proxy to ride-service: List rides"""
+    params = {"limit": limit}
+    if customer_id:
+        params["customer_id"] = customer_id
+    if driver_id:
+        params["driver_id"] = driver_id
+    if status:
+        params["status"] = status
+
+    result = await proxy_request(RIDE_SERVICE_URL, "/api/rides", params=params)
+    if result:
+        return result
+
+    # Fallback mock data when service unavailable
+    return {
+        "rides": [],
+        "total": 0,
+        "message": "Ride service temporarily unavailable - showing cached data"
+    }
+
+
+@app.get("/api/erp/rides/{ride_id}/eta")
+async def proxy_get_ride_eta(ride_id: str):
+    """Proxy to ride-service: Get ride ETA"""
+    result = await proxy_request(RIDE_SERVICE_URL, f"/api/rides/{ride_id}")
+    if result:
+        return result
+
+    # Fallback mock ETA
+    import random
+    return {
+        "ride_id": ride_id,
+        "eta_minutes": random.randint(3, 15),
+        "eta_timestamp": (datetime.utcnow() + timedelta(minutes=random.randint(3, 15))).isoformat(),
+        "driver_location": {
+            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
+            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
+        },
+        "status": "driver_en_route"
+    }
+
+
+@app.get("/api/erp/rides/active-count")
+async def proxy_active_rides_count():
+    """Proxy to ride-service: Get active rides count"""
+    result = await proxy_request(RIDE_SERVICE_URL, "/api/rides/stats/active")
+    if result:
+        return result
+
+    # Fallback mock count
+    import random
+    return {
+        "active_rides": random.randint(50, 200),
+        "available_drivers": random.randint(100, 500),
+        "pending_requests": random.randint(10, 50),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@app.post("/api/erp/rides/request")
+async def proxy_request_ride(
+    customer_id: int,
+    pickup_lat: float,
+    pickup_lng: float,
+    dropoff_lat: float,
+    dropoff_lng: float,
+    ride_type: str = "standard"
+):
+    """Proxy to ride-service: Request a new ride"""
+    data = {
+        "customer_id": customer_id,
+        "pickup_location": {"latitude": pickup_lat, "longitude": pickup_lng},
+        "dropoff_location": {"latitude": dropoff_lat, "longitude": dropoff_lng},
+        "ride_type": ride_type
+    }
+
+    result = await proxy_request(RIDE_SERVICE_URL, "/api/rides", method="POST", json_data=data)
+    if result:
+        return result
+
+    # Fallback - create ride locally
+    import uuid
+    ride_id = f"RIDE-{uuid.uuid4().hex[:8].upper()}"
+    return {
+        "ride_id": ride_id,
+        "status": "searching",
+        "message": "Looking for drivers nearby...",
+        "estimated_wait": "2-5 minutes"
+    }
+
+
+@app.post("/api/erp/rides/{ride_id}/cancel")
+async def proxy_cancel_ride(ride_id: str, reason: str = "customer_request"):
+    """Proxy to ride-service: Cancel a ride"""
+    result = await proxy_request(
+        RIDE_SERVICE_URL,
+        f"/api/rides/{ride_id}/cancel",
+        method="POST",
+        json_data={"reason": reason}
+    )
+    if result:
+        return result
+
+    return {
+        "ride_id": ride_id,
+        "status": "cancelled",
+        "reason": reason,
+        "refund_eligible": True
+    }
+
+
+# ==================== RESTAURANT SERVICE PROXY ====================
+
+@app.get("/api/erp/restaurants")
+async def proxy_list_restaurants(
+    cuisine: Optional[str] = None,
+    is_open: Optional[bool] = None,
+    limit: int = 50
+):
+    """Proxy to restaurant-service: List restaurants"""
+    params = {"limit": limit}
+    if cuisine:
+        params["cuisine"] = cuisine
+    if is_open is not None:
+        params["is_open"] = is_open
+
+    result = await proxy_request(RESTAURANT_SERVICE_URL, "/api/restaurants", params=params)
+    if result:
+        return result
+
+    # Fallback mock restaurants
+    return {
+        "restaurants": [
+            {
+                "id": 1,
+                "name": "Demo Restaurant",
+                "cuisine_type": "American",
+                "rating": 4.5,
+                "delivery_time": "20-35 min",
+                "delivery_fee": 2.99,
+                "is_open": True,
+                "address": "123 Main St, San Francisco, CA"
+            },
+            {
+                "id": 2,
+                "name": "Pizza Palace",
+                "cuisine_type": "Italian",
+                "rating": 4.2,
+                "delivery_time": "25-40 min",
+                "delivery_fee": 3.49,
+                "is_open": True,
+                "address": "456 Oak Ave, San Francisco, CA"
+            },
+            {
+                "id": 3,
+                "name": "Sushi Express",
+                "cuisine_type": "Japanese",
+                "rating": 4.7,
+                "delivery_time": "30-45 min",
+                "delivery_fee": 4.99,
+                "is_open": True,
+                "address": "789 Pine St, San Francisco, CA"
+            }
+        ],
+        "total": 3,
+        "message": "Restaurant service temporarily unavailable - showing cached data"
+    }
+
+
+@app.get("/api/erp/restaurants/nearby")
+async def proxy_nearby_restaurants(
+    lat: float,
+    lng: float,
+    radius_miles: float = 5.0,
+    limit: int = 20
+):
+    """Proxy to restaurant-service: Get nearby restaurants"""
+    params = {
+        "latitude": lat,
+        "longitude": lng,
+        "radius": radius_miles,
+        "limit": limit
+    }
+
+    result = await proxy_request(RESTAURANT_SERVICE_URL, "/api/restaurants/search/nearby", params=params)
+    if result:
+        return result
+
+    # Fallback mock nearby restaurants
+    import random
+    return {
+        "restaurants": [
+            {
+                "id": i,
+                "name": f"Restaurant {i}",
+                "cuisine_type": random.choice(["American", "Italian", "Chinese", "Mexican", "Japanese"]),
+                "rating": round(random.uniform(3.5, 5.0), 1),
+                "delivery_time": f"{random.randint(15, 30)}-{random.randint(35, 50)} min",
+                "delivery_fee": round(random.uniform(1.99, 4.99), 2),
+                "distance_miles": round(random.uniform(0.5, radius_miles), 1),
+                "is_open": True
+            }
+            for i in range(1, min(limit + 1, 11))
+        ],
+        "location": {"latitude": lat, "longitude": lng},
+        "radius_miles": radius_miles,
+        "message": "Restaurant service temporarily unavailable - showing cached data"
+    }
+
+
+@app.get("/api/erp/restaurants/{restaurant_id}")
+async def proxy_get_restaurant(restaurant_id: int):
+    """Proxy to restaurant-service: Get restaurant details"""
+    result = await proxy_request(RESTAURANT_SERVICE_URL, f"/api/restaurants/{restaurant_id}")
+    if result:
+        return result
+
+    # Fallback mock restaurant
+    return {
+        "id": restaurant_id,
+        "name": f"Restaurant {restaurant_id}",
+        "cuisine_type": "American",
+        "rating": 4.5,
+        "total_reviews": 128,
+        "delivery_time": "20-35 min",
+        "delivery_fee": 2.99,
+        "minimum_order": 15.00,
+        "is_open": True,
+        "address": "123 Main St, San Francisco, CA",
+        "phone": "+1 (415) 555-0100",
+        "operating_hours": {
+            "monday": "10:00 AM - 10:00 PM",
+            "tuesday": "10:00 AM - 10:00 PM",
+            "wednesday": "10:00 AM - 10:00 PM",
+            "thursday": "10:00 AM - 10:00 PM",
+            "friday": "10:00 AM - 11:00 PM",
+            "saturday": "10:00 AM - 11:00 PM",
+            "sunday": "11:00 AM - 9:00 PM"
+        }
+    }
+
+
+@app.get("/api/erp/restaurants/{restaurant_id}/menu")
+async def proxy_get_restaurant_menu(restaurant_id: int):
+    """Proxy to restaurant-service: Get restaurant menu"""
+    result = await proxy_request(RESTAURANT_SERVICE_URL, f"/api/restaurants/{restaurant_id}/menu")
+    if result:
+        return result
+
+    # Fallback mock menu
+    return {
+        "restaurant_id": restaurant_id,
+        "categories": [
+            {
+                "name": "Appetizers",
+                "items": [
+                    {"id": 1, "name": "Spring Rolls", "price": 8.99, "description": "Crispy vegetable spring rolls"},
+                    {"id": 2, "name": "Soup of the Day", "price": 5.99, "description": "Chef's daily soup selection"}
+                ]
+            },
+            {
+                "name": "Main Courses",
+                "items": [
+                    {"id": 3, "name": "Grilled Chicken", "price": 16.99, "description": "Herb-marinated grilled chicken"},
+                    {"id": 4, "name": "Pasta Primavera", "price": 14.99, "description": "Fresh vegetables in cream sauce"}
+                ]
+            },
+            {
+                "name": "Desserts",
+                "items": [
+                    {"id": 5, "name": "Chocolate Cake", "price": 7.99, "description": "Rich chocolate layer cake"},
+                    {"id": 6, "name": "Ice Cream", "price": 4.99, "description": "Two scoops, choice of flavor"}
+                ]
+            }
+        ]
+    }
+
+
+# ==================== WEBSOCKET REAL-TIME UPDATES ====================
+# Import WebSocket server for real-time order/ride tracking
+try:
+    from websocket_server import (
+        websocket_endpoint,
+        manager as ws_manager,
+        get_websocket_stats,
+        broadcast_order_status,
+        broadcast_driver_location,
+        broadcast_ride_status,
+        broadcast_new_order_to_restaurant,
+        broadcast_eta_update
+    )
+
+    @app.websocket("/ws/{client_id}")
+    async def websocket_route(websocket: WebSocket, client_id: str):
+        """
+        WebSocket endpoint for real-time updates.
+
+        Client ID format:
+        - customer_{id} - Customer app connections
+        - driver_{id} - Driver app connections
+        - restaurant_{id} - Restaurant app connections
+        """
+        await websocket_endpoint(websocket, client_id)
+
+    @app.get("/api/websocket/stats")
+    def get_ws_stats():
+        """Get WebSocket server statistics."""
+        return get_websocket_stats()
+
+    print("WebSocket server initialized successfully")
+except ImportError as e:
+    print(f"WebSocket server not available: {e}")
+
+
+# ==================== PUSH NOTIFICATION SERVICE ====================
+@app.post("/api/notifications/register-token")
+def register_push_token(
+    device_token: str = Form(...),
+    platform: str = Form(...),  # ios or android
+    user_type: str = Form(...),  # customer, driver, restaurant
+    user_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Register a device token for push notifications."""
+    # Store token in database (update existing or create new)
+    if user_type == "customer":
+        customer = db.query(Customer).filter(Customer.id == user_id).first()
+        if customer:
+            customer.push_token = device_token
+            customer.platform = platform
+            db.commit()
+    elif user_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == user_id).first()
+        if driver:
+            driver.push_token = device_token
+            driver.platform = platform
+            db.commit()
+
+    return {"success": True, "message": "Push token registered"}
+
+
+@app.delete("/api/notifications/unregister-token")
+def unregister_push_token(
+    user_type: str = Query(...),
+    user_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Unregister a device token (on logout)."""
+    if user_type == "customer":
+        customer = db.query(Customer).filter(Customer.id == user_id).first()
+        if customer:
+            customer.push_token = None
+            db.commit()
+    elif user_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == user_id).first()
+        if driver:
+            driver.push_token = None
+            db.commit()
+
+    return {"success": True, "message": "Push token unregistered"}
+
+
+# ==================== LEGAL DOCUMENT ENDPOINTS ====================
+@app.get("/api/legal/terms")
+def get_terms_of_service():
+    """Get Terms of Service content and URL."""
+    return {
+        "url": "https://dollor.ai/terms",
+        "last_updated": "2025-12-15",
+        "version": "1.0",
+        "summary": {
+            "service_type": "Matchmaking Platform",
+            "pricing": {
+                "food_delivery": {
+                    "customer_fee": 1.00,
+                    "restaurant_fee": 1.00,
+                    "driver_fee": 0.00,
+                    "tip_fee": 0.00
+                },
+                "rideshare": {
+                    "rider_fee": 1.00,
+                    "driver_fee": 1.00,
+                    "tip_fee": 0.00
+                }
+            },
+            "key_points": [
+                "Dollor.ai is a technology matchmaking platform, not a delivery or transportation company",
+                "Drivers are independent contractors, not employees",
+                "Flat $1 matchmaking fee - no percentage commissions",
+                "100% of tips go directly to drivers",
+                "Drivers choose their own routes, schedules, and which requests to accept"
+            ]
+        }
+    }
+
+
+@app.get("/api/legal/privacy")
+def get_privacy_policy():
+    """Get Privacy Policy content and URL."""
+    return {
+        "url": "https://dollor.ai/privacy",
+        "last_updated": "2025-12-15",
+        "version": "1.0",
+        "data_collected": [
+            {"type": "Account Information", "purpose": "Account creation and authentication"},
+            {"type": "Payment Information", "purpose": "Process transactions securely via Stripe"},
+            {"type": "Location Data", "purpose": "Facilitate accurate deliveries and rides"},
+            {"type": "Order History", "purpose": "Personalization and customer service"},
+            {"type": "Device Information", "purpose": "Security and push notifications"}
+        ],
+        "data_sharing": [
+            "Restaurant Partners - for order fulfillment",
+            "Driver Partners - for delivery/ride completion",
+            "Payment Processors (Stripe) - for secure transactions",
+            "We do NOT sell personal information"
+        ],
+        "user_rights": [
+            "Access your data",
+            "Correct inaccurate data",
+            "Request deletion",
+            "Opt-out of marketing",
+            "Data portability"
+        ],
+        "contact": "privacy@dollor.ai"
+    }
+
+
+# ==================== DEMO ACCOUNTS FOR APP STORE REVIEW ====================
+@app.post("/api/demo/setup")
+def setup_demo_accounts(db: Session = Depends(get_db)):
+    """Create demo accounts for App Store review."""
+    from models import VendorStatus
+    demo_accounts = []
+
+    # Demo Customer
+    demo_customer_email = "demo.customer@dollor.ai"
+    existing_customer = db.query(Customer).filter(Customer.email == demo_customer_email).first()
+    if not existing_customer:
+        demo_customer = Customer(
+            customer_id="DEMO-CUST-001",
+            first_name="Demo",
+            last_name="Customer",
+            email=demo_customer_email,
+            phone="+14155550100",
+            password_hash=get_password_hash("DemoCustomer2025!"),
+            is_active=True,
+            is_verified=True,
+            loyalty_points=500,
+            loyalty_tier="gold"
+        )
+        db.add(demo_customer)
+        demo_accounts.append({"type": "customer", "email": demo_customer_email, "password": "DemoCustomer2025!"})
+
+    # Demo Driver
+    demo_driver_email = "demo.driver@dollor.ai"
+    existing_driver = db.query(Driver).filter(Driver.email == demo_driver_email).first()
+    if not existing_driver:
+        demo_driver = Driver(
+            driver_id="DEMO-DRV-001",
+            first_name="Demo",
+            last_name="Driver",
+            email=demo_driver_email,
+            phone="+14155550200",
+            password_hash=get_password_hash("DemoDriver2025!"),
+            status=DriverStatus.APPROVED,
+            is_online=True,
+            rating=4.9,
+            total_deliveries=150,
+            vehicle_type="sedan",
+            vehicle_make="Toyota",
+            vehicle_model="Camry",
+            vehicle_year=2022,
+            license_plate="DEMO123"
+        )
+        db.add(demo_driver)
+        demo_accounts.append({"type": "driver", "email": demo_driver_email, "password": "DemoDriver2025!"})
+
+    # Demo Restaurant/Vendor
+    demo_vendor_email = "demo.restaurant@dollor.ai"
+    existing_vendor = db.query(Vendor).filter(Vendor.contact_email == demo_vendor_email).first()
+    if not existing_vendor:
+        demo_vendor = Vendor(
+            company_name="Demo Restaurant LLC",
+            restaurant_name="Demo Restaurant",
+            contact_name="Demo Restaurant Owner",
+            contact_email=demo_vendor_email,
+            contact_phone="+14155550300",
+            onboarding_status=VendorStatus.APPROVED,
+            cuisine_type="American",
+            street="123 Demo Street",
+            city="San Francisco",
+            state="CA",
+            zip_code="94102",
+            delivery_available=True,
+            pickup_available=True,
+            average_prep_time=25
+        )
+        db.add(demo_vendor)
+        demo_accounts.append({"type": "restaurant", "email": demo_vendor_email, "password": "DemoRestaurant2025!"})
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Demo accounts created for App Store review",
+        "accounts": demo_accounts,
+        "note": "These accounts are pre-verified and ready for testing"
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

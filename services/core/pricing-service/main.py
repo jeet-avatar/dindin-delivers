@@ -53,15 +53,29 @@ SERVICE_PORT = 8015
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
 
-# Pricing Configuration
+# Pricing Configuration - Dollor.ai Matchmaking Platform
+# ========================================================
+# Dollor.ai is a MATCHMAKING SERVICE, not a delivery/transportation company
+# We use a simple FLAT FEE model - no percentage commissions!
+#
+# Food Delivery: $1 from customer + $1 from restaurant = $2 platform revenue
+# Rideshare: $1 from rider + $1 from driver = $2 platform revenue
+# Tips: 100% go to driver (zero platform fee on tips)
+
 BASE_DELIVERY_FEE = 2.99
 BASE_FARE_PER_MILE = 1.50
 BASE_FARE_PER_MINUTE = 0.35
 MINIMUM_RIDE_FARE = 5.00
-PLATFORM_FEE_FOOD = 1.00  # Flat $1 for food orders
-PLATFORM_FEE_RIDE_PERCENTAGE = 0.15  # 15% for rides
-TAX_RATE = 0.0825  # 8.25% tax
-SERVICE_FEE_PERCENTAGE = 0.05  # 5% service fee
+
+# FLAT PLATFORM FEES (matchmaking fees)
+PLATFORM_FEE_CUSTOMER_FOOD = 1.00    # $1 matchmaking fee from customer (food)
+PLATFORM_FEE_RESTAURANT = 1.00       # $1 platform listing fee from restaurant
+PLATFORM_FEE_RIDER = 1.00            # $1 matchmaking fee from rider (rideshare)
+PLATFORM_FEE_DRIVER_RIDE = 1.00      # $1 platform access fee from driver (rideshare)
+PLATFORM_FEE_DRIVER_DELIVERY = 0.00  # $0 - drivers keep 100% of delivery fees
+
+TAX_RATE = 0.0825  # 8.25% tax (California)
+TIP_PLATFORM_FEE = 0.00  # 0% - 100% of tips go to drivers
 
 # =============================================================================
 # DATABASE SETUP

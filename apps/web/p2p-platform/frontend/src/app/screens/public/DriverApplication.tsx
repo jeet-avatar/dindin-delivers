@@ -50,7 +50,8 @@ const DriverApplication: React.FC = () => {
     password: '',
     vehicle_type: 'car',
     license_number: '',
-    agree_terms: false
+    agree_terms: false,
+    agree_verification: false
   });
 
   const steps = [
@@ -428,20 +429,44 @@ const DriverApplication: React.FC = () => {
                   >
                     <Input prefix={<IdcardOutlined />} placeholder="Driver's License Number" size="large" />
                   </Form.Item>
-                  <Form.Item
-                    name="agree_terms"
-                    valuePropName="checked"
-                    rules={[
-                      {
-                        validator: (_, value) =>
-                          value ? Promise.resolve() : Promise.reject(new Error('You must agree to the terms')),
-                      },
-                    ]}
-                  >
-                    <Checkbox>
-                      I agree to the <Link to="/terms">Terms of Service</Link> and <Link to="/privacy">Privacy Policy</Link>
-                    </Checkbox>
-                  </Form.Item>
+                  {/* Consent Section */}
+                  <div className="consent-section">
+                    <h4><SafetyCertificateOutlined /> Legal Agreements</h4>
+
+                    <Form.Item
+                      name="agree_verification"
+                      valuePropName="checked"
+                      rules={[
+                        {
+                          validator: (_, value) =>
+                            value ? Promise.resolve() : Promise.reject(new Error('You must consent to document verification')),
+                        },
+                      ]}
+                    >
+                      <Checkbox>
+                        I consent to <strong>document verification</strong> through Dollor.ai's third-party verification partner.
+                        I understand that my driver's license, vehicle insurance, and photo will be verified for authenticity.
+                        <Link to="/privacy" target="_blank"> Privacy Policy</Link>
+                      </Checkbox>
+                    </Form.Item>
+
+                    <Form.Item
+                      name="agree_terms"
+                      valuePropName="checked"
+                      rules={[
+                        {
+                          validator: (_, value) =>
+                            value ? Promise.resolve() : Promise.reject(new Error('You must agree to the terms')),
+                        },
+                      ]}
+                    >
+                      <Checkbox>
+                        I agree to the <Link to="/terms" target="_blank">Terms of Service</Link> and{' '}
+                        <Link to="/privacy" target="_blank">Privacy Policy</Link>.
+                        I confirm all information is accurate.
+                      </Checkbox>
+                    </Form.Item>
+                  </div>
                 </>
               )}
 
@@ -712,6 +737,44 @@ const DriverApplication: React.FC = () => {
           font-size: 14px;
           color: #64748b;
           margin: 0 0 24px 0;
+        }
+
+        /* Consent Section */
+        .consent-section {
+          background: #f0f9ff;
+          border: 1px solid #0ea5e9;
+          border-radius: 12px;
+          padding: 20px;
+          margin-top: 16px;
+        }
+
+        .consent-section h4 {
+          font-size: 15px;
+          font-weight: 600;
+          color: #0369a1;
+          margin: 0 0 16px 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .consent-section .ant-checkbox-wrapper {
+          font-size: 13px;
+          color: #334155;
+          line-height: 1.5;
+        }
+
+        .consent-section .ant-checkbox-wrapper a {
+          color: #0369a1;
+          font-weight: 500;
+        }
+
+        .consent-section .ant-checkbox-wrapper strong {
+          color: #0f172a;
+        }
+
+        .consent-section .ant-form-item {
+          margin-bottom: 12px;
         }
 
         .form-nav {

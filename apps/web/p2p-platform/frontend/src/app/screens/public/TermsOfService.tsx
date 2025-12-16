@@ -33,7 +33,7 @@ const TermsOfService: React.FC = () => {
           <Typography className="legal-typography">
             <Title level={1}>Terms of Service</Title>
             <Text type="secondary" className="effective-date">
-              Last Updated: December 2024
+              Last Updated: December 2025
             </Text>
 
             <div className="section">
@@ -48,24 +48,39 @@ const TermsOfService: React.FC = () => {
                 These Terms apply to all users of the Services, including but not limited to:
               </Paragraph>
               <ul>
-                <li><strong>Customers</strong> - individuals who order food through our platform</li>
-                <li><strong>Restaurant Partners</strong> - businesses that list their offerings on our platform</li>
-                <li><strong>Delivery Partners</strong> - independent contractors who fulfill deliveries</li>
+                <li><strong>Customers/Riders</strong> - individuals who order food or request rides through our platform</li>
+                <li><strong>Restaurant Partners</strong> - businesses that list their food offerings on our platform</li>
+                <li><strong>Driver Partners</strong> - independent contractors who fulfill deliveries and provide rides</li>
               </ul>
             </div>
 
             <div className="section">
-              <Title level={2}>2. Description of Services</Title>
+              <Title level={2}>2. Description of Services - Matchmaking Platform</Title>
               <Paragraph>
-                Dollor.ai operates a technology platform that connects customers with local
-                restaurants and independent delivery partners. We facilitate food ordering,
-                payment processing, and delivery logistics through our web and mobile applications.
+                <strong>Dollor.ai operates as a MATCHMAKING SERVICE</strong> - a technology platform
+                that connects users seeking services with independent service providers. We facilitate
+                connections between:
               </Paragraph>
+              <ul>
+                <li>Customers seeking food delivery with restaurants and independent delivery partners</li>
+                <li>Riders seeking transportation with independent driver partners</li>
+              </ul>
               <Paragraph>
-                <strong>Important:</strong> Dollor.ai is a technology platform and does not
-                itself provide food preparation or delivery services. Restaurants are
-                independent businesses responsible for food quality and safety. Delivery
-                partners are independent contractors, not employees of Dollor.ai.
+                <strong>IMPORTANT - What We Are and Are Not:</strong>
+              </Paragraph>
+              <ul>
+                <li>We ARE a technology matchmaking platform and software-as-a-service provider</li>
+                <li>We ARE NOT a delivery company, transportation company, or food service provider</li>
+                <li>We ARE NOT the employer of any driver or delivery partner</li>
+                <li>We DO NOT prepare, handle, or transport food</li>
+                <li>We DO NOT own or operate any delivery vehicles</li>
+                <li>We DO NOT control when, where, or how driver partners work</li>
+              </ul>
+              <Paragraph>
+                Restaurants are independent businesses solely responsible for food quality, safety,
+                and compliance with all applicable health regulations. Driver partners are independent
+                contractors who make their own decisions about which requests to accept, their routes,
+                schedules, and methods of service delivery.
               </Paragraph>
             </div>
 
@@ -87,24 +102,38 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>4. Orders and Payments</Title>
-              <Title level={3}>4.1 Order Placement</Title>
+              <Title level={2}>4. Orders, Rides, and Payments</Title>
+              <Title level={3}>4.1 Order/Ride Placement</Title>
               <Paragraph>
-                When you place an order through Dollor.ai, you are making an offer to purchase
-                from the restaurant partner. The restaurant may accept or decline your order
-                based on availability and other factors.
+                When you place an order or request a ride through Dollor.ai, you are requesting
+                to be matched with an independent service provider. For food orders, the restaurant
+                may accept or decline based on availability. For rides, driver partners independently
+                choose whether to accept ride requests.
               </Paragraph>
-              <Title level={3}>4.2 Pricing</Title>
+              <Title level={3}>4.2 Pricing - Flat Matchmaking Fee Model</Title>
               <Paragraph>
-                All prices displayed on our platform are set by restaurant partners and may
-                differ from in-store prices. Prices are subject to change without notice.
-                You will be charged the price shown at the time of order confirmation.
+                <strong>Dollor.ai charges a simple, transparent flat matchmaking fee:</strong>
+              </Paragraph>
+              <ul>
+                <li><strong>Food Delivery:</strong> $1.00 matchmaking fee per order (charged to customer)</li>
+                <li><strong>Restaurant Partners:</strong> $1.00 platform listing fee per order</li>
+                <li><strong>Multi-Restaurant Orders:</strong> $1.00 customer fee total, $1.00 per restaurant</li>
+                <li><strong>Rideshare:</strong> $1.00 matchmaking fee (charged to rider) + $1.00 platform access fee (charged to driver)</li>
+                <li><strong>Driver Delivery Fee:</strong> NO COMMISSION - drivers keep 100% of delivery fees</li>
+                <li><strong>Tips:</strong> NO FEE - 100% of tips go directly to drivers</li>
+              </ul>
+              <Paragraph>
+                Menu prices are set by restaurant partners and may differ from in-store prices.
+                Ride fares are calculated based on distance, time, and market conditions, with
+                driver partners receiving the full fare amount minus the platform access fee.
               </Paragraph>
               <Title level={3}>4.3 Payment Processing</Title>
               <Paragraph>
-                Payment is processed through secure third-party payment processors. By
-                providing payment information, you authorize us to charge your payment
-                method for orders placed. All transactions are in USD unless otherwise stated.
+                Payment is processed through secure third-party payment processors (Stripe).
+                By providing payment information, you authorize us to charge your payment
+                method for orders and rides placed. All transactions are in USD unless otherwise stated.
+                Dollor.ai acts as a payment facilitator, passing through payments to restaurants
+                and driver partners.
               </Paragraph>
             </div>
 
@@ -124,39 +153,161 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>6. Delivery Partner Terms</Title>
+              <Title level={2}>6. Driver Partner Terms (Delivery and Rideshare)</Title>
               <Paragraph>
-                If you are a delivery partner, you acknowledge that:
+                If you are a driver partner providing delivery or rideshare services, you acknowledge
+                and agree to the following:
+              </Paragraph>
+              <Title level={3}>6.1 Independent Contractor Relationship</Title>
+              <ul>
+                <li>You are an <strong>INDEPENDENT CONTRACTOR</strong>, not an employee of Dollor.ai</li>
+                <li>No employment relationship exists between you and Dollor.ai</li>
+                <li>Dollor.ai does not control when, where, or how you work</li>
+                <li>You are free to accept or decline any delivery or ride request</li>
+                <li>You may work for competing platforms simultaneously</li>
+                <li>You set your own schedule and work hours</li>
+              </ul>
+              <Title level={3}>6.2 Your Responsibilities</Title>
+              <ul>
+                <li>You provide and maintain your own vehicle and equipment</li>
+                <li>You are responsible for all vehicle operating costs (fuel, maintenance, repairs)</li>
+                <li>You must maintain valid driver's license and vehicle registration</li>
+                <li>You must maintain adequate auto insurance as required by law</li>
+                <li>You choose your own routes (platform suggestions are optional)</li>
+                <li>You are responsible for your own taxes, including self-employment tax</li>
+                <li>You must comply with all applicable traffic laws and regulations</li>
+              </ul>
+              <Title level={3}>6.3 Platform Fees</Title>
+              <Paragraph>
+                <strong>For Food Delivery:</strong> Dollor.ai charges NO commission on deliveries.
+                You keep 100% of the delivery fee and 100% of customer tips.
+              </Paragraph>
+              <Paragraph>
+                <strong>For Rideshare:</strong> A $1.00 platform access fee is deducted per completed ride.
+                You keep 100% of customer tips.
+              </Paragraph>
+            </div>
+
+            <div className="section verification-section">
+              <Title level={2}>7. Document Verification & Compliance</Title>
+              <Paragraph>
+                To ensure platform safety and regulatory compliance, Dollor.ai requires
+                verification of certain documents from Restaurant Partners and Delivery Partners.
+              </Paragraph>
+
+              <Title level={3}>7.1 Third-Party Verification</Title>
+              <Paragraph>
+                By registering as a Restaurant Partner or Delivery Partner, you consent to
+                document verification through our authorized third-party verification partners.
+                These partners may include identity verification services such as Persona, Onfido,
+                or similar providers.
+              </Paragraph>
+
+              <Title level={3}>7.2 Required Documents - Restaurant Partners</Title>
+              <Paragraph>
+                Restaurant Partners must provide and verify the following documents:
               </Paragraph>
               <ul>
-                <li>You are an independent contractor, not an employee</li>
-                <li>You are responsible for your own equipment and vehicle</li>
-                <li>You must maintain valid licenses and insurance</li>
-                <li>You control when and how much you work</li>
-                <li>You are responsible for your own taxes and expenses</li>
-                <li>You must handle food safely during transport</li>
+                <li><strong>Food Service License</strong> - Valid license from local health authority</li>
+                <li><strong>Health Department Permit</strong> - Current health inspection certificate</li>
+                <li><strong>Business License</strong> - Valid business operating license or W-9 form</li>
+                <li><strong>Liability Insurance</strong> - Certificate of general liability insurance (minimum $1,000,000 coverage)</li>
               </ul>
+
+              <Title level={3}>7.3 Required Documents - Delivery Partners</Title>
+              <Paragraph>
+                Delivery Partners must provide and verify the following documents:
+              </Paragraph>
+              <ul>
+                <li><strong>Government-Issued ID</strong> - Valid driver's license or state ID</li>
+                <li><strong>Vehicle Insurance</strong> - Current auto insurance policy</li>
+                <li><strong>Profile Photo</strong> - Clear photo for customer identification</li>
+                <li><strong>Background Check Consent</strong> - Authorization for background verification</li>
+              </ul>
+
+              <Title level={3}>7.4 Verification Process</Title>
+              <Paragraph>
+                The verification process includes:
+              </Paragraph>
+              <ul>
+                <li>Document authenticity validation through automated and manual review</li>
+                <li>Expiration date monitoring with renewal reminders</li>
+                <li>Cross-reference with public databases where applicable</li>
+                <li>Identity verification including liveness detection for photos</li>
+              </ul>
+
+              <Title level={3}>7.5 Verification Failures</Title>
+              <Paragraph>
+                If verification fails or documents are found to be fraudulent:
+              </Paragraph>
+              <ul>
+                <li>Your account may be suspended pending review</li>
+                <li>You will be notified and given opportunity to provide correct documents</li>
+                <li>Repeated failures may result in permanent account termination</li>
+                <li>Fraudulent documents may be reported to relevant authorities</li>
+              </ul>
+
+              <Title level={3}>7.6 Document Retention</Title>
+              <Paragraph>
+                Verified documents are stored securely and retained in accordance with our
+                Privacy Policy and applicable regulations. You may request deletion of your
+                documents upon account termination, subject to legal retention requirements.
+              </Paragraph>
             </div>
 
             <div className="section">
-              <Title level={2}>7. Cancellations and Refunds</Title>
+              <Title level={2}>8. Rideshare Terms</Title>
               <Paragraph>
-                Cancellation and refund policies vary based on circumstances:
+                For rideshare matchmaking services, the following additional terms apply:
               </Paragraph>
+              <Title level={3}>8.1 Rider Responsibilities</Title>
               <ul>
-                <li><strong>Before restaurant confirmation:</strong> Full refund available</li>
+                <li>Provide accurate pickup and dropoff locations</li>
+                <li>Be ready at the pickup location when the driver arrives</li>
+                <li>Treat drivers with respect; harassment will not be tolerated</li>
+                <li>Wear seatbelts as required by law</li>
+                <li>Do not transport illegal items or substances</li>
+              </ul>
+              <Title level={3}>8.2 Fare Calculation</Title>
+              <Paragraph>
+                Ride fares are calculated based on distance, estimated time, and current market
+                conditions. Fares shown before ride confirmation are estimates and may vary
+                based on actual route taken, traffic conditions, or route changes requested
+                by the rider. A $1.00 matchmaking fee is added to each ride.
+              </Paragraph>
+              <Title level={3}>8.3 Disclaimer</Title>
+              <Paragraph>
+                Dollor.ai provides matchmaking technology only. We do not provide transportation
+                services. Driver partners are independent contractors who provide transportation
+                services directly to riders. Dollor.ai is not responsible for the actions of
+                any driver partner.
+              </Paragraph>
+            </div>
+
+            <div className="section">
+              <Title level={2}>9. Cancellations and Refunds</Title>
+              <Title level={3}>9.1 Food Order Cancellations</Title>
+              <ul>
+                <li><strong>Before restaurant confirmation:</strong> Full refund of all fees</li>
                 <li><strong>After preparation begins:</strong> Partial or no refund may apply</li>
                 <li><strong>Quality issues:</strong> Report within 24 hours for review</li>
                 <li><strong>Missing items:</strong> Refund or credit for affected items</li>
               </ul>
+              <Title level={3}>9.2 Ride Cancellations</Title>
+              <ul>
+                <li><strong>Before driver assigned:</strong> Full refund of matchmaking fee</li>
+                <li><strong>After driver assigned:</strong> Cancellation fee may apply</li>
+                <li><strong>Driver no-show:</strong> Full refund</li>
+                <li><strong>Rider no-show:</strong> Cancellation fee charged</li>
+              </ul>
               <Paragraph>
                 Dollor.ai reserves the right to make final decisions on refund requests.
-                Abuse of refund policies may result in account suspension.
+                Abuse of cancellation or refund policies may result in account suspension.
               </Paragraph>
             </div>
 
             <div className="section">
-              <Title level={2}>8. Prohibited Conduct</Title>
+              <Title level={2}>10. Prohibited Conduct</Title>
               <Paragraph>
                 You agree not to:
               </Paragraph>
@@ -173,7 +324,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>9. Intellectual Property</Title>
+              <Title level={2}>11. Intellectual Property</Title>
               <Paragraph>
                 All content on the Dollor.ai platform, including but not limited to logos,
                 designs, text, graphics, software, and interfaces, is owned by or licensed
@@ -186,7 +337,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>10. Limitation of Liability</Title>
+              <Title level={2}>12. Limitation of Liability</Title>
               <Paragraph>
                 TO THE MAXIMUM EXTENT PERMITTED BY LAW, DOLLOR.AI SHALL NOT BE LIABLE FOR
                 ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES,
@@ -200,7 +351,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>11. Indemnification</Title>
+              <Title level={2}>13. Indemnification</Title>
               <Paragraph>
                 You agree to indemnify and hold harmless Dollor.ai, its officers, directors,
                 employees, and agents from any claims, damages, losses, or expenses arising
@@ -209,7 +360,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>12. Dispute Resolution</Title>
+              <Title level={2}>14. Dispute Resolution</Title>
               <Paragraph>
                 Any disputes arising from these Terms or the Services shall be resolved
                 through binding arbitration in accordance with the American Arbitration
@@ -223,7 +374,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>13. Modifications</Title>
+              <Title level={2}>15. Modifications</Title>
               <Paragraph>
                 Dollor.ai reserves the right to modify these Terms at any time. We will
                 notify users of material changes via email or platform notification.
@@ -233,7 +384,7 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>14. Contact Information</Title>
+              <Title level={2}>16. Contact Information</Title>
               <Paragraph>
                 For questions about these Terms, please contact us at:
               </Paragraph>
@@ -257,7 +408,7 @@ const TermsOfService: React.FC = () => {
             <Link to="/vendor/login">Restaurant Login</Link>
             <Link to="/driver/login">Driver Login</Link>
           </div>
-          <p className="copyright">&copy; 2024 Dollor.ai. All rights reserved.</p>
+          <p className="copyright">&copy; 2025 Dollor.ai. All rights reserved.</p>
         </div>
       </footer>
 

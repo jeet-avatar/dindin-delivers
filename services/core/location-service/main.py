@@ -10,6 +10,12 @@ Microservice handling location and geospatial operations:
 - Nearby driver search (within radius)
 - Geofencing for delivery zones
 
+Phase 3 Features (Real-Time Location System):
+- H3 Hexagonal Grid Indexing (Uber-style spatial index)
+- WebSocket Server for live tracking
+- Intelligent Driver Matching Algorithm
+- Surge Pricing Calculator
+
 Port: 8007
 Error Prefix: LOC
 """
@@ -1043,6 +1049,28 @@ async def startup_event():
     Base.metadata.create_all(bind=engine)
     logger.info(f"{SERVICE_NAME} v{SERVICE_VERSION} started on port {SERVICE_PORT}")
     logger.info(f"Service area: ({SERVICE_AREA_CENTER_LAT}, {SERVICE_AREA_CENTER_LON}) radius {SERVICE_AREA_RADIUS_KM}km")
+
+
+# =============================================================================
+# PHASE 3: REAL-TIME LOCATION SYSTEM INTEGRATION
+# =============================================================================
+
+# Enable real-time features (H3, WebSocket, Driver Matching)
+ENABLE_REALTIME = os.getenv("ENABLE_REALTIME", "true").lower() == "true"
+
+if ENABLE_REALTIME:
+    try:
+        from realtime import integrate_with_location_service
+        realtime_service = integrate_with_location_service(app, REDIS_URL)
+        logger.info("Phase 3 Real-Time Location System enabled")
+        logger.info("  - H3 Hexagonal Grid Indexing: ACTIVE")
+        logger.info("  - WebSocket Server: ws://localhost:8007/ws/{client_id}")
+        logger.info("  - Driver Matching API: /api/realtime/match")
+        logger.info("  - Surge Pricing API: /api/realtime/surge")
+    except ImportError as e:
+        logger.warning(f"Real-time features not available: {e}")
+    except Exception as e:
+        logger.error(f"Failed to initialize real-time features: {e}")
 
 
 if __name__ == "__main__":

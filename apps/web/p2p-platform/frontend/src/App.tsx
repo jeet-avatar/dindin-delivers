@@ -3,6 +3,7 @@ import { UserProvider, useUser } from './app/context/UserContext';
 import Login from './app/screens/auth/Login';
 import VendorLogin from './app/screens/auth/VendorLogin';
 import DriverLogin from './app/screens/auth/DriverLogin';
+import CustomerLogin from './app/screens/auth/CustomerLogin';
 import Dashboard from './app/screens/dashboard/Main';
 import SystemDashboard from './app/screens/dashboard/Main';
 import CoupaDashboard from './app/screens/coupaDashboard/Main';
@@ -23,6 +24,7 @@ import PrivacyPolicy from './app/screens/public/PrivacyPolicy';
 import MainLayout from './app/components/layout/MainLayout';
 import VendorLayout from './app/components/layout/VendorLayout';
 import DriverLayout from './app/components/layout/DriverLayout';
+import CustomerLayout from './app/components/layout/CustomerLayout';
 import VendorDashboard from './app/screens/vendor/Dashboard';
 import VendorMenuManagement from './app/screens/vendor/MenuManagement';
 import VendorEarnings from './app/screens/vendor/Earnings';
@@ -31,6 +33,8 @@ import VendorSettings from './app/screens/vendor/Settings';
 import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverDeliveries from './app/screens/driver/Deliveries';
 import DriverEarnings from './app/screens/driver/Earnings';
+import CustomerDashboard from './app/screens/customer/Dashboard';
+import RideBooking from './app/screens/customer/RideBooking';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -54,6 +58,10 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/vendor/login" element={<VendorLogin />} />
         <Route path="/driver/login" element={<DriverLogin />} />
+        <Route path="/customer/login" element={<CustomerLogin />} />
+
+        {/* Standalone Ride Booking (no auth required for quick access) */}
+        <Route path="/ride" element={<RideBooking />} />
 
         {/* Public Application Routes */}
         <Route path="/restaurant/apply" element={<RestaurantApplication />} />
@@ -95,6 +103,18 @@ function App() {
           <Route path="dashboard" element={<DriverDashboard />} />
           <Route path="deliveries" element={<DriverDeliveries />} />
           <Route path="earnings" element={<DriverEarnings />} />
+        </Route>
+
+        {/* Customer/Rider Portal Routes */}
+        <Route path="/customer" element={<CustomerLayout />}>
+          <Route index element={<Navigate to="/customer/dashboard" replace />} />
+          <Route path="dashboard" element={<CustomerDashboard />} />
+          <Route path="ride" element={<RideBooking />} />
+          <Route path="history" element={<CustomerDashboard />} />
+          <Route path="wallet" element={<CustomerDashboard />} />
+          <Route path="promotions" element={<CustomerDashboard />} />
+          <Route path="support" element={<CustomerDashboard />} />
+          <Route path="settings" element={<CustomerDashboard />} />
         </Route>
 
         {/* Catch-all redirect to landing */}

@@ -21,9 +21,17 @@ struct ContentView: View {
             List {
                 ForEach(items) { item in
                     NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
+                        if let timestamp = item.timestamp {
+                            Text("Item at \(timestamp, formatter: itemFormatter)")
+                        } else {
+                            Text("Item (no timestamp)")
+                        }
                     } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                        if let timestamp = item.timestamp {
+                            Text(timestamp, formatter: itemFormatter)
+                        } else {
+                            Text("No timestamp")
+                        }
                     }
                 }
                 .onDelete(perform: deleteItems)
