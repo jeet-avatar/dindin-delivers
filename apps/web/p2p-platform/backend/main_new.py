@@ -45,6 +45,15 @@ def secure_file_path(upload_dir: str, filename: str) -> str:
     return file_path
 
 
+def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
+    """Sanitize and validate document type to prevent path traversal."""
+    if doc_type in valid_types:
+        return doc_type
+    # Sanitize: keep only alphanumeric and underscores
+    sanitized = ''.join(c for c in doc_type if c.isalnum() or c == '_')[:30]
+    return sanitized if sanitized else "document"
+
+
 app = FastAPI(title="Invoice Management System")
 
 # CORS - Allow dollor.ai, vibingticket.com, and local development
@@ -3037,10 +3046,14 @@ async def upload_vendor_document_public(
     upload_dir = "uploads/vendor_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
+    # Valid document types for vendors
+    valid_doc_types = ['food_license', 'food_handler', 'health_permit', 'business_license', 'liability_insurance', 'w9_form']
+    safe_doc_type = sanitize_document_type(document_type, valid_doc_types)
+
     # Generate unique filename with sanitized extension
     allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
     file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
-    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
@@ -3048,7 +3061,7 @@ async def upload_vendor_document_public(
         content = await file.read()
         f.write(content)
 
-    print(f"📄 Document uploaded: {document_type} for vendor {vendor_id}")
+    print(f"📄 Document uploaded: {safe_doc_type} for vendor {vendor_id}")
     print(f"   File: {unique_filename}")
 
     # Update vendor document fields based on type
@@ -3670,10 +3683,14 @@ async def upload_vendor_document(
     upload_dir = "uploads/vendor_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
+    # Valid document types for vendors
+    valid_doc_types = ['w9_form', 'liability_insurance', 'health_permit', 'food_handler', 'business_license']
+    safe_doc_type = sanitize_document_type(document_type, valid_doc_types)
+
     # Generate unique filename with sanitized extension
     allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
     file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
-    unique_filename = f"{vendor_id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
     # Save file
@@ -3690,8 +3707,8 @@ async def upload_vendor_document(
         'business_license': ('compliance_certs', 'compliance_certs_url'),
     }
 
-    if document_type in field_mapping:
-        has_field, url_field = field_mapping[document_type]
+    if safe_doc_type in field_mapping:
+        has_field, url_field = field_mapping[safe_doc_type]
         setattr(db_vendor, has_field, True)
         setattr(db_vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
 
