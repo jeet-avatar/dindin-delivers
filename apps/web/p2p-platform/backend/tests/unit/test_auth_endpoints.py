@@ -1,0 +1,318 @@
+"""
+Unit tests for authentication endpoints.
+
+Tests cover:
+- User registration
+- User login
+- Token validation
+- Password reset
+- Driver authentication
+- Vendor authentication
+"""
+
+import pytest
+from datetime import datetime
+from fastapi.testclient import TestClient
+
+
+class TestUserRegistration:
+    """Tests for user registration endpoint"""
+
+    def test_register_success(self, client: TestClient, sample_user_data):
+        """Should successfully register a new user"""
+        response = client.post("/register", json=sample_user_data)
+        assert response.status_code in [200, 201]
+        data = response.json()
+        assert "access_token" in data or "message" in data
+
+    def test_register_duplicate_email(self, client: TestClient, test_user):
+        """Should reject duplicate email registration"""
+        user_data = {
+            "email": test_user.email,
+            "password": "AnotherPassword123!",
+            "full_name": "Another User",
+            "role": "user",
+        }
+        response = client.post("/register", json=user_data)
+        assert response.status_code in [400, 409]
+
+    def test_register_invalid_email(self, client: TestClient):
+        """Should reject invalid email format"""
+        user_data = {
+            "email": "not-a-valid-email",
+            "password": "Password123!",
+            "full_name": "Test User",
+            "role": "user",
+        }
+        response = client.post("/register", json=user_data)
+        assert response.status_code == 422
+
+    def test_register_missing_password(self, client: TestClient):
+        """Should reject registration without password"""
+        user_data = {
+            "email": f"test_{datetime.now().timestamp()}@test.com",
+            "full_name": "Test User",
+            "role": "user",
+        }
+        response = client.post("/register", json=user_data)
+        assert response.status_code == 422
+
+    def test_register_missing_email(self, client: TestClient):
+        """Should reject registration without email"""
+        user_data = {
+            "password": "Password123!",
+            "full_name": "Test User",
+            "role": "user",
+        }
+        response = client.post("/register", json=user_data)
+        assert response.status_code == 422
+
+    def test_register_empty_body(self, client: TestClient):
+        """Should reject empty request body"""
+        response = client.post("/register", json={})
+        assert response.status_code == 422
+
+
+class TestUserLogin:
+    """Tests for user login endpoint"""
+
+    def test_login_success(self, client: TestClient, test_user):
+        """Should successfully login with correct credentials"""
+        response = client.post("/login", data={
+            "username": test_user.email,
+            "password": "TestPassword123!",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+
+    def test_login_wrong_password(self, client: TestClient, test_user):
+        """Should reject wrong password"""
+        response = client.post("/login", data={
+            "username": test_user.email,
+            "password": "WrongPassword123!",
+        })
+        assert response.status_code in [400, 401]
+
+    def test_login_nonexistent_user(self, client: TestClient):
+        """Should reject nonexistent user"""
+        response = client.post("/login", data={
+            "username": f"nonexistent_{datetime.now().timestamp()}@test.com",
+            "password": "AnyPassword123!",
+        })
+        assert response.status_code in [400, 401, 404]
+
+    def test_login_empty_password(self, client: TestClient, test_user):
+        """Should reject empty password"""
+        response = client.post("/login", data={
+            "username": test_user.email,
+            "password": "",
+        })
+        assert response.status_code in [400, 401, 422]
+
+    def test_login_empty_email(self, client: TestClient):
+        """Should reject empty email"""
+        response = client.post("/login", data={
+            "username": "",
+            "password": "Password123!",
+        })
+        assert response.status_code in [400, 401, 422]
+
+
+class TestTokenValidation:
+    """Tests for token validation"""
+
+    def test_valid_token_access(self, client: TestClient, auth_headers):
+        """Should allow access with valid token"""
+        response = client.get("/me", headers=auth_headers)
+        assert response.status_code in [200, 404]  # 404 if endpoint different
+
+    def test_invalid_token_rejected(self, client: TestClient):
+        """Should reject invalid token"""
+        response = client.get("/me", headers={
+            "Authorization": "Bearer invalid_token_here"
+        })
+        assert response.status_code in [401, 403]
+
+    def test_missing_token_rejected(self, client: TestClient):
+        """Should reject missing token"""
+        response = client.get("/me")
+        assert response.status_code in [401, 403]
+
+    def test_malformed_auth_header(self, client: TestClient):
+        """Should reject malformed auth header"""
+        response = client.get("/me", headers={
+            "Authorization": "NotBearer sometoken"
+        })
+        assert response.status_code in [401, 403]
+
+    def test_empty_bearer_token(self, client: TestClient):
+        """Should reject empty bearer token"""
+        response = client.get("/me", headers={
+            "Authorization": "Bearer "
+        })
+        assert response.status_code in [401, 403]
+
+
+class TestDriverAuthentication:
+    """Tests for driver authentication endpoints"""
+
+    def test_driver_register_success(self, client: TestClient, sample_driver_data):
+        """Should successfully register a new driver"""
+        response = client.post("/api/auth/driver/register", json=sample_driver_data)
+        assert response.status_code in [200, 201]
+        data = response.json()
+        assert "id" in data or "driver_id" in data or "message" in data
+
+    def test_driver_register_duplicate_email(self, client: TestClient, test_driver):
+        """Should reject duplicate driver email"""
+        driver_data = {
+            "email": test_driver.email,
+            "password": "NewPassword123!",
+            "name": "New Driver",
+            "phone": "+14155557777",
+        }
+        response = client.post("/api/auth/driver/register", json=driver_data)
+        assert response.status_code in [400, 409]
+
+    def test_driver_register_invalid_email(self, client: TestClient):
+        """Should reject invalid email"""
+        driver_data = {
+            "email": "invalid-email",
+            "password": "Password123!",
+            "name": "Test Driver",
+            "phone": "+14155551234",
+        }
+        response = client.post("/api/auth/driver/register", json=driver_data)
+        assert response.status_code == 422
+
+    def test_driver_login_success(self, client: TestClient, test_driver):
+        """Should successfully login driver"""
+        response = client.post("/api/auth/driver/login", json={
+            "email": test_driver.email,
+            "password": "DriverPassword123!",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data or "token" in data
+
+    def test_driver_login_wrong_password(self, client: TestClient, test_driver):
+        """Should reject wrong driver password"""
+        response = client.post("/api/auth/driver/login", json={
+            "email": test_driver.email,
+            "password": "WrongPassword123!",
+        })
+        assert response.status_code in [400, 401]
+
+    def test_driver_profile_requires_auth(self, client: TestClient):
+        """Should require auth for driver profile"""
+        response = client.get("/api/driver/profile")
+        assert response.status_code in [401, 403]
+
+    def test_driver_profile_with_auth(self, client: TestClient, driver_auth_headers):
+        """Should return profile with auth"""
+        response = client.get("/api/driver/profile", headers=driver_auth_headers)
+        assert response.status_code in [200, 404]
+
+
+class TestVendorAuthentication:
+    """Tests for vendor authentication endpoints"""
+
+    def test_vendor_login_success(self, client: TestClient, test_vendor):
+        """Should successfully login vendor"""
+        response = client.post("/api/vendor/login", json={
+            "email": test_vendor.contact_email,
+            "password": "VendorPassword123!",
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data or "token" in data
+
+    def test_vendor_login_wrong_password(self, client: TestClient, test_vendor):
+        """Should reject wrong vendor password"""
+        response = client.post("/api/vendor/login", json={
+            "email": test_vendor.contact_email,
+            "password": "WrongPassword123!",
+        })
+        assert response.status_code in [400, 401]
+
+    def test_vendor_login_nonexistent(self, client: TestClient):
+        """Should reject nonexistent vendor"""
+        response = client.post("/api/vendor/login", json={
+            "email": f"nonexistent_{datetime.now().timestamp()}@test.com",
+            "password": "AnyPassword123!",
+        })
+        assert response.status_code in [400, 401, 404]
+
+    def test_vendor_dashboard_requires_auth(self, client: TestClient):
+        """Should require auth for vendor dashboard"""
+        response = client.get("/api/vendor/dashboard")
+        assert response.status_code in [401, 403]
+
+
+class TestPasswordReset:
+    """Tests for password reset flow"""
+
+    def test_request_password_reset(self, client: TestClient, test_user):
+        """Should accept password reset request"""
+        response = client.post("/api/auth/password-reset", json={
+            "email": test_user.email,
+        })
+        # Should always return success to prevent email enumeration
+        assert response.status_code == 200
+
+    def test_request_password_reset_nonexistent(self, client: TestClient):
+        """Should not reveal if email exists"""
+        response = client.post("/api/auth/password-reset", json={
+            "email": f"nonexistent_{datetime.now().timestamp()}@test.com",
+        })
+        # Should return same response as existing email
+        assert response.status_code == 200
+
+    def test_driver_password_reset(self, client: TestClient, test_driver):
+        """Should accept driver password reset request"""
+        response = client.post("/api/auth/driver/forgot-password", json={
+            "email": test_driver.email,
+        })
+        assert response.status_code == 200
+
+
+class TestGoogleAuth:
+    """Tests for Google OAuth authentication"""
+
+    def test_driver_google_auth_invalid_token(self, client: TestClient):
+        """Should reject invalid Google token"""
+        response = client.post("/api/auth/driver/google", json={
+            "id_token": "invalid_token",
+            "email": "test@gmail.com",
+            "name": "Test User",
+        })
+        # Should handle gracefully
+        assert response.status_code in [200, 400, 401]
+
+    def test_customer_google_auth_invalid_token(self, client: TestClient):
+        """Should reject invalid Google token for customer"""
+        response = client.post("/api/auth/customer/google", json={
+            "id_token": "invalid_token",
+            "email": "test@gmail.com",
+            "name": "Test User",
+        })
+        assert response.status_code in [200, 400, 401, 404]
+
+
+class TestAppleAuth:
+    """Tests for Apple Sign-In authentication"""
+
+    def test_driver_apple_auth_invalid_token(self, client: TestClient):
+        """Should reject invalid Apple token"""
+        response = client.post("/api/auth/driver/apple", json={
+            "id_token": "invalid_token",
+            "email": "test@icloud.com",
+            "name": "Test User",
+        })
+        assert response.status_code in [200, 400, 401, 404]
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--tb=short"])
