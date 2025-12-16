@@ -25,5 +25,14 @@ def init_db():
         OnboardingLog, ScrapedMenuItem, RealTimeEvent,
         Communication, Customer, CustomerFavorite, VendorAnalytics
     )
-    # Use checkfirst=True to avoid errors when tables/indices already exist
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+    from sqlalchemy.exc import ProgrammingError
+
+    # Try to create all tables/indices, ignore if they already exist
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except ProgrammingError as e:
+        # Ignore "already exists" errors (common in CI with persistent DB)
+        if "already exists" in str(e):
+            pass
+        else:
+            raise
