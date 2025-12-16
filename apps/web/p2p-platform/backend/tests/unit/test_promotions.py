@@ -1001,6 +1001,335 @@ class TestEdgeCases(unittest.TestCase):
         self.assertIn("Profitable", best_insight)
 
 
+class TestAIEmployees(unittest.TestCase):
+    """Test suite for AI Employee configuration"""
+
+    def test_marketing_maestro_exists(self):
+        """Test Marketing Maestro AI employee is defined"""
+        self.assertIn("MARKETING_MAESTRO", AI_EMPLOYEES)
+        sierra = AI_EMPLOYEES["MARKETING_MAESTRO"]
+        self.assertEqual(sierra["name"], "Sierra")
+        self.assertEqual(sierra["role"], "Marketing Maestro")
+        self.assertIn("id", sierra)
+
+    def test_notification_ninja_exists(self):
+        """Test Notification Ninja AI employee is defined"""
+        self.assertIn("NOTIFICATION_NINJA", AI_EMPLOYEES)
+        phoenix = AI_EMPLOYEES["NOTIFICATION_NINJA"]
+        self.assertEqual(phoenix["name"], "Phoenix")
+        self.assertEqual(phoenix["role"], "Notification Ninja")
+
+    def test_analytics_advisor_exists(self):
+        """Test Analytics Advisor AI employee is defined"""
+        self.assertIn("ANALYTICS_ADVISOR", AI_EMPLOYEES)
+        sage = AI_EMPLOYEES["ANALYTICS_ADVISOR"]
+        self.assertEqual(sage["name"], "Sage")
+        self.assertEqual(sage["role"], "Analytics Advisor")
+
+    def test_all_ai_employees_have_required_fields(self):
+        """Test all AI employees have required fields"""
+        required_fields = ["id", "name", "role", "description"]
+        for key, employee in AI_EMPLOYEES.items():
+            for field in required_fields:
+                self.assertIn(field, employee, f"{key} missing {field}")
+
+    def test_ai_employee_ids_unique(self):
+        """Test all AI employee IDs are unique"""
+        ids = [emp["id"] for emp in AI_EMPLOYEES.values()]
+        self.assertEqual(len(ids), len(set(ids)), "AI employee IDs are not unique")
+
+
+class TestUpdatePromotionRequest(unittest.TestCase):
+    """Test suite for UpdatePromotionRequest model"""
+
+    def test_update_request_all_optional(self):
+        """Test that all fields in update request are optional"""
+        request = UpdatePromotionRequest()
+        self.assertIsNone(request.name)
+        self.assertIsNone(request.description)
+        self.assertIsNone(request.value)
+        self.assertIsNone(request.status)
+
+    def test_update_request_with_name(self):
+        """Test update request with only name"""
+        request = UpdatePromotionRequest(name="New Name")
+        self.assertEqual(request.name, "New Name")
+        self.assertIsNone(request.value)
+
+    def test_update_request_with_value(self):
+        """Test update request with only value"""
+        request = UpdatePromotionRequest(value=25.0)
+        self.assertEqual(request.value, 25.0)
+        self.assertIsNone(request.name)
+
+    def test_update_request_with_status(self):
+        """Test update request with status change"""
+        request = UpdatePromotionRequest(status="active")
+        self.assertEqual(request.status, "active")
+
+    def test_update_request_with_schedule(self):
+        """Test update request with schedule"""
+        schedule = {"days": [0, 1, 2], "start_time": "10:00", "end_time": "14:00"}
+        request = UpdatePromotionRequest(schedule=schedule)
+        self.assertEqual(request.schedule, schedule)
+
+    def test_update_request_with_dates(self):
+        """Test update request with date changes"""
+        request = UpdatePromotionRequest(
+            start_date="2024-01-01T00:00:00",
+            end_date="2024-12-31T23:59:59"
+        )
+        self.assertEqual(request.start_date, "2024-01-01T00:00:00")
+        self.assertEqual(request.end_date, "2024-12-31T23:59:59")
+
+
+class TestApplyPromotionRequest(unittest.TestCase):
+    """Test suite for ApplyPromotionRequest model"""
+
+    def test_apply_request_minimal(self):
+        """Test minimal apply request"""
+        request = ApplyPromotionRequest(
+            promotion_code="SAVE20",
+            order_total=50.0
+        )
+        self.assertEqual(request.promotion_code, "SAVE20")
+        self.assertEqual(request.order_total, 50.0)
+        self.assertIsNone(request.customer_id)
+
+    def test_apply_request_with_customer(self):
+        """Test apply request with customer ID"""
+        request = ApplyPromotionRequest(
+            promotion_code="SAVE20",
+            order_total=50.0,
+            customer_id=12345
+        )
+        self.assertEqual(request.customer_id, 12345)
+
+    def test_apply_request_with_items(self):
+        """Test apply request with items list"""
+        items = [
+            {"name": "Pizza", "price": 15.99, "quantity": 2},
+            {"name": "Soda", "price": 2.99, "quantity": 1}
+        ]
+        request = ApplyPromotionRequest(
+            promotion_code="BOGO",
+            order_total=34.97,
+            items=items
+        )
+        self.assertEqual(len(request.items), 2)
+        self.assertEqual(request.items[0]["name"], "Pizza")
+
+
+class TestPromotionMessageVariations(unittest.TestCase):
+    """Test suite for various promotion message scenarios"""
+
+    def test_percentage_message_zero_value(self):
+        """Test percentage message with 0% (edge case)"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.PERCENTAGE,
+            value=0.0,
+            promotion_code="ZERO"
+        )
+        message = get_promotion_message(promo)
+        self.assertIn("0%", message)
+        self.assertIn("ZERO", message)
+
+    def test_flat_amount_message_large_value(self):
+        """Test flat amount message with large discount"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.FLAT_AMOUNT,
+            value=100.00,
+            promotion_code="BIG100"
+        )
+        message = get_promotion_message(promo)
+        self.assertIn("$100.00", message)
+
+    def test_unknown_promotion_type_message(self):
+        """Test message for unknown promotion type"""
+        promo = Mock()
+        promo.type = Mock()
+        promo.type.value = "custom_type"
+        promo.type.__eq__ = lambda self, other: False
+        promo.value = 10.0
+        promo.name = "Custom Promo"
+        promo.promotion_code = "CUSTOM"
+
+        message = get_promotion_message(promo)
+        self.assertIn("Custom Promo", message)
+        self.assertIn("CUSTOM", message)
+
+
+class TestDiscountCalculationEdgeCases(unittest.TestCase):
+    """Additional edge cases for discount calculations"""
+
+    def test_percentage_with_zero_order(self):
+        """Test percentage discount on zero order"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.PERCENTAGE,
+            value=20.0
+        )
+        discount = calculate_discount(promo, order_total=0.0, items=None)
+        self.assertEqual(discount, 0.0)
+
+    def test_flat_amount_exceeds_order(self):
+        """Test flat amount that exceeds order total"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.FLAT_AMOUNT,
+            value=50.0
+        )
+        # Flat amount doesn't cap, it just returns the value
+        discount = calculate_discount(promo, order_total=30.0, items=None)
+        self.assertEqual(discount, 50.0)
+
+    def test_bogo_single_item(self):
+        """Test BOGO with single item"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.BOGO,
+            value=0
+        )
+        items = [{"name": "Item", "price": 20.0}]
+        discount = calculate_discount(promo, order_total=20.0, items=items)
+        self.assertEqual(discount, 20.0)  # Only item is the "free" one
+
+    def test_bogo_many_items(self):
+        """Test BOGO with many items"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.BOGO,
+            value=0
+        )
+        items = [
+            {"name": "Expensive", "price": 50.0},
+            {"name": "Medium", "price": 30.0},
+            {"name": "Cheap", "price": 5.0}
+        ]
+        discount = calculate_discount(promo, order_total=85.0, items=items)
+        self.assertEqual(discount, 5.0)  # Cheapest item is free
+
+    def test_free_delivery_fixed_value(self):
+        """Test free delivery returns fixed delivery fee"""
+        promo = create_mock_promotion(
+            promotion_type=PromotionType.FREE_DELIVERY,
+            value=0
+        )
+        discount = calculate_discount(promo, order_total=100.0, items=None)
+        self.assertEqual(discount, 4.99)  # Standard delivery fee
+
+
+class TestInsightsGeneration(unittest.TestCase):
+    """Additional tests for insights generation"""
+
+    def test_insights_all_inactive(self):
+        """Test insights when all promotions are inactive"""
+        promo_stats = [
+            {"promotion_id": 1, "name": "Old Promo", "redemptions": 0, "roi": 0, "status": "expired"},
+            {"promotion_id": 2, "name": "Cancelled", "redemptions": 0, "roi": 0, "status": "cancelled"}
+        ]
+        insights = generate_promotion_insights(promo_stats)
+        self.assertIsInstance(insights, list)
+        # Should mention no active promotions
+        active_insight = [i for i in insights if "No active" in i]
+        self.assertTrue(len(active_insight) > 0)
+
+    def test_insights_many_active(self):
+        """Test insights when many promotions are active"""
+        promo_stats = [
+            {"promotion_id": i, "name": f"Promo {i}", "redemptions": 10, "roi": 1.5, "status": "active"}
+            for i in range(10)
+        ]
+        insights = generate_promotion_insights(promo_stats)
+        self.assertIsInstance(insights, list)
+        # Should warn about too many active promotions
+        warning_insight = [i for i in insights if "Many" in i or "focus" in i.lower()]
+        self.assertTrue(len(warning_insight) > 0)
+
+    def test_insights_with_equal_roi(self):
+        """Test insights when promotions have equal ROI"""
+        promo_stats = [
+            {"promotion_id": 1, "name": "Promo A", "redemptions": 10, "roi": 2.0, "status": "active"},
+            {"promotion_id": 2, "name": "Promo B", "redemptions": 10, "roi": 2.0, "status": "active"}
+        ]
+        insights = generate_promotion_insights(promo_stats)
+        self.assertIsInstance(insights, list)
+        # Should identify one as best performer
+        self.assertTrue(any("Best performer" in i for i in insights))
+
+    def test_insights_with_high_redemptions(self):
+        """Test insights highlights high redemption promotion"""
+        promo_stats = [
+            {"promotion_id": 1, "name": "Popular", "redemptions": 1000, "roi": 1.0, "status": "active"},
+            {"promotion_id": 2, "name": "Unpopular", "redemptions": 5, "roi": 5.0, "status": "active"}
+        ]
+        insights = generate_promotion_insights(promo_stats)
+        # Should mention the popular one
+        popular_insight = [i for i in insights if "Popular" in i or "popular" in i]
+        self.assertTrue(len(popular_insight) > 0 or any("1000" in str(i) for i in insights))
+
+
+class TestCreatePromotionRequestValidation(unittest.TestCase):
+    """Additional validation tests for CreatePromotionRequest"""
+
+    def test_request_with_all_fields(self):
+        """Test request with all optional fields set"""
+        request = CreatePromotionRequest(
+            name="Full Test",
+            description="Complete promotion test",
+            type="percentage",
+            value=15.0,
+            max_discount=50.0,
+            min_order_amount=20.0,
+            target_audience="new_customers",
+            applies_to={"type": "category", "ids": [1, 2, 3]},
+            schedule={"days": [0, 1, 2, 3, 4], "start_time": "11:00", "end_time": "14:00"},
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            is_recurring=True,
+            usage_limit=100,
+            per_customer_limit=2,
+            budget_limit=1000.0,
+            push_to_app=True
+        )
+        self.assertEqual(request.name, "Full Test")
+        self.assertEqual(request.max_discount, 50.0)
+        self.assertTrue(request.is_recurring)
+        self.assertEqual(request.per_customer_limit, 2)
+
+    def test_request_default_values(self):
+        """Test default values are set correctly"""
+        request = CreatePromotionRequest(
+            name="Defaults Test",
+            type="percentage",
+            value=10.0
+        )
+        self.assertEqual(request.min_order_amount, 0)
+        self.assertEqual(request.target_audience, "all")
+        self.assertFalse(request.is_recurring)
+        self.assertEqual(request.per_customer_limit, 1)
+        self.assertTrue(request.push_to_app)
+
+    def test_all_promotion_types(self):
+        """Test creating requests for all promotion types"""
+        types = ["percentage", "flat_amount", "bogo", "free_delivery", "free_item", "bundle"]
+        for promo_type in types:
+            request = CreatePromotionRequest(
+                name=f"Test {promo_type}",
+                type=promo_type,
+                value=10.0
+            )
+            self.assertEqual(request.type, promo_type)
+
+    def test_all_target_audiences(self):
+        """Test creating requests for all target audiences"""
+        audiences = ["all", "new_customers", "returning", "loyalty_members", "dormant"]
+        for audience in audiences:
+            request = CreatePromotionRequest(
+                name=f"Test {audience}",
+                type="percentage",
+                value=10.0,
+                target_audience=audience
+            )
+            self.assertEqual(request.target_audience, audience)
+
+
 if __name__ == "__main__":
     # Run tests with verbose output
     unittest.main(verbosity=2)
