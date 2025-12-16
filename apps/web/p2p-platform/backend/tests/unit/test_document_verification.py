@@ -1153,5 +1153,345 @@ class TestIntegrationScenarios:
         assert "expires in" in validation["message"]
 
 
+# =========================================================================
+# ASYNC HTTP METHOD TESTS
+# =========================================================================
+
+class TestPersonaAsyncMethods:
+    """Test Persona API async methods with mocked HTTP responses"""
+
+    @pytest.mark.asyncio
+    @patch('httpx.AsyncClient.post')
+    @patch.dict(os.environ, {
+        'PERSONA_API_KEY': 'test_api_key',
+        'PERSONA_TEMPLATE_ID': 'test_template'
+    })
+    async def test_create_persona_inquiry_success(self, mock_post):
+        """Test successful Persona inquiry creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "data": {
+                "id": "inq_12345",
+                "attributes": {
+                    "inquiry-url": "https://withpersona.com/verify/inq_12345",
+                    "status": "created"
+                }
+            }
+        }
+        mock_post.return_value = mock_response
+
+        service = DocumentVerificationService(provider="persona")
+
+        # Use a mock async context manager
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_persona_inquiry(
+                reference_id="test_123",
+                entity_type="driver",
+                email="test@example.com",
+                document_types=[DocumentType.DRIVERS_LICENSE]
+            )
+
+        assert result["success"] is True
+        assert result["inquiry_id"] == "inq_12345"
+        assert "inquiry_url" in result
+        assert result["status"] == "created"
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {
+        'PERSONA_API_KEY': 'test_api_key',
+        'PERSONA_TEMPLATE_ID': 'test_template'
+    })
+    async def test_create_persona_inquiry_failure(self):
+        """Test failed Persona inquiry creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = "Invalid request"
+
+        service = DocumentVerificationService(provider="persona")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_persona_inquiry(
+                reference_id="test_123",
+                entity_type="driver",
+                email="test@example.com",
+                document_types=[DocumentType.DRIVERS_LICENSE]
+            )
+
+        assert result["success"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'PERSONA_API_KEY': 'test_api_key'})
+    async def test_get_persona_inquiry_status_verified(self):
+        """Test getting Persona inquiry status - verified"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "id": "inq_12345",
+                "attributes": {
+                    "status": "approved",
+                    "score": 0.95,
+                    "fields": {"name": "John Doe"}
+                }
+            }
+        }
+
+        service = DocumentVerificationService(provider="persona")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.get_persona_inquiry_status("inq_12345")
+
+        assert result.status == VerificationStatus.VERIFIED
+        assert result.confidence_score == 0.95
+        assert result.verification_id == "inq_12345"
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'PERSONA_API_KEY': 'test_api_key'})
+    async def test_get_persona_inquiry_status_rejected(self):
+        """Test getting Persona inquiry status - rejected"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "id": "inq_12345",
+                "attributes": {
+                    "status": "declined",
+                    "fields": {}
+                },
+                "included": [
+                    {
+                        "type": "verification",
+                        "attributes": {
+                            "checks": [
+                                {"name": "document_authenticity", "status": "failed", "reasons": ["Document appears tampered"]}
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+
+        service = DocumentVerificationService(provider="persona")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.get_persona_inquiry_status("inq_12345")
+
+        assert result.status == VerificationStatus.REJECTED
+        assert len(result.issues) > 0
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'PERSONA_API_KEY': 'test_api_key'})
+    async def test_get_persona_inquiry_status_api_error(self):
+        """Test getting Persona inquiry status - API error"""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal server error"
+
+        service = DocumentVerificationService(provider="persona")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.get_persona_inquiry_status("inq_12345")
+
+        assert result.status == VerificationStatus.PENDING
+        assert len(result.issues) > 0
+
+
+class TestOnfidoAsyncMethods:
+    """Test Onfido API async methods with mocked HTTP responses"""
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_create_onfido_applicant_success(self):
+        """Test successful Onfido applicant creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "id": "applicant_12345",
+            "first_name": "John",
+            "last_name": "Doe"
+        }
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_onfido_applicant(
+                first_name="John",
+                last_name="Doe",
+                email="john@example.com",
+                entity_id="123",
+                entity_type="driver"
+            )
+
+        assert result["success"] is True
+        assert result["applicant_id"] == "applicant_12345"
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_create_onfido_applicant_failure(self):
+        """Test failed Onfido applicant creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 422
+        mock_response.text = "Invalid email format"
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_onfido_applicant(
+                first_name="John",
+                last_name="Doe",
+                email="invalid-email",
+                entity_id="123",
+                entity_type="driver"
+            )
+
+        assert result["success"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_create_onfido_check_success(self):
+        """Test successful Onfido check creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "id": "check_12345",
+            "status": "in_progress"
+        }
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_onfido_check(
+                applicant_id="applicant_12345",
+                document_ids=["doc_1", "doc_2"]
+            )
+
+        assert result["success"] is True
+        assert result["check_id"] == "check_12345"
+        assert result["status"] == "in_progress"
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_create_onfido_check_failure(self):
+        """Test failed Onfido check creation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = "Invalid applicant ID"
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.create_onfido_check(
+                applicant_id="invalid_id",
+                document_ids=["doc_1"]
+            )
+
+        assert result["success"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_generate_onfido_sdk_token_success(self):
+        """Test successful Onfido SDK token generation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "token": "eyJhbGciOiJIUzI1NiJ9.test_sdk_token"
+        }
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.generate_onfido_sdk_token("applicant_12345")
+
+        assert result["success"] is True
+        assert "sdk_token" in result
+        assert result["sdk_token"].startswith("eyJ")
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {'ONFIDO_API_KEY': 'test_api_key'})
+    async def test_generate_onfido_sdk_token_failure(self):
+        """Test failed Onfido SDK token generation"""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.text = "Applicant not found"
+
+        service = DocumentVerificationService(provider="onfido")
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = MagicMock()
+            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+            mock_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+
+            result = await service.generate_onfido_sdk_token("invalid_id")
+
+        assert result["success"] is False
+        assert "error" in result
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
