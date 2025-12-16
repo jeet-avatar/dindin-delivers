@@ -53,18 +53,13 @@ jobs:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
         run: |
-          # Run unit tests for security helpers (no DB required)
-          pytest tests/unit/test_security_helpers.py \
+          pytest tests/ \
             -v \
             --cov=. \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
-            --tb=short || true
-
-          # Ensure coverage.xml exists for SonarCloud
-          if [ ! -f coverage.xml ]; then
-            echo '<?xml version="1.0" ?><coverage version="7.0"></coverage>' > coverage.xml
-          fi
+            --cov-fail-under=50 \
+            --tb=short
 
       - name: Check SonarCloud Token
         id: check-token
