@@ -65,11 +65,27 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    try:
-        # Drop all tables first to avoid duplicate index issues
-        Base.metadata.drop_all(bind=engine)
-    except Exception:
-        pass  # Ignore errors when tables don't exist
+    # For PostgreSQL, use raw SQL to drop all tables with CASCADE
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
+    if "postgresql" in DATABASE_URL:
+        with engine.connect() as conn:
+            # Drop all tables in public schema
+            conn.execute(text("""
+                DO $$ DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+                        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+                    END LOOP;
+                END $$;
+            """))
+            conn.commit()
+    else:
+        # For SQLite, regular drop_all works
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass
 
     # Create all tables
     Base.metadata.create_all(bind=engine)
