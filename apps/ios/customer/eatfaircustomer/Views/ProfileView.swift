@@ -132,32 +132,16 @@ struct ProfileView: View {
                                 .padding(.bottom, 10)
                             
                             VStack(spacing: 0) {
+                                NavigationLink(destination: SettingsView()) {
+                                    ProfileOptionRow(icon: "gearshape.fill", title: "Settings")
+                                }
+                                Divider()
                                 NavigationLink(destination: NotificationsView()) {
                                     ProfileOptionRow(icon: "bell.fill", title: "Notifications")
                                 }
                                 Divider()
-                                Button(action: { showLanguageSheet = true }) {
-                                    HStack {
-                                        Image(systemName: "globe")
-                                            .foregroundColor(Theme.brandOrange)
-                                            .font(.title3)
-                                            .frame(width: 30)
-
-                                        Text("Language")
-                                            .font(.body)
-                                            .foregroundColor(Theme.brandBlack)
-
-                                        Spacer()
-
-                                        Text(selectedLanguage)
-                                            .font(.subheadline)
-                                            .foregroundColor(.gray)
-
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(.gray)
-                                            .font(.caption)
-                                    }
-                                    .padding()
+                                NavigationLink(destination: ReferAndEarnView()) {
+                                    ProfileOptionRow(icon: "gift.fill", title: "Refer & Earn")
                                 }
                                 Divider()
                                 NavigationLink(destination: HelpSupportView()) {
