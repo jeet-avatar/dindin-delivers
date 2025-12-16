@@ -1,0 +1,3 @@
+"""
+negotiation-service Tests Package
+"""

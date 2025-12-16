@@ -1,0 +1,3 @@
+"""
+chat-service Tests Package
+"""

@@ -99,12 +99,32 @@ class PaymentErrors:
     INVALID_CARD = ErrorCode(code="PAY-502", message="Invalid card details", http_status=400)
 
 
+class UserErrors:
+    """User-related error codes."""
+    INVALID_EMAIL = ErrorCode(code="USER-101", message="Invalid email format", http_status=400)
+    EMAIL_EXISTS = ErrorCode(code="USER-102", message="Email already registered", http_status=409)
+    USER_NOT_FOUND = ErrorCode(code="USER-301", message="User not found", http_status=404)
+    ADDRESS_NOT_FOUND = ErrorCode(code="USER-302", message="Address not found", http_status=404)
+
+
+class RestaurantErrors:
+    """Restaurant-related error codes."""
+    INVALID_VENDOR = ErrorCode(code="REST-101", message="Invalid restaurant data", http_status=400)
+    VENDOR_NOT_FOUND = ErrorCode(code="REST-301", message="Restaurant not found", http_status=404)
+    VENDOR_EXISTS = ErrorCode(code="REST-102", message="Restaurant already exists", http_status=409)
+
+
 # =============================================================================
 # ERROR RESPONSE
 # =============================================================================
 
-class ErrorResponse:
+class ErrorResponse(BaseModel):
     """Standard error response builder."""
+    code: str
+    message: str
+    details: Optional[dict] = None
+    service: Optional[str] = None
+    timestamp: Optional[str] = None
 
     @staticmethod
     def build(
@@ -191,3 +211,16 @@ class MicroserviceFactory:
         )
 
         return app
+
+    @staticmethod
+    def create(name: str, version: str = "1.0.0", description: str = ""):
+        """
+        Static factory method for backwards compatibility.
+        Creates and returns a FastAPI app instance.
+        """
+        factory = MicroserviceFactory(
+            service_name=name,
+            version=version,
+            description=description
+        )
+        return factory.create_app()

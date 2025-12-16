@@ -243,6 +243,30 @@ class MicroserviceFactory:
         """
         self.health_checker.add_dependency(name, check_fn, required, timeout)
 
+    @staticmethod
+    def create(name: str, version: str = "1.0.0", description: str = ""):
+        """
+        Static factory method for backwards compatibility.
+        Creates and returns a FastAPI app instance.
+
+        This method exists for compatibility with older microservices that use:
+            app = MicroserviceFactory.create("service-name", "1.0.0", "Description")
+
+        Args:
+            name: Service name
+            version: Service version
+            description: Service description
+
+        Returns:
+            FastAPI app instance
+        """
+        factory = MicroserviceFactory(
+            service_name=name,
+            version=version,
+            description=description
+        )
+        return factory.create_app()
+
 
 # =============================================================================
 # EXAMPLE SERVICE IMPLEMENTATION

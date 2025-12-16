@@ -1,0 +1,3 @@
+"""
+rating-service Tests Package
+"""
