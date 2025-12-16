@@ -22,76 +22,102 @@ public class AppConfig: ObservableObject {
     @Published public var smallOrderThreshold: Double = 10.0
     @Published public var smallOrderFee: Double = 2.0
 
-    // MARK: - TIERED Fee Structure - Revolutionary Pricing!
-    // ==============================================
-    // NEW TIERED MODEL (Dec 2024):
+    // =============================================================================
+    // DOLLOR.AI PRICING MODEL
+    // =============================================================================
+    // MATCHMAKING SERVICE - We connect parties, not deliver or drive
     //
-    // Customer Delivery Fee:
-    //   - Order ≤ $35:    $1
-    //   - Order $35-$70:  $2
-    //   - Order > $70:    $3
+    // FOOD DELIVERY - FLAT $1 PRICING (No tiered pricing):
+    //   Customer pays: $1 flat per order (regardless of order value)
+    //   Restaurant pays: $1 flat per restaurant in order
+    //   Driver pays: $0 (FREE - no commission)
+    //   Tips: 100% go to driver
+    //   Pickup: $1 per restaurant + $1 per customer
     //
-    // Restaurant Platform Fee:
-    //   - Order ≤ $35:    $1
-    //   - Order $35-$70:  $2
-    //   - Order > $70:    $3
+    // RIDESHARE - TIERED PRICING (Based on fare value):
+    //   Up to $35 fare:     $1 rider + $1 driver
+    //   $35.01 - $70 fare:  $2 rider + $2 driver
+    //   Above $70 fare:     $3 rider + $3 driver
+    //   Tips: 100% go to driver
     //
-    // Driver receives: Base pay + per-mile pay + 100% of tip
-    // Platform receives: Tiered fee from customer + tiered fee from restaurant
-    // ==============================================
-    // NOTE: These MUST match pricing_config.py TIERED_PRICING in the backend
+    // Total transparency - no hidden fees!
+    // =============================================================================
 
-    // Tier thresholds
-    @Published public var tier1MaxOrder: Double = 35.00   // Orders up to $35
-    @Published public var tier2MaxOrder: Double = 70.00   // Orders $35.01 to $70
-    // tier3: Everything above $70
+    // FOOD DELIVERY - FLAT $1 FEES
+    @Published public var foodCustomerFee: Double = 1.00      // $1 flat per order
+    @Published public var foodRestaurantFee: Double = 1.00    // $1 flat per restaurant
+    @Published public var foodDriverFee: Double = 0.00        // FREE - drivers keep 100%
+    @Published public var tipPlatformFee: Double = 0.00       // 100% of tips go to driver
 
-    // Customer delivery fees (tiered)
-    @Published public var customerTier1Fee: Double = 1.00  // $1 for orders ≤ $35
-    @Published public var customerTier2Fee: Double = 2.00  // $2 for orders $35.01-$70
-    @Published public var customerTier3Fee: Double = 3.00  // $3 for orders > $70
+    // RIDESHARE - TIERED PRICING thresholds
+    @Published public var rideshareTier1Max: Double = 35.00   // Fares up to $35
+    @Published public var rideshareTier2Max: Double = 70.00   // Fares $35.01 to $70
+    // Tier 3: Fares above $70
 
-    // Restaurant platform fees (same tiers)
-    @Published public var restaurantTier1Fee: Double = 1.00  // $1 for orders ≤ $35
-    @Published public var restaurantTier2Fee: Double = 2.00  // $2 for orders $35.01-$70
-    @Published public var restaurantTier3Fee: Double = 3.00  // $3 for orders > $70
+    // RIDESHARE - Platform fees per tier
+    @Published public var rideshareTier1Fee: Double = 1.00    // $1 for fares ≤ $35
+    @Published public var rideshareTier2Fee: Double = 2.00    // $2 for fares $35.01-$70
+    @Published public var rideshareTier3Fee: Double = 3.00    // $3 for fares > $70
 
-    // Legacy flat fees (kept for backwards compatibility)
-    @Published public var serviceFee: Double = 1.00  // Legacy - use getCustomerDeliveryFee() instead
-    @Published public var deliveryFee: Double = 2.99  // Base delivery fee (legacy)
-    @Published public var restaurantPlatformFee: Double = 1.0  // Legacy - use getRestaurantPlatformFee() instead
+    // Legacy properties (kept for backwards compatibility)
+    @Published public var serviceFee: Double = 1.00           // Legacy - use foodCustomerFee
+    @Published public var deliveryFee: Double = 2.99          // Base delivery fee (to driver)
+    @Published public var restaurantPlatformFee: Double = 1.0 // Legacy - use foodRestaurantFee
 
-    /// Get customer delivery fee based on order subtotal (TIERED)
+    /// Get customer matchmaking fee for food delivery.
+    /// Always $1 flat - no tiered pricing for food.
     public func getCustomerDeliveryFee(orderSubtotal: Double) -> Double {
-        if orderSubtotal <= tier1MaxOrder {
-            return customerTier1Fee
-        } else if orderSubtotal <= tier2MaxOrder {
-            return customerTier2Fee
-        } else {
-            return customerTier3Fee
-        }
+        return foodCustomerFee
     }
 
-    /// Get restaurant platform fee based on order subtotal (TIERED)
+    /// Get restaurant platform fee.
+    /// Always $1 flat per restaurant.
     public func getRestaurantPlatformFee(orderSubtotal: Double) -> Double {
-        if orderSubtotal <= tier1MaxOrder {
-            return restaurantTier1Fee
-        } else if orderSubtotal <= tier2MaxOrder {
-            return restaurantTier2Fee
+        return foodRestaurantFee
+    }
+
+    /// Get food delivery fee description for UI display.
+    public func getFoodFeeDescription() -> String {
+        return "$1 Matchmaking Fee"
+    }
+
+    /// Calculate tiered platform fee for RIDESHARE based on fare value.
+    public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
+        if fareAmount <= rideshareTier1Max {
+            return rideshareTier1Fee
+        } else if fareAmount <= rideshareTier2Max {
+            return rideshareTier2Fee
         } else {
-            return restaurantTier3Fee
+            return rideshareTier3Fee
         }
     }
 
-    /// Get fee tier description for UI display
-    public func getFeeTierDescription(orderSubtotal: Double) -> String {
-        if orderSubtotal <= tier1MaxOrder {
-            return "Tier 1 (≤$\(Int(tier1MaxOrder))): $\(Int(customerTier1Fee))"
-        } else if orderSubtotal <= tier2MaxOrder {
-            return "Tier 2 ($\(Int(tier1MaxOrder)+1)-$\(Int(tier2MaxOrder))): $\(Int(customerTier2Fee))"
+    /// Get rideshare tier number for display (1, 2, or 3).
+    public func getRideshareTier(fareAmount: Double) -> Int {
+        if fareAmount <= rideshareTier1Max {
+            return 1
+        } else if fareAmount <= rideshareTier2Max {
+            return 2
         } else {
-            return "Tier 3 (>$\(Int(tier2MaxOrder))): $\(Int(customerTier3Fee))"
+            return 3
         }
+    }
+
+    /// Get rideshare tier name for display.
+    public func getRideshareTierName(fareAmount: Double) -> String {
+        if fareAmount <= rideshareTier1Max {
+            return "Tier 1 (up to $35)"
+        } else if fareAmount <= rideshareTier2Max {
+            return "Tier 2 ($35-$70)"
+        } else {
+            return "Tier 3 (above $70)"
+        }
+    }
+
+    /// Get rideshare fee description for UI display.
+    public func getRideshareFeeDescription(fareAmount: Double) -> String {
+        let fee = Int(calculateRidesharePlatformFee(fareAmount: fareAmount))
+        return "$\(fee) Platform Fee"
     }
 
     // Driver/Delivery Config (matches pricing_config.py)
@@ -114,16 +140,15 @@ public class AppConfig: ObservableObject {
     @Published public var maxPrepTimeMinutes: Int = 60
     @Published public var additionalPrepTimePerOrder: Int = 3
 
-    // MARK: - Rideshare TIERED Pricing (matches pricing_config.py RIDESHARE_PRICING_CONFIG)
-    // NEW TIERED MODEL (Dec 2024):
-    //   - Fare ≤ $15:     $1 platform fee
-    //   - Fare $15-$35:   $2 platform fee
-    //   - Fare > $35:     $3 platform fee
+    // MARK: - Rideshare Configuration
+    // TIERED PRICING (only for rideshare, not food delivery):
+    //   - Fare ≤ $35:     $1 rider + $1 driver (Tier 1)
+    //   - Fare $35-$70:   $2 rider + $2 driver (Tier 2)
+    //   - Fare > $70:     $3 rider + $3 driver (Tier 3)
 
-    @Published public var rideBaseFare: Double = 2.00          // Base fare for rideshare
-    @Published public var ridePerMileRate: Double = 1.00       // Per mile rate
-    @Published public var ridePerMinuteRate: Double = 0.15     // Per minute rate
-    @Published public var ridePlatformFee: Double = 1.00       // Legacy $1 platform fee - use getRidesharePlatformFee()
+    @Published public var rideBaseFare: Double = 5.00          // Minimum base fare
+    @Published public var ridePerMileRate: Double = 1.50       // Per mile rate
+    @Published public var ridePerMinuteRate: Double = 0.25     // Per minute rate
     @Published public var rideMinFare: Double = 5.00           // Minimum fare
     @Published public var rideCancellationFee: Double = 5.00   // Cancellation fee (base)
     @Published public var rideCancellationFeeDriverEnRoute: Double = 5.00  // Fee when driver assigned
@@ -131,36 +156,43 @@ public class AppConfig: ObservableObject {
     @Published public var rideSurgeEnabled: Bool = true        // Surge pricing enabled
     @Published public var rideMaxSurgeMultiplier: Double = 3.0 // Maximum surge multiplier
 
-    // Rideshare tiered pricing thresholds (different from delivery)
-    @Published public var rideshareTier1MaxFare: Double = 15.00   // Fares up to $15
-    @Published public var rideshareTier2MaxFare: Double = 35.00   // Fares $15.01 to $35
-    // tier3: Everything above $35
+    /// Get rider platform fee based on fare amount (TIERED).
+    public func getRiderPlatformFee(fareAmount: Double) -> Double {
+        return calculateRidesharePlatformFee(fareAmount: fareAmount)
+    }
 
-    // Rideshare platform fees (tiered)
-    @Published public var rideshareTier1Fee: Double = 1.00  // $1 for fares ≤ $15
-    @Published public var rideshareTier2Fee: Double = 2.00  // $2 for fares $15.01-$35
-    @Published public var rideshareTier3Fee: Double = 3.00  // $3 for fares > $35
+    /// Get driver platform access fee based on fare amount (TIERED).
+    public func getDriverPlatformFee(fareAmount: Double) -> Double {
+        return calculateRidesharePlatformFee(fareAmount: fareAmount)
+    }
 
-    /// Get rideshare platform fee based on fare amount (TIERED)
+    /// Legacy method - use getRiderPlatformFee() instead
     public func getRidesharePlatformFee(fareAmount: Double) -> Double {
-        if fareAmount <= rideshareTier1MaxFare {
-            return rideshareTier1Fee
-        } else if fareAmount <= rideshareTier2MaxFare {
-            return rideshareTier2Fee
-        } else {
-            return rideshareTier3Fee
-        }
+        return calculateRidesharePlatformFee(fareAmount: fareAmount)
+    }
+
+    /// Calculate rideshare fare (before platform fees).
+    public func calculateRideFare(distanceMiles: Double, durationMinutes: Double = 0.0) -> Double {
+        let distanceFare = distanceMiles * ridePerMileRate
+        let timeFare = durationMinutes * ridePerMinuteRate
+        return max(rideMinFare, rideBaseFare + distanceFare + timeFare)
+    }
+
+    /// Calculate driver earnings after platform fee (TIERED).
+    public func calculateDriverEarnings(fare: Double, tip: Double = 0.0) -> Double {
+        let platformFee = calculateRidesharePlatformFee(fareAmount: fare)
+        return fare - platformFee + tip
+    }
+
+    /// Calculate total rider payment (TIERED).
+    public func calculateRiderTotal(fare: Double, tip: Double = 0.0) -> Double {
+        let platformFee = calculateRidesharePlatformFee(fareAmount: fare)
+        return fare + platformFee + tip
     }
 
     /// Get rideshare fee tier description for UI display
     public func getRideshareTierDescription(fareAmount: Double) -> String {
-        if fareAmount <= rideshareTier1MaxFare {
-            return "Tier 1 (≤$\(Int(rideshareTier1MaxFare))): $\(Int(rideshareTier1Fee))"
-        } else if fareAmount <= rideshareTier2MaxFare {
-            return "Tier 2 ($\(Int(rideshareTier1MaxFare)+1)-$\(Int(rideshareTier2MaxFare))): $\(Int(rideshareTier2Fee))"
-        } else {
-            return "Tier 3 (>$\(Int(rideshareTier2MaxFare))): $\(Int(rideshareTier3Fee))"
-        }
+        return getRideshareTierName(fareAmount: fareAmount)
     }
 
     // Support - Using CloudFront CDN for HTTPS

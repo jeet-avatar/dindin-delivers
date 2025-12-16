@@ -110,22 +110,33 @@ const TermsOfService: React.FC = () => {
                 may accept or decline based on availability. For rides, driver partners independently
                 choose whether to accept ride requests.
               </Paragraph>
-              <Title level={3}>4.2 Pricing - Flat Matchmaking Fee Model</Title>
+              <Title level={3}>4.2 Pricing - Transparent Matchmaking Fees</Title>
               <Paragraph>
-                <strong>Dollor.ai charges a simple, transparent flat matchmaking fee:</strong>
+                <strong>Dollor.ai charges simple, transparent matchmaking fees with no hidden charges:</strong>
               </Paragraph>
+
+              <Title level={4}>Food Delivery - Flat $1 Fees (No Tiered Pricing)</Title>
               <ul>
-                <li><strong>Food Delivery:</strong> $1.00 matchmaking fee per order (charged to customer)</li>
-                <li><strong>Restaurant Partners:</strong> $1.00 platform listing fee per order</li>
+                <li><strong>Customer Fee:</strong> $1.00 flat per order (regardless of order value)</li>
+                <li><strong>Restaurant Fee:</strong> $1.00 flat per restaurant in order</li>
                 <li><strong>Multi-Restaurant Orders:</strong> $1.00 customer fee total, $1.00 per restaurant</li>
-                <li><strong>Rideshare:</strong> $1.00 matchmaking fee (charged to rider) + $1.00 platform access fee (charged to driver)</li>
-                <li><strong>Driver Delivery Fee:</strong> NO COMMISSION - drivers keep 100% of delivery fees</li>
+                <li><strong>Driver Fee:</strong> $0.00 - NO COMMISSION - drivers keep 100% of delivery fees</li>
+                <li><strong>Pickup Orders:</strong> $1.00 per restaurant + $1.00 per customer</li>
                 <li><strong>Tips:</strong> NO FEE - 100% of tips go directly to drivers</li>
               </ul>
+
+              <Title level={4}>Rideshare - Tiered Pricing (Based on Fare Value)</Title>
+              <ul>
+                <li><strong>Fares up to $35:</strong> $1.00 rider fee + $1.00 driver fee</li>
+                <li><strong>Fares $35.01 - $70:</strong> $2.00 rider fee + $2.00 driver fee</li>
+                <li><strong>Fares above $70:</strong> $3.00 rider fee + $3.00 driver fee</li>
+                <li><strong>Tips:</strong> NO FEE - 100% of tips go directly to drivers</li>
+              </ul>
+
               <Paragraph>
                 Menu prices are set by restaurant partners and may differ from in-store prices.
-                Ride fares are calculated based on distance, time, and market conditions, with
-                driver partners receiving the full fare amount minus the platform access fee.
+                Ride fares are calculated based on distance, time, and market conditions.
+                Drivers receive the full fare amount minus only the platform access fee shown above.
               </Paragraph>
               <Title level={3}>4.3 Payment Processing</Title>
               <Paragraph>
@@ -183,8 +194,15 @@ const TermsOfService: React.FC = () => {
                 You keep 100% of the delivery fee and 100% of customer tips.
               </Paragraph>
               <Paragraph>
-                <strong>For Rideshare:</strong> A $1.00 platform access fee is deducted per completed ride.
-                You keep 100% of customer tips.
+                <strong>For Rideshare:</strong> Platform access fees are tiered based on fare value:
+              </Paragraph>
+              <ul>
+                <li>Fares up to $35: $1.00 platform fee</li>
+                <li>Fares $35.01 - $70: $2.00 platform fee</li>
+                <li>Fares above $70: $3.00 platform fee</li>
+              </ul>
+              <Paragraph>
+                You keep 100% of customer tips regardless of fare amount.
               </Paragraph>
             </div>
 
@@ -273,8 +291,13 @@ const TermsOfService: React.FC = () => {
                 Ride fares are calculated based on distance, estimated time, and current market
                 conditions. Fares shown before ride confirmation are estimates and may vary
                 based on actual route taken, traffic conditions, or route changes requested
-                by the rider. A $1.00 matchmaking fee is added to each ride.
+                by the rider. A tiered matchmaking fee is added to each ride:
               </Paragraph>
+              <ul>
+                <li>Fares up to $35: $1.00 matchmaking fee</li>
+                <li>Fares $35.01 - $70: $2.00 matchmaking fee</li>
+                <li>Fares above $70: $3.00 matchmaking fee</li>
+              </ul>
               <Title level={3}>8.3 Disclaimer</Title>
               <Paragraph>
                 Dollor.ai provides matchmaking technology only. We do not provide transportation
