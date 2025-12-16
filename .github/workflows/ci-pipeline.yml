@@ -327,8 +327,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=dollor-backend
-            -Dsonar.organization=eatfair
+            -Dsonar.projectKey=jeet-avatar_dindin-delivers
+            -Dsonar.organization=jeet-avatar
             -Dsonar.sources=apps/web/p2p-platform
             -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/venv/**,**/tests/**,**/coverage/**
             -Dsonar.python.coverage.reportPaths=coverage/coverage-backend.xml
