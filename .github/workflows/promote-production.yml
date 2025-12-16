@@ -1,0 +1,148 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to promote (e.g., abc123def)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # ============================================
+  # JOB 1: VALIDATE
+  # ============================================
+  validate:
+    name: Validate Promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: ${{ inputs.confirm != 'DEPLOY' }}
+        run: |
+          echo "ERROR: You must type 'DEPLOY' to confirm production deployment"
+          exit 1
+
+      - name: Validate image exists
+        run: |
+          echo "Validating image tag: ${{ inputs.image_tag }}"
+          # Add ECR image validation here
+
+  # ============================================
+  # JOB 2: APPROVAL GATE
+  # ============================================
+  approval:
+    name: Production Approval
+    runs-on: ubuntu-latest
+    needs: validate
+    environment:
+      name: production
+      url: https://api.dollor.ai
+    steps:
+      - name: Approval checkpoint
+        run: |
+          echo "Production deployment approved"
+          echo "Image tag: ${{ inputs.image_tag }}"
+          echo "Approved by: ${{ github.actor }}"
+          echo "Time: $(date -u)"
+
+  # ============================================
+  # JOB 3: UPDATE PRODUCTION HELM VALUES
+  # ============================================
+  promote:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    needs: approval
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update production values
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          # Update the image tag in production values
+          yq -i ".image.tag = \"$IMAGE_TAG\"" infrastructure/helm/backend/values-production.yaml
+
+          echo "Updated values-production.yaml:"
+          cat infrastructure/helm/backend/values-production.yaml | grep -A2 "image:"
+
+      - name: Commit and push
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add infrastructure/helm/backend/values-production.yaml
+          git commit -m "chore: promote $IMAGE_TAG to production
+
+          Approved by: ${{ github.actor }}
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          [skip ci]"
+
+          git push origin main
+
+  # ============================================
+  # JOB 4: TRIGGER ARGOCD SYNC
+  # ============================================
+  sync:
+    name: Trigger ArgoCD Sync
+    runs-on: ubuntu-latest
+    needs: promote
+    steps:
+      - name: Trigger ArgoCD sync
+        run: |
+          # Option 1: Use ArgoCD CLI
+          # argocd app sync dollor-backend-production --prune
+
+          # Option 2: Use ArgoCD API
+          # curl -X POST "https://argocd.example.com/api/v1/applications/dollor-backend-production/sync" \
+          #   -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}"
+
+          echo "ArgoCD will automatically detect the change and sync"
+          echo "Production deployment initiated!"
+
+  # ============================================
+  # JOB 5: NOTIFY
+  # ============================================
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [promote, sync]
+    if: always()
+    steps:
+      - name: Slack notification
+        if: success()
+        run: |
+          echo "========================================"
+          echo "PRODUCTION DEPLOYMENT INITIATED"
+          echo "========================================"
+          echo ""
+          echo "Image: ${{ inputs.image_tag }}"
+          echo "Approved by: ${{ github.actor }}"
+          echo "Environment: production"
+          echo ""
+          echo "ArgoCD will perform Blue-Green deployment"
+          echo "Monitor at: https://argocd.dollor.ai"
+          echo "========================================"
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "ERROR: Production deployment failed!"
+          echo "Check the workflow logs for details."

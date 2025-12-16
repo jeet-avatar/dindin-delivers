@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Select, message, Spin, Progress, Upload, Modal } from 'antd';
 import {
   CheckCircleOutlined,
@@ -11,13 +11,10 @@ import {
   FileTextOutlined,
   ArrowRightOutlined,
   ArrowLeftOutlined,
-  StarOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
   DollarOutlined,
   UploadOutlined,
-  CameraOutlined,
-  EditOutlined,
   InfoCircleOutlined,
   WalletOutlined,
   CustomerServiceOutlined
@@ -26,6 +23,7 @@ import axios from 'axios';
 import { getApiUrl } from '../../api/api';
 import { Link } from 'react-router-dom';
 import AIValidationStatus from '../../components/vendors/AIValidationStatus';
+import Logo from '../../components/brand/Logo';
 
 // Dollor.ai brand colors
 const dollor = {
@@ -60,12 +58,31 @@ interface ScrapeResult {
   categories: string[];
 }
 
+// Document upload tracking interface
+interface DocumentStatus {
+  food_license: boolean;
+  health_permit: boolean;
+  business_license: boolean;
+  liability_insurance: boolean;
+}
+
 const RestaurantApplicationForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState('');
+  const [vendorNumericId, setVendorNumericId] = useState<number | null>(null);
+  const [contactEmail, setContactEmail] = useState('');
+
+  // Document upload state
+  const [documentsUploaded, setDocumentsUploaded] = useState<DocumentStatus>({
+    food_license: false,
+    health_permit: false,
+    business_license: false,
+    liability_insurance: false
+  });
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
 
   // Auto-import state
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -73,8 +90,11 @@ const RestaurantApplicationForm: React.FC = () => {
   const [scrapedData, setScrapedData] = useState<ScrapeResult | null>(null);
   const [scrapeError, setScrapeError] = useState('');
   const [infoImported, setInfoImported] = useState(false); // True when restaurant info imported but no menu
-  const [menuUploadUrl, setMenuUploadUrl] = useState(''); // URL to menu PDF/image
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [menuFile, setMenuFile] = useState<File | null>(null); // Uploaded menu file
+
+  // Consent state
+  const [consentVerification, setConsentVerification] = useState(false);
+  const [consentTerms, setConsentTerms] = useState(false);
 
   const cuisineTypes = [
     'American', 'Chinese', 'Indian', 'Italian', 'Japanese',
@@ -251,10 +271,43 @@ const RestaurantApplicationForm: React.FC = () => {
     }
   };
 
+  // Handle menu file upload
+  const handleMenuFileUpload = async (file: File) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      message.error('Please upload a PDF or image file (JPEG, PNG, WebP)');
+      return false;
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      message.error('File size must be less than 10MB');
+      return false;
+    }
+
+    setMenuFile(file);
+    message.success(`Menu file "${file.name}" ready for upload!`);
+    return false; // Prevent default upload behavior
+  };
+
+  // Fields required for each step
+  const stepFields: { [key: number]: string[] } = {
+    0: ['restaurantName', 'cuisineType', 'contactName', 'contactEmail', 'contactPhone', 'password', 'confirmPassword', 'description'],
+    1: ['streetAddress', 'city', 'state', 'zipCode'],
+    2: ['seatingCapacity', 'avgPrepTime', 'deliveryAvailable', 'pickupAvailable'],
+    3: [] // Review step - no validation needed
+  };
+
   const handleNext = async () => {
     try {
-      await form.validateFields();
+      // Only validate fields for the current step
+      const fieldsToValidate = stepFields[currentStep] || [];
+      if (fieldsToValidate.length > 0) {
+        await form.validateFields(fieldsToValidate);
+      }
       setCurrentStep(currentStep + 1);
+      // Scroll to top on mobile for better UX
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       message.error('Please fill in all required fields');
     }
@@ -262,6 +315,8 @@ const RestaurantApplicationForm: React.FC = () => {
 
   const handleBack = () => {
     setCurrentStep(currentStep - 1);
+    // Scroll to top on mobile for better UX
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async () => {
@@ -279,30 +334,69 @@ const RestaurantApplicationForm: React.FC = () => {
         sunday: values.sundayHours || 'Closed'
       });
 
-      const response = await axios.post(`${API_URL}/api/vendors/public`, {
-        company_name: values.restaurantName,
-        restaurant_name: values.restaurantName,
-        cuisine_type: values.cuisineType,
-        contact_name: values.contactName,
-        contact_email: values.contactEmail,
-        contact_phone: values.contactPhone,
-        street: values.streetAddress,
-        city: values.city,
-        state: values.state,
-        zip_code: values.zipCode,
-        operating_hours: operatingHours,
-        seating_capacity: parseInt(values.seatingCapacity),
-        delivery_available: values.deliveryAvailable === 'yes',
-        pickup_available: values.pickupAvailable === 'yes',
-        average_prep_time: parseInt(values.avgPrepTime),
-        notes: values.description,
-        website_url: websiteUrl,
-        scraped_menu_count: scrapedData?.menu_items?.length || 0,
-      });
+      // If menu file is uploaded, use FormData; otherwise use JSON
+      let response;
+      if (menuFile) {
+        // Upload with menu file using FormData
+        const formData = new FormData();
+        formData.append('menu_file', menuFile);
+        formData.append('data', JSON.stringify({
+          company_name: values.restaurantName,
+          restaurant_name: values.restaurantName,
+          cuisine_type: values.cuisineType,
+          contact_name: values.contactName,
+          contact_email: values.contactEmail,
+          contact_phone: values.contactPhone,
+          password: values.password,
+          street: values.streetAddress,
+          city: values.city,
+          state: values.state,
+          zip_code: values.zipCode,
+          operating_hours: operatingHours,
+          seating_capacity: parseInt(values.seatingCapacity),
+          delivery_available: values.deliveryAvailable === 'yes',
+          pickup_available: values.pickupAvailable === 'yes',
+          average_prep_time: parseInt(values.avgPrepTime),
+          notes: values.description,
+          website_url: websiteUrl,
+          scraped_menu_count: scrapedData?.menu_items?.length || 0,
+          menu_items: scrapedData?.menu_items || [],
+        }));
+
+        response = await axios.post(`${API_URL}/api/vendors/public-with-menu`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        // Standard JSON submission without menu file
+        response = await axios.post(`${API_URL}/api/vendors/public`, {
+          company_name: values.restaurantName,
+          restaurant_name: values.restaurantName,
+          cuisine_type: values.cuisineType,
+          contact_name: values.contactName,
+          contact_email: values.contactEmail,
+          contact_phone: values.contactPhone,
+          password: values.password,
+          street: values.streetAddress,
+          city: values.city,
+          state: values.state,
+          zip_code: values.zipCode,
+          operating_hours: operatingHours,
+          seating_capacity: parseInt(values.seatingCapacity),
+          delivery_available: values.deliveryAvailable === 'yes',
+          pickup_available: values.pickupAvailable === 'yes',
+          average_prep_time: parseInt(values.avgPrepTime),
+          notes: values.description,
+          website_url: websiteUrl,
+          scraped_menu_count: scrapedData?.menu_items?.length || 0,
+          menu_items: scrapedData?.menu_items || [],
+        });
+      }
 
       setApplicationId(response.data.vendor_id);
+      setVendorNumericId(response.data.id);
+      setContactEmail(values.contactEmail);
       setApplicationSubmitted(true);
-      message.success('Application submitted successfully!');
+      message.success('Application submitted successfully! Please upload required documents.');
 
     } catch (error: any) {
       let errorMsg = 'Failed to submit application. Please try again.';
@@ -341,6 +435,66 @@ const RestaurantApplicationForm: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Document upload handler
+  const handleDocumentUpload = async (docType: string, file: File) => {
+    if (!vendorNumericId || !contactEmail) {
+      message.error('Missing vendor information');
+      return;
+    }
+
+    setUploadingDoc(docType);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', docType);
+    formData.append('contact_email', contactEmail);
+
+    try {
+      await axios.post(`${API_URL}/api/vendors/public/${vendorNumericId}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setDocumentsUploaded(prev => ({ ...prev, [docType]: true }));
+      message.success(`${docType.replace(/_/g, ' ')} uploaded successfully!`);
+    } catch (error: any) {
+      const errMsg = error.response?.data?.detail || 'Failed to upload document';
+      message.error(typeof errMsg === 'string' ? errMsg : 'Upload failed');
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
+
+  // Check if all required documents are uploaded
+  const allDocumentsUploaded = Object.values(documentsUploaded).every(v => v);
+
+  // Document upload required info
+  const requiredDocuments = [
+    {
+      key: 'food_license',
+      label: 'Food Service License',
+      description: 'Valid food service/handling license from your local health department',
+      required: true
+    },
+    {
+      key: 'health_permit',
+      label: 'Health Department Permit',
+      description: 'Current health inspection certificate',
+      required: true
+    },
+    {
+      key: 'business_license',
+      label: 'Business License / W-9',
+      description: 'Valid business operating license or W-9 tax form',
+      required: true
+    },
+    {
+      key: 'liability_insurance',
+      label: 'Liability Insurance Certificate',
+      description: 'Proof of general liability insurance coverage',
+      required: true
+    }
+  ];
 
   // AI Validation Page (after submission with menu items)
   if (applicationSubmitted && scrapedData && scrapedData.menu_items.length > 0 && applicationId) {
@@ -457,11 +611,11 @@ const RestaurantApplicationForm: React.FC = () => {
     );
   }
 
-  // Standard Success Page (no menu items)
+  // Standard Success Page with Document Upload
   if (applicationSubmitted) {
     return (
       <div className="success-page">
-        <div className="success-container">
+        <div className="success-container" style={{ maxWidth: '700px' }}>
           <div className="success-icon-wrap">
             <CheckCircleOutlined className="success-check" />
           </div>
@@ -469,25 +623,108 @@ const RestaurantApplicationForm: React.FC = () => {
           <h1 className="success-title">Application Submitted!</h1>
           <p className="success-subtitle">Application ID: {applicationId}</p>
 
+          {/* Document Upload Section */}
+          <div className="success-card" style={{ textAlign: 'left' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <SafetyCertificateOutlined style={{ color: dollor.primary }} />
+              Upload Required Documents
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: '24px', fontSize: '14px' }}>
+              Upload these documents to complete your registration. All documents will be verified through our ZIP compliance system before approval.
+            </p>
+
+            <div className="document-upload-list">
+              {requiredDocuments.map((doc) => (
+                <div key={doc.key} className={`document-upload-item ${documentsUploaded[doc.key as keyof DocumentStatus] ? 'uploaded' : ''}`}>
+                  <div className="doc-info">
+                    <div className="doc-header">
+                      {documentsUploaded[doc.key as keyof DocumentStatus] ? (
+                        <CheckCircleOutlined style={{ color: '#10b981', fontSize: '20px' }} />
+                      ) : (
+                        <FileTextOutlined style={{ color: dollor.primary, fontSize: '20px' }} />
+                      )}
+                      <span className="doc-label">{doc.label}</span>
+                      {doc.required && <span className="required-badge">Required</span>}
+                    </div>
+                    <p className="doc-description">{doc.description}</p>
+                  </div>
+                  <div className="doc-action">
+                    {documentsUploaded[doc.key as keyof DocumentStatus] ? (
+                      <span className="uploaded-badge">
+                        <CheckCircleOutlined /> Uploaded
+                      </span>
+                    ) : (
+                      <Upload
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          handleDocumentUpload(doc.key, file);
+                          return false;
+                        }}
+                        disabled={uploadingDoc !== null}
+                      >
+                        <button
+                          type="button"
+                          className="upload-btn"
+                          disabled={uploadingDoc === doc.key}
+                        >
+                          {uploadingDoc === doc.key ? (
+                            <Spin size="small" />
+                          ) : (
+                            <>
+                              <UploadOutlined /> Upload
+                            </>
+                          )}
+                        </button>
+                      </Upload>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="upload-progress-summary">
+              <Progress
+                percent={Math.round((Object.values(documentsUploaded).filter(Boolean).length / 4) * 100)}
+                status={allDocumentsUploaded ? 'success' : 'active'}
+                strokeColor={dollor.primary}
+              />
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', marginTop: '8px' }}>
+                {Object.values(documentsUploaded).filter(Boolean).length} of 4 documents uploaded
+              </p>
+            </div>
+          </div>
+
+          {/* What happens next */}
           <div className="success-card">
             <h3>What happens next?</h3>
             <div className="next-steps">
               {[
-                { icon: <FileTextOutlined />, text: 'We\'ll verify your documents' },
-                { icon: <RobotOutlined />, text: 'Aria (AI) will review your application' },
-                { icon: <SafetyCertificateOutlined />, text: 'Receive your vendor credentials' },
-                { icon: <RocketOutlined />, text: 'Start receiving orders!' },
+                { icon: <FileTextOutlined />, text: 'Upload all required documents above', done: allDocumentsUploaded },
+                { icon: <SafetyCertificateOutlined />, text: 'ZIP verification team reviews your documents', done: false },
+                { icon: <RobotOutlined />, text: 'Aria (AI) reviews your application', done: false },
+                { icon: <RocketOutlined />, text: 'Start receiving orders!', done: false },
               ].map((step, i) => (
-                <div key={i} className="next-step">
+                <div key={i} className={`next-step ${step.done ? 'completed' : ''}`}>
                   <div className="step-icon">{step.icon}</div>
                   <span>{step.text}</span>
+                  {step.done && <CheckCircleOutlined style={{ color: '#10b981', marginLeft: 'auto' }} />}
                 </div>
               ))}
             </div>
           </div>
 
+          <button
+            type="button"
+            className="vendor-login-btn"
+            onClick={() => window.location.href = '/vendor/login'}
+          >
+            Go to Vendor Dashboard
+            <ArrowRightOutlined />
+          </button>
+
           <p className="check-email-text">
-            Check <strong>{form.getFieldValue('contactEmail')}</strong> for updates
+            Check <strong>{contactEmail}</strong> for updates
           </p>
         </div>
 
@@ -501,7 +738,7 @@ const RestaurantApplicationForm: React.FC = () => {
             padding: 40px 20px;
           }
           .success-container {
-            max-width: 500px;
+            max-width: 700px;
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -545,12 +782,97 @@ const RestaurantApplicationForm: React.FC = () => {
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 24px;
             padding: 32px;
-            margin-bottom: 32px;
+            margin-bottom: 24px;
           }
           .success-card h3 {
             color: white;
             font-size: 18px;
             margin: 0 0 24px 0;
+          }
+          .document-upload-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+          }
+          .document-upload-item {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            transition: all 0.3s;
+          }
+          .document-upload-item.uploaded {
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.1);
+          }
+          .doc-info {
+            flex: 1;
+            text-align: left;
+          }
+          .doc-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+          }
+          .doc-label {
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+          }
+          .required-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-radius: 10px;
+          }
+          .doc-description {
+            color: rgba(255,255,255,0.5);
+            font-size: 12px;
+            margin: 0;
+          }
+          .doc-action {
+            display: flex;
+            align-items: center;
+          }
+          .upload-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: ${dollor.primary};
+            color: ${dollor.dark};
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+          }
+          .upload-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+          }
+          .upload-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+          }
+          .uploaded-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #10b981;
+            font-size: 13px;
+            font-weight: 600;
+          }
+          .upload-progress-summary {
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
           }
           .next-steps {
             display: flex;
@@ -564,6 +886,9 @@ const RestaurantApplicationForm: React.FC = () => {
             text-align: left;
             color: rgba(255,255,255,0.8);
           }
+          .next-step.completed {
+            color: #10b981;
+          }
           .step-icon {
             width: 40px;
             height: 40px;
@@ -574,6 +899,25 @@ const RestaurantApplicationForm: React.FC = () => {
             justify-content: center;
             color: ${dollor.primary};
             font-size: 18px;
+          }
+          .vendor-login-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, ${dollor.primary} 0%, ${dollor.secondary} 100%);
+            color: ${dollor.dark};
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 24px;
+          }
+          .vendor-login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(255, 215, 0, 0.3);
           }
           .check-email-text {
             color: rgba(255,255,255,0.5);
@@ -741,6 +1085,38 @@ const RestaurantApplicationForm: React.FC = () => {
                 </div>
               )}
 
+              {/* Menu File Upload Section - Show when no menu items scraped or error occurred */}
+              {(!scrapedData || scrapedData.menu_items.length === 0) && (
+                <div className="menu-upload-section">
+                  <div className="menu-upload-header">
+                    <UploadOutlined />
+                    <span>Or upload your menu</span>
+                  </div>
+                  <p className="menu-upload-desc">
+                    Upload a PDF or image of your menu and our team will process it after approval.
+                  </p>
+                  <Upload.Dragger
+                    name="menu_file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    maxCount={1}
+                    beforeUpload={handleMenuFileUpload}
+                    onRemove={() => setMenuFile(null)}
+                    fileList={menuFile ? [{ uid: '-1', name: menuFile.name, status: 'done' }] : []}
+                    className="menu-upload-dragger"
+                  >
+                    <p className="ant-upload-drag-icon">
+                      {menuFile ? <CheckCircleOutlined style={{ color: dollor.primary }} /> : <UploadOutlined />}
+                    </p>
+                    <p className="ant-upload-text">
+                      {menuFile ? `${menuFile.name} ready` : 'Click or drag menu file here'}
+                    </p>
+                    <p className="ant-upload-hint">
+                      Supports PDF, JPEG, PNG, WebP (max 10MB)
+                    </p>
+                  </Upload.Dragger>
+                </div>
+              )}
+
               {/* Show when restaurant info was imported but no menu */}
               {infoImported && (
                 <div className="info-imported-notice">
@@ -750,37 +1126,8 @@ const RestaurantApplicationForm: React.FC = () => {
                   </div>
                   <p className="info-imported-text">
                     Your restaurant uses a POS system (like Heartland, Toast, or Square) that protects menu data.
-                    No worries - you can add your menu items after approval through our easy dashboard.
+                    No worries - upload your menu above or add items after approval through our easy dashboard.
                   </p>
-                  <div className="menu-options">
-                    <div className="menu-option">
-                      <div className="menu-option-icon">
-                        <UploadOutlined />
-                      </div>
-                      <div className="menu-option-content">
-                        <strong>Upload Menu PDF</strong>
-                        <span>Have a PDF menu? We'll process it after you're approved.</span>
-                      </div>
-                    </div>
-                    <div className="menu-option">
-                      <div className="menu-option-icon">
-                        <CameraOutlined />
-                      </div>
-                      <div className="menu-option-content">
-                        <strong>Take Photos</strong>
-                        <span>Snap photos of your menu - our AI will extract items.</span>
-                      </div>
-                    </div>
-                    <div className="menu-option">
-                      <div className="menu-option-icon">
-                        <EditOutlined />
-                      </div>
-                      <div className="menu-option-content">
-                        <strong>Add Manually</strong>
-                        <span>Enter items one by one in our simple dashboard.</span>
-                      </div>
-                    </div>
-                  </div>
                   <div className="proceed-notice">
                     <InfoCircleOutlined />
                     <span>Your form details are pre-filled. Review and submit to get started!</span>
@@ -861,6 +1208,50 @@ const RestaurantApplicationForm: React.FC = () => {
                       className="styled-input"
                     />
                   </Form.Item>
+                </div>
+
+                {/* Password Section */}
+                <div className="password-section">
+                  <h3 className="subsection-title">Create Your Login Password</h3>
+                  <p className="subsection-desc">This will be your password to access the restaurant dashboard on web, iOS, and Android.</p>
+                  <div className="input-row">
+                    <Form.Item
+                      name="password"
+                      rules={[
+                        { required: true, message: 'Password is required' },
+                        { min: 8, message: 'Password must be at least 8 characters' }
+                      ]}
+                      style={{ flex: 1 }}
+                    >
+                      <Input.Password
+                        size="large"
+                        placeholder="Password (min 8 characters)"
+                        className="styled-input"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="confirmPassword"
+                      dependencies={['password']}
+                      rules={[
+                        { required: true, message: 'Please confirm your password' },
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue('password') === value) {
+                              return Promise.resolve();
+                            }
+                            return Promise.reject(new Error('Passwords do not match'));
+                          },
+                        }),
+                      ]}
+                      style={{ flex: 1 }}
+                    >
+                      <Input.Password
+                        size="large"
+                        placeholder="Confirm Password"
+                        className="styled-input"
+                      />
+                    </Form.Item>
+                  </div>
                 </div>
 
                 <Form.Item
@@ -1080,6 +1471,49 @@ const RestaurantApplicationForm: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Consent Section */}
+                <div className="consent-section">
+                  <h3><SafetyCertificateOutlined /> Legal Agreements</h3>
+
+                  <div className="consent-item">
+                    <label className="consent-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={consentVerification}
+                        onChange={(e) => setConsentVerification(e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="consent-text">
+                        I consent to <strong>document verification</strong> through Dollor.ai's third-party verification partner.
+                        I understand that my business documents (Food License, Health Permit, Business License, Insurance)
+                        will be verified for authenticity and compliance. <a href="/privacy" target="_blank">Privacy Policy</a>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="consent-item">
+                    <label className="consent-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={consentTerms}
+                        onChange={(e) => setConsentTerms(e.target.checked)}
+                      />
+                      <span className="checkmark"></span>
+                      <span className="consent-text">
+                        I agree to Dollor.ai's <a href="/terms" target="_blank">Terms of Service</a> and
+                        <a href="/privacy" target="_blank"> Privacy Policy</a>. I confirm that all information
+                        provided is accurate and I am authorized to register this business.
+                      </span>
+                    </label>
+                  </div>
+
+                  {(!consentVerification || !consentTerms) && (
+                    <div className="consent-warning">
+                      <InfoCircleOutlined /> Please agree to both terms to continue
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1104,7 +1538,7 @@ const RestaurantApplicationForm: React.FC = () => {
                   type="button"
                   className="nav-btn submit-btn"
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || !consentVerification || !consentTerms}
                 >
                   {loading ? (
                     <>
@@ -1481,6 +1915,55 @@ const RestaurantApplicationForm: React.FC = () => {
           font-size: 14px;
         }
 
+        /* Menu Upload Section */
+        .menu-upload-section {
+          margin-top: 20px;
+          padding: 20px;
+          background: #f8fafc;
+          border: 2px dashed #e2e8f0;
+          border-radius: 16px;
+        }
+
+        .menu-upload-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          color: #475569;
+          margin-bottom: 8px;
+        }
+
+        .menu-upload-header .anticon {
+          color: ${dollor.primary};
+        }
+
+        .menu-upload-desc {
+          font-size: 13px;
+          color: #64748b;
+          margin: 0 0 16px 0;
+        }
+
+        .menu-upload-dragger {
+          background: white !important;
+          border-radius: 12px !important;
+        }
+
+        .menu-upload-dragger .ant-upload-drag-icon {
+          font-size: 36px !important;
+          color: ${dollor.primary} !important;
+        }
+
+        .menu-upload-dragger .ant-upload-text {
+          font-size: 14px !important;
+          color: #475569 !important;
+        }
+
+        .menu-upload-dragger .ant-upload-hint {
+          font-size: 12px !important;
+          color: #94a3b8 !important;
+        }
+
         .address-imported-notice {
           display: flex;
           align-items: center;
@@ -1607,6 +2090,29 @@ const RestaurantApplicationForm: React.FC = () => {
           font-weight: 600;
           color: #475569;
           margin: 24px 0 8px 0;
+        }
+
+        .subsection-desc {
+          font-size: 13px;
+          color: #94a3b8;
+          margin: 0 0 16px 0;
+        }
+
+        .password-section {
+          background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(26, 26, 46, 0.05) 100%);
+          border: 1px solid rgba(255, 215, 0, 0.2);
+          border-radius: 16px;
+          padding: 20px;
+          margin: 24px 0;
+        }
+
+        .password-section .subsection-title {
+          margin: 0 0 4px 0;
+          color: #1e293b;
+        }
+
+        .password-section .subsection-desc {
+          margin: 0 0 16px 0;
         }
 
         .helper-text {
@@ -1775,6 +2281,79 @@ const RestaurantApplicationForm: React.FC = () => {
           font-size: 14px;
         }
 
+        /* Consent Section */
+        .consent-section {
+          background: #f0f9ff;
+          border: 1px solid #0ea5e9;
+          border-radius: 16px;
+          padding: 20px;
+          margin-top: 24px;
+        }
+
+        .consent-section h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: #0369a1;
+          margin: 0 0 16px 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .consent-item {
+          margin-bottom: 16px;
+        }
+
+        .consent-checkbox {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          cursor: pointer;
+          position: relative;
+        }
+
+        .consent-checkbox input[type="checkbox"] {
+          width: 20px;
+          height: 20px;
+          margin-top: 2px;
+          cursor: pointer;
+          accent-color: ${dollor.primary};
+        }
+
+        .consent-text {
+          font-size: 13px;
+          color: #334155;
+          line-height: 1.5;
+          flex: 1;
+        }
+
+        .consent-text a {
+          color: #0369a1;
+          font-weight: 500;
+          text-decoration: underline;
+        }
+
+        .consent-text a:hover {
+          color: #0ea5e9;
+        }
+
+        .consent-text strong {
+          color: #0f172a;
+        }
+
+        .consent-warning {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 16px;
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+          border-radius: 8px;
+          color: #92400e;
+          font-size: 13px;
+          margin-top: 8px;
+        }
+
         /* Navigation */
         .form-nav {
           display: flex;
@@ -1920,14 +2499,28 @@ const RestaurantApplicationForm: React.FC = () => {
             font-size: 14px;
           }
 
+          .form-nav {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 16px;
+            margin: 0 -16px -20px -16px;
+            border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+            z-index: 100;
+          }
+
           .nav-btn {
-            padding: 12px 20px;
-            font-size: 14px;
+            padding: 14px 24px;
+            font-size: 15px;
+            min-height: 48px;
+            touch-action: manipulation;
           }
 
           .submit-btn {
             padding: 14px 24px;
             font-size: 15px;
+            min-height: 48px;
           }
 
           .back-home {

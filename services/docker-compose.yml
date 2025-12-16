@@ -15,6 +15,8 @@ volumes:
   zookeeper_data:
   kafka_data:
   elasticsearch_data:
+  clickhouse_data:
+  clickhouse_logs:
   techcloudpro_models:
   techcloudpro_outputs:
 
@@ -171,6 +173,37 @@ services:
         condition: service_healthy
     networks:
       - dollor-network
+
+  # ==========================================================================
+  # CLICKHOUSE (Time-Series Analytics - Phase 4)
+  # ==========================================================================
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.11
+    container_name: dollor-clickhouse
+    environment:
+      - CLICKHOUSE_DB=dollor_analytics
+      - CLICKHOUSE_USER=dollor
+      - CLICKHOUSE_PASSWORD=dollor_analytics_pass
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native interface
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      - ./analytics/clickhouse/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
 
   # ==========================================================================
   # MICROSERVICES
@@ -466,6 +499,35 @@ services:
       - dollor-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: ./core/analytics-service/Dockerfile
+    container_name: dollor-analytics-service
+    environment:
+      - ENVIRONMENT=development
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=dollor
+      - CLICKHOUSE_PASSWORD=dollor_analytics_pass
+      - CLICKHOUSE_DATABASE=dollor_analytics
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - ENABLE_KAFKA=true
+    ports:
+      - "8016:8016"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
       interval: 30s
       timeout: 10s
       retries: 3

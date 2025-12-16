@@ -70,15 +70,11 @@
 		};
 		104405962ED797EC00ED321A /* eatffairdeliveryTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatffairdeliveryTests;
 			sourceTree = "<group>";
 		};
 		104405A02ED797EC00ED321A /* eatffairdeliveryUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatffairdeliveryUITests;
 			sourceTree = "<group>";
 		};
@@ -252,7 +248,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2610;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					104405802ED797EA00ED321A = {
 						CreatedOnToolsVersion = 26.1.1;
@@ -280,7 +276,7 @@
 				104405B02ED79B7900ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				104405B52ED7D97400ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
 				104405C02ED7DC3900ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */,
+				104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 104405822ED797EA00ED321A /* Products */;
@@ -327,9 +323,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatffairdelivery/Pods-eatffairdelivery-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -457,6 +457,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -514,6 +515,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -532,7 +534,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairdelivery/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
+				INFOPLIST_KEY_CFBundleDisplayName = "Every Penny Counts ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -573,7 +575,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairdelivery/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "EatFair Driver";
+				INFOPLIST_KEY_CFBundleDisplayName = "Every Penny Counts ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -727,7 +729,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */ = {
+		104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../eatfair-ios-shared";
 		};
@@ -823,7 +825,7 @@
 		};
 		104407A82ED83E4700ED321A /* EatFairShared */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */;
+			package = 104406A52ED834D900ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */;
 			productName = EatFairShared;
 		};
 /* End XCSwiftPackageProductDependency section */

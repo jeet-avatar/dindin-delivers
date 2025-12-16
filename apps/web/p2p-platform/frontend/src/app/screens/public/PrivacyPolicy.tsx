@@ -72,7 +72,7 @@ const PrivacyPolicy: React.FC = () => {
           <Typography className="legal-typography">
             <Title level={1}>Privacy Policy</Title>
             <Text type="secondary" className="effective-date">
-              Last Updated: December 2024
+              Last Updated: December 2025
             </Text>
 
             <div className="intro-box">
@@ -340,7 +340,7 @@ const PrivacyPolicy: React.FC = () => {
             <Link to="/vendor/login">Restaurant Login</Link>
             <Link to="/driver/login">Driver Login</Link>
           </div>
-          <p className="copyright">&copy; 2024 Dollor.ai. All rights reserved.</p>
+          <p className="copyright">&copy; 2025 Dollor.ai. All rights reserved.</p>
         </div>
       </footer>
 

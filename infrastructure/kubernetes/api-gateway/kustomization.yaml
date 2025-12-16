@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+
+configMapGenerator:
+  - name: api-gateway-config
+    files:
+      - nginx.conf
+
+commonLabels:
+  app.kubernetes.io/name: api-gateway
+  app.kubernetes.io/part-of: dollor-ai
+  app.kubernetes.io/component: infrastructure

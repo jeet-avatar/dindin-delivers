@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON, Computed
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -140,9 +140,9 @@ class Payment(Base):
 
 class Vendor(Base):
     __tablename__ = "vendors"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    vendor_id = Column(String(50), unique=True, nullable=False, index=True)
+    vendor_id = Column(Integer, Computed('id'), index=True)
     
     # Company Information
     company_name = Column(String(255), nullable=False)
@@ -222,7 +222,15 @@ class Vendor(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     approved_at = Column(DateTime)
     last_activity = Column(DateTime)
-    
+
+    # Document Verification (Third-Party Integration)
+    verification_id = Column(String(255))  # Persona/Onfido inquiry ID
+    verification_status = Column(String(50), default="not_started")  # pending, verified, rejected, needs_review
+    documents_verified = Column(Boolean, default=False)
+    documents_verified_at = Column(DateTime)
+    verification_notes = Column(Text)
+    verification_reviewer_id = Column(Integer)  # Admin who manually reviewed
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")
@@ -447,6 +455,7 @@ class Customer(Base):
     last_name = Column(String(100))
     email = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(50))
+    password_hash = Column(String(255))  # For customer authentication
 
     # Addresses
     default_address = Column(JSON)
@@ -567,6 +576,14 @@ class Driver(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     approved_at = Column(DateTime)
+
+    # Document Verification (Third-Party Integration)
+    verification_id = Column(String(255))  # Persona/Onfido inquiry ID
+    verification_status = Column(String(50), default="not_started")  # pending, verified, rejected, needs_review
+    documents_verified = Column(Boolean, default=False)
+    documents_verified_at = Column(DateTime)
+    verification_notes = Column(Text)
+    verification_reviewer_id = Column(Integer)  # Admin who manually reviewed
 
     # Relationships
     payouts = relationship("DriverPayout", back_populates="driver")

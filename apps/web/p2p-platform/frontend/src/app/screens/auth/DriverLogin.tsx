@@ -31,8 +31,8 @@ const DriverLogin: React.FC = () => {
       localStorage.setItem('driver_token', response.data.access_token);
       localStorage.setItem('driver_id', response.data.driver_id);
       localStorage.setItem('driver_code', response.data.driver_code);
-      localStorage.setItem('driver_name', `${response.data.first_name} ${response.data.last_name}`);
-      localStorage.setItem('driver_status', response.data.status);
+      localStorage.setItem('driver_name', response.data.name);
+      localStorage.setItem('driver_email', response.data.email);
 
       message.success('Welcome back! Redirecting to your dashboard...');
       navigate('/driver/dashboard');

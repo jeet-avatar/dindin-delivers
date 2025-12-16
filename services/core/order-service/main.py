@@ -54,6 +54,7 @@ from cqrs.queries import (
     OrderQueryHandler,
 )
 from cqrs.projections import OrderElasticsearchProjection
+from event_projector import OrderEventProjector
 
 
 # =============================================================================
@@ -106,6 +107,8 @@ except Exception:
 
 kafka_producer: Optional[KafkaProducer] = None
 outbox_processor: Optional[OutboxProcessor] = None
+event_projector: Optional[OrderEventProjector] = None
+ENABLE_EVENT_PROJECTOR = os.getenv("ENABLE_EVENT_PROJECTOR", "false").lower() == "true"
 
 
 # =============================================================================
@@ -232,7 +235,7 @@ logger = create_logger(SERVICE_NAME)
 @asynccontextmanager
 async def lifespan(app):
     """Startup and shutdown events."""
-    global kafka_producer, outbox_processor
+    global kafka_producer, outbox_processor, event_projector
 
     # Create database tables
     Base.metadata.create_all(bind=engine)
@@ -277,11 +280,40 @@ async def lifespan(app):
         except Exception as e:
             logger.warning(f"Elasticsearch initialization failed: {e}")
 
+    # Start Event Projector (consumes Kafka events and updates read models)
+    if ENABLE_EVENT_PROJECTOR and kafka_producer:
+        try:
+            redis_client = None
+            try:
+                import redis
+                redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+                redis_client.ping()
+            except Exception:
+                pass
+
+            kafka_config = KafkaConfig(
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                client_id=f"{SERVICE_NAME}-projector",
+                group_id=f"{SERVICE_NAME}-projector-group",
+            )
+            event_projector = OrderEventProjector(
+                kafka_config=kafka_config,
+                elasticsearch_client=elasticsearch_client,
+                redis_client=redis_client,
+            )
+            await event_projector.start()
+            asyncio.create_task(event_projector.run())
+            logger.info("Event projector started")
+        except Exception as e:
+            logger.warning(f"Event projector failed to start: {e}")
+
     logger.info(f"{SERVICE_NAME} v{SERVICE_VERSION} started on port {SERVICE_PORT}")
 
     yield
 
     # Shutdown
+    if event_projector:
+        await event_projector.stop()
     if kafka_producer:
         await kafka_producer.stop()
     if outbox_processor:
@@ -727,6 +759,7 @@ async def cqrs_health():
         "elasticsearch": "not_configured",
         "kafka": "not_configured",
         "outbox_processor": "not_configured",
+        "event_projector": "not_configured",
     }
 
     if elasticsearch_client:
@@ -743,6 +776,10 @@ async def cqrs_health():
 
     if outbox_processor and outbox_processor._running:
         health["outbox_processor"] = "healthy"
+
+    if event_projector and event_projector._running:
+        health["event_projector"] = "healthy"
+        health["event_projector_stats"] = event_projector.get_stats()
 
     return health
 

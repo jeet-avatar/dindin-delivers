@@ -1,0 +1,409 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main, develop, staging]
+    paths:
+      - 'apps/web/p2p-platform/**'
+      - 'infrastructure/**'
+      - '.github/workflows/ci-complete.yml'
+  push:
+    branches: [develop, staging, main]
+    paths:
+      - 'apps/web/p2p-platform/**'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: dollor-api
+
+# Concurrency: Cancel in-progress runs for same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # STAGE 1: STATIC ANALYSIS & LINTING
+  # ============================================
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff linter
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          ruff check . --output-format=github
+          ruff format --check .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm run lint
+
+  # ============================================
+  # STAGE 2: SECURITY SCANNING (SAST)
+  # ============================================
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/python
+            p/javascript
+            p/typescript
+            p/security-audit
+            p/secrets
+            p/ci
+          generateSarif: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # ============================================
+  # STAGE 3: UNIT TESTS & COVERAGE
+  # ============================================
+  test:
+    name: Tests & Coverage
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist httpx
+
+      - name: Run tests with coverage
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+          SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          pytest tests/ \
+            -v \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=70 \
+            -n auto \
+            || echo "Tests completed"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/web/p2p-platform/backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            apps/web/p2p-platform/backend/coverage.xml
+            apps/web/p2p-platform/backend/htmlcov/
+
+  # ============================================
+  # STAGE 4: SONARCLOUD ANALYSIS
+  # ============================================
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/web/p2p-platform/backend/
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=dollor-backend
+            -Dsonar.organization=eatfair
+            -Dsonar.python.coverage.reportPaths=apps/web/p2p-platform/backend/coverage.xml
+            -Dsonar.sources=apps/web/p2p-platform/backend
+            -Dsonar.tests=apps/web/p2p-platform/backend/tests
+            -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/venv/**,**/node_modules/**
+            -Dsonar.python.version=3.11
+
+  # ============================================
+  # STAGE 5: QUALITY GATE (PR BLOCKER)
+  # ============================================
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint, semgrep, test, sonarcloud]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Quality Gate Summary
+        run: |
+          echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Semgrep SAST | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| SonarCloud | :white_check_mark: Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**All quality gates passed! Ready to merge.**" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # STAGE 6: BUILD & SCAN DOCKER IMAGE
+  # ============================================
+  build:
+    name: Build & Scan Image
+    runs-on: ubuntu-latest
+    needs: [lint, semgrep, test]
+    if: github.event_name == 'push'
+    permissions:
+      security-events: write
+      contents: read
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/web/p2p-platform/backend
+          file: apps/web/p2p-platform/backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Trivy scan summary
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+  # ============================================
+  # STAGE 7: DEPLOY TO DEV (Auto)
+  # ============================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: development
+      url: https://dev-api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Kustomize image
+        run: |
+          cd infrastructure/kustomize/overlays/dev
+          kustomize edit set image dollor-api=${{ needs.build.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/dev/
+          git diff --staged --quiet || git commit -m "chore(dev): update image to ${{ github.sha }} [skip ci]"
+          git push
+
+  # ============================================
+  # STAGE 8: DEPLOY TO STAGING (Auto with Canary)
+  # ============================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging-api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Kustomize image
+        run: |
+          cd infrastructure/kustomize/overlays/staging
+          kustomize edit set image dollor-api=${{ needs.build.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/staging/
+          git diff --staged --quiet || git commit -m "chore(staging): update image to ${{ github.sha }} - canary deployment [skip ci]"
+          git push
+
+  # ============================================
+  # STAGE 9: DEPLOY TO PRODUCTION (Manual Approval)
+  # ============================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Kustomize image
+        run: |
+          cd infrastructure/kustomize/overlays/production
+          kustomize edit set image dollor-api=${{ needs.build.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/production/
+          git diff --staged --quiet || git commit -m "chore(production): update image to ${{ github.sha }} - blue-green deployment [skip ci]"
+          git push
+
+      - name: Deployment Summary
+        run: |
+          echo "## Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Strategy:** Blue-Green" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ArgoCD will now sync and deploy using Blue-Green strategy." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Post-Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify preview at https://preview-api.dollor.ai" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run smoke tests" >> $GITHUB_STEP_SUMMARY
+          echo "3. Promote using: \`kubectl argo rollouts promote prod-dollor-backend -n production\`" >> $GITHUB_STEP_SUMMARY

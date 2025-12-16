@@ -17,8 +17,8 @@ struct PartialOrderView: View {
     @State private var successMessage = ""
     @State private var timeRemaining: Int = 0
 
-    // Timer for countdown
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    // Timer for countdown - stored for proper lifecycle management
+    private let countdownTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationView {
@@ -99,7 +99,7 @@ struct PartialOrderView: View {
         .onAppear {
             loadModification()
         }
-        .onReceive(timer) { _ in
+        .onReceive(countdownTimer) { _ in
             if timeRemaining > 0 {
                 timeRemaining -= 1
             }

@@ -101,6 +101,9 @@ struct DeliveryTrackingMapView: View {
     let driverLocation: CLLocationCoordinate2D?
     @Binding var mapPosition: MapCameraPosition
 
+    // Store the timer publisher to allow proper cancellation
+    private let mapUpdateTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+
     var body: some View {
         Map(position: $mapPosition) {
             // Restaurant (Pickup) Marker
@@ -130,7 +133,7 @@ struct DeliveryTrackingMapView: View {
         .onAppear {
             updateMapRegion()
         }
-        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(mapUpdateTimer) { _ in
             updateMapRegion()
         }
     }
