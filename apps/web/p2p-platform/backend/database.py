@@ -25,4 +25,5 @@ def init_db():
         OnboardingLog, ScrapedMenuItem, RealTimeEvent,
         Communication, Customer, CustomerFavorite, VendorAnalytics
     )
-    Base.metadata.create_all(bind=engine)
+    # Use checkfirst=True to avoid errors when tables/indices already exist
+    Base.metadata.create_all(bind=engine, checkfirst=True)
