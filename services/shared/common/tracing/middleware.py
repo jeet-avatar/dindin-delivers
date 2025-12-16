@@ -20,19 +20,45 @@ from contextvars import ContextVar
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Try to import OpenTelemetry
+# Try to import OpenTelemetry - each import is optional
+OPENTELEMETRY_AVAILABLE = False
+trace = None
+SpanKind = None
+Status = None
+StatusCode = None
+
 try:
-    from opentelemetry import trace
-    from opentelemetry.trace import SpanKind, Status, StatusCode
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.propagate import extract, inject
+    from opentelemetry import trace as _trace
+    from opentelemetry.trace import SpanKind as _SpanKind, Status as _Status, StatusCode as _StatusCode
+    trace = _trace
+    SpanKind = _SpanKind
+    Status = _Status
+    StatusCode = _StatusCode
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
-    OPENTELEMETRY_AVAILABLE = False
+    pass
+
+# Optional SDK imports
+TracerProvider = None
+BatchSpanProcessor = None
+Resource = None
+OTLPSpanExporter = None
+extract = None
+inject = None
+
+if OPENTELEMETRY_AVAILABLE:
+    try:
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+        from opentelemetry.propagate import extract, inject
+    except ImportError:
+        pass
+
+    try:
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    except ImportError:
+        pass
 
 # Import logging utilities
 from ..logging.logger import set_correlation_id, set_user_id
@@ -43,7 +69,7 @@ def configure_tracing(
     service_version: str = "1.0.0",
     otlp_endpoint: str = None,
     environment: str = "development"
-) -> Optional[trace.Tracer]:
+) -> Optional["trace.Tracer"]:  # type: ignore
     """
     Configure OpenTelemetry tracing for a service.
 
@@ -245,7 +271,7 @@ class TracingMiddleware(BaseHTTPMiddleware):
 
 def create_child_span(
     name: str,
-    kind: SpanKind = SpanKind.INTERNAL,
+    kind=None,  # SpanKind, defaults to INTERNAL
     attributes: dict = None
 ):
     """
@@ -259,6 +285,10 @@ def create_child_span(
     if not OPENTELEMETRY_AVAILABLE:
         from contextlib import nullcontext
         return nullcontext()
+
+    # Default to INTERNAL if not specified
+    if kind is None:
+        kind = SpanKind.INTERNAL
 
     tracer = trace.get_tracer(__name__)
     return tracer.start_as_current_span(
