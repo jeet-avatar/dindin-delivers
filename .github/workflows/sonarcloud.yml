@@ -31,6 +31,9 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
+      - name: Install async test dependencies
+        run: pip install pytest-asyncio httpx
+
       - name: Run tests with coverage
         working-directory: apps/web/p2p-platform/backend
         env:
@@ -38,6 +41,11 @@ jobs:
           TESTING: "true"
         run: |
           pytest tests/unit/test_security_helpers.py \
+            tests/unit/test_email_service.py \
+            tests/unit/test_document_verification.py \
+            tests/unit/test_api_config.py \
+            tests/unit/test_models.py \
+            tests/unit/test_promotions.py \
             -v \
             --cov=. \
             --cov-report=xml:coverage.xml \
