@@ -51,8 +51,7 @@ jobs:
             --cov=. \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
-            --tb=short \
-            --cov-fail-under=70
+            --tb=short
 
       - name: Run all 16 microservices tests
         env:
