@@ -21,6 +21,8 @@ import RestaurantApplication from './app/screens/public/RestaurantApplication';
 import DriverApplication from './app/screens/public/DriverApplication';
 import TermsOfService from './app/screens/public/TermsOfService';
 import PrivacyPolicy from './app/screens/public/PrivacyPolicy';
+import HelpSupport from './app/screens/public/HelpSupport';
+import ReferAndEarn from './app/screens/public/ReferAndEarn';
 import MainLayout from './app/components/layout/MainLayout';
 import VendorLayout from './app/components/layout/VendorLayout';
 import DriverLayout from './app/components/layout/DriverLayout';
@@ -70,6 +72,14 @@ function App() {
         {/* Legal Pages */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+
+        {/* Help & Support */}
+        <Route path="/help" element={<HelpSupport />} />
+        <Route path="/support" element={<HelpSupport />} />
+
+        {/* Referral Program */}
+        <Route path="/refer" element={<ReferAndEarn />} />
+        <Route path="/referral" element={<ReferAndEarn />} />
 
         {/* Admin/Business Portal Routes */}
         <Route path="/admin" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
