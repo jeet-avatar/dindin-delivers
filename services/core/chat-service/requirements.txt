@@ -1,0 +1,33 @@
+# Dollor.ai Chat Service Dependencies
+# Real-time messaging between drivers and customers
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# Redis for real-time pub/sub
+redis==5.0.1
+
+# WebSocket support
+websockets==12.0
+
+# File uploads
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# Observability
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-fastapi==0.43b0
+opentelemetry-exporter-otlp==1.22.0
+prometheus-client==0.19.0
+
+# Utilities
+python-dotenv==1.0.0
+httpx==0.26.0

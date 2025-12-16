@@ -1,0 +1,39 @@
+# Dollor.ai Analytics Service - ArgoCD Application (Staging)
+# ==========================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: analytics-service-staging
+  namespace: argocd
+  labels:
+    app: analytics-service
+    environment: staging
+    app.kubernetes.io/part-of: dollor-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-staging
+  source:
+    repoURL: https://github.com/dollor-ai/dollor-platform.git
+    targetRevision: staging
+    path: infrastructure/kubernetes/services/analytics-service/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

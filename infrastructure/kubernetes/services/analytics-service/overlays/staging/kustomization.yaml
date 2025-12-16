@@ -1,0 +1,47 @@
+# Dollor.ai Analytics Service - Staging Environment
+# ==================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dollor-staging
+
+resources:
+  - ../../deployment.yaml
+
+commonLabels:
+  environment: staging
+
+replicas:
+  - name: analytics-service
+    count: 2
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 512Mi
+    target:
+      kind: Deployment
+      name: analytics-service
+
+configMapGenerator:
+  - name: analytics-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - ENABLE_KAFKA=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+
+images:
+  - name: dollor/analytics-service
+    newTag: staging

@@ -9,7 +9,7 @@ Microservice handling all driver operations:
 - Document verification
 - Earnings and payouts
 
-Port: 8002
+Port: 8003
 Error Prefix: DRV
 """
 
@@ -44,7 +44,7 @@ from common import (
 
 SERVICE_NAME = "driver-service"
 SERVICE_VERSION = "1.0.0"
-SERVICE_PORT = 8002
+SERVICE_PORT = 8003
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")

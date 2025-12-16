@@ -1,86 +1,99 @@
-# Dollor.ai Driver Service - Kubernetes Deployment
-# =================================================
-# Base deployment configuration for driver-service
+# Dollor.ai Chat Service - Kubernetes Deployment
+# ================================================
+# Base deployment configuration for chat-service
+# Provides real-time messaging and chat functionality
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: driver-service
+  name: chat-service
   labels:
-    app: driver-service
-    app.kubernetes.io/name: driver-service
-    app.kubernetes.io/component: driver-management
+    app: chat-service
+    platform: dollor-ai
+    app.kubernetes.io/name: chat-service
+    app.kubernetes.io/component: messaging
     app.kubernetes.io/part-of: dollor-platform
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: driver-service
+      app: chat-service
   template:
     metadata:
       labels:
-        app: driver-service
-        app.kubernetes.io/name: driver-service
+        app: chat-service
+        platform: dollor-ai
+        app.kubernetes.io/name: chat-service
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8003"
+        prometheus.io/port: "8018"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: driver-service
+      serviceAccountName: chat-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: driver-service
-          image: dollor/driver-service:dev
+        - name: chat-service
+          image: dollor/chat-service:dev
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 8003
+              containerPort: 8018
               protocol: TCP
           env:
             - name: ENVIRONMENT
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
+                  name: chat-service-config
                   key: ENVIRONMENT
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: driver-service-secrets
+                  name: chat-service-secrets
                   key: DATABASE_URL
-            - name: NOTIFICATION_SERVICE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chat-service-secrets
+                  key: REDIS_URL
+            - name: WEBSOCKET_ENABLED
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
-                  key: NOTIFICATION_SERVICE_URL
+                  name: chat-service-config
+                  key: WEBSOCKET_ENABLED
+            - name: MAX_MESSAGE_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: chat-service-config
+                  key: MAX_MESSAGE_SIZE
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
+                  name: chat-service-config
                   key: OTEL_EXPORTER_OTLP_ENDPOINT
                   optional: true
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 100m
+              memory: 128Mi
             limits:
               cpu: 200m
               memory: 256Mi
           livenessProbe:
             httpGet:
-              path: /live
+              path: /health
               port: http
-            initialDelaySeconds: 10
-            periodSeconds: 15
+            initialDelaySeconds: 15
+            periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /ready
+              path: /health
               port: http
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
@@ -100,49 +113,60 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - driver-service
+                        - chat-service
                 topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: driver-service
+  name: chat-service
   labels:
-    app: driver-service
-    app.kubernetes.io/name: driver-service
+    app: chat-service
+    platform: dollor-ai
+    app.kubernetes.io/name: chat-service
 spec:
   type: ClusterIP
   ports:
-    - port: 8003
+    - port: 8018
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: driver-service
+    app: chat-service
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: driver-service-config
+  name: chat-service-config
+  labels:
+    app: chat-service
+    platform: dollor-ai
 data:
   ENVIRONMENT: "development"
-  NOTIFICATION_SERVICE_URL: "http://notification-service:8009"
+  WEBSOCKET_ENABLED: "true"
+  MAX_MESSAGE_SIZE: "10485760"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability:4317"
 
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: driver-service-secrets
+  name: chat-service-secrets
+  labels:
+    app: chat-service
+    platform: dollor-ai
 type: Opaque
 stringData:
-  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/dollor"
+  DATABASE_URL: "postgresql://postgres:postgres@postgresql:5432/dollor_chat"
+  REDIS_URL: "redis://redis:6379/0"
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: driver-service
+  name: chat-service
   labels:
-    app: driver-service
+    app: chat-service
+    platform: dollor-ai

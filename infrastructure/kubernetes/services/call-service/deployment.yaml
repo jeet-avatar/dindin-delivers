@@ -1,76 +1,99 @@
-# Dollor.ai Driver Service - Kubernetes Deployment
-# =================================================
-# Base deployment configuration for driver-service
+# Dollor.ai Call Service - Kubernetes Deployment
+# ===============================================
+# Base deployment configuration for call-service
+# Handles voice calling functionality via Twilio/WebRTC
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: driver-service
+  name: call-service
   labels:
-    app: driver-service
-    app.kubernetes.io/name: driver-service
-    app.kubernetes.io/component: driver-management
+    app: call-service
+    platform: dollor-ai
+    app.kubernetes.io/name: call-service
+    app.kubernetes.io/component: communication
     app.kubernetes.io/part-of: dollor-platform
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: driver-service
+      app: call-service
   template:
     metadata:
       labels:
-        app: driver-service
-        app.kubernetes.io/name: driver-service
+        app: call-service
+        platform: dollor-ai
+        app.kubernetes.io/name: call-service
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8003"
+        prometheus.io/port: "8019"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: driver-service
+      serviceAccountName: call-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: driver-service
-          image: dollor/driver-service:dev
+        - name: call-service
+          image: dollor/call-service:dev
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 8003
+              containerPort: 8019
               protocol: TCP
           env:
             - name: ENVIRONMENT
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
+                  name: call-service-config
                   key: ENVIRONMENT
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: driver-service-secrets
+                  name: call-service-secrets
                   key: DATABASE_URL
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: call-service-secrets
+                  key: TWILIO_ACCOUNT_SID
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: call-service-secrets
+                  key: TWILIO_AUTH_TOKEN
+            - name: TWILIO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: call-service-secrets
+                  key: TWILIO_API_KEY
+            - name: TWILIO_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: call-service-secrets
+                  key: TWILIO_API_SECRET
             - name: NOTIFICATION_SERVICE_URL
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
+                  name: call-service-config
                   key: NOTIFICATION_SERVICE_URL
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 configMapKeyRef:
-                  name: driver-service-config
+                  name: call-service-config
                   key: OTEL_EXPORTER_OTLP_ENDPOINT
                   optional: true
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 100m
+              memory: 128Mi
             limits:
               cpu: 200m
               memory: 256Mi
           livenessProbe:
             httpGet:
-              path: /live
+              path: /health
               port: http
             initialDelaySeconds: 10
             periodSeconds: 15
@@ -78,7 +101,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /ready
+              path: /health
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -100,32 +123,33 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - driver-service
+                        - call-service
                 topologyKey: kubernetes.io/hostname
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: driver-service
+  name: call-service
   labels:
-    app: driver-service
-    app.kubernetes.io/name: driver-service
+    app: call-service
+    platform: dollor-ai
+    app.kubernetes.io/name: call-service
 spec:
   type: ClusterIP
   ports:
-    - port: 8003
+    - port: 8019
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: driver-service
+    app: call-service
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: driver-service-config
+  name: call-service-config
 data:
   ENVIRONMENT: "development"
   NOTIFICATION_SERVICE_URL: "http://notification-service:8009"
@@ -134,15 +158,20 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: driver-service-secrets
+  name: call-service-secrets
 type: Opaque
 stringData:
   DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/dollor"
+  TWILIO_ACCOUNT_SID: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  TWILIO_AUTH_TOKEN: "your_twilio_auth_token"
+  TWILIO_API_KEY: "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  TWILIO_API_SECRET: "your_twilio_api_secret"
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: driver-service
+  name: call-service
   labels:
-    app: driver-service
+    app: call-service
+    platform: dollor-ai

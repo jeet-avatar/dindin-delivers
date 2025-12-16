@@ -11,6 +11,14 @@ public class AppConfig: ObservableObject {
     /// Uses CloudFront CDN for HTTPS (App Store requirement)
     @Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
 
+    // MARK: - Microservice URLs
+    /// Negotiation service for real-time price negotiation between drivers and customers
+    @Published public var negotiationServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/negotiation"
+    /// Chat service for real-time messaging between drivers and customers
+    @Published public var chatServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/chat"
+    /// Call service for privacy-protected phone calls (number masking)
+    @Published public var callServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/call"
+
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
     @Published public var taxRate: Double = 0.08  // 8% tax (matches backend DEFAULT_TAX_RATE)
