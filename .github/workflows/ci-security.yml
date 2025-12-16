@@ -168,8 +168,8 @@ jobs:
         with:
           projectBaseDir: apps/web/p2p-platform/backend
           args: >
-            -Dsonar.projectKey=eatfair-backend
-            -Dsonar.organization=eatfair
+            -Dsonar.projectKey=jeet-avatar_dindin-delivers
+            -Dsonar.organization=jeet-avatar
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.sources=.
             -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/venv/**

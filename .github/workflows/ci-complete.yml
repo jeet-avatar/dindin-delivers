@@ -201,8 +201,8 @@ jobs:
         with:
           projectBaseDir: .
           args: >
-            -Dsonar.projectKey=dollor-backend
-            -Dsonar.organization=eatfair
+            -Dsonar.projectKey=jeet-avatar_dindin-delivers
+            -Dsonar.organization=jeet-avatar
             -Dsonar.python.coverage.reportPaths=apps/web/p2p-platform/backend/coverage.xml
             -Dsonar.sources=apps/web/p2p-platform/backend
             -Dsonar.tests=apps/web/p2p-platform/backend/tests
