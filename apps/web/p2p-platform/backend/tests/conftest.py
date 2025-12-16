@@ -65,17 +65,40 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    # For PostgreSQL, use raw SQL to drop everything in public schema
     DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+    # For PostgreSQL, use a fresh database by dropping/recreating
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
-            # Drop all objects in public schema (tables, indexes, sequences, etc.)
-            conn.execute(text("""
-                DROP SCHEMA public CASCADE;
-                CREATE SCHEMA public;
-                GRANT ALL ON SCHEMA public TO public;
-            """))
-            conn.commit()
+            # Drop all tables with CASCADE
+            try:
+                # Get all table names in public schema
+                result = conn.execute(text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                ))
+                tables = [row[0] for row in result]
+                for table in tables:
+                    conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                conn.commit()
+            except Exception as e:
+                print(f"Warning: Error dropping tables: {e}")
+                conn.rollback()
+
+            # Also drop all indexes
+            try:
+                result = conn.execute(text(
+                    "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"
+                ))
+                indexes = [row[0] for row in result]
+                for index in indexes:
+                    try:
+                        conn.execute(text(f'DROP INDEX IF EXISTS "{index}"'))
+                    except Exception:
+                        pass
+                conn.commit()
+            except Exception as e:
+                print(f"Warning: Error dropping indexes: {e}")
+                conn.rollback()
     else:
         # For SQLite, regular drop_all works
         try:
