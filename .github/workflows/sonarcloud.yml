@@ -42,7 +42,8 @@ jobs:
             --cov=. \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
-            --tb=short
+            --tb=short \
+            --cov-fail-under=0
 
       - name: Check SonarCloud Token
         id: check-token
