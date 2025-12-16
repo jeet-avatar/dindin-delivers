@@ -65,19 +65,15 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    # For PostgreSQL, use raw SQL to drop all tables with CASCADE
+    # For PostgreSQL, use raw SQL to drop everything in public schema
     DATABASE_URL = os.getenv("DATABASE_URL", "")
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
-            # Drop all tables in public schema
+            # Drop all objects in public schema (tables, indexes, sequences, etc.)
             conn.execute(text("""
-                DO $$ DECLARE
-                    r RECORD;
-                BEGIN
-                    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
-                        EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-                    END LOOP;
-                END $$;
+                DROP SCHEMA public CASCADE;
+                CREATE SCHEMA public;
+                GRANT ALL ON SCHEMA public TO public;
             """))
             conn.commit()
     else:
