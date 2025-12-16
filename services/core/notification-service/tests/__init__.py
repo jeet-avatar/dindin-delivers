@@ -1,0 +1,3 @@
+"""
+notification-service Tests Package
+"""
