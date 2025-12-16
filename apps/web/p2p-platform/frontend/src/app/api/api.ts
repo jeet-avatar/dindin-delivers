@@ -30,7 +30,7 @@ api.interceptors.request.use(
 );
 
 // Orders API
-export const getOrders = async (params?: any) => {
+export const getOrders = async (params?: Record<string, unknown>) => {
   const response = await api.get('/orders', { params });
   return response.data;
 };
@@ -40,7 +40,7 @@ export const getOrder = async (orderId: number) => {
   return response.data;
 };
 
-export const createOrder = async (orderData: any) => {
+export const createOrder = async (orderData: Record<string, unknown>) => {
   const response = await api.post('/orders', orderData);
   return response.data;
 };
@@ -56,20 +56,20 @@ export const getOrderStats = async () => {
   
   const stats = {
     totalOrders: orders.length,
-    totalRevenue: orders.reduce((sum: number, order: any) => 
+    totalRevenue: orders.reduce((sum: number, order: { payment_status: string; total_amount: number }) =>
       order.payment_status === 'succeeded' ? sum + order.total_amount : sum, 0
     ),
-    pendingOrders: orders.filter((o: any) => 
+    pendingOrders: orders.filter((o: { status: string }) =>
       o.status === 'pending_payment' || o.status === 'confirmed' || o.status === 'preparing'
     ).length,
-    completedOrders: orders.filter((o: any) => o.status === 'delivered').length
+    completedOrders: orders.filter((o: { status: string }) => o.status === 'delivered').length
   };
   
   return stats;
 };
 
 // Vendor Payouts API
-export const getVendorPayouts = async (params?: any) => {
+export const getVendorPayouts = async (params?: Record<string, unknown>) => {
   const response = await api.get('/accounting/vendor-payouts', { params });
   return response.data;
 };

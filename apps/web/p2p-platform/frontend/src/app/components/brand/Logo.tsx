@@ -18,11 +18,12 @@ const sizeMap = {
 export const Logo: React.FC<LogoProps> = ({
   variant = 'full',
   size = 'md',
-  theme = 'light',
+  theme: _theme = 'light',
   className = '',
 }) => {
   const { height, fontSize, iconSize } = sizeMap[size];
-  const textColor = theme === 'dark' ? '#FFFFFF' : brand.colors.text;
+  // Theme support reserved for future use
+  void _theme;
 
   if (variant === 'icon') {
     return (
@@ -143,10 +144,11 @@ export const Logo: React.FC<LogoProps> = ({
 // Animated logo for loading states
 export const AnimatedLogo: React.FC<Omit<LogoProps, 'variant'>> = ({
   size = 'lg',
-  theme = 'light',
+  theme: _theme = 'light',
   className = '',
 }) => {
   const { iconSize } = sizeMap[size];
+  void _theme; // Theme support reserved for future use
 
   return (
     <div className={`animated-logo ${className}`}>

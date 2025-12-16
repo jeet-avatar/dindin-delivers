@@ -19,9 +19,15 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 const { Header, Sider, Content } = Layout;
 
+interface UserData {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
 const DriverLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();

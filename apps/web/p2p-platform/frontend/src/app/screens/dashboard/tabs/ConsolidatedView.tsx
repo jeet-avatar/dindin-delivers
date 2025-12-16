@@ -58,8 +58,8 @@ const ConsolidatedView = ({ setActiveTab, dateRange }) => {
         Bridge.dashboard.consolidatedView.getCount(days_back).then((response: any) => {
             setDashboardCount(response.counts);
 
-            let financialDataList=[];
-            for(let item of response.financialMetrics){
+            const financialDataList=[];
+            for(const item of response.financialMetrics){
                 if(item.name !== 'JIRA' && item.name !== "Process Unity"
                      && item.name !== "NetSuite Wolt" && item.name !== "ZIP"
                 ){

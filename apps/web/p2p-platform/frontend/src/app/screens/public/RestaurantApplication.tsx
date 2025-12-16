@@ -150,7 +150,9 @@ const RestaurantApplicationForm: React.FC = () => {
             const hostname = url.hostname.replace('www.', '').split('.')[0];
             const suggestedName = hostname.charAt(0).toUpperCase() + hostname.slice(1);
             form.setFieldsValue({ restaurantName: suggestedName });
-          } catch (e) {}
+          } catch {
+            // URL parsing failed - ignore and continue with other fields
+          }
         }
 
         // Cuisine Type (auto-detected from menu items)

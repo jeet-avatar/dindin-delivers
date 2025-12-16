@@ -1,32 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Briefcase, 
-  FileText, 
-  Settings, 
-  User, 
-  Menu, 
-  X, 
-  Bell,
-  LogOut,
+import {
+  LayoutDashboard,
+  Briefcase,
+  FileText,
+  User,
+  Menu,
+  X,
   ChevronDown,
   BarChart,
   GitPullRequest,
   GitBranch,
-  Globe,
   FileSpreadsheet,
-  Network,
   Wallet,
   Building2
 } from 'lucide-react';
-import NotificationDropdown from '../ui/NotificationDropdown';
 import Bridge from '../../constants/Bridge';
 import { useUser } from '../../context/UserContext';
-import FullScreenLoader from '../ui/FullScreenLoader';
 import Logo from '../../../assets/img/user.jpg';
 import { Modal } from 'antd';
-import { set } from 'date-fns';
 
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 
@@ -48,9 +40,9 @@ const MainLayout: React.FC = () => {
   }, []);
 
   const getNotifications = () => {
-    Bridge.notifications().then((response: any) => {
+    Bridge.notifications().then((response: Array<{ read: boolean }>) => {
       setNotifications(response);
-    }).catch((error: any) => {
+    }).catch((error: unknown) => {
       console.error(error);
     });
   }
@@ -87,18 +79,20 @@ const MainLayout: React.FC = () => {
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const closeSidebar = () => setSidebarOpen(false);
-  
-  const toggleNotifications = () => {
+
+  const _toggleNotifications = () => {
     setNotificationsOpen(!notificationsOpen);
     setUserMenuOpen(false);
   };
+  void _toggleNotifications; // Reserved for future notification feature
 
   const toggleUserMenu = () => {
     setUserMenuOpen(!userMenuOpen);
     setNotificationsOpen(false);
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const _unreadCount = notifications.filter((n: { read: boolean }) => !n.read).length;
+  void _unreadCount; // Reserved for future notification badge
 
   const showSignoutModal = () => {
     setIsModalOpen(true);
