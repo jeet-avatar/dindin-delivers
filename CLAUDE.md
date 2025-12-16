@@ -367,6 +367,10 @@ frontend/src/app/
 | **rating-service** | 8013 | Both | Reviews, ratings |
 | **ride-service** | 8014 | Rideshare | Ride requests, matching |
 | **pricing-service** | 8015 | Rideshare | Surge, fare calculation |
+| **analytics-service** | 8016 | Both | ClickHouse analytics, BI |
+| **negotiation-service** | 8017 | Both | Real-time price negotiation |
+| **chat-service** | 8018 | Both | Real-time messaging |
+| **call-service** | 8019 | Both | Phone masking via Twilio |
 
 ---
 
@@ -720,6 +724,9 @@ Current Monolith (main_new.py)
    - [x] ride-service (port 8014)
    - [x] pricing-service (port 8015)
    - [x] analytics-service (port 8016)
+   - [x] negotiation-service (port 8017) - Real-time price negotiation
+   - [x] chat-service (port 8018) - Real-time messaging
+   - [x] call-service (port 8019) - Phone masking via Twilio
 
 3. **CQRS & Event-Driven Architecture** ✓
    - [x] Kafka event streaming
@@ -967,14 +974,165 @@ cd /Users/jeet/StudioProjects/eatfair-ios-hotfix && git checkout hotfix/base && 
 
 ---
 
-*Last Updated: December 15, 2025*
+*Last Updated: December 16, 2025*
 *AI Employee: TechCloudPro Claude Instance*
 *Platform: Dollor.ai (Food Delivery + Rideshare Matchmaking Service)*
-*Status: Phase 5 Complete - Production Ready*
-*Business Model: Flat $1 Matchmaking Fee (No Commission)*
+*Status: Phase 6 Complete - Communication Microservices Added*
+*Business Model: Tiered Platform Fee ($1/$2/$3 based on fare)*
 *Legal Status: Matchmaking Service (Phase 1)*
-*All Backend Tests: 21/21 Passing ✓*
+*Total Microservices: 16 (13 core + 3 communication)*
 *Next: App Store Submission*
+
+---
+
+## PHASE 6: COMMUNICATION MICROSERVICES
+
+### Negotiation Service (Port 8017)
+**Location:** `services/core/negotiation-service/`
+
+Real-time price negotiation between independent drivers and customers.
+Implements the MATCHMAKING model where platform suggests prices but parties negotiate freely.
+
+**Files:**
+- `main.py` - FastAPI with WebSocket support (600+ lines)
+- `requirements.txt` - Dependencies
+- `Dockerfile` - Container configuration
+
+**Features:**
+- Platform suggests price based on distance/time
+- Customer/driver counter-offer system
+- Quick offer options (60%, 70%, 80%, 90% of suggested)
+- Tiered platform fees: $1 (≤$35), $2 ($35-70), $3 (>$70)
+- Real-time updates via WebSocket + Redis pub/sub
+- Legal matchmaking disclaimers embedded
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/negotiations` | POST | Create new negotiation |
+| `/api/negotiations/{id}/customer-offer` | POST | Customer counter-offer |
+| `/api/negotiations/{id}/driver-offer` | POST | Driver counter-offer |
+| `/api/negotiations/{id}/accept` | POST | Accept current price |
+| `/api/negotiations/{id}` | GET | Get negotiation status |
+| `/ws/negotiation/{id}` | WS | Real-time updates |
+
+### Chat Service (Port 8018)
+**Location:** `services/core/chat-service/`
+
+Real-time messaging between drivers and customers.
+Facilitates communication without monitoring content (matchmaking model).
+
+**Files:**
+- `main.py` - FastAPI with WebSocket support (500+ lines)
+- `requirements.txt` - Dependencies
+- `Dockerfile` - Container configuration
+
+**Features:**
+- Real-time messaging via WebSocket
+- Quick reply templates (customer/driver specific)
+- Location sharing
+- Read receipts
+- Message persistence in PostgreSQL
+- Redis pub/sub for cross-instance messaging
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat/conversations` | POST | Create conversation |
+| `/api/chat/conversations/{id}/messages` | POST | Send message |
+| `/api/chat/conversations/{id}/messages` | GET | Get message history |
+| `/api/chat/conversations/{id}/read` | POST | Mark messages read |
+| `/ws/chat/{conversation_id}` | WS | Real-time messaging |
+
+**Quick Replies:**
+```
+Customer: "I'm at pickup", "Running late", "Can you call me?", "Thank you!"
+Driver: "On my way!", "I've arrived", "Share your location?", "I'll wait here"
+```
+
+### Call Service (Port 8019)
+**Location:** `services/core/call-service/`
+
+Privacy-protected phone calls via number masking.
+Neither party sees the other's real phone number.
+
+**Files:**
+- `main.py` - FastAPI with Twilio integration (450+ lines)
+- `requirements.txt` - Dependencies
+- `Dockerfile` - Container configuration
+
+**Features:**
+- Phone number masking via Twilio Proxy
+- Call session management (4-hour expiry)
+- Call logging with duration tracking
+- Twilio webhook integration
+- Works without Twilio in dev mode (mock numbers)
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/call/sessions` | POST | Create call session |
+| `/api/call/sessions/{id}` | PUT | Add driver to session |
+| `/api/call/sessions/{id}` | GET | Get session details |
+| `/api/call/masked-number` | GET | Get masked number to dial |
+| `/api/call/initiate` | POST | Log call initiation |
+| `/api/call/logs/{session_id}` | GET | Get call history |
+| `/api/call/sessions/{id}` | DELETE | End call session |
+| `/api/call/twilio/voice` | POST | Twilio voice webhook |
+| `/api/call/twilio/status` | POST | Twilio status webhook |
+
+**Environment Variables:**
+```bash
+TWILIO_ACCOUNT_SID=ACxxx
+TWILIO_AUTH_TOKEN=xxx
+TWILIO_PHONE_NUMBER=+1xxx
+TWILIO_PROXY_SERVICE_SID=KSxxx
+```
+
+### iOS Service Integrations
+**Location:** `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/`
+
+| File | Service | Features |
+|------|---------|----------|
+| `NegotiationService.swift` | negotiation-service | WebSocket + REST, quick offers |
+| `ChatService.swift` | chat-service | WebSocket + REST, quick replies |
+| `CallService.swift` | call-service | Phone masking, call logging |
+
+**AppConfig Updates:**
+```swift
+@Published public var negotiationServiceURL: String = "https://.../negotiation"
+@Published public var chatServiceURL: String = "https://.../chat"
+@Published public var callServiceURL: String = "https://.../call"
+```
+
+### Kubernetes Configurations
+
+All three services have complete K8s deployments:
+- `infrastructure/kubernetes/services/{service}/deployment.yaml`
+- `infrastructure/kubernetes/services/{service}/overlays/{dev,staging,production}/`
+- `infrastructure/argocd/apps/{dev,staging,production}/{service}.yaml`
+
+**Replica Configuration:**
+| Environment | Replicas |
+|-------------|----------|
+| Dev | 1 |
+| Staging | 2 |
+| Production | 3 |
+
+### Legal Compliance (Matchmaking Model)
+
+All communication services include embedded legal disclaimers:
+
+```python
+"""
+MATCHMAKING PLATFORM - NOT A TRANSPORTATION COMPANY
+
+Dollor.ai facilitates connections between INDEPENDENT parties.
+We do not employ drivers or control negotiations.
+Platform suggests prices based on market rates.
+Final price is negotiated freely between parties.
+"""
+```
 
 ---
 

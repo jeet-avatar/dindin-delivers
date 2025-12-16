@@ -1,0 +1,59 @@
+# Dollor.ai Negotiation Service - ArgoCD Application (Dev)
+# ==========================================================
+# Deploys negotiation-service to development environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: negotiation-service-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: negotiation-service
+    app.kubernetes.io/component: negotiation-management
+    app.kubernetes.io/part-of: dollor-platform
+    platform: dollor-ai
+    environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-dev
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/negotiation-service/overlays/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health checks
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "Negotiation management service for Dollor.ai platform"
+    - name: Port
+      value: "8017"
+    - name: Endpoints
+      value: "/api/negotiation/*"

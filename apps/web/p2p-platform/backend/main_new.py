@@ -55,6 +55,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health Check Endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for load balancers and monitoring"""
+    return {"status": "healthy", "service": "p2p-backend", "timestamp": datetime.utcnow().isoformat()}
+
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
