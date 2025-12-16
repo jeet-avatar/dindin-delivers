@@ -2114,19 +2114,30 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
             detail="Email already registered"
         )
 
-    # Create customer record
+    # Split name into first and last name
+    name_parts = request.name.split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    # Create customer record with correct field names
+    hashed_password = get_password_hash(request.password)
+    customer_count = db.query(Customer).count()
+    customer_code = f"CUST-{customer_count + 1:05d}"
+
     new_customer = Customer(
-        name=request.name,
+        customer_id=customer_code,
+        first_name=first_name,
+        last_name=last_name,
         email=request.email,
         phone=request.phone or "",
-        status=CustomerStatus.ACTIVE
+        password_hash=hashed_password,
+        is_active=True
     )
     db.add(new_customer)
     db.commit()
     db.refresh(new_customer)
 
     # Create user record linked to customer
-    hashed_password = get_password_hash(request.password)
     new_user = User(
         email=request.email,
         password_hash=hashed_password,
@@ -2137,6 +2148,7 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
     db.commit()
     db.refresh(new_user)
 
+    full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
     print(f"Customer registration successful for: {new_user.email}, customer_id: {new_customer.id}")
     access_token = create_access_token(data={"sub": new_user.email, "role": "customer", "customer_id": new_customer.id})
 
@@ -2144,7 +2156,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
         "access_token": access_token,
         "token_type": "bearer",
         "customer_id": new_customer.id,
-        "name": new_customer.name,
+        "customer_code": customer_code,
+        "name": full_name,
         "email": new_customer.email,
         "status": "active",
         "message": "Registration successful"
