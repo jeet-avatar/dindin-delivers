@@ -219,7 +219,7 @@ const Main: React.FC = () => {
 
   const exportData = () => {
     setLoading(true);
-    var node = document.getElementById("main-section");
+    const node = document.getElementById("main-section");
     htmlToImage.toBlob(node).then((blob) => {
       saveAs(blob, "ZIp Dashboard.png");
       setLoading(false);

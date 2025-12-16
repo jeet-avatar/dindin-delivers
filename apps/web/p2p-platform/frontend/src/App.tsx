@@ -39,13 +39,13 @@ import CustomerDashboard from './app/screens/customer/Dashboard';
 import RideBooking from './app/screens/customer/RideBooking';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
-  
+  const { user: _user } = useUser();
+
   // Temporarily disable auth requirement to access old UI
-  // if (!user) {
+  // if (!_user) {
   //   return <Navigate to="/login" replace />;
   // }
-  
+
   return <>{children}</>;
 }
 

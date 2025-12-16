@@ -17,9 +17,15 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 const { Header, Sider, Content } = Layout;
 
+interface UserData {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
 const VendorLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 

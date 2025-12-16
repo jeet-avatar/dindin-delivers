@@ -152,7 +152,7 @@ const Main: React.FC<TransactionsProps> = ({
   }, [activeSystem, location.search]);
 
   const getFilteredNetsuiteRecords = () => {
-    let records = netsuiteData || [];
+    const records = netsuiteData || [];
     
     return records;
   };
