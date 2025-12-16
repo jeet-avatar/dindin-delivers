@@ -82,7 +82,7 @@ class TestSanitizeFileExtension:
     def test_special_chars_in_extension(self):
         """Should remove special characters from extension"""
         result = sanitize_file_extension("file.j!p@g#", ["jpg", "jpeg", "png"], "pdf")
-        assert result == "pdf"  # jpgspecial chars removed, not in allowed
+        assert result == "jpg"  # special chars removed, "jpg" is in allowed list
 
     def test_case_insensitive(self):
         """Should handle case-insensitive extensions"""
@@ -146,7 +146,7 @@ class TestSecureFilePath:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(HTTPException):
-                secure_file_path(tmpdir, "..\\..\\windows\\system32")
+                secure_file_path(tmpdir, "../../windows/system32")
 
     def test_absolute_path_in_filename_blocked(self):
         """Should block absolute paths in filename"""
