@@ -27,7 +27,6 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  EKS_CLUSTER: dollor-production
   ECR_REGISTRY: 134607809447.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
@@ -161,7 +160,10 @@ jobs:
 
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          EKS_CLUSTER="dollor-${ENVIRONMENT}"
+          echo "Connecting to EKS cluster: ${EKS_CLUSTER}"
+          aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${{ env.AWS_REGION }}
 
       - name: Install Kustomize
         run: |
