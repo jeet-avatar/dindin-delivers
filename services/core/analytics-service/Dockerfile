@@ -23,6 +23,9 @@ COPY core/analytics-service/ .
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app/shared
+ENV SERVICE_NAME=analytics-service
+ENV SERVICE_PORT=8016
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
