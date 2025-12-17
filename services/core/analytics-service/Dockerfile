@@ -10,15 +10,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy shared library first
+COPY shared /app/shared
+
 # Copy requirements first for caching
-COPY requirements.txt .
+COPY core/analytics-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
-
-# Copy shared library
-COPY ../shared /app/shared
+COPY core/analytics-service/ .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
