@@ -389,6 +389,39 @@ frontend/src/app/
 | **chat-service** | 8018 | Both | Real-time messaging |
 | **call-service** | 8019 | Both | Phone masking via Twilio |
 
+### Docker Environment Configuration
+All 16 microservices use multi-stage Docker builds with the following critical environment variables:
+
+```dockerfile
+# Required environment variables (all services)
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app/shared          # CRITICAL: Required for shared library imports
+ENV SERVICE_NAME={service-name}
+ENV SERVICE_PORT={port}
+```
+
+**IMPORTANT**: The `PYTHONPATH=/app/shared` is required for all services to import from the shared library (`common.py`). Without this, services will fail with `ModuleNotFoundError: No module named 'common'`.
+
+| Service | Dockerfile Path | PYTHONPATH |
+|---------|-----------------|------------|
+| auth-service | `services/core/auth-service/Dockerfile` | /app/shared |
+| user-service | `services/core/user-service/Dockerfile` | /app/shared |
+| driver-service | `services/core/driver-service/Dockerfile` | /app/shared |
+| restaurant-service | `services/core/restaurant-service/Dockerfile` | /app/shared |
+| order-service | `services/core/order-service/Dockerfile` | /app/shared |
+| payment-service | `services/core/payment-service/Dockerfile` | /app/shared |
+| location-service | `services/core/location-service/Dockerfile` | /app/shared |
+| menu-service | `services/core/menu-service/Dockerfile` | /app/shared |
+| notification-service | `services/core/notification-service/Dockerfile` | /app/shared |
+| rating-service | `services/core/rating-service/Dockerfile` | /app/shared |
+| ride-service | `services/core/ride-service/Dockerfile` | /app/shared |
+| pricing-service | `services/core/pricing-service/Dockerfile` | /app/shared |
+| analytics-service | `services/core/analytics-service/Dockerfile` | /app/shared |
+| negotiation-service | `services/core/negotiation-service/Dockerfile` | /app/shared |
+| chat-service | `services/core/chat-service/Dockerfile` | /app/shared |
+| call-service | `services/core/call-service/Dockerfile` | /app/shared |
+
 ### Microservices Local Development
 ```bash
 # Start all infrastructure + microservices
@@ -815,23 +848,43 @@ Current Monolith (main_new.py)
    - [x] All 21 backend tests passing
    - [x] $1+$1 pricing model implemented
 
-### PHASE 6: NEXT
-6. **App Store Submission**
+### PHASE 6: IN PROGRESS (Current)
+6. **Staging Deployment & Testing**
+   - [x] All 16 microservices Docker builds passing
+   - [x] Docker images pushed to ECR (134607809447.dkr.ecr.us-east-1.amazonaws.com)
+   - [x] Terraform staging infrastructure applied
+   - [x] EKS cluster created (dollor-staging)
+   - [x] VPC and networking configured
+   - [x] RDS PostgreSQL staging database ready
+   - [x] Security scans passing (Semgrep, Bandit, SonarCloud)
+   - [x] 256 unit tests passing across all services
+   - [x] PYTHONPATH=/app/shared added to all 16 Dockerfiles
+   - [x] 6 core services deployed to EKS (auth, driver, order, notification, ride, user)
+   - [x] Staging database schema created (customers, drivers tables)
+   - [x] Customer registration API tested successfully
+   - [x] Driver registration API tested successfully
+   - [ ] Deploy remaining 10 services to EKS
+   - [ ] Complete integration testing on staging
+   - [ ] Android app testing against staging API
+   - [ ] iOS app testing against staging API
+
+### PHASE 7: NEXT
+7. **App Store Submission**
    - [ ] Submit Customer iOS app
    - [ ] Submit Driver iOS app
    - [ ] Submit Restaurant iOS app
    - [ ] Submit Android apps to Play Store
    - [ ] Respond to App Store review feedback
 
-### PHASE 7: POST-LAUNCH
-7. **Production Monitoring**
-   - [ ] Set up production Kubernetes cluster
-   - [ ] Configure production database (RDS)
+### PHASE 8: POST-LAUNCH
+8. **Production Deployment**
+   - [ ] Set up production EKS cluster
+   - [ ] Configure production RDS (Multi-AZ)
    - [ ] Set up CloudWatch monitoring
    - [ ] Configure alerts and PagerDuty
    - [ ] Load testing and optimization
 
-8. **Feature Expansion**
+9. **Feature Expansion**
    - [ ] Multi-city expansion
    - [ ] Premium features
    - [ ] Restaurant analytics dashboard
@@ -869,6 +922,134 @@ kubectl apply -k infrastructure/argocd/apps/production/
 kubectl argo rollouts set weight dollor-api 10 -n production
 # ... monitor metrics ...
 kubectl argo rollouts promote dollor-api -n production
+```
+
+---
+
+## AWS STAGING INFRASTRUCTURE
+
+> **Status**: Terraform applied, infrastructure ready for EKS deployment
+
+### Staging Environment Resources
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       AWS STAGING INFRASTRUCTURE                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  REGION: us-east-1                                                              │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐   │
+│  │  EKS CLUSTER                                                              │   │
+│  │  Name: dollor-staging                                                     │   │
+│  │  Endpoint: https://746C021225078E21CD4D22912C1B6044.gr7.us-east-1.eks    │   │
+│  │  Version: 1.28                                                            │   │
+│  │  Node Groups: 2-5 nodes (auto-scaling)                                    │   │
+│  └──────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐   │
+│  │  VPC & NETWORKING                                                         │   │
+│  │  VPC ID: vpc-06b31cf4c5205c340                                           │   │
+│  │  CIDR: 10.1.0.0/16                                                       │   │
+│  │  Public Subnets: 3 (Multi-AZ)                                            │   │
+│  │  Private Subnets: 3 (Multi-AZ)                                           │   │
+│  │  NAT Gateway: Enabled                                                     │   │
+│  └──────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐   │
+│  │  ECR REPOSITORIES (16 services)                                           │   │
+│  │  Registry: 134607809447.dkr.ecr.us-east-1.amazonaws.com                  │   │
+│  │  Images: dollor-{service-name}:latest                                    │   │
+│  │  Scanning: Enabled on push                                               │   │
+│  └──────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐   │
+│  │  RDS POSTGRESQL                                                           │   │
+│  │  Instance: db.t3.medium                                                  │   │
+│  │  Storage: 20GB (auto-scaling)                                            │   │
+│  │  Multi-AZ: No (staging)                                                  │   │
+│  │  Encryption: Enabled                                                      │   │
+│  └──────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### All 16 Microservices in ECR
+| Service | ECR Image | Port | Build | EKS Staging |
+|---------|-----------|------|-------|-------------|
+| auth-service | dollor-auth-service:latest | 8001 | ✓ | ✓ Deployed |
+| user-service | dollor-user-service:latest | 8002 | ✓ | ✓ Deployed |
+| driver-service | dollor-driver-service:latest | 8003 | ✓ | ✓ Deployed |
+| restaurant-service | dollor-restaurant-service:latest | 8004 | ✓ | Pending |
+| order-service | dollor-order-service:latest | 8005 | ✓ | ✓ Deployed |
+| payment-service | dollor-payment-service:latest | 8006 | ✓ | Pending |
+| location-service | dollor-location-service:latest | 8007 | ✓ | Pending |
+| menu-service | dollor-menu-service:latest | 8008 | ✓ | Pending |
+| notification-service | dollor-notification-service:latest | 8009 | ✓ | ✓ Deployed |
+| rating-service | dollor-rating-service:latest | 8013 | ✓ | Pending |
+| ride-service | dollor-ride-service:latest | 8014 | ✓ | ✓ Deployed |
+| pricing-service | dollor-pricing-service:latest | 8015 | ✓ | Pending |
+| analytics-service | dollor-analytics-service:latest | 8016 | ✓ | Pending |
+| negotiation-service | dollor-negotiation-service:latest | 8017 | ✓ | Pending |
+| chat-service | dollor-chat-service:latest | 8018 | ✓ | Pending |
+| call-service | dollor-call-service:latest | 8019 | ✓ | Pending |
+
+### Staging API Endpoints (Live)
+| Service | LoadBalancer URL | Health |
+|---------|------------------|--------|
+| auth-service | http://a79973973526440d4b63f6982470da48-208077016.us-east-1.elb.amazonaws.com:8001 | ✓ |
+| driver-service | http://ae92693ba001948e9ab67528a4bc6d98-245490019.us-east-1.elb.amazonaws.com:8003 | ✓ |
+| order-service | http://a9ae07ce89cda46409b0867f98754f97-1882563567.us-east-1.elb.amazonaws.com:8005 | ✓ |
+| notification-service | http://aab96a9a5305240ecb79c3105e9c27eb-849596970.us-east-1.elb.amazonaws.com:8009 | ✓ |
+
+### Staging Database
+```
+Host: dollor-staging.c23qcukqe810.us-east-1.rds.amazonaws.com
+Port: 5432
+Database: dollor_staging
+User: dollor_admin
+Tables: customers, drivers (created)
+```
+
+### CI/CD Pipeline Status
+```
+GitHub Actions Workflows:
+├── deploy-microservices.yml  ─── All 16 services building ✓
+├── sonarcloud.yml           ─── Code quality passing ✓
+└── security-scan.yml        ─── Security scans passing ✓
+
+Build Pipeline:
+┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+│  Push   │───▶│  Build  │───▶│  Scan   │───▶│ Deploy  │
+│  Code   │    │ Docker  │    │ Trivy   │    │  EKS    │
+└─────────┘    └─────────┘    └─────────┘    └─────────┘
+```
+
+### Terraform State
+```bash
+# Staging infrastructure terraform location
+cd infrastructure/terraform/environments/staging
+
+# View current state
+terraform show
+
+# Plan changes
+terraform plan
+
+# Apply changes (requires approval)
+terraform apply
+```
+
+### Connect to Staging EKS
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --name dollor-staging --region us-east-1
+
+# Verify connection
+kubectl get nodes
+
+# Check services
+kubectl get pods -n dollor-staging
+kubectl get services -n dollor-staging
 ```
 
 ---
@@ -1041,11 +1222,13 @@ cd /Users/jeet/StudioProjects/eatfair-ios-hotfix && git checkout hotfix/base && 
 *Last Updated: December 16, 2025*
 *AI Employee: TechCloudPro Claude Instance*
 *Platform: Dollor.ai (Food Delivery + Rideshare Matchmaking Service)*
-*Status: Phase 7 Complete - Platform UI Parity Achieved*
+*Status: Phase 8 In Progress - Staging Deployment Active*
 *Business Model: Tiered Platform Fee ($1/$2/$3 based on fare)*
 *Legal Status: Matchmaking Service (Phase 1)*
 *Total Microservices: 16 (13 core + 3 communication)*
-*Next: App Store Submission*
+*CI/CD: All 16 microservices building to ECR, deploying to EKS*
+*Staging EKS: dollor-staging (us-east-1)*
+*Next: Complete EKS deployment, then App Store Submission*
 
 ---
 
