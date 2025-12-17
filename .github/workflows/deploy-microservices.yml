@@ -76,8 +76,8 @@ jobs:
             echo "Services to deploy: $SERVICES"
             echo "services=$SERVICES" >> $GITHUB_OUTPUT
 
-            # Create JSON array for matrix
-            MATRIX_JSON=$(echo $SERVICES | tr ',' '\n' | jq -R . | jq -s .)
+            # Create JSON array for matrix (compact format for GITHUB_OUTPUT)
+            MATRIX_JSON=$(echo $SERVICES | tr ',' '\n' | jq -R . | jq -sc .)
             echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
           fi
 
