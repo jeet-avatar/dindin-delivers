@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY core/negotiation-service/requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
 # Production stage
@@ -39,8 +39,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY --from=builder /app/wheels /wheels
 RUN pip install --no-cache /wheels/*
 
+# Copy shared library
+COPY shared /app/shared
+
 # Copy application
-COPY --chown=dollor:dollor main.py .
+COPY --chown=dollor:dollor core/negotiation-service/main.py .
 
 # Environment
 ENV PYTHONUNBUFFERED=1

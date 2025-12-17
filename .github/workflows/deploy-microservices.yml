@@ -48,7 +48,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.services }}" == "all" ]; then
-              SERVICES="auth-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service"
+              SERVICES="auth-service,user-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service,negotiation-service,chat-service,call-service"
             else
               SERVICES="${{ github.event.inputs.services }}"
             fi
@@ -56,7 +56,7 @@ jobs:
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
             SERVICES=""
 
-            for svc in auth-service driver-service order-service notification-service location-service ride-service menu-service restaurant-service payment-service pricing-service rating-service analytics-service; do
+            for svc in auth-service user-service driver-service order-service notification-service location-service ride-service menu-service restaurant-service payment-service pricing-service rating-service analytics-service negotiation-service chat-service call-service; do
               if echo "$CHANGED_FILES" | grep -q "services/core/$svc/\|services/shared/"; then
                 SERVICES="${SERVICES:+$SERVICES,}$svc"
               fi
@@ -64,7 +64,7 @@ jobs:
 
             # If shared library changed, deploy all
             if echo "$CHANGED_FILES" | grep -q "services/shared/"; then
-              SERVICES="auth-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service"
+              SERVICES="auth-service,user-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service,negotiation-service,chat-service,call-service"
             fi
           fi
 
