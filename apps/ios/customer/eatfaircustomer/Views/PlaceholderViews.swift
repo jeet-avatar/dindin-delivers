@@ -66,7 +66,8 @@ struct NotificationsView: View {
     }
 }
 
-struct HelpSupportView: View {
+// Note: Main HelpSupportView is now in HelpSupportView.swift
+struct LegacyHelpSupportView: View {
     private var config: AppConfig { AppConfig.shared }
 
     var body: some View {
