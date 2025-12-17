@@ -33,8 +33,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
-import redis.asyncio as redis
 import enum
+
+# Optional redis import
+redis = None
+REDIS_AVAILABLE = False
+try:
+    import redis.asyncio as _redis
+    redis = _redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    pass
 
 # =============================================================================
 # CONFIGURATION
@@ -95,6 +104,14 @@ class ParticipantRole(str, enum.Enum):
     CUSTOMER = "customer"
     DRIVER = "driver"
     SUPPORT = "support"
+
+
+class ConversationStatus(str, enum.Enum):
+    """Status of a conversation"""
+    ACTIVE = "active"
+    CLOSED = "closed"
+    ARCHIVED = "archived"
+
 
 # =============================================================================
 # DATABASE MODELS
@@ -217,6 +234,12 @@ class ConversationResponse(BaseModel):
     last_message: Optional[MessageResponse]
     created_at: str
 
+
+# Model aliases for backward compatibility
+MessageCreate = SendMessageRequest
+ConversationCreate = StartConversationRequest
+
+
 # =============================================================================
 # CONNECTION MANAGER
 # =============================================================================
@@ -226,11 +249,14 @@ class ChatConnectionManager:
 
     def __init__(self):
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client = None
 
     async def connect_redis(self):
-        if not self.redis_client:
-            self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        if REDIS_AVAILABLE and redis and not self.redis_client:
+            try:
+                self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+            except Exception:
+                pass
 
     async def connect(self, websocket: WebSocket, conversation_id: str, user_id: str):
         await websocket.accept()

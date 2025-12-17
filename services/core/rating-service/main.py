@@ -49,6 +49,10 @@ SERVICE_NAME = "rating-service"
 SERVICE_VERSION = "1.0.0"
 SERVICE_PORT = 8013
 
+# Rating boundaries (1-5 star rating system)
+MIN_RATING = 1
+MAX_RATING = 5
+
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
 
@@ -226,6 +230,10 @@ class RatingCreate(BaseModel):
     is_verified_purchase: bool = False
 
 
+# Alias for ReviewCreate (some clients may use this name)
+ReviewCreate = RatingCreate
+
+
 class RatingUpdate(BaseModel):
     rating: Optional[int] = Field(None, ge=1, le=5)
     review_text: Optional[str] = Field(None, max_length=2000)
@@ -333,6 +341,33 @@ app = MicroserviceFactory.create(
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
+def calculate_average_rating(ratings: List[int]) -> float:
+    """
+    Calculate average rating from a list of rating values.
+
+    Args:
+        ratings: List of integer ratings (1-5 scale)
+
+    Returns:
+        Average rating rounded to 2 decimal places, or 0.0 if empty
+
+    Example:
+        >>> calculate_average_rating([5, 4, 5, 3, 4])
+        4.2
+    """
+    if not ratings:
+        return 0.0
+
+    # Ensure all ratings are within valid range
+    valid_ratings = [r for r in ratings if MIN_RATING <= r <= MAX_RATING]
+
+    if not valid_ratings:
+        return 0.0
+
+    average = sum(valid_ratings) / len(valid_ratings)
+    return round(average, 2)
+
 
 def generate_rating_id(db: Session) -> str:
     """Generate unique rating ID"""

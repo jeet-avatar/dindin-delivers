@@ -37,8 +37,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, Enum as SQLEnum
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
-import redis.asyncio as redis
 import enum
+
+# Optional redis import for CI/CD environments
+redis = None
+REDIS_AVAILABLE = False
+try:
+    import redis.asyncio as _redis
+    redis = _redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    pass
 
 # =============================================================================
 # CONFIGURATION
@@ -56,6 +65,16 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 NEGOTIATION_TIMEOUT_SECONDS = 120  # 2 minutes to respond
 MAX_COUNTER_OFFERS = 5  # Maximum back-and-forth
 AUTO_ACCEPT_THRESHOLD = 0.95  # Auto-accept if within 5% of ask
+
+# Platform fee tiers (matchmaking fees)
+# Tiered pricing: $1/$2/$3 based on fare value
+PLATFORM_FEE_TIER1 = 1.00  # Fare <= $35
+PLATFORM_FEE_TIER2 = 2.00  # Fare $35-$70
+PLATFORM_FEE_TIER3 = 3.00  # Fare > $70
+
+# Tier thresholds
+TIER1_MAX_FARE = 35.00
+TIER2_MAX_FARE = 70.00
 
 # =============================================================================
 # LEGAL DISCLAIMER - MATCHMAKING MODEL
@@ -123,6 +142,15 @@ class NegotiationStatus(str, enum.Enum):
 class PartyType(str, enum.Enum):
     CUSTOMER = "customer"
     DRIVER = "driver"
+
+
+class OfferType(str, enum.Enum):
+    """Type of offer in negotiation"""
+    INITIAL = "initial"
+    COUNTER = "counter"
+    FINAL = "final"
+    QUICK = "quick"
+
 
 # =============================================================================
 # DATABASE MODELS
@@ -236,6 +264,12 @@ class QuickOfferOptions(BaseModel):
     offer_90_percent: float
     minimum_fare: float = 5.0
 
+
+# Model aliases for backward compatibility / test requirements
+NegotiationCreate = StartNegotiationRequest
+CounterOffer = SubmitOfferRequest
+
+
 # =============================================================================
 # REDIS CONNECTION MANAGER
 # =============================================================================
@@ -245,10 +279,10 @@ class ConnectionManager:
 
     def __init__(self):
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client = None
 
     async def connect_redis(self):
-        if not self.redis_client:
+        if not self.redis_client and REDIS_AVAILABLE and redis:
             self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
     async def connect(self, websocket: WebSocket, ride_id: str, party_type: str):
@@ -326,6 +360,23 @@ def get_quick_offer_options(suggested_fare: float) -> QuickOfferOptions:
         offer_90_percent=max(suggested_fare * 0.90, minimum),
         minimum_fare=minimum
     )
+
+
+def calculate_quick_offer(suggested_fare: float, percentage: float = 0.80) -> float:
+    """
+    Calculate a quick offer amount based on percentage of suggested fare.
+
+    Args:
+        suggested_fare: The platform suggested fare
+        percentage: Percentage of suggested fare (default 80%)
+
+    Returns:
+        Quick offer amount (minimum $5.00)
+    """
+    minimum = 5.0
+    offer = suggested_fare * percentage
+    return max(offer, minimum)
+
 
 # =============================================================================
 # FASTAPI APP
