@@ -22,8 +22,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import clickhouse_connect
-from clickhouse_connect.driver.client import Client as ClickHouseClient
+import enum
+
+# Optional clickhouse import
+clickhouse_connect = None
+ClickHouseClient = None
+CLICKHOUSE_AVAILABLE = False
+try:
+    import clickhouse_connect as _clickhouse_connect
+    from clickhouse_connect.driver.client import Client as _ClickHouseClient
+    clickhouse_connect = _clickhouse_connect
+    ClickHouseClient = _ClickHouseClient
+    CLICKHOUSE_AVAILABLE = True
+except ImportError:
+    pass
 
 # Add shared library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
@@ -34,16 +46,51 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # =============================================================================
 
+SERVICE_NAME = "analytics-service"
+SERVICE_VERSION = "1.0.0"
+SERVICE_PORT = 8016
+
 CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "localhost")
 CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "dollor")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "dollor_analytics_pass")
 CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "dollor_analytics")
+CLICKHOUSE_URL = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}"
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 ENABLE_KAFKA = os.getenv("ENABLE_KAFKA", "false").lower() == "true"
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+
+# =============================================================================
+# ENUMS
+# =============================================================================
+
+class MetricType(str, enum.Enum):
+    """Types of analytics metrics"""
+    ORDERS = "orders"
+    RIDES = "rides"
+    REVENUE = "revenue"
+    DRIVERS = "drivers"
+    CUSTOMERS = "customers"
+
+
+class TimeRange(str, enum.Enum):
+    """Pre-defined time ranges for queries"""
+    HOUR = "hour"
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    QUARTER = "quarter"
+    YEAR = "year"
+
+
+class ExportFormat(str, enum.Enum):
+    """Supported export formats"""
+    JSON = "json"
+    CSV = "csv"
+    EXCEL = "excel"
 
 
 # =============================================================================
@@ -54,10 +101,14 @@ class ClickHouseManager:
     """Manages ClickHouse connection and queries."""
 
     def __init__(self):
-        self._client: Optional[ClickHouseClient] = None
+        self._client = None
 
     def connect(self):
         """Connect to ClickHouse."""
+        if not CLICKHOUSE_AVAILABLE or not clickhouse_connect:
+            logger.warning("ClickHouse client not available")
+            return
+
         try:
             self._client = clickhouse_connect.get_client(
                 host=CLICKHOUSE_HOST,
@@ -109,10 +160,31 @@ def get_clickhouse() -> ClickHouseManager:
 # PYDANTIC MODELS
 # =============================================================================
 
-class TimeRange(BaseModel):
+class TimeRangeQuery(BaseModel):
     """Time range for queries."""
     start: datetime = Field(default_factory=lambda: datetime.utcnow() - timedelta(days=7))
     end: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AnalyticsQuery(BaseModel):
+    """Model for analytics query parameters"""
+    metric_type: MetricType = MetricType.ORDERS
+    time_range: TimeRange = TimeRange.DAY
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    restaurant_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    customer_id: Optional[int] = None
+    limit: int = Field(default=100, ge=1, le=10000)
+
+
+class ExportRequest(BaseModel):
+    """Model for data export request"""
+    metric_type: MetricType = MetricType.ORDERS
+    start_date: datetime = Field(default_factory=lambda: datetime.utcnow() - timedelta(days=30))
+    end_date: datetime = Field(default_factory=datetime.utcnow)
+    format: ExportFormat = ExportFormat.JSON
+    include_columns: Optional[List[str]] = None
 
 
 class DashboardMetrics(BaseModel):

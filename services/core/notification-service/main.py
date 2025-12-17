@@ -91,6 +91,24 @@ class NotificationType(str, Enum):
     IN_APP = "in_app"
 
 
+class NotificationStatus(str, Enum):
+    """Status of a notification"""
+    PENDING = "pending"
+    SENT = "sent"
+    DELIVERED = "delivered"
+    FAILED = "failed"
+    READ = "read"
+
+
+class NotificationChannel(str, Enum):
+    """Notification delivery channel"""
+    EMAIL = "email"
+    PUSH = "push"
+    SMS = "sms"
+    IN_APP = "in_app"
+    ALL = "all"
+
+
 class NotificationPriority(str, Enum):
     LOW = "low"
     NORMAL = "normal"
@@ -169,6 +187,35 @@ class OrderNotification(BaseModel):
     order_id: int
     notification_type: str  # new_order, order_ready, order_picked_up, order_delivered
     recipient_type: str  # customer, driver, restaurant
+
+
+class NotificationCreate(BaseModel):
+    """Model for creating a generic notification"""
+    user_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    vendor_id: Optional[int] = None
+    notification_type: NotificationType
+    channel: NotificationChannel = NotificationChannel.ALL
+    title: str
+    message: str
+    data: Optional[Dict[str, Any]] = None
+    priority: NotificationPriority = NotificationPriority.NORMAL
+
+
+class NotificationResponse(BaseModel):
+    """Model for notification response"""
+    id: int
+    notification_type: str
+    channel: str
+    title: str
+    message: str
+    status: str
+    created_at: datetime
+    sent_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 # =============================================================================

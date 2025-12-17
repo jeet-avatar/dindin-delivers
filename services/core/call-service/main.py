@@ -67,6 +67,7 @@ TWILIO_PROXY_SERVICE_SID = os.getenv("TWILIO_PROXY_SERVICE_SID", "")
 # Call settings
 MAX_CALL_DURATION_MINUTES = 30
 PROXY_SESSION_DURATION_HOURS = 4  # How long masked numbers remain valid
+SESSION_EXPIRY_HOURS = PROXY_SESSION_DURATION_HOURS  # Alias for backward compatibility
 
 # =============================================================================
 # LOGGING
@@ -119,6 +120,12 @@ class CallStatus(str, enum.Enum):
 class ParticipantType(str, enum.Enum):
     CUSTOMER = "customer"
     DRIVER = "driver"
+
+
+class CallDirection(str, enum.Enum):
+    """Direction of the call"""
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
 
 # =============================================================================
 # DATABASE MODELS
@@ -224,6 +231,12 @@ class CallLogResponse(BaseModel):
     duration_seconds: Optional[int]
     started_at: str
     ended_at: Optional[str]
+
+
+# Model aliases for backward compatibility
+CallSessionCreate = CreateSessionRequest
+CallInitiate = InitiateCallRequest
+
 
 # =============================================================================
 # PHONE MASKING HELPERS

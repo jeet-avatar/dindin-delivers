@@ -60,6 +60,7 @@ stripe.api_key = STRIPE_SECRET_KEY
 # Platform fees
 PLATFORM_FEE_PERCENTAGE = float(os.getenv("PLATFORM_FEE_PERCENTAGE", "15"))  # 15% platform fee
 STRIPE_FEE_PERCENTAGE = float(os.getenv("STRIPE_FEE_PERCENTAGE", "2.9"))  # 2.9% + $0.30
+STRIPE_FEE_PERCENT = STRIPE_FEE_PERCENTAGE  # Alias for backward compatibility
 STRIPE_FEE_FIXED = float(os.getenv("STRIPE_FEE_FIXED", "0.30"))  # $0.30
 
 # =============================================================================
@@ -88,6 +89,24 @@ class PaymentStatus(enum.Enum):
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class PaymentMethod(enum.Enum):
+    """Payment method types supported by Dollor.ai"""
+    CARD = "card"
+    APPLE_PAY = "apple_pay"
+    GOOGLE_PAY = "google_pay"
+    BANK_TRANSFER = "bank_transfer"
+    CASH = "cash"  # For cash on delivery
+
+
+class RefundStatus(enum.Enum):
+    """Refund status for payment refunds"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class Payment(Base):
@@ -220,6 +239,17 @@ class PaymentIntentCreate(BaseModel):
     customer_email: Optional[str] = None
     customer_id: Optional[str] = None
     order_id: Optional[int] = None
+    metadata: Optional[dict] = None
+
+
+class PaymentCreate(BaseModel):
+    """Model for creating a payment record"""
+    amount: float = Field(..., gt=0, description="Payment amount")
+    order_id: Optional[int] = None
+    customer_id: Optional[int] = None
+    payment_method: Optional[str] = Field(default="card", description="Payment method")
+    currency: str = Field(default="usd", description="Currency code")
+    description: Optional[str] = None
     metadata: Optional[dict] = None
 
 

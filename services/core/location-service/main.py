@@ -33,10 +33,38 @@ from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, create_engine, Index
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-import redis
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
-from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+from typing import TYPE_CHECKING
+
+# Optional imports - gracefully handle missing dependencies
+redis = None
+redis_exceptions = None
+REDIS_AVAILABLE = False
+RedisType = Any  # Type hint for Redis client
+try:
+    import redis as _redis
+    redis = _redis
+    redis_exceptions = _redis.exceptions
+    RedisType = _redis.Redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    pass
+
+Nominatim = None
+geodesic = None
+GeocoderTimedOut = None
+GeocoderServiceError = None
+GEOPY_AVAILABLE = False
+try:
+    from geopy.geocoders import Nominatim as _Nominatim
+    from geopy.distance import geodesic as _geodesic
+    from geopy.exc import GeocoderTimedOut as _GeocoderTimedOut, GeocoderServiceError as _GeocoderServiceError
+    Nominatim = _Nominatim
+    geodesic = _geodesic
+    GeocoderTimedOut = _GeocoderTimedOut
+    GeocoderServiceError = _GeocoderServiceError
+    GEOPY_AVAILABLE = True
+except ImportError:
+    pass
 
 # Add shared library to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
@@ -74,6 +102,7 @@ SERVICE_AREA_RADIUS_KM = float(os.getenv("SERVICE_AREA_RADIUS_KM", "50"))
 # Delivery settings
 MAX_DELIVERY_RADIUS_KM = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "10"))
 AVERAGE_SPEED_KMH = float(os.getenv("AVERAGE_SPEED_KMH", "40"))  # Average delivery speed
+MAX_LOCATION_AGE = int(os.getenv("MAX_LOCATION_AGE", "300"))  # 5 minutes - max age for location data
 
 # =============================================================================
 # DATABASE SETUP
@@ -97,7 +126,12 @@ def get_db():
 # REDIS SETUP
 # =============================================================================
 
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+redis_client = None
+if REDIS_AVAILABLE:
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    except Exception:
+        pass
 
 
 def get_redis():
@@ -231,6 +265,10 @@ class LocationResponse(BaseModel):
         from_attributes = True
 
 
+# Alias for backward compatibility
+DriverLocationResponse = LocationResponse
+
+
 class GeocodeRequest(BaseModel):
     address: str = Field(..., min_length=5, max_length=500)
 
@@ -343,7 +381,9 @@ app = MicroserviceFactory.create(
 )
 
 # Initialize geocoder
-geocoder = Nominatim(user_agent=GEOCODING_USER_AGENT)
+geocoder = None
+if GEOPY_AVAILABLE and Nominatim:
+    geocoder = Nominatim(user_agent=GEOCODING_USER_AGENT)
 
 
 # =============================================================================
@@ -355,9 +395,22 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     Calculate distance between two points using geodesic distance.
     Returns distance in kilometers.
     """
-    point1 = (lat1, lon1)
-    point2 = (lat2, lon2)
-    return geodesic(point1, point2).kilometers
+    if GEOPY_AVAILABLE and geodesic:
+        point1 = (lat1, lon1)
+        point2 = (lat2, lon2)
+        return geodesic(point1, point2).kilometers
+    else:
+        # Fallback: Haversine formula
+        R = 6371  # Earth's radius in kilometers
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+
+        a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return R * c
 
 
 def calculate_eta(distance_km: float, speed_kmh: float = AVERAGE_SPEED_KMH) -> int:
@@ -396,7 +449,7 @@ async def update_driver_location(
     location: LocationUpdate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    redis_db: redis.Redis = Depends(get_redis)
+    redis_db: RedisType = Depends(get_redis)
 ):
     """Update driver's current location"""
 
@@ -465,7 +518,7 @@ async def update_driver_location(
 async def get_driver_location(
     driver_id: int,
     db: Session = Depends(get_db),
-    redis_db: redis.Redis = Depends(get_redis)
+    redis_db: RedisType = Depends(get_redis)
 ):
     """Get current location of a driver"""
 
@@ -547,7 +600,7 @@ async def get_driver_location_history(
 async def find_nearby_drivers(
     request: NearbyDriversRequest,
     db: Session = Depends(get_db),
-    redis_db: redis.Redis = Depends(get_redis)
+    redis_db: RedisType = Depends(get_redis)
 ):
     """Find drivers within a specified radius"""
 
@@ -1021,7 +1074,7 @@ async def get_service_area():
 @app.delete("/api/locations/driver/{driver_id}/clear-cache")
 async def clear_driver_location_cache(
     driver_id: int,
-    redis_db: redis.Redis = Depends(get_redis)
+    redis_db: RedisType = Depends(get_redis)
 ):
     """Clear cached location for a driver"""
 

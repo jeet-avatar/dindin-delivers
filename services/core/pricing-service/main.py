@@ -102,6 +102,31 @@ PLATFORM_FEE_RIDE_PERCENTAGE = 0.0  # Using tiered fees instead
 TAX_RATE = 0.0825  # 8.25% tax (California default)
 TIP_PLATFORM_FEE = 0.00  # 0% - 100% of tips go to drivers
 
+# Backward compatibility aliases
+BASE_FARE = MINIMUM_RIDE_FARE
+PER_MILE_RATE = BASE_FARE_PER_MILE
+PER_MINUTE_RATE = BASE_FARE_PER_MINUTE
+
+
+# =============================================================================
+# ENUMS
+# =============================================================================
+
+class PricingModel(str, enum.Enum):
+    """Pricing model types"""
+    MATCHMAKING = "matchmaking"
+    COMMISSION = "commission"
+    SUBSCRIPTION = "subscription"
+
+
+class SurgeLevel(str, enum.Enum):
+    """Surge pricing levels"""
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    EXTREME = "extreme"
+
 
 def get_food_platform_fee(order_value: float) -> float:
     """
@@ -465,6 +490,41 @@ class PromoCodeValidation(BaseModel):
     message: str
 
 
+# Test-required models (backward compatibility)
+class FareEstimate(BaseModel):
+    """Fare estimate model for rides"""
+    distance_miles: float = Field(..., ge=0, description="Distance in miles")
+    duration_minutes: float = Field(..., ge=0, description="Duration in minutes")
+    base_fare: float = Field(..., ge=0, description="Base fare amount")
+    distance_fare: float = Field(default=0.0, ge=0, description="Distance-based fare")
+    time_fare: float = Field(default=0.0, ge=0, description="Time-based fare")
+    surge_multiplier: float = Field(default=1.0, ge=1.0, description="Surge pricing multiplier")
+    surge_amount: float = Field(default=0.0, ge=0, description="Surge amount added")
+    platform_fee: float = Field(default=0.0, ge=0, description="Platform fee")
+    tax: float = Field(default=0.0, ge=0, description="Tax amount")
+    total_fare: float = Field(..., ge=0, description="Total fare")
+    currency: str = Field(default="usd", description="Currency code")
+
+
+class PricingRequest(BaseModel):
+    """Request model for fare calculation"""
+    pickup_latitude: float = Field(..., ge=-90, le=90)
+    pickup_longitude: float = Field(..., ge=-180, le=180)
+    dropoff_latitude: float = Field(..., ge=-90, le=90)
+    dropoff_longitude: float = Field(..., ge=-180, le=180)
+    service_type: str = Field(default="ride", description="Type of service: ride or delivery")
+    customer_id: Optional[str] = None
+    promo_code: Optional[str] = None
+
+
+class SurgePricing(BaseModel):
+    """Surge pricing information"""
+    level: SurgeLevel = Field(default=SurgeLevel.NONE, description="Surge level")
+    multiplier: float = Field(default=1.0, ge=1.0, le=5.0, description="Surge multiplier")
+    reason: Optional[str] = Field(default=None, description="Reason for surge")
+    expires_at: Optional[datetime] = None
+
+
 # =============================================================================
 # CREATE MICROSERVICE
 # =============================================================================
@@ -569,6 +629,75 @@ def calculate_tip_suggestions(subtotal: float) -> List[dict]:
             "amount": amount
         })
     return tips
+
+
+# Test-required helper functions
+def calculate_base_fare(distance_miles: float = 0.0, service_type: str = "ride") -> float:
+    """
+    Calculate base fare for a ride or delivery.
+
+    Args:
+        distance_miles: Distance in miles (not used for base fare, but included for interface consistency)
+        service_type: Type of service ("ride" or "delivery")
+
+    Returns:
+        Base fare amount
+    """
+    if service_type == "delivery":
+        return BASE_DELIVERY_FEE
+    return BASE_FARE  # MINIMUM_RIDE_FARE
+
+
+def calculate_distance_fare(distance_miles: float, rate_per_mile: float = None) -> float:
+    """
+    Calculate distance-based fare component.
+
+    Args:
+        distance_miles: Distance in miles
+        rate_per_mile: Rate per mile (defaults to PER_MILE_RATE)
+
+    Returns:
+        Distance-based fare amount
+    """
+    if rate_per_mile is None:
+        rate_per_mile = PER_MILE_RATE
+    return round(distance_miles * rate_per_mile, 2)
+
+
+def calculate_time_fare(duration_minutes: float, rate_per_minute: float = None) -> float:
+    """
+    Calculate time-based fare component.
+
+    Args:
+        duration_minutes: Duration in minutes
+        rate_per_minute: Rate per minute (defaults to PER_MINUTE_RATE)
+
+    Returns:
+        Time-based fare amount
+    """
+    if rate_per_minute is None:
+        rate_per_minute = PER_MINUTE_RATE
+    return round(duration_minutes * rate_per_minute, 2)
+
+
+def apply_surge(base_amount: float, surge_multiplier: float = 1.0) -> tuple:
+    """
+    Apply surge pricing multiplier to a base amount.
+
+    Args:
+        base_amount: Base fare amount before surge
+        surge_multiplier: Surge multiplier (1.0 = no surge, 2.0 = 2x surge)
+
+    Returns:
+        Tuple of (surged_amount, surge_difference)
+    """
+    if surge_multiplier < 1.0:
+        surge_multiplier = 1.0
+
+    surged_amount = round(base_amount * surge_multiplier, 2)
+    surge_difference = round(surged_amount - base_amount, 2)
+
+    return (surged_amount, surge_difference)
 
 
 # =============================================================================
