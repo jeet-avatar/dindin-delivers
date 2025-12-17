@@ -1,3 +1,6 @@
+# Dollor.ai Order Service - ArgoCD Application (Staging)
+# ======================================================
+# CQRS-enabled order processing with Kafka, Elasticsearch, Redis
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -5,25 +8,50 @@ metadata:
   namespace: argocd
   labels:
     app.kubernetes.io/name: order-service
-    app.kubernetes.io/env: staging
+    app.kubernetes.io/component: cqrs-microservice
     app.kubernetes.io/part-of: dollor-platform
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: dollor-staging
+
   source:
-    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
-    targetRevision: main
-    path: infrastructure/kubernetes/services/order-service
-    kustomize:
-      images:
-        - name: dollor/order-service
-          newTag: staging
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/order-service/overlays/staging
+
   destination:
     server: https://kubernetes.default.svc
-    namespace: dollor-staging
+    namespace: staging
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+      allowEmpty: false
     syncOptions:
       - CreateNamespace=true
-      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health checks
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "CQRS Order Service with Kafka events and Elasticsearch projections"
+    - name: Port
+      value: "8005"
+    - name: Architecture
+      value: "CQRS + Event Sourcing"
