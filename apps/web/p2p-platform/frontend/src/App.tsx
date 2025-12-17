@@ -37,6 +37,11 @@ import DriverDeliveries from './app/screens/driver/Deliveries';
 import DriverEarnings from './app/screens/driver/Earnings';
 import CustomerDashboard from './app/screens/customer/Dashboard';
 import RideBooking from './app/screens/customer/RideBooking';
+import Restaurants from './app/screens/customer/Restaurants';
+import RestaurantDetail from './app/screens/customer/RestaurantDetail';
+import Cart from './app/screens/customer/Cart';
+import Checkout from './app/screens/customer/Checkout';
+import OrderTracking from './app/screens/customer/OrderTracking';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user: _user } = useUser();
@@ -120,10 +125,16 @@ function App() {
           <Route index element={<Navigate to="/customer/dashboard" replace />} />
           <Route path="dashboard" element={<CustomerDashboard />} />
           <Route path="ride" element={<RideBooking />} />
+          <Route path="restaurants" element={<Restaurants />} />
+          <Route path="restaurant/:id" element={<RestaurantDetail />} />
+          <Route path="cart" element={<Cart />} />
+          <Route path="checkout" element={<Checkout />} />
+          <Route path="order-tracking" element={<OrderTracking />} />
+          <Route path="order-tracking/:orderId" element={<OrderTracking />} />
           <Route path="history" element={<CustomerDashboard />} />
           <Route path="wallet" element={<CustomerDashboard />} />
           <Route path="promotions" element={<CustomerDashboard />} />
-          <Route path="support" element={<CustomerDashboard />} />
+          <Route path="support" element={<HelpSupport />} />
           <Route path="settings" element={<CustomerDashboard />} />
         </Route>
 

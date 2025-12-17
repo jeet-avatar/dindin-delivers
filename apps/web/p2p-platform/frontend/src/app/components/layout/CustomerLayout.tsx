@@ -12,7 +12,9 @@ import {
   MenuUnfoldOutlined,
   BellOutlined,
   GiftOutlined,
-  CustomerServiceOutlined
+  CustomerServiceOutlined,
+  ShopOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -62,14 +64,24 @@ const CustomerLayout: React.FC = () => {
       label: 'Home',
     },
     {
+      key: '/customer/restaurants',
+      icon: <ShopOutlined />,
+      label: 'Order Food',
+    },
+    {
       key: '/customer/ride',
       icon: <CarOutlined />,
       label: 'Book a Ride',
     },
     {
+      key: '/customer/order-tracking',
+      icon: <EnvironmentOutlined />,
+      label: 'Track Order',
+    },
+    {
       key: '/customer/history',
       icon: <HistoryOutlined />,
-      label: 'Ride History',
+      label: 'Order History',
     },
     {
       key: '/customer/wallet',
