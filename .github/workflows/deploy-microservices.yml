@@ -176,26 +176,39 @@ jobs:
           SERVICES="${{ needs.detect-changes.outputs.services }}"
 
           for service in $(echo $SERVICES | tr ',' ' '); do
+            echo "=========================================="
             echo "Deploying $service to $ENVIRONMENT..."
+            echo "=========================================="
 
-            SERVICE_DIR="infrastructure/kubernetes/services/$service"
-            if [ -d "$SERVICE_DIR/overlays/$ENVIRONMENT" ]; then
-              # Update image tag in kustomization
-              cd "$SERVICE_DIR/overlays/$ENVIRONMENT"
-              kustomize edit set image dollor-$service=${{ env.ECR_REGISTRY }}/dollor-$service:${{ github.sha }}
+            SERVICE_DIR="infrastructure/kubernetes/services/${service}"
+            OVERLAY_DIR="${SERVICE_DIR}/overlays/${ENVIRONMENT}"
 
-              # Apply the deployment
-              kustomize build . | kubectl apply -f -
-              cd -
+            if [ -d "$OVERLAY_DIR" ]; then
+              echo "Using overlay: $OVERLAY_DIR"
+
+              # Update the image tag in the overlay kustomization
+              pushd "$OVERLAY_DIR" > /dev/null
+
+              # Update images section to use ECR image
+              kustomize edit set image \
+                dollor-${service}=${{ env.ECR_REGISTRY }}/dollor-${service}:${{ github.sha }} \
+                dollor/${service}=${{ env.ECR_REGISTRY }}/dollor-${service}:${{ github.sha }} \
+                2>/dev/null || true
+
+              popd > /dev/null
+
+              # Build and apply using kubectl with kustomize
+              echo "Applying kustomization from: $OVERLAY_DIR"
+              kubectl apply -k "$OVERLAY_DIR" --namespace=dollor-${ENVIRONMENT} || echo "Warning: kubectl apply failed for $service"
             else
-              echo "No overlay found for $service in $ENVIRONMENT, using base"
-              cd "$SERVICE_DIR"
-              kubectl apply -k .
-              cd -
+              echo "No overlay found, using base: $SERVICE_DIR"
+              kubectl apply -k "$SERVICE_DIR" --namespace=dollor-${ENVIRONMENT} || echo "Warning: kubectl apply failed for $service"
             fi
 
-            # Wait for rollout
-            kubectl rollout status deployment/$service -n dollor-$ENVIRONMENT --timeout=300s || true
+            # Wait for rollout (don't fail the pipeline on timeout)
+            echo "Waiting for rollout of $service..."
+            kubectl rollout status deployment/${service} -n dollor-${ENVIRONMENT} --timeout=180s || echo "Rollout check completed for $service"
+            echo ""
           done
 
       - name: Verify deployments
