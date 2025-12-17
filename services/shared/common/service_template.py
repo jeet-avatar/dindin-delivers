@@ -19,12 +19,19 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import CONTENT_TYPE_LATEST
+
+# Optional prometheus_client import
+CONTENT_TYPE_LATEST = "text/plain"
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST as _CONTENT_TYPE_LATEST
+    CONTENT_TYPE_LATEST = _CONTENT_TYPE_LATEST
+except ImportError:
+    pass
 
 # Import shared components
 from .logging.logger import create_logger, set_correlation_id
 from .tracing.middleware import configure_tracing, TracingMiddleware
-from .metrics.prometheus import MetricsCollector, get_metrics_endpoint, metrics_middleware
+from .metrics.prometheus import MetricsCollector, get_metrics_endpoint, metrics_middleware, PROMETHEUS_AVAILABLE
 from .health.checks import HealthChecker
 from .errors.error_codes import ErrorResponse, SystemErrors
 

@@ -16,27 +16,102 @@ import time
 from functools import wraps
 from typing import Callable, Optional
 
-from prometheus_client import Counter, Histogram, Gauge, Summary, Info, REGISTRY
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+# Optional prometheus_client import for CI/CD environments
+PROMETHEUS_AVAILABLE = False
+Counter = None
+Histogram = None
+Gauge = None
+Summary = None
+Info = None
+REGISTRY = None
+generate_latest = None
+CONTENT_TYPE_LATEST = "text/plain"
+
+try:
+    from prometheus_client import Counter as _Counter, Histogram as _Histogram
+    from prometheus_client import Gauge as _Gauge, Summary as _Summary
+    from prometheus_client import Info as _Info, REGISTRY as _REGISTRY
+    from prometheus_client import generate_latest as _generate_latest
+    from prometheus_client import CONTENT_TYPE_LATEST as _CONTENT_TYPE_LATEST
+    Counter = _Counter
+    Histogram = _Histogram
+    Gauge = _Gauge
+    Summary = _Summary
+    Info = _Info
+    REGISTRY = _REGISTRY
+    generate_latest = _generate_latest
+    CONTENT_TYPE_LATEST = _CONTENT_TYPE_LATEST
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    pass
+
+
+# Mock metric classes for when prometheus_client is not available
+class MockMetric:
+    """Mock metric that does nothing (for CI/CD environments)."""
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def labels(self, **kwargs):
+        return self
+
+    def inc(self, amount=1):
+        pass
+
+    def dec(self, amount=1):
+        pass
+
+    def set(self, value):
+        pass
+
+    def observe(self, value):
+        pass
+
+    def info(self, value):
+        pass
+
+
+def _create_counter(*args, **kwargs):
+    if PROMETHEUS_AVAILABLE and Counter:
+        return Counter(*args, **kwargs)
+    return MockMetric()
+
+
+def _create_histogram(*args, **kwargs):
+    if PROMETHEUS_AVAILABLE and Histogram:
+        return Histogram(*args, **kwargs)
+    return MockMetric()
+
+
+def _create_gauge(*args, **kwargs):
+    if PROMETHEUS_AVAILABLE and Gauge:
+        return Gauge(*args, **kwargs)
+    return MockMetric()
+
+
+def _create_info(*args, **kwargs):
+    if PROMETHEUS_AVAILABLE and Info:
+        return Info(*args, **kwargs)
+    return MockMetric()
 
 # =============================================================================
 # HTTP METRICS
 # =============================================================================
 
-HTTP_REQUEST_TOTAL = Counter(
+HTTP_REQUEST_TOTAL = _create_counter(
     "http_requests_total",
     "Total HTTP requests",
     ["service", "method", "endpoint", "status_code", "environment"]
 )
 
-HTTP_REQUEST_DURATION = Histogram(
+HTTP_REQUEST_DURATION = _create_histogram(
     "http_request_duration_seconds",
     "HTTP request latency in seconds",
     ["service", "method", "endpoint", "environment"],
     buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0)
 )
 
-HTTP_REQUESTS_IN_PROGRESS = Gauge(
+HTTP_REQUESTS_IN_PROGRESS = _create_gauge(
     "http_requests_in_progress",
     "Number of HTTP requests currently being processed",
     ["service", "method", "endpoint", "environment"]
@@ -47,26 +122,26 @@ HTTP_REQUESTS_IN_PROGRESS = Gauge(
 # DATABASE METRICS
 # =============================================================================
 
-DB_QUERY_TOTAL = Counter(
+DB_QUERY_TOTAL = _create_counter(
     "db_queries_total",
     "Total database queries",
     ["service", "operation", "table", "environment"]
 )
 
-DB_QUERY_DURATION = Histogram(
+DB_QUERY_DURATION = _create_histogram(
     "db_query_duration_seconds",
     "Database query latency in seconds",
     ["service", "operation", "table", "environment"],
     buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5)
 )
 
-DB_CONNECTIONS = Gauge(
+DB_CONNECTIONS = _create_gauge(
     "db_connections",
     "Number of database connections",
     ["service", "state", "environment"]  # state: active, idle, total
 )
 
-DB_ERRORS = Counter(
+DB_ERRORS = _create_counter(
     "db_errors_total",
     "Total database errors",
     ["service", "operation", "error_type", "environment"]
@@ -77,13 +152,13 @@ DB_ERRORS = Counter(
 # CACHE METRICS
 # =============================================================================
 
-CACHE_OPERATIONS = Counter(
+CACHE_OPERATIONS = _create_counter(
     "cache_operations_total",
     "Total cache operations",
     ["service", "operation", "result", "environment"]  # result: hit, miss
 )
 
-CACHE_LATENCY = Histogram(
+CACHE_LATENCY = _create_histogram(
     "cache_latency_seconds",
     "Cache operation latency",
     ["service", "operation", "environment"],
@@ -95,20 +170,20 @@ CACHE_LATENCY = Histogram(
 # MESSAGE QUEUE METRICS
 # =============================================================================
 
-QUEUE_MESSAGES = Counter(
+QUEUE_MESSAGES = _create_counter(
     "queue_messages_total",
     "Total messages processed",
     ["service", "queue", "operation", "environment"]  # operation: publish, consume
 )
 
-QUEUE_MESSAGE_LATENCY = Histogram(
+QUEUE_MESSAGE_LATENCY = _create_histogram(
     "queue_message_latency_seconds",
     "Message processing latency",
     ["service", "queue", "environment"],
     buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0)
 )
 
-QUEUE_DEPTH = Gauge(
+QUEUE_DEPTH = _create_gauge(
     "queue_depth",
     "Number of messages in queue",
     ["service", "queue", "environment"]
@@ -120,32 +195,32 @@ QUEUE_DEPTH = Gauge(
 # =============================================================================
 
 # Order metrics
-ORDERS_CREATED = Counter(
+ORDERS_CREATED = _create_counter(
     "orders_created_total",
     "Total orders created",
     ["service", "environment", "status"]
 )
 
-ORDERS_COMPLETED = Counter(
+ORDERS_COMPLETED = _create_counter(
     "orders_completed_total",
     "Total orders completed",
     ["service", "environment"]
 )
 
-ORDERS_CANCELLED = Counter(
+ORDERS_CANCELLED = _create_counter(
     "orders_cancelled_total",
     "Total orders cancelled",
     ["service", "environment", "reason"]
 )
 
-ORDER_VALUE = Histogram(
+ORDER_VALUE = _create_histogram(
     "order_value_dollars",
     "Order value in dollars",
     ["service", "environment"],
     buckets=(5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200)
 )
 
-ORDER_PROCESSING_TIME = Histogram(
+ORDER_PROCESSING_TIME = _create_histogram(
     "order_processing_time_seconds",
     "Time from order creation to delivery",
     ["service", "environment"],
@@ -153,26 +228,26 @@ ORDER_PROCESSING_TIME = Histogram(
 )
 
 # Driver metrics
-ACTIVE_DRIVERS = Gauge(
+ACTIVE_DRIVERS = _create_gauge(
     "active_drivers_count",
     "Number of active drivers",
     ["service", "environment", "city"]
 )
 
-DRIVER_DELIVERIES = Counter(
+DRIVER_DELIVERIES = _create_counter(
     "driver_deliveries_total",
     "Total deliveries by drivers",
     ["service", "environment"]
 )
 
 # Payment metrics
-PAYMENTS_PROCESSED = Counter(
+PAYMENTS_PROCESSED = _create_counter(
     "payments_processed_total",
     "Total payments processed",
     ["service", "environment", "status", "method"]
 )
 
-PAYMENT_AMOUNT = Histogram(
+PAYMENT_AMOUNT = _create_histogram(
     "payment_amount_dollars",
     "Payment amount in dollars",
     ["service", "environment"],
@@ -184,13 +259,13 @@ PAYMENT_AMOUNT = Histogram(
 # ERROR METRICS
 # =============================================================================
 
-ERRORS_TOTAL = Counter(
+ERRORS_TOTAL = _create_counter(
     "errors_total",
     "Total errors by error code",
     ["service", "error_code", "category", "environment"]
 )
 
-EXCEPTIONS_TOTAL = Counter(
+EXCEPTIONS_TOTAL = _create_counter(
     "exceptions_total",
     "Total unhandled exceptions",
     ["service", "exception_type", "environment"]
@@ -201,7 +276,7 @@ EXCEPTIONS_TOTAL = Counter(
 # SERVICE INFO
 # =============================================================================
 
-SERVICE_INFO = Info(
+SERVICE_INFO = _create_info(
     "service",
     "Service information"
 )
@@ -475,7 +550,9 @@ def get_metrics_endpoint():
                 media_type=CONTENT_TYPE_LATEST
             )
     """
-    return generate_latest()
+    if PROMETHEUS_AVAILABLE and generate_latest:
+        return generate_latest()
+    return b"# Prometheus metrics not available"
 
 
 def metrics_middleware(service_name: str, environment: str):
