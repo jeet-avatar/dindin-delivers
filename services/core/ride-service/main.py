@@ -289,6 +289,61 @@ class RidePool(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class DriverVerification(Base):
+    """
+    Driver verification records - LEGAL COMPLIANCE
+
+    All rideshare drivers must be verified before accepting rides.
+    This includes license, vehicle registration, insurance, and background check.
+
+    MATCHMAKING DISCLAIMER: Dollor.ai facilitates connections between riders
+    and independent driver partners. Drivers are independent contractors
+    responsible for maintaining their own compliance with local regulations.
+    """
+    __tablename__ = "driver_verifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    driver_id = Column(Integer, unique=True, index=True)
+
+    # Driver License
+    license_number = Column(String(50))
+    license_state = Column(String(10))
+    license_expiry = Column(DateTime)
+    license_class = Column(String(20))  # A, B, C, CDL, etc.
+    license_status = Column(SQLEnum(DriverLicenseStatus), default=DriverLicenseStatus.PENDING)
+    license_verified_at = Column(DateTime, nullable=True)
+
+    # Vehicle Registration
+    vehicle_registration_number = Column(String(50))
+    vehicle_registration_state = Column(String(10))
+    vehicle_registration_expiry = Column(DateTime)
+    vehicle_vin = Column(String(20))  # Vehicle Identification Number
+    vehicle_type = Column(SQLEnum(VehicleType), default=VehicleType.CAR)
+    registration_status = Column(SQLEnum(VehicleRegistrationStatus), default=VehicleRegistrationStatus.PENDING)
+    registration_verified_at = Column(DateTime, nullable=True)
+
+    # Insurance
+    insurance_provider = Column(String(100))
+    insurance_policy_number = Column(String(50))
+    insurance_expiry = Column(DateTime)
+    insurance_coverage_amount = Column(Float)  # Minimum varies by state
+    insurance_verified = Column(Boolean, default=False)
+    insurance_verified_at = Column(DateTime, nullable=True)
+
+    # Background Check
+    background_check_consent = Column(Boolean, default=False)
+    background_check_date = Column(DateTime, nullable=True)
+    background_check_passed = Column(Boolean, nullable=True)
+    background_check_provider = Column(String(100), nullable=True)
+
+    # Overall Status
+    is_eligible_to_drive = Column(Boolean, default=False)
+    eligibility_notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # =============================================================================
 # PYDANTIC MODELS
 # =============================================================================
@@ -1171,6 +1226,126 @@ async def get_driver_ride_stats(driver_id: int, db: Session = Depends(get_db)):
         "average_rating": round(float(avg_rating), 2) if avg_rating else None,
         "cancellations": cancellation_rate
     }
+
+
+# =============================================================================
+# DRIVER VERIFICATION ENDPOINTS
+# =============================================================================
+
+@app.post("/api/drivers/verification")
+async def submit_driver_verification(
+    verification: DriverVerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Submit driver verification documents
+
+    LEGAL REQUIREMENTS (per matchmaking model):
+    - Valid driver's license
+    - Vehicle registration
+    - Auto insurance meeting state minimums
+    - Background check consent
+
+    Drivers are independent contractors responsible for maintaining
+    compliance with local regulations.
+    """
+    # Check if verification already exists
+    existing = db.query(DriverVerification).filter(
+        DriverVerification.driver_id == verification.driver_id
+    ).first()
+
+    if existing:
+        # Update existing verification
+        existing.license_number = verification.license_number
+        existing.license_state = verification.license_state
+        existing.license_expiry = datetime.fromisoformat(verification.license_expiry)
+        existing.license_class = verification.license_class
+        existing.license_status = DriverLicenseStatus.PENDING
+
+        existing.vehicle_registration_number = verification.vehicle_registration_number
+        existing.vehicle_registration_state = verification.vehicle_registration_state
+        existing.vehicle_registration_expiry = datetime.fromisoformat(verification.vehicle_registration_expiry)
+        existing.vehicle_vin = verification.vehicle_vin
+        existing.registration_status = VehicleRegistrationStatus.PENDING
+
+        existing.insurance_provider = verification.insurance_provider
+        existing.insurance_policy_number = verification.insurance_policy_number
+        existing.insurance_expiry = datetime.fromisoformat(verification.insurance_expiry)
+        existing.insurance_coverage_amount = verification.insurance_coverage_amount
+        existing.insurance_verified = False
+
+        existing.background_check_consent = verification.background_check_consent
+        existing.is_eligible_to_drive = False
+
+        db.commit()
+        db.refresh(existing)
+
+        logger.info(f"Driver {verification.driver_id} verification updated")
+        return {"message": "Verification documents updated", "driver_id": verification.driver_id}
+
+    # Create new verification
+    new_verification = DriverVerification(
+        driver_id=verification.driver_id,
+        license_number=verification.license_number,
+        license_state=verification.license_state,
+        license_expiry=datetime.fromisoformat(verification.license_expiry),
+        license_class=verification.license_class,
+        license_status=DriverLicenseStatus.PENDING,
+        vehicle_registration_number=verification.vehicle_registration_number,
+        vehicle_registration_state=verification.vehicle_registration_state,
+        vehicle_registration_expiry=datetime.fromisoformat(verification.vehicle_registration_expiry),
+        vehicle_vin=verification.vehicle_vin,
+        registration_status=VehicleRegistrationStatus.PENDING,
+        insurance_provider=verification.insurance_provider,
+        insurance_policy_number=verification.insurance_policy_number,
+        insurance_expiry=datetime.fromisoformat(verification.insurance_expiry),
+        insurance_coverage_amount=verification.insurance_coverage_amount,
+        insurance_verified=False,
+        background_check_consent=verification.background_check_consent,
+        is_eligible_to_drive=False
+    )
+
+    db.add(new_verification)
+    db.commit()
+
+    logger.info(f"Driver {verification.driver_id} verification submitted")
+    return {"message": "Verification documents submitted", "driver_id": verification.driver_id}
+
+
+@app.get("/api/drivers/{driver_id}/verification")
+async def get_driver_verification_status(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get driver verification/compliance status"""
+    verification = db.query(DriverVerification).filter(
+        DriverVerification.driver_id == driver_id
+    ).first()
+
+    if not verification:
+        return DriverComplianceStatus(
+            driver_id=driver_id,
+            license_status="not_submitted",
+            vehicle_registration_status="not_submitted",
+            insurance_status="not_submitted",
+            background_check_status="not_submitted",
+            is_eligible_to_drive=False,
+            compliance_notes="No verification documents on file"
+        )
+
+    return DriverComplianceStatus(
+        driver_id=driver_id,
+        license_status=verification.license_status.value,
+        license_expiry=verification.license_expiry.isoformat() if verification.license_expiry else None,
+        vehicle_registration_status=verification.registration_status.value,
+        vehicle_registration_expiry=verification.vehicle_registration_expiry.isoformat() if verification.vehicle_registration_expiry else None,
+        insurance_status="verified" if verification.insurance_verified else "pending",
+        insurance_expiry=verification.insurance_expiry.isoformat() if verification.insurance_expiry else None,
+        background_check_status="passed" if verification.background_check_passed else ("pending" if verification.background_check_consent else "not_consented"),
+        background_check_date=verification.background_check_date.isoformat() if verification.background_check_date else None,
+        is_eligible_to_drive=verification.is_eligible_to_drive,
+        compliance_notes=verification.eligibility_notes
+    )
 
 
 # =============================================================================
