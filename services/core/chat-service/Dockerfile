@@ -34,6 +34,8 @@ COPY shared /app/shared
 COPY --chown=dollor:dollor core/chat-service/main.py .
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app/shared
 ENV SERVICE_NAME=chat-service
 ENV SERVICE_PORT=8018
 
