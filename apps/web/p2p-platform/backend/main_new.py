@@ -1191,6 +1191,12 @@ class CustomerLoginResponse(BaseModel):
         from_attributes = True
 
 
+class CustomerLoginRequest(BaseModel):
+    """JSON login request for iOS/Android apps"""
+    email: EmailStr
+    password: str
+
+
 @app.post("/api/auth/customer/login")
 def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
@@ -1737,12 +1743,54 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
     }
 
 
-# iOS-compatible customer login endpoint (matches /api/customer/login)
-# Note: This must call customer_auth_login, not customer_login (which queries User table)
+# iOS/Android-compatible customer login endpoint (matches /api/customer/login)
+# Accepts JSON body with email/password (not OAuth2 form data)
 @app.post("/api/customer/login")
-def customer_login_ios(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """iOS-compatible customer login endpoint - delegates to Customer table auth"""
-    return customer_auth_login(form_data, db)
+def customer_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
+    """iOS/Android-compatible customer login endpoint - accepts JSON with email/password"""
+    print(f"Customer JSON login attempt for: {request.email}")
+
+    # Find customer by email
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+
+    if not customer:
+        print(f"Customer not found: {request.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.password_hash or not verify_password(request.password, customer.password_hash):
+        print(f"Password verification failed for customer")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customer account is not active"
+        )
+
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    access_token_expires = timedelta(hours=24)
+    access_token = create_access_token(
+        data={"sub": customer.email, "type": "customer", "id": customer.id},
+        expires_delta=access_token_expires
+    )
+
+    return CustomerLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        customer_id=customer.id,
+        customer_code=customer.customer_code or f"CUST{customer.id:06d}",
+        name=full_name,
+        email=customer.email,
+        phone=customer.phone
+    )
 
 
 # ==================== iOS APP COMPATIBLE ENDPOINTS ====================
@@ -2200,21 +2248,29 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
 
 
 class CustomerGoogleAuthRequest(BaseModel):
+    """Google auth request - accepts id_token from Android/iOS or google_id from web"""
     email: str
     name: str
-    google_id: str
+    google_id: Optional[str] = None
+    id_token: Optional[str] = None  # Android/iOS sends this
+
+    @property
+    def identifier(self) -> str:
+        """Get the Google identifier (id_token takes priority for mobile apps)"""
+        return self.id_token or self.google_id or ""
 
 @app.post("/api/customer/google-auth")
 def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration"""
     print(f"Customer Google auth for: {request.email}")
+    google_identifier = request.identifier
 
     # Check if user exists
     user = db.query(User).filter(User.email == request.email).first()
 
     if not user:
         # Create new user
-        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        hashed_password = get_password_hash(f"google_oauth_{google_identifier}")
         user = User(
             email=request.email,
             password_hash=hashed_password,
