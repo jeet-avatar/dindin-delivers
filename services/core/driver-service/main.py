@@ -367,8 +367,9 @@ async def update_driver_profile(
         updates.append("updated_at = :updated_at")
         params["updated_at"] = datetime.utcnow()
 
+        # Safe: Column names are hardcoded, all values are parameterized
         query = f"UPDATE drivers SET {', '.join(updates)} WHERE id = :driver_id"
-        db.execute(text(query), params)
+        db.execute(text(query), params)  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         db.commit()
 
     logger.info("Driver profile updated", driver_id=driver_id)
@@ -511,10 +512,12 @@ async def find_nearby_drivers(
         sql += " AND vehicle_type = :vehicle_type"
         params["vehicle_type"] = query.vehicle_type.value
 
-    sql += f" HAVING distance_km <= {query.radius_km} ORDER BY distance_km LIMIT :limit"
+    sql += " HAVING distance_km <= :radius_km ORDER BY distance_km LIMIT :limit"
+    params["radius_km"] = query.radius_km
     params["limit"] = query.limit
 
-    results = db.execute(text(sql), params).fetchall()
+    # Safe: All values are parameterized, no user input in SQL structure
+    results = db.execute(text(sql), params).fetchall()  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
 
     return [
         NearbyDriverResponse(
@@ -894,7 +897,8 @@ async def list_drivers(
 
     sql += " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
 
-    results = db.execute(text(sql), params).fetchall()
+    # Safe: All values are parameterized, no user input in SQL structure
+    results = db.execute(text(sql), params).fetchall()  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
 
     return {
         "drivers": [

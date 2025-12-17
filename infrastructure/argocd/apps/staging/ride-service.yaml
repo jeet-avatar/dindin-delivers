@@ -10,9 +10,9 @@ metadata:
 spec:
   project: dollor-staging
   source:
-    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
-    targetRevision: main
-    path: infrastructure/kubernetes/services/ride-service
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/ride-service/overlays/staging
     kustomize:
       images:
         - name: dollor/ride-service
