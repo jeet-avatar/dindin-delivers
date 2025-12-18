@@ -3,6 +3,8 @@ Dollor.ai P2P Platform Backend - Main API Module
 
 This is the primary API server for the Dollor.ai matchmaking platform,
 handling food delivery and rideshare coordination.
+
+Version: 1.0.0
 """
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect
