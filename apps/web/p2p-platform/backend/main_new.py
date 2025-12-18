@@ -4591,6 +4591,215 @@ def get_public_restaurant_detail(
     }
 
 
+# ============================================================================
+# PROMOTIONS API (For Customer App)
+# ============================================================================
+
+@app.get("/api/promotions/featured")
+def get_featured_deals(db: Session = Depends(get_db)):
+    """
+    Get featured deals/promotions for the customer app home screen.
+    Returns promotional deals from restaurants.
+
+    Response format matches Android/iOS FeaturedDealsResponse:
+    {
+        "deals": [
+            {
+                "id": 1,
+                "title": "20% OFF Your First Order",
+                "description": "New customer discount",
+                "image_url": "...",
+                "discount_text": "20% OFF",
+                "restaurant_id": 1,
+                "restaurant_name": "Demo Restaurant",
+                "valid_until": "2025-12-31"
+            }
+        ]
+    }
+    """
+    from datetime import datetime, timedelta
+
+    valid_until = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    deals = []
+
+    # Try to get restaurant-specific deals from database
+    try:
+        from models import Vendor, VendorStatus
+
+        restaurants = db.query(Vendor).filter(
+            Vendor.onboarding_status == VendorStatus.APPROVED,
+            Vendor.cuisine_type.isnot(None)
+        ).limit(10).all()
+
+        deal_templates = [
+            {"discount": "20% OFF", "title": "20% OFF Your First Order", "desc": "New customer welcome discount"},
+            {"discount": "$5 OFF", "title": "$5 OFF Orders Over $25", "desc": "Limited time offer"},
+            {"discount": "FREE DELIVERY", "title": "Free Delivery This Week", "desc": "No delivery fee on all orders"},
+            {"discount": "BOGO", "title": "Buy One Get One Free", "desc": "On select menu items"},
+            {"discount": "15% OFF", "title": "15% OFF Lunch Special", "desc": "Valid 11am - 2pm"},
+        ]
+
+        for idx, restaurant in enumerate(restaurants):
+            template = deal_templates[idx % len(deal_templates)]
+            deals.append({
+                "id": idx + 1,
+                "title": template["title"],
+                "description": template["desc"],
+                "image_url": None,
+                "discount_text": template["discount"],
+                "restaurant_id": restaurant.id,
+                "restaurant_name": restaurant.restaurant_name or restaurant.company_name,
+                "valid_until": valid_until
+            })
+    except Exception as e:
+        # Database not available, will use fallback deals
+        import logging
+        logging.warning(f"Could not fetch restaurants for deals: {e}")
+
+    # If no restaurants or database error, return platform-wide deals
+    if not deals:
+        deals = [
+            {
+                "id": 1,
+                "title": "20% OFF Your First Order",
+                "description": "Welcome to Dollor.ai! Get 20% off your first food delivery order.",
+                "image_url": None,
+                "discount_text": "20% OFF",
+                "restaurant_id": None,
+                "restaurant_name": "All Restaurants",
+                "valid_until": valid_until
+            },
+            {
+                "id": 2,
+                "title": "$1 Delivery Fee",
+                "description": "Flat $1 matchmaking fee on all orders. No hidden charges!",
+                "image_url": None,
+                "discount_text": "$1 FLAT FEE",
+                "restaurant_id": None,
+                "restaurant_name": "Platform-wide",
+                "valid_until": valid_until
+            },
+            {
+                "id": 3,
+                "title": "100% Tips to Drivers",
+                "description": "Your tips go directly to delivery partners. We never take a cut!",
+                "image_url": None,
+                "discount_text": "100% TIPS",
+                "restaurant_id": None,
+                "restaurant_name": "All Deliveries",
+                "valid_until": valid_until
+            }
+        ]
+
+    return {"deals": deals}
+
+
+@app.get("/api/promotions/active")
+def get_active_promotions(db: Session = Depends(get_db)):
+    """
+    Get all active promotions including vendor-specific ones.
+    Used for promo code validation and customer promotions list.
+    """
+    from datetime import datetime, timedelta
+
+    valid_until = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # Platform-wide promotions
+    promotions = [
+        {
+            "id": 1,
+            "code": "WELCOME20",
+            "type": "percentage",
+            "value": 20,
+            "title": "Welcome Discount",
+            "description": "20% off your first order",
+            "min_order": 15.00,
+            "max_discount": 10.00,
+            "valid_until": valid_until,
+            "usage_limit": 1,
+            "is_active": True
+        },
+        {
+            "id": 2,
+            "code": "FREEDELIVERY",
+            "type": "free_delivery",
+            "value": 0,
+            "title": "Free Delivery",
+            "description": "Free delivery on orders over $20",
+            "min_order": 20.00,
+            "max_discount": 5.00,
+            "valid_until": valid_until,
+            "usage_limit": 3,
+            "is_active": True
+        },
+        {
+            "id": 3,
+            "code": "SAVE5",
+            "type": "flat",
+            "value": 5,
+            "title": "$5 Off",
+            "description": "$5 off orders over $25",
+            "min_order": 25.00,
+            "max_discount": 5.00,
+            "valid_until": valid_until,
+            "usage_limit": 2,
+            "is_active": True
+        }
+    ]
+
+    return {
+        "promotions": promotions,
+        "count": len(promotions)
+    }
+
+
+@app.post("/api/promotions/apply")
+def apply_promo_code(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Apply a promo code to an order.
+    Request: { "code": "WELCOME20", "order_total": 30.00 }
+    Response: { "success": true, "discount": 6.00, "message": "..." }
+    """
+    code = request.get("code", "").upper().strip()
+    order_total = float(request.get("order_total", 0))
+
+    # Simple promo code validation (would be database-driven in production)
+    promo_codes = {
+        "WELCOME20": {"type": "percentage", "value": 20, "min_order": 15, "max_discount": 10},
+        "SAVE5": {"type": "flat", "value": 5, "min_order": 25, "max_discount": 5},
+        "FREEDELIVERY": {"type": "free_delivery", "value": 0, "min_order": 20, "max_discount": 5},
+    }
+
+    if code not in promo_codes:
+        return {"success": False, "discount": 0, "message": "Invalid promo code"}
+
+    promo = promo_codes[code]
+
+    if order_total < promo["min_order"]:
+        return {
+            "success": False,
+            "discount": 0,
+            "message": f"Minimum order of ${promo['min_order']:.2f} required"
+        }
+
+    if promo["type"] == "percentage":
+        discount = min(order_total * (promo["value"] / 100), promo["max_discount"])
+    elif promo["type"] == "flat":
+        discount = min(promo["value"], promo["max_discount"])
+    else:  # free_delivery
+        discount = promo["max_discount"]
+
+    return {
+        "success": True,
+        "discount": round(discount, 2),
+        "message": f"Promo code applied! You saved ${discount:.2f}",
+        "new_total": round(order_total - discount, 2)
+    }
+
+
 @app.post("/api/vendors/{vendor_id}/menu/assign-stock-images")
 def assign_stock_images_to_menu(
     vendor_id: int,
