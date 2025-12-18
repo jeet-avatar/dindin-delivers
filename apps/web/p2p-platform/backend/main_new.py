@@ -7,7 +7,7 @@ handling food delivery and rideshare coordination.
 Version: 1.0.1
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -96,9 +96,52 @@ app.add_middleware(
 
 # Health Check Endpoint
 @app.get("/health")
-async def health_check():
-    """Health check endpoint for load balancers and monitoring"""
-    return {"status": "healthy", "service": "p2p-backend", "timestamp": datetime.utcnow().isoformat()}
+@app.get("/api/health")
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Health check endpoint for load balancers and monitoring.
+    Returns:
+    - status: "healthy" or "unhealthy"
+    - service: service name
+    - timestamp: current UTC timestamp
+    - database: database connection status
+    - version: API version
+    """
+    health_status = {
+        "status": "healthy",
+        "service": "p2p-backend",
+        "version": "1.0.1",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": "unknown"
+    }
+
+    # Check database connectivity
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["database"] = f"disconnected: {str(e)[:50]}"
+
+    return health_status
+
+
+@app.get("/api/health/ready")
+async def health_ready(db: Session = Depends(get_db)):
+    """Readiness probe - checks if service is ready to accept traffic"""
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Service not ready: {str(e)[:50]}")
+
+
+@app.get("/api/health/live")
+async def health_live():
+    """Liveness probe - checks if service is running"""
+    return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
 
 # Database Migration Endpoint (protected with secret key)
 @app.post("/api/admin/migrate")
@@ -601,8 +644,18 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 class VendorRegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    full_name: str
-    restaurant_name: str
+    full_name: Optional[str] = None  # iOS/Android might send 'name' instead
+    name: Optional[str] = None       # Alternative field name
+    restaurant_name: Optional[str] = None
+    business_name: Optional[str] = None  # Alternative for restaurant_name
+
+    def get_name(self) -> str:
+        """Get the owner name (prefers full_name, falls back to name)"""
+        return self.full_name or self.name or ""
+
+    def get_restaurant_name(self) -> str:
+        """Get the restaurant name (prefers restaurant_name, falls back to business_name)"""
+        return self.restaurant_name or self.business_name or ""
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
@@ -617,6 +670,41 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
     print(f"Vendor registration attempt for: {request.email}")
 
     try:
+        # Get names using flexible getters (accept both field name variants)
+        owner_name = request.get_name()
+        rest_name = request.get_restaurant_name()
+
+        # Validate required fields
+        if not owner_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Owner name is required (send 'full_name' or 'name')"
+            )
+        if not rest_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Restaurant name is required (send 'restaurant_name' or 'business_name')"
+            )
+
+        # Validate field lengths (database column limits)
+        if len(owner_name) > 255:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Owner name must be 255 characters or less"
+            )
+        if len(rest_name) > 255:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Restaurant name must be 255 characters or less"
+            )
+
+        # Validate password is not empty
+        if not request.password or len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required and cannot be empty"
+            )
+
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
@@ -628,9 +716,9 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         # Create vendor record first
         from models import VendorStatus
         new_vendor = Vendor(
-            company_name=request.restaurant_name,
-            restaurant_name=request.restaurant_name,
-            contact_name=request.full_name or request.restaurant_name,
+            company_name=rest_name,
+            restaurant_name=rest_name,
+            contact_name=owner_name,
             contact_email=request.email,
             onboarding_status=VendorStatus.PENDING,
             street="",
@@ -649,7 +737,7 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         new_user = User(
             email=request.email,
             password_hash=hashed_password,
-            full_name=request.full_name or request.restaurant_name,
+            full_name=owner_name,
             role=UserRole.VENDOR,
             vendor_id=new_vendor.id
         )
@@ -665,8 +753,8 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         try:
             send_vendor_registration_confirmation(
                 to_email=request.email,
-                vendor_name=request.full_name or request.restaurant_name,
-                restaurant_name=request.restaurant_name
+                vendor_name=owner_name,
+                restaurant_name=rest_name
             )
             print(f"Vendor registration email sent to: {request.email}")
         except Exception as e:
@@ -1361,9 +1449,14 @@ class CustomerLoginResponse(BaseModel):
 
 
 class CustomerLoginRequest(BaseModel):
-    """JSON login request for iOS/Android apps"""
-    email: EmailStr
+    """JSON login request for iOS/Android apps - accepts both email and username fields"""
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None  # Some clients send username instead of email
     password: str
+
+    def get_email(self) -> str:
+        """Get the email (prefers email, falls back to username)"""
+        return self.email or self.username or ""
 
 
 @app.post("/api/auth/customer/login")
@@ -1410,63 +1503,145 @@ def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Se
     }
 
 
+# JSON-based customer login (alternative to OAuth2 form data)
+# Accepts both 'email' and 'username' fields for maximum compatibility
+@app.post("/api/auth/customer/login/json")
+def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
+    """Customer login with JSON body - accepts email or username field"""
+    login_email = request.get_email()
+    if not login_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username is required"
+        )
+    print(f"Customer auth JSON login attempt for: {login_email}")
+
+    # Find customer by email
+    customer = db.query(Customer).filter(Customer.email == login_email).first()
+
+    if not customer:
+        print(f"Customer not found: {login_email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.password_hash or not verify_password(request.password, customer.password_hash):
+        print(f"Password verification failed for customer")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not customer.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customer account is not active"
+        )
+
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    print(f"Customer auth JSON login successful for: {customer.email}")
+    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "email": customer.email,
+        "phone": customer.phone
+    }
+
+
 @app.post("/api/auth/customer/register")
 def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
     print(f"Customer registration attempt for: {request.email}")
 
-    # Check if email already exists
-    existing_customer = db.query(Customer).filter(Customer.email == request.email).first()
-    if existing_customer:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # Check if email already exists
+        existing_customer = db.query(Customer).filter(Customer.email == request.email).first()
+        if existing_customer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Validate password is not empty
+        if not request.password or len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required and cannot be empty"
+            )
+
+        # Split name (accepts both 'name' and 'full_name' fields)
+        customer_name = request.get_name()
+        if not customer_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name is required (send 'name' or 'full_name')"
+            )
+        name_parts = customer_name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        hashed_password = get_password_hash(request.password)
+
+        # Generate unique customer code with timestamp to avoid conflicts
+        import time
+        timestamp_suffix = int(time.time() * 1000) % 100000
+        customer_code = f"CUST-{timestamp_suffix:05d}"
+
+        new_customer = Customer(
+            customer_id=customer_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email,
+            phone=request.phone or "",
+            password_hash=hashed_password,
+            is_active=True
         )
+        db.add(new_customer)
+        db.commit()
+        db.refresh(new_customer)
 
-    # Create customer record
-    customer_count = db.query(Customer).count()
-    customer_code = f"CUST-{customer_count + 1:05d}"
+        full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
+        print(f"Customer registration successful for: {new_customer.email}, customer_id: {new_customer.id}")
+        access_token = create_access_token(data={"sub": new_customer.email, "role": "customer", "customer_id": new_customer.id})
 
-    # Split name (accepts both 'name' and 'full_name' fields)
-    customer_name = request.get_name()
-    if not customer_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Name is required (send 'name' or 'full_name')"
-        )
-    name_parts = customer_name.split(" ", 1)
-    first_name = name_parts[0]
-    last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-    hashed_password = get_password_hash(request.password)
-
-    new_customer = Customer(
-        customer_id=customer_code,
-        first_name=first_name,
-        last_name=last_name,
-        email=request.email,
-        phone=request.phone,
-        password_hash=hashed_password,
-        is_active=True
-    )
-    db.add(new_customer)
-    db.commit()
-    db.refresh(new_customer)
-
-    full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
-    print(f"Customer registration successful for: {new_customer.email}, customer_id: {new_customer.id}")
-    access_token = create_access_token(data={"sub": new_customer.email, "role": "customer", "customer_id": new_customer.id})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "customer_id": new_customer.id,
-        "customer_code": customer_code,
-        "name": full_name,
-        "email": new_customer.email,
-        "phone": new_customer.phone,
-        "message": "Registration successful. Welcome to Dollor.ai!"
-    }
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "customer_id": new_customer.id,
+            "customer_code": customer_code,
+            "name": full_name,
+            "email": new_customer.email,
+            "phone": new_customer.phone or "",
+            "message": "Registration successful. Welcome to Dollor.ai!"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Customer auth registration error: {str(e)}")
+        error_msg = str(e).lower()
+        if "unique" in error_msg or "duplicate" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        elif "encoding" in error_msg or "unicode" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid characters in input. Please use standard characters."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Registration failed: {str(e)}"
+            )
 
 
 # Customer Google OAuth
@@ -1919,17 +2094,24 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
 
 
 # iOS/Android-compatible customer login endpoint (matches /api/customer/login)
-# Accepts JSON body with email/password (not OAuth2 form data)
+# Accepts JSON body with email/password OR username/password (not OAuth2 form data)
 @app.post("/api/customer/login")
 def customer_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
-    """iOS/Android-compatible customer login endpoint - accepts JSON with email/password"""
-    print(f"Customer JSON login attempt for: {request.email}")
+    """iOS/Android-compatible customer login endpoint - accepts JSON with email/password or username/password"""
+    # Get email from either 'email' or 'username' field
+    login_email = request.get_email()
+    if not login_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username is required"
+        )
+    print(f"Customer JSON login attempt for: {login_email}")
 
     # Find customer by email
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    customer = db.query(Customer).filter(Customer.email == login_email).first()
 
     if not customer:
-        print(f"Customer not found: {request.email}")
+        print(f"Customer not found: {login_email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2356,76 +2538,109 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
     """Register a new customer account"""
     print(f"Customer registration attempt for: {request.email}")
 
-    # Check if customer already exists
-    existing_customer = db.query(Customer).filter(Customer.email == request.email).first()
-    if existing_customer:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # Check if customer already exists
+        existing_customer = db.query(Customer).filter(Customer.email == request.email).first()
+        if existing_customer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Also check Users table
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Validate password is not empty
+        if not request.password or len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required and cannot be empty"
+            )
+
+        # Split name into first and last name (accepts both 'name' and 'full_name')
+        customer_name = request.get_name()
+        if not customer_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name is required (send 'name' or 'full_name')"
+            )
+        name_parts = customer_name.split(" ", 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+        # Create customer record with correct field names
+        hashed_password = get_password_hash(request.password)
+
+        # Generate unique customer code with timestamp to avoid conflicts
+        import time
+        timestamp_suffix = int(time.time() * 1000) % 100000
+        customer_code = f"CUST-{timestamp_suffix:05d}"
+
+        new_customer = Customer(
+            customer_id=customer_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=request.email,
+            phone=request.phone or "",
+            password_hash=hashed_password,
+            is_active=True
         )
+        db.add(new_customer)
+        db.commit()
+        db.refresh(new_customer)
 
-    # Also check Users table
-    existing_user = db.query(User).filter(User.email == request.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+        # Create user record linked to customer
+        new_user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=customer_name,
+            role=UserRole.USER
         )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
 
-    # Split name into first and last name (accepts both 'name' and 'full_name')
-    customer_name = request.get_name()
-    if not customer_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Name is required (send 'name' or 'full_name')"
-        )
-    name_parts = customer_name.split(" ", 1)
-    first_name = name_parts[0]
-    last_name = name_parts[1] if len(name_parts) > 1 else ""
+        full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
+        print(f"Customer registration successful for: {new_user.email}, customer_id: {new_customer.id}")
+        access_token = create_access_token(data={"sub": new_user.email, "role": "customer", "customer_id": new_customer.id})
 
-    # Create customer record with correct field names
-    hashed_password = get_password_hash(request.password)
-    customer_count = db.query(Customer).count()
-    customer_code = f"CUST-{customer_count + 1:05d}"
-
-    new_customer = Customer(
-        customer_id=customer_code,
-        first_name=first_name,
-        last_name=last_name,
-        email=request.email,
-        phone=request.phone or "",
-        password_hash=hashed_password,
-        is_active=True
-    )
-    db.add(new_customer)
-    db.commit()
-    db.refresh(new_customer)
-
-    # Create user record linked to customer
-    new_user = User(
-        email=request.email,
-        password_hash=hashed_password,
-        full_name=customer_name,
-        role=UserRole.USER
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
-    print(f"Customer registration successful for: {new_user.email}, customer_id: {new_customer.id}")
-    access_token = create_access_token(data={"sub": new_user.email, "role": "customer", "customer_id": new_customer.id})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "customer_id": new_customer.id,
-        "customer_code": customer_code,
-        "name": full_name,
-        "email": new_customer.email,
-        "status": "active",
-        "message": "Registration successful"
-    }
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "customer_id": new_customer.id,
+            "customer_code": customer_code,
+            "name": full_name,
+            "email": new_customer.email,
+            "status": "active",
+            "message": "Registration successful"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Customer registration error: {str(e)}")
+        # Check for specific database errors
+        error_msg = str(e).lower()
+        if "unique" in error_msg or "duplicate" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        elif "encoding" in error_msg or "unicode" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid characters in input. Please use standard characters."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Registration failed: {str(e)}"
+            )
 
 
 class CustomerGoogleAuthRequest(BaseModel):
