@@ -1955,37 +1955,55 @@ def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
     }
 
 @app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status(ride_id: str):
-    """Get current status of a ride"""
-    import random
+def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
+    """Get current status of a ride from database"""
+    from sqlalchemy import text
 
-    # Simulate different ride states
-    statuses = ["searching", "driver_assigned", "en_route", "arrived", "in_progress", "completed"]
+    # Query ride from database
+    result = db.execute(
+        text("""
+            SELECT r.id, r.status, r.driver_id, r.pickup_address, r.dropoff_address,
+                   d.first_name, d.last_name, d.rating, d.vehicle_type,
+                   d.vehicle_make, d.vehicle_model, d.vehicle_year, d.license_plate, d.phone
+            FROM rides r
+            LEFT JOIN drivers d ON r.driver_id = d.id
+            WHERE r.id = :ride_id OR r.ride_id = :ride_id
+        """),
+        {"ride_id": ride_id}
+    ).fetchone()
 
-    # For demo, return a mock driver after a short time
-    mock_driver = {
-        "id": random.randint(1, 100),
-        "name": "John D.",
-        "rating": round(random.uniform(4.5, 5.0), 1),
-        "vehicle": {
-            "make": "Toyota",
-            "model": "Camry",
-            "year": 2022,
-            "color": "Silver",
-            "license_plate": f"ABC{random.randint(100, 999)}"
-        },
-        "photo_url": None,
-        "phone": "+1 (555) 123-4567",
-        "eta_minutes": random.randint(3, 10)
-    }
+    if not result:
+        raise HTTPException(status_code=404, detail="Ride not found")
 
-    return {
+    ride_data = {
         "ride_id": ride_id,
-        "status": "driver_assigned",
-        "driver": mock_driver,
-        "eta_minutes": mock_driver["eta_minutes"],
-        "message": f"Your driver {mock_driver['name']} is on the way!"
+        "status": result[1] if result[1] else "searching",
+        "driver": None,
+        "eta_minutes": None,
+        "message": "Searching for a driver..."
     }
+
+    # If driver assigned, include driver info
+    if result[2]:  # driver_id exists
+        ride_data["driver"] = {
+            "id": result[2],
+            "name": f"{result[5]} {result[6][0]}." if result[5] and result[6] else "Driver",
+            "rating": float(result[7]) if result[7] else 4.8,
+            "vehicle": {
+                "make": result[9] or "Unknown",
+                "model": result[10] or "Vehicle",
+                "year": result[11] or 2020,
+                "color": "Unknown",
+                "license_plate": result[12] or "N/A"
+            },
+            "photo_url": None,
+            "phone": result[13] or None,
+            "eta_minutes": 5  # Calculate from location service
+        }
+        ride_data["eta_minutes"] = 5
+        ride_data["message"] = f"Your driver {ride_data['driver']['name']} is on the way!"
+
+    return ride_data
 
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
@@ -2050,30 +2068,48 @@ def estimate_fare_frontend(
 
 # Full tracking endpoint for frontend polling
 @app.get("/api/erp/orders/{ride_id}/full-tracking")
-def get_ride_full_tracking(ride_id: str):
+def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     """
-    Full tracking endpoint for frontend - matches expected response structure
+    Full tracking endpoint for frontend - queries real data from database
     """
-    import random
+    from sqlalchemy import text
 
-    mock_driver = {
-        "id": random.randint(1, 100),
-        "name": "John D.",
-        "phone": "+1 (555) 123-4567",
-        "rating": round(random.uniform(4.5, 5.0), 1),
-        "photo_url": None,
-        "vehicle": "Silver Toyota Camry",  # String format for frontend
-        "license_plate": f"ABC{random.randint(100, 999)}"
-    }
+    # Query ride with driver info
+    result = db.execute(
+        text("""
+            SELECT r.id, r.status, r.driver_id,
+                   d.first_name, d.last_name, d.phone, d.rating,
+                   d.vehicle_make, d.vehicle_model, d.license_plate
+            FROM rides r
+            LEFT JOIN drivers d ON r.driver_id = d.id
+            WHERE r.id = :ride_id OR r.ride_id = :ride_id
+        """),
+        {"ride_id": ride_id}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    driver_data = None
+    if result[2]:  # driver_id exists
+        driver_data = {
+            "id": result[2],
+            "name": f"{result[3]} {result[4][0]}." if result[3] and result[4] else "Driver",
+            "phone": result[5] or None,
+            "rating": float(result[6]) if result[6] else 4.8,
+            "photo_url": None,
+            "vehicle": f"{result[7] or 'Unknown'} {result[8] or 'Vehicle'}",
+            "license_plate": result[9] or "N/A"
+        }
 
     return {
         "success": True,
         "order": {
-            "status": "driver_assigned",
+            "status": result[1] or "searching",
             "ride_id": ride_id
         },
-        "driver": mock_driver,
-        "eta_minutes": random.randint(3, 10)
+        "driver": driver_data,
+        "eta_minutes": 5 if driver_data else None
     }
 
 
@@ -6419,87 +6455,7 @@ def get_privacy_policy():
     }
 
 
-# ==================== DEMO ACCOUNTS FOR APP STORE REVIEW ====================
-@app.post("/api/demo/setup")
-def setup_demo_accounts(db: Session = Depends(get_db)):
-    """Create demo accounts for App Store review."""
-    from models import VendorStatus
-    demo_accounts = []
-
-    # Demo Customer
-    demo_customer_email = "demo.customer@dollor.ai"
-    existing_customer = db.query(Customer).filter(Customer.email == demo_customer_email).first()
-    if not existing_customer:
-        demo_customer = Customer(
-            customer_id="DEMO-CUST-001",
-            first_name="Demo",
-            last_name="Customer",
-            email=demo_customer_email,
-            phone="+14155550100",
-            password_hash=get_password_hash("DemoCustomer2025!"),
-            is_active=True,
-            is_verified=True,
-            loyalty_points=500,
-            loyalty_tier="gold"
-        )
-        db.add(demo_customer)
-        demo_accounts.append({"type": "customer", "email": demo_customer_email, "password": "DemoCustomer2025!"})
-
-    # Demo Driver
-    demo_driver_email = "demo.driver@dollor.ai"
-    existing_driver = db.query(Driver).filter(Driver.email == demo_driver_email).first()
-    if not existing_driver:
-        demo_driver = Driver(
-            driver_id="DEMO-DRV-001",
-            first_name="Demo",
-            last_name="Driver",
-            email=demo_driver_email,
-            phone="+14155550200",
-            password_hash=get_password_hash("DemoDriver2025!"),
-            status=DriverStatus.APPROVED,
-            is_online=True,
-            rating=4.9,
-            total_deliveries=150,
-            vehicle_type="sedan",
-            vehicle_make="Toyota",
-            vehicle_model="Camry",
-            vehicle_year=2022,
-            license_plate="DEMO123"
-        )
-        db.add(demo_driver)
-        demo_accounts.append({"type": "driver", "email": demo_driver_email, "password": "DemoDriver2025!"})
-
-    # Demo Restaurant/Vendor
-    demo_vendor_email = "demo.restaurant@dollor.ai"
-    existing_vendor = db.query(Vendor).filter(Vendor.contact_email == demo_vendor_email).first()
-    if not existing_vendor:
-        demo_vendor = Vendor(
-            company_name="Demo Restaurant LLC",
-            restaurant_name="Demo Restaurant",
-            contact_name="Demo Restaurant Owner",
-            contact_email=demo_vendor_email,
-            contact_phone="+14155550300",
-            onboarding_status=VendorStatus.APPROVED,
-            cuisine_type="American",
-            street="123 Demo Street",
-            city="San Francisco",
-            state="CA",
-            zip_code="94102",
-            delivery_available=True,
-            pickup_available=True,
-            average_prep_time=25
-        )
-        db.add(demo_vendor)
-        demo_accounts.append({"type": "restaurant", "email": demo_vendor_email, "password": "DemoRestaurant2025!"})
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "Demo accounts created for App Store review",
-        "accounts": demo_accounts,
-        "note": "These accounts are pre-verified and ready for testing"
-    }
+# Demo account endpoint removed for production - use proper user registration
 
 
 if __name__ == "__main__":
