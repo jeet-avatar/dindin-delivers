@@ -6,6 +6,8 @@ Provides:
 - FastAPI TestClient
 - Authentication fixtures
 - Mock data factories
+
+Uses DROP OWNED BY for clean PostgreSQL state to avoid index conflicts.
 """
 
 import pytest
