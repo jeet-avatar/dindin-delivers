@@ -519,13 +519,19 @@ class TestVendorModels:
         errors = exc_info.value.errors()
         assert any(error['loc'] == ('email',) for error in errors)
 
-    def test_vendor_register_missing_fields(self):
-        """Test vendor registration with missing fields"""
-        with pytest.raises(ValidationError):
-            VendorRegisterRequest(
-                email="test@example.com",
-                password="password"
-            )
+    def test_vendor_register_optional_fields(self):
+        """Test vendor registration with optional fields (full_name, restaurant_name are optional)"""
+        # full_name and restaurant_name are now optional for flexibility with iOS/Android
+        vendor = VendorRegisterRequest(
+            email="test@example.com",
+            password="password"
+        )
+        # Fields should be None when not provided
+        assert vendor.full_name is None
+        assert vendor.restaurant_name is None
+        # Helper methods return empty string for missing fields
+        assert vendor.get_name() == ""
+        assert vendor.get_restaurant_name() == ""
 
     def test_valid_password_reset_request(self):
         """Test valid password reset request"""
@@ -664,10 +670,20 @@ class TestGenerateInvoiceNumber:
 class TestHealthCheck:
     """Test health check endpoint"""
 
+    def _create_mock_db(self, db_connected: bool = True):
+        """Create a mock database session"""
+        mock_db = MagicMock()
+        if db_connected:
+            mock_db.execute.return_value = None  # Successful query
+        else:
+            mock_db.execute.side_effect = Exception("Connection failed")
+        return mock_db
+
     @pytest.mark.asyncio
     async def test_health_check_response_structure(self):
         """Test health check returns correct structure"""
-        response = await health_check()
+        mock_db = self._create_mock_db()
+        response = await health_check(db=mock_db)
 
         assert "status" in response
         assert "service" in response
@@ -675,20 +691,32 @@ class TestHealthCheck:
 
     @pytest.mark.asyncio
     async def test_health_check_status_healthy(self):
-        """Test health check status is healthy"""
-        response = await health_check()
+        """Test health check status is healthy when DB connected"""
+        mock_db = self._create_mock_db(db_connected=True)
+        response = await health_check(db=mock_db)
         assert response["status"] == "healthy"
+        assert response["database"] == "connected"
+
+    @pytest.mark.asyncio
+    async def test_health_check_status_unhealthy(self):
+        """Test health check status is unhealthy when DB disconnected"""
+        mock_db = self._create_mock_db(db_connected=False)
+        response = await health_check(db=mock_db)
+        assert response["status"] == "unhealthy"
+        assert "disconnected" in response["database"]
 
     @pytest.mark.asyncio
     async def test_health_check_service_name(self):
         """Test health check service name"""
-        response = await health_check()
+        mock_db = self._create_mock_db()
+        response = await health_check(db=mock_db)
         assert response["service"] == "p2p-backend"
 
     @pytest.mark.asyncio
     async def test_health_check_timestamp_format(self):
         """Test health check timestamp is valid ISO format"""
-        response = await health_check()
+        mock_db = self._create_mock_db()
+        response = await health_check(db=mock_db)
         timestamp = response["timestamp"]
 
         # Should be valid ISO format
