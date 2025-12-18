@@ -371,8 +371,8 @@ def generate_invoice_number(db: Session) -> str:
     
     return f"{prefix}-{new_num:04d}"
 
-# Database migration function
-def run_migrations():
+# Database migration function (called at startup)
+def _run_startup_migrations():
     """Run database migrations to add missing columns"""
     from sqlalchemy import text
     from database import engine
@@ -414,7 +414,7 @@ def run_migrations():
 @app.on_event("startup")
 async def startup_event():
     init_db()
-    run_migrations()
+    _run_startup_migrations()
 
 # Routes
 @app.get("/")
@@ -2432,8 +2432,8 @@ class CustomerGoogleAuthRequest(BaseModel):
         return self.id_token or self.google_id or ""
 
 @app.post("/api/customer/google-auth")
-def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
-    """Google OAuth authentication for customers - handles both login and registration"""
+def customer_google_auth_v2(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+    """Google OAuth authentication for customers - handles both login and registration (v2 endpoint)"""
     print(f"Customer Google auth for: {request.email}")
     google_identifier = request.identifier
 
@@ -2573,7 +2573,7 @@ class PasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+def customer_request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
     import random
 
@@ -2599,7 +2599,7 @@ def request_password_reset(request: PasswordResetRequest, db: Session = Depends(
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/customer/password-reset/confirm")
-def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+def customer_confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
     from datetime import datetime
 
@@ -2631,8 +2631,8 @@ def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(
 
 
 @app.get("/api/customer/profile")
-def get_customer_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get current customer's profile"""
+def get_customer_profile_v2(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get current customer's profile (v2 endpoint)"""
     customer = db.query(Customer).filter(Customer.email == current_user.email).first()
 
     if not customer:
@@ -2927,9 +2927,9 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depe
     
     # Status breakdown
     status_breakdown = {}
-    for status in InvoiceStatus:
-        count = db.query(Invoice).filter(Invoice.status == status).count()
-        status_breakdown[status.value] = count
+    for inv_status in InvoiceStatus:
+        count = db.query(Invoice).filter(Invoice.status == inv_status).count()
+        status_breakdown[inv_status.value] = count
     
     # Monthly revenue (last 12 months)
     monthly_data = []
@@ -3808,16 +3808,7 @@ def create_vendor_account(
     db.refresh(vendor_user)
     
     return {"message": "Vendor account created", "user_id": vendor_user.id, "email": vendor_user.email}
-    
-    try:
-        db_vendor.onboarding_status = VendorStatus[status.upper()]
-        if status.upper() == "APPROVED":
-            db_vendor.approved_at = datetime.now()
-        db_vendor.last_activity = datetime.now()
-        db.commit()
-        return {"message": "Status updated successfully", "status": status}
-    except KeyError:
-        raise HTTPException(status_code=400, detail="Invalid status")
+
 
 # Document type mapping for the frontend
 DOCUMENT_TYPE_MAP = {
