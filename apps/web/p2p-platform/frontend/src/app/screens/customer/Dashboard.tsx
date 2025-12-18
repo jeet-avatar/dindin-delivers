@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Typography, Statistic, List, Avatar, Tag, Divider } from 'antd';
+import { Card, Row, Col, Button, Typography, Statistic, List, Avatar, Tag, Divider, Spin, message } from 'antd';
 import {
   CarOutlined,
   HistoryOutlined,
@@ -9,11 +9,12 @@ import {
   DollarOutlined,
   RightOutlined,
   GiftOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { API_URL } from '../../constants/Apis';
+import { getApiUrl } from '../../api/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -28,8 +29,32 @@ interface RecentRide {
   status: string;
 }
 
+interface QuickDestination {
+  icon: string;
+  label: string;
+  address: string;
+}
+
+interface DashboardData {
+  customer_name: string;
+  customer_id: number;
+  stats: {
+    total_rides: number;
+    total_spent: number;
+    saved_amount: number;
+  };
+  recent_rides: RecentRide[];
+  quick_destinations: QuickDestination[];
+  loyalty: {
+    points: number;
+    tier: string;
+  };
+}
+
 const CustomerDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const API_URL = getApiUrl();
+  const [loading, setLoading] = useState(true);
   const [customerName, setCustomerName] = useState<string>('');
   const [recentRides, setRecentRides] = useState<RecentRide[]>([]);
   const [stats, setStats] = useState({
@@ -37,47 +62,75 @@ const CustomerDashboard: React.FC = () => {
     totalSpent: 0,
     savedAmount: 0
   });
-
-  useEffect(() => {
-    const name = localStorage.getItem('customer_name') || 'there';
-    setCustomerName(name);
-
-    // Load mock data for demonstration
-    setRecentRides([
-      {
-        id: 'RIDE-001',
-        pickup: '123 Main St',
-        dropoff: 'Downtown Mall',
-        date: '2024-12-14',
-        fare: 12.50,
-        driver_name: 'John D.',
-        driver_rating: 4.9,
-        status: 'completed'
-      },
-      {
-        id: 'RIDE-002',
-        pickup: 'Airport Terminal B',
-        dropoff: '456 Oak Avenue',
-        date: '2024-12-13',
-        fare: 28.00,
-        driver_name: 'Maria S.',
-        driver_rating: 4.8,
-        status: 'completed'
-      }
-    ]);
-
-    setStats({
-      totalRides: 15,
-      totalSpent: 187.50,
-      savedAmount: 42.00 // Savings compared to other platforms
-    });
-  }, []);
-
-  const quickDestinations = [
+  const [quickDestinations, setQuickDestinations] = useState<QuickDestination[]>([
     { icon: '🏠', label: 'Home', address: 'Set home address' },
     { icon: '💼', label: 'Work', address: 'Set work address' },
     { icon: '✈️', label: 'Airport', address: 'Nearest airport' },
-  ];
+  ]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+
+      if (!token) {
+        // Not logged in, use cached name or redirect
+        const name = localStorage.getItem('customer_name') || 'there';
+        setCustomerName(name);
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get<DashboardData>(`${API_URL}/api/customer/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = response.data;
+
+      setCustomerName(data.customer_name || 'there');
+      setStats({
+        totalRides: data.stats.total_rides,
+        totalSpent: data.stats.total_spent,
+        savedAmount: data.stats.saved_amount
+      });
+      setRecentRides(data.recent_rides);
+
+      if (data.quick_destinations && data.quick_destinations.length > 0) {
+        setQuickDestinations(data.quick_destinations);
+      }
+
+      // Cache the name for quick loading
+      localStorage.setItem('customer_name', data.customer_name);
+
+    } catch (error: any) {
+      console.error('Failed to fetch dashboard data:', error);
+
+      // Fallback to cached/default data
+      const name = localStorage.getItem('customer_name') || 'there';
+      setCustomerName(name);
+
+      if (error.response?.status === 401) {
+        message.warning('Session expired. Please log in again.');
+        // Optionally redirect to login
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+      </div>
+    );
+  }
 
   return (
     <div className="customer-dashboard">
