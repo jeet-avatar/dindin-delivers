@@ -3977,9 +3977,9 @@ def update_vendor_documents(
         raise HTTPException(status_code=404, detail="Vendor not found")
     
     # Update document flags
-    for doc_type, status in documents.items():
+    for doc_type, doc_status in documents.items():
         if hasattr(db_vendor, doc_type):
-            setattr(db_vendor, doc_type, status)
+            setattr(db_vendor, doc_type, doc_status)
     
     db_vendor.last_activity = datetime.now()
     db.commit()
