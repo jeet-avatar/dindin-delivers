@@ -2809,6 +2809,384 @@ def get_customer_ride_history(
     }
 
 
+# ==================== CUSTOMER CART ====================
+
+from models import Cart, CartItem, VendorMenuItem, Vendor
+
+class AddToCartRequest(BaseModel):
+    menu_item_id: int
+    vendor_id: int
+    quantity: int = 1
+    special_instructions: Optional[str] = None
+    customizations: Optional[dict] = None
+
+
+class UpdateCartItemRequest(BaseModel):
+    quantity: int
+    special_instructions: Optional[str] = None
+
+
+class ApplyPromoRequest(BaseModel):
+    promo_code: str
+
+
+def get_or_create_cart(customer_id: int, db: Session) -> Cart:
+    """Get existing cart or create a new one for the customer"""
+    cart = db.query(Cart).filter(Cart.customer_id == customer_id).first()
+    if not cart:
+        cart = Cart(customer_id=customer_id)
+        db.add(cart)
+        db.commit()
+        db.refresh(cart)
+    return cart
+
+
+def calculate_cart_summary(cart: Cart, db: Session) -> dict:
+    """Calculate cart summary with fees and totals"""
+    items = cart.items
+
+    # Calculate subtotal
+    subtotal = sum(item.item_price * item.quantity for item in items)
+
+    # Get unique restaurants for delivery fee calculation
+    unique_vendors = set(item.vendor_id for item in items)
+    delivery_fee = len(unique_vendors) * 2.99  # $2.99 per restaurant
+
+    platform_fee = 1.00  # $1 flat matchmaking fee
+    tax_rate = 0.0875  # 8.75%
+    tax = subtotal * tax_rate
+
+    # Apply promo discount
+    discount = 0.0
+    if cart.promo_code and cart.promo_discount:
+        if cart.promo_type == "percentage":
+            discount = subtotal * (cart.promo_discount / 100)
+        elif cart.promo_type == "flat_amount":
+            discount = cart.promo_discount
+        elif cart.promo_type == "free_delivery":
+            discount = delivery_fee
+            delivery_fee = 0
+
+    total = subtotal + delivery_fee + platform_fee + tax - discount
+
+    return {
+        "subtotal": round(subtotal, 2),
+        "delivery_fee": round(delivery_fee, 2),
+        "platform_fee": round(platform_fee, 2),
+        "tax": round(tax, 2),
+        "discount": round(discount, 2),
+        "promo_code": cart.promo_code,
+        "total": round(total, 2),
+        "item_count": sum(item.quantity for item in items),
+        "restaurant_count": len(unique_vendors)
+    }
+
+
+@app.get("/api/cart")
+def get_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get current customer's cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        return {"items": [], "summary": {"subtotal": 0, "delivery_fee": 0, "platform_fee": 1.00, "tax": 0, "discount": 0, "total": 0, "item_count": 0, "restaurant_count": 0}}
+
+    cart = get_or_create_cart(customer.id, db)
+
+    # Format cart items
+    items = []
+    for cart_item in cart.items:
+        items.append({
+            "id": cart_item.id,
+            "menu_item_id": cart_item.menu_item_id,
+            "vendor_id": cart_item.vendor_id,
+            "vendor_name": cart_item.vendor_name,
+            "item_name": cart_item.item_name,
+            "item_description": cart_item.item_description,
+            "item_price": cart_item.item_price,
+            "quantity": cart_item.quantity,
+            "special_instructions": cart_item.special_instructions,
+            "customizations": cart_item.customizations,
+            "line_total": round(cart_item.item_price * cart_item.quantity, 2)
+        })
+
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "cart_id": cart.id,
+        "items": items,
+        "summary": summary
+    }
+
+
+@app.post("/api/cart/items")
+def add_to_cart(
+    request: AddToCartRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add an item to the cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Verify menu item exists
+    menu_item = db.query(VendorMenuItem).filter(VendorMenuItem.id == request.menu_item_id).first()
+    if not menu_item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    # Verify vendor exists
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Get or create cart
+    cart = get_or_create_cart(customer.id, db)
+
+    # Check if item already exists in cart (same menu item and vendor)
+    existing_item = db.query(CartItem).filter(
+        CartItem.cart_id == cart.id,
+        CartItem.menu_item_id == request.menu_item_id,
+        CartItem.vendor_id == request.vendor_id
+    ).first()
+
+    if existing_item:
+        # Update quantity
+        existing_item.quantity += request.quantity
+        if request.special_instructions:
+            existing_item.special_instructions = request.special_instructions
+        if request.customizations:
+            existing_item.customizations = request.customizations
+        existing_item.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing_item)
+        item_id = existing_item.id
+    else:
+        # Create new cart item
+        cart_item = CartItem(
+            cart_id=cart.id,
+            menu_item_id=request.menu_item_id,
+            vendor_id=request.vendor_id,
+            item_name=menu_item.item_name,
+            item_description=menu_item.description,
+            item_price=menu_item.price,
+            quantity=request.quantity,
+            vendor_name=vendor.business_name,
+            special_instructions=request.special_instructions,
+            customizations=request.customizations or {}
+        )
+        db.add(cart_item)
+        db.commit()
+        db.refresh(cart_item)
+        item_id = cart_item.id
+
+    # Refresh cart to get updated items
+    db.refresh(cart)
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "message": "Item added to cart",
+        "item_id": item_id,
+        "summary": summary
+    }
+
+
+@app.put("/api/cart/items/{item_id}")
+def update_cart_item(
+    item_id: int,
+    request: UpdateCartItemRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a cart item's quantity or special instructions"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    cart_item = db.query(CartItem).filter(
+        CartItem.id == item_id,
+        CartItem.cart_id == cart.id
+    ).first()
+
+    if not cart_item:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+
+    if request.quantity < 1:
+        # Remove item if quantity is 0 or negative
+        db.delete(cart_item)
+        db.commit()
+        message = "Item removed from cart"
+    else:
+        cart_item.quantity = request.quantity
+        if request.special_instructions is not None:
+            cart_item.special_instructions = request.special_instructions
+        cart_item.updated_at = datetime.utcnow()
+        db.commit()
+        message = "Cart item updated"
+
+    db.refresh(cart)
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "message": message,
+        "summary": summary
+    }
+
+
+@app.delete("/api/cart/items/{item_id}")
+def remove_cart_item(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove an item from the cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    cart_item = db.query(CartItem).filter(
+        CartItem.id == item_id,
+        CartItem.cart_id == cart.id
+    ).first()
+
+    if not cart_item:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+
+    db.delete(cart_item)
+    db.commit()
+    db.refresh(cart)
+
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "message": "Item removed from cart",
+        "summary": summary
+    }
+
+
+@app.delete("/api/cart")
+def clear_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Clear all items from the cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
+    if not cart:
+        return {"message": "Cart is already empty", "summary": {"subtotal": 0, "delivery_fee": 0, "platform_fee": 1.00, "tax": 0, "discount": 0, "total": 0, "item_count": 0, "restaurant_count": 0}}
+
+    # Clear all items
+    db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
+
+    # Clear promo code
+    cart.promo_code = None
+    cart.promo_discount = 0.0
+    cart.promo_type = None
+
+    db.commit()
+    db.refresh(cart)
+
+    return {
+        "message": "Cart cleared",
+        "summary": {"subtotal": 0, "delivery_fee": 0, "platform_fee": 1.00, "tax": 0, "discount": 0, "total": 0, "item_count": 0, "restaurant_count": 0}
+    }
+
+
+@app.post("/api/cart/apply-promo")
+def apply_promo_code(
+    request: ApplyPromoRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Apply a promo code to the cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cart = get_or_create_cart(customer.id, db)
+
+    if not cart.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    # Validate promo code (simplified - in production, query from promo codes table)
+    promo_codes = {
+        "WELCOME10": {"type": "percentage", "value": 10, "min_order": 15, "max_discount": 10},
+        "SAVE5": {"type": "flat_amount", "value": 5, "min_order": 20, "max_discount": 5},
+        "FREEDELIVERY": {"type": "free_delivery", "value": 0, "min_order": 20, "max_discount": 5},
+        "DOLLOR20": {"type": "percentage", "value": 20, "min_order": 30, "max_discount": 20},
+    }
+
+    code = request.promo_code.upper()
+    if code not in promo_codes:
+        raise HTTPException(status_code=400, detail="Invalid promo code")
+
+    promo = promo_codes[code]
+
+    # Check minimum order
+    subtotal = sum(item.item_price * item.quantity for item in cart.items)
+    if subtotal < promo["min_order"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Minimum order of ${promo['min_order']} required for this promo code"
+        )
+
+    # Apply promo
+    cart.promo_code = code
+    cart.promo_type = promo["type"]
+
+    if promo["type"] == "percentage":
+        discount = min(subtotal * (promo["value"] / 100), promo["max_discount"])
+        cart.promo_discount = discount
+    elif promo["type"] == "flat_amount":
+        cart.promo_discount = promo["value"]
+    else:  # free_delivery
+        unique_vendors = set(item.vendor_id for item in cart.items)
+        cart.promo_discount = len(unique_vendors) * 2.99
+
+    db.commit()
+    db.refresh(cart)
+
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "message": f"Promo code '{code}' applied successfully",
+        "discount": round(cart.promo_discount, 2),
+        "summary": summary
+    }
+
+
+@app.delete("/api/cart/promo")
+def remove_promo_code(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Remove promo code from cart"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    cart.promo_code = None
+    cart.promo_discount = 0.0
+    cart.promo_type = None
+
+    db.commit()
+    db.refresh(cart)
+
+    summary = calculate_cart_summary(cart, db)
+
+    return {
+        "message": "Promo code removed",
+        "summary": summary
+    }
+
+
 # ==================== DRIVER DASHBOARD ====================
 
 @app.get("/api/driver/dashboard")

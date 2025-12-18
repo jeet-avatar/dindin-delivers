@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Typography, Divider, Empty, InputNumber, message, Tag } from 'antd';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Card, Row, Col, Button, Typography, Divider, Empty, message, Tag, Spin, Input } from 'antd';
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
@@ -7,136 +7,394 @@ import {
   MinusOutlined,
   ShopOutlined,
   DollarOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  LoadingOutlined,
+  GiftOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { getApiUrl } from '../../api/api';
 
 const { Title, Text, Paragraph } = Typography;
 
-interface MenuItem {
+interface CartItemData {
   id: number;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
+  menu_item_id: number;
+  vendor_id: number;
+  item_name: string;
+  item_description: string;
+  item_price: number;
+  quantity: number;
+  vendor_name: string;
+  special_instructions?: string;
+  customizations?: Record<string, any>;
 }
 
-interface CartItem {
-  menuItem: MenuItem;
+interface CartSummary {
+  subtotal: number;
+  delivery_fee: number;
+  platform_fee: number;
+  tax: number;
+  discount: number;
+  total: number;
+}
+
+interface CartData {
+  cart_id: number | null;
+  items: CartItemData[];
+  summary: CartSummary;
+  promo_code?: string;
+  promo_type?: string;
+}
+
+// Local storage cart item format (for fallback)
+interface LocalCartItem {
+  menuItem: {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    category: string;
+  };
   quantity: number;
   specialInstructions?: string;
   restaurantId: number;
   restaurantName: string;
 }
 
-interface CartSummary {
-  subtotal: number;
-  deliveryFee: number;
-  platformFee: number;
-  tax: number;
-  total: number;
-}
-
 const Cart: React.FC = () => {
   const navigate = useNavigate();
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [summary, setSummary] = useState<CartSummary>({
-    subtotal: 0,
-    deliveryFee: 0,
-    platformFee: 1.00, // $1 flat platform fee
-    tax: 0,
-    total: 0
+  const API_URL = getApiUrl();
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<number | null>(null); // Track which item is being updated
+  const [cartData, setCartData] = useState<CartData>({
+    cart_id: null,
+    items: [],
+    summary: {
+      subtotal: 0,
+      delivery_fee: 0,
+      platform_fee: 1.00,
+      tax: 0,
+      discount: 0,
+      total: 0
+    }
   });
+  const [promoCode, setPromoCode] = useState('');
+  const [applyingPromo, setApplyingPromo] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const getAuthToken = useCallback(() => {
+    return localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+  }, []);
+
+  // Convert local storage format to API format for display
+  const convertLocalToApiFormat = useCallback((localItems: LocalCartItem[]): CartItemData[] => {
+    return localItems.map((item, index) => ({
+      id: index, // Use index as temporary ID for local items
+      menu_item_id: item.menuItem.id,
+      vendor_id: item.restaurantId,
+      item_name: item.menuItem.name,
+      item_description: item.menuItem.description,
+      item_price: item.menuItem.price,
+      quantity: item.quantity,
+      vendor_name: item.restaurantName,
+      special_instructions: item.specialInstructions
+    }));
+  }, []);
+
+  // Calculate summary for local cart
+  const calculateLocalSummary = useCallback((items: CartItemData[]): CartSummary => {
+    const subtotal = items.reduce((sum, item) => sum + (item.item_price * item.quantity), 0);
+    const uniqueVendors = new Set(items.map(item => item.vendor_id));
+    const delivery_fee = uniqueVendors.size * 2.99;
+    const platform_fee = 1.00;
+    const tax = subtotal * 0.0875;
+
+    return {
+      subtotal,
+      delivery_fee,
+      platform_fee,
+      tax,
+      discount: 0,
+      total: subtotal + delivery_fee + platform_fee + tax
+    };
+  }, []);
+
+  // Load cart from API or localStorage
+  const loadCart = useCallback(async () => {
+    setLoading(true);
+    const token = getAuthToken();
+
+    if (token) {
+      setIsAuthenticated(true);
+      try {
+        const response = await axios.get<CartData>(`${API_URL}/api/cart`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setCartData(response.data);
+        if (response.data.promo_code) {
+          setPromoCode(response.data.promo_code);
+        }
+      } catch (error: any) {
+        console.error('Failed to load cart from API:', error);
+        if (error.response?.status === 401) {
+          // Token expired, fall back to localStorage
+          setIsAuthenticated(false);
+          loadLocalCart();
+        } else {
+          // Other error, try localStorage as fallback
+          loadLocalCart();
+        }
+      }
+    } else {
+      setIsAuthenticated(false);
+      loadLocalCart();
+    }
+    setLoading(false);
+  }, [API_URL, getAuthToken]);
+
+  const loadLocalCart = useCallback(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        const localItems: LocalCartItem[] = JSON.parse(savedCart);
+        const apiFormatItems = convertLocalToApiFormat(localItems);
+        const summary = calculateLocalSummary(apiFormatItems);
+
+        setCartData({
+          cart_id: null,
+          items: apiFormatItems,
+          summary
+        });
+      } catch (e) {
+        console.error('Failed to parse local cart:', e);
+      }
+    }
+  }, [convertLocalToApiFormat, calculateLocalSummary]);
 
   useEffect(() => {
     loadCart();
-  }, []);
+  }, [loadCart]);
 
-  useEffect(() => {
-    calculateSummary();
-  }, [cart]);
-
-  const loadCart = () => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
-    }
-  };
-
-  const saveCart = (newCart: CartItem[]) => {
-    setCart(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
-  };
-
-  const calculateSummary = () => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
-
-    // Get unique restaurants for delivery fee calculation
-    const uniqueRestaurants = new Set(cart.map(item => item.restaurantId));
-    const deliveryFee = uniqueRestaurants.size * 2.99; // $2.99 per restaurant
-
-    const platformFee = 1.00; // $1 flat fee for matchmaking
-    const tax = subtotal * 0.0875; // 8.75% tax
-
-    setSummary({
-      subtotal,
-      deliveryFee,
-      platformFee,
-      tax,
-      total: subtotal + deliveryFee + platformFee + tax
-    });
-  };
-
-  const updateQuantity = (itemIndex: number, newQuantity: number) => {
+  // Update item quantity
+  const updateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) {
-      removeItem(itemIndex);
+      removeItem(itemId);
       return;
     }
 
-    const newCart = [...cart];
-    newCart[itemIndex].quantity = newQuantity;
-    saveCart(newCart);
+    setUpdating(itemId);
+    const token = getAuthToken();
+
+    if (token && isAuthenticated) {
+      try {
+        const response = await axios.put<CartData>(
+          `${API_URL}/api/cart/items/${itemId}`,
+          { quantity: newQuantity },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setCartData(response.data);
+      } catch (error: any) {
+        console.error('Failed to update cart item:', error);
+        message.error('Failed to update quantity');
+        // Reload cart to get correct state
+        loadCart();
+      }
+    } else {
+      // Update localStorage
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        const localItems: LocalCartItem[] = JSON.parse(savedCart);
+        localItems[itemId].quantity = newQuantity;
+        localStorage.setItem('cart', JSON.stringify(localItems));
+
+        const apiFormatItems = convertLocalToApiFormat(localItems);
+        const summary = calculateLocalSummary(apiFormatItems);
+        setCartData({
+          cart_id: null,
+          items: apiFormatItems,
+          summary
+        });
+      }
+    }
+    setUpdating(null);
   };
 
-  const removeItem = (itemIndex: number) => {
-    const newCart = cart.filter((_, index) => index !== itemIndex);
-    saveCart(newCart);
-    message.success('Item removed from cart');
+  // Remove item from cart
+  const removeItem = async (itemId: number) => {
+    setUpdating(itemId);
+    const token = getAuthToken();
+
+    if (token && isAuthenticated) {
+      try {
+        const response = await axios.delete<CartData>(
+          `${API_URL}/api/cart/items/${itemId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setCartData(response.data);
+        message.success('Item removed from cart');
+      } catch (error: any) {
+        console.error('Failed to remove cart item:', error);
+        message.error('Failed to remove item');
+        loadCart();
+      }
+    } else {
+      // Update localStorage
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        const localItems: LocalCartItem[] = JSON.parse(savedCart);
+        localItems.splice(itemId, 1);
+        localStorage.setItem('cart', JSON.stringify(localItems));
+
+        const apiFormatItems = convertLocalToApiFormat(localItems);
+        const summary = calculateLocalSummary(apiFormatItems);
+        setCartData({
+          cart_id: null,
+          items: apiFormatItems,
+          summary
+        });
+        message.success('Item removed from cart');
+      }
+    }
+    setUpdating(null);
   };
 
-  const clearCart = () => {
-    saveCart([]);
-    message.success('Cart cleared');
+  // Clear entire cart
+  const clearCart = async () => {
+    const token = getAuthToken();
+
+    if (token && isAuthenticated) {
+      try {
+        await axios.delete(`${API_URL}/api/cart`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setCartData({
+          cart_id: null,
+          items: [],
+          summary: {
+            subtotal: 0,
+            delivery_fee: 0,
+            platform_fee: 1.00,
+            tax: 0,
+            discount: 0,
+            total: 0
+          }
+        });
+        setPromoCode('');
+        message.success('Cart cleared');
+      } catch (error: any) {
+        console.error('Failed to clear cart:', error);
+        message.error('Failed to clear cart');
+      }
+    } else {
+      localStorage.removeItem('cart');
+      setCartData({
+        cart_id: null,
+        items: [],
+        summary: {
+          subtotal: 0,
+          delivery_fee: 0,
+          platform_fee: 1.00,
+          tax: 0,
+          discount: 0,
+          total: 0
+        }
+      });
+      message.success('Cart cleared');
+    }
+  };
+
+  // Apply promo code
+  const applyPromoCode = async () => {
+    if (!promoCode.trim()) {
+      message.warning('Please enter a promo code');
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token || !isAuthenticated) {
+      message.info('Please log in to apply promo codes');
+      return;
+    }
+
+    setApplyingPromo(true);
+    try {
+      const response = await axios.post<CartData>(
+        `${API_URL}/api/cart/apply-promo`,
+        { promo_code: promoCode.trim().toUpperCase() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCartData(response.data);
+      message.success('Promo code applied!');
+    } catch (error: any) {
+      console.error('Failed to apply promo code:', error);
+      const errorMessage = error.response?.data?.detail || 'Invalid promo code';
+      message.error(errorMessage);
+    }
+    setApplyingPromo(false);
+  };
+
+  // Remove promo code
+  const removePromoCode = async () => {
+    const token = getAuthToken();
+    if (!token || !isAuthenticated) return;
+
+    try {
+      const response = await axios.delete<CartData>(
+        `${API_URL}/api/cart/promo`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCartData(response.data);
+      setPromoCode('');
+      message.success('Promo code removed');
+    } catch (error: any) {
+      console.error('Failed to remove promo code:', error);
+    }
   };
 
   const proceedToCheckout = () => {
-    if (cart.length === 0) {
+    if (cartData.items.length === 0) {
       message.warning('Your cart is empty');
       return;
     }
 
-    // Check minimum order
-    if (summary.subtotal < 10) {
+    if (cartData.summary.subtotal < 10) {
       message.warning('Minimum order is $10.00');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      message.info('Please log in to proceed to checkout');
+      navigate('/customer/login', { state: { from: '/customer/cart' } });
       return;
     }
 
     navigate('/customer/checkout');
   };
 
-  // Group items by restaurant
-  const groupedCart = cart.reduce((groups, item) => {
-    const key = item.restaurantId;
+  // Group items by vendor
+  const groupedItems = cartData.items.reduce((groups, item) => {
+    const key = item.vendor_id;
     if (!groups[key]) {
       groups[key] = {
-        restaurantId: item.restaurantId,
-        restaurantName: item.restaurantName,
+        vendorId: item.vendor_id,
+        vendorName: item.vendor_name,
         items: []
       };
     }
     groups[key].items.push(item);
     return groups;
-  }, {} as Record<number, { restaurantId: number; restaurantName: string; items: CartItem[] }>);
+  }, {} as Record<number, { vendorId: number; vendorName: string; items: CartItemData[] }>);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+      </div>
+    );
+  }
 
   return (
     <div className="cart-page">
@@ -149,14 +407,14 @@ const Cart: React.FC = () => {
           Continue Shopping
         </Button>
         <Title level={2} style={{ margin: 0 }}>Your Cart</Title>
-        {cart.length > 0 && (
+        {cartData.items.length > 0 && (
           <Button danger onClick={clearCart}>
             Clear All
           </Button>
         )}
       </div>
 
-      {cart.length === 0 ? (
+      {cartData.items.length === 0 ? (
         <Card className="empty-cart">
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -178,71 +436,70 @@ const Cart: React.FC = () => {
         <Row gutter={[24, 24]}>
           {/* Cart Items */}
           <Col xs={24} lg={16}>
-            {Object.values(groupedCart).map(group => (
-              <Card key={group.restaurantId} className="restaurant-group-card">
+            {Object.values(groupedItems).map(group => (
+              <Card key={group.vendorId} className="restaurant-group-card">
                 <div className="restaurant-header">
                   <ShopOutlined className="shop-icon" />
                   <div>
-                    <Title level={5} style={{ margin: 0 }}>{group.restaurantName}</Title>
+                    <Title level={5} style={{ margin: 0 }}>{group.vendorName}</Title>
                     <Text type="secondary">{group.items.length} item(s)</Text>
                   </div>
                 </div>
 
                 <Divider />
 
-                {group.items.map((item, index) => {
-                  const globalIndex = cart.findIndex(
-                    c => c.menuItem.id === item.menuItem.id && c.restaurantId === item.restaurantId
-                  );
+                {group.items.map((item) => (
+                  <div key={item.id} className="cart-item">
+                    <div className="item-info">
+                      <Title level={5} style={{ margin: 0 }}>{item.item_name}</Title>
+                      <Paragraph type="secondary" ellipsis style={{ margin: '4px 0' }}>
+                        {item.item_description}
+                      </Paragraph>
+                      {item.special_instructions && (
+                        <Text type="secondary" italic>
+                          Note: {item.special_instructions}
+                        </Text>
+                      )}
+                    </div>
 
-                  return (
-                    <div key={`${item.menuItem.id}-${index}`} className="cart-item">
-                      <div className="item-info">
-                        <Title level={5} style={{ margin: 0 }}>{item.menuItem.name}</Title>
-                        <Paragraph type="secondary" ellipsis style={{ margin: '4px 0' }}>
-                          {item.menuItem.description}
-                        </Paragraph>
-                        {item.specialInstructions && (
-                          <Text type="secondary" italic>
-                            Note: {item.specialInstructions}
+                    <div className="item-controls">
+                      <div className="quantity-controls">
+                        <Button
+                          size="small"
+                          icon={<MinusOutlined />}
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          disabled={updating === item.id}
+                        />
+                        <span className="quantity">
+                          {updating === item.id ? <LoadingOutlined /> : item.quantity}
+                        </span>
+                        <Button
+                          size="small"
+                          icon={<PlusOutlined />}
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          disabled={updating === item.id}
+                        />
+                      </div>
+
+                      <div className="item-price">
+                        <Text strong>${(item.item_price * item.quantity).toFixed(2)}</Text>
+                        {item.quantity > 1 && (
+                          <Text type="secondary" className="unit-price">
+                            ${item.item_price.toFixed(2)} each
                           </Text>
                         )}
                       </div>
 
-                      <div className="item-controls">
-                        <div className="quantity-controls">
-                          <Button
-                            size="small"
-                            icon={<MinusOutlined />}
-                            onClick={() => updateQuantity(globalIndex, item.quantity - 1)}
-                          />
-                          <span className="quantity">{item.quantity}</span>
-                          <Button
-                            size="small"
-                            icon={<PlusOutlined />}
-                            onClick={() => updateQuantity(globalIndex, item.quantity + 1)}
-                          />
-                        </div>
-
-                        <div className="item-price">
-                          <Text strong>${(item.menuItem.price * item.quantity).toFixed(2)}</Text>
-                          {item.quantity > 1 && (
-                            <Text type="secondary" className="unit-price">
-                              ${item.menuItem.price.toFixed(2)} each
-                            </Text>
-                          )}
-                        </div>
-
-                        <Button
-                          type="text"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => removeItem(globalIndex)}
-                        />
-                      </div>
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeItem(item.id)}
+                        disabled={updating === item.id}
+                      />
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </Card>
             ))}
           </Col>
@@ -254,12 +511,12 @@ const Cart: React.FC = () => {
 
               <div className="summary-line">
                 <Text>Subtotal</Text>
-                <Text>${summary.subtotal.toFixed(2)}</Text>
+                <Text>${cartData.summary.subtotal.toFixed(2)}</Text>
               </div>
 
               <div className="summary-line">
                 <Text>Delivery Fee</Text>
-                <Text>${summary.deliveryFee.toFixed(2)}</Text>
+                <Text>${cartData.summary.delivery_fee.toFixed(2)}</Text>
               </div>
 
               <div className="summary-line highlight">
@@ -271,20 +528,33 @@ const Cart: React.FC = () => {
                     title="$1 flat matchmaking fee - 100% of delivery fee goes to driver"
                   />
                 </div>
-                <Text strong style={{ color: '#10B981' }}>${summary.platformFee.toFixed(2)}</Text>
+                <Text strong style={{ color: '#10B981' }}>${cartData.summary.platform_fee.toFixed(2)}</Text>
               </div>
 
               <div className="summary-line">
                 <Text>Tax (8.75%)</Text>
-                <Text>${summary.tax.toFixed(2)}</Text>
+                <Text>${cartData.summary.tax.toFixed(2)}</Text>
               </div>
+
+              {cartData.summary.discount > 0 && (
+                <div className="summary-line discount">
+                  <div className="discount-label">
+                    <GiftOutlined style={{ color: '#10B981' }} />
+                    <Text style={{ color: '#10B981' }}>Discount</Text>
+                    {cartData.promo_code && (
+                      <Tag color="green">{cartData.promo_code}</Tag>
+                    )}
+                  </div>
+                  <Text strong style={{ color: '#10B981' }}>-${cartData.summary.discount.toFixed(2)}</Text>
+                </div>
+              )}
 
               <Divider />
 
               <div className="summary-line total">
                 <Title level={4} style={{ margin: 0 }}>Total</Title>
                 <Title level={3} style={{ margin: 0, color: '#10B981' }}>
-                  ${summary.total.toFixed(2)}
+                  ${cartData.summary.total.toFixed(2)}
                 </Title>
               </div>
 
@@ -302,11 +572,11 @@ const Cart: React.FC = () => {
                 Proceed to Checkout
               </Button>
 
-              {summary.subtotal < 10 && (
+              {cartData.summary.subtotal < 10 && (
                 <div className="minimum-warning">
                   <InfoCircleOutlined />
                   <Text type="secondary">
-                    Add ${(10 - summary.subtotal).toFixed(2)} more to meet $10 minimum
+                    Add ${(10 - cartData.summary.subtotal).toFixed(2)} more to meet $10 minimum
                   </Text>
                 </div>
               )}
@@ -314,15 +584,57 @@ const Cart: React.FC = () => {
 
             {/* Promo Code Section */}
             <Card className="promo-card">
-              <Title level={5}>Have a promo code?</Title>
-              <div className="promo-input">
-                <input
-                  type="text"
-                  placeholder="Enter code"
-                  className="promo-field"
-                />
-                <Button type="primary">Apply</Button>
-              </div>
+              <Title level={5}>
+                <GiftOutlined /> Have a promo code?
+              </Title>
+
+              {cartData.promo_code ? (
+                <div className="applied-promo">
+                  <div className="promo-info">
+                    <Tag color="green" icon={<GiftOutlined />}>
+                      {cartData.promo_code}
+                    </Tag>
+                    <Text type="secondary">
+                      {cartData.promo_type === 'percentage'
+                        ? 'Percentage discount applied'
+                        : cartData.promo_type === 'free_delivery'
+                        ? 'Free delivery applied'
+                        : 'Discount applied'}
+                    </Text>
+                  </div>
+                  <Button
+                    type="text"
+                    danger
+                    icon={<CloseCircleOutlined />}
+                    onClick={removePromoCode}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <div className="promo-input">
+                  <Input
+                    placeholder="Enter code"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    onPressEnter={applyPromoCode}
+                    disabled={applyingPromo}
+                  />
+                  <Button
+                    type="primary"
+                    onClick={applyPromoCode}
+                    loading={applyingPromo}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              )}
+
+              {!isAuthenticated && (
+                <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
+                  Log in to apply promo codes
+                </Text>
+              )}
             </Card>
           </Col>
         </Row>
@@ -434,7 +746,19 @@ const Cart: React.FC = () => {
           padding: 12px 24px;
         }
 
+        .summary-line.discount {
+          background: #f0fdf4;
+          margin: 8px -24px;
+          padding: 12px 24px;
+        }
+
         .platform-fee-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .discount-label {
           display: flex;
           align-items: center;
           gap: 8px;
@@ -483,17 +807,20 @@ const Cart: React.FC = () => {
           gap: 8px;
         }
 
-        .promo-field {
-          flex: 1;
+        .applied-promo {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           padding: 8px 12px;
-          border: 1px solid #d9d9d9;
-          border-radius: 6px;
-          font-size: 14px;
+          background: #f0fdf4;
+          border-radius: 8px;
+          border: 1px solid #10B981;
         }
 
-        .promo-field:focus {
-          outline: none;
-          border-color: #10B981;
+        .promo-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         @media (max-width: 768px) {

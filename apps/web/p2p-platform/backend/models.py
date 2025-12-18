@@ -498,6 +498,58 @@ class Customer(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Cart(Base):
+    """Shopping cart for customers"""
+    __tablename__ = "carts"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+
+    # Promo code
+    promo_code = Column(String(50), nullable=True)
+    promo_discount = Column(Float, default=0.0)
+    promo_type = Column(String(50), nullable=True)  # percentage, flat_amount, free_delivery
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
+
+class CartItem(Base):
+    """Individual items in a shopping cart"""
+    __tablename__ = "cart_items"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    cart_id = Column(Integer, ForeignKey("carts.id"), nullable=False, index=True)
+    menu_item_id = Column(Integer, ForeignKey("vendor_menu_items.id"), nullable=False)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+
+    # Item Details (denormalized for performance)
+    item_name = Column(String(255), nullable=False)
+    item_description = Column(Text)
+    item_price = Column(Float, nullable=False)  # Price at time of adding to cart
+    quantity = Column(Integer, default=1)
+
+    # Restaurant info (denormalized)
+    vendor_name = Column(String(255), nullable=False)
+
+    # Customizations
+    special_instructions = Column(Text)
+    customizations = Column(JSON, default=dict)  # Selected customization options
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    cart = relationship("Cart", back_populates="items")
+
+
 class DriverStatus(enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
