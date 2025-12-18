@@ -91,6 +91,65 @@ async def health_check():
     """Health check endpoint for load balancers and monitoring"""
     return {"status": "healthy", "service": "p2p-backend", "timestamp": datetime.utcnow().isoformat()}
 
+# Database Migration Endpoint (protected with secret key)
+@app.post("/api/admin/migrate")
+async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get_db)):
+    """
+    Run database migrations to add missing columns.
+    Protected with ADMIN_SECRET_KEY environment variable.
+    """
+    expected_key = os.getenv("ADMIN_SECRET_KEY", "dollor-admin-2025")
+    if secret_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+
+    migrations_run = []
+    errors = []
+
+    # Migration: Add verification columns to drivers table
+    driver_columns = [
+        ("verification_id", "VARCHAR(255)"),
+        ("verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("documents_verified_at", "TIMESTAMP"),
+        ("verification_notes", "TEXT"),
+        ("verification_reviewer_id", "INTEGER"),
+    ]
+
+    for col_name, col_type in driver_columns:
+        try:
+            db.execute(text(f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            migrations_run.append(f"drivers.{col_name}")
+        except Exception as e:
+            errors.append(f"drivers.{col_name}: {str(e)}")
+
+    # Migration: Add verification columns to vendors table
+    vendor_columns = [
+        ("verification_id", "VARCHAR(255)"),
+        ("verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("documents_verified_at", "TIMESTAMP"),
+        ("verification_notes", "TEXT"),
+        ("verification_reviewer_id", "INTEGER"),
+    ]
+
+    for col_name, col_type in vendor_columns:
+        try:
+            db.execute(text(f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            migrations_run.append(f"vendors.{col_name}")
+        except Exception as e:
+            errors.append(f"vendors.{col_name}: {str(e)}")
+
+    db.commit()
+
+    return {
+        "status": "completed",
+        "migrations_run": migrations_run,
+        "errors": errors,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
