@@ -263,8 +263,8 @@ You own the entire technical stack:
 │   │   ├── shared/                 # Shared libraries
 │   │   │   └── common.py           # MicroserviceFactory, StructuredLogger, ErrorCodes
 │   │   │
-│   │   ├── core/                   # Core microservices (ALL IMPLEMENTED)
-│   │   │   ├── auth-service/       # Port 8001 - Authentication, JWT, OAuth
+│   │   ├── core/                   # Core microservices (ALL 18 IMPLEMENTED)
+│   │   │   ├── auth-service/       # Port 8001 - Customer authentication, JWT, OAuth
 │   │   │   ├── user-service/       # Port 8002 - Customer/Rider profiles
 │   │   │   ├── driver-service/     # Port 8003 - Driver profiles, documents
 │   │   │   ├── restaurant-service/ # Port 8004 - Restaurant profiles
@@ -273,6 +273,8 @@ You own the entire technical stack:
 │   │   │   ├── location-service/   # Port 8007 - Real-time tracking
 │   │   │   ├── menu-service/       # Port 8008 - Menu management
 │   │   │   ├── notification-service/ # Port 8009 - Push, SMS, Email
+│   │   │   ├── restaurant-auth-service/ # Port 8010 - Restaurant/vendor auth
+│   │   │   ├── driver-auth-service/ # Port 8011 - Driver authentication
 │   │   │   ├── rating-service/     # Port 8013 - Reviews, ratings
 │   │   │   ├── ride-service/       # Port 8014 - Ride requests
 │   │   │   ├── pricing-service/    # Port 8015 - Fare calculation
@@ -366,13 +368,13 @@ frontend/src/app/
 
 ## MICROSERVICES ARCHITECTURE (IMPLEMENTED)
 
-> **STATUS**: All 16 microservices are implemented and deployed. Use `docker-compose up` in
+> **STATUS**: All 18 microservices are implemented and deployed. Use `docker-compose up` in
 > `/services/` to run locally, or push to main/feature/microservices branch to trigger CI/CD.
 
 ### Service Catalog
 | Service | Port | Domain | Responsibility |
 |---------|------|--------|----------------|
-| **auth-service** | 8001 | Both | Authentication, JWT, OAuth |
+| **auth-service** | 8001 | Both | Customer authentication, JWT, OAuth |
 | **user-service** | 8002 | Both | Customer/Rider profiles |
 | **driver-service** | 8003 | Both | Driver profiles, documents |
 | **restaurant-service** | 8004 | Food | Restaurant profiles |
@@ -381,6 +383,8 @@ frontend/src/app/
 | **location-service** | 8007 | Both | Real-time tracking |
 | **menu-service** | 8008 | Food | Menu management |
 | **notification-service** | 8009 | Both | Push, SMS, Email |
+| **restaurant-auth-service** | 8010 | Food | Restaurant/vendor authentication, OAuth |
+| **driver-auth-service** | 8011 | Both | Driver authentication, OAuth |
 | **rating-service** | 8013 | Both | Reviews, ratings |
 | **ride-service** | 8014 | Rideshare | Ride requests, matching |
 | **pricing-service** | 8015 | Rideshare | Surge, fare calculation |
@@ -390,7 +394,7 @@ frontend/src/app/
 | **call-service** | 8019 | Both | Phone masking via Twilio |
 
 ### Docker Environment Configuration
-All 16 microservices use multi-stage Docker builds with the following critical environment variables:
+All 18 microservices use multi-stage Docker builds with the following critical environment variables:
 
 ```dockerfile
 # Required environment variables (all services)
@@ -414,6 +418,8 @@ ENV SERVICE_PORT={port}
 | location-service | `services/core/location-service/Dockerfile` | /app/shared |
 | menu-service | `services/core/menu-service/Dockerfile` | /app/shared |
 | notification-service | `services/core/notification-service/Dockerfile` | /app/shared |
+| restaurant-auth-service | `services/core/restaurant-auth-service/Dockerfile` | /app/shared |
+| driver-auth-service | `services/core/driver-auth-service/Dockerfile` | /app/shared |
 | rating-service | `services/core/rating-service/Dockerfile` | /app/shared |
 | ride-service | `services/core/ride-service/Dockerfile` | /app/shared |
 | pricing-service | `services/core/pricing-service/Dockerfile` | /app/shared |
@@ -1219,14 +1225,14 @@ cd /Users/jeet/StudioProjects/eatfair-ios-hotfix && git checkout hotfix/base && 
 
 ---
 
-*Last Updated: December 16, 2025*
+*Last Updated: December 18, 2025*
 *AI Employee: TechCloudPro Claude Instance*
 *Platform: Dollor.ai (Food Delivery + Rideshare Matchmaking Service)*
 *Status: Phase 8 In Progress - Staging Deployment Active*
 *Business Model: Tiered Platform Fee ($1/$2/$3 based on fare)*
 *Legal Status: Matchmaking Service (Phase 1)*
-*Total Microservices: 16 (13 core + 3 communication)*
-*CI/CD: All 16 microservices building to ECR, deploying to EKS*
+*Total Microservices: 18 (15 core + 3 communication)*
+*CI/CD: All 18 microservices building to ECR, deploying to EKS*
 *Staging EKS: dollor-staging (us-east-1)*
 *Next: Complete EKS deployment, then App Store Submission*
 
@@ -1379,6 +1385,124 @@ We do not employ drivers or control negotiations.
 Platform suggests prices based on market rates.
 Final price is negotiated freely between parties.
 """
+```
+
+---
+
+## ROLE-SPECIFIC AUTHENTICATION SERVICES
+
+> **NEW**: Dedicated authentication microservices for drivers and restaurants/vendors.
+> These services handle role-specific authentication flows separate from the main auth-service.
+
+### Restaurant Auth Service (Port 8010)
+**Location:** `services/core/restaurant-auth-service/`
+
+Authentication service for restaurant owners and vendors.
+Handles vendor-specific login, registration, and OAuth flows.
+
+**Files:**
+- `main.py` - FastAPI authentication service (~660 lines)
+- `requirements.txt` - Dependencies
+
+**Features:**
+- Vendor registration with restaurant details
+- Form-based login (Android/Web) - `/api/auth/vendor/login`
+- JSON-based login (iOS) - `/api/vendor/login`
+- Google OAuth for vendors - `/api/auth/vendor/google`
+- Password reset flow
+- Vendor profile management
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/vendor/login` | POST | Form-based vendor login |
+| `/api/auth/vendor/register` | POST | Register new vendor |
+| `/api/vendor/login` | POST | JSON-based iOS login |
+| `/api/vendor/register` | POST | JSON-based iOS registration |
+| `/api/auth/vendor/google` | POST | Google OAuth for vendors |
+| `/api/auth/vendor/me` | GET | Get current vendor profile |
+| `/api/auth/vendor/password-reset/request` | POST | Request password reset |
+| `/api/auth/vendor/password-reset/confirm` | POST | Confirm password reset |
+| `/health` | GET | Health check |
+
+**Error Codes:**
+- `VENDOR-103`: Email already registered
+- `VENDOR-104`: Restaurant name required
+- `VENDOR-201`: Invalid credentials
+- `VENDOR-202`: Vendor account not approved
+- `VENDOR-301`: Vendor not found
+
+### Driver Auth Service (Port 8011)
+**Location:** `services/core/driver-auth-service/`
+
+Authentication service for delivery drivers.
+Handles driver-specific login, registration, and OAuth flows.
+
+**Files:**
+- `main.py` - FastAPI authentication service (~750 lines)
+- `requirements.txt` - Dependencies
+
+**Features:**
+- Driver registration with vehicle details
+- Form-based login (Android/Web) - `/api/auth/driver/login`
+- JSON-based login (iOS) - `/api/driver/login`
+- Google OAuth for drivers - `/api/auth/driver/google`
+- Apple Sign In for drivers - `/api/auth/driver/apple-auth`
+- Password reset flow
+- Driver profile management with location
+
+**API Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/driver/login` | POST | Form-based driver login |
+| `/api/auth/driver/register` | POST | Register new driver |
+| `/api/driver/login` | POST | JSON-based iOS login |
+| `/api/driver/register` | POST | JSON-based iOS registration |
+| `/api/auth/driver/google` | POST | Google OAuth for drivers |
+| `/api/auth/driver/apple-auth` | POST | Apple Sign In for drivers |
+| `/api/auth/driver/me` | GET | Get current driver profile |
+| `/api/auth/driver/password-reset/request` | POST | Request password reset |
+| `/api/auth/driver/password-reset/confirm` | POST | Confirm password reset |
+| `/health` | GET | Health check |
+
+**Error Codes:**
+- `DRV-101`: Invalid phone format
+- `DRV-103`: Email already registered
+- `DRV-201`: Invalid credentials
+- `DRV-202`: Driver account not active
+- `DRV-301`: Driver not found
+
+### Authentication Service Architecture
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    ROLE-SPECIFIC AUTHENTICATION                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐          │
+│  │  CUSTOMER APP    │    │   DRIVER APP     │    │  RESTAURANT APP  │          │
+│  │  (iOS/Android)   │    │  (iOS/Android)   │    │  (iOS/Android)   │          │
+│  └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘          │
+│           │                       │                       │                      │
+│           ▼                       ▼                       ▼                      │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐          │
+│  │  auth-service    │    │ driver-auth-svc  │    │ restaurant-auth  │          │
+│  │     :8001        │    │     :8011        │    │     :8010        │          │
+│  │                  │    │                  │    │                  │          │
+│  │ • Customer auth  │    │ • Driver auth    │    │ • Vendor auth    │          │
+│  │ • Customer OAuth │    │ • Driver OAuth   │    │ • Vendor OAuth   │          │
+│  │ • Customer reset │    │ • Apple Sign In  │    │ • Google Sign In │          │
+│  └──────────────────┘    └──────────────────┘    └──────────────────┘          │
+│           │                       │                       │                      │
+│           └───────────────────────┼───────────────────────┘                      │
+│                                   │                                              │
+│                          ┌────────▼────────┐                                     │
+│                          │   PostgreSQL    │                                     │
+│                          │  users table    │                                     │
+│                          │  drivers table  │                                     │
+│                          │  vendors table  │                                     │
+│                          └─────────────────┘                                     │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
