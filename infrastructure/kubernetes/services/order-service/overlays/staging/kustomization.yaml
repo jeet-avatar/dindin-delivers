@@ -36,6 +36,10 @@ configMapGenerator:
       - ENVIRONMENT=staging
       - SERVICE_PORT=8005
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+      # CQRS Infrastructure
+      - KAFKA_BOOTSTRAP_SERVERS=kafka.data:9092
+      - ELASTICSEARCH_URL=http://elasticsearch.data:9200
+      - ENABLE_EVENT_PROJECTOR=true
 
 images:
   - name: dollor/order-service

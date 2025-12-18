@@ -1683,11 +1683,11 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Backend expects "full_name"
+        // Backend expects "name" (not "full_name")
         let body: [String: Any] = [
             "email": email,
             "password": password,
-            "full_name": fullName,
+            "name": fullName,
             "phone": phone
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)

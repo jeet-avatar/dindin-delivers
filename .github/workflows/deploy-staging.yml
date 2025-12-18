@@ -7,7 +7,6 @@ on:
       - develop
     paths:
       - 'apps/web/p2p-platform/**'
-      - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
     inputs:
       skip_tests:

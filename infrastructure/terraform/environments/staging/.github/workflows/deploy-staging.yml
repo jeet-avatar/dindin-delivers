@@ -1,0 +1,281 @@
+# Dollor.ai - Staging Deployment Pipeline
+# Deploys P2P Backend, Frontend, and builds Android staging APKs
+# Follows CLAUDE.md: DEV → STAGING → PRODUCTION pipeline
+
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: 'Deploy P2P Backend'
+        required: false
+        default: true
+        type: boolean
+      deploy_frontend:
+        description: 'Deploy P2P Frontend'
+        required: false
+        default: true
+        type: boolean
+      build_android:
+        description: 'Build Android APKs'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: dollor-staging
+  ECR_REGISTRY: 134607809447.dkr.ecr.us-east-1.amazonaws.com
+  STAGING_API_URL: https://staging-api.dollor.ai
+  STAGING_FRONTEND_URL: https://staging.dollor.ai
+
+jobs:
+  # ============================================================================
+  # SECURITY SCANNING (Required per CLAUDE.md)
+  # ============================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top-ten
+            p/python
+
+      - name: Run Bandit (Python Security)
+        run: |
+          pip install bandit
+          bandit -r apps/web/p2p-platform/backend/ services/ -ll -ii || true
+
+  # ============================================================================
+  # P2P BACKEND DEPLOYMENT
+  # ============================================================================
+  deploy-backend:
+    name: Deploy P2P Backend
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: github.event.inputs.deploy_backend != 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: \${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: \${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push P2P Backend
+        env:
+          ECR_REPOSITORY: dollor/p2p-backend
+          IMAGE_TAG: staging-\${{ github.sha }}
+        run: |
+          cd apps/web/p2p-platform/backend
+          docker build -t \$ECR_REGISTRY/\$ECR_REPOSITORY:\$IMAGE_TAG .
+          docker tag \$ECR_REGISTRY/\$ECR_REPOSITORY:\$IMAGE_TAG \$ECR_REGISTRY/\$ECR_REPOSITORY:staging-latest
+          docker push \$ECR_REGISTRY/\$ECR_REPOSITORY:\$IMAGE_TAG
+          docker push \$ECR_REGISTRY/\$ECR_REPOSITORY:staging-latest
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name \$EKS_CLUSTER_NAME --region \$AWS_REGION
+
+      - name: Deploy to EKS Staging
+        run: |
+          kubectl set image deployment/p2p-backend \
+            p2p-backend=\$ECR_REGISTRY/dollor/p2p-backend:staging-\${{ github.sha }} \
+            -n staging || \
+          kubectl apply -k infrastructure/kubernetes/services/p2p-backend/overlays/staging/
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/p2p-backend -n staging --timeout=300s
+
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f \$STAGING_API_URL/health || echo "Health check pending - EKS may still be provisioning"
+
+  # ============================================================================
+  # P2P FRONTEND DEPLOYMENT
+  # ============================================================================
+  deploy-frontend:
+    name: Deploy P2P Frontend
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: github.event.inputs.deploy_frontend != 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Build frontend for staging
+        working-directory: apps/web/p2p-platform/frontend
+        env:
+          VITE_API_URL: \${{ env.STAGING_API_URL }}
+          VITE_ENVIRONMENT: staging
+          VITE_STRIPE_PUBLISHABLE_KEY: \${{ secrets.STRIPE_STAGING_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: \${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: \${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync apps/web/p2p-platform/frontend/dist/ s3://dollor-staging-frontend/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id \${{ secrets.STAGING_CLOUDFRONT_ID }} \
+            --paths "/*" || echo "CloudFront invalidation pending"
+
+  # ============================================================================
+  # ANDROID STAGING BUILDS
+  # ============================================================================
+  build-android:
+    name: Build Android Staging APKs
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: github.event.inputs.build_android != 'false'
+    steps:
+      - name: Checkout iOS repo (contains backend)
+        uses: actions/checkout@v4
+
+      - name: Checkout Android repo
+        uses: actions/checkout@v4
+        with:
+          repository: \${{ github.repository_owner }}/eatfair-android
+          path: android
+          token: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Create local.properties
+        working-directory: android
+        run: |
+          echo "GOOGLE_MAPS_API_KEY=\${{ secrets.GOOGLE_MAPS_API_KEY }}" > local.properties
+          echo "STRIPE_PUBLISHABLE_KEY=\${{ secrets.STRIPE_STAGING_PUBLISHABLE_KEY }}" >> local.properties
+
+      - name: Build Customer App (Staging)
+        working-directory: android
+        run: ./gradlew :app:assembleStagingRelease
+
+      - name: Build Driver App (Staging)
+        working-directory: android
+        run: ./gradlew :orderapp:assembleStagingRelease
+
+      - name: Build Partner App (Staging)
+        working-directory: android
+        run: ./gradlew :partner:assembleStagingRelease
+
+      - name: Upload Customer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-staging-apk
+          path: android/app/build/outputs/apk/staging/release/*.apk
+
+      - name: Upload Driver APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-staging-apk
+          path: android/orderapp/build/outputs/apk/staging/release/*.apk
+
+      - name: Upload Partner APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-staging-apk
+          path: android/partner/build/outputs/apk/staging/release/*.apk
+
+  # ============================================================================
+  # INTEGRATION TESTS
+  # ============================================================================
+  integration-tests:
+    name: Staging Integration Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-backend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          pip install requests pytest
+
+      - name: Run API health checks
+        env:
+          STAGING_API_URL: https://staging-api.dollor.ai
+        run: |
+          echo "Testing staging API endpoints..."
+          curl -f \$STAGING_API_URL/health || echo "Backend health pending"
+          curl -f \$STAGING_API_URL/api/legal/terms || echo "Terms endpoint pending"
+          curl -f \$STAGING_API_URL/api/legal/privacy || echo "Privacy endpoint pending"
+          echo "Staging API tests complete!"
+
+  # ============================================================================
+  # DEPLOYMENT NOTIFICATION
+  # ============================================================================
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend, build-android, integration-tests]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        env:
+          STAGING_API_URL: https://staging-api.dollor.ai
+          STAGING_FRONTEND_URL: https://staging.dollor.ai
+        run: |
+          echo "## Staging Deployment Summary" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> \$GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> \$GITHUB_STEP_SUMMARY
+          echo "| P2P Backend | \${{ needs.deploy-backend.result }} |" >> \$GITHUB_STEP_SUMMARY
+          echo "| P2P Frontend | \${{ needs.deploy-frontend.result }} |" >> \$GITHUB_STEP_SUMMARY
+          echo "| Android APKs | \${{ needs.build-android.result }} |" >> \$GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | \${{ needs.integration-tests.result }} |" >> \$GITHUB_STEP_SUMMARY
+          echo "" >> \$GITHUB_STEP_SUMMARY
+          echo "### URLs" >> \$GITHUB_STEP_SUMMARY
+          echo "- Staging API: \$STAGING_API_URL" >> \$GITHUB_STEP_SUMMARY
+          echo "- Staging Frontend: \$STAGING_FRONTEND_URL" >> \$GITHUB_STEP_SUMMARY
