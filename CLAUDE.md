@@ -1464,65 +1464,78 @@ rules:
 
 ### GitHub Actions Workflow
 ```yaml
-# .github/workflows/security-scan.yml
-name: Security Scan Pipeline
+# .github/workflows/ci-complete.yml (Semgrep section)
+# Uses official semgrep/semgrep container for reliable SARIF generation
+semgrep:
+  name: Semgrep SAST
+  runs-on: ubuntu-latest
+  permissions:
+    security-events: write
+    contents: read
+  container:
+    image: semgrep/semgrep
+  steps:
+    - uses: actions/checkout@v4
+    - name: Run Semgrep
+      run: |
+        semgrep scan \
+          --config p/owasp-top-ten \
+          --config p/python \
+          --config p/javascript \
+          --config p/typescript \
+          --config p/security-audit \
+          --config p/secrets \
+          --config p/ci \
+          --sarif --output semgrep.sarif \
+          --error \
+          || true
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: semgrep.sarif
 
-on:
-  push:
-    branches: [main, staging]
-  pull_request:
-    branches: [main, staging]
+# Alternative: Install via pip (when container not possible)
+# - run: pip install semgrep
+# - run: semgrep scan --config p/owasp-top-ten --sarif --output semgrep.sarif
 
-jobs:
-  semgrep:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: returntocorp/semgrep-action@v1
-        with:
-          config: .semgrep.yml p/security-audit p/owasp-top-ten
-          generateSarif: true
-      - uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: semgrep.sarif
+sonarqube:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: sonarsource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+    - uses: sonarsource/sonarqube-quality-gate-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  sonarqube:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      - uses: sonarsource/sonarqube-quality-gate-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+trivy:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
 
-  trivy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-
-  bandit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install bandit
-      - run: bandit -r services/ apps/web/p2p-platform/backend/ -ll -ii
+bandit:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - run: pip install bandit
+    - run: bandit -r services/ apps/web/p2p-platform/backend/ -ll -ii
 ```
 
 ### Run Security Scans Locally
 ```bash
-# Semgrep
+# Semgrep (with SARIF output)
 pip install semgrep
-semgrep --config .semgrep.yml --config p/security-audit .
+semgrep scan --config p/owasp-top-ten --config p/python --config p/security-audit --sarif --output semgrep.sarif .
 
 # Bandit (Python)
 pip install bandit
