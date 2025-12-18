@@ -432,6 +432,7 @@ jobs:
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true  # Non-blocking - requires GitHub Advanced Security or Code Scanning enabled
         with:
           sarif_file: 'trivy-results.sarif'
           category: trivy
