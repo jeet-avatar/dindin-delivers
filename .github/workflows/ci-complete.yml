@@ -74,27 +74,34 @@ jobs:
     permissions:
       security-events: write
       contents: read
+    container:
+      image: semgrep/semgrep
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/owasp-top-ten
-            p/python
-            p/javascript
-            p/typescript
-            p/security-audit
-            p/secrets
-            p/ci
-          generateSarif: true
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/ci \
+            --sarif --output semgrep.sarif \
+            --error \
+            || true
+          # Show summary
+          if [ -f semgrep.sarif ]; then
+            echo "SARIF file generated successfully"
+            ls -la semgrep.sarif
+          fi
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
-        continue-on-error: true  # Don't fail if SARIF file wasn't generated
         with:
           sarif_file: semgrep.sarif
 

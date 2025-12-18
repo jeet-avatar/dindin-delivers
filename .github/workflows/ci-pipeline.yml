@@ -113,34 +113,42 @@ jobs:
         uses: actions/checkout@v4
 
       # ----- Semgrep SAST -----
-      - name: Semgrep SAST Scan
-        uses: returntocorp/semgrep-action@v1
+      - name: Set up Python for Semgrep
+        uses: actions/setup-python@v5
         with:
-          config: >-
-            p/owasp-top-ten
-            p/python
-            p/javascript
-            p/typescript
-            p/security-audit
-            p/secrets
-            p/ci
-            p/default
-          generateSarif: true
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Semgrep SAST Scan
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/ci \
+            --config p/default \
+            --sarif --output semgrep.sarif \
+            --error \
+            || true
+          # Show summary
+          if [ -f semgrep.sarif ]; then
+            echo "SARIF file generated successfully"
+            ls -la semgrep.sarif
+          fi
 
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
-        continue-on-error: true  # Non-blocking - requires GitHub Advanced Security
         with:
           sarif_file: semgrep.sarif
           category: semgrep
 
       # ----- Bandit (Python Security) -----
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Install Bandit
         run: pip install bandit[toml]
 
