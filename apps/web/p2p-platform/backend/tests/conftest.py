@@ -2,7 +2,7 @@
 Pytest configuration and shared fixtures for all tests.
 
 Provides:
-- Test database setup
+- Test database setup (with PostgreSQL schema recreation for clean state)
 - FastAPI TestClient
 - Authentication fixtures
 - Mock data factories
