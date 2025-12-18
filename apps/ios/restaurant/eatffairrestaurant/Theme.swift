@@ -2,10 +2,10 @@ import SwiftUI
 
 /// Restaurant App Theme - Consistent styling across the app
 struct RestaurantTheme {
-    // MARK: - Brand Colors
-    static let brandOrange = Color(red: 255/255, green: 107/255, blue: 53/255)
+    // MARK: - Brand Colors (Matched with Android Partner app)
+    static let brandOrange = Color(red: 255/255, green: 109/255, blue: 0/255)  // #FF6D00
     static let brandRed = Color(red: 220/255, green: 53/255, blue: 69/255)
-    static let brandGreen = Color(red: 40/255, green: 167/255, blue: 69/255)
+    static let brandGreen = Color(red: 76/255, green: 175/255, blue: 80/255)   // #4CAF50
     static let brandBlue = Color(red: 0/255, green: 123/255, blue: 255/255)
     static let brandPurple = Color(red: 111/255, green: 66/255, blue: 193/255)
 
@@ -20,7 +20,7 @@ struct RestaurantTheme {
     static let statusPreparing = Color(red: 0/255, green: 123/255, blue: 255/255)
     static let statusReady = brandGreen
     static let statusPickedUp = brandPurple
-    static let statusDelivered = Color(red: 40/255, green: 167/255, blue: 69/255)
+    static let statusDelivered = brandGreen  // #4CAF50 - Matched with Android
     static let statusRejected = brandRed
 
     // MARK: - Text Colors
