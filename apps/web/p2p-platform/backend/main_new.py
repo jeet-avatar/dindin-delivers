@@ -2671,6 +2671,314 @@ def get_customer_profile_v2(current_user: User = Depends(get_current_user), db: 
     }
 
 
+# ==================== CUSTOMER DASHBOARD ====================
+
+@app.get("/api/customer/dashboard")
+def get_customer_dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get customer dashboard data with rides history and stats"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+
+    customer_id = customer.id if customer else 0
+
+    # Get recent rides from database (or mock data if no real rides)
+    recent_rides = []
+
+    # Calculate stats from customer record
+    total_rides = customer.total_orders if customer else 0
+    total_spent = customer.total_spent if customer else 0.0
+
+    # Calculate savings (estimated 20% savings vs traditional platforms)
+    # Traditional platforms charge ~25-30% fees, we charge $1 flat
+    estimated_traditional_fees = total_spent * 0.25  # 25% typical fees
+    our_fees = total_rides * 1.0  # $1 per ride
+    saved_amount = max(0, estimated_traditional_fees - our_fees)
+
+    # Mock recent rides for display (in production, query from rides table)
+    if total_rides == 0:
+        # Show empty state
+        recent_rides = []
+    else:
+        # Generate sample recent rides based on stats
+        import random
+        sample_locations = [
+            ("123 Main St", "Downtown Mall"),
+            ("456 Oak Avenue", "Airport Terminal B"),
+            ("789 Pine Road", "Central Station"),
+            ("321 Elm Street", "University Campus"),
+            ("654 Maple Drive", "Shopping Center"),
+        ]
+
+        for i in range(min(5, total_rides)):
+            pickup, dropoff = random.choice(sample_locations)
+            days_ago = i + 1
+            ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+            fare = round(random.uniform(8.0, 35.0), 2)
+
+            recent_rides.append({
+                "id": f"RIDE-{random.randint(1000, 9999)}",
+                "pickup": pickup,
+                "dropoff": dropoff,
+                "date": ride_date,
+                "fare": fare,
+                "driver_name": random.choice(["John D.", "Maria S.", "James K.", "Sarah L.", "Mike T."]),
+                "driver_rating": round(random.uniform(4.5, 5.0), 1),
+                "status": "completed"
+            })
+
+    # Quick destinations (from customer saved addresses or defaults)
+    saved_addresses = customer.saved_addresses if customer and customer.saved_addresses else []
+    quick_destinations = [
+        {"icon": "🏠", "label": "Home", "address": saved_addresses[0] if len(saved_addresses) > 0 else "Set home address"},
+        {"icon": "💼", "label": "Work", "address": saved_addresses[1] if len(saved_addresses) > 1 else "Set work address"},
+        {"icon": "✈️", "label": "Airport", "address": "Nearest airport"},
+    ]
+
+    return {
+        "customer_name": f"{customer.first_name or ''} {customer.last_name or ''}".strip() if customer else current_user.full_name,
+        "customer_id": customer_id,
+        "stats": {
+            "total_rides": total_rides,
+            "total_spent": round(total_spent, 2),
+            "saved_amount": round(saved_amount, 2)
+        },
+        "recent_rides": recent_rides,
+        "quick_destinations": quick_destinations,
+        "loyalty": {
+            "points": customer.loyalty_points if customer else 0,
+            "tier": customer.loyalty_tier if customer else "bronze"
+        }
+    }
+
+
+@app.get("/api/customer/rides/history")
+def get_customer_ride_history(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get customer's ride history with pagination"""
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+
+    if not customer:
+        return {"rides": [], "total": 0, "has_more": False}
+
+    # In production, query from rides table
+    # For now, generate sample data based on total_orders
+    total_rides = customer.total_orders or 0
+
+    rides = []
+    import random
+    sample_locations = [
+        ("123 Main St", "Downtown Mall", 12.50),
+        ("456 Oak Avenue", "Airport Terminal B", 28.00),
+        ("789 Pine Road", "Central Station", 15.75),
+        ("321 Elm Street", "University Campus", 9.50),
+        ("654 Maple Drive", "Shopping Center", 18.25),
+        ("987 Cedar Lane", "Medical Center", 22.00),
+        ("147 Birch Way", "Sports Arena", 14.00),
+        ("258 Walnut Court", "Business District", 19.50),
+    ]
+
+    for i in range(offset, min(offset + limit, total_rides)):
+        pickup, dropoff, base_fare = random.choice(sample_locations)
+        days_ago = i + 1
+        ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+        fare = round(base_fare + random.uniform(-3, 5), 2)
+
+        rides.append({
+            "id": f"RIDE-{1000 + i}",
+            "pickup": pickup,
+            "dropoff": dropoff,
+            "date": ride_date,
+            "fare": fare,
+            "platform_fee": 1.00,
+            "tip": round(random.uniform(0, 5), 2),
+            "driver_name": random.choice(["John D.", "Maria S.", "James K.", "Sarah L.", "Mike T."]),
+            "driver_rating": round(random.uniform(4.5, 5.0), 1),
+            "driver_photo": None,
+            "status": "completed",
+            "duration_minutes": random.randint(10, 45),
+            "distance_miles": round(random.uniform(1.5, 15.0), 1)
+        })
+
+    return {
+        "rides": rides,
+        "total": total_rides,
+        "has_more": offset + limit < total_rides
+    }
+
+
+# ==================== DRIVER DASHBOARD ====================
+
+@app.get("/api/driver/dashboard")
+def get_driver_dashboard(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get driver dashboard data with active delivery, pending orders, and stats"""
+
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
+            else:
+                email = payload.get("sub")
+                if email:
+                    driver = db.query(Driver).filter(Driver.email == email).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    driver_name = f"{driver.first_name} {driver.last_name}"
+
+    # Active delivery (mock - in production, query active orders)
+    active_delivery = None
+    if driver.is_online:
+        # Simulate active delivery with 30% probability when online
+        import random
+        if random.random() < 0.3:
+            active_delivery = {
+                "id": f"DEL-{datetime.utcnow().strftime('%Y')}-{random.randint(100, 999)}",
+                "restaurant": random.choice(["Pasta Paradise", "Burger Bliss", "Sushi Supreme", "Taco Town"]),
+                "customer": random.choice(["John Smith", "Jane Doe", "Alex Johnson", "Sam Wilson"]),
+                "address": f"{random.randint(100, 999)} {random.choice(['Main', 'Oak', 'Pine', 'Elm'])} Street, Apt {random.randint(1, 20)}",
+                "items": random.randint(1, 5),
+                "total": round(random.uniform(15.0, 60.0), 2),
+                "distance": f"{round(random.uniform(0.5, 5.0), 1)} mi",
+                "estimated_time": f"{random.randint(10, 30)} min",
+                "status": random.choice(["accepted", "picked_up", "en_route"])
+            }
+
+    # Pending deliveries nearby (mock)
+    pending_deliveries = []
+    if driver.is_online:
+        import random
+        restaurants = ["Burger Bliss", "Sushi Supreme", "Pizza Palace", "Taco Town", "Thai Delight"]
+        streets = ["Oak Avenue", "Pine Road", "Maple Drive", "Cedar Lane", "Birch Way"]
+
+        for i in range(random.randint(2, 5)):
+            pending_deliveries.append({
+                "id": f"DEL-{datetime.utcnow().strftime('%Y')}-{random.randint(100, 999)}",
+                "restaurant": random.choice(restaurants),
+                "address": f"{random.randint(100, 999)} {random.choice(streets)}",
+                "distance": f"{round(random.uniform(0.5, 4.0), 1)} mi",
+                "payout": round(random.uniform(5.0, 15.0), 2),
+                "eta": f"{random.randint(15, 35)} min"
+            })
+
+    # Today's stats
+    total_deliveries = driver.total_deliveries or 0
+
+    # Simulate today's portion (roughly 1/30 of total, with some randomness)
+    import random
+    today_deliveries = min(random.randint(0, 15), total_deliveries)
+    today_earnings = round(today_deliveries * random.uniform(8.0, 15.0), 2)
+
+    # Hours online today (based on when they went online)
+    hours_online = 0.0
+    if driver.is_online and driver.went_online_at:
+        hours_online = round((datetime.utcnow() - driver.went_online_at).total_seconds() / 3600, 1)
+
+    today_stats = {
+        "deliveries": today_deliveries,
+        "earnings": today_earnings,
+        "hours_online": hours_online,
+        "acceptance_rate": random.randint(85, 100)
+    }
+
+    # Weekly progress (mock goals)
+    weekly_stats = {
+        "deliveries": {"current": min(total_deliveries, 45), "goal": 50},
+        "earnings": {"current": round(min(total_deliveries * 12.5, 680), 2), "goal": 800},
+        "hours": {"current": round(min(hours_online * 7, 32), 1), "goal": 40}
+    }
+
+    return {
+        "driver_name": driver_name,
+        "driver_id": driver.driver_id,
+        "is_online": driver.is_online,
+        "rating": driver.rating or 5.0,
+        "active_delivery": active_delivery,
+        "pending_deliveries": pending_deliveries,
+        "today_stats": today_stats,
+        "weekly_stats": weekly_stats,
+        "location": {
+            "latitude": driver.current_latitude,
+            "longitude": driver.current_longitude,
+            "last_update": driver.last_location_update.isoformat() if driver.last_location_update else None
+        }
+    }
+
+
+@app.get("/api/driver/earnings")
+def get_driver_earnings(
+    period: str = "today",  # today, week, month, all
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get driver earnings breakdown"""
+
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
+            else:
+                email = payload.get("sub")
+                if email:
+                    driver = db.query(Driver).filter(Driver.email == email).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    total_deliveries = driver.total_deliveries or 0
+
+    # Calculate earnings based on period (mock data)
+    import random
+
+    if period == "today":
+        deliveries = min(random.randint(0, 15), total_deliveries)
+        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
+        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+    elif period == "week":
+        deliveries = min(random.randint(30, 50), total_deliveries)
+        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
+        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+    elif period == "month":
+        deliveries = min(random.randint(100, 200), total_deliveries)
+        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
+        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+    else:  # all time
+        deliveries = total_deliveries
+        base_earnings = round(deliveries * 10.0, 2)
+        tips = round(deliveries * 3.5, 2)
+
+    return {
+        "period": period,
+        "deliveries": deliveries,
+        "base_earnings": base_earnings,
+        "tips": tips,
+        "bonuses": round(deliveries * 0.5, 2) if deliveries > 10 else 0,
+        "total_earnings": round(base_earnings + tips + (deliveries * 0.5 if deliveries > 10 else 0), 2),
+        "platform_fee": 0.00,  # We don't charge drivers!
+        "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers."
+    }
+
+
 # Client endpoints
 @app.post("/api/clients", response_model=ClientResponse)
 def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

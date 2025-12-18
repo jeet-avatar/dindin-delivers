@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, Row, Col, Statistic, Button, List, Avatar, Tag, Progress, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Statistic, Button, List, Avatar, Tag, Progress, Typography, Spin, message } from 'antd';
 import {
   DollarOutlined,
   CarOutlined,
@@ -9,60 +9,158 @@ import {
   ArrowUpOutlined,
   RightOutlined,
   CheckCircleOutlined,
-  PhoneOutlined
+  PhoneOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
+import axios from 'axios';
+import { getApiUrl } from '../../api/api';
 
 const { Title, Text } = Typography;
 
+interface ActiveDelivery {
+  id: string;
+  restaurant: string;
+  customer: string;
+  address: string;
+  items: number;
+  total: number;
+  distance: string;
+  estimated_time: string;
+  status: string;
+}
+
+interface PendingDelivery {
+  id: string;
+  restaurant: string;
+  address: string;
+  distance: string;
+  payout: number;
+  eta: string;
+}
+
+interface TodayStats {
+  deliveries: number;
+  earnings: number;
+  hours_online: number;
+  acceptance_rate: number;
+}
+
+interface WeeklyStats {
+  deliveries: { current: number; goal: number };
+  earnings: { current: number; goal: number };
+  hours: { current: number; goal: number };
+}
+
+interface DashboardData {
+  driver_name: string;
+  driver_id: string;
+  is_online: boolean;
+  rating: number;
+  active_delivery: ActiveDelivery | null;
+  pending_deliveries: PendingDelivery[];
+  today_stats: TodayStats;
+  weekly_stats: WeeklyStats;
+}
+
 const DriverDashboard: React.FC = () => {
-  const [activeDelivery] = useState({
-    id: 'DEL-2024-001',
-    restaurant: 'Pasta Paradise',
-    customer: 'John Smith',
-    address: '123 Main Street, Apt 4B',
-    items: 3,
-    total: 42.50,
-    distance: '2.3 mi',
-    estimatedTime: '15 min',
-    status: 'picked_up'
+  const API_URL = getApiUrl();
+  const [loading, setLoading] = useState(true);
+  const [driverName, setDriverName] = useState('Driver');
+  const [isOnline, setIsOnline] = useState(false);
+  const [activeDelivery, setActiveDelivery] = useState<ActiveDelivery | null>(null);
+  const [pendingDeliveries, setPendingDeliveries] = useState<PendingDelivery[]>([]);
+  const [todayStats, setTodayStats] = useState<TodayStats>({
+    deliveries: 0,
+    earnings: 0,
+    hours_online: 0,
+    acceptance_rate: 0
+  });
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({
+    deliveries: { current: 0, goal: 50 },
+    earnings: { current: 0, goal: 800 },
+    hours: { current: 0, goal: 40 }
   });
 
-  const pendingDeliveries = [
-    {
-      id: 'DEL-2024-002',
-      restaurant: 'Burger Bliss',
-      address: '456 Oak Avenue',
-      distance: '1.8 mi',
-      payout: 8.50,
-      eta: '20 min'
-    },
-    {
-      id: 'DEL-2024-003',
-      restaurant: 'Sushi Supreme',
-      address: '789 Pine Road',
-      distance: '3.2 mi',
-      payout: 12.00,
-      eta: '25 min'
-    }
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const todayStats = {
-    deliveries: 12,
-    earnings: 156.80,
-    hoursOnline: 4.5,
-    acceptanceRate: 92
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('driver_token') || localStorage.getItem('access_token');
+
+      if (!token) {
+        // Not logged in, use default data
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get<DashboardData>(`${API_URL}/api/driver/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = response.data;
+
+      setDriverName(data.driver_name || 'Driver');
+      setIsOnline(data.is_online);
+      setActiveDelivery(data.active_delivery);
+      setPendingDeliveries(data.pending_deliveries);
+      setTodayStats({
+        deliveries: data.today_stats.deliveries,
+        earnings: data.today_stats.earnings,
+        hours_online: data.today_stats.hours_online,
+        acceptance_rate: data.today_stats.acceptance_rate
+      });
+      setWeeklyStats(data.weekly_stats);
+
+      // Cache the name
+      localStorage.setItem('driver_name', data.driver_name);
+
+    } catch (error: any) {
+      console.error('Failed to fetch dashboard data:', error);
+
+      // Fallback to cached data
+      const name = localStorage.getItem('driver_name') || 'Driver';
+      setDriverName(name);
+
+      if (error.response?.status === 401) {
+        message.warning('Session expired. Please log in again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+      </div>
+    );
+  }
 
   return (
     <div className="driver-dashboard">
       {/* Welcome Header */}
       <div className="welcome-section">
         <div>
-          <Title level={3} style={{ margin: 0, color: '#1e293b' }}>Good Afternoon, Driver!</Title>
-          <Text type="secondary">Here's your delivery activity for today</Text>
+          <Title level={3} style={{ margin: 0, color: '#1e293b' }}>Good {getTimeOfDay()}, {driverName}!</Title>
+          <Text type="secondary">
+            {isOnline ? "You're online and ready to deliver" : "Here's your delivery activity for today"}
+          </Text>
         </div>
         <Button type="primary" size="large" icon={<CarOutlined />} className="start-delivery-btn">
-          Start New Delivery
+          {isOnline ? 'Go Offline' : 'Go Online'}
         </Button>
       </div>
 
@@ -75,11 +173,11 @@ const DriverDashboard: React.FC = () => {
               value={todayStats.earnings}
               precision={2}
               prefix="$"
-              suffix={<ArrowUpOutlined style={{ color: '#10B981', fontSize: 14 }} />}
+              suffix={todayStats.earnings > 0 ? <ArrowUpOutlined style={{ color: '#10B981', fontSize: 14 }} /> : null}
               valueStyle={{ color: '#10B981', fontWeight: 700 }}
             />
             <div className="stat-footer">
-              <Text type="secondary">+$23.50 from last hour</Text>
+              <Text type="secondary">100% goes to you</Text>
             </div>
           </Card>
         </Col>
@@ -92,7 +190,7 @@ const DriverDashboard: React.FC = () => {
               valueStyle={{ color: '#6366F1', fontWeight: 700 }}
             />
             <div className="stat-footer">
-              <Text type="secondary">3 more than yesterday</Text>
+              <Text type="secondary">Today's completed</Text>
             </div>
           </Card>
         </Col>
@@ -100,7 +198,7 @@ const DriverDashboard: React.FC = () => {
           <Card className="stat-card blue">
             <Statistic
               title="Hours Online"
-              value={todayStats.hoursOnline}
+              value={todayStats.hours_online}
               precision={1}
               suffix="hrs"
               prefix={<ClockCircleOutlined style={{ marginRight: 8 }} />}
@@ -115,13 +213,13 @@ const DriverDashboard: React.FC = () => {
           <Card className="stat-card orange">
             <Statistic
               title="Acceptance Rate"
-              value={todayStats.acceptanceRate}
+              value={todayStats.acceptance_rate}
               suffix="%"
               prefix={<StarOutlined style={{ marginRight: 8 }} />}
               valueStyle={{ color: '#F59E0B', fontWeight: 700 }}
             />
             <div className="stat-footer">
-              <Text type="secondary">Great job!</Text>
+              <Text type="secondary">{todayStats.acceptance_rate >= 90 ? 'Great job!' : 'Keep it up!'}</Text>
             </div>
           </Card>
         </Col>
@@ -162,31 +260,31 @@ const DriverDashboard: React.FC = () => {
                   <div className="detail-row">
                     <div className="detail-item">
                       <Text type="secondary">Restaurant</Text>
-                      <Text strong>{activeDelivery.restaurant}</Text>
+                      <Text strong>{activeDelivery?.restaurant}</Text>
                     </div>
                     <div className="detail-item">
                       <Text type="secondary">Customer</Text>
-                      <Text strong>{activeDelivery.customer}</Text>
+                      <Text strong>{activeDelivery?.customer}</Text>
                     </div>
                   </div>
                   <div className="detail-row">
                     <div className="detail-item full">
                       <Text type="secondary"><EnvironmentOutlined /> Delivery Address</Text>
-                      <Text strong>{activeDelivery.address}</Text>
+                      <Text strong>{activeDelivery?.address}</Text>
                     </div>
                   </div>
                   <div className="detail-row">
                     <div className="detail-item">
                       <Text type="secondary">Items</Text>
-                      <Text strong>{activeDelivery.items} items</Text>
+                      <Text strong>{activeDelivery?.items} items</Text>
                     </div>
                     <div className="detail-item">
                       <Text type="secondary">Distance</Text>
-                      <Text strong>{activeDelivery.distance}</Text>
+                      <Text strong>{activeDelivery?.distance}</Text>
                     </div>
                     <div className="detail-item">
                       <Text type="secondary">ETA</Text>
-                      <Text strong>{activeDelivery.estimatedTime}</Text>
+                      <Text strong>{activeDelivery?.estimated_time}</Text>
                     </div>
                   </div>
                 </div>
@@ -255,27 +353,36 @@ const DriverDashboard: React.FC = () => {
                 <div className="progress-item">
                   <div className="progress-header">
                     <Text>Deliveries Goal</Text>
-                    <Text strong>45 / 50</Text>
+                    <Text strong>{weeklyStats.deliveries.current} / {weeklyStats.deliveries.goal}</Text>
                   </div>
-                  <Progress percent={90} strokeColor="#10B981" />
+                  <Progress
+                    percent={Math.round((weeklyStats.deliveries.current / weeklyStats.deliveries.goal) * 100)}
+                    strokeColor="#10B981"
+                  />
                 </div>
               </Col>
               <Col xs={24} md={8}>
                 <div className="progress-item">
                   <div className="progress-header">
                     <Text>Earnings Goal</Text>
-                    <Text strong>$680 / $800</Text>
+                    <Text strong>${weeklyStats.earnings.current} / ${weeklyStats.earnings.goal}</Text>
                   </div>
-                  <Progress percent={85} strokeColor="#6366F1" />
+                  <Progress
+                    percent={Math.round((weeklyStats.earnings.current / weeklyStats.earnings.goal) * 100)}
+                    strokeColor="#6366F1"
+                  />
                 </div>
               </Col>
               <Col xs={24} md={8}>
                 <div className="progress-item">
                   <div className="progress-header">
                     <Text>Hours Goal</Text>
-                    <Text strong>32 / 40 hrs</Text>
+                    <Text strong>{weeklyStats.hours.current} / {weeklyStats.hours.goal} hrs</Text>
                   </div>
-                  <Progress percent={80} strokeColor="#F59E0B" />
+                  <Progress
+                    percent={Math.round((weeklyStats.hours.current / weeklyStats.hours.goal) * 100)}
+                    strokeColor="#F59E0B"
+                  />
                 </div>
               </Col>
             </Row>
