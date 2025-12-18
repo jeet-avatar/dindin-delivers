@@ -128,10 +128,37 @@ class DriverGoogleAuthRequest(BaseModel):
 
 
 class CustomerRegisterRequest(BaseModel):
+    """Customer registration request - accepts both 'name' and 'full_name' for iOS/Android compatibility"""
     email: EmailStr
     password: str
-    name: str
+    name: Optional[str] = None
+    full_name: Optional[str] = None  # iOS sends full_name, Android sends name
     phone: Optional[str] = None
+
+    def get_name(self) -> str:
+        """Get the name (prefers name, falls back to full_name)"""
+        return self.name or self.full_name or ""
+
+
+class CustomerLoginRequest(BaseModel):
+    """JSON login request for iOS apps (POST /api/customer/login)"""
+    email: EmailStr
+    password: str
+
+
+class CustomerGoogleAuthRequest(BaseModel):
+    """Google OAuth request for customers"""
+    email: EmailStr
+    name: str
+    google_id: str
+
+
+class CustomerAppleAuthRequest(BaseModel):
+    """Apple Sign In request for customers"""
+    email: EmailStr
+    name: Optional[str] = None
+    apple_id: str
+    identity_token: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -716,11 +743,14 @@ async def get_current_driver(
 @app.post("/api/auth/customer/register", tags=["Customer Authentication"])
 async def customer_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """
-    Register a new customer account.
+    Register a new customer account (Android/Web - form compatible).
     """
     logger.info("Customer registration", email=request.email)
 
     from sqlalchemy import text
+
+    # Get name using compatibility method (handles both 'name' and 'full_name')
+    customer_name = request.get_name()
 
     # Check if email exists
     existing = db.execute(
@@ -742,7 +772,7 @@ async def customer_register(request: CustomerRegisterRequest, db: Session = Depe
             RETURNING id
         """),
         {
-            "name": request.name,
+            "name": customer_name,
             "email": request.email,
             "phone": request.phone
         }
@@ -759,7 +789,7 @@ async def customer_register(request: CustomerRegisterRequest, db: Session = Depe
         {
             "email": request.email,
             "password_hash": hashed_password,
-            "full_name": request.name,
+            "full_name": customer_name,
             "customer_id": customer_id
         }
     )
@@ -777,7 +807,7 @@ async def customer_register(request: CustomerRegisterRequest, db: Session = Depe
         "access_token": access_token,
         "token_type": "bearer",
         "customer_id": customer_id,
-        "name": request.name,
+        "name": customer_name,
         "email": request.email
     }
 
@@ -835,6 +865,302 @@ async def customer_login(
         "name": customer_name or full_name,
         "email": email
     }
+
+
+# =============================================================================
+# ROUTES - iOS CUSTOMER AUTH (JSON Body Endpoints)
+# =============================================================================
+
+@app.post("/api/customer/login", tags=["Customer Authentication - iOS"])
+async def customer_login_ios(request: CustomerLoginRequest, db: Session = Depends(get_db)):
+    """
+    iOS Customer Login - JSON body endpoint.
+
+    iOS apps send JSON body: {"email": "...", "password": "..."}
+    Instead of form data.
+    """
+    logger.info("iOS Customer login attempt", email=request.email)
+
+    from sqlalchemy import text
+
+    # Query customer from users table with CUSTOMER role
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.password_hash, u.full_name, u.customer_id,
+                   c.id as c_id, c.name
+            FROM users u
+            LEFT JOIN customers c ON u.customer_id = c.id
+            WHERE u.email = :email AND u.role = 'CUSTOMER'
+        """),
+        {"email": request.email}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "AUTH-201", "message": "Invalid credentials"}
+        )
+
+    user_id, email, password_hash, full_name, customer_id, c_id, customer_name = result
+
+    if not verify_password(request.password, password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "AUTH-201", "message": "Invalid credentials"}
+        )
+
+    access_token = create_access_token(data={
+        "sub": email,
+        "role": "customer",
+        "customer_id": c_id,
+        "user_id": user_id
+    })
+
+    logger.info("iOS Customer login successful", email=email)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": c_id,
+        "name": customer_name or full_name,
+        "email": email
+    }
+
+
+@app.post("/api/customer/register", tags=["Customer Authentication - iOS"])
+async def customer_register_ios(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+    """
+    iOS Customer Registration - JSON body endpoint.
+
+    iOS sends: {"email": "...", "password": "...", "full_name": "...", "phone": "..."}
+    Also supports 'name' field for Android compatibility.
+    """
+    logger.info("iOS Customer registration", email=request.email)
+
+    from sqlalchemy import text
+
+    # Get name using compatibility method
+    customer_name = request.get_name()
+
+    # Check if email exists
+    existing = db.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": request.email}
+    ).fetchone()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AUTH-103", "message": "Email already registered"}
+        )
+
+    # Create customer record
+    customer_result = db.execute(
+        text("""
+            INSERT INTO customers (name, email, phone, status, created_at)
+            VALUES (:name, :email, :phone, 'ACTIVE', NOW())
+            RETURNING id
+        """),
+        {
+            "name": customer_name,
+            "email": request.email,
+            "phone": request.phone
+        }
+    )
+    customer_id = customer_result.fetchone()[0]
+
+    # Create user record
+    hashed_password = get_password_hash(request.password)
+    db.execute(
+        text("""
+            INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+            VALUES (:email, :password_hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+        """),
+        {
+            "email": request.email,
+            "password_hash": hashed_password,
+            "full_name": customer_name,
+            "customer_id": customer_id
+        }
+    )
+    db.commit()
+
+    access_token = create_access_token(data={
+        "sub": request.email,
+        "role": "customer",
+        "customer_id": customer_id
+    })
+
+    logger.info("iOS Customer registration successful", email=request.email)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer_id,
+        "name": customer_name,
+        "email": request.email
+    }
+
+
+@app.post("/api/customer/google-auth", tags=["Customer Authentication - iOS"])
+async def customer_google_auth_ios(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+    """
+    iOS Customer Google OAuth - handles login and registration.
+
+    iOS sends: {"email": "...", "name": "...", "google_id": "..."}
+    """
+    logger.info("iOS Customer Google auth", email=request.email)
+
+    from sqlalchemy import text
+
+    # Check if customer exists
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.customer_id, c.id as c_id, c.name
+            FROM users u
+            LEFT JOIN customers c ON u.customer_id = c.id
+            WHERE u.email = :email AND u.role = 'CUSTOMER'
+        """),
+        {"email": request.email}
+    ).fetchone()
+
+    if result:
+        # Existing customer - login
+        user_id, email, customer_id, c_id, customer_name = result
+    else:
+        # Create new customer
+        customer_result = db.execute(
+            text("""
+                INSERT INTO customers (name, email, status, created_at)
+                VALUES (:name, :email, 'ACTIVE', NOW())
+                RETURNING id
+            """),
+            {
+                "name": request.name,
+                "email": request.email
+            }
+        )
+        c_id = customer_result.fetchone()[0]
+
+        # Create user record with Google OAuth password placeholder
+        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        db.execute(
+            text("""
+                INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+                VALUES (:email, :password_hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+            """),
+            {
+                "email": request.email,
+                "password_hash": hashed_password,
+                "full_name": request.name,
+                "customer_id": c_id
+            }
+        )
+        db.commit()
+        customer_name = request.name
+        logger.info("Created new customer via Google", email=request.email)
+
+    access_token = create_access_token(data={
+        "sub": request.email,
+        "role": "customer",
+        "customer_id": c_id
+    })
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": c_id,
+        "name": customer_name,
+        "email": request.email
+    }
+
+
+@app.post("/api/customer/apple-auth", tags=["Customer Authentication - iOS"])
+async def customer_apple_auth_ios(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
+    """
+    iOS Customer Apple Sign In - handles login and registration.
+
+    iOS sends: {"email": "...", "name": "...", "apple_id": "...", "identity_token": "..."}
+    Note: Apple only sends name on first sign-in, so we handle null names.
+    """
+    logger.info("iOS Customer Apple auth", email=request.email)
+
+    from sqlalchemy import text
+
+    # Check if customer exists
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.customer_id, c.id as c_id, c.name
+            FROM users u
+            LEFT JOIN customers c ON u.customer_id = c.id
+            WHERE u.email = :email AND u.role = 'CUSTOMER'
+        """),
+        {"email": request.email}
+    ).fetchone()
+
+    if result:
+        # Existing customer - login
+        user_id, email, customer_id, c_id, customer_name = result
+    else:
+        # Create new customer
+        # Use name if provided, otherwise extract from email
+        display_name = request.name or request.email.split("@")[0]
+
+        customer_result = db.execute(
+            text("""
+                INSERT INTO customers (name, email, status, created_at)
+                VALUES (:name, :email, 'ACTIVE', NOW())
+                RETURNING id
+            """),
+            {
+                "name": display_name,
+                "email": request.email
+            }
+        )
+        c_id = customer_result.fetchone()[0]
+
+        # Create user record with Apple OAuth password placeholder
+        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+        db.execute(
+            text("""
+                INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+                VALUES (:email, :password_hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+            """),
+            {
+                "email": request.email,
+                "password_hash": hashed_password,
+                "full_name": display_name,
+                "customer_id": c_id
+            }
+        )
+        db.commit()
+        customer_name = display_name
+        logger.info("Created new customer via Apple", email=request.email)
+
+    access_token = create_access_token(data={
+        "sub": request.email,
+        "role": "customer",
+        "customer_id": c_id
+    })
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": c_id,
+        "name": customer_name,
+        "email": request.email
+    }
+
+
+@app.post("/api/auth/customer/google", tags=["Customer Authentication"])
+async def customer_google_auth_android(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+    """
+    Android/Web Customer Google OAuth - alias for /api/customer/google-auth.
+
+    Android uses this path: /api/auth/customer/google
+    """
+    # Reuse iOS Google auth endpoint
+    return await customer_google_auth_ios(request, db)
 
 
 # =============================================================================
