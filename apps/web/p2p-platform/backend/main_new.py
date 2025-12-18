@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_
 from datetime import datetime, timedelta, date
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
@@ -506,60 +506,94 @@ class PasswordResetConfirm(BaseModel):
     new_password: str
 
 # Vendor Registration
-@app.post("/api/auth/vendor/register", response_model=Token)
+@app.post("/api/auth/vendor/register")
 def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db)):
     print(f"Vendor registration attempt for: {request.email}")
 
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == request.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # Check if email already exists
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Create vendor record first
+        from models import VendorStatus
+        new_vendor = Vendor(
+            company_name=request.restaurant_name,
+            restaurant_name=request.restaurant_name,
+            contact_name=request.full_name or request.restaurant_name,
+            contact_email=request.email,
+            onboarding_status=VendorStatus.PENDING,
+            street="",
+            city="",
+            state="",
+            zip_code="",
+            country="US"
         )
+        db.add(new_vendor)
+        db.commit()
+        db.refresh(new_vendor)
+        print(f"Vendor record created: {new_vendor.id}")
 
-    # Create vendor record first
-    from models import VendorStatus
-    new_vendor = Vendor(
-        company_name=request.restaurant_name,
-        restaurant_name=request.restaurant_name,
-        contact_name=request.full_name,
-        contact_email=request.email,
-        onboarding_status=VendorStatus.PENDING,
-        street="",
-        city="",
-        state="",
-        zip_code="",
-        country="US"
-    )
-    db.add(new_vendor)
-    db.commit()
-    db.refresh(new_vendor)
+        # Create user record
+        hashed_password = get_password_hash(request.password)
+        new_user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=request.full_name or request.restaurant_name,
+            role=UserRole.VENDOR,
+            vendor_id=new_vendor.id
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        print(f"User record created: {new_user.id}")
 
-    # Create user record
-    hashed_password = get_password_hash(request.password)
-    new_user = User(
-        email=request.email,
-        password_hash=hashed_password,
-        full_name=request.full_name,
-        role=UserRole.VENDOR,
-        vendor_id=new_vendor.id
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+        print(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
+        access_token = create_access_token(data={"sub": new_user.email, "role": "vendor"})
 
-    print(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
-    access_token = create_access_token(data={"sub": new_user.email, "role": "vendor"})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": new_user,
-        # Top-level fields for Android compatibility
-        "vendor_id": new_vendor.id,
-        "business_name": request.restaurant_name,
-        "email": new_user.email
-    }
+        # Send registration confirmation email (non-blocking)
+        try:
+            send_vendor_registration_confirmation(
+                to_email=request.email,
+                vendor_name=request.full_name or request.restaurant_name,
+                restaurant_name=request.restaurant_name
+            )
+            print(f"Vendor registration email sent to: {request.email}")
+        except Exception as e:
+            print(f"Failed to send vendor registration email: {str(e)}")
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": new_user.id,
+                "email": new_user.email,
+                "full_name": new_user.full_name,
+                "role": "vendor",
+                "vendor_id": new_vendor.id
+            },
+            # Top-level fields for Android/iOS compatibility
+            "vendor_id": new_vendor.id,
+            "business_name": request.restaurant_name,
+            "email": new_user.email,
+            "status": "PENDING",
+            "message": "Registration successful. Your account is pending approval."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Vendor registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
 
 # Vendor Google OAuth
 class VendorGoogleAuthRequest(BaseModel):
@@ -857,78 +891,92 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
     """Register a new driver account"""
     print(f"Driver registration attempt for: {request.email}")
 
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == request.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-
-    # Check if driver email already exists
-    existing_driver = db.query(Driver).filter(Driver.email == request.email).first()
-    if existing_driver:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Driver email already registered"
-        )
-
-    # Create driver record
-    driver_count = db.query(Driver).count()
-    driver_code = f"DRV-{driver_count + 1:05d}"
-
-    new_driver = Driver(
-        driver_id=driver_code,
-        first_name=request.first_name,
-        last_name=request.last_name,
-        email=request.email,
-        phone=request.phone,
-        vehicle_type=request.vehicle_type,
-        license_number=request.license_number,
-        date_of_birth=request.date_of_birth,
-        status=DriverStatus.PENDING  # Needs approval
-    )
-    db.add(new_driver)
-    db.commit()
-    db.refresh(new_driver)
-
-    # Create user record linked to driver
-    hashed_password = get_password_hash(request.password)
-    new_user = User(
-        email=request.email,
-        password_hash=hashed_password,
-        full_name=f"{request.first_name} {request.last_name}",
-        role=UserRole.DRIVER,
-        driver_id=new_driver.id
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    print(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
-    access_token = create_access_token(data={"sub": new_user.email, "role": "driver", "driver_id": new_driver.id})
-
-    # Send registration confirmation email
     try:
-        send_driver_registration_confirmation(
-            to_email=new_driver.email,
-            driver_name=f"{new_driver.first_name} {new_driver.last_name}",
-            driver_code=driver_code
-        )
-        print(f"Driver registration email sent to: {new_driver.email}")
-    except Exception as e:
-        print(f"Failed to send driver registration email: {str(e)}")
+        # Check if email already exists
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "driver_id": new_driver.id,
-        "driver_code": driver_code,
-        "name": f"{new_driver.first_name} {new_driver.last_name}",
-        "email": new_driver.email,
-        "status": new_driver.status.value,
-        "message": "Registration successful. Your account is pending approval."
-    }
+        # Check if driver email already exists
+        existing_driver = db.query(Driver).filter(Driver.email == request.email).first()
+        if existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Driver email already registered"
+            )
+
+        # Create driver record
+        driver_count = db.query(Driver).count()
+        driver_code = f"DRV-{driver_count + 1:05d}"
+
+        new_driver = Driver(
+            driver_id=driver_code,
+            first_name=request.first_name,
+            last_name=request.last_name,
+            email=request.email,
+            phone=request.phone,
+            vehicle_type=request.vehicle_type or "car",  # Default to car if not provided
+            license_number=request.license_number,
+            date_of_birth=request.date_of_birth,
+            status=DriverStatus.PENDING  # Needs approval
+        )
+        db.add(new_driver)
+        db.commit()
+        db.refresh(new_driver)
+        print(f"Driver record created: {new_driver.id}")
+
+        # Create user record linked to driver
+        hashed_password = get_password_hash(request.password)
+        new_user = User(
+            email=request.email,
+            password_hash=hashed_password,
+            full_name=f"{request.first_name} {request.last_name}",
+            role=UserRole.DRIVER,
+            driver_id=new_driver.id
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        print(f"User record created: {new_user.id}")
+
+        print(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
+        access_token = create_access_token(data={"sub": new_user.email, "role": "driver", "driver_id": new_driver.id})
+
+        # Send registration confirmation email (non-blocking)
+        try:
+            send_driver_registration_confirmation(
+                to_email=new_driver.email,
+                driver_name=f"{new_driver.first_name} {new_driver.last_name}",
+                driver_code=driver_code
+            )
+            print(f"Driver registration email sent to: {new_driver.email}")
+        except Exception as e:
+            print(f"Failed to send driver registration email: {str(e)}")
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "driver_id": new_driver.id,
+            "driver_code": driver_code,
+            "name": f"{new_driver.first_name} {new_driver.last_name}",
+            "email": new_driver.email,
+            "status": new_driver.status.value if hasattr(new_driver.status, 'value') else str(new_driver.status),
+            "message": "Registration successful. Your account is pending approval."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Driver registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
 
 
 # Driver Google OAuth
@@ -1175,8 +1223,23 @@ def update_driver_location(latitude: float, longitude: float, current_user: User
 class CustomerRegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    name: str
+    name: Optional[str] = None
+    full_name: Optional[str] = None  # iOS sends full_name, Android sends name
     phone: Optional[str] = None
+
+    @field_validator('name', mode='before')
+    @classmethod
+    def set_name_from_full_name(cls, v, info):
+        """Accept both 'name' and 'full_name' fields for compatibility"""
+        if v:
+            return v
+        # Check if full_name was provided in the raw data
+        data = info.data if hasattr(info, 'data') else {}
+        return data.get('full_name', v)
+
+    def get_name(self) -> str:
+        """Get the name (prefers name, falls back to full_name)"""
+        return self.name or self.full_name or ""
 
 class CustomerLoginResponse(BaseModel):
     access_token: str
@@ -1258,8 +1321,14 @@ def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depen
     customer_count = db.query(Customer).count()
     customer_code = f"CUST-{customer_count + 1:05d}"
 
-    # Split name
-    name_parts = request.name.split(" ", 1)
+    # Split name (accepts both 'name' and 'full_name' fields)
+    customer_name = request.get_name()
+    if not customer_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name is required (send 'name' or 'full_name')"
+        )
+    name_parts = customer_name.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
 
@@ -1786,7 +1855,7 @@ def customer_login_json(request: CustomerLoginRequest, db: Session = Depends(get
         access_token=access_token,
         token_type="bearer",
         customer_id=customer.id,
-        customer_code=customer.customer_code or f"CUST{customer.id:06d}",
+        customer_code=customer.customer_id or f"CUST{customer.id:06d}",
         name=full_name,
         email=customer.email,
         phone=customer.phone
@@ -2197,8 +2266,14 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
             detail="Email already registered"
         )
 
-    # Split name into first and last name
-    name_parts = request.name.split(" ", 1)
+    # Split name into first and last name (accepts both 'name' and 'full_name')
+    customer_name = request.get_name()
+    if not customer_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name is required (send 'name' or 'full_name')"
+        )
+    name_parts = customer_name.split(" ", 1)
     first_name = name_parts[0]
     last_name = name_parts[1] if len(name_parts) > 1 else ""
 
@@ -2224,7 +2299,7 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
     new_user = User(
         email=request.email,
         password_hash=hashed_password,
-        full_name=request.name,
+        full_name=customer_name,
         role=UserRole.USER
     )
     db.add(new_user)
