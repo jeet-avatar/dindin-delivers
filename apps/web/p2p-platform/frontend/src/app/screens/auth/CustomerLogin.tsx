@@ -4,6 +4,7 @@ import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, CarOutlined, D
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
+import { BrandColors } from '../../theme/colors';
 
 const { TabPane } = Tabs;
 
@@ -535,7 +536,7 @@ const CustomerLogin: React.FC = () => {
           right: -50%;
           width: 100%;
           height: 100%;
-          background: radial-gradient(circle, rgba(82,196,26,0.15) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(6,193,103,0.15) 0%, transparent 70%);
           pointer-events: none;
         }
 
@@ -553,14 +554,14 @@ const CustomerLogin: React.FC = () => {
 
         .logo-icon {
           font-size: 40px;
-          color: #52c41a;
+          color: #06C167;
         }
 
         .logo-text {
           font-size: 32px;
           font-weight: 800;
           letter-spacing: -1px;
-          background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
@@ -573,7 +574,7 @@ const CustomerLogin: React.FC = () => {
         }
 
         .brand-headline .highlight {
-          color: #52c41a;
+          color: #06C167;
         }
 
         .brand-tagline {
@@ -599,7 +600,7 @@ const CustomerLogin: React.FC = () => {
 
         .feature-icon {
           font-size: 28px;
-          color: #52c41a;
+          color: #06C167;
           margin-top: 4px;
         }
 
@@ -686,8 +687,8 @@ const CustomerLogin: React.FC = () => {
         .login-form .ant-input-affix-wrapper:hover,
         .login-form .ant-input-affix-wrapper:focus,
         .login-form .ant-input-affix-wrapper-focused {
-          border-color: #52c41a;
-          box-shadow: 0 0 0 3px rgba(82,196,26,0.1);
+          border-color: #06C167;
+          box-shadow: 0 0 0 3px rgba(6,193,103,0.1);
         }
 
         .form-options {
@@ -703,22 +704,22 @@ const CustomerLogin: React.FC = () => {
         }
 
         .forgot-link:hover {
-          color: #52c41a;
+          color: #06C167;
         }
 
         .login-button {
           height: 48px;
           font-size: 16px;
           font-weight: 600;
-          background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%);
           border: none;
           border-radius: 8px;
         }
 
         .login-button:hover {
-          background: linear-gradient(135deg, #73d13d 0%, #52c41a 100%);
+          background: linear-gradient(135deg, #4ADE80 0%, #06C167 100%);
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(82,196,26,0.4);
+          box-shadow: 0 4px 12px rgba(6,193,103,0.4);
         }
 
         /* Google Sign-In Styles */
@@ -747,8 +748,8 @@ const CustomerLogin: React.FC = () => {
         }
 
         .google-fallback-button:hover {
-          border-color: #52c41a;
-          color: #52c41a;
+          border-color: #06C167;
+          color: #06C167;
         }
 
         .ant-divider-inner-text {
@@ -795,7 +796,7 @@ const CustomerLogin: React.FC = () => {
         }
 
         .login-footer a:hover {
-          color: #52c41a;
+          color: #06C167;
         }
 
         .driver-link {
@@ -813,7 +814,7 @@ const CustomerLogin: React.FC = () => {
         }
 
         .driver-link a {
-          color: #52c41a;
+          color: #06C167;
           font-weight: 600;
         }
 
@@ -829,11 +830,11 @@ const CustomerLogin: React.FC = () => {
         }
 
         .ant-tabs-tab-active {
-          color: #52c41a !important;
+          color: #06C167 !important;
         }
 
         .ant-tabs-ink-bar {
-          background: #52c41a !important;
+          background: #06C167 !important;
         }
 
         /* Responsive */

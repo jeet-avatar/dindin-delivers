@@ -48,12 +48,17 @@ SERVICE_VERSION = "1.0.0"
 SERVICE_PORT = 8001
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# CRITICAL: JWT_SECRET_KEY must be set in environment - no default for security
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
+# Database - must be configured via environment
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -214,17 +219,20 @@ def decode_token(token: str) -> dict:
 # CREATE SERVICE
 # =============================================================================
 
+# CORS origins from environment or production defaults
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
+    "https://dollor.ai",
+    "https://*.dollor.ai",
+    "https://api.dollor.ai",
+    "https://app.dollor.ai",
+]
+
 factory = MicroserviceFactory(
     service_name=SERVICE_NAME,
     version=SERVICE_VERSION,
     description="Authentication service for Dollor.ai platform",
     port=SERVICE_PORT,
-    cors_origins=[
-        "http://localhost:*",
-        "https://dollor.ai",
-        "https://*.dollor.ai",
-        "https://api.dollor.ai",
-    ]
+    cors_origins=CORS_ORIGINS
 )
 
 # Create FastAPI app
