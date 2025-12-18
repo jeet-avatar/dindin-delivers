@@ -85,9 +85,9 @@ def check_tables():
         
         for table in required_tables:
             if table in existing_tables:
-                # Count rows
+                # Count rows - Safe: table from hardcoded required_tables list
                 with engine.connect() as conn:
-                    result = conn.execute(text(f"SELECT COUNT(*) FROM {table}"))
+                    result = conn.execute(text(f"SELECT COUNT(*) FROM {table}"))  # nosemgrep: avoid-sqlalchemy-text
                     count = result.scalar()
                 print(f"  ✓ {table:25} ({count} rows)")
             else:

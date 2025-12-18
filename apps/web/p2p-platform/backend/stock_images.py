@@ -220,8 +220,8 @@ def get_stock_image_for_dish(dish_name: str, category: str = None, is_vegetarian
     dish_name_lower = dish_name.lower() if dish_name else ""
     category_lower = category.lower() if category else ""
 
-    # Use hash of dish name for consistent image selection
-    hash_val = int(hashlib.md5(dish_name.encode()).hexdigest(), 16)
+    # Use hash of dish name for consistent image selection (not for security)
+    hash_val = int(hashlib.md5(dish_name.encode(), usedforsecurity=False).hexdigest(), 16)
 
     # Try to match keywords in dish name
     for keyword, images in STOCK_IMAGES.items():

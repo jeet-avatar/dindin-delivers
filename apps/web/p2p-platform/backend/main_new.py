@@ -171,7 +171,8 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
 
     for col_name, col_type in driver_columns:
         try:
-            db.execute(text(f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            # Safe: col_name/col_type from hardcoded list above, not user input
+            db.execute(text(f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
             migrations_run.append(f"drivers.{col_name}")
         except Exception as e:
             errors.append(f"drivers.{col_name}: {str(e)}")
@@ -188,7 +189,8 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
 
     for col_name, col_type in vendor_columns:
         try:
-            db.execute(text(f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            # Safe: col_name/col_type from hardcoded list above, not user input
+            db.execute(text(f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
             migrations_run.append(f"vendors.{col_name}")
         except Exception as e:
             errors.append(f"vendors.{col_name}: {str(e)}")
@@ -454,7 +456,8 @@ def _run_startup_migrations():
         with engine.connect() as conn:
             for table, col_name, col_type in migrations:
                 try:
-                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))
+                    # Safe: table/col_name/col_type from hardcoded migrations list, not user input
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))  # nosemgrep: avoid-sqlalchemy-text
                 except Exception as e:
                     print(f"Migration {table}.{col_name}: {e}")
             conn.commit()
