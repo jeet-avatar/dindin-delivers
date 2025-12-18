@@ -4,6 +4,7 @@ import Login from './app/screens/auth/Login';
 import VendorLogin from './app/screens/auth/VendorLogin';
 import DriverLogin from './app/screens/auth/DriverLogin';
 import CustomerLogin from './app/screens/auth/CustomerLogin';
+import ForgotPassword from './app/screens/auth/ForgotPassword';
 import Dashboard from './app/screens/dashboard/Main';
 import SystemDashboard from './app/screens/dashboard/Main';
 import CoupaDashboard from './app/screens/coupaDashboard/Main';
@@ -66,6 +67,8 @@ function App() {
         <Route path="/vendor/login" element={<VendorLogin />} />
         <Route path="/driver/login" element={<DriverLogin />} />
         <Route path="/customer/login" element={<CustomerLogin />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ForgotPassword />} />
 
         {/* Standalone Ride Booking (no auth required for quick access) */}
         <Route path="/ride" element={<RideBooking />} />

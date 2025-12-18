@@ -1,14 +1,132 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, message, Checkbox } from 'antd';
-import { UserOutlined, LockOutlined, CarOutlined, DollarOutlined, ClockCircleOutlined, WalletOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Input, Button, message, Checkbox, Divider } from 'antd';
+import { UserOutlined, LockOutlined, CarOutlined, DollarOutlined, ClockCircleOutlined, WalletOutlined, EnvironmentOutlined, GoogleOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
+// Google OAuth Configuration
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Declare google global type
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+          }) => void;
+          renderButton: (
+            element: HTMLElement | null,
+            config: {
+              theme?: string;
+              size?: string;
+              width?: number;
+              text?: string;
+              shape?: string;
+            }
+          ) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 const DriverLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const API_URL = getApiUrl();
+
+  // Handle Google Sign-In callback
+  const handleGoogleCallback = useCallback(async (response: { credential: string }) => {
+    setGoogleLoading(true);
+    try {
+      const result = await axios.post(`${API_URL}/api/auth/driver/google`, {
+        id_token: response.credential,
+      });
+
+      // Store driver credentials
+      localStorage.setItem('driver_token', result.data.access_token);
+      localStorage.setItem('driver_id', result.data.driver_id);
+      localStorage.setItem('driver_code', result.data.driver_code);
+      localStorage.setItem('driver_name', result.data.name);
+      localStorage.setItem('driver_email', result.data.email);
+
+      message.success('Welcome! Signed in with Google');
+      navigate('/driver/dashboard');
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 403) {
+        message.error('Your driver account is pending approval');
+      } else {
+        const errorMsg = typeof detail === 'string' ? detail : 'Google sign-in failed. Please try again.';
+        message.error(errorMsg);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [API_URL, navigate]);
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    const loadGoogleScript = () => {
+      if (document.getElementById('google-signin-script')) return;
+
+      const script = document.createElement('script');
+      script.id = 'google-signin-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleSignIn;
+      document.body.appendChild(script);
+    };
+
+    const initializeGoogleSignIn = () => {
+      if (!GOOGLE_CLIENT_ID || !window.google) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCallback,
+        auto_select: false,
+      });
+
+      const buttonContainer = document.getElementById('google-signin-button-driver');
+      if (buttonContainer) {
+        window.google.accounts.id.renderButton(buttonContainer, {
+          theme: 'outline',
+          size: 'large',
+          width: 350,
+          text: 'signin_with',
+          shape: 'rectangular',
+        });
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (window.google) {
+        initializeGoogleSignIn();
+      } else {
+        loadGoogleScript();
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [handleGoogleCallback]);
+
+  // Custom Google button for fallback
+  const handleCustomGoogleSignIn = () => {
+    if (window.google) {
+      window.google.accounts.id.prompt();
+    } else {
+      message.warning('Google Sign-In is loading. Please try again in a moment.');
+    }
+  };
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -170,6 +288,26 @@ const DriverLogin: React.FC = () => {
                 Sign In to Dashboard
               </Button>
             </Form.Item>
+
+            <Divider plain>or continue with</Divider>
+
+            {/* Google Sign-In Button Container */}
+            <div className="google-signin-container">
+              <div id="google-signin-button-driver"></div>
+              {/* Fallback button if Google SDK not loaded */}
+              {!GOOGLE_CLIENT_ID && (
+                <Button
+                  icon={<GoogleOutlined />}
+                  size="large"
+                  block
+                  onClick={handleCustomGoogleSignIn}
+                  loading={googleLoading}
+                  className="google-fallback-button"
+                >
+                  Sign in with Google
+                </Button>
+              )}
+            </div>
           </Form>
 
           <div className="divider">
@@ -406,6 +544,41 @@ const DriverLogin: React.FC = () => {
           background: linear-gradient(135deg, #415a77 0%, #0d1b2a 100%);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(13,27,42,0.3);
+        }
+
+        /* Google Sign-In Styles */
+        .google-signin-container {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 16px;
+        }
+
+        .google-signin-container > div {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+        }
+
+        .google-fallback-button {
+          height: 48px;
+          font-size: 15px;
+          font-weight: 500;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .google-fallback-button:hover {
+          border-color: #4cc9f0;
+          color: #4cc9f0;
+        }
+
+        .ant-divider-inner-text {
+          font-size: 13px;
+          color: #94a3b8;
         }
 
         .divider {

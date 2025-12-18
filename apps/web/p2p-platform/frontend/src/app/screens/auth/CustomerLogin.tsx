@@ -1,17 +1,146 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, message, Checkbox, Tabs } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, CarOutlined, DollarOutlined, SafetyOutlined, RocketOutlined, HeartOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Input, Button, message, Checkbox, Tabs, Divider } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, CarOutlined, DollarOutlined, SafetyOutlined, RocketOutlined, HeartOutlined, GoogleOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
 const { TabPane } = Tabs;
 
+// Google OAuth Configuration
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Declare google global type
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+          }) => void;
+          renderButton: (
+            element: HTMLElement | null,
+            config: {
+              theme?: string;
+              size?: string;
+              width?: number;
+              text?: string;
+              shape?: string;
+            }
+          ) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 const CustomerLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
   const API_URL = getApiUrl();
+
+  // Handle Google Sign-In callback
+  const handleGoogleCallback = useCallback(async (response: { credential: string }) => {
+    setGoogleLoading(true);
+    try {
+      const result = await axios.post(`${API_URL}/api/auth/customer/google`, {
+        id_token: response.credential,
+      });
+
+      // Store customer credentials
+      localStorage.setItem('customer_token', result.data.access_token);
+      localStorage.setItem('customer_id', result.data.customer_id);
+      localStorage.setItem('customer_name', result.data.name);
+      localStorage.setItem('customer_email', result.data.email);
+      localStorage.setItem('customer_phone', result.data.phone || '');
+
+      message.success('Welcome! Signed in with Google');
+      navigate('/ride');
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      const detail = error.response?.data?.detail;
+      const errorMsg = typeof detail === 'string' ? detail : 'Google sign-in failed. Please try again.';
+      message.error(errorMsg);
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [API_URL, navigate]);
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    // Load Google Sign-In script
+    const loadGoogleScript = () => {
+      if (document.getElementById('google-signin-script')) return;
+
+      const script = document.createElement('script');
+      script.id = 'google-signin-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleSignIn;
+      document.body.appendChild(script);
+    };
+
+    const initializeGoogleSignIn = () => {
+      if (!GOOGLE_CLIENT_ID || !window.google) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCallback,
+        auto_select: false,
+      });
+
+      // Render button in login tab
+      const loginButtonContainer = document.getElementById('google-signin-button-login');
+      if (loginButtonContainer) {
+        window.google.accounts.id.renderButton(loginButtonContainer, {
+          theme: 'outline',
+          size: 'large',
+          width: 350,
+          text: 'signin_with',
+          shape: 'rectangular',
+        });
+      }
+
+      // Render button in register tab
+      const registerButtonContainer = document.getElementById('google-signin-button-register');
+      if (registerButtonContainer) {
+        window.google.accounts.id.renderButton(registerButtonContainer, {
+          theme: 'outline',
+          size: 'large',
+          width: 350,
+          text: 'signup_with',
+          shape: 'rectangular',
+        });
+      }
+    };
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      if (window.google) {
+        initializeGoogleSignIn();
+      } else {
+        loadGoogleScript();
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [handleGoogleCallback, activeTab]);
+
+  // Custom Google button for fallback when SDK not loaded
+  const handleCustomGoogleSignIn = () => {
+    if (window.google) {
+      window.google.accounts.id.prompt();
+    } else {
+      message.warning('Google Sign-In is loading. Please try again in a moment.');
+    }
+  };
 
   const onLogin = async (values: any) => {
     setLoading(true);
@@ -213,6 +342,26 @@ const CustomerLogin: React.FC = () => {
                     Sign In & Book a Ride
                   </Button>
                 </Form.Item>
+
+                <Divider plain>or continue with</Divider>
+
+                {/* Google Sign-In Button Container */}
+                <div className="google-signin-container">
+                  <div id="google-signin-button-login"></div>
+                  {/* Fallback button if Google SDK not loaded */}
+                  {!GOOGLE_CLIENT_ID && (
+                    <Button
+                      icon={<GoogleOutlined />}
+                      size="large"
+                      block
+                      onClick={handleCustomGoogleSignIn}
+                      loading={googleLoading}
+                      className="google-fallback-button"
+                    >
+                      Sign in with Google
+                    </Button>
+                  )}
+                </div>
               </Form>
             </TabPane>
 
@@ -313,6 +462,26 @@ const CustomerLogin: React.FC = () => {
                     Create Account
                   </Button>
                 </Form.Item>
+
+                <Divider plain>or sign up with</Divider>
+
+                {/* Google Sign-In Button Container */}
+                <div className="google-signin-container">
+                  <div id="google-signin-button-register"></div>
+                  {/* Fallback button if Google SDK not loaded */}
+                  {!GOOGLE_CLIENT_ID && (
+                    <Button
+                      icon={<GoogleOutlined />}
+                      size="large"
+                      block
+                      onClick={handleCustomGoogleSignIn}
+                      loading={googleLoading}
+                      className="google-fallback-button"
+                    >
+                      Sign up with Google
+                    </Button>
+                  )}
+                </div>
               </Form>
             </TabPane>
           </Tabs>
@@ -550,6 +719,41 @@ const CustomerLogin: React.FC = () => {
           background: linear-gradient(135deg, #73d13d 0%, #52c41a 100%);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(82,196,26,0.4);
+        }
+
+        /* Google Sign-In Styles */
+        .google-signin-container {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 16px;
+        }
+
+        .google-signin-container > div {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+        }
+
+        .google-fallback-button {
+          height: 48px;
+          font-size: 15px;
+          font-weight: 500;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .google-fallback-button:hover {
+          border-color: #52c41a;
+          color: #52c41a;
+        }
+
+        .ant-divider-inner-text {
+          font-size: 13px;
+          color: #94a3b8;
         }
 
         .pricing-highlight {
