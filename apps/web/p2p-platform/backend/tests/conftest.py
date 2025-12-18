@@ -67,49 +67,25 @@ def test_db():
     """Create test database tables"""
     DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-    # For PostgreSQL, drop all existing objects to ensure clean state
+    # For PostgreSQL, use DROP OWNED to remove all objects owned by test user
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
             try:
-                # First, drop all indexes in public schema
-                result = conn.execute(text("""
-                    SELECT indexname FROM pg_indexes
-                    WHERE schemaname = 'public'
-                    AND indexname NOT LIKE 'pg_%'
-                """))
-                indexes = [row[0] for row in result]
-                for idx in indexes:
-                    try:
-                        conn.execute(text(f'DROP INDEX IF EXISTS "{idx}" CASCADE'))
-                    except Exception:
-                        pass
+                # Get the current user
+                result = conn.execute(text("SELECT current_user"))
+                current_user = result.scalar()
 
-                # Then drop all tables
-                result = conn.execute(text(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                ))
-                tables = [row[0] for row in result]
-                for table in tables:
-                    try:
-                        conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-                    except Exception:
-                        pass
-
-                # Also drop all sequences
-                result = conn.execute(text("""
-                    SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'
-                """))
-                sequences = [row[0] for row in result]
-                for seq in sequences:
-                    try:
-                        conn.execute(text(f'DROP SEQUENCE IF EXISTS "{seq}" CASCADE'))
-                    except Exception:
-                        pass
-
+                # Drop all objects owned by current user
+                conn.execute(text(f"DROP OWNED BY {current_user} CASCADE"))
                 conn.commit()
             except Exception as e:
-                print(f"Warning: Error cleaning database: {e}")
+                print(f"Warning: DROP OWNED failed: {e}")
                 conn.rollback()
+                # Fallback: try SQLAlchemy's drop_all
+                try:
+                    Base.metadata.drop_all(bind=engine)
+                except Exception:
+                    pass
     else:
         # For SQLite, regular drop_all works
         try:
