@@ -67,21 +67,30 @@ def test_db():
     """Create test database tables"""
     DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-    # For PostgreSQL, drop all existing tables first
+    # For PostgreSQL, drop and recreate entire schema to ensure clean state
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
             try:
-                # Drop all tables in public schema
-                result = conn.execute(text(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                ))
-                tables = [row[0] for row in result]
-                for table in tables:
-                    conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                # Drop all objects by recreating the schema
+                conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+                conn.execute(text("CREATE SCHEMA public"))
+                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
                 conn.commit()
             except Exception as e:
-                print(f"Warning: Error dropping tables: {e}")
+                print(f"Warning: Error recreating schema: {e}")
                 conn.rollback()
+                # Fallback: try dropping tables one by one
+                try:
+                    result = conn.execute(text(
+                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                    ))
+                    tables = [row[0] for row in result]
+                    for table in tables:
+                        conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                    conn.commit()
+                except Exception as e2:
+                    print(f"Warning: Fallback drop also failed: {e2}")
+                    conn.rollback()
     else:
         # For SQLite, regular drop_all works
         try:
@@ -89,8 +98,8 @@ def test_db():
         except Exception:
             pass
 
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
+    # Create all tables with checkfirst to avoid conflicts
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     yield
 
     # Cleanup
