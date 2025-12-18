@@ -36,14 +36,23 @@ _temp_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _temp_db_path = _temp_db_file.name
 _temp_db_file.close()
 
+# Get worker ID for parallel testing (pytest-xdist)
+_worker_id = os.getenv("PYTEST_XDIST_WORKER", "gw0")
+
 # Check if we're in CI with PostgreSQL available
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and "postgresql" in DATABASE_URL:
-    # Use PostgreSQL in CI
-    engine = create_engine(DATABASE_URL, poolclass=NullPool)
+    # Use PostgreSQL in CI with per-worker schema to avoid conflicts
+    # Create a unique schema for each worker
+    _schema_name = f"test_{_worker_id}"
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=NullPool,
+        connect_args={"options": f"-c search_path={_schema_name},public"}
+    )
 else:
-    # Use SQLite temp file for local testing
-    SQLALCHEMY_DATABASE_URL = f"sqlite:///{_temp_db_path}"
+    # Use SQLite temp file for local testing - unique per worker
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{_temp_db_path}_{_worker_id}"
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
         connect_args={"check_same_thread": False},
@@ -66,38 +75,19 @@ def override_get_db():
 def test_db():
     """Create test database tables"""
     DATABASE_URL = os.getenv("DATABASE_URL", "")
+    worker_id = os.getenv("PYTEST_XDIST_WORKER", "gw0")
+    schema_name = f"test_{worker_id}"
 
-    # For PostgreSQL, use a fresh database by dropping/recreating
+    # For PostgreSQL, use a per-worker schema to avoid conflicts
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
-            # Drop all tables with CASCADE
+            # Create schema for this worker
             try:
-                # Get all table names in public schema
-                result = conn.execute(text(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                ))
-                tables = [row[0] for row in result]
-                for table in tables:
-                    conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+                conn.execute(text(f"CREATE SCHEMA {schema_name}"))
                 conn.commit()
             except Exception as e:
-                print(f"Warning: Error dropping tables: {e}")
-                conn.rollback()
-
-            # Also drop all indexes
-            try:
-                result = conn.execute(text(
-                    "SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"
-                ))
-                indexes = [row[0] for row in result]
-                for index in indexes:
-                    try:
-                        conn.execute(text(f'DROP INDEX IF EXISTS "{index}"'))
-                    except Exception:
-                        pass
-                conn.commit()
-            except Exception as e:
-                print(f"Warning: Error dropping indexes: {e}")
+                print(f"Warning: Error creating schema {schema_name}: {e}")
                 conn.rollback()
     else:
         # For SQLite, regular drop_all works
@@ -106,14 +96,23 @@ def test_db():
         except Exception:
             pass
 
-    # Create all tables
+    # Create all tables in the worker's schema
     Base.metadata.create_all(bind=engine)
     yield
 
-    try:
-        Base.metadata.drop_all(bind=engine)
-    except Exception:
-        pass  # Ignore errors on cleanup
+    # Cleanup
+    if "postgresql" in DATABASE_URL:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+                conn.commit()
+            except Exception:
+                pass
+    else:
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass  # Ignore errors on cleanup
 
 
 @pytest.fixture(scope="function")
