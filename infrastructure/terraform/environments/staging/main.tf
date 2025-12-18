@@ -24,7 +24,7 @@ module "infrastructure" {
   enable_nat_gateway = true
 
   # EKS
-  eks_cluster_version = "1.28"
+  eks_cluster_version = "1.29"
   eks_node_groups = {
     general = {
       instance_types = ["t3.medium", "t3.large"]
