@@ -67,30 +67,49 @@ def test_db():
     """Create test database tables"""
     DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-    # For PostgreSQL, drop and recreate entire schema to ensure clean state
+    # For PostgreSQL, drop all existing objects to ensure clean state
     if "postgresql" in DATABASE_URL:
         with engine.connect() as conn:
             try:
-                # Drop all objects by recreating the schema
-                conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-                conn.execute(text("CREATE SCHEMA public"))
-                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+                # First, drop all indexes in public schema
+                result = conn.execute(text("""
+                    SELECT indexname FROM pg_indexes
+                    WHERE schemaname = 'public'
+                    AND indexname NOT LIKE 'pg_%'
+                """))
+                indexes = [row[0] for row in result]
+                for idx in indexes:
+                    try:
+                        conn.execute(text(f'DROP INDEX IF EXISTS "{idx}" CASCADE'))
+                    except Exception:
+                        pass
+
+                # Then drop all tables
+                result = conn.execute(text(
+                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                ))
+                tables = [row[0] for row in result]
+                for table in tables:
+                    try:
+                        conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                    except Exception:
+                        pass
+
+                # Also drop all sequences
+                result = conn.execute(text("""
+                    SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'
+                """))
+                sequences = [row[0] for row in result]
+                for seq in sequences:
+                    try:
+                        conn.execute(text(f'DROP SEQUENCE IF EXISTS "{seq}" CASCADE'))
+                    except Exception:
+                        pass
+
                 conn.commit()
             except Exception as e:
-                print(f"Warning: Error recreating schema: {e}")
+                print(f"Warning: Error cleaning database: {e}")
                 conn.rollback()
-                # Fallback: try dropping tables one by one
-                try:
-                    result = conn.execute(text(
-                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                    ))
-                    tables = [row[0] for row in result]
-                    for table in tables:
-                        conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-                    conn.commit()
-                except Exception as e2:
-                    print(f"Warning: Fallback drop also failed: {e2}")
-                    conn.rollback()
     else:
         # For SQLite, regular drop_all works
         try:
@@ -98,8 +117,8 @@ def test_db():
         except Exception:
             pass
 
-    # Create all tables with checkfirst to avoid conflicts
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
     yield
 
     # Cleanup
