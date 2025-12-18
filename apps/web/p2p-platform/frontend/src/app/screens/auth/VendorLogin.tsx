@@ -1,14 +1,124 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, message, Checkbox } from 'antd';
-import { UserOutlined, LockOutlined, ShopOutlined, RocketOutlined, DollarOutlined, SafetyCertificateOutlined, CustomerServiceOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Input, Button, message, Checkbox, Divider } from 'antd';
+import { UserOutlined, LockOutlined, ShopOutlined, RocketOutlined, DollarOutlined, SafetyCertificateOutlined, CustomerServiceOutlined, GoogleOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
+// Google OAuth Configuration
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Declare google global type
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+          }) => void;
+          renderButton: (
+            element: HTMLElement | null,
+            config: {
+              theme?: string;
+              size?: string;
+              width?: number;
+              text?: string;
+              shape?: string;
+            }
+          ) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 const VendorLogin: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const API_URL = getApiUrl();
+
+  // Google OAuth callback handler
+  const handleGoogleCallback = useCallback(async (response: { credential: string }) => {
+    setGoogleLoading(true);
+    try {
+      const result = await axios.post(`${API_URL}/api/auth/vendor/google-auth`, {
+        id_token: response.credential,
+      });
+
+      localStorage.setItem('access_token', result.data.access_token);
+      localStorage.setItem('user', JSON.stringify(result.data.user));
+
+      message.success('Welcome! Redirecting to your dashboard...');
+      navigate('/vendor/dashboard');
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 403) {
+        message.error(typeof detail === 'string' ? detail : 'Your vendor account is pending approval');
+      } else if (error.response?.status === 404) {
+        message.info('No account found. Please apply as a restaurant partner first.');
+        navigate('/restaurant/apply');
+      } else {
+        message.error(typeof detail === 'string' ? detail : 'Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [API_URL, navigate]);
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      console.warn('Google Client ID not configured');
+      return;
+    }
+
+    // Load Google Sign-In script
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCallback,
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('vendor-google-signin-button'),
+          {
+            theme: 'outline',
+            size: 'large',
+            width: 380,
+            text: 'signin_with',
+            shape: 'rectangular',
+          }
+        );
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+    };
+  }, [handleGoogleCallback]);
+
+  // Fallback Google sign-in handler
+  const handleCustomGoogleSignIn = () => {
+    if (window.google) {
+      window.google.accounts.id.prompt();
+    } else {
+      message.error('Google Sign-In not available. Please try again later.');
+    }
+  };
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -167,6 +277,24 @@ const VendorLogin: React.FC = () => {
               </Button>
             </Form.Item>
           </Form>
+
+          <Divider>Or continue with</Divider>
+
+          <div className="google-signin-container">
+            <div id="vendor-google-signin-button"></div>
+            {!GOOGLE_CLIENT_ID && (
+              <Button
+                size="large"
+                block
+                icon={<GoogleOutlined />}
+                onClick={handleCustomGoogleSignIn}
+                loading={googleLoading}
+                className="google-fallback-button"
+              >
+                Sign in with Google
+              </Button>
+            )}
+          </div>
 
           <div className="divider">
             <span>New to Dollor.ai?</span>
@@ -456,6 +584,41 @@ const VendorLogin: React.FC = () => {
 
         .login-footer a:hover {
           color: #ffd700;
+        }
+
+        .google-signin-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+
+        .google-signin-container > div {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+        }
+
+        .google-fallback-button {
+          height: 48px;
+          font-size: 16px;
+          font-weight: 500;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .google-fallback-button:hover {
+          border-color: #1a1a2e;
+          background: #f8fafc;
+        }
+
+        .google-fallback-button .anticon {
+          font-size: 20px;
+          color: #4285f4;
         }
 
         /* Responsive - Tablet */
