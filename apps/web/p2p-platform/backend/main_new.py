@@ -141,6 +141,44 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         except Exception as e:
             errors.append(f"vendors.{col_name}: {str(e)}")
 
+    # Migration: Fix vendor_id NOT NULL constraint issue
+    # The vendor_id column is defined as Computed('id') but has NOT NULL constraint
+    # This causes INSERT to fail. We need to either:
+    # 1. Drop the NOT NULL constraint, or
+    # 2. Set a default value, or
+    # 3. Make it nullable
+    try:
+        db.execute(text("ALTER TABLE vendors ALTER COLUMN vendor_id DROP NOT NULL"))
+        migrations_run.append("vendors.vendor_id: dropped NOT NULL constraint")
+    except Exception as e:
+        # Column might already be nullable or doesn't exist
+        errors.append(f"vendors.vendor_id NOT NULL drop: {str(e)}")
+
+    # Also add a trigger to set vendor_id = id after insert
+    try:
+        db.execute(text("""
+            CREATE OR REPLACE FUNCTION set_vendor_id()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.vendor_id := NEW.id;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        """))
+        db.execute(text("""
+            DROP TRIGGER IF EXISTS set_vendor_id_trigger ON vendors;
+        """))
+        db.execute(text("""
+            CREATE TRIGGER set_vendor_id_trigger
+            BEFORE INSERT ON vendors
+            FOR EACH ROW
+            WHEN (NEW.vendor_id IS NULL)
+            EXECUTE FUNCTION set_vendor_id();
+        """))
+        migrations_run.append("vendors.vendor_id: created trigger to auto-set")
+    except Exception as e:
+        errors.append(f"vendors.vendor_id trigger: {str(e)}")
+
     db.commit()
 
     return {
