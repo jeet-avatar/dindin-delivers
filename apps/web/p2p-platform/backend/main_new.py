@@ -4089,6 +4089,108 @@ def get_invoices(
     
     return {"data": result, "total": total}
 
+@app.get("/api/invoices/stats")
+def get_invoice_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get invoice statistics for dashboard widgets.
+    Connected to Admin Portal: Invoice Dashboard Stats
+    IMPORTANT: This route MUST be defined BEFORE /api/invoices/{invoice_id}
+    to prevent FastAPI from matching 'stats' as an invoice_id.
+    """
+    # Total counts by status
+    total_invoices = db.query(Invoice).count()
+    draft_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.DRAFT).count()
+    sent_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.SENT).count()
+    paid_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.PAID).count()
+    overdue_count = db.query(Invoice).filter(
+        and_(
+            Invoice.due_date < datetime.now(),
+            Invoice.status.in_([InvoiceStatus.DRAFT, InvoiceStatus.SENT])
+        )
+    ).count()
+    cancelled_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.CANCELLED).count()
+
+    # Financial totals
+    total_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
+        Invoice.status != InvoiceStatus.CANCELLED
+    ).scalar() or 0
+
+    total_paid = db.query(func.sum(Payment.amount)).filter(
+        Payment.status == PaymentStatus.COMPLETED
+    ).scalar() or 0
+
+    total_outstanding = total_invoiced - total_paid
+
+    # This month's stats
+    month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    this_month_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
+        and_(
+            Invoice.created_at >= month_start,
+            Invoice.status != InvoiceStatus.CANCELLED
+        )
+    ).scalar() or 0
+
+    this_month_paid = db.query(func.sum(Payment.amount)).filter(
+        and_(
+            Payment.created_at >= month_start,
+            Payment.status == PaymentStatus.COMPLETED
+        )
+    ).scalar() or 0
+
+    # Recent invoices
+    recent_invoices = db.query(Invoice).order_by(Invoice.created_at.desc()).limit(5).all()
+    recent_list = []
+    for inv in recent_invoices:
+        client = db.query(Client).filter(Client.id == inv.client_id).first()
+        recent_list.append({
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "client_name": client.name if client else "Unknown",
+            "total_amount": inv.total_amount,
+            "status": inv.status.value,
+            "due_date": inv.due_date.isoformat() if inv.due_date else None
+        })
+
+    # Top clients by revenue
+    top_clients = db.query(
+        Client.id,
+        Client.name,
+        func.sum(Invoice.total_amount).label("total_revenue"),
+        func.count(Invoice.id).label("invoice_count")
+    ).join(Invoice).filter(
+        Invoice.status != InvoiceStatus.CANCELLED
+    ).group_by(Client.id).order_by(func.sum(Invoice.total_amount).desc()).limit(5).all()
+
+    return {
+        "summary": {
+            "total_invoices": total_invoices,
+            "draft": draft_count,
+            "sent": sent_count,
+            "paid": paid_count,
+            "overdue": overdue_count,
+            "cancelled": cancelled_count
+        },
+        "financials": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_paid": round(total_paid, 2),
+            "total_outstanding": round(total_outstanding, 2),
+            "this_month_invoiced": round(this_month_invoiced, 2),
+            "this_month_paid": round(this_month_paid, 2)
+        },
+        "recent_invoices": recent_list,
+        "top_clients": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "total_revenue": round(c.total_revenue, 2),
+                "invoice_count": c.invoice_count
+            } for c in top_clients
+        ]
+    }
+
 @app.get("/api/invoices/{invoice_id}", response_model=InvoiceResponse)
 def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
@@ -4578,107 +4680,6 @@ def duplicate_invoice(
         "status": new_invoice.status.value,
         "total_amount": new_invoice.total_amount,
         "message": f"Invoice duplicated as #{new_invoice.invoice_number}"
-    }
-
-
-@app.get("/api/invoices/stats")
-def get_invoice_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get invoice statistics for dashboard widgets.
-    Connected to Admin Portal: Invoice Dashboard Stats
-    """
-    # Total counts by status
-    total_invoices = db.query(Invoice).count()
-    draft_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.DRAFT).count()
-    sent_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.SENT).count()
-    paid_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.PAID).count()
-    overdue_count = db.query(Invoice).filter(
-        and_(
-            Invoice.due_date < datetime.now(),
-            Invoice.status.in_([InvoiceStatus.DRAFT, InvoiceStatus.SENT])
-        )
-    ).count()
-    cancelled_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.CANCELLED).count()
-
-    # Financial totals
-    total_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
-        Invoice.status != InvoiceStatus.CANCELLED
-    ).scalar() or 0
-
-    total_paid = db.query(func.sum(Payment.amount)).filter(
-        Payment.status == PaymentStatus.COMPLETED
-    ).scalar() or 0
-
-    total_outstanding = total_invoiced - total_paid
-
-    # This month's stats
-    month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    this_month_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
-        and_(
-            Invoice.created_at >= month_start,
-            Invoice.status != InvoiceStatus.CANCELLED
-        )
-    ).scalar() or 0
-
-    this_month_paid = db.query(func.sum(Payment.amount)).filter(
-        and_(
-            Payment.created_at >= month_start,
-            Payment.status == PaymentStatus.COMPLETED
-        )
-    ).scalar() or 0
-
-    # Recent invoices
-    recent_invoices = db.query(Invoice).order_by(Invoice.created_at.desc()).limit(5).all()
-    recent_list = []
-    for inv in recent_invoices:
-        client = db.query(Client).filter(Client.id == inv.client_id).first()
-        recent_list.append({
-            "id": inv.id,
-            "invoice_number": inv.invoice_number,
-            "client_name": client.name if client else "Unknown",
-            "total_amount": inv.total_amount,
-            "status": inv.status.value,
-            "due_date": inv.due_date.isoformat() if inv.due_date else None
-        })
-
-    # Top clients by revenue
-    top_clients = db.query(
-        Client.id,
-        Client.name,
-        func.sum(Invoice.total_amount).label("total_revenue"),
-        func.count(Invoice.id).label("invoice_count")
-    ).join(Invoice).filter(
-        Invoice.status != InvoiceStatus.CANCELLED
-    ).group_by(Client.id).order_by(func.sum(Invoice.total_amount).desc()).limit(5).all()
-
-    return {
-        "summary": {
-            "total_invoices": total_invoices,
-            "draft": draft_count,
-            "sent": sent_count,
-            "paid": paid_count,
-            "overdue": overdue_count,
-            "cancelled": cancelled_count
-        },
-        "financials": {
-            "total_invoiced": round(total_invoiced, 2),
-            "total_paid": round(total_paid, 2),
-            "total_outstanding": round(total_outstanding, 2),
-            "this_month_invoiced": round(this_month_invoiced, 2),
-            "this_month_paid": round(this_month_paid, 2)
-        },
-        "recent_invoices": recent_list,
-        "top_clients": [
-            {
-                "id": c.id,
-                "name": c.name,
-                "total_revenue": round(c.total_revenue, 2),
-                "invoice_count": c.invoice_count
-            } for c in top_clients
-        ]
     }
 
 
