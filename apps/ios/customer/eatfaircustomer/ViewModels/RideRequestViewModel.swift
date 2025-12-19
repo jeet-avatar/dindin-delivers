@@ -69,20 +69,22 @@ class RideRequestViewModel: ObservableObject {
     private let config = AppConfig.shared
 
     // MARK: - Computed Properties (from AppConfig)
-    // Platform fee is now TIERED based on fare amount:
-    //   - Fare ≤ $15:     $1
-    //   - Fare $15-$35:   $2
-    //   - Fare > $35:     $3
+    // Platform fee is now DISTANCE-BASED:
+    //   $1 per 10 miles ($0.10 per mile), minimum $1
+    //   Both rider AND driver pay this same fee
     var platformFee: Double {
-        // Calculate driver portion first to determine tier
-        let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return config.getRidesharePlatformFee(fareAmount: driverPortion)
+        // Calculate platform fee based on distance
+        return config.calculateRidesharePlatformFee(distanceMiles: estimatedDistance)
     }
 
-    /// Platform fee tier description for UI display
+    /// Platform fee description for UI display (now distance-based)
     var platformFeeTierDescription: String {
-        let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return config.getRideshareTierDescription(fareAmount: driverPortion)
+        return config.getRideshareFeeDescription(distanceMiles: estimatedDistance)
+    }
+
+    /// Driver's platform fee (same as rider)
+    var driverPlatformFee: Double {
+        return platformFee
     }
 
     var baseFareConst: Double { config.rideBaseFare }
@@ -109,10 +111,12 @@ class RideRequestViewModel: ObservableObject {
         return max(driverPortion + platformFee, minimumFare)
     }
 
-    /// What driver receives (driver sets own price, this is suggested)
+    /// What driver receives (fare - driver's platform fee + tip)
+    /// Driver pays $1 per 10 miles (same as rider)
     var driverEarnings: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return max(driverPortion, minimumFare - platformFee) + tip
+        let fare = max(driverPortion, minimumFare)
+        return fare - driverPlatformFee + tip
     }
 
     /// Connection fee for matchmaking service ($1.00)

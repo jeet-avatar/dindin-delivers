@@ -42,11 +42,19 @@ public class AppConfig: ObservableObject {
     //   Tips: 100% go to driver
     //   Pickup: $1 per restaurant + $1 per customer
     //
-    // RIDESHARE - TIERED PRICING (Based on fare value):
-    //   Up to $35 fare:     $1 rider + $1 driver
-    //   $35.01 - $70 fare:  $2 rider + $2 driver
-    //   Above $70 fare:     $3 rider + $3 driver
+    // RIDESHARE - TIERED DISTANCE-BASED PRICING:
+    //   Trips 0-10 miles:   $1 (both rider AND driver)
+    //   Trips 10-20 miles:  $2 (both rider AND driver)
+    //   Trips 20+ miles:    $3 (both rider AND driver)
     //   Tips: 100% go to driver
+    //
+    // Examples:
+    //   5 miles  -> $1 (Tier 1)
+    //   10 miles -> $1 (Tier 1)
+    //   15 miles -> $2 (Tier 2)
+    //   20 miles -> $2 (Tier 2)
+    //   25 miles -> $3 (Tier 3)
+    //   50 miles -> $3 (Tier 3)
     //
     // Total transparency - no hidden fees!
     // =============================================================================
@@ -57,15 +65,25 @@ public class AppConfig: ObservableObject {
     @Published public var foodDriverFee: Double = 0.00        // FREE - drivers keep 100%
     @Published public var tipPlatformFee: Double = 0.00       // 100% of tips go to driver
 
-    // RIDESHARE - TIERED PRICING thresholds
-    @Published public var rideshareTier1Max: Double = 35.00   // Fares up to $35
-    @Published public var rideshareTier2Max: Double = 70.00   // Fares $35.01 to $70
-    // Tier 3: Fares above $70
+    // RIDESHARE - TIERED DISTANCE-BASED PRICING
+    // Distance tier thresholds (in miles)
+    @Published public var rideshareDistanceTier1Max: Double = 10.0   // Trips up to 10 miles
+    @Published public var rideshareDistanceTier2Max: Double = 20.0   // Trips 10.01 to 20 miles
+    // Tier 3: Trips above 20 miles
 
-    // RIDESHARE - Platform fees per tier
-    @Published public var rideshareTier1Fee: Double = 1.00    // $1 for fares ≤ $35
-    @Published public var rideshareTier2Fee: Double = 2.00    // $2 for fares $35.01-$70
-    @Published public var rideshareTier3Fee: Double = 3.00    // $3 for fares > $70
+    // Platform fees per distance tier (both rider AND driver pay)
+    @Published public var rideshareDistanceTier1Fee: Double = 1.00   // $1 for trips ≤ 10 miles
+    @Published public var rideshareDistanceTier2Fee: Double = 2.00   // $2 for trips 10.01-20 miles
+    @Published public var rideshareDistanceTier3Fee: Double = 3.00   // $3 for trips > 20 miles
+
+    // Legacy properties (kept for backwards compatibility)
+    @Published public var ridesharePlatformFeePerMile: Double = 0.10  // Deprecated
+    @Published public var ridesharePlatformFeeMinimum: Double = 1.00  // Deprecated
+    @Published public var rideshareTier1Max: Double = 35.00   // Deprecated (was fare-based)
+    @Published public var rideshareTier2Max: Double = 70.00   // Deprecated (was fare-based)
+    @Published public var rideshareTier1Fee: Double = 1.00    // Deprecated
+    @Published public var rideshareTier2Fee: Double = 2.00    // Deprecated
+    @Published public var rideshareTier3Fee: Double = 3.00    // Deprecated
 
     // Legacy properties (kept for backwards compatibility)
     @Published public var serviceFee: Double = 1.00           // Legacy - use foodCustomerFee
@@ -94,43 +112,78 @@ public class AppConfig: ObservableObject {
         return getFoodFeeDescription()
     }
 
-    /// Calculate tiered platform fee for RIDESHARE based on fare value.
-    public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
-        if fareAmount <= rideshareTier1Max {
-            return rideshareTier1Fee
-        } else if fareAmount <= rideshareTier2Max {
-            return rideshareTier2Fee
+    /// Calculate TIERED DISTANCE-BASED platform fee for RIDESHARE.
+    /// Trips 0-10 miles: $1, 10-20 miles: $2, 20+ miles: $3
+    /// Both rider AND driver pay this same fee.
+    public func calculateRidesharePlatformFee(distanceMiles: Double) -> Double {
+        if distanceMiles <= rideshareDistanceTier1Max {
+            return rideshareDistanceTier1Fee  // $1
+        } else if distanceMiles <= rideshareDistanceTier2Max {
+            return rideshareDistanceTier2Fee  // $2
         } else {
-            return rideshareTier3Fee
+            return rideshareDistanceTier3Fee  // $3
         }
     }
 
-    /// Get rideshare tier number for display (1, 2, or 3).
-    public func getRideshareTier(fareAmount: Double) -> Int {
-        if fareAmount <= rideshareTier1Max {
+    /// Legacy method - use calculateRidesharePlatformFee(distanceMiles:) instead.
+    /// This estimates distance from fare using average $1.50/mile.
+    public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
+        // Estimate distance from fare (average ~$1.50/mile)
+        let estimatedDistance = fareAmount / 1.50
+        return calculateRidesharePlatformFee(distanceMiles: estimatedDistance)
+    }
+
+    /// Get rideshare distance tier (1, 2, or 3).
+    public func getRideshareDistanceTier(distanceMiles: Double) -> Int {
+        if distanceMiles <= rideshareDistanceTier1Max {
             return 1
-        } else if fareAmount <= rideshareTier2Max {
+        } else if distanceMiles <= rideshareDistanceTier2Max {
             return 2
         } else {
             return 3
         }
     }
 
-    /// Get rideshare tier name for display.
+    /// Get rideshare platform fee breakdown for display.
+    public func getRidesharePlatformFeeBreakdown(distanceMiles: Double) -> (fee: Double, description: String, tier: Int) {
+        let fee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
+        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
+        let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
+        let description = "$\(String(format: "%.2f", fee)) (Tier \(tier): \(tierDesc))"
+        return (fee, description, tier)
+    }
+
+    /// Get rideshare tier number for display based on distance.
+    public func getRideshareTier(fareAmount: Double) -> Int {
+        // Estimate distance from fare
+        let estimatedDistance = fareAmount / 1.50
+        return getRideshareDistanceTier(distanceMiles: estimatedDistance)
+    }
+
+    /// Get rideshare tier name for display (tiered distance model).
     public func getRideshareTierName(fareAmount: Double) -> String {
-        if fareAmount <= rideshareTier1Max {
-            return "Tier 1 (up to $35)"
-        } else if fareAmount <= rideshareTier2Max {
-            return "Tier 2 ($35-$70)"
-        } else {
-            return "Tier 3 (above $70)"
-        }
+        let tier = getRideshareTier(fareAmount: fareAmount)
+        return "Tier \(tier): $\(tier) fee"
+    }
+
+    /// Get rideshare tier name with distance.
+    public func getRideshareTierName(distanceMiles: Double) -> String {
+        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
+        let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
+        return "Tier \(tier): \(tierDesc)"
     }
 
     /// Get rideshare fee description for UI display.
     public func getRideshareFeeDescription(fareAmount: Double) -> String {
-        let fee = Int(calculateRidesharePlatformFee(fareAmount: fareAmount))
-        return "$\(fee) Platform Fee"
+        let fee = calculateRidesharePlatformFee(fareAmount: fareAmount)
+        let tier = getRideshareTier(fareAmount: fareAmount)
+        return "$\(String(format: "%.2f", fee)) Platform Fee (Tier \(tier))"
+    }
+
+    /// Get rideshare fee description with distance (preferred method).
+    public func getRideshareFeeDescription(distanceMiles: Double) -> String {
+        let (fee, description, _) = getRidesharePlatformFeeBreakdown(distanceMiles: distanceMiles)
+        return description
     }
 
     // Driver/Delivery Config (matches pricing_config.py)
@@ -154,10 +207,10 @@ public class AppConfig: ObservableObject {
     @Published public var additionalPrepTimePerOrder: Int = 3
 
     // MARK: - Rideshare Configuration
-    // TIERED PRICING (only for rideshare, not food delivery):
-    //   - Fare ≤ $35:     $1 rider + $1 driver (Tier 1)
-    //   - Fare $35-$70:   $2 rider + $2 driver (Tier 2)
-    //   - Fare > $70:     $3 rider + $3 driver (Tier 3)
+    // TIERED DISTANCE-BASED PRICING (for rideshare):
+    //   - Trips 0-10 miles:   $1 rider + $1 driver (Tier 1)
+    //   - Trips 10-20 miles:  $2 rider + $2 driver (Tier 2)
+    //   - Trips 20+ miles:    $3 rider + $3 driver (Tier 3)
 
     @Published public var rideBaseFare: Double = 5.00          // Minimum base fare
     @Published public var ridePerMileRate: Double = 1.50       // Per mile rate
@@ -191,21 +244,43 @@ public class AppConfig: ObservableObject {
         return max(rideMinFare, rideBaseFare + distanceFare + timeFare)
     }
 
-    /// Calculate driver earnings after platform fee (TIERED).
+    /// Calculate driver earnings after platform fee (DISTANCE-BASED).
+    /// Driver pays $1 per 10 miles (same as rider).
+    public func calculateDriverEarnings(fare: Double, distanceMiles: Double, tip: Double = 0.0) -> Double {
+        let platformFee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
+        return fare - platformFee + tip
+    }
+
+    /// Legacy method - use calculateDriverEarnings(fare:distanceMiles:tip:) instead.
     public func calculateDriverEarnings(fare: Double, tip: Double = 0.0) -> Double {
         let platformFee = calculateRidesharePlatformFee(fareAmount: fare)
         return fare - platformFee + tip
     }
 
-    /// Calculate total rider payment (TIERED).
+    /// Calculate total rider payment (DISTANCE-BASED).
+    /// Rider pays: fare + platform fee + tip
+    public func calculateRiderTotal(fare: Double, distanceMiles: Double, tip: Double = 0.0) -> Double {
+        let platformFee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
+        return fare + platformFee + tip
+    }
+
+    /// Legacy method - use calculateRiderTotal(fare:distanceMiles:tip:) instead.
     public func calculateRiderTotal(fare: Double, tip: Double = 0.0) -> Double {
         let platformFee = calculateRidesharePlatformFee(fareAmount: fare)
         return fare + platformFee + tip
     }
 
-    /// Get rideshare fee tier description for UI display
+    /// Get rideshare fee tier description for UI display.
     public func getRideshareTierDescription(fareAmount: Double) -> String {
         return getRideshareTierName(fareAmount: fareAmount)
+    }
+
+    /// Get rideshare fee tier description with distance (preferred method).
+    public func getRideshareTierDescription(distanceMiles: Double) -> String {
+        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
+        let fee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
+        let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
+        return "$\(Int(fee)) (Tier \(tier): \(tierDesc))"
     }
 
     // Support - Using CloudFront CDN for HTTPS
