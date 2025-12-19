@@ -2344,6 +2344,157 @@ def customer_login_json(request: CustomerLoginRequest, db: Session = Depends(get
 # ==================== iOS APP COMPATIBLE ENDPOINTS ====================
 # These endpoints match what the iOS driver app expects
 
+# iOS/Android-compatible driver login endpoint (matches /api/driver/login)
+# Accepts JSON body with email/password (not OAuth2 form data)
+class DriverLoginRequest(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None  # Alias for email
+    password: str
+
+    def get_email(self) -> Optional[str]:
+        return self.email or self.username
+
+@app.post("/api/driver/login")
+def driver_login_json(request: DriverLoginRequest, db: Session = Depends(get_db)):
+    """iOS/Android-compatible driver login endpoint - accepts JSON with email/password"""
+    login_email = request.get_email()
+    if not login_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username is required"
+        )
+    print(f"Driver JSON login attempt for: {login_email}")
+
+    # Find user with DRIVER role
+    user = db.query(User).filter(
+        User.email == login_email,
+        User.role == UserRole.DRIVER
+    ).first()
+
+    if not user:
+        print(f"Driver user not found: {login_email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(request.password, user.password_hash):
+        print(f"Password verification failed for driver")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Get driver record
+    driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+    if not driver:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Driver profile not found"
+        )
+
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Driver account is not active. Status: {driver.status.value}"
+        )
+
+    print(f"Driver login successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "driver_id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "email": driver.email,
+        "status": driver.status.value
+    }
+
+
+# iOS/Android-compatible vendor login endpoint (matches /api/vendor/login)
+# Accepts JSON body with email/password (not OAuth2 form data)
+class VendorLoginRequest(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None  # Alias for email
+    password: str
+
+    def get_email(self) -> Optional[str]:
+        return self.email or self.username
+
+@app.post("/api/vendor/login")
+def vendor_login_json(request: VendorLoginRequest, db: Session = Depends(get_db)):
+    """iOS/Android-compatible vendor login endpoint - accepts JSON with email/password"""
+    login_email = request.get_email()
+    if not login_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username is required"
+        )
+    print(f"Vendor JSON login attempt for: {login_email}")
+
+    # Find user with VENDOR role
+    user = db.query(User).filter(
+        User.email == login_email,
+        User.role == UserRole.VENDOR
+    ).first()
+
+    if not user:
+        print(f"Vendor user not found: {login_email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(request.password, user.password_hash):
+        print(f"Password verification failed for vendor")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Get vendor record
+    if not user.vendor_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vendor profile not found"
+        )
+
+    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+    if not vendor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vendor profile not found"
+        )
+
+    # Check onboarding_status (not status)
+    if str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+        )
+
+    print(f"Vendor login successful for: {user.email}")
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": vendor.id})
+
+    # Get business name from restaurant_name or company_name
+    business_name = vendor.restaurant_name or vendor.company_name
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": vendor.id,
+        "business_name": business_name,
+        "name": user.full_name,
+        "email": vendor.contact_email or user.email,
+        "status": str(vendor.onboarding_status)
+    }
+
+
 @app.get("/erp/drivers/{driver_id}")
 def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver profile by ID (iOS app compatible endpoint)"""
