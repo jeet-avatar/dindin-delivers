@@ -37,6 +37,9 @@ CATEGORY (first digit):
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
+from datetime import datetime
+
+from pydantic import BaseModel
 
 
 @dataclass
@@ -352,8 +355,26 @@ class SystemErrors:
 # =============================================================================
 # ERROR RESPONSE BUILDER
 # =============================================================================
-class ErrorResponse:
-    """Build standardized error responses."""
+class ErrorResponse(BaseModel):
+    """
+    Standardized error response.
+
+    Can be instantiated with keyword arguments:
+        ErrorResponse(code="ORD-301", message="Order not found")
+
+    Or use static build methods for more complex responses.
+    """
+    code: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+    service: Optional[str] = None
+    timestamp: Optional[str] = None
+
+    def __init__(self, **data):
+        """Initialize with optional auto-timestamp."""
+        if 'timestamp' not in data or data['timestamp'] is None:
+            data['timestamp'] = datetime.utcnow().isoformat() + "Z"
+        super().__init__(**data)
 
     @staticmethod
     def build(
@@ -378,8 +399,6 @@ class ErrorResponse:
         Returns:
             Dict with standardized error response format
         """
-        from datetime import datetime
-
         response = {
             "success": False,
             "error": {
@@ -407,7 +426,7 @@ class ErrorResponse:
     @staticmethod
     def from_exception(
         exception: Exception,
-        default_error: ErrorDetail = SystemErrors.UNKNOWN_ERROR,
+        default_error: ErrorDetail = None,
         trace_id: str = None,
         correlation_id: str = None,
         environment: str = "production",
@@ -427,6 +446,9 @@ class ErrorResponse:
         Returns:
             Dict with standardized error response format
         """
+        if default_error is None:
+            default_error = SystemErrors.UNKNOWN_ERROR
+
         details = None
         if environment != "production":
             details = {
