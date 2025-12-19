@@ -1,18 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Wallet,
+import React, { useState, useEffect, useCallback } from 'react';
+import {
   Users,
   Clock,
   CheckCircle,
   AlertCircle,
-  TrendingUp,
-  DollarSign,
-  Filter,
+  XCircle,
   Download,
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
-  Building
+  Building,
+  FileText,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
+  Search,
+  ExternalLink,
+  Phone,
+  Mail,
+  MapPin,
+  Smartphone,
+  Globe
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -26,12 +32,13 @@ import {
   LineElement,
   ArcElement
 } from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Doughnut, Bar } from 'react-chartjs-2';
 import Button from '../../components/ui/Button';
-import Bridge from '../../constants/Bridge';
-import { Spin, message } from 'antd';
+import { Spin, message, Modal, Tabs, Tag, Badge, Empty, Input, Select, Table, Descriptions, Popconfirm, Alert } from 'antd';
 import * as htmlToImage from "html-to-image";
 import { saveAs } from 'file-saver';
+import * as api from '../../api/api';
+import type { Vendor } from '../../api/api';
 
 ChartJS.register(
   CategoryScale,
@@ -45,517 +52,875 @@ ChartJS.register(
   Legend
 );
 
-const Main: React.FC = () => {
-  const [dateRange, setDateRange] = useState('month');
-  const [zipMetrics, setZipMetrics] = useState({});
-  const [onboardingTrendData, setOnboardingTrendData] = useState({});
-  const [vendorStatusData, setVendorStatusData] = useState({});
-  const [onboardingStageData, setOnboardingStageData] = useState({});
-  const [onboardingTimeData, setOnboardingTimeData] = useState({});
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [loading, setLoading] = useState(false);
+// Status color mapping
+const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  pending: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
+  in_review: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  approved: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+  rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+  suspended: { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' },
+};
 
-  useEffect(() => {
-    getZipMetrics();
-    getOnboardingTrendData();
-    getVendorStatusData();
-    getOnboardingStageData();
-    getOnboardingTimeData();
-    getRecentActivities();
+// Phase labels
+const PHASE_LABELS: Record<string, string> = {
+  not_started: 'Not Started',
+  documents_pending: 'Documents Pending',
+  under_review: 'Under Review',
+  compliance_check: 'Compliance Check',
+  completed: 'Completed',
+};
+
+const Main: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [stats, setStats] = useState<any>({});
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('pending');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  // Fetch vendors and stats
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [vendorsData, statsData] = await Promise.all([
+        api.getVendors(),
+        api.getVendorStats()
+      ]);
+      setVendors(vendorsData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to fetch vendor data:', error);
+      message.error('Failed to load vendor data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const getZipMetrics = async () => {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Filter vendors based on tab, search, and status
+  const filteredVendors = vendors.filter(vendor => {
+    // Tab filter
+    if (activeTab === 'pending' && vendor.onboarding_status !== 'pending' && vendor.onboarding_status !== 'in_review') {
+      return false;
+    }
+    if (activeTab === 'approved' && vendor.onboarding_status !== 'approved') {
+      return false;
+    }
+    if (activeTab === 'rejected' && vendor.onboarding_status !== 'rejected') {
+      return false;
+    }
+
+    // Status filter
+    if (statusFilter !== 'all' && vendor.onboarding_status !== statusFilter) {
+      return false;
+    }
+
+    // Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        vendor.restaurant_name?.toLowerCase().includes(search) ||
+        vendor.company_name?.toLowerCase().includes(search) ||
+        vendor.contact_name?.toLowerCase().includes(search) ||
+        vendor.contact_email?.toLowerCase().includes(search)
+      );
+    }
+
+    return true;
+  });
+
+  // Check if vendor has all required documents
+  const checkDocuments = (vendor: Vendor) => {
+    const docs = {
+      food_license: Boolean(vendor.food_license && vendor.food_license_url),
+      health_permit: Boolean(vendor.health_permit && vendor.health_permit_url),
+      w9_form: Boolean(vendor.w9_form && vendor.w9_form_url),
+      insurance: Boolean(vendor.insurance && vendor.insurance_url),
+    };
+    const completed = Object.values(docs).filter(Boolean).length;
+    const total = 4;
+    return { docs, completed, total, allComplete: completed === total };
+  };
+
+  // Handle approve vendor
+  const handleApprove = async (vendorId: number, skipCheck: boolean = false) => {
+    setActionLoading(vendorId);
     try {
-      // Fetch real vendor data from backend API
-      const response = await fetch('http://localhost:3000/api/vendors');
-      const vendors = await response.json();
-      
-      // Calculate metrics from real data
-      const activeVendors = vendors.filter(v => v.onboarding_status === 'approved').length;
-      const pendingApprovalVendors = vendors.filter(v => v.onboarding_status === 'pending' || v.onboarding_status === 'in_review').length;
-      const onboardingInProgress = vendors.filter(v => v.onboarding_phase !== 'not_started' && v.onboarding_phase !== 'completed').length;
-      const completedOnboarding = vendors.filter(v => v.onboarding_phase === 'completed').length;
-      const rejectedApplications = vendors.filter(v => v.onboarding_status === 'rejected').length;
-      
-      const zipMetrics = {
-        activeVendors,
-        pendingApprovalVendors,
-        onboardingInProgress,
-        avgOnboardingTime: 12, // TODO: Calculate from actual data
-        completedOnboarding,
-        rejectedApplications
-      };
-      setZipMetrics(zipMetrics);
+      await api.updateVendorStatus(vendorId, 'approved', skipCheck);
+      message.success('Vendor approved and published to iOS, Android, and Web! Approval email sent.');
+      fetchData();
+      setIsModalVisible(false);
+    } catch (error: any) {
+      const detail = error.response?.data?.detail;
+      if (detail?.missing_documents) {
+        Modal.confirm({
+          title: 'Missing Documents',
+          content: (
+            <div>
+              <p className="mb-2">Cannot approve vendor - the following documents are missing:</p>
+              <ul className="list-disc pl-5">
+                {detail.missing_documents.map((doc: string) => (
+                  <li key={doc} className="text-red-600">{doc}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm text-gray-500">
+                Do you want to approve anyway? (Admin override)
+              </p>
+            </div>
+          ),
+          okText: 'Approve Anyway',
+          okType: 'danger',
+          cancelText: 'Cancel',
+          onOk: () => handleApprove(vendorId, true),
+        });
+      } else {
+        message.error(detail?.message || 'Failed to approve vendor');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle reject vendor
+  const handleReject = async (vendorId: number) => {
+    setActionLoading(vendorId);
+    try {
+      await api.updateVendorStatus(vendorId, 'rejected');
+      message.success('Vendor application rejected and unpublished from all platforms');
+      fetchData();
+      setIsModalVisible(false);
     } catch (error) {
-      console.error('Failed to fetch ZIP metrics:', error);
-      // Fallback to mock data
-      setZipMetrics({
-        activeVendors: 0,
-        pendingApprovalVendors: 0,
-        onboardingInProgress: 0,
-        avgOnboardingTime: 0,
-        completedOnboarding: 0,
-        rejectedApplications: 0
+      message.error('Failed to reject vendor');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Handle set to in_review
+  const handleStartReview = async (vendorId: number) => {
+    setActionLoading(vendorId);
+    try {
+      await api.updateVendorStatus(vendorId, 'in_review');
+      message.success('Vendor moved to review');
+      fetchData();
+    } catch (error) {
+      message.error('Failed to update vendor status');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Export dashboard
+  const exportData = () => {
+    setLoading(true);
+    const node = document.getElementById("main-section");
+    if (node) {
+      htmlToImage.toBlob(node).then((blob) => {
+        if (blob) {
+          saveAs(blob, "ZIP-Vendor-Dashboard.png");
+        }
+        setLoading(false);
+        message.success("Dashboard exported successfully.");
       });
     }
-  }
+  };
 
-  const getOnboardingTrendData = () => {
-    const onboardingTrendData = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [{
-        label: 'New Vendor Applications',
-        data: [25, 32, 28, 35, 42, 38],
-        borderColor: '#f59e0b',
-        backgroundColor: '#f59e0b',
-        tension: 0.4
-      },
-      {
-        label: 'Completed Onboarding',
-        data: [18, 28, 25, 32, 38, 35],
-        borderColor: '#10b981',
-        backgroundColor: '#10b981',
-        tension: 0.4,
-        yAxisID: 'y1'
-      }]
-    };
-    setOnboardingTrendData(onboardingTrendData);
-    // Bridge.zipDashboard.getOnboardingTrendData().then((response) => {
-    //   setOnboardingTrendData(response);
-    // });
-  }
+  // Chart data
+  const statusChartData = {
+    labels: ['Pending', 'In Review', 'Approved', 'Rejected', 'Suspended'],
+    datasets: [{
+      data: [
+        stats.byStatus?.pending || 0,
+        stats.byStatus?.in_review || 0,
+        stats.byStatus?.approved || 0,
+        stats.byStatus?.rejected || 0,
+        stats.byStatus?.suspended || 0,
+      ],
+      backgroundColor: ['#fbbf24', '#3b82f6', '#10b981', '#ef4444', '#6b7280'],
+      borderWidth: 0
+    }]
+  };
 
-  const getVendorStatusData = () => {
-    const vendorStatusData = {
-      labels: ['Active', 'Pending Approval', 'In Onboarding', 'Rejected'],
-      datasets: [{
-        data: [342, 28, 45, 8],
-        backgroundColor: ['#10b981', '#f59e0b', '#6366f1', '#ef4444'],
-        borderWidth: 0
-      }]
-    };
-    setVendorStatusData(vendorStatusData);
-    // Bridge.zipDashboard.getVendorStatusData().then((response) => {
-    //   setVendorStatusData(response);
-    // });
-  }
-
-  const getOnboardingStageData = () => {
-    const onboardingStageData = {
-      labels: ['Registration', 'Document Review', 'Background Check', 'Final Approval'],
-      datasets: [{
-        label: 'Vendors in Stage',
-        data: [15, 12, 8, 5],
-        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
-      }]
-    };
-    setOnboardingStageData(onboardingStageData);
-    // Bridge.zipDashboard.getOnboardingStageData().then((response) => {
-    //   setOnboardingStageData(response);
-    // });
-  }
-
-  const getOnboardingTimeData = () => {
-     const onboardingTimeData = {
-      labels: ['< 7 Days', '7-14 Days', '15-21 Days', '> 21 Days'],
-      datasets: [{
-        data: [25, 45, 20, 10],
-        backgroundColor: ['#10b981', '#6366f1', '#f59e0b', '#ef4444'],
-        borderWidth: 0
-      }]
-    };
-    setOnboardingTimeData(onboardingTimeData);
-    // Bridge.zipDashboard.getOnboardingTimeData().then((response) => {
-    //   setOnboardingTimeData(response);
-    // });
-  }
-
-  const getRecentActivities = () => {
-    // Bridge.zipDashboard.getRecentActivities().then((response) => {
-    //   setRecentActivities(response);
-    // });
-  }
+  const phaseChartData = {
+    labels: ['Not Started', 'Docs Pending', 'Under Review', 'Compliance', 'Completed'],
+    datasets: [{
+      label: 'Vendors',
+      data: [
+        stats.byPhase?.not_started || 0,
+        stats.byPhase?.documents_pending || 0,
+        stats.byPhase?.under_review || 0,
+        stats.byPhase?.compliance_check || 0,
+        stats.byPhase?.completed || 0,
+      ],
+      backgroundColor: ['#6b7280', '#f59e0b', '#3b82f6', '#8b5cf6', '#10b981'],
+    }]
+  };
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'bottom' as const,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: '#e5e7eb',
-        },
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        grid: {
-          drawOnChartArea: false,
-        },
-      },
-      x: {
-        grid: {
-          display: false,
-        },
-      },
+      legend: { position: 'bottom' as const },
     },
   };
 
-  const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
-      },
-    },
-  };
-
-  const exportData = () => {
-    setLoading(true);
-    const node = document.getElementById("main-section");
-    htmlToImage.toBlob(node).then((blob) => {
-      saveAs(blob, "ZIp Dashboard.png");
-      setLoading(false);
-      message.success("Exported successfully.");
-    });
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+  // Table columns
+  const columns = [
+    {
+      title: 'Restaurant',
+      key: 'restaurant',
+      render: (record: Vendor) => (
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">ZIP Dashboard</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Vendor onboarding and management insights
-          </p>
-        </div>
-        <div className="mt-4 md:mt-0 flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <select
-              className="rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-            >
-              <option value="week">Last 7 days</option>
-              <option value="month">Last 30 days</option>
-              <option value="quarter">Last Quarter</option>
-              <option value="year">Last Year</option>
-            </select>
+          <div className="font-medium text-gray-900">
+            {record.restaurant_name || record.company_name || 'Unnamed'}
           </div>
+          <div className="text-sm text-gray-500">{record.cuisine_type || 'N/A'}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Contact',
+      key: 'contact',
+      render: (record: Vendor) => (
+        <div className="text-sm">
+          <div className="flex items-center gap-1">
+            <Mail size={12} /> {record.contact_email || 'N/A'}
+          </div>
+          <div className="flex items-center gap-1 text-gray-500">
+            <Phone size={12} /> {record.contact_phone || 'N/A'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Location',
+      key: 'location',
+      render: (record: Vendor) => (
+        <div className="text-sm">
+          <div className="flex items-center gap-1">
+            <MapPin size={12} />
+            {record.city && record.state ? `${record.city}, ${record.state}` : 'N/A'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (record: Vendor) => {
+        const status = record.onboarding_status || 'pending';
+        const colors = STATUS_COLORS[status] || STATUS_COLORS.pending;
+        return (
+          <Tag className={`${colors.bg} ${colors.text} ${colors.border} border`}>
+            {status.replace('_', ' ').toUpperCase()}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Documents',
+      key: 'documents',
+      render: (record: Vendor) => {
+        const { completed, total, allComplete } = checkDocuments(record);
+        return (
+          <div className="flex items-center gap-2">
+            <Badge
+              status={allComplete ? 'success' : 'warning'}
+              text={`${completed}/${total}`}
+            />
+            {allComplete && <CheckCircle size={14} className="text-green-500" />}
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Published',
+      key: 'published',
+      render: (record: Vendor) => {
+        const isPublished = record.is_published;
+        const platforms = record.published_platforms ? JSON.parse(record.published_platforms) : [];
+
+        if (!isPublished) {
+          return (
+            <Tag color="default" className="flex items-center gap-1">
+              <XCircle size={12} /> Not Published
+            </Tag>
+          );
+        }
+
+        return (
+          <div className="flex flex-col gap-1">
+            <Tag color="green" className="flex items-center gap-1">
+              <CheckCircle size={12} /> Live
+            </Tag>
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              {platforms.includes('ios') && <Smartphone size={10} title="iOS" />}
+              {platforms.includes('android') && <Smartphone size={10} title="Android" />}
+              {platforms.includes('web') && <Globe size={10} title="Web" />}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Applied',
+      key: 'created_at',
+      render: (record: Vendor) => (
+        <span className="text-sm text-gray-500">
+          {record.created_at ? new Date(record.created_at).toLocaleDateString() : 'N/A'}
+        </span>
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (record: Vendor) => (
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            leftIcon={<Filter size={16} />}
+            onClick={() => {
+              setSelectedVendor(record);
+              setIsModalVisible(true);
+            }}
           >
-            Filters
+            <Eye size={14} className="mr-1" /> View
+          </Button>
+          {record.onboarding_status === 'pending' && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleStartReview(record.id)}
+              loading={actionLoading === record.id}
+            >
+              Start Review
+            </Button>
+          )}
+          {record.onboarding_status === 'in_review' && (
+            <>
+              <Popconfirm
+                title="Approve this vendor?"
+                description="This will create their account and send approval email."
+                onConfirm={() => handleApprove(record.id)}
+                okText="Approve"
+                cancelText="Cancel"
+              >
+                <Button
+                  variant="success"
+                  size="sm"
+                  loading={actionLoading === record.id}
+                >
+                  <ThumbsUp size={14} />
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Reject this application?"
+                description="The vendor will be notified of rejection."
+                onConfirm={() => handleReject(record.id)}
+                okText="Reject"
+                okType="danger"
+                cancelText="Cancel"
+              >
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={actionLoading === record.id}
+                >
+                  <ThumbsDown size={14} />
+                </Button>
+              </Popconfirm>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // Document status component
+  const DocumentStatus = ({ vendor }: { vendor: Vendor }) => {
+    const { docs } = checkDocuments(vendor);
+    const docItems = [
+      { key: 'food_license', label: 'Food Service License', url: vendor.food_license_url, value: vendor.food_license },
+      { key: 'health_permit', label: 'Health Permit', url: vendor.health_permit_url, value: vendor.health_permit },
+      { key: 'w9_form', label: 'W-9 / Business License', url: vendor.w9_form_url, value: vendor.w9_form },
+      { key: 'insurance', label: 'Liability Insurance', url: vendor.insurance_url, value: vendor.insurance },
+    ];
+
+    return (
+      <div className="space-y-3">
+        {docItems.map(doc => (
+          <div
+            key={doc.key}
+            className={`p-3 rounded-lg border ${
+              docs[doc.key as keyof typeof docs]
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className={docs[doc.key as keyof typeof docs] ? 'text-green-600' : 'text-red-600'} />
+                <span className="font-medium">{doc.label}</span>
+              </div>
+              {docs[doc.key as keyof typeof docs] ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-green-600" />
+                  {doc.url && (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      View <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-red-600">
+                  <XCircle size={16} />
+                  <span className="text-sm">Missing</span>
+                </div>
+              )}
+            </div>
+            {doc.value && (
+              <div className="mt-1 text-sm text-gray-600">
+                Reference: {doc.value}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">ZIP Vendor Approval</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Restaurant onboarding and approval management - All platforms connected
+          </p>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<RefreshCw size={16} />}
+            onClick={fetchData}
+            loading={loading}
+          >
+            Refresh
           </Button>
           <Button
             variant="outline"
             size="sm"
             leftIcon={<Download size={16} />}
-            onClick={()=>exportData()}
+            onClick={exportData}
           >
             Export
           </Button>
         </div>
       </div>
 
+      {/* Alert for pending approvals */}
+      {stats.pendingApproval > 0 && (
+        <Alert
+          message={`${stats.pendingApproval} vendor application(s) awaiting review`}
+          description="Review and approve vendors to allow them to go live on iOS, Android, and Web."
+          type="warning"
+          showIcon
+          icon={<Clock size={20} />}
+        />
+      )}
+
       <div id="main-section">
-
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">Active Vendors</p>
-                <p className="mt-2 text-2xl font-semibold text-neutral-900">{zipMetrics.activeVendors}</p>
-              </div>
-              <div className="p-3 bg-primary-50 rounded-full">
-                <Users className="h-6 w-6 text-primary-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">Pending Approval</p>
-                <p className="mt-2 text-2xl font-semibold text-warning-600">{zipMetrics.pendingApprovalVendors}</p>
-              </div>
-              <div className="p-3 bg-warning-50 rounded-full">
-                <Clock className="h-6 w-6 text-warning-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">In Onboarding</p>
-                <p className="mt-2 text-2xl font-semibold text-primary-600">{zipMetrics.onboardingInProgress}</p>
-              </div>
-              <div className="p-3 bg-primary-50 rounded-full">
-                <Building className="h-6 w-6 text-primary-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">Avg Onboarding Time</p>
-                <p className="mt-2 text-2xl font-semibold text-neutral-900">{zipMetrics.avgOnboardingTime}d</p>
-              </div>
-              <div className="p-3 bg-primary-50 rounded-full">
-                <Clock className="h-6 w-6 text-primary-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">Completed Onboarding</p>
-                <p className="mt-2 text-2xl font-semibold text-success-600">{zipMetrics.completedOnboarding}</p>
-              </div>
-              <div className="p-3 bg-success-50 rounded-full">
-                <CheckCircle className="h-6 w-6 text-success-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600">Rejected Applications</p>
-                <p className="mt-2 text-2xl font-semibold text-error-600">{zipMetrics.rejectedApplications}</p>
-              </div>
-              <div className="p-3 bg-error-50 rounded-full">
-                <AlertCircle className="h-6 w-6 text-error-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Vendor Onboarding Trends</h2>
-            <div className="h-80">
-              {onboardingTrendData && onboardingTrendData.datasets && (
-                <Line data={onboardingTrendData} options={chartOptions} />
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Vendor Status Distribution</h2>
-            <div className="h-80">
-              {vendorStatusData && vendorStatusData.datasets && (
-                <Doughnut data={vendorStatusData} options={pieOptions} />
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Onboarding Stages</h2>
-            <div className="h-80">
-              {onboardingStageData && onboardingStageData.datasets && (
-                <Bar data={onboardingStageData} options={chartOptions} />
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Onboarding Time Distribution</h2>
-            <div className="h-80">
-              {onboardingTimeData && onboardingTimeData.datasets && (
-                <Doughnut data={onboardingTimeData} options={pieOptions} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Onboarding Activities */}
-        <div className="bg-white rounded-lg shadow-card overflow-hidden mt-5">
-          <div className="px-6 py-4 border-b border-neutral-200">
-            <h2 className="font-medium text-neutral-900">Recent Onboarding Activities</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-neutral-200">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Vendor
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Activity
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Stage
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Days in Stage
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-neutral-200">
-                {recentActivities.length>0 && recentActivities.map((activity, index) => (
-                  <tr key={index} className="hover:bg-neutral-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
-                      {activity.vendor}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                      {activity.activity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                      {activity.stage}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        activity.status === 'Completed' ? 'bg-success-100 text-success-700' :
-                        activity.status === 'In Progress' ? 'bg-primary-100 text-primary-700' :
-                        'bg-warning-100 text-warning-700'
-                      }`}>
-                        {activity.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                      {activity.daysInStage}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                      {activity.date}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Onboarding Performance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Onboarding Performance</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg">
+        <Spin spinning={loading}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-neutral-600">Approval Rate</p>
-                  <p className="mt-1 text-2xl font-semibold text-neutral-900">95.2%</p>
+                  <p className="text-sm font-medium text-gray-600">Total Vendors</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">{stats.totalVendors || 0}</p>
                 </div>
-                <div className="flex items-center text-success-600">
-                  <ArrowUpRight className="h-4 w-4" />
-                  <span className="ml-1 text-sm font-medium">2.1%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-neutral-600">Average Review Time</p>
-                  <p className="mt-1 text-2xl font-semibold text-neutral-900">8.5 days</p>
-                </div>
-                <div className="flex items-center text-success-600">
-                  <ArrowDownRight className="h-4 w-4" />
-                  <span className="ml-1 text-sm font-medium">15%</span>
+                <div className="p-2 bg-gray-100 rounded-full">
+                  <Building className="h-5 w-5 text-gray-600" />
                 </div>
               </div>
-              <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg">
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-green-200">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-neutral-600">Document Completion Rate</p>
-                  <p className="mt-1 text-2xl font-semibold text-neutral-900">88%</p>
+                  <p className="text-sm font-medium text-green-600">Active (Live)</p>
+                  <p className="mt-1 text-2xl font-semibold text-green-700">{stats.activeVendors || 0}</p>
                 </div>
-                <div className="flex items-center text-success-600">
-                  <ArrowUpRight className="h-4 w-4" />
-                  <span className="ml-1 text-sm font-medium">5%</span>
+                <div className="p-2 bg-green-100 rounded-full">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-600">Pending Review</p>
+                  <p className="mt-1 text-2xl font-semibold text-yellow-700">{stats.pendingApproval || 0}</p>
+                </div>
+                <div className="p-2 bg-yellow-100 rounded-full">
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600">In Onboarding</p>
+                  <p className="mt-1 text-2xl font-semibold text-blue-700">{stats.inOnboarding || 0}</p>
+                </div>
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Users className="h-5 w-5 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-red-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-600">Rejected</p>
+                  <p className="mt-1 text-2xl font-semibold text-red-700">{stats.rejectedApplications || 0}</p>
+                </div>
+                <div className="p-2 bg-red-100 rounded-full">
+                  <XCircle className="h-5 w-5 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Completed</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">{stats.completedOnboarding || 0}</p>
+                </div>
+                <div className="p-2 bg-gray-100 rounded-full">
+                  <AlertCircle className="h-5 w-5 text-gray-600" />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-card">
-            <h2 className="text-lg font-medium text-neutral-900 mb-4">Recent Vendor Approvals</h2>
-            <div className="space-y-4">
-              {[
-                { name: 'Tech Solutions Inc.', approvalDate: '2024-03-16', onboardingTime: 12 },
-                { name: 'Global Services Ltd.', approvalDate: '2024-03-15', onboardingTime: 8 },
-                { name: 'Office Supplies Co.', approvalDate: '2024-03-14', onboardingTime: 15 },
-                { name: 'Manufacturing Corp.', approvalDate: '2024-03-13', onboardingTime: 10 }
-              ].map((vendor) => (
-                <div key={vendor.name} className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">{vendor.name}</p>
-                    <p className="text-xs text-neutral-500">
-                      Approved: {vendor.approvalDate}
-                    </p>
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Vendor Status Distribution</h2>
+              <div className="h-64">
+                <Doughnut data={statusChartData} options={chartOptions} />
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Onboarding Pipeline</h2>
+              <div className="h-64">
+                <Bar data={phaseChartData} options={chartOptions} />
+              </div>
+            </div>
+          </div>
+
+          {/* Vendor Applications Table */}
+          <div className="bg-white rounded-lg shadow-sm border mt-6">
+            <div className="p-4 border-b">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <Tabs
+                  activeKey={activeTab}
+                  onChange={setActiveTab}
+                  items={[
+                    {
+                      key: 'pending',
+                      label: (
+                        <span className="flex items-center gap-2">
+                          <Clock size={14} />
+                          Pending Review
+                          {stats.pendingApproval > 0 && (
+                            <Badge count={stats.pendingApproval} style={{ backgroundColor: '#f59e0b' }} />
+                          )}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'approved',
+                      label: (
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={14} />
+                          Approved
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'rejected',
+                      label: (
+                        <span className="flex items-center gap-2">
+                          <XCircle size={14} />
+                          Rejected
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'all',
+                      label: (
+                        <span className="flex items-center gap-2">
+                          <Users size={14} />
+                          All Vendors
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+                <div className="flex items-center gap-3">
+                  <Input
+                    placeholder="Search vendors..."
+                    prefix={<Search size={14} className="text-gray-400" />}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ width: 200 }}
+                  />
+                  <Select
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    style={{ width: 150 }}
+                    options={[
+                      { value: 'all', label: 'All Status' },
+                      { value: 'pending', label: 'Pending' },
+                      { value: 'in_review', label: 'In Review' },
+                      { value: 'approved', label: 'Approved' },
+                      { value: 'rejected', label: 'Rejected' },
+                      { value: 'suspended', label: 'Suspended' },
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+            <Table
+              dataSource={filteredVendors}
+              columns={columns}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+              locale={{
+                emptyText: (
+                  <Empty
+                    description={
+                      activeTab === 'pending'
+                        ? 'No pending vendor applications'
+                        : `No ${activeTab} vendors found`
+                    }
+                  />
+                ),
+              }}
+            />
+          </div>
+
+          {/* Onboarding Requirements Info */}
+          <div className="bg-white rounded-lg shadow-sm border p-6 mt-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">ZIP Compliance Requirements</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Before a restaurant can go live on iOS, Android, or Web, they must provide the following documents:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {api.REQUIRED_VENDOR_DOCUMENTS.map((doc) => (
+                <div key={doc.key} className="p-4 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText size={18} className="text-primary-600" />
+                    <span className="font-medium">{doc.label}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-neutral-900">
-                      {vendor.onboardingTime} days
-                    </p>
-                    <p className="text-xs text-neutral-500">volume</p>
-                  </div>
+                  <p className="text-sm text-gray-500">{doc.description}</p>
+                  <Tag color="red" className="mt-2">Required</Tag>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-
-        {/* Vendor Onboarding Pipeline */}
-        <div className="bg-white rounded-lg shadow-card p-6 mt-5">
-          <h2 className="text-lg font-medium text-neutral-900 mb-4">Vendor Onboarding Pipeline</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              {
-                stage: 'Application Submitted',
-                count: 15,
-                avgTime: '1 day',
-                color: 'bg-primary-50 text-primary-700 border-primary-200'
-              },
-              {
-                stage: 'Document Review',
-                count: 12,
-                avgTime: '3 days',
-                color: 'bg-warning-50 text-warning-700 border-warning-200'
-              },
-              {
-                stage: 'Background Check',
-                count: 8,
-                avgTime: '5 days',
-                color: 'bg-secondary-50 text-secondary-700 border-secondary-200'
-              },
-              {
-                stage: 'Final Approval',
-                count: 5,
-                avgTime: '2 days',
-                color: 'bg-success-50 text-success-700 border-success-200'
-              }
-            ].map((stage) => (
-              <div key={stage.stage} className={`border rounded-lg p-4 ${stage.color}`}>
-                <div className="text-center">
-                  <p className="text-2xl font-semibold">{stage.count}</p>
-                  <p className="text-sm font-medium mt-1">{stage.stage}</p>
-                  <p className="text-xs mt-2">Avg: {stage.avgTime}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+        </Spin>
       </div>
 
-
+      {/* Vendor Detail Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <Building size={20} />
+            <span>{selectedVendor?.restaurant_name || selectedVendor?.company_name || 'Vendor Details'}</span>
+          </div>
+        }
+        open={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        width={800}
+        footer={
+          selectedVendor?.onboarding_status === 'in_review' || selectedVendor?.onboarding_status === 'pending' ? (
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsModalVisible(false)}>
+                Cancel
+              </Button>
+              <Popconfirm
+                title="Reject this application?"
+                onConfirm={() => selectedVendor && handleReject(selectedVendor.id)}
+              >
+                <Button
+                  variant="danger"
+                  leftIcon={<ThumbsDown size={14} />}
+                  loading={actionLoading === selectedVendor?.id}
+                >
+                  Reject
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Approve this vendor?"
+                description="This will create their account and send approval email."
+                onConfirm={() => selectedVendor && handleApprove(selectedVendor.id)}
+              >
+                <Button
+                  variant="success"
+                  leftIcon={<ThumbsUp size={14} />}
+                  loading={actionLoading === selectedVendor?.id}
+                >
+                  Approve
+                </Button>
+              </Popconfirm>
+            </div>
+          ) : null
+        }
+      >
+        {selectedVendor && (
+          <Tabs
+            items={[
+              {
+                key: 'info',
+                label: 'Business Info',
+                children: (
+                  <Descriptions bordered column={2} size="small">
+                    <Descriptions.Item label="Restaurant Name" span={2}>
+                      {selectedVendor.restaurant_name || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Company Name">
+                      {selectedVendor.company_name || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Cuisine Type">
+                      {selectedVendor.cuisine_type || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Contact Name">
+                      {selectedVendor.contact_name || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Contact Email">
+                      {selectedVendor.contact_email || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Contact Phone">
+                      {selectedVendor.contact_phone || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Address" span={2}>
+                      {[selectedVendor.address, selectedVendor.city, selectedVendor.state, selectedVendor.zip_code]
+                        .filter(Boolean)
+                        .join(', ') || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Status">
+                      <Tag className={`${STATUS_COLORS[selectedVendor.onboarding_status]?.bg} ${STATUS_COLORS[selectedVendor.onboarding_status]?.text}`}>
+                        {selectedVendor.onboarding_status?.replace('_', ' ').toUpperCase()}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Phase">
+                      {PHASE_LABELS[selectedVendor.onboarding_phase] || selectedVendor.onboarding_phase}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Published Status" span={2}>
+                      {selectedVendor.is_published ? (
+                        <div className="flex items-center gap-3">
+                          <Tag color="green" className="flex items-center gap-1">
+                            <CheckCircle size={12} /> Live on All Platforms
+                          </Tag>
+                          <div className="flex items-center gap-2 text-sm">
+                            {(() => {
+                              const platforms = selectedVendor.published_platforms
+                                ? JSON.parse(selectedVendor.published_platforms)
+                                : [];
+                              return (
+                                <>
+                                  {platforms.includes('ios') && <Tag icon={<Smartphone size={10} />}>iOS</Tag>}
+                                  {platforms.includes('android') && <Tag icon={<Smartphone size={10} />}>Android</Tag>}
+                                  {platforms.includes('web') && <Tag icon={<Globe size={10} />}>Web</Tag>}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          {selectedVendor.published_at && (
+                            <span className="text-xs text-gray-500">
+                              Since {new Date(selectedVendor.published_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Tag color="default" className="flex items-center gap-1">
+                          <XCircle size={12} /> Not Published
+                        </Tag>
+                      )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Applied">
+                      {selectedVendor.created_at ? new Date(selectedVendor.created_at).toLocaleDateString() : 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Last Activity">
+                      {selectedVendor.last_activity ? new Date(selectedVendor.last_activity).toLocaleDateString() : 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Description" span={2}>
+                      {selectedVendor.description || 'No description provided'}
+                    </Descriptions.Item>
+                  </Descriptions>
+                ),
+              },
+              {
+                key: 'documents',
+                label: (
+                  <span className="flex items-center gap-2">
+                    <FileText size={14} />
+                    Documents
+                    {!checkDocuments(selectedVendor).allComplete && (
+                      <Badge status="warning" />
+                    )}
+                  </span>
+                ),
+                children: <DocumentStatus vendor={selectedVendor} />,
+              },
+              {
+                key: 'delivery',
+                label: 'Delivery Settings',
+                children: (
+                  <Descriptions bordered column={2} size="small">
+                    <Descriptions.Item label="Delivery Enabled">
+                      {selectedVendor.delivery_enabled ? (
+                        <Tag color="green">Yes</Tag>
+                      ) : (
+                        <Tag color="red">No</Tag>
+                      )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Minimum Order">
+                      ${selectedVendor.minimum_order?.toFixed(2) || '0.00'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Delivery Fee">
+                      ${selectedVendor.delivery_fee?.toFixed(2) || '0.00'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="EIN Number">
+                      {selectedVendor.ein_number || 'Not provided'}
+                    </Descriptions.Item>
+                  </Descriptions>
+                ),
+              },
+            ]}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

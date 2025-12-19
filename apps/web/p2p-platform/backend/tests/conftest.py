@@ -21,33 +21,45 @@ from unittest.mock import MagicMock, patch
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# IMPORTANT: Set up test database URL BEFORE importing main_new/database
+# This ensures database.py uses the same test database as conftest
+
+# Use in-memory SQLite for testing - avoids all persistence issues
+# Each test run gets a completely fresh database
+import uuid
+_test_session_id = uuid.uuid4().hex[:8]
+
+# Check if we're in CI with PostgreSQL available
+_original_db_url = os.getenv("DATABASE_URL")
+if _original_db_url and "postgresql" in _original_db_url:
+    # Use a separate test database for PostgreSQL
+    # Parse the URL and append "_test" to database name if not already test
+    if "_test" not in _original_db_url and "invoice_db" in _original_db_url:
+        TEST_DATABASE_URL = _original_db_url.replace("invoice_db", "invoice_db_test")
+    else:
+        TEST_DATABASE_URL = _original_db_url
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+else:
+    # Use in-memory SQLite with unique identifier to avoid any caching
+    TEST_DATABASE_URL = f"sqlite:///:memory:?cache=shared&uri=true"
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool, NullPool
 
-# Import app and models
+# Now import app and models (they will use the TEST_DATABASE_URL)
 from main_new import app, get_db, create_access_token, get_password_hash
 from database import Base
-from models import User, Vendor, Driver, Customer
+from models import User, Vendor, Driver, Customer, VendorStatus, OnboardingPhase, UserRole
 
-
-# Get database URL from environment or use a temp SQLite file
-# Using temp file instead of :memory: to avoid index conflict issues
-_temp_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-_temp_db_path = _temp_db_file.name
-_temp_db_file.close()
-
-# Check if we're in CI with PostgreSQL available
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and "postgresql" in DATABASE_URL:
-    # Use PostgreSQL in CI
-    engine = create_engine(DATABASE_URL, poolclass=NullPool)
+# Create test engine
+if "postgresql" in TEST_DATABASE_URL:
+    engine = create_engine(TEST_DATABASE_URL, poolclass=NullPool)
 else:
-    # Use SQLite temp file for local testing
-    SQLALCHEMY_DATABASE_URL = f"sqlite:///{_temp_db_path}"
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL,
+        TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
@@ -67,36 +79,56 @@ def override_get_db():
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    DATABASE_URL = os.getenv("DATABASE_URL", "")
-
-    # For PostgreSQL, use DROP OWNED to remove all objects owned by test user
-    if "postgresql" in DATABASE_URL:
+    # For PostgreSQL, use DROP SCHEMA to completely clean the database
+    if "postgresql" in TEST_DATABASE_URL:
         with engine.connect() as conn:
             try:
-                # Get the current user
-                result = conn.execute(text("SELECT current_user"))
-                current_user = result.scalar()
-
-                # Drop all objects owned by current user
-                conn.execute(text(f"DROP OWNED BY {current_user} CASCADE"))
+                # Drop and recreate public schema to clear everything
+                conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+                conn.execute(text("CREATE SCHEMA public"))
+                conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
                 conn.commit()
             except Exception as e:
-                print(f"Warning: DROP OWNED failed: {e}")
+                print(f"Warning: DROP SCHEMA failed: {e}")
                 conn.rollback()
-                # Fallback: try SQLAlchemy's drop_all
+                # Fallback: try DROP OWNED
                 try:
-                    Base.metadata.drop_all(bind=engine)
-                except Exception:
-                    pass
+                    result = conn.execute(text("SELECT current_user"))
+                    current_user = result.scalar()
+                    conn.execute(text(f"DROP OWNED BY {current_user} CASCADE"))
+                    conn.commit()
+                except Exception as e2:
+                    print(f"Warning: DROP OWNED also failed: {e2}")
+                    conn.rollback()
     else:
-        # For SQLite, regular drop_all works
+        # For SQLite, drop all tables first
         try:
-            Base.metadata.drop_all(bind=engine)
-        except Exception:
-            pass
+            # Drop tables in reverse dependency order
+            with engine.connect() as conn:
+                conn.execute(text("PRAGMA foreign_keys = OFF"))
+                # Get all table names
+                result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+                tables = [row[0] for row in result]
+                for table in tables:
+                    if table != 'sqlite_sequence':
+                        conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
+                conn.execute(text("PRAGMA foreign_keys = ON"))
+                conn.commit()
+        except Exception as e:
+            print(f"Warning: SQLite drop failed: {e}")
 
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
+    # Create all tables with checkfirst to handle any remaining conflicts
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        # If create_all fails, try creating tables individually
+        print(f"Warning: Bulk create_all failed: {e}")
+        for table in Base.metadata.sorted_tables:
+            try:
+                table.create(bind=engine, checkfirst=True)
+            except Exception as table_error:
+                print(f"Warning: Could not create table {table.name}: {table_error}")
+
     yield
 
     # Cleanup
@@ -127,8 +159,17 @@ def client(db_session) -> Generator:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db_fixture
+
+    # Clear startup event handlers to prevent init_db from running
+    # (tables are already created by test_db fixture)
+    original_startup_handlers = app.router.on_startup.copy()
+    app.router.on_startup.clear()
+
     with TestClient(app) as c:
         yield c
+
+    # Restore original handlers
+    app.router.on_startup = original_startup_handlers
     app.dependency_overrides.clear()
 
 
@@ -137,10 +178,9 @@ def test_user(db_session) -> User:
     """Create a test user"""
     user = User(
         email=f"testuser_{datetime.now().timestamp()}@test.com",
-        hashed_password=get_password_hash("TestPassword123!"),
+        password_hash=get_password_hash("TestPassword123!"),
         full_name="Test User",
-        role="user",
-        is_active=True,
+        role=UserRole.USER,
     )
     db_session.add(user)
     db_session.commit()
@@ -153,10 +193,9 @@ def test_admin(db_session) -> User:
     """Create a test admin user"""
     admin = User(
         email=f"admin_{datetime.now().timestamp()}@test.com",
-        hashed_password=get_password_hash("AdminPassword123!"),
+        password_hash=get_password_hash("AdminPassword123!"),
         full_name="Test Admin",
-        role="admin",
-        is_active=True,
+        role=UserRole.ADMIN,
     )
     db_session.add(admin)
     db_session.commit()
@@ -168,16 +207,16 @@ def test_admin(db_session) -> User:
 def test_vendor(db_session) -> Vendor:
     """Create a test vendor"""
     vendor = Vendor(
-        business_name=f"Test Restaurant {datetime.now().timestamp()}",
+        company_name=f"Test Company {datetime.now().timestamp()}",
+        restaurant_name=f"Test Restaurant {datetime.now().timestamp()}",
         contact_email=f"vendor_{datetime.now().timestamp()}@test.com",
         contact_phone="+14155551234",
-        password_hash=get_password_hash("VendorPassword123!"),
-        address="123 Test St",
+        street="123 Test St",
         city="San Francisco",
         state="CA",
         zip_code="94102",
-        status="approved",
-        is_approved=True,
+        onboarding_status=VendorStatus.APPROVED,
+        onboarding_phase=OnboardingPhase.COMPLETED,
     )
     db_session.add(vendor)
     db_session.commit()
@@ -240,10 +279,9 @@ class UserFactory:
         cls.counter += 1
         defaults = {
             "email": f"user_{cls.counter}_{datetime.now().timestamp()}@test.com",
-            "hashed_password": get_password_hash("Password123!"),
+            "password_hash": get_password_hash("Password123!"),
             "full_name": f"Test User {cls.counter}",
-            "role": "user",
-            "is_active": True,
+            "role": UserRole.USER,
         }
         defaults.update(kwargs)
         user = User(**defaults)
@@ -261,15 +299,15 @@ class VendorFactory:
     def create(cls, db_session, **kwargs) -> Vendor:
         cls.counter += 1
         defaults = {
-            "business_name": f"Test Restaurant {cls.counter}",
+            "company_name": f"Test Company {cls.counter}",
+            "restaurant_name": f"Test Restaurant {cls.counter}",
             "contact_email": f"vendor_{cls.counter}_{datetime.now().timestamp()}@test.com",
             "contact_phone": f"+1415555{1000 + cls.counter}",
-            "password_hash": get_password_hash("VendorPass123!"),
-            "address": f"{100 + cls.counter} Test St",
+            "street": f"{100 + cls.counter} Test St",
             "city": "San Francisco",
             "state": "CA",
             "zip_code": "94102",
-            "status": "pending",
+            "onboarding_status": VendorStatus.PENDING,
         }
         defaults.update(kwargs)
         vendor = Vendor(**defaults)
