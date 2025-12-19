@@ -6770,6 +6770,189 @@ def get_privacy_policy():
 # Demo account endpoint removed for production - use proper user registration
 
 
+# ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
+# These endpoints provide aliases for Android app compatibility
+
+# Legal endpoint aliases (Android expects different paths)
+@app.get("/api/legal/tos")
+def get_terms_of_service_android():
+    """Android-compatible Terms of Service endpoint (alias for /api/legal/terms)."""
+    return get_terms_of_service()
+
+
+@app.get("/api/legal/privacy-policy")
+def get_privacy_policy_android():
+    """Android-compatible Privacy Policy endpoint (alias for /api/legal/privacy)."""
+    return get_privacy_policy()
+
+
+# Driver profile endpoint for Android
+@app.get("/api/erp/drivers/{driver_id}")
+def get_driver_profile_erp(driver_id: int, db: Session = Depends(get_db)):
+    """Get driver profile by ID (Android/ERP compatible endpoint)."""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    return {
+        "id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "full_name": f"{driver.first_name} {driver.last_name}",
+        "first_name": driver.first_name,
+        "last_name": driver.last_name,
+        "email": driver.email,
+        "phone": driver.phone,
+        "status": driver.status.value if driver.status else "pending",
+        "rating": driver.rating,
+        "total_deliveries": driver.total_deliveries,
+        "is_online": driver.is_online,
+        "latitude": driver.current_latitude,
+        "longitude": driver.current_longitude,
+        "vehicle_type": driver.vehicle_type,
+        "vehicle_make": driver.vehicle_make,
+        "vehicle_model": driver.vehicle_model,
+        "license_plate": driver.license_plate,
+        "created_at": driver.created_at.isoformat() if driver.created_at else None
+    }
+
+
+# Fare estimate endpoint for Android
+@app.post("/api/rides/estimate")
+def get_fare_estimate_android(request: dict, db: Session = Depends(get_db)):
+    """Android-compatible fare estimate endpoint."""
+    pickup_lat = request.get("pickup_latitude", 0)
+    pickup_lng = request.get("pickup_longitude", 0)
+    dropoff_lat = request.get("dropoff_latitude", 0)
+    dropoff_lng = request.get("dropoff_longitude", 0)
+
+    # Calculate distance using Haversine formula
+    import math
+    R = 3959  # Earth's radius in miles
+
+    lat1, lon1 = math.radians(pickup_lat), math.radians(pickup_lng)
+    lat2, lon2 = math.radians(dropoff_lat), math.radians(dropoff_lng)
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    distance_miles = R * c
+
+    # Calculate fare
+    base_fare = 5.00
+    per_mile_rate = 1.50
+    per_minute_rate = 0.25
+    estimated_minutes = distance_miles * 2.5  # Rough estimate
+
+    fare = base_fare + (distance_miles * per_mile_rate) + (estimated_minutes * per_minute_rate)
+
+    # Calculate tiered platform fee
+    if distance_miles <= 10:
+        platform_fee = 1.00
+    elif distance_miles <= 20:
+        platform_fee = 2.00
+    else:
+        platform_fee = 3.00
+
+    driver_earnings = fare - platform_fee
+
+    return {
+        "fare_estimate": round(fare, 2),
+        "total_fare": round(fare, 2),
+        "platform_fee": platform_fee,
+        "driver_earnings": round(driver_earnings, 2),
+        "base_fare": base_fare,
+        "distance_fee": round(distance_miles * per_mile_rate, 2),
+        "time_fee": round(estimated_minutes * per_minute_rate, 2),
+        "distance_miles": round(distance_miles, 1),
+        "duration_minutes": round(estimated_minutes),
+        "surge_multiplier": 1.0,
+        "currency": "USD"
+    }
+
+
+@app.post("/api/erp/rides/fare-estimate")
+def get_fare_estimate_erp(request: dict, db: Session = Depends(get_db)):
+    """ERP fare estimate endpoint (alias)."""
+    return get_fare_estimate_android(request, db)
+
+
+# Driver location update endpoint
+@app.post("/api/driver/location")
+def update_driver_location_android(request: dict, db: Session = Depends(get_db)):
+    """Update driver's current location (Android compatible)."""
+    driver_id = request.get("driver_id")
+    latitude = request.get("latitude")
+    longitude = request.get("longitude")
+
+    if not driver_id:
+        raise HTTPException(status_code=400, detail="driver_id is required")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    driver.current_latitude = latitude
+    driver.current_longitude = longitude
+    db.commit()
+
+    return {
+        "success": True,
+        "driver_id": driver_id,
+        "latitude": latitude,
+        "longitude": longitude,
+        "updated_at": datetime.now().isoformat()
+    }
+
+
+# Available deliveries endpoint for driver app
+@app.get("/api/v2/driver/deliveries/available")
+def get_available_deliveries_android(db: Session = Depends(get_db)):
+    """Get available delivery orders for drivers (Android compatible)."""
+    try:
+        # Get orders that are ready for pickup and don't have a driver assigned
+        orders = db.query(Order).filter(
+            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY]),
+            Order.driver_id == None
+        ).limit(20).all()
+
+        deliveries = []
+        for order in orders:
+            # Get vendor info separately
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+
+            deliveries.append({
+                "id": order.id,
+                "order_id": order.order_number,
+                "restaurant_name": vendor.restaurant_name if vendor else "Unknown Restaurant",
+                "restaurant_address": vendor.street if vendor else "",
+                "delivery_address": order.delivery_address,
+                "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
+                "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
+                "dropoff_latitude": order.delivery_latitude,
+                "dropoff_longitude": order.delivery_longitude,
+                "total_amount": float(order.total_amount) if order.total_amount else 0,
+                "estimated_distance": 0,
+                "estimated_earnings": float(order.total_amount) * 0.8 if order.total_amount else 0,
+                "status": order.status.value if order.status else "unknown",
+                "created_at": order.created_at.isoformat() if order.created_at else None
+            })
+
+        return {
+            "deliveries": deliveries,
+            "count": len(deliveries)
+        }
+    except Exception as e:
+        print(f"Error getting available deliveries: {e}")
+        return {
+            "deliveries": [],
+            "count": 0,
+            "message": "No deliveries available"
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
