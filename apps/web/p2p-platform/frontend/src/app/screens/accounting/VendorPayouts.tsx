@@ -325,7 +325,12 @@ const VendorPayoutsMain: React.FC = () => {
           <ul>
             <li>Calculate total orders per vendor</li>
             <li>Sum gross revenue from successful payments</li>
-            <li>Calculate platform fees ($1 flat fee per order)</li>
+            <li>Calculate platform fees:
+              <ul style={{ marginTop: 4, fontSize: 12 }}>
+                <li><strong>Food Delivery:</strong> $1 flat fee per order</li>
+                <li><strong>Rideshare:</strong> Tiered by distance - $1 (0-10mi), $2 (10-20mi), $3 (20+mi)</li>
+              </ul>
+            </li>
             <li>Calculate Stripe processing fees</li>
             <li>Generate net payout amounts</li>
             <li>Create payout records ready for Coupa sync</li>

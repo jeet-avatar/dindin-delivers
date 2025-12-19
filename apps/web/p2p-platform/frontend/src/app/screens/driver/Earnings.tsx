@@ -135,7 +135,7 @@ const DriverEarnings: React.FC = () => {
               </Col>
               <Col span={8}>
                 <div className="earnings-breakdown">
-                  <Text type="secondary">Tips</Text>
+                  <Text type="secondary">Tips (100% yours)</Text>
                   <Text strong style={{ fontSize: 18, color: '#6366F1' }}>${earningsData.tips.toFixed(2)}</Text>
                 </div>
               </Col>
@@ -146,6 +146,17 @@ const DriverEarnings: React.FC = () => {
                 </div>
               </Col>
             </Row>
+
+            <Divider />
+
+            <div className="fee-structure">
+              <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>Platform Fee Structure (by distance)</Text>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <Tag color="green">0-10 mi: $1</Tag>
+                <Tag color="blue">10-20 mi: $2</Tag>
+                <Tag color="purple">20+ mi: $3</Tag>
+              </div>
+            </div>
           </Col>
           <Col xs={24} md={12}>
             <Row gutter={[16, 16]}>

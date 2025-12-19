@@ -12,7 +12,8 @@ import {
   StarFilled,
   ArrowRightOutlined,
   MenuOutlined,
-  CloseOutlined
+  CloseOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 
 const LandingPage: React.FC = () => {
@@ -35,9 +36,11 @@ const LandingPage: React.FC = () => {
             <Link to="/privacy">Privacy</Link>
           </div>
           <div className="nav-actions">
-            <Button ghost onClick={() => navigate('/vendor/login')}>Restaurant Login</Button>
-            <Button ghost onClick={() => navigate('/driver/login')}>Driver Login</Button>
-            <Button type="primary" className="admin-btn" onClick={() => navigate('/login')}>Admin</Button>
+            <Button type="primary" className="customer-btn" onClick={() => navigate('/customer/login')}>
+              <UserOutlined /> Book a Ride
+            </Button>
+            <Button ghost onClick={() => navigate('/vendor/login')}>Restaurant</Button>
+            <Button ghost onClick={() => navigate('/driver/login')}>Driver</Button>
           </div>
           <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>
             <MenuOutlined />
@@ -70,14 +73,14 @@ const LandingPage: React.FC = () => {
             <Link to="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy</Link>
           </div>
           <div className="mobile-menu-actions">
+            <Button block size="large" type="primary" className="mobile-btn-customer" onClick={() => { navigate('/customer/login'); setMobileMenuOpen(false); }}>
+              <UserOutlined /> Book a Ride
+            </Button>
             <Button block size="large" className="mobile-btn" onClick={() => { navigate('/vendor/login'); setMobileMenuOpen(false); }}>
               Restaurant Login
             </Button>
             <Button block size="large" className="mobile-btn" onClick={() => { navigate('/driver/login'); setMobileMenuOpen(false); }}>
               Driver Login
-            </Button>
-            <Button block size="large" type="primary" className="mobile-btn-primary" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
-              Admin Portal
             </Button>
           </div>
         </div>
@@ -88,32 +91,37 @@ const LandingPage: React.FC = () => {
         <div className="hero-bg"></div>
         <div className="hero-content">
           <div className="hero-badge">
-            <ThunderboltOutlined /> AI-Powered Food Delivery Platform
+            <ThunderboltOutlined /> AI-Powered Delivery & Rideshare Platform
           </div>
           <h1 className="hero-title">
-            Revolutionizing Local
-            <span className="highlight"> Food Delivery</span>
+            Rides & Delivery
+            <span className="highlight"> Just $1 Fee</span>
           </h1>
           <p className="hero-subtitle">
-            Connect restaurants with customers through intelligent delivery logistics.
-            Zero hidden fees. Instant payouts. AI-powered efficiency.
+            The world's first $1 matchmaking platform. Book rides, order food,
+            or become a partner. Transparent pricing, no hidden fees.
           </p>
           <div className="hero-cta">
             <Button
               type="primary"
               size="large"
-              className="cta-primary"
-              onClick={() => navigate('/restaurant/apply')}
+              className="cta-customer"
+              onClick={() => navigate('/customer/login')}
             >
-              Partner Your Restaurant <ArrowRightOutlined />
+              <UserOutlined /> Book a Ride <ArrowRightOutlined />
             </Button>
             <Button
               size="large"
               className="cta-secondary"
-              onClick={() => navigate('/driver/apply')}
+              onClick={() => navigate('/ride')}
             >
-              Become a Driver
+              Quick Estimate
             </Button>
+          </div>
+          <div className="hero-partner-links">
+            <span>Are you a business?</span>
+            <Button type="link" onClick={() => navigate('/restaurant/apply')}>Partner Restaurant</Button>
+            <Button type="link" onClick={() => navigate('/driver/apply')}>Become a Driver</Button>
           </div>
           <div className="hero-stats">
             <div className="stat">
@@ -512,11 +520,19 @@ const LandingPage: React.FC = () => {
           color: #ffd700;
         }
 
-        .admin-btn {
-          background: #ffd700 !important;
-          border-color: #ffd700 !important;
-          color: #1a1a2e !important;
+        .customer-btn {
+          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
+          border: none !important;
+          color: white !important;
           font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .customer-btn:hover {
+          background: linear-gradient(135deg, #4ADE80 0%, #06C167 100%) !important;
+          box-shadow: 0 4px 12px rgba(6,193,103,0.4);
         }
 
         /* Hero Section */
@@ -593,6 +609,25 @@ const LandingPage: React.FC = () => {
           margin-bottom: 64px;
         }
 
+        .cta-customer {
+          height: 56px;
+          padding: 0 40px;
+          font-size: 16px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
+          border: none !important;
+          color: white !important;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .cta-customer:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(6,193,103,0.4);
+        }
+
         .cta-primary {
           height: 56px;
           padding: 0 40px;
@@ -607,6 +642,29 @@ const LandingPage: React.FC = () => {
         .cta-primary:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(255,215,0,0.4);
+        }
+
+        .hero-partner-links {
+          margin-top: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .hero-partner-links span {
+          color: rgba(255,255,255,0.6);
+          font-size: 14px;
+        }
+
+        .hero-partner-links .ant-btn-link {
+          color: #ffd700 !important;
+          font-weight: 500;
+          padding: 0 8px;
+        }
+
+        .hero-partner-links .ant-btn-link:hover {
+          color: #ffed4a !important;
         }
 
         .cta-secondary {
@@ -1126,6 +1184,19 @@ const LandingPage: React.FC = () => {
           height: 48px;
           border-radius: 12px;
           font-weight: 600;
+        }
+
+        .mobile-btn-customer {
+          background: linear-gradient(135deg, #06C167 0%, #4ADE80 100%) !important;
+          border: none !important;
+          color: white !important;
+          height: 48px;
+          border-radius: 12px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
 
         /* Responsive - Tablet */

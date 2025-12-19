@@ -1,11 +1,39 @@
 import SwiftUI
 
+/**
+ * Dollor.ai Brand Colors - SOURCE OF TRUTH
+ *
+ * All platforms MUST match these values:
+ * - iOS Customer: eatfaircustomer/Theme/Theme.swift
+ * - Android: app/src/main/java/com/eatfair/app/ui/theme/Color.kt
+ * - Web: apps/web/p2p-platform/frontend/src/app/theme/colors.ts
+ */
 public struct Theme {
-    public static let brandGreen = Color(hex: "06C167")
-    public static let brandBlack = Color(hex: "101010")
-    public static let brandOrange = Color(hex: "F2994A") // Example
-    public static let brandGrey = Color(hex: "F5F5F5")
+    // Primary Brand Color - Green
+    public static let brandGreen = Color(hex: "06C167")  // #06C167
+
+    // Secondary/Accent Color - Orange
+    public static let brandOrange = Color(hex: "F2994A")  // #F2994A
+
+    // Background Colors
+    public static let brandGrey = Color(hex: "F5F5F5")  // #F5F5F5
+
+    // Text Colors
+    public static let brandBlack = Color(hex: "101010")  // #101010
     public static let textGrey = Color.gray
+    public static let brandWhite = Color.white
+
+    // Blue for ride/info elements
+    public static let brandBlue = Color(hex: "3B82F6")  // #3B82F6
+
+    // Gold for $ logo and premium accents
+    public static let gold = Color(hex: "FFD700")  // #FFD700
+
+    // Status Colors
+    public static let success = brandGreen
+    public static let error = Color(hex: "EF4444")  // #EF4444
+    public static let warning = Color(hex: "F59E0B")  // #F59E0B
+    public static let info = brandBlue
 }
 
 public extension Color {
