@@ -54,6 +54,71 @@ SERVICE_PORT = 8014
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dollor")
 
 # =============================================================================
+# PLATFORM FEE CONFIGURATION - TIERED DISTANCE-BASED PRICING
+# =============================================================================
+# Dollor.ai Matchmaking Platform - Tiered Distance Pricing
+# Both rider AND driver pay the SAME fee based on trip distance:
+#   - Trips 0-10 miles:   $1
+#   - Trips 10-20 miles:  $2
+#   - Trips 20+ miles:    $3
+#
+# Distance tier thresholds (in miles)
+DISTANCE_TIER_1_MAX = 10.0   # Trips up to 10 miles
+DISTANCE_TIER_2_MAX = 20.0   # Trips 10.01 to 20 miles
+# Tier 3: Trips above 20 miles
+
+# Platform fees per distance tier
+DISTANCE_TIER_1_FEE = 1.00   # $1 for trips ≤ 10 miles
+DISTANCE_TIER_2_FEE = 2.00   # $2 for trips 10.01-20 miles
+DISTANCE_TIER_3_FEE = 3.00   # $3 for trips > 20 miles
+
+
+def calculate_platform_fee(distance_km: float) -> float:
+    """
+    Calculate platform fee based on trip distance (TIERED).
+
+    Pricing Model (Distance-Based Tiers):
+    - Trips 0-10 miles:   $1
+    - Trips 10-20 miles:  $2
+    - Trips 20+ miles:    $3
+
+    Both rider AND driver pay this same fee amount.
+
+    Args:
+        distance_km: Trip distance in kilometers
+
+    Returns:
+        Platform fee amount
+    """
+    # Convert km to miles (1 km = 0.621371 miles)
+    distance_miles = distance_km * 0.621371
+
+    # Apply tiered pricing based on distance
+    if distance_miles <= DISTANCE_TIER_1_MAX:
+        return DISTANCE_TIER_1_FEE
+    elif distance_miles <= DISTANCE_TIER_2_MAX:
+        return DISTANCE_TIER_2_FEE
+    else:
+        return DISTANCE_TIER_3_FEE
+
+
+def get_distance_tier(distance_miles: float) -> int:
+    """Get the tier number based on trip distance."""
+    if distance_miles <= DISTANCE_TIER_1_MAX:
+        return 1
+    elif distance_miles <= DISTANCE_TIER_2_MAX:
+        return 2
+    else:
+        return 3
+
+
+def get_platform_fee_description(distance_miles: float) -> str:
+    """Get human-readable description of platform fee."""
+    tier = get_distance_tier(distance_miles)
+    fee = calculate_platform_fee(distance_miles / 0.621371)  # Convert to km for function
+    return f"${fee:.2f} (Tier {tier}: {'≤10' if tier == 1 else '10-20' if tier == 2 else '>20'} miles)"
+
+# =============================================================================
 # DATABASE SETUP
 # =============================================================================
 
@@ -192,6 +257,9 @@ class Ride(Base):
     distance_fare = Column(Float)
     time_fare = Column(Float)
     surge_multiplier = Column(Float, default=1.0)
+    platform_fee = Column(Float, default=1.0)  # $1 per 10 miles, min $1
+    driver_platform_fee = Column(Float, default=1.0)  # Driver pays same rate
+    driver_earnings = Column(Float, default=0.0)  # Fare - platform fee
     discount_amount = Column(Float, default=0.0)
     tip_amount = Column(Float, default=0.0)
     total_fare = Column(Float)
@@ -394,6 +462,13 @@ class RideResponse(BaseModel):
     estimated_distance_km: Optional[float] = None
     estimated_duration_min: Optional[int] = None
     driver_eta_minutes: Optional[int] = None
+    # Pricing with platform fees
+    base_fare: Optional[float] = None
+    distance_fare: Optional[float] = None
+    time_fare: Optional[float] = None
+    platform_fee: Optional[float] = 1.0  # $1 per 10 miles, min $1
+    driver_platform_fee: Optional[float] = 1.0  # Driver pays same rate
+    driver_earnings: Optional[float] = None  # Driver's take-home
     total_fare: Optional[float] = None
     currency: str = "USD"
     requested_at: datetime
@@ -407,15 +482,21 @@ class RideResponse(BaseModel):
 class FareEstimate(BaseModel):
     ride_type: str
     distance_km: float
+    distance_miles: float = 0.0  # Distance in miles for platform fee calculation
     duration_min: int
     base_fare: float
     distance_fare: float
     time_fare: float
     surge_multiplier: float
     subtotal: float
+    platform_fee: float = 0.0  # Platform fee (tiered by distance)
+    driver_platform_fee: float = 0.0  # Driver pays same platform fee
+    driver_earnings: float = 0.0  # Driver's take-home (subtotal - driver_platform_fee)
     discount: float
-    total: float
+    total: float  # Rider pays: subtotal + platform_fee - discount
     currency: str = "USD"
+    platform_fee_description: str = "$1 (≤10mi) / $2 (10-20mi) / $3 (>20mi)"
+    distance_tier: int = 1  # Distance tier (1, 2, or 3)
 
 
 class DriverLocation(BaseModel):
@@ -571,11 +652,16 @@ def calculate_fare(
     """
     Calculate ride fare based on distance, time, and ride type.
 
-    Pricing structure:
+    Pricing structure (driver earns this):
     - Standard: $2.50 base + $1.20/km + $0.30/min
     - Premium: $5.00 base + $2.00/km + $0.50/min
     - XL: $4.00 base + $1.80/km + $0.40/min
     - Shared: $1.50 base + $0.80/km + $0.20/min
+
+    Platform Fee (Dollor.ai Matchmaking Model):
+    - $1 per 10 miles ($0.10/mile), minimum $1
+    - Both rider AND driver pay this fee
+    - Driver earnings = subtotal - platform_fee
     """
     pricing = {
         "standard": {"base": 2.50, "per_km": 1.20, "per_min": 0.30},
@@ -592,12 +678,25 @@ def calculate_fare(
 
     subtotal = (base_fare + distance_fare + time_fare) * surge_multiplier
 
+    # Calculate distance-based platform fee ($1 per 10 miles)
+    platform_fee = calculate_platform_fee(distance_km)
+
+    # Driver earns subtotal minus their platform fee
+    driver_earnings = subtotal - platform_fee
+
+    # Convert km to miles for display
+    distance_miles = distance_km * 0.621371
+
     return {
         "base_fare": round(base_fare, 2),
         "distance_fare": round(distance_fare, 2),
         "time_fare": round(time_fare, 2),
         "surge_multiplier": surge_multiplier,
         "subtotal": round(subtotal, 2),
+        "platform_fee": round(platform_fee, 2),
+        "driver_platform_fee": round(platform_fee, 2),  # Driver pays same rate
+        "driver_earnings": round(driver_earnings, 2),
+        "distance_miles": round(distance_miles, 2),
     }
 
 
@@ -679,7 +778,15 @@ async def estimate_fare(
     ride_type: str = Query(default="standard"),
     promo_code: Optional[str] = Query(default=None),
 ):
-    """Estimate fare for a ride"""
+    """
+    Estimate fare for a ride.
+
+    Dollor.ai Matchmaking Platform Pricing:
+    - Fare goes to driver (based on distance/time/ride type)
+    - Platform fee: $1 per 10 miles (minimum $1) - rider pays this
+    - Driver also pays $1 per 10 miles platform fee (deducted from earnings)
+    - 100% of tips go directly to driver
+    """
     # Calculate distance and duration
     distance_km = calculate_distance(pickup_lat, pickup_lon, dropoff_lat, dropoff_lon)
     duration_min = estimate_duration(distance_km)
@@ -687,7 +794,7 @@ async def estimate_fare(
     # Get surge multiplier
     surge_multiplier = get_current_surge_multiplier()
 
-    # Calculate fare
+    # Calculate fare (includes platform fee calculation)
     fare = calculate_fare(distance_km, duration_min, ride_type, surge_multiplier)
 
     # Apply promo code discount (mock)
@@ -695,19 +802,30 @@ async def estimate_fare(
     if promo_code:
         discount = fare["subtotal"] * 0.10  # 10% discount
 
-    total = fare["subtotal"] - discount
+    # Rider pays: subtotal + platform_fee - discount
+    total = fare["subtotal"] + fare["platform_fee"] - discount
+
+    # Get tier info for display
+    distance_tier = get_distance_tier(fare["distance_miles"])
+    tier_desc = "≤10mi" if distance_tier == 1 else "10-20mi" if distance_tier == 2 else ">20mi"
 
     return FareEstimate(
         ride_type=ride_type,
         distance_km=round(distance_km, 2),
+        distance_miles=fare["distance_miles"],
         duration_min=duration_min,
         base_fare=fare["base_fare"],
         distance_fare=fare["distance_fare"],
         time_fare=fare["time_fare"],
         surge_multiplier=fare["surge_multiplier"],
         subtotal=fare["subtotal"],
+        platform_fee=fare["platform_fee"],
+        driver_platform_fee=fare["driver_platform_fee"],
+        driver_earnings=fare["driver_earnings"],
         discount=round(discount, 2),
         total=round(total, 2),
+        platform_fee_description=f"${fare['platform_fee']:.2f} platform fee (Tier {distance_tier}: {tier_desc})",
+        distance_tier=distance_tier
     )
 
 
@@ -739,7 +857,8 @@ async def create_ride(ride_request: RideRequest, db: Session = Depends(get_db)):
     if ride_request.promo_code:
         discount = fare["subtotal"] * 0.10
 
-    total_fare = fare["subtotal"] - discount
+    # Rider pays: subtotal + platform_fee - discount
+    total_fare = fare["subtotal"] + fare["platform_fee"] - discount
 
     # Create ride
     ride = Ride(
@@ -767,6 +886,9 @@ async def create_ride(ride_request: RideRequest, db: Session = Depends(get_db)):
         distance_fare=fare["distance_fare"],
         time_fare=fare["time_fare"],
         surge_multiplier=surge_multiplier,
+        platform_fee=fare["platform_fee"],
+        driver_platform_fee=fare["driver_platform_fee"],
+        driver_earnings=fare["driver_earnings"],
         discount_amount=round(discount, 2),
         total_fare=round(total_fare, 2),
         payment_method_id=ride_request.payment_method_id,
