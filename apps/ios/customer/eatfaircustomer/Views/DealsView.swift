@@ -54,7 +54,7 @@ struct DealsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "flame.fill")
-                    .foregroundColor(.orange)
+                    .foregroundColor(Theme.brandOrange)
                 Text("Hot Deals")
                     .font(.title2)
                     .fontWeight(.bold)

@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { DollorTheme } from '../../theme';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -163,7 +164,7 @@ const CustomerDashboard: React.FC = () => {
                 width: '100%',
                 height: 48,
                 background: 'white',
-                color: '#059669',
+                color: DollorTheme.Brand.greenDark,
                 fontWeight: 600,
                 border: 'none'
               }}
@@ -201,7 +202,7 @@ const CustomerDashboard: React.FC = () => {
               title="Total Rides"
               value={stats.totalRides}
               prefix={<CarOutlined />}
-              valueStyle={{ color: '#10B981' }}
+              valueStyle={{ color: DollorTheme.Brand.green }}
             />
           </Card>
         </Col>
@@ -212,7 +213,7 @@ const CustomerDashboard: React.FC = () => {
               value={stats.totalSpent}
               prefix="$"
               precision={2}
-              valueStyle={{ color: '#6366F1' }}
+              valueStyle={{ color: DollorTheme.Brand.purple }}
             />
           </Card>
         </Col>
@@ -223,7 +224,7 @@ const CustomerDashboard: React.FC = () => {
               value={stats.savedAmount}
               prefix="$"
               precision={2}
-              valueStyle={{ color: '#059669' }}
+              valueStyle={{ color: DollorTheme.Brand.greenDark }}
               suffix={<Tag color="green">vs. others</Tag>}
             />
           </Card>
@@ -299,15 +300,15 @@ const CustomerDashboard: React.FC = () => {
               >
                 <List.Item.Meta
                   avatar={
-                    <Avatar style={{ background: '#10B981' }}>
+                    <Avatar style={{ background: DollorTheme.Brand.green }}>
                       <CarOutlined />
                     </Avatar>
                   }
                   title={
                     <div>
-                      <EnvironmentOutlined style={{ color: '#10B981' }} /> {ride.pickup}
+                      <EnvironmentOutlined style={{ color: DollorTheme.Brand.green }} /> {ride.pickup}
                       <br />
-                      <EnvironmentOutlined style={{ color: '#ef4444' }} /> {ride.dropoff}
+                      <EnvironmentOutlined style={{ color: DollorTheme.Status.error }} /> {ride.dropoff}
                     </div>
                   }
                   description={
@@ -358,7 +359,7 @@ const CustomerDashboard: React.FC = () => {
           margin-bottom: 24px;
         }
         .quick-book-section {
-          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          background: linear-gradient(135deg, ${DollorTheme.Brand.green} 0%, ${DollorTheme.Brand.greenDark} 100%);
           border-radius: 16px;
         }
         .book-ride-content {
@@ -390,10 +391,10 @@ const CustomerDashboard: React.FC = () => {
           border-radius: 12px;
         }
         .savings-card {
-          background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+          background: linear-gradient(135deg, ${DollorTheme.Status.successBg} 0%, ${DollorTheme.Status.successBg} 100%);
         }
         .benefits-card {
-          background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+          background: linear-gradient(135deg, ${DollorTheme.Status.successBg} 0%, ${DollorTheme.Status.successBg} 100%);
           border-radius: 16px;
         }
         .benefit-item {
@@ -403,11 +404,11 @@ const CustomerDashboard: React.FC = () => {
         }
         .benefit-icon {
           font-size: 24px;
-          color: #10B981;
+          color: ${DollorTheme.Brand.green};
           margin-top: 2px;
         }
         .promo-banner {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+          background: linear-gradient(135deg, ${DollorTheme.Status.warningBg} 0%, ${DollorTheme.Brand.goldLight} 100%);
           border-radius: 16px;
         }
       `}</style>

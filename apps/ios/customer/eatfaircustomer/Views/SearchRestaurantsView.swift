@@ -110,7 +110,7 @@ struct QuickSearchView: View {
                 viewModel.showVoiceSearch = true
             } label: {
                 Image(systemName: "mic.fill")
-                    .foregroundColor(Color(hex: "FF6B35"))
+                    .foregroundColor(Theme.brandOrange)
                     .padding(12)
                     .background(Color.white)
                     .cornerRadius(12)
@@ -134,7 +134,7 @@ struct QuickSearchView: View {
                     viewModel.clearRecentSearches()
                 }
                 .font(.subheadline)
-                .foregroundColor(Color(hex: "FF6B35"))
+                .foregroundColor(Theme.brandOrange)
             }
 
             FlowLayout(spacing: 8) {
@@ -225,7 +225,7 @@ struct QuickSearchView: View {
                     icon: "waveform",
                     title: "Voice Search",
                     description: "Speak to search",
-                    color: Color(hex: "4CAF50")
+                    color: Theme.brandGreen
                 ) {
                     viewModel.showVoiceSearch = true
                 }
@@ -234,7 +234,7 @@ struct QuickSearchView: View {
                     icon: "sparkles",
                     title: "AI Picks",
                     description: "Personalized for you",
-                    color: Color(hex: "FF6B35")
+                    color: Theme.brandOrange
                 ) {
                     viewModel.showAIRecommendations = true
                 }
@@ -452,7 +452,7 @@ struct SearchResultCard: View {
                         Text("$\(String(format: "%.2f", result.price))")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(Color(hex: "FF6B35"))
+                            .foregroundColor(Theme.brandOrange)
                     }
                 }
 
@@ -566,7 +566,7 @@ struct QuickVoiceSearchSheet: View {
         VStack(spacing: 20) {
             Image(systemName: "waveform.circle.fill")
                 .font(.system(size: 80))
-                .foregroundColor(Color(hex: "FF6B35"))
+                .foregroundColor(Theme.brandOrange)
 
             Text("Voice Search")
                 .font(.title2)
@@ -580,7 +580,7 @@ struct QuickVoiceSearchSheet: View {
             Button("Cancel") {
                 dismiss()
             }
-            .foregroundColor(Color(hex: "FF6B35"))
+            .foregroundColor(Theme.brandOrange)
         }
         .padding()
     }
@@ -595,7 +595,7 @@ struct QuickAIRecommendationsSheet: View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
                 .font(.system(size: 80))
-                .foregroundColor(Color(hex: "FF6B35"))
+                .foregroundColor(Theme.brandOrange)
 
             Text("AI Recommendations")
                 .font(.title2)
@@ -609,7 +609,7 @@ struct QuickAIRecommendationsSheet: View {
             Button("Cancel") {
                 dismiss()
             }
-            .foregroundColor(Color(hex: "FF6B35"))
+            .foregroundColor(Theme.brandOrange)
         }
         .padding()
     }
