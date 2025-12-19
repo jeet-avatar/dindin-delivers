@@ -5,6 +5,51 @@
 
 ---
 
+## ADMIN PORTAL UI - BACKEND OPERATIONS ONLY
+
+> **IMPORTANT**: This is the ONLY UI for all backend/admin operations.
+> All backend management, invoicing, accounting, and admin tasks are done through this single portal.
+
+### Admin Portal URL
+```
+LOCAL DEVELOPMENT:  http://localhost:5173/admin
+PRODUCTION:         https://admin.dollor.ai (when deployed)
+```
+
+### Starting the Admin Portal (Local Development)
+```bash
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/frontend
+npm run dev
+# Opens at http://localhost:5173
+```
+
+### Admin Portal Routes
+| Route | Purpose |
+|-------|---------|
+| `/admin` | Main Dashboard |
+| `/admin/invoices` | Invoice Management (create, send, payments, void) |
+| `/admin/clients` | Client/Customer Management |
+| `/admin/orders` | Order Management |
+| `/admin/accounting/vendor-payouts` | Vendor Payout Management |
+| `/admin/accounting/platform-revenue` | Platform Revenue Dashboard |
+| `/admin/vendor-management` | Restaurant/Vendor Management |
+| `/admin/transactions` | Transaction History |
+
+### Login Credentials (Development)
+```
+Email:    admin.invoice@dollor.ai
+Password: AdminTest123
+```
+
+### Key Features Available
+- **Invoicing**: Full invoice lifecycle (create → send → payment → paid/void)
+- **Client Management**: CRUD operations for clients
+- **Order Tracking**: Real-time order status management
+- **Accounting**: Vendor payouts and platform revenue
+- **Dashboard**: KPIs, metrics, and analytics
+
+---
+
 ## WHO YOU ARE - AI EMPLOYEE ROLES
 
 You are an **AI Employee** created by **TechCloudPro** to operate **Dollor.ai** autonomously.
