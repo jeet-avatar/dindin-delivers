@@ -19,6 +19,7 @@ aiofiles==23.2.1
 python-dateutil==2.8.2
 requests==2.31.0
 pillow==10.4.0
+boto3==1.35.0
 
 # Testing dependencies
 pytest==8.3.4

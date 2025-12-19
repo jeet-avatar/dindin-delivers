@@ -62,7 +62,7 @@ public class P2PAPIService: ObservableObject {
         cuisine: String? = nil,
         completion: @escaping (Result<[P2PRestaurant], Error>) -> Void
     ) {
-        guard var urlComponents = URLComponents(string: "\(baseURL)/public/restaurants") else {
+        guard var urlComponents = URLComponents(string: "\(baseURL)/erp/restaurants") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -148,7 +148,7 @@ public class P2PAPIService: ObservableObject {
         vendorId: Int,
         completion: @escaping (Result<P2PRestaurantDetail, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/public/restaurants/\(vendorId)") else {
+        guard let url = URL(string: "\(baseURL)/erp/restaurants/\(vendorId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -197,7 +197,7 @@ public class P2PAPIService: ObservableObject {
         vendorId: Int,
         completion: @escaping (Result<P2PVendorProfile, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/public/restaurants/\(vendorId)") else {
+        guard let url = URL(string: "\(baseURL)/erp/restaurants/\(vendorId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -518,7 +518,7 @@ public class P2PAPIService: ObservableObject {
     public func getActivePromotions(
         completion: @escaping (Result<P2PActivePromotionsResponse, Error>) -> Void
     ) {
-        let endpoint = "\(baseURL)/api/promotions/active"
+        let endpoint = "\(baseURL)/promotions/active"
 
         guard let url = URL(string: endpoint) else {
             completion(.failure(P2PAPIError.invalidURL))
@@ -1323,7 +1323,7 @@ public class P2PAPIService: ObservableObject {
         password: String,
         completion: @escaping (Result<P2PCustomerLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/customer/login") else {
+        guard let url = URL(string: "\(baseURL)/auth/customer/login") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1385,7 +1385,7 @@ public class P2PAPIService: ObservableObject {
         googleId: String,
         completion: @escaping (Result<P2PCustomerLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/customer/google-auth") else {
+        guard let url = URL(string: "\(baseURL)/auth/customer/google") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1674,7 +1674,7 @@ public class P2PAPIService: ObservableObject {
         phone: String,
         completion: @escaping (Result<P2PCustomerLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/customer/register") else {
+        guard let url = URL(string: "\(baseURL)/auth/customer/register") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }

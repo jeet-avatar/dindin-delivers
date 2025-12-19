@@ -17,6 +17,7 @@ import Invoices from './app/screens/invoices/Invoices';
 import Clients from './app/screens/clients/Clients';
 import Orders from './app/screens/orders/Main';
 import VendorPayouts from './app/screens/accounting/VendorPayouts';
+import PlatformRevenue from './app/screens/accounting/PlatformRevenue';
 import LandingPage from './app/screens/public/LandingPage';
 import RestaurantApplication from './app/screens/public/RestaurantApplication';
 import DriverApplication from './app/screens/public/DriverApplication';
@@ -37,12 +38,14 @@ import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverDeliveries from './app/screens/driver/Deliveries';
 import DriverEarnings from './app/screens/driver/Earnings';
 import CustomerDashboard from './app/screens/customer/Dashboard';
+import CustomerHome from './app/screens/customer/CustomerHome';
 import RideBooking from './app/screens/customer/RideBooking';
 import Restaurants from './app/screens/customer/Restaurants';
 import RestaurantDetail from './app/screens/customer/RestaurantDetail';
 import Cart from './app/screens/customer/Cart';
 import Checkout from './app/screens/customer/Checkout';
 import OrderTracking from './app/screens/customer/OrderTracking';
+import DealsPage from './app/screens/customer/DealsPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user: _user } = useUser();
@@ -101,6 +104,7 @@ function App() {
           <Route path="transactions/*" element={<Transactions />} />
           <Route path="orders" element={<Orders />} />
           <Route path="accounting/vendor-payouts" element={<VendorPayouts />} />
+          <Route path="accounting/platform-revenue" element={<PlatformRevenue />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="clients" element={<Clients />} />
         </Route>
@@ -125,8 +129,9 @@ function App() {
 
         {/* Customer/Rider Portal Routes */}
         <Route path="/customer" element={<CustomerLayout />}>
-          <Route index element={<Navigate to="/customer/dashboard" replace />} />
-          <Route path="dashboard" element={<CustomerDashboard />} />
+          <Route index element={<Navigate to="/customer/home" replace />} />
+          <Route path="home" element={<CustomerHome />} />
+          <Route path="dashboard" element={<CustomerHome />} />
           <Route path="ride" element={<RideBooking />} />
           <Route path="restaurants" element={<Restaurants />} />
           <Route path="restaurant/:id" element={<RestaurantDetail />} />
@@ -136,7 +141,8 @@ function App() {
           <Route path="order-tracking/:orderId" element={<OrderTracking />} />
           <Route path="history" element={<CustomerDashboard />} />
           <Route path="wallet" element={<CustomerDashboard />} />
-          <Route path="promotions" element={<CustomerDashboard />} />
+          <Route path="promotions" element={<DealsPage />} />
+          <Route path="deals" element={<DealsPage />} />
           <Route path="support" element={<HelpSupport />} />
           <Route path="settings" element={<CustomerDashboard />} />
         </Route>

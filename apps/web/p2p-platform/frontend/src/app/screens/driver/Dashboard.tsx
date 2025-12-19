@@ -177,7 +177,7 @@ const DriverDashboard: React.FC = () => {
               valueStyle={{ color: '#10B981', fontWeight: 700 }}
             />
             <div className="stat-footer">
-              <Text type="secondary">100% goes to you</Text>
+              <Text type="secondary">Fare + 100% tips</Text>
             </div>
           </Card>
         </Col>
@@ -340,6 +340,40 @@ const DriverDashboard: React.FC = () => {
                 </List.Item>
               )}
             />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Platform Fee Info */}
+      <Row gutter={[20, 20]} style={{ marginTop: 20 }}>
+        <Col xs={24}>
+          <Card className="fee-info-card">
+            <div className="fee-info-content">
+              <div className="fee-info-header">
+                <DollarOutlined style={{ fontSize: 24, color: '#10B981' }} />
+                <div>
+                  <Text strong style={{ fontSize: 16 }}>Tiered Platform Fees</Text>
+                  <Text type="secondary" style={{ display: 'block' }}>Platform fee deducted based on trip distance</Text>
+                </div>
+              </div>
+              <div className="fee-tiers">
+                <div className="fee-tier">
+                  <Tag color="green">0-10 mi</Tag>
+                  <Text strong>$1</Text>
+                </div>
+                <div className="fee-tier">
+                  <Tag color="blue">10-20 mi</Tag>
+                  <Text strong>$2</Text>
+                </div>
+                <div className="fee-tier">
+                  <Tag color="purple">20+ mi</Tag>
+                  <Text strong>$3</Text>
+                </div>
+              </div>
+              <Text type="secondary" style={{ marginTop: 8, display: 'block', fontSize: 12 }}>
+                You receive: Ride fare - platform fee + 100% of tips
+              </Text>
+            </div>
           </Card>
         </Col>
       </Row>
@@ -552,6 +586,31 @@ const DriverDashboard: React.FC = () => {
           display: flex;
           justify-content: space-between;
           margin-bottom: 12px;
+        }
+        .fee-info-card {
+          border-radius: 16px;
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+          border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .fee-info-content {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .fee-info-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .fee-tiers {
+          display: flex;
+          gap: 24px;
+          flex-wrap: wrap;
+        }
+        .fee-tier {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
       `}</style>
     </div>

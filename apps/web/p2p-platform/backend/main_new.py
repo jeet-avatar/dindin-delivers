@@ -159,6 +159,31 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     migrations_run = []
     errors = []
 
+    # Migration: Add customer_id to customers table
+    customer_columns = [
+        ("customer_id", "VARCHAR(50)"),
+    ]
+
+    for col_name, col_type in customer_columns:
+        try:
+            db.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"customers.{col_name}")
+        except Exception as e:
+            errors.append(f"customers.{col_name}: {str(e)}")
+
+    # Migration: Add vendor_id and driver_id to users table
+    user_columns = [
+        ("vendor_id", "INTEGER"),
+        ("driver_id", "INTEGER"),
+    ]
+
+    for col_name, col_type in user_columns:
+        try:
+            db.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"users.{col_name}")
+        except Exception as e:
+            errors.append(f"users.{col_name}: {str(e)}")
+
     # Migration: Add verification columns to drivers table
     driver_columns = [
         ("verification_id", "VARCHAR(255)"),
@@ -643,6 +668,76 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         "email": user.email
     }
 
+# Vendor Demo Login - for App Store review testing
+class VendorDemoLoginRequest(BaseModel):
+    email_hint: str
+
+@app.post("/api/auth/vendor/demo-login")
+def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db)):
+    """Demo login for vendor - creates or finds demo vendor account for App Store review"""
+    print(f"Vendor demo login attempt with hint: {request.email_hint}")
+
+    demo_email = "demobusiness@dollor.ai"
+    demo_password = "DemoVendor2025!"
+
+    # Check if demo vendor exists
+    user = db.query(User).filter(
+        User.email == demo_email,
+        User.role == UserRole.VENDOR
+    ).first()
+
+    if not user:
+        # Create demo vendor
+        hashed_password = get_password_hash(demo_password)
+
+        # Create vendor record first
+        demo_vendor = Vendor(
+            restaurant_name="Demo Restaurant",
+            company_name="Demo Restaurant LLC",
+            contact_email=demo_email,
+            contact_phone="+14155551234",
+            owner_name="Demo Owner",
+            address="123 Demo Street",
+            city="San Francisco",
+            state="CA",
+            zip_code="94102",
+            cuisine_type="American",
+            onboarding_status="APPROVED",
+            created_at=datetime.utcnow()
+        )
+        db.add(demo_vendor)
+        db.flush()  # Get the vendor ID
+
+        # Create user record
+        user = User(
+            email=demo_email,
+            password_hash=hashed_password,
+            role=UserRole.VENDOR,
+            vendor_id=demo_vendor.id,
+            is_active=True,
+            created_at=datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created demo vendor: {demo_email}")
+
+    # Generate token
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+
+    # Get vendor details
+    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+    business_name = vendor.restaurant_name if vendor else "Demo Restaurant"
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+        "vendor_id": user.vendor_id,
+        "business_name": business_name,
+        "email": user.email
+    }
+
 # Pydantic models for vendor registration
 class VendorRegisterRequest(BaseModel):
     email: EmailStr
@@ -1109,12 +1204,16 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         driver_count = db.query(Driver).count()
         driver_code = f"DRV-{driver_count + 1:05d}"
 
+        # Hash password once, store in both driver and user tables
+        hashed_password = get_password_hash(request.password)
+
         new_driver = Driver(
             driver_id=driver_code,
             first_name=request.first_name,
             last_name=request.last_name,
             email=request.email,
             phone=request.phone,
+            password_hash=hashed_password,  # Store password in driver table for mobile app compatibility
             vehicle_type=request.vehicle_type or "car",  # Default to car if not provided
             license_number=request.license_number,
             date_of_birth=request.date_of_birth,
@@ -1126,7 +1225,6 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         print(f"Driver record created: {new_driver.id}")
 
         # Create user record linked to driver
-        hashed_password = get_password_hash(request.password)
         new_user = User(
             email=request.email,
             password_hash=hashed_password,
@@ -1822,13 +1920,39 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
 
     return R * c
 
+
+def calculate_tiered_platform_fee(distance_miles: float) -> tuple[float, str]:
+    """
+    Calculate tiered platform fee based on distance.
+
+    Tiered pricing model:
+    - 0-10 miles: $1
+    - 10-20 miles: $2
+    - 20-30 miles: $3
+    - 30+ miles: $3 (capped)
+
+    Returns: (fee_amount, tier_description)
+    """
+    if distance_miles <= 10:
+        return 1.00, "0-10 miles"
+    elif distance_miles <= 20:
+        return 2.00, "10-20 miles"
+    else:
+        return 3.00, "20+ miles"
+
+
 @app.post("/api/erp/rides/estimate-fare")
 def estimate_fare(request: FareEstimateRequest):
     """
-    Estimate fare for a ride - $1+$1 platform fee model
-    Customer pays: Base fare + distance rate + time estimate + $1 platform fee
-    Driver receives: Base fare + distance + time - $1 platform fee
-    Platform receives: $2 total ($1 from customer + $1 from driver)
+    Estimate fare for a ride - Tiered distance-based platform fee model
+
+    Platform fee structure:
+    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
+    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
+    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
+
+    Customer pays: Base fare + distance rate + time estimate + tiered platform fee
+    Driver receives: Base fare + distance + time - tiered platform fee
     """
     # Calculate distance
     distance_km = calculate_distance_km(
@@ -1858,14 +1982,15 @@ def estimate_fare(request: FareEstimateRequest):
     # Ride fare (before platform fees)
     ride_fare = round(base_fare + distance_fare + time_fare, 2)
 
-    # Platform fees - $1 from customer, $1 from driver
-    customer_platform_fee = 1.00
-    driver_platform_fee = 1.00
+    # Tiered platform fees based on distance
+    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    customer_platform_fee = platform_fee
+    driver_platform_fee = platform_fee
 
-    # What driver receives (ride fare minus their $1 fee)
+    # What driver receives (ride fare minus their tiered fee)
     driver_earnings = round(ride_fare - driver_platform_fee, 2)
 
-    # Total customer pays (ride fare plus their $1 fee)
+    # Total customer pays (ride fare plus their tiered fee)
     total_fare = round(ride_fare + customer_platform_fee, 2)
 
     return {
@@ -1878,20 +2003,27 @@ def estimate_fare(request: FareEstimateRequest):
             "customer_platform_fee": customer_platform_fee,
             "driver_platform_fee": driver_platform_fee,
             "driver_earnings": driver_earnings,
-            "total": total_fare
+            "total": total_fare,
+            "fee_tier": fee_tier
         },
         "distance_miles": round(distance_miles, 2),
         "estimated_minutes": estimated_minutes,
         "ride_type": request.ride_type,
         "currency": "USD",
-        "message": f"You pay ${total_fare} (includes $1 platform fee). Driver earns ${driver_earnings} (after $1 platform fee)."
+        "platform_fee": customer_platform_fee,
+        "fee_tier": fee_tier,
+        "message": f"You pay ${total_fare} (includes ${customer_platform_fee:.0f} platform fee for {fee_tier}). Driver earns ${driver_earnings} (after ${driver_platform_fee:.0f} platform fee)."
     }
 
 @app.post("/api/erp/rides/request")
 def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
     """
     Request a new ride - creates ride request and matches with available drivers
-    Platform fee model: $1 from customer + $1 from driver = $2 platform revenue
+
+    Tiered platform fee model:
+    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
+    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
+    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
     """
     import random
     import string
@@ -1917,15 +2049,16 @@ def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
     time_fare = estimated_minutes * 0.25
     ride_fare = round(base_fare + distance_fare + time_fare, 2)
 
-    # Platform fees - $1 from each side
-    customer_platform_fee = 1.00
-    driver_platform_fee = 1.00
+    # Tiered platform fees based on distance
+    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    customer_platform_fee = platform_fee
+    driver_platform_fee = platform_fee
 
-    # Driver earnings = ride fare - $1 platform fee + 100% of tip
+    # Driver earnings = ride fare - tiered platform fee + 100% of tip
     tip = request.tip or 0
     driver_earnings = round(ride_fare - driver_platform_fee + tip, 2)
 
-    # Customer total = ride fare + $1 platform fee + tip
+    # Customer total = ride fare + tiered platform fee + tip
     total_fare = round(ride_fare + customer_platform_fee + tip, 2)
 
     # Return ride confirmation
@@ -1941,10 +2074,12 @@ def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
             "ride_fare": ride_fare,
             "customer_platform_fee": customer_platform_fee,
             "driver_platform_fee": driver_platform_fee,
+            "fee_tier": fee_tier,
             "tip": tip,
             "driver_earnings": driver_earnings,
             "total": total_fare
         },
+        "distance_miles": round(distance_miles, 2),
         "pickup": pickup,
         "dropoff": dropoff,
         "customer": {
@@ -2018,8 +2153,12 @@ def estimate_fare_frontend(
     tip: float = 0
 ):
     """
-    Frontend-compatible fare estimate endpoint
-    Returns fields matching frontend FareEstimate interface
+    Frontend-compatible fare estimate endpoint with tiered distance-based pricing
+
+    Platform fee structure:
+    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
+    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
+    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
     """
     if not all([pickup_lat, pickup_lng, dropoff_lat, dropoff_lng]):
         raise HTTPException(status_code=400, detail="Missing coordinate parameters")
@@ -2039,9 +2178,9 @@ def estimate_fare_frontend(
     tax_rate = tax_rates.get(state_code, 0.07)
     tax_amount = round(ride_fare * tax_rate, 2)
 
-    # Platform fees
-    platform_fee = 1.00
-    driver_platform_fee = 1.00
+    # Tiered platform fees based on distance
+    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    driver_platform_fee = platform_fee
 
     # Driver earnings
     driver_earnings = round(ride_fare - driver_platform_fee, 2)
@@ -2050,9 +2189,22 @@ def estimate_fare_frontend(
     total_fare = round(ride_fare + platform_fee + tax_amount, 2)
 
     return {
-        "fare_estimate": total_fare,  # Frontend expects this field name
+        "success": True,
+        "fare_estimate": {
+            "total_fare": total_fare,
+            "platform_fee": platform_fee,
+            "base_fare": base_fare,
+            "distance_fee": round(distance_fee, 2),
+            "time_fee": round(time_fee, 2),
+            "tax_amount": tax_amount,
+            "driver_earnings": driver_earnings,
+            "distance_miles": round(distance_miles, 2),
+            "duration_minutes": estimated_minutes,
+            "fee_tier": fee_tier
+        },
         "total_fare": total_fare,
         "platform_fee": platform_fee,
+        "fee_tier": fee_tier,
         "base_fare": base_fare,
         "distance_fee": round(distance_fee, 2),
         "time_fee": round(time_fee, 2),
@@ -2421,7 +2573,9 @@ async def upload_driver_document_by_id(
     expiry_date: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Upload driver document (iOS app compatible endpoint)"""
+    """Upload driver document (iOS app compatible endpoint) - supports S3 and local storage"""
+    from s3_service import get_s3_service
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -2432,24 +2586,26 @@ async def upload_driver_document_by_id(
     if document_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {valid_types}")
 
-    # Create upload directory
-    upload_dir = "uploads/driver_documents"
-    os.makedirs(upload_dir, exist_ok=True)
+    # Read file content
+    content = await file.read()
 
-    # Generate unique filename with sanitized extension
-    allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
-    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'jpg')
-    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.{file_ext}"
-    file_path = secure_file_path(upload_dir, unique_filename)
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
+    # Use S3 service for upload (falls back to local if S3 not configured)
+    s3_service = get_s3_service()
+    success, url_path, message = await s3_service.upload_file(
+        file_content=content,
+        original_filename=file.filename,
+        folder=f"driver_documents/{driver.id}",
+        content_type=file.content_type
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
 
     # Update driver record
-    url_path = f"/uploads/driver_documents/{unique_filename}"
-
     if document_type in ['drivers_license', 'license_front', 'license_back']:
         driver.drivers_license = True
         driver.drivers_license_url = url_path
@@ -2486,7 +2642,9 @@ async def upload_driver_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a document for a driver (license, insurance, etc.)"""
+    """Upload a document for a driver (license, insurance, etc.) - supports S3 and local storage"""
+    from s3_service import get_s3_service
+
     if current_user.role != UserRole.DRIVER or not current_user.driver_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -2502,23 +2660,26 @@ async def upload_driver_document(
     if document_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {valid_types}")
 
-    # Create upload directory
-    upload_dir = "uploads/driver_documents"
-    os.makedirs(upload_dir, exist_ok=True)
+    # Read file content
+    content = await file.read()
 
-    # Generate unique filename with sanitized extension
-    allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
-    file_ext = sanitize_file_extension(file.filename, allowed_exts, 'pdf')
-    unique_filename = f"driver_{driver.id}_{document_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.{file_ext}"
-    file_path = secure_file_path(upload_dir, unique_filename)
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
+    # Use S3 service for upload (falls back to local if S3 not configured)
+    s3_service = get_s3_service()
+    success, url_path, message = await s3_service.upload_file(
+        file_content=content,
+        original_filename=file.filename,
+        folder=f"driver_documents/{driver.id}",
+        content_type=file.content_type
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=message)
 
     # Update driver record
-    url_path = f"/uploads/driver_documents/{unique_filename}"
     if document_type == 'drivers_license':
         driver.drivers_license = True
         driver.drivers_license_url = url_path

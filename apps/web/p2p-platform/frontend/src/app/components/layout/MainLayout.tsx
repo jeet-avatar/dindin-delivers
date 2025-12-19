@@ -70,6 +70,7 @@ const MainLayout: React.FC = () => {
       href: '/accounting',
       icon: Wallet,
       children: [
+        { name: 'Platform Revenue', href: '/accounting/platform-revenue', icon: Wallet },
         { name: 'Vendor Payouts', href: '/accounting/vendor-payouts', icon: FileText },
       ],
     },

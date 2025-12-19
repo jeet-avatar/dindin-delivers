@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <!-- Dark Background -->
+  <rect width="108" height="108" fill="#1A1A1A"/>
+
+  <!-- Gold Dollar Sign - Dollor.ai Logo -->
+  <path fill="#FFD700" d="M54,18v8c-10,1 -18,6 -18,15c0,10 9,14 18,16v20c-6,-1 -11,-5 -14,-10l-9,5c4,8 12,13 23,14v8h5v-8c11,-1 20,-7 20,-17c0,-11 -9,-15 -20,-17v-18c5,1 9,4 11,8l9,-5c-4,-6 -10,-10 -20,-11v-8h-5z"/>
+  <path fill="#FFD700" d="M49,41c0,-5 4,-8 10,-9v16c-6,-2 -10,-5 -10,-7z"/>
+  <path fill="#FFD700" d="M59,77v-18c8,2 12,5 12,10c0,5 -5,7 -12,8z"/>
+</svg>

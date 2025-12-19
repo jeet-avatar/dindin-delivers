@@ -1,13 +1,16 @@
 import SwiftUI
 
 /// Restaurant App Theme - Consistent styling across the app
+/// MUST MATCH: Android partner/ui/theme/Color.kt & EatFairShared Theme.swift
 struct RestaurantTheme {
-    // MARK: - Brand Colors (Matched with Android Partner app)
-    static let brandOrange = Color(red: 255/255, green: 109/255, blue: 0/255)  // #FF6D00
-    static let brandRed = Color(red: 220/255, green: 53/255, blue: 69/255)
-    static let brandGreen = Color(red: 76/255, green: 175/255, blue: 80/255)   // #4CAF50
-    static let brandBlue = Color(red: 0/255, green: 123/255, blue: 255/255)
-    static let brandPurple = Color(red: 111/255, green: 66/255, blue: 193/255)
+    // MARK: - Brand Colors (Source of Truth: eatfair-ios-shared/Theme.swift)
+    static let brandOrange = Color(red: 242/255, green: 153/255, blue: 74/255)   // #F2994A - PRIMARY BRAND COLOR
+    static let brandOrangeLight = Color(red: 255/255, green: 184/255, blue: 118/255)  // #FFB876
+    static let brandRed = Color(red: 244/255, green: 67/255, blue: 54/255)       // #F44336 - Error/Danger
+    static let brandGreen = Color(red: 6/255, green: 193/255, blue: 103/255)     // #06C167 - SUCCESS/READY
+    static let brandGreenLight = Color(red: 74/255, green: 222/255, blue: 128/255) // #4ADE80
+    static let brandBlue = Color(red: 33/255, green: 150/255, blue: 243/255)     // #2196F3 - Info/Preparing
+    static let brandPurple = Color(red: 156/255, green: 39/255, blue: 176/255)   // #9C27B0 - Revenue
 
     // MARK: - Semantic Colors
     static let success = brandGreen
@@ -15,13 +18,13 @@ struct RestaurantTheme {
     static let danger = brandRed
     static let info = brandBlue
 
-    // MARK: - Order Status Colors
-    static let statusNew = brandOrange
-    static let statusPreparing = Color(red: 0/255, green: 123/255, blue: 255/255)
-    static let statusReady = brandGreen
-    static let statusPickedUp = brandPurple
-    static let statusDelivered = brandGreen  // #4CAF50 - Matched with Android
-    static let statusRejected = brandRed
+    // MARK: - Order Status Colors (Matched with Android partner/ui/theme/Color.kt)
+    static let statusNew = brandOrange       // #F2994A - New orders
+    static let statusPreparing = brandBlue   // #2196F3 - Being prepared
+    static let statusReady = brandGreen      // #06C167 - Ready for pickup
+    static let statusPickedUp = brandPurple  // #9C27B0 - Out for delivery
+    static let statusDelivered = brandGreen  // #06C167 - Delivered
+    static let statusRejected = brandRed     // #F44336 - Rejected/Cancelled
 
     // MARK: - Text Colors
     static let textPrimary = Color.primary

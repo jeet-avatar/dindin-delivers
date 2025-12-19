@@ -38,6 +38,7 @@ interface FareEstimate {
   driver_earnings: number;
   distance_miles: number;
   duration_minutes: number;
+  fee_tier?: string;  // "0-10 miles", "10-20 miles", or "20+ miles"
 }
 
 interface Driver {
@@ -386,7 +387,7 @@ const RideBooking: React.FC = () => {
 
               <div className="pricing-info">
                 <DollarOutlined />
-                <Text>$1 flat platform fee + driver fare. No surge pricing.</Text>
+                <Text>Tiered platform fee: $1 (0-10mi) | $2 (10-20mi) | $3 (20+mi). No surge pricing.</Text>
               </div>
             </Card>
           )}
@@ -426,8 +427,8 @@ const RideBooking: React.FC = () => {
                   <Text>${fareEstimate.time_fee.toFixed(2)}</Text>
                 </div>
                 <div className="fare-line highlight">
-                  <Text><DollarOutlined /> Your Platform Fee</Text>
-                  <Text strong>$1.00</Text>
+                  <Text><DollarOutlined /> Platform Fee ({fareEstimate.fee_tier || `${fareEstimate.distance_miles.toFixed(0)} mi`})</Text>
+                  <Text strong>${fareEstimate.platform_fee.toFixed(2)}</Text>
                 </div>
                 <div className="fare-line">
                   <Text>Tax</Text>
@@ -452,11 +453,11 @@ const RideBooking: React.FC = () => {
                 <div className="driver-earnings">
                   <SafetyOutlined />
                   <Text type="secondary">
-                    Driver earns ${(fareEstimate.driver_earnings + tip).toFixed(2)} (ride fare - $1 platform fee + 100% tip)
+                    Driver earns ${(fareEstimate.driver_earnings + tip).toFixed(2)} (ride fare - ${fareEstimate.platform_fee.toFixed(0)} platform fee + 100% tip)
                   </Text>
                 </div>
                 <div className="platform-info" style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-                  <DollarOutlined /> Platform earns $2 total ($1 from you + $1 from driver)
+                  <DollarOutlined /> Platform earns ${(fareEstimate.platform_fee * 2).toFixed(0)} total (${fareEstimate.platform_fee.toFixed(0)} from you + ${fareEstimate.platform_fee.toFixed(0)} from driver)
                 </div>
               </div>
 

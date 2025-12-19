@@ -364,6 +364,92 @@ frontend/src/app/
 | iOS | `eatfair-ios-shared/` | Networking, Models, Auth, Utils |
 | Android | `shared/` | Networking, Models, Auth, Utils |
 
+### Mobile App → Microservice Mapping
+
+Each mobile app connects to its dedicated microservice for primary operations:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    MOBILE APP → MICROSERVICE ARCHITECTURE                        │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌─────────────────────────┐          ┌─────────────────────────┐               │
+│  │    CUSTOMER APP         │          │    DRIVER APP           │               │
+│  │  (app / customer)       │          │  (orderapp / delivery)  │               │
+│  └───────────┬─────────────┘          └───────────┬─────────────┘               │
+│              │                                    │                              │
+│              ▼                                    ▼                              │
+│  ┌───────────────────────────────────────────────────────────────┐              │
+│  │                     API GATEWAY                               │              │
+│  │         (Routes to appropriate microservices)                 │              │
+│  └───────────┬─────────────────────────────────────┬─────────────┘              │
+│              │                                     │                             │
+│              ▼                                     ▼                             │
+│  ┌─────────────────────────┐          ┌─────────────────────────┐               │
+│  │  Multiple Services:     │          │  driver-service :8003   │               │
+│  │  - auth-service :8001   │          │  - Profile management   │               │
+│  │  - order-service :8005  │          │  - Document upload      │               │
+│  │  - menu-service :8008   │          │  - Location updates     │               │
+│  │  - location-service     │          │  - Earnings tracking    │               │
+│  └─────────────────────────┘          └─────────────────────────┘               │
+│                                                                                  │
+│                                                                                  │
+│  ┌─────────────────────────┐          ┌─────────────────────────┐               │
+│  │    PARTNER APP          │   ───▶   │  restaurant-service     │               │
+│  │  (partner / restaurant) │          │     Port: 8004          │               │
+│  └─────────────────────────┘          ├─────────────────────────┤               │
+│                                       │  Endpoints:             │               │
+│                                       │  • /api/restaurants/*   │               │
+│                                       │  • Profile CRUD         │               │
+│                                       │  • Operating hours      │               │
+│                                       │  • Documents/verify     │               │
+│                                       │  • Performance metrics  │               │
+│                                       │  • Device registration  │               │
+│                                       └─────────────────────────┘               │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Partner App (Restaurant) - Microservice Client
+
+The Partner Android app (`eatfair-android/partner/`) is configured as a dedicated client for the **restaurant-service** microservice.
+
+**Configuration:** `shared/src/main/java/com/eatfair/shared/config/AppConfig.kt`
+
+```kotlin
+object Microservices {
+    // Partner app primary service
+    var RESTAURANT_SERVICE_URL = "https://api.dollor.ai"  // Port 8004 via gateway
+    const val LOCAL_RESTAURANT_SERVICE = "http://localhost:8004"
+}
+```
+
+**API Endpoints Used by Partner App:**
+
+| Category | Endpoint | Method | Description |
+|----------|----------|--------|-------------|
+| **Profile** | `/api/restaurants/{id}` | GET/PUT | Get/update restaurant profile |
+| **Hours** | `/api/restaurants/{id}/operating-hours` | GET/PUT | Business hours management |
+| **Documents** | `/api/restaurants/{id}/documents` | POST | Upload verification documents |
+| **Verification** | `/api/restaurants/{id}/verification-status` | GET | Get document status |
+| **Metrics** | `/api/restaurants/{id}/metrics` | GET/PUT | Performance score tracking |
+| **Device** | `/api/restaurants/{id}/device` | PUT | Push token registration |
+| **Search** | `/api/restaurants` | GET | List restaurants (admin) |
+
+**Local Development:**
+
+```bash
+# Start restaurant-service locally
+cd services/core/restaurant-service
+uvicorn main:app --host 0.0.0.0 --port 8004
+
+# Test health
+curl http://localhost:8004/health
+
+# Configure Partner app for local
+AppConfig.Microservices.useLocalMicroservices()
+```
+
 ---
 
 ## MICROSERVICES ARCHITECTURE (IMPLEMENTED)

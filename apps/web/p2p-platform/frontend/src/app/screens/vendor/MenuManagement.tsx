@@ -211,7 +211,7 @@ const VendorMenuManagement: React.FC = () => {
       }
 
       // Call the backend API
-      const response = await axios.post('${API_URL}/api/onboarding/scrape-menu', {
+      const response = await axios.post(`${API_URL}/api/onboarding/scrape-menu`, {
         website_url: websiteUrl,
         vendor_id: vendorId
       });
