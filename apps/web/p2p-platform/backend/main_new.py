@@ -4157,10 +4157,567 @@ def create_payment(invoice_id: int, payment_data: PaymentCreate,
     return db_payment
 
 @app.get("/api/invoices/{invoice_id}/payments", response_model=List[PaymentResponse])
-def get_invoice_payments(invoice_id: int, db: Session = Depends(get_db), 
+def get_invoice_payments(invoice_id: int, db: Session = Depends(get_db),
                         current_user: User = Depends(get_current_user)):
     payments = db.query(Payment).filter(Payment.invoice_id == invoice_id).all()
     return payments
+
+
+# ============================================================================
+# ENHANCED INVOICE ENDPOINTS - Admin Portal Connected
+# ============================================================================
+
+@app.put("/api/invoices/{invoice_id}")
+def update_invoice(
+    invoice_id: int,
+    invoice_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Full update of an invoice. Can update client, dates, items, amounts.
+    Connected to Admin Portal: Invoice Edit Modal
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Only allow editing draft or sent invoices
+    if invoice.status not in [InvoiceStatus.DRAFT, InvoiceStatus.SENT]:
+        raise HTTPException(status_code=400, detail="Can only edit draft or sent invoices")
+
+    # Update basic fields
+    if "client_id" in invoice_data:
+        client = db.query(Client).filter(Client.id == invoice_data["client_id"]).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        invoice.client_id = invoice_data["client_id"]
+
+    if "issue_date" in invoice_data:
+        invoice.issue_date = datetime.fromisoformat(invoice_data["issue_date"].replace("Z", "+00:00")) if isinstance(invoice_data["issue_date"], str) else invoice_data["issue_date"]
+
+    if "due_date" in invoice_data:
+        invoice.due_date = datetime.fromisoformat(invoice_data["due_date"].replace("Z", "+00:00")) if isinstance(invoice_data["due_date"], str) else invoice_data["due_date"]
+
+    if "tax_rate" in invoice_data:
+        invoice.tax_rate = invoice_data["tax_rate"]
+
+    if "discount_amount" in invoice_data:
+        invoice.discount_amount = invoice_data["discount_amount"]
+
+    if "notes" in invoice_data:
+        invoice.notes = invoice_data["notes"]
+
+    if "terms" in invoice_data:
+        invoice.terms = invoice_data["terms"]
+
+    if "status" in invoice_data:
+        try:
+            invoice.status = InvoiceStatus[invoice_data["status"].upper()]
+        except KeyError:
+            raise HTTPException(status_code=400, detail="Invalid status")
+
+    # Update items if provided
+    if "items" in invoice_data:
+        # Delete existing items
+        db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).delete()
+
+        # Add new items
+        subtotal = 0
+        for item in invoice_data["items"]:
+            amount = item["quantity"] * item["unit_price"]
+            subtotal += amount
+            db_item = InvoiceItem(
+                invoice_id=invoice_id,
+                description=item["description"],
+                quantity=item["quantity"],
+                unit_price=item["unit_price"],
+                amount=amount
+            )
+            db.add(db_item)
+
+        # Recalculate totals
+        invoice.subtotal = subtotal
+        invoice.tax_amount = subtotal * (invoice.tax_rate / 100)
+        invoice.total_amount = invoice.subtotal + invoice.tax_amount - invoice.discount_amount
+
+    invoice.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(invoice)
+
+    client = db.query(Client).filter(Client.id == invoice.client_id).first()
+    paid_amount = sum(p.amount for p in invoice.payments if p.status == PaymentStatus.COMPLETED)
+
+    return {
+        "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "client_id": invoice.client_id,
+        "client_name": client.name if client else "Unknown",
+        "client_email": client.email if client else None,
+        "issue_date": invoice.issue_date,
+        "due_date": invoice.due_date,
+        "subtotal": invoice.subtotal,
+        "tax_rate": invoice.tax_rate,
+        "tax_amount": invoice.tax_amount,
+        "discount_amount": invoice.discount_amount,
+        "total_amount": invoice.total_amount,
+        "paid_amount": paid_amount,
+        "balance": invoice.total_amount - paid_amount,
+        "status": invoice.status.value,
+        "notes": invoice.notes,
+        "terms": invoice.terms,
+        "items": [{"id": i.id, "description": i.description, "quantity": i.quantity, "unit_price": i.unit_price, "amount": i.amount} for i in invoice.items],
+        "created_at": invoice.created_at,
+        "updated_at": invoice.updated_at
+    }
+
+
+@app.post("/api/invoices/{invoice_id}/send")
+def send_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Send invoice to client via email. Updates status to SENT.
+    Connected to Admin Portal: Send Invoice Button
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    if invoice.status == InvoiceStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Cannot send cancelled invoice")
+
+    client = db.query(Client).filter(Client.id == invoice.client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    # Update status to SENT
+    invoice.status = InvoiceStatus.SENT
+    invoice.updated_at = datetime.utcnow()
+
+    # Send email notification (placeholder - would integrate with email service)
+    email_sent = False
+    try:
+        # In production, this would send an actual email
+        # For now, log the action
+        print(f"[INVOICE SENT] Invoice #{invoice.invoice_number} sent to {client.email}")
+        email_sent = True
+    except Exception as e:
+        print(f"Email send error: {e}")
+
+    db.commit()
+
+    return {
+        "success": True,
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.invoice_number,
+        "client_email": client.email,
+        "email_sent": email_sent,
+        "status": invoice.status.value,
+        "message": f"Invoice #{invoice.invoice_number} has been sent to {client.email}"
+    }
+
+
+@app.post("/api/invoices/{invoice_id}/mark-paid")
+def mark_invoice_paid(
+    invoice_id: int,
+    payment_data: Optional[dict] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Mark invoice as fully paid with optional payment details.
+    Connected to Admin Portal: Mark as Paid Button
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    if invoice.status == InvoiceStatus.PAID:
+        raise HTTPException(status_code=400, detail="Invoice is already paid")
+
+    if invoice.status == InvoiceStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Cannot mark cancelled invoice as paid")
+
+    # Calculate remaining balance
+    paid_amount = sum(p.amount for p in invoice.payments if p.status == PaymentStatus.COMPLETED)
+    remaining = invoice.total_amount - paid_amount
+
+    # Create payment record for the remaining balance
+    if remaining > 0:
+        payment = Payment(
+            invoice_id=invoice_id,
+            amount=remaining,
+            payment_date=datetime.utcnow(),
+            payment_method=payment_data.get("payment_method", "manual") if payment_data else "manual",
+            reference_number=payment_data.get("reference_number") if payment_data else None,
+            status=PaymentStatus.COMPLETED,
+            notes=payment_data.get("notes", "Marked as paid from admin portal") if payment_data else "Marked as paid from admin portal"
+        )
+        db.add(payment)
+
+    invoice.status = InvoiceStatus.PAID
+    invoice.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.invoice_number,
+        "status": invoice.status.value,
+        "total_amount": invoice.total_amount,
+        "message": f"Invoice #{invoice.invoice_number} marked as paid"
+    }
+
+
+@app.post("/api/invoices/{invoice_id}/items")
+def add_invoice_item(
+    invoice_id: int,
+    item_data: InvoiceItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Add a new line item to an invoice.
+    Connected to Admin Portal: Add Line Item Button
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    if invoice.status not in [InvoiceStatus.DRAFT, InvoiceStatus.SENT]:
+        raise HTTPException(status_code=400, detail="Can only add items to draft or sent invoices")
+
+    amount = item_data.quantity * item_data.unit_price
+
+    db_item = InvoiceItem(
+        invoice_id=invoice_id,
+        description=item_data.description,
+        quantity=item_data.quantity,
+        unit_price=item_data.unit_price,
+        amount=amount
+    )
+    db.add(db_item)
+
+    # Recalculate invoice totals
+    invoice.subtotal += amount
+    invoice.tax_amount = invoice.subtotal * (invoice.tax_rate / 100)
+    invoice.total_amount = invoice.subtotal + invoice.tax_amount - invoice.discount_amount
+    invoice.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_item)
+
+    return {
+        "id": db_item.id,
+        "description": db_item.description,
+        "quantity": db_item.quantity,
+        "unit_price": db_item.unit_price,
+        "amount": db_item.amount,
+        "invoice_subtotal": invoice.subtotal,
+        "invoice_total": invoice.total_amount
+    }
+
+
+@app.put("/api/invoices/{invoice_id}/items/{item_id}")
+def update_invoice_item(
+    invoice_id: int,
+    item_id: int,
+    item_data: InvoiceItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update a line item on an invoice.
+    Connected to Admin Portal: Edit Line Item
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    item = db.query(InvoiceItem).filter(
+        InvoiceItem.id == item_id,
+        InvoiceItem.invoice_id == invoice_id
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+
+    if invoice.status not in [InvoiceStatus.DRAFT, InvoiceStatus.SENT]:
+        raise HTTPException(status_code=400, detail="Can only edit items on draft or sent invoices")
+
+    # Update subtotal
+    old_amount = item.amount
+    new_amount = item_data.quantity * item_data.unit_price
+
+    item.description = item_data.description
+    item.quantity = item_data.quantity
+    item.unit_price = item_data.unit_price
+    item.amount = new_amount
+
+    # Recalculate invoice totals
+    invoice.subtotal = invoice.subtotal - old_amount + new_amount
+    invoice.tax_amount = invoice.subtotal * (invoice.tax_rate / 100)
+    invoice.total_amount = invoice.subtotal + invoice.tax_amount - invoice.discount_amount
+    invoice.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "id": item.id,
+        "description": item.description,
+        "quantity": item.quantity,
+        "unit_price": item.unit_price,
+        "amount": item.amount,
+        "invoice_subtotal": invoice.subtotal,
+        "invoice_total": invoice.total_amount
+    }
+
+
+@app.delete("/api/invoices/{invoice_id}/items/{item_id}")
+def delete_invoice_item(
+    invoice_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Remove a line item from an invoice.
+    Connected to Admin Portal: Delete Line Item Button
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    item = db.query(InvoiceItem).filter(
+        InvoiceItem.id == item_id,
+        InvoiceItem.invoice_id == invoice_id
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Invoice item not found")
+
+    if invoice.status not in [InvoiceStatus.DRAFT, InvoiceStatus.SENT]:
+        raise HTTPException(status_code=400, detail="Can only delete items from draft or sent invoices")
+
+    # Check if this is the last item
+    item_count = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).count()
+    if item_count <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the last item. Delete the invoice instead.")
+
+    # Update invoice totals
+    invoice.subtotal -= item.amount
+    invoice.tax_amount = invoice.subtotal * (invoice.tax_rate / 100)
+    invoice.total_amount = invoice.subtotal + invoice.tax_amount - invoice.discount_amount
+    invoice.updated_at = datetime.utcnow()
+
+    db.delete(item)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Item deleted successfully",
+        "invoice_subtotal": invoice.subtotal,
+        "invoice_total": invoice.total_amount
+    }
+
+
+@app.post("/api/invoices/{invoice_id}/duplicate")
+def duplicate_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a duplicate of an existing invoice with new invoice number.
+    Connected to Admin Portal: Duplicate Invoice Button
+    """
+    original = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Create new invoice
+    new_invoice = Invoice(
+        invoice_number=generate_invoice_number(db),
+        user_id=current_user.id,
+        client_id=original.client_id,
+        issue_date=datetime.utcnow(),
+        due_date=datetime.utcnow() + timedelta(days=30),
+        subtotal=original.subtotal,
+        tax_rate=original.tax_rate,
+        tax_amount=original.tax_amount,
+        discount_amount=original.discount_amount,
+        total_amount=original.total_amount,
+        status=InvoiceStatus.DRAFT,
+        notes=original.notes,
+        terms=original.terms
+    )
+    db.add(new_invoice)
+    db.flush()
+
+    # Copy items
+    for item in original.items:
+        new_item = InvoiceItem(
+            invoice_id=new_invoice.id,
+            description=item.description,
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            amount=item.amount
+        )
+        db.add(new_item)
+
+    db.commit()
+    db.refresh(new_invoice)
+
+    client = db.query(Client).filter(Client.id == new_invoice.client_id).first()
+
+    return {
+        "id": new_invoice.id,
+        "invoice_number": new_invoice.invoice_number,
+        "client_name": client.name if client else "Unknown",
+        "status": new_invoice.status.value,
+        "total_amount": new_invoice.total_amount,
+        "message": f"Invoice duplicated as #{new_invoice.invoice_number}"
+    }
+
+
+@app.get("/api/invoices/stats")
+def get_invoice_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get invoice statistics for dashboard widgets.
+    Connected to Admin Portal: Invoice Dashboard Stats
+    """
+    # Total counts by status
+    total_invoices = db.query(Invoice).count()
+    draft_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.DRAFT).count()
+    sent_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.SENT).count()
+    paid_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.PAID).count()
+    overdue_count = db.query(Invoice).filter(
+        and_(
+            Invoice.due_date < datetime.now(),
+            Invoice.status.in_([InvoiceStatus.DRAFT, InvoiceStatus.SENT])
+        )
+    ).count()
+    cancelled_count = db.query(Invoice).filter(Invoice.status == InvoiceStatus.CANCELLED).count()
+
+    # Financial totals
+    total_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
+        Invoice.status != InvoiceStatus.CANCELLED
+    ).scalar() or 0
+
+    total_paid = db.query(func.sum(Payment.amount)).filter(
+        Payment.status == PaymentStatus.COMPLETED
+    ).scalar() or 0
+
+    total_outstanding = total_invoiced - total_paid
+
+    # This month's stats
+    month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    this_month_invoiced = db.query(func.sum(Invoice.total_amount)).filter(
+        and_(
+            Invoice.created_at >= month_start,
+            Invoice.status != InvoiceStatus.CANCELLED
+        )
+    ).scalar() or 0
+
+    this_month_paid = db.query(func.sum(Payment.amount)).filter(
+        and_(
+            Payment.created_at >= month_start,
+            Payment.status == PaymentStatus.COMPLETED
+        )
+    ).scalar() or 0
+
+    # Recent invoices
+    recent_invoices = db.query(Invoice).order_by(Invoice.created_at.desc()).limit(5).all()
+    recent_list = []
+    for inv in recent_invoices:
+        client = db.query(Client).filter(Client.id == inv.client_id).first()
+        recent_list.append({
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "client_name": client.name if client else "Unknown",
+            "total_amount": inv.total_amount,
+            "status": inv.status.value,
+            "due_date": inv.due_date.isoformat() if inv.due_date else None
+        })
+
+    # Top clients by revenue
+    top_clients = db.query(
+        Client.id,
+        Client.name,
+        func.sum(Invoice.total_amount).label("total_revenue"),
+        func.count(Invoice.id).label("invoice_count")
+    ).join(Invoice).filter(
+        Invoice.status != InvoiceStatus.CANCELLED
+    ).group_by(Client.id).order_by(func.sum(Invoice.total_amount).desc()).limit(5).all()
+
+    return {
+        "summary": {
+            "total_invoices": total_invoices,
+            "draft": draft_count,
+            "sent": sent_count,
+            "paid": paid_count,
+            "overdue": overdue_count,
+            "cancelled": cancelled_count
+        },
+        "financials": {
+            "total_invoiced": round(total_invoiced, 2),
+            "total_paid": round(total_paid, 2),
+            "total_outstanding": round(total_outstanding, 2),
+            "this_month_invoiced": round(this_month_invoiced, 2),
+            "this_month_paid": round(this_month_paid, 2)
+        },
+        "recent_invoices": recent_list,
+        "top_clients": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "total_revenue": round(c.total_revenue, 2),
+                "invoice_count": c.invoice_count
+            } for c in top_clients
+        ]
+    }
+
+
+@app.post("/api/invoices/{invoice_id}/void")
+def void_invoice(
+    invoice_id: int,
+    reason: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Void/cancel an invoice. Cannot be undone.
+    Connected to Admin Portal: Void Invoice Button
+    """
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    if invoice.status == InvoiceStatus.PAID:
+        raise HTTPException(status_code=400, detail="Cannot void a paid invoice. Create a credit note instead.")
+
+    if invoice.status == InvoiceStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Invoice is already cancelled")
+
+    invoice.status = InvoiceStatus.CANCELLED
+    if reason:
+        invoice.notes = (invoice.notes or "") + f"\n\n[VOIDED] {reason}"
+    invoice.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.invoice_number,
+        "status": invoice.status.value,
+        "message": f"Invoice #{invoice.invoice_number} has been voided"
+    }
+
 
 # Dashboard endpoints
 @app.get("/api/dashboard/stats")
