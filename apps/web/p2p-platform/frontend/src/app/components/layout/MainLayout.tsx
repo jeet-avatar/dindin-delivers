@@ -53,7 +53,7 @@ const MainLayout: React.FC = () => {
     { name: 'Coupa Dashboard', href: '/coupa-dashboard', icon: FileSpreadsheet },
     { name: 'NetSuite Dashboard', href: '/netsuite-dashboard', icon: Building2 },
     { name: 'JIRA Dashboard', href: '/jira-dashboard', icon: GitPullRequest },
-    { name: 'ZIP Dashboard', href: '/zip-dashboard', icon: Wallet },
+    { name: 'Vendor Approval (ZIP)', href: '/zip-dashboard', icon: Wallet },
     { name: 'Vendor Management', href: '/vendor-management', icon: User },
     {
       name: 'Transactions',

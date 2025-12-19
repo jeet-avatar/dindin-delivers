@@ -1,70 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, DatePicker, Button, Divider, Typography, Spin } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Row, Col, Statistic, Table, Tag, Select, Button, Divider, Typography, Spin, message } from 'antd';
 import {
   DollarOutlined,
   CarOutlined,
   ShoppingOutlined,
-  RiseOutlined,
-  TeamOutlined,
   SyncOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
-import { getApiUrl } from '../../api/api';
+import api, { getApiUrl } from '../../api/api';
 import moment from 'moment';
 
-const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
 interface RevenueData {
   food_delivery: {
     total_orders: number;
-    customer_fees: number;  // $1 per order
-    restaurant_fees: number;  // $1 per order
+    customer_fees: number;
+    restaurant_fees: number;
     total_revenue: number;
   };
   rideshare: {
     total_rides: number;
-    customer_fees: number;  // Tiered
-    driver_fees: number;  // Tiered
+    customer_fees: number;
+    driver_fees: number;
     total_revenue: number;
     by_tier: {
-      short: { count: number; revenue: number };  // 0-10 mi
-      medium: { count: number; revenue: number };  // 10-20 mi
-      long: { count: number; revenue: number };  // 20+ mi
+      short: { count: number; revenue: number };
+      medium: { count: number; revenue: number };
+      long: { count: number; revenue: number };
     };
   };
   total_platform_revenue: number;
+  summary?: {
+    total_orders: number;
+    completed_orders: number;
+    total_gmv: number;
+    platform_fees_collected: number;
+    delivery_fees_collected: number;
+    tips_collected: number;
+  };
+  driver_earnings?: {
+    delivery_fees_to_drivers: number;
+    tips_to_drivers: number;
+    total_to_drivers: number;
+  };
 }
 
 const PlatformRevenue: React.FC = () => {
-  const API_URL = getApiUrl();
   const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState<any>([
-    moment().subtract(30, 'days'),
-    moment()
-  ]);
+  const [period, setPeriod] = useState('month');
 
-  // Mock data - in production this would come from API
   const [revenueData, setRevenueData] = useState<RevenueData>({
     food_delivery: {
-      total_orders: 1250,
-      customer_fees: 1250,  // $1 × 1250
-      restaurant_fees: 1250,  // $1 × 1250
-      total_revenue: 2500
+      total_orders: 0,
+      customer_fees: 0,
+      restaurant_fees: 0,
+      total_revenue: 0
     },
     rideshare: {
-      total_rides: 850,
-      customer_fees: 1350,  // Mixed tiers
-      driver_fees: 1350,  // Same as customer
-      total_revenue: 2700,
+      total_rides: 0,
+      customer_fees: 0,
+      driver_fees: 0,
+      total_revenue: 0,
       by_tier: {
-        short: { count: 500, revenue: 1000 },  // 500 rides × $1 × 2 sides
-        medium: { count: 250, revenue: 1000 },  // 250 rides × $2 × 2 sides
-        long: { count: 100, revenue: 600 }  // 100 rides × $3 × 2 sides
+        short: { count: 0, revenue: 0 },
+        medium: { count: 0, revenue: 0 },
+        long: { count: 0, revenue: 0 }
       }
     },
-    total_platform_revenue: 5200
+    total_platform_revenue: 0
   });
+
+  const fetchRevenueData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/accounting/platform-revenue', {
+        params: { period }
+      });
+      const data = response.data;
+
+      // Map API response to component state
+      setRevenueData({
+        food_delivery: {
+          total_orders: data.summary?.total_orders || 0,
+          customer_fees: data.revenue_breakdown?.food_delivery?.customer_fees || 0,
+          restaurant_fees: data.revenue_breakdown?.food_delivery?.restaurant_fees || 0,
+          total_revenue: data.revenue_breakdown?.food_delivery?.total || 0
+        },
+        rideshare: {
+          total_rides: 0, // TODO: Add rideshare data when available
+          customer_fees: data.revenue_breakdown?.rideshare?.tier_1_under_35 || 0,
+          driver_fees: 0,
+          total_revenue: data.revenue_breakdown?.rideshare?.total || 0,
+          by_tier: {
+            short: { count: 0, revenue: data.revenue_breakdown?.rideshare?.tier_1_under_35 || 0 },
+            medium: { count: 0, revenue: data.revenue_breakdown?.rideshare?.tier_2_35_70 || 0 },
+            long: { count: 0, revenue: data.revenue_breakdown?.rideshare?.tier_3_over_70 || 0 }
+          }
+        },
+        total_platform_revenue: data.revenue_breakdown?.total_platform_revenue || 0,
+        summary: data.summary,
+        driver_earnings: data.driver_earnings
+      });
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
+      message.error('Failed to load revenue data');
+    } finally {
+      setLoading(false);
+    }
+  }, [period]);
+
+  useEffect(() => {
+    fetchRevenueData();
+  }, [fetchRevenueData]);
 
   const tierData = [
     {
@@ -122,29 +169,8 @@ const PlatformRevenue: React.FC = () => {
     }
   ];
 
-  const refreshData = async () => {
-    setLoading(true);
-    try {
-      // In production, call API endpoint
-      // const response = await axios.get(`${API_URL}/api/accounting/platform-revenue`, {
-      //   params: { start: dateRange[0].toISOString(), end: dateRange[1].toISOString() }
-      // });
-      // setRevenueData(response.data);
-
-      // For now, use mock data with some randomization
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setRevenueData(prev => ({
-        ...prev,
-        total_platform_revenue: prev.food_delivery.total_revenue + prev.rideshare.total_revenue
-      }));
-    } catch (error) {
-      console.error('Error fetching revenue data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
+    <Spin spinning={loading}>
     <div className="platform-revenue-container">
       <div className="page-header">
         <div>
@@ -152,16 +178,70 @@ const PlatformRevenue: React.FC = () => {
           <Text type="secondary">Track revenue from platform fees (Food Delivery + Rideshare)</Text>
         </div>
         <div className="header-actions">
-          <RangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            style={{ marginRight: 16 }}
+          <Select
+            value={period}
+            onChange={setPeriod}
+            style={{ width: 150, marginRight: 16 }}
+            options={[
+              { value: 'week', label: 'Last 7 Days' },
+              { value: 'month', label: 'Last 30 Days' },
+              { value: 'quarter', label: 'Last Quarter' },
+              { value: 'year', label: 'Last Year' },
+            ]}
           />
-          <Button type="primary" icon={<SyncOutlined spin={loading} />} onClick={refreshData}>
+          <Button type="primary" icon={<SyncOutlined spin={loading} />} onClick={fetchRevenueData}>
             Refresh
           </Button>
         </div>
       </div>
+
+      {/* GMV & Driver Earnings Summary */}
+      {revenueData.summary && (
+        <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
+          <Col xs={24} lg={6}>
+            <Card size="small">
+              <Statistic
+                title="Total GMV"
+                value={revenueData.summary.total_gmv}
+                precision={2}
+                prefix="$"
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={6}>
+            <Card size="small">
+              <Statistic
+                title="Completed Orders"
+                value={revenueData.summary.completed_orders}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={6}>
+            <Card size="small">
+              <Statistic
+                title="Driver Earnings (Delivery)"
+                value={revenueData.driver_earnings?.delivery_fees_to_drivers || 0}
+                precision={2}
+                prefix="$"
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={6}>
+            <Card size="small">
+              <Statistic
+                title="Driver Earnings (Tips)"
+                value={revenueData.driver_earnings?.tips_to_drivers || 0}
+                precision={2}
+                prefix="$"
+                valueStyle={{ color: '#eb2f96' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       {/* Main Stats */}
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
@@ -387,6 +467,7 @@ const PlatformRevenue: React.FC = () => {
         }
       `}</style>
     </div>
+    </Spin>
   );
 };
 

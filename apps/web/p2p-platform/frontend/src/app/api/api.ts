@@ -83,11 +83,210 @@ export const syncVendorPayouts = async (periodStart: string, periodEnd: string) 
   return response.data;
 };
 
-// Vendors API
-export const getVendors = async () => {
-  const response = await api.get('/vendors');
+// ============================================================================
+// VENDOR/RESTAURANT API - ZIP Vendor Approval System
+// ============================================================================
+
+// Vendor Types
+export interface VendorDocument {
+  id?: number;
+  vendor_id: number;
+  document_type: string;
+  file_url: string;
+  file_name: string;
+  uploaded_at?: string;
+  expiry_date?: string;
+  verified?: boolean;
+  verified_at?: string;
+  verified_by?: string;
+}
+
+export interface Vendor {
+  id: number;
+  restaurant_name?: string;
+  company_name?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  cuisine_type?: string;
+  description?: string;
+  onboarding_status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'suspended';
+  onboarding_phase: 'not_started' | 'documents_pending' | 'under_review' | 'compliance_check' | 'completed';
+  created_at?: string;
+  updated_at?: string;
+  approved_at?: string;
+  last_activity?: string;
+  // Document URLs
+  food_license?: string;
+  food_license_url?: string;
+  health_permit?: string;
+  health_permit_url?: string;
+  w9_form?: string;
+  w9_form_url?: string;
+  insurance?: string;
+  insurance_url?: string;
+  // Additional fields
+  ein_number?: string;
+  bank_account_number?: string;
+  bank_routing_number?: string;
+  delivery_enabled?: boolean;
+  minimum_order?: number;
+  delivery_fee?: number;
+  // Publishing status (for mobile apps)
+  is_published?: boolean;
+  published_at?: string;
+  published_platforms?: string; // JSON array: ["ios", "android", "web"]
+}
+
+// Get all vendors (with optional status filter)
+export const getVendors = async (params?: { status?: string; search?: string }) => {
+  const response = await api.get('/vendors', { params });
   return response.data;
 };
+
+// Get single vendor by ID
+export const getVendor = async (vendorId: number) => {
+  const response = await api.get(`/vendors/${vendorId}`);
+  return response.data;
+};
+
+// Create new vendor (admin)
+export const createVendor = async (vendorData: Partial<Vendor>) => {
+  const response = await api.post('/vendors', vendorData);
+  return response.data;
+};
+
+// Update vendor
+export const updateVendor = async (vendorId: number, vendorData: Partial<Vendor>) => {
+  const response = await api.put(`/vendors/${vendorId}`, vendorData);
+  return response.data;
+};
+
+// Patch vendor (partial update)
+export const patchVendor = async (vendorId: number, vendorData: Partial<Vendor>) => {
+  const response = await api.patch(`/vendors/${vendorId}`, vendorData);
+  return response.data;
+};
+
+// Update vendor status (approve/reject/suspend)
+export const updateVendorStatus = async (
+  vendorId: number,
+  status: string,
+  skipDocumentCheck: boolean = false
+) => {
+  const response = await api.patch(`/vendors/${vendorId}/status`, null, {
+    params: { status, skip_document_check: skipDocumentCheck }
+  });
+  return response.data;
+};
+
+// Delete vendor
+export const deleteVendor = async (vendorId: number) => {
+  const response = await api.delete(`/vendors/${vendorId}`);
+  return response.data;
+};
+
+// Get vendor documents
+export const getVendorDocuments = async (vendorId: number) => {
+  const response = await api.get(`/vendors/${vendorId}/documents`);
+  return response.data;
+};
+
+// Upload vendor document
+export const uploadVendorDocument = async (vendorId: number, formData: FormData) => {
+  const response = await api.post(`/vendors/${vendorId}/documents`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+
+// Delete vendor document
+export const deleteVendorDocument = async (vendorId: number, documentId: number) => {
+  const response = await api.delete(`/vendors/${vendorId}/documents/${documentId}`);
+  return response.data;
+};
+
+// Update vendor documents (mark as verified)
+export const updateVendorDocuments = async (vendorId: number, documents: Partial<VendorDocument>[]) => {
+  const response = await api.patch(`/vendors/${vendorId}/documents`, documents);
+  return response.data;
+};
+
+// Create vendor user account (admin)
+export const createVendorAccount = async (vendorId: number, password: string) => {
+  const response = await api.post(`/vendors/${vendorId}/create-account`, null, {
+    params: { password }
+  });
+  return response.data;
+};
+
+// Get vendor menu
+export const getVendorMenu = async (vendorId: number) => {
+  const response = await api.get(`/vendors/${vendorId}/menu`);
+  return response.data;
+};
+
+// Get vendor statistics for ZIP dashboard
+export const getVendorStats = async () => {
+  try {
+    const vendors = await getVendors();
+
+    const stats = {
+      totalVendors: vendors.length,
+      activeVendors: vendors.filter((v: Vendor) => v.onboarding_status === 'approved').length,
+      pendingApproval: vendors.filter((v: Vendor) =>
+        v.onboarding_status === 'pending' || v.onboarding_status === 'in_review'
+      ).length,
+      inOnboarding: vendors.filter((v: Vendor) =>
+        v.onboarding_phase !== 'not_started' && v.onboarding_phase !== 'completed'
+      ).length,
+      rejectedApplications: vendors.filter((v: Vendor) => v.onboarding_status === 'rejected').length,
+      suspendedVendors: vendors.filter((v: Vendor) => v.onboarding_status === 'suspended').length,
+      completedOnboarding: vendors.filter((v: Vendor) => v.onboarding_phase === 'completed').length,
+      byStatus: {
+        pending: vendors.filter((v: Vendor) => v.onboarding_status === 'pending').length,
+        in_review: vendors.filter((v: Vendor) => v.onboarding_status === 'in_review').length,
+        approved: vendors.filter((v: Vendor) => v.onboarding_status === 'approved').length,
+        rejected: vendors.filter((v: Vendor) => v.onboarding_status === 'rejected').length,
+        suspended: vendors.filter((v: Vendor) => v.onboarding_status === 'suspended').length,
+      },
+      byPhase: {
+        not_started: vendors.filter((v: Vendor) => v.onboarding_phase === 'not_started').length,
+        documents_pending: vendors.filter((v: Vendor) => v.onboarding_phase === 'documents_pending').length,
+        under_review: vendors.filter((v: Vendor) => v.onboarding_phase === 'under_review').length,
+        compliance_check: vendors.filter((v: Vendor) => v.onboarding_phase === 'compliance_check').length,
+        completed: vendors.filter((v: Vendor) => v.onboarding_phase === 'completed').length,
+      }
+    };
+
+    return stats;
+  } catch (error) {
+    console.error('Failed to fetch vendor stats:', error);
+    return {
+      totalVendors: 0,
+      activeVendors: 0,
+      pendingApproval: 0,
+      inOnboarding: 0,
+      rejectedApplications: 0,
+      suspendedVendors: 0,
+      completedOnboarding: 0,
+      byStatus: { pending: 0, in_review: 0, approved: 0, rejected: 0, suspended: 0 },
+      byPhase: { not_started: 0, documents_pending: 0, under_review: 0, compliance_check: 0, completed: 0 }
+    };
+  }
+};
+
+// Required documents for vendor approval (ZIP compliance)
+export const REQUIRED_VENDOR_DOCUMENTS = [
+  { key: 'food_license', label: 'Food Service License', description: 'State/local food service license', required: true },
+  { key: 'health_permit', label: 'Health Department Permit', description: 'Current health permit', required: true },
+  { key: 'w9_form', label: 'Business License / W-9 Form', description: 'IRS W-9 tax form', required: true },
+  { key: 'insurance', label: 'Liability Insurance', description: 'General liability insurance certificate', required: true },
+];
 
 // ============================================================================
 // INVOICE API - Connected to Admin Portal

@@ -231,6 +231,11 @@ class Vendor(Base):
     verification_notes = Column(Text)
     verification_reviewer_id = Column(Integer)  # Admin who manually reviewed
 
+    # Publishing Status (for mobile apps - iOS, Android, Web)
+    is_published = Column(Boolean, default=False)  # True when available on all platforms
+    published_at = Column(DateTime)  # When vendor was published to platforms
+    published_platforms = Column(Text)  # JSON array: ["ios", "android", "web"]
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")
@@ -914,4 +919,96 @@ class DashboardMetric(Base):
     time_window = Column(String(20))  # realtime, hourly, daily, weekly
 
     # Timestamps
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# =========================================================================
+# SUPPORT TICKET MODELS - Internal Issue Tracking (JIRA Dashboard)
+# =========================================================================
+
+class TicketPriority(enum.Enum):
+    P0_CRITICAL = "P0 - Critical"
+    P1_HIGH = "P1 - High"
+    P2_MEDIUM = "P2 - Medium"
+    P3_LOW = "P3 - Low"
+
+
+class TicketStatus(enum.Enum):
+    OPEN = "Open"
+    IN_PROGRESS = "In Progress"
+    UNDER_REVIEW = "Under Review"
+    RESOLVED = "Resolved"
+    CLOSED = "Closed"
+
+
+class TicketType(enum.Enum):
+    BUG = "Bug"
+    FEATURE = "Feature"
+    TASK = "Task"
+    STORY = "Story"
+    EPIC = "Epic"
+    SUPPORT = "Support"
+
+
+class SupportTicket(Base):
+    """Support tickets for internal issue tracking (JIRA Dashboard)"""
+    __tablename__ = "support_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(String(20), unique=True, nullable=False, index=True)  # DOLLOR-123
+
+    # Ticket Details
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    ticket_type = Column(SQLEnum(TicketType), default=TicketType.TASK)
+    priority = Column(SQLEnum(TicketPriority), default=TicketPriority.P2_MEDIUM)
+    status = Column(SQLEnum(TicketStatus), default=TicketStatus.OPEN)
+
+    # Assignment
+    assignee = Column(String(100))
+    reporter = Column(String(100))
+    team = Column(String(50))  # Team A, Team B, etc.
+
+    # Related Entities
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+
+    # Labels and Tags
+    labels = Column(JSON)  # ["backend", "urgent", "customer-facing"]
+    component = Column(String(100))  # "Order System", "Payment", "Driver App"
+
+    # SLA Tracking
+    due_date = Column(DateTime)
+    sla_breached = Column(Boolean, default=False)
+    first_response_at = Column(DateTime)
+    resolved_at = Column(DateTime)
+
+    # Resolution
+    resolution = Column(Text)
+    resolution_time_hours = Column(Float)
+
+    # Comments count
+    comments_count = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TicketComment(Base):
+    """Comments on support tickets"""
+    __tablename__ = "ticket_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id"), nullable=False)
+
+    # Comment Details
+    author = Column(String(100), nullable=False)
+    content = Column(Text, nullable=False)
+    is_internal = Column(Boolean, default=False)  # Internal notes vs public comments
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

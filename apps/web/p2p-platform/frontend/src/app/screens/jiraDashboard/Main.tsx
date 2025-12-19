@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
   GitPullRequest,
   AlertCircle,
   Clock,
@@ -27,7 +27,7 @@ import {
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import Button from '../../components/ui/Button';
-import Bridge from '../../constants/Bridge';
+import api from '../../api/api';
 import { Spin, message } from 'antd';
 import * as htmlToImage from "html-to-image";
 import { saveAs } from 'file-saver';
@@ -44,115 +44,146 @@ ChartJS.register(
   Legend
 );
 
+interface JiraMetrics {
+  activeTickets: number;
+  resolvedTickets: number;
+  avgResolutionTime: number;
+  slaCompliance: number;
+  highPriorityTickets: number;
+  overdueTickets: number;
+}
+
+interface Ticket {
+  id: string;
+  title: string;
+  priority: string;
+  status: string;
+  assignee: string;
+  created: string;
+  updated: string;
+}
+
 const Main: React.FC = () => {
   const [dateRange, setDateRange] = useState('month');
-  const [jiraMetrics, setJiraMetrics] = useState({});
-  const [ticketTrendData, setTicketTrendData] = useState({});
-  const [priorityDistributionData, setPriorityDistributionData] = useState({});
-  const [resolutionTimeData, setResolutionTimeData] = useState({});
-  const [teamPerformanceData, setTeamPerformanceData] = useState({});
-  const [recentTickets, setRecentTickets] = useState([]);
+  const [jiraMetrics, setJiraMetrics] = useState<JiraMetrics>({
+    activeTickets: 0,
+    resolvedTickets: 0,
+    avgResolutionTime: 0,
+    slaCompliance: 100,
+    highPriorityTickets: 0,
+    overdueTickets: 0
+  });
+  const [ticketTrendData, setTicketTrendData] = useState<any>({});
+  const [priorityDistributionData, setPriorityDistributionData] = useState<any>({});
+  const [resolutionTimeData, setResolutionTimeData] = useState<any>({});
+  const [teamPerformanceData, setTeamPerformanceData] = useState<any>({});
+  const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        getJiraMetrics(),
+        getTicketTrendData(),
+        getPriorityDistributionData(),
+        getResolutionTimeData(),
+        getTeamPerformanceData(),
+        getRecentTickets()
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange]);
+
   useEffect(() => {
-    getJiraMetrics();
-    getTicketTrendData();
-    getPriorityDistributionData();
-    getResolutionTimeData();
-    getTeamPerformanceData();
-    getRecentTickets();
-  }, []);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  const getJiraMetrics = () => {
-    const jiraMetrics = {
-      activeTickets: 89,
-      resolvedTickets: 156,
-      avgResolutionTime: 1.2,
-      slaCompliance: 97,
-      highPriorityTickets: 15,
-      overdueTickets: 7
-    };
-    setJiraMetrics(jiraMetrics);
-    // Bridge.jiraDashboard.getJiraMetrics().then((response) => {
-    //   setJiraMetrics(response);
-    // });
-  }
+  const getJiraMetrics = async () => {
+    try {
+      const response = await api.get('/tickets/metrics', { params: { period: dateRange } });
+      setJiraMetrics(response.data);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      // Fallback to default values
+      setJiraMetrics({
+        activeTickets: 0,
+        resolvedTickets: 0,
+        avgResolutionTime: 0,
+        slaCompliance: 100,
+        highPriorityTickets: 0,
+        overdueTickets: 0
+      });
+    }
+  };
 
-  const getTicketTrendData = () => {
-    const ticketTrendData = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [{
-        label: 'Created Tickets',
-        data: [85, 92, 88, 95, 102, 98],
-        borderColor: '#2563eb',
-        backgroundColor: '#2563eb',
-        tension: 0.4
-      },
-      {
-        label: 'Resolved Tickets',
-        data: [78, 85, 82, 89, 96, 92],
-        borderColor: '#10b981',
-        backgroundColor: '#10b981',
-        tension: 0.4
-      }]
-    };
-    setTicketTrendData(ticketTrendData);
-    // Bridge.jiraDashboard.getTicketTrendData().then((response) => {
-    //   setTicketTrendData(response);
-    // });
-  }
+  const getTicketTrendData = async () => {
+    try {
+      const response = await api.get('/tickets/trends', { params: { period: dateRange } });
+      setTicketTrendData(response.data);
+    } catch (error) {
+      console.error('Error fetching trends:', error);
+      setTicketTrendData({
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+        datasets: [
+          { label: 'Created Tickets', data: [0, 0, 0, 0], borderColor: '#2563eb', backgroundColor: '#2563eb', tension: 0.4 },
+          { label: 'Resolved Tickets', data: [0, 0, 0, 0], borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.4 }
+        ]
+      });
+    }
+  };
 
-  const getPriorityDistributionData = () => {
-    const priorityDistributionData = {
-      labels: ['P0 - Critical', 'P1 - High', 'P2 - Medium', 'P3 - Low'],
-      datasets: [{
-        data: [5, 15, 40, 40],
-        backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#10b981'],
-        borderWidth: 0
-      }]
-    };
-    setPriorityDistributionData(priorityDistributionData);
-    // Bridge.jiraDashboard.getPriorityDistributionData().then((response) => {
-    //   setPriorityDistributionData(response);
-    // });
-  }
+  const getPriorityDistributionData = async () => {
+    try {
+      const response = await api.get('/tickets/priority-distribution');
+      setPriorityDistributionData(response.data);
+    } catch (error) {
+      console.error('Error fetching priority distribution:', error);
+      setPriorityDistributionData({
+        labels: ['P0 - Critical', 'P1 - High', 'P2 - Medium', 'P3 - Low'],
+        datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#ef4444', '#f59e0b', '#6366f1', '#10b981'], borderWidth: 0 }]
+      });
+    }
+  };
 
-  const getResolutionTimeData = () => {
-    const resolutionTimeData = {
-      labels: ['Bug', 'Feature', 'Task', 'Story', 'Epic'],
-      datasets: [{
-        label: 'Avg Resolution Time (days)',
-        data: [0.8, 3.2, 1.5, 2.1, 8.5],
-        backgroundColor: '#6366f1',
-      }]
-    };
-    setResolutionTimeData(resolutionTimeData);
-    // Bridge.jiraDashboard.getResolutionTimeData().then((response) => {
-    //   setResolutionTimeData(response);
-    // });
-  }
+  const getResolutionTimeData = async () => {
+    try {
+      const response = await api.get('/tickets/resolution-by-type');
+      setResolutionTimeData(response.data);
+    } catch (error) {
+      console.error('Error fetching resolution data:', error);
+      setResolutionTimeData({
+        labels: ['Bug', 'Feature', 'Task', 'Story', 'Epic'],
+        datasets: [{ label: 'Avg Resolution Time (days)', data: [0, 0, 0, 0, 0], backgroundColor: '#6366f1' }]
+      });
+    }
+  };
 
-  const getTeamPerformanceData = () => {
-    const teamPerformanceData = {
-      labels: ['Team A', 'Team B', 'Team C', 'Team D'],
-      datasets: [{
-        data: [25, 30, 20, 25],
-        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
-        borderWidth: 0
-      }]
-    };
-    setTeamPerformanceData(teamPerformanceData);
-    // Bridge.jiraDashboard.getTeamPerformanceData().then((response) => {
-    //   setTeamPerformanceData(response);
-    // });
-  }
+  const getTeamPerformanceData = async () => {
+    try {
+      const response = await api.get('/tickets/team-performance');
+      setTeamPerformanceData(response.data);
+    } catch (error) {
+      console.error('Error fetching team performance:', error);
+      setTeamPerformanceData({
+        labels: ['Team A', 'Team B', 'Team C', 'Team D'],
+        datasets: [{ data: [25, 25, 25, 25], backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }]
+      });
+    }
+  };
 
-  const getRecentTickets = () => {
-    
-    // Bridge.jiraDashboard.getRecentTickets().then((response) => {
-    //   setRecentTickets(response);
-    // });
-  }
+  const getRecentTickets = async () => {
+    try {
+      const response = await api.get('/tickets', { params: { limit: 10 } });
+      setRecentTickets(response.data);
+    } catch (error) {
+      console.error('Error fetching recent tickets:', error);
+      setRecentTickets([]);
+    }
+  };
 
   const chartOptions = {
     responsive: true,
@@ -198,10 +229,11 @@ const Main: React.FC = () => {
   }
 
   return (
+    <Spin spinning={loading}>
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">JIRA Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-neutral-900">Support Tickets Dashboard</h1>
           <p className="text-sm text-neutral-500 mt-1">
             Issue tracking and project management insights
           </p>
@@ -496,6 +528,7 @@ const Main: React.FC = () => {
 
 
     </div>
+    </Spin>
   );
 };
 
