@@ -255,8 +255,12 @@ class TestUtilityFunctions:
 
         assert fare["tip"] == 5.0
         assert fare["total_fare"] > fare["total_before_tip"]
-        # Tip goes 100% to driver
-        assert fare["driver_earnings"] == fare["driver_subtotal"] + 5.0
+        # Tip goes 100% to driver - total fare is 5.0 more than fare without tip
+        fare_without_tip = calculate_ride_fare(
+            distance_miles=2.0, duration_minutes=8.0, surge_multiplier=1.0,
+            tip=0.0, state_code="CA", is_airport=False
+        )
+        assert fare["driver_earnings"] == fare_without_tip["driver_earnings"] + 5.0
 
     def test_calculate_ride_fare_minimum_fare(self):
         """Test minimum fare enforcement"""
@@ -318,7 +322,7 @@ class TestUtilityFunctions:
 
     def test_estimate_distance_and_time(self):
         """Test Haversine distance calculation"""
-        # SF to Oakland (approximately 12 miles)
+        # SF to Oakland - Haversine (straight line) is ~8 miles
         distance, duration = estimate_distance_and_time(
             pickup_lat=37.7749,
             pickup_lng=-122.4194,
@@ -328,7 +332,7 @@ class TestUtilityFunctions:
 
         assert distance > 0
         assert duration > 0
-        assert 10 <= distance <= 15  # Approximately 12 miles
+        assert 5 <= distance <= 15  # Haversine ~8 miles (straight line)
         assert duration > distance  # Duration should be > distance due to speed calculation
 
     def test_estimate_distance_and_time_same_location(self):
@@ -352,18 +356,27 @@ class TestOrderCreation:
     @pytest.mark.asyncio
     async def test_create_order_success(self, mock_db_session, mock_vendor, mock_menu_item):
         """Test successful order creation"""
-        # Setup mocks
-        mock_db_session.query.return_value.filter.return_value.first.return_value = mock_vendor
-        mock_db_session.query.return_value.filter.return_value.count.return_value = 100
+        # Create a simple menu item with real values (not MagicMock)
+        class SimpleMenuItem:
+            id = 1
+            vendor_id = 1
+            item_name = "Burger"
+            price = 12.99
 
-        # Mock menu item query
-        menu_query = MagicMock()
-        menu_query.filter.return_value.first.return_value = mock_menu_item
-        mock_db_session.query.side_effect = [
-            MagicMock(filter=lambda *args: MagicMock(first=lambda: mock_vendor)),  # Vendor query
-            MagicMock(filter=lambda *args: menu_query),  # Menu item query
-            MagicMock(count=lambda: 100)  # Order count
-        ]
+        simple_menu_item = SimpleMenuItem()
+
+        # Setup query side effects for: Vendor query, MenuItem query, Order count
+        def query_side_effect(model):
+            mock_result = MagicMock()
+            if model.__name__ == 'Vendor':
+                mock_result.filter.return_value.first.return_value = mock_vendor
+            elif model.__name__ == 'VendorMenuItem':
+                mock_result.filter.return_value.first.return_value = simple_menu_item
+            elif model.__name__ == 'Order':
+                mock_result.count.return_value = 100
+            return mock_result
+
+        mock_db_session.query.side_effect = query_side_effect
 
         order_data = CreateOrderRequest(
             customer_name="John Customer",
@@ -1102,7 +1115,10 @@ class TestDriverAuth:
             password="DriverPassword123!"
         )
 
-        with patch('order_flow.pwd_context.verify', return_value=True):
+        # Patch CryptContext class - when instantiated, returns a mock with verify=True
+        mock_context_instance = MagicMock()
+        mock_context_instance.verify.return_value = True
+        with patch('passlib.context.CryptContext', return_value=mock_context_instance):
             from order_flow import driver_login
             result = await driver_login(request, mock_db_session)
 
@@ -1139,7 +1155,10 @@ class TestDriverAuth:
             phone="+14155552222"
         )
 
-        with patch('order_flow.pwd_context.hash', return_value="hashed_password"):
+        # Patch CryptContext class - when instantiated, returns a mock with hash method
+        mock_context_instance = MagicMock()
+        mock_context_instance.hash.return_value = "hashed_password"
+        with patch('passlib.context.CryptContext', return_value=mock_context_instance):
             from order_flow import driver_register
             result = await driver_register(request, mock_db_session)
 
@@ -1622,25 +1641,23 @@ class TestEdgeCases:
         mock_vendor.latitude = 37.7749
         mock_vendor.longitude = -122.4194
         mock_driver.rating = 4.5  # Below default min
+        mock_driver.current_latitude = 37.7750
+        mock_driver.current_longitude = -122.4195
+        mock_driver.is_online = True
+        mock_driver.status = DriverStatus.ACTIVE
 
-        order_query = MagicMock()
-        order_query.filter.return_value.first.return_value = mock_order
-
-        vendor_query = MagicMock()
-        vendor_query.filter.return_value.first.return_value = mock_vendor
-
-        driver_query = MagicMock()
-        driver_query.filter.return_value.all.return_value = [mock_driver]
-
-        call_count = [0]
-        def query_side_effect(*args):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                return order_query
-            elif call_count[0] == 2:
-                return vendor_query
-            else:
-                return driver_query
+        # Model-based query side effect
+        def query_side_effect(model):
+            mock_result = MagicMock()
+            if model.__name__ == 'Order':
+                # Handle both .first() for getting order and .count() for deliveries count
+                mock_result.filter.return_value.first.return_value = mock_order
+                mock_result.filter.return_value.filter.return_value.filter.return_value.count.return_value = 10
+            elif model.__name__ == 'Vendor':
+                mock_result.filter.return_value.first.return_value = mock_vendor
+            elif model.__name__ == 'Driver':
+                mock_result.filter.return_value.filter.return_value.filter.return_value.filter.return_value.all.return_value = [mock_driver]
+            return mock_result
 
         mock_db_session.query.side_effect = query_side_effect
 

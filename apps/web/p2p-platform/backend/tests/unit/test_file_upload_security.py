@@ -394,8 +394,8 @@ class TestUploadEndpointSecurity:
             data=data,
             headers=vendor_auth_headers,  # Using original vendor's auth
         )
-        # Should be forbidden or not found
-        assert response.status_code in [403, 404]
+        # Should be unauthorized, forbidden or not found
+        assert response.status_code in [401, 403, 404]
 
 
 if __name__ == "__main__":

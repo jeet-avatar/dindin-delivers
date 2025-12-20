@@ -227,13 +227,16 @@ def test_vendor(db_session) -> Vendor:
 @pytest.fixture(scope="function")
 def test_driver(db_session) -> Driver:
     """Create a test driver"""
+    import uuid
+    from models import DriverStatus
     driver = Driver(
+        driver_id=f"drv_{uuid.uuid4().hex[:8]}",
         email=f"driver_{datetime.now().timestamp()}@test.com",
         password_hash=get_password_hash("DriverPassword123!"),
-        name="Test Driver",
+        first_name="Test",
+        last_name="Driver",
         phone="+14155551234",
-        status="approved",
-        is_active=True,
+        status=DriverStatus.APPROVED,
     )
     db_session.add(driver)
     db_session.commit()

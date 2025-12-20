@@ -913,12 +913,9 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
                 )
     else:
         # Create new vendor and user
-        count = db.query(Vendor).count()
-        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-
+        # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
-            name=request.name,
-            vendor_id=vendor_id,
+            company_name=request.name,
             contact_name=request.name,
             contact_email=request.email,
             onboarding_status=VendorStatus.PENDING,
@@ -986,12 +983,9 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
                 )
     else:
         # Create new vendor and user
-        count = db.query(Vendor).count()
-        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-
+        # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
-            name=request.name,
-            vendor_id=vendor_id,
+            company_name=request.name,
             contact_name=request.name,
             contact_email=request.email,
             onboarding_status=VendorStatus.PENDING,
@@ -5785,7 +5779,7 @@ class VendorCreate(BaseModel):
 
 class VendorResponse(BaseModel):
     id: int
-    vendor_id: str
+    vendor_id: int  # Changed from str to int to match database type
     company_name: str
     tax_id: Optional[str]
     business_type: Optional[str]
@@ -5820,11 +5814,18 @@ class VendorResponse(BaseModel):
     performance_score: int
     contract_status: Optional[str]
     zip_status: Optional[str]
-    w9_form: bool
-    insurance: bool
-    financial_statements: bool
-    compliance_certs: bool
-    security_policy: bool
+    # Document fields
+    w9_form: Optional[bool] = False
+    w9_form_url: Optional[str] = None
+    insurance: Optional[bool] = False
+    insurance_url: Optional[str] = None
+    food_license: Optional[bool] = False
+    food_license_url: Optional[str] = None
+    health_permit: Optional[bool] = False
+    health_permit_url: Optional[str] = None
+    financial_statements: Optional[bool] = False
+    compliance_certs: Optional[bool] = False
+    security_policy: Optional[bool] = False
     notes: Optional[str]
     created_at: datetime
     approved_at: Optional[datetime]
@@ -5876,14 +5877,10 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         if vendor.website_url and not vendor_data.get('website'):
             vendor_data['website'] = vendor.website_url
 
-        # Generate vendor ID
-        count = db.query(Vendor).count()
-        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-
-        print(f"Generated vendor_id: {vendor_id}")
+        # vendor_id is auto-computed from id in the database
+        # No need to generate it manually
 
         db_vendor = Vendor(
-            vendor_id=vendor_id,
             **vendor_data
         )
         db.add(db_vendor)
@@ -6147,15 +6144,10 @@ async def create_vendor_public_with_menu(
         vendor_data.pop('scraped_menu_count', None)
         vendor_data.pop('website_url', None)
 
-        # Generate vendor ID
-        count = db.query(Vendor).count()
-        vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-
-        print(f"Generated vendor_id: {vendor_id}")
+        # vendor_id is auto-computed from id in the database
 
         # Create vendor with menu file reference
         db_vendor = Vendor(
-            vendor_id=vendor_id,
             company_name=vendor_data.get('company_name'),
             restaurant_name=vendor_data.get('restaurant_name'),
             cuisine_type=vendor_data.get('cuisine_type'),
@@ -6249,14 +6241,13 @@ async def create_vendor_public_with_menu(
 @app.post("/api/vendors", response_model=VendorResponse)
 def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from models import Vendor
-    
-    # Generate vendor ID
-    count = db.query(Vendor).count()
-    vendor_id = f"VEN-{datetime.now().year}{datetime.now().month:02d}-{count + 1:04d}"
-    
+
+    # vendor_id is auto-computed from id in the database
+    # Exclude password and menu_items from vendor data
+    vendor_data = vendor.dict(exclude={'password', 'menu_items', 'scraped_menu_count', 'website_url'})
+
     db_vendor = Vendor(
-        vendor_id=vendor_id,
-        **vendor.dict()
+        **vendor_data
     )
     db.add(db_vendor)
     db.commit()
@@ -6314,31 +6305,59 @@ def get_published_vendors(
     total = query.count()
     vendors = query.order_by(Vendor.restaurant_name).offset(offset).limit(limit).all()
 
+    # Format restaurants to match iOS/Android expected response structure
+    restaurants = [
+        {
+            "id": v.id,
+            "vendor_id": str(v.id),
+            "name": v.restaurant_name or v.company_name,
+            "restaurant_name": v.restaurant_name or v.company_name,
+            "cuisine_type": v.cuisine_type,
+            "address": f"{v.street}, {v.city}, {v.state} {v.zip_code}" if v.street else "",
+            "street": v.street,
+            "city": v.city,
+            "state": v.state,
+            "zip_code": v.zip_code,
+            "latitude": v.latitude,
+            "longitude": v.longitude,
+            "location": {
+                "latitude": v.latitude or 0,
+                "longitude": v.longitude or 0
+            },
+            "contact": {
+                "phone": v.contact_phone,
+                "email": v.contact_email
+            },
+            "delivery_available": v.delivery_available if v.delivery_available is not None else True,
+            "pickup_available": v.pickup_available if v.pickup_available is not None else True,
+            "average_prep_time": v.average_prep_time or 25,
+            "rating": v.performance_score or 4.5,
+            "is_open": True,
+            "is_active": True,
+            "delivery_time": f"{v.average_prep_time or 25}-{(v.average_prep_time or 25) + 15} min",
+            "delivery_fee": 2.99,
+            "performance_score": v.performance_score,
+            "published_at": v.published_at.isoformat() if v.published_at else None,
+            "published_platforms": v.published_platforms
+        }
+        for v in vendors
+    ]
+
     return {
+        # iOS compatibility
+        "success": True,
+        "count": total,
+        # Android compatibility
         "total": total,
+        "message": None,
+        # Pagination
         "limit": limit,
         "offset": offset,
         "platform": platform,
-        "vendors": [
-            {
-                "id": v.id,
-                "restaurant_name": v.restaurant_name or v.company_name,
-                "cuisine_type": v.cuisine_type,
-                "street": v.street,
-                "city": v.city,
-                "state": v.state,
-                "zip_code": v.zip_code,
-                "latitude": v.latitude,
-                "longitude": v.longitude,
-                "delivery_available": v.delivery_available,
-                "pickup_available": v.pickup_available,
-                "average_prep_time": v.average_prep_time,
-                "performance_score": v.performance_score,
-                "published_at": v.published_at.isoformat() if v.published_at else None,
-                "published_platforms": v.published_platforms
-            }
-            for v in vendors
-        ]
+        # Both iOS and Android expect "restaurants" key
+        "restaurants": restaurants,
+        # Also keep "vendors" for backward compatibility with admin portal
+        "vendors": restaurants
     }
 
 
@@ -6631,8 +6650,9 @@ def get_vendor_documents(
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Check authorization
-    if current_user.role != "admin" and current_user.vendor_id != vendor_id:
+    # Check authorization - compare against UserRole enum
+    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
+    if not is_admin and current_user.vendor_id != vendor_id:
         raise HTTPException(status_code=403, detail="Not authorized to view these documents")
 
     documents = []
@@ -6683,8 +6703,9 @@ async def upload_vendor_document(
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Check authorization
-    if current_user.role != "admin" and current_user.vendor_id != vendor_id:
+    # Check authorization - compare against UserRole enum
+    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
+    if not is_admin and current_user.vendor_id != vendor_id:
         raise HTTPException(status_code=403, detail="Not authorized to upload documents")
 
     # Create uploads directory if it doesn't exist
@@ -6740,8 +6761,9 @@ def delete_vendor_document(
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Check authorization
-    if current_user.role != "admin" and current_user.vendor_id != vendor_id:
+    # Check authorization - compare against UserRole enum
+    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
+    if not is_admin and current_user.vendor_id != vendor_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete documents")
 
     # For now, just mark as deleted by clearing the URL
