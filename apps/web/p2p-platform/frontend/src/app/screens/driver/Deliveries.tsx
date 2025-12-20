@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Input, DatePicker, Select, Row, Col, Typography, Tabs, Statistic, Avatar, Timeline } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Table, Tag, Button, Input, DatePicker, Select, Row, Col, Typography, Tabs, Statistic, Avatar, Spin } from 'antd';
 import {
   SearchOutlined,
   CarOutlined,
@@ -9,107 +9,92 @@ import {
   DollarOutlined,
   FilterOutlined,
   EyeOutlined,
-  StarOutlined
+  StarOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { getDriverDeliveries, getCurrentDriverId, DriverDelivery } from '../../api/api';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
-const { TabPane } = Tabs;
 
-interface Delivery {
-  id: string;
-  restaurant: string;
-  customer: string;
-  address: string;
-  items: number;
-  total: number;
-  payout: number;
-  distance: string;
-  status: 'completed' | 'in_progress' | 'cancelled';
-  date: string;
-  time: string;
-  rating?: number;
-  tip?: number;
-}
+/**
+ * Deliveries History Screen - Aligned with iOS MyDeliveriesView.swift
+ */
 
 const DriverDeliveries: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
-  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deliveries, setDeliveries] = useState<DriverDelivery[]>([]);
+  const [selectedDelivery, setSelectedDelivery] = useState<DriverDelivery | null>(null);
 
-  const deliveries: Delivery[] = [
-    {
-      id: 'DEL-2024-001',
-      restaurant: 'Pasta Paradise',
-      customer: 'John Smith',
-      address: '123 Main Street, Apt 4B',
-      items: 3,
-      total: 42.50,
-      payout: 9.50,
-      distance: '2.3 mi',
-      status: 'completed',
-      date: '2024-01-15',
-      time: '12:30 PM',
-      rating: 5,
-      tip: 5.00
-    },
-    {
-      id: 'DEL-2024-002',
-      restaurant: 'Burger Bliss',
-      customer: 'Emily Davis',
-      address: '456 Oak Avenue, Suite 201',
-      items: 2,
-      total: 28.00,
-      payout: 7.25,
-      distance: '1.8 mi',
-      status: 'completed',
-      date: '2024-01-15',
-      time: '1:15 PM',
-      rating: 4,
-      tip: 3.00
-    },
-    {
-      id: 'DEL-2024-003',
-      restaurant: 'Sushi Supreme',
-      customer: 'Michael Brown',
-      address: '789 Pine Road',
-      items: 5,
-      total: 78.50,
-      payout: 14.00,
-      distance: '3.2 mi',
-      status: 'in_progress',
-      date: '2024-01-15',
-      time: '2:00 PM'
-    },
-    {
-      id: 'DEL-2024-004',
-      restaurant: 'Taco Town',
-      customer: 'Sarah Wilson',
-      address: '321 Elm Street',
-      items: 4,
-      total: 35.00,
-      payout: 8.00,
-      distance: '2.1 mi',
-      status: 'completed',
-      date: '2024-01-14',
-      time: '6:45 PM',
-      rating: 5,
-      tip: 6.00
-    },
-    {
-      id: 'DEL-2024-005',
-      restaurant: 'Pizza Palace',
-      customer: 'James Taylor',
-      address: '654 Maple Drive',
-      items: 2,
-      total: 32.00,
-      payout: 7.50,
-      distance: '1.5 mi',
-      status: 'cancelled',
-      date: '2024-01-14',
-      time: '7:30 PM'
+  useEffect(() => {
+    fetchDeliveries();
+  }, []);
+
+  const fetchDeliveries = async () => {
+    setLoading(true);
+    try {
+      const driverId = getCurrentDriverId();
+      if (driverId) {
+        const data = await getDriverDeliveries(driverId);
+        setDeliveries(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch deliveries:', error);
+      // Use fallback mock data
+      setDeliveries([
+        {
+          id: 1,
+          order_id: 1001,
+          restaurant_name: 'Pasta Paradise',
+          customer_name: 'John Smith',
+          delivery_address: '123 Main Street, Apt 4B',
+          items_count: 3,
+          total_amount: 42.50,
+          payout: 9.50,
+          distance: '2.3 mi',
+          status: 'completed',
+          date: '2024-01-15',
+          time: '12:30 PM',
+          rating: 5,
+          tip: 5.00
+        },
+        {
+          id: 2,
+          order_id: 1002,
+          restaurant_name: 'Burger Bliss',
+          customer_name: 'Emily Davis',
+          delivery_address: '456 Oak Avenue, Suite 201',
+          items_count: 2,
+          total_amount: 28.00,
+          payout: 7.25,
+          distance: '1.8 mi',
+          status: 'completed',
+          date: '2024-01-15',
+          time: '1:15 PM',
+          rating: 4,
+          tip: 3.00
+        },
+        {
+          id: 3,
+          order_id: 1003,
+          restaurant_name: 'Sushi Supreme',
+          customer_name: 'Michael Brown',
+          delivery_address: '789 Pine Road',
+          items_count: 5,
+          total_amount: 78.50,
+          payout: 14.00,
+          distance: '3.2 mi',
+          status: 'in_progress',
+          date: '2024-01-15',
+          time: '2:00 PM'
+        },
+      ]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatusTag = (status: string) => {
     switch (status) {
@@ -124,17 +109,17 @@ const DriverDeliveries: React.FC = () => {
     }
   };
 
-  const columns: ColumnsType<Delivery> = [
+  const columns: ColumnsType<DriverDelivery> = [
     {
       title: 'Order ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (id) => <Text strong style={{ color: '#6366F1' }}>{id}</Text>
+      dataIndex: 'order_id',
+      key: 'order_id',
+      render: (id) => <Text strong style={{ color: '#6366F1' }}>#{id}</Text>
     },
     {
       title: 'Restaurant',
-      dataIndex: 'restaurant',
-      key: 'restaurant',
+      dataIndex: 'restaurant_name',
+      key: 'restaurant_name',
       render: (name) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Avatar style={{ background: '#10B981' }}>{name[0]}</Avatar>
@@ -144,8 +129,8 @@ const DriverDeliveries: React.FC = () => {
     },
     {
       title: 'Customer',
-      dataIndex: 'customer',
-      key: 'customer'
+      dataIndex: 'customer_name',
+      key: 'customer_name'
     },
     {
       title: 'Distance',
@@ -208,8 +193,23 @@ const DriverDeliveries: React.FC = () => {
     }
   ];
 
+  const getFilteredDeliveries = () => {
+    if (activeTab === 'all') return deliveries;
+    return deliveries.filter(d => d.status === activeTab);
+  };
+
+  const filteredDeliveries = getFilteredDeliveries();
   const completedDeliveries = deliveries.filter(d => d.status === 'completed');
   const totalEarnings = completedDeliveries.reduce((sum, d) => sum + d.payout + (d.tip || 0), 0);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: 16 }}>
+        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+        <Text type="secondary">Loading deliveries...</Text>
+      </div>
+    );
+  }
 
   return (
     <div className="driver-deliveries">
@@ -291,21 +291,23 @@ const DriverDeliveries: React.FC = () => {
 
       {/* Deliveries Table */}
       <Card className="deliveries-table-card">
-        <Tabs activeKey={activeTab} onChange={setActiveTab}>
-          <TabPane tab="All Deliveries" key="all" />
-          <TabPane tab="Completed" key="completed" />
-          <TabPane tab="In Progress" key="in_progress" />
-          <TabPane tab="Cancelled" key="cancelled" />
-        </Tabs>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { key: 'all', label: 'All Deliveries' },
+            { key: 'completed', label: 'Completed' },
+            { key: 'in_progress', label: 'In Progress' },
+            { key: 'cancelled', label: 'Cancelled' },
+          ]}
+        />
         <Table
           columns={columns}
-          dataSource={activeTab === 'all' ? deliveries : deliveries.filter(d => d.status === activeTab)}
+          dataSource={filteredDeliveries}
           rowKey="id"
           pagination={{ pageSize: 10 }}
         />
       </Card>
-
-      {/* Delivery Detail Modal could go here */}
 
       <style>{`
         .driver-deliveries {

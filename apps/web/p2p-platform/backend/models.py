@@ -236,6 +236,23 @@ class Vendor(Base):
     published_at = Column(DateTime)  # When vendor was published to platforms
     published_platforms = Column(Text)  # JSON array: ["ios", "android", "web"]
 
+    # Online/Offline Status (for accepting orders)
+    is_online = Column(Boolean, default=False)  # True when restaurant is accepting orders
+    went_online_at = Column(DateTime)  # When vendor last went online
+    went_offline_at = Column(DateTime)  # When vendor last went offline
+
+    # Admin Approval Fields
+    approved_by = Column(Integer)  # Admin user ID who approved the vendor
+
+    # Menu Verification (admin must verify menu before go-live)
+    menu_verified = Column(Boolean, default=False)  # True when admin verified menu
+    menu_verified_at = Column(DateTime)  # When menu was verified
+    menu_verified_by = Column(Integer)  # Admin user ID who verified menu
+
+    # Payment/Stripe Integration
+    stripe_account_id = Column(String(255))  # Stripe Connect account ID
+    stripe_onboarding_complete = Column(Boolean, default=False)  # True when can receive payouts
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")
@@ -293,10 +310,19 @@ class VendorMenuItem(Base):
     # Format: [{"name": "Spice Level", "type": "single", "required": true, "options": [{"name": "Mild", "price": 0}, ...]}]
     customizations = Column(JSON, default=list)
 
+    # Admin Review/Approval Fields
+    # review_status: 'pending', 'approved', 'rejected', 'flagged'
+    review_status = Column(String(50), default='pending')
+    needs_review = Column(Boolean, default=True)  # New items need review by default
+    admin_notes = Column(Text)  # Admin can leave notes for vendor
+    reviewed_at = Column(DateTime)  # When admin reviewed
+    reviewed_by = Column(Integer)  # Admin user ID who reviewed (optional FK)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     vendor = relationship("Vendor", back_populates="menu_items")
+
 
 class OrderStatus(enum.Enum):
     PENDING_PAYMENT = "pending_payment"
@@ -578,7 +604,7 @@ class Driver(Base):
     date_of_birth = Column(String(20))  # YYYY-MM-DD format
     license_number = Column(String(50))  # Driver's license number
 
-    # Address
+    # Address (NOTE: Currently unused - reserved for future address-based features)
     street = Column(Text)
     city = Column(String(100))
     state = Column(String(100))
@@ -611,17 +637,20 @@ class Driver(Base):
     current_latitude = Column(Float)
     current_longitude = Column(Float)
     is_online = Column(Boolean, default=False)
-    last_location_update = Column(DateTime)
-    location_updated_at = Column(DateTime)  # Last GPS update
+    # NOTE: last_location_update and location_updated_at serve same purpose - consolidate to location_updated_at
+    last_location_update = Column(DateTime)  # Used by main_new.py - DEPRECATED, use location_updated_at
+    location_updated_at = Column(DateTime)   # Used by order_flow.py - PRIMARY field for GPS updates
     went_online_at = Column(DateTime)  # When driver came online
     went_offline_at = Column(DateTime)  # When driver went offline
 
-    # Mobile App
+    # Mobile App & Push Notifications
+    # NOTE: device_id is unused - consider removal in future migration
     device_id = Column(String(255))
-    push_token = Column(String(500))
-    platform = Column(String(20))  # 'ios' or 'android'
-    fcm_token = Column(String(500))  # FCM token for push notifications
-    device_type = Column(String(20))  # ios, android, web
+    # NOTE: push_token and fcm_token overlap - push_token for APNS/generic, fcm_token for Firebase
+    push_token = Column(String(500))   # Generic push token (used by register_push_token)
+    platform = Column(String(20))       # 'ios' or 'android' (set during push registration)
+    fcm_token = Column(String(500))     # Firebase Cloud Messaging token (used for order dispatch)
+    device_type = Column(String(20))    # ios, android, web (set during FCM registration)
     fcm_token_updated_at = Column(DateTime)
     photo_url = Column(String(500))  # Driver photo
 
@@ -632,9 +661,10 @@ class Driver(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # NOTE: approved_at should be set when driver status changes to APPROVED - currently unused
     approved_at = Column(DateTime)
 
-    # Document Verification (Third-Party Integration)
+    # Document Verification (Third-Party Integration - Persona/Onfido)
     verification_id = Column(String(255))  # Persona/Onfido inquiry ID
     verification_status = Column(String(50), default="not_started")  # pending, verified, rejected, needs_review
     documents_verified = Column(Boolean, default=False)

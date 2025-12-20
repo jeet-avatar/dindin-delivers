@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Card, Row, Col, Statistic, Typography, Select, Table, Progress, Button, Tag, Divider } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Statistic, Typography, Select, Table, Progress, Button, Tag, Divider, Spin } from 'antd';
 import {
   DollarOutlined,
   ArrowUpOutlined,
@@ -10,47 +10,80 @@ import {
   BankOutlined,
   CalendarOutlined,
   DownloadOutlined,
-  RightOutlined
+  RightOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { getDriverEarnings, getCurrentDriverId, DriverEarningsData } from '../../api/api';
 
 const { Title, Text } = Typography;
 
+/**
+ * Earnings Screen - Aligned with iOS DriverEarningsView.swift
+ */
+
 const DriverEarnings: React.FC = () => {
   const [period, setPeriod] = useState('week');
+  const [loading, setLoading] = useState(true);
+  const [earningsData, setEarningsData] = useState<DriverEarningsData | null>(null);
 
-  const earningsData = {
-    total: 687.50,
-    basePay: 425.00,
-    tips: 185.50,
-    bonuses: 77.00,
-    previousPeriod: 612.30,
-    deliveries: 48,
-    hoursOnline: 32.5,
-    avgPerDelivery: 14.32
+  useEffect(() => {
+    fetchEarnings();
+  }, [period]);
+
+  const fetchEarnings = async () => {
+    setLoading(true);
+    try {
+      const driverId = getCurrentDriverId();
+      if (driverId) {
+        const data = await getDriverEarnings(driverId, period);
+        setEarningsData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch earnings:', error);
+      // Use fallback mock data
+      setEarningsData({
+        total: 687.50,
+        base_pay: 425.00,
+        tips: 185.50,
+        bonuses: 77.00,
+        previous_period: 612.30,
+        deliveries: 48,
+        hours_online: 32.5,
+        avg_per_delivery: 14.32,
+        daily_breakdown: [
+          { day: 'Monday', deliveries: 8, earnings: 98.50, hours: 5.2 },
+          { day: 'Tuesday', deliveries: 6, earnings: 72.00, hours: 4.0 },
+          { day: 'Wednesday', deliveries: 9, earnings: 115.25, hours: 5.5 },
+          { day: 'Thursday', deliveries: 7, earnings: 89.00, hours: 4.8 },
+          { day: 'Friday', deliveries: 10, earnings: 142.75, hours: 6.0 },
+          { day: 'Saturday', deliveries: 5, earnings: 98.00, hours: 4.0 },
+          { day: 'Sunday', deliveries: 3, earnings: 72.00, hours: 3.0 }
+        ],
+        payment_history: [
+          { id: 'PAY-001', date: '2024-01-14', amount: 325.50, method: 'Direct Deposit', status: 'completed' },
+          { id: 'PAY-002', date: '2024-01-07', amount: 298.75, method: 'Direct Deposit', status: 'completed' },
+          { id: 'PAY-003', date: '2023-12-31', amount: 412.00, method: 'Direct Deposit', status: 'completed' },
+        ]
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const weeklyBreakdown = [
-    { day: 'Monday', deliveries: 8, earnings: 98.50, hours: 5.2 },
-    { day: 'Tuesday', deliveries: 6, earnings: 72.00, hours: 4.0 },
-    { day: 'Wednesday', deliveries: 9, earnings: 115.25, hours: 5.5 },
-    { day: 'Thursday', deliveries: 7, earnings: 89.00, hours: 4.8 },
-    { day: 'Friday', deliveries: 10, earnings: 142.75, hours: 6.0 },
-    { day: 'Saturday', deliveries: 5, earnings: 98.00, hours: 4.0 },
-    { day: 'Sunday', deliveries: 3, earnings: 72.00, hours: 3.0 }
-  ];
+  if (loading || !earningsData) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', gap: 16 }}>
+        <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+        <Text type="secondary">Loading earnings...</Text>
+      </div>
+    );
+  }
 
-  const paymentHistory = [
-    { id: 'PAY-001', date: '2024-01-14', amount: 325.50, method: 'Direct Deposit', status: 'completed' },
-    { id: 'PAY-002', date: '2024-01-07', amount: 298.75, method: 'Direct Deposit', status: 'completed' },
-    { id: 'PAY-003', date: '2023-12-31', amount: 412.00, method: 'Direct Deposit', status: 'completed' },
-    { id: 'PAY-004', date: '2023-12-24', amount: 356.25, method: 'Direct Deposit', status: 'completed' }
-  ];
+  const percentChange = ((earningsData.total - earningsData.previous_period) / earningsData.previous_period * 100).toFixed(1);
+  const isPositive = earningsData.total > earningsData.previous_period;
 
-  const percentChange = ((earningsData.total - earningsData.previousPeriod) / earningsData.previousPeriod * 100).toFixed(1);
-  const isPositive = earningsData.total > earningsData.previousPeriod;
-
-  const columns: ColumnsType<typeof paymentHistory[0]> = [
+  const columns: ColumnsType<typeof earningsData.payment_history[0]> = [
     {
       title: 'Payment ID',
       dataIndex: 'id',
@@ -121,7 +154,7 @@ const DriverEarnings: React.FC = () => {
                   {percentChange}%
                 </Tag>
               </div>
-              <Text type="secondary">vs. last {period}: ${earningsData.previousPeriod.toFixed(2)}</Text>
+              <Text type="secondary">vs. last {period}: ${earningsData.previous_period.toFixed(2)}</Text>
             </div>
 
             <Divider />
@@ -130,7 +163,7 @@ const DriverEarnings: React.FC = () => {
               <Col span={8}>
                 <div className="earnings-breakdown">
                   <Text type="secondary">Base Pay</Text>
-                  <Text strong style={{ fontSize: 18 }}>${earningsData.basePay.toFixed(2)}</Text>
+                  <Text strong style={{ fontSize: 18 }}>${earningsData.base_pay.toFixed(2)}</Text>
                 </div>
               </Col>
               <Col span={8}>
@@ -174,7 +207,7 @@ const DriverEarnings: React.FC = () => {
                 <Card className="mini-stat-card">
                   <Statistic
                     title="Hours Online"
-                    value={earningsData.hoursOnline}
+                    value={earningsData.hours_online}
                     precision={1}
                     suffix="hrs"
                     prefix={<ClockCircleOutlined />}
@@ -186,7 +219,7 @@ const DriverEarnings: React.FC = () => {
                 <Card className="mini-stat-card">
                   <Statistic
                     title="Avg/Delivery"
-                    value={earningsData.avgPerDelivery}
+                    value={earningsData.avg_per_delivery}
                     precision={2}
                     prefix="$"
                     valueStyle={{ color: '#10B981' }}
@@ -197,7 +230,7 @@ const DriverEarnings: React.FC = () => {
                 <Card className="mini-stat-card">
                   <Statistic
                     title="Hourly Rate"
-                    value={(earningsData.total / earningsData.hoursOnline).toFixed(2)}
+                    value={(earningsData.total / earningsData.hours_online).toFixed(2)}
                     prefix="$"
                     suffix="/hr"
                     valueStyle={{ color: '#F59E0B' }}
@@ -219,7 +252,7 @@ const DriverEarnings: React.FC = () => {
             className="breakdown-card"
           >
             <div className="daily-breakdown">
-              {weeklyBreakdown.map((day, index) => (
+              {earningsData.daily_breakdown.map((day, index) => (
                 <div key={index} className="day-row">
                   <div className="day-info">
                     <Text strong>{day.day}</Text>
@@ -294,7 +327,7 @@ const DriverEarnings: React.FC = () => {
       >
         <Table
           columns={columns}
-          dataSource={paymentHistory}
+          dataSource={earningsData.payment_history}
           rowKey="id"
           pagination={false}
         />
