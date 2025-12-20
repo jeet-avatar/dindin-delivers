@@ -1184,6 +1184,71 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Public vendor registration with full form data (matching Web 4-step form)
+    /// Used by RestaurantRegistrationView for complete vendor onboarding
+    public func vendorPublicRegister(
+        data: [String: Any],
+        completion: @escaping (Result<P2PVendorRegistrationResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/public") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: data)
+        } catch {
+            completion(.failure(P2PAPIError.encodingFailed))
+            return
+        }
+
+        isLoading = true
+        self.error = nil
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for error response
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Registration failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let registrationResponse = try JSONDecoder().decode(P2PVendorRegistrationResponse.self, from: data)
+                    // Store vendor info for later use
+                    UserDefaults.standard.set(registrationResponse.id, forKey: UserDefaultsKey.vendorId)
+                    UserDefaults.standard.set(registrationResponse.restaurantName, forKey: UserDefaultsKey.vendorName)
+                    UserDefaults.standard.set(registrationResponse.contactEmail, forKey: UserDefaultsKey.vendorEmail)
+                    completion(.success(registrationResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Google OAuth login/registration for vendors
     /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
     public func vendorGoogleAuth(
@@ -5028,6 +5093,26 @@ public struct P2PUser: Codable {
 
 public struct P2PErrorResponse: Codable {
     public let detail: String
+}
+
+/// Response from /api/vendors/public registration endpoint
+/// Matches Android VendorRegistrationResponse and backend VendorResponse
+public struct P2PVendorRegistrationResponse: Codable {
+    public let id: Int
+    public let vendorId: Int  // Changed to Int to match backend and Android
+    public let restaurantName: String
+    public let contactEmail: String
+    public let status: String
+    public let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case vendorId = "vendor_id"
+        case restaurantName = "restaurant_name"
+        case contactEmail = "contact_email"
+        case status
+        case message
+    }
 }
 
 // MARK: - Error Types

@@ -5936,7 +5936,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
                 to_email=vendor.contact_email,
                 restaurant_name=vendor.restaurant_name or vendor.company_name or "Your Restaurant",
                 contact_name=vendor.contact_name or "Partner",
-                vendor_id=vendor_id
+                vendor_id=db_vendor.id  # Fixed: use db_vendor.id instead of undefined vendor_id
             )
             print(f"📧 Registration confirmation email sent to: {vendor.contact_email}")
         except Exception as e:
