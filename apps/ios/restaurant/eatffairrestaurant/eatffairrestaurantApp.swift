@@ -43,12 +43,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - Push Notification Setup
 
     private func setupPushNotifications(_ application: UIApplication) {
-        // Set delegates
+        // Set delegates only - do NOT request authorization here
+        // Permission should be requested after user logs in (just-in-time)
+        // This follows Apple's guidelines for App Store approval
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
-
-        // Request authorization
-        NotificationManager.shared.requestAuthorization { _ in }
     }
 
     // MARK: - Remote Notification Registration

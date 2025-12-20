@@ -38,7 +38,9 @@ class AddressSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleter
     }
     
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        #if DEBUG
         print("Address search failed: \(error.localizedDescription)")
+        #endif
     }
     
     func selectAddress(_ completion: MKLocalSearchCompletion, completionHandler: @escaping (String, String, String, String, CLLocationCoordinate2D?) -> Void) {

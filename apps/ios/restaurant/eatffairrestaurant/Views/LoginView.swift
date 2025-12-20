@@ -320,7 +320,9 @@ struct LoginView: View {
                 isLoading = false
                 switch result {
                 case .success(let response):
+                    #if DEBUG
                     print("P2P Login successful: \(response.user.fullName)")
+                    #endif
                     isLoggedIn = true
                 case .failure(let error):
                     // Show user-friendly error message
@@ -425,7 +427,9 @@ struct LoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success(let response):
+                        #if DEBUG
                         print("Google Sign-In: Vendor auth successful - \(response.user.fullName)")
+                        #endif
                         self.isLoggedIn = true
                     case .failure(let error):
                         if let apiError = error as? P2PAPIError {
@@ -790,7 +794,9 @@ struct SignUpView: View {
                 isLoading = false
                 switch result {
                 case .success(let response):
+                    #if DEBUG
                     print("Registration successful: \(response.user.fullName)")
+                    #endif
                     isPresented = false
                     isLoggedIn = true
                 case .failure(let error):
