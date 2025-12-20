@@ -8,6 +8,8 @@ import NetsuiteDashboard from './app/screens/netsuiteDashboard/Main';
 import JiraDashboard from './app/screens/jiraDashboard/Main';
 import ZipDashboard from './app/screens/zipDashboard/Main';
 import VendorManagement from './app/screens/vendorManagement/Main';
+import DocumentReview from './app/screens/vendorManagement/DocumentReview';
+import MenuReview from './app/screens/vendorManagement/MenuReview';
 import Transactions from './app/screens/transactions/Main';
 import Invoices from './app/screens/invoices/Invoices';
 import Clients from './app/screens/clients/Clients';
@@ -53,6 +55,8 @@ function App() {
           <Route path="jira-dashboard" element={<JiraDashboard />} />
           <Route path="zip-dashboard" element={<ZipDashboard />} />
           <Route path="vendor-management" element={<VendorManagement />} />
+          <Route path="document-review" element={<DocumentReview />} />
+          <Route path="menu-review" element={<MenuReview />} />
           <Route path="transactions/*" element={<Transactions />} />
           <Route path="orders" element={<Orders />} />
           <Route path="accounting/vendor-payouts" element={<VendorPayouts />} />

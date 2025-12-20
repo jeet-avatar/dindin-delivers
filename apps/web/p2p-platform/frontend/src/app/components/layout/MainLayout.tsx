@@ -13,7 +13,10 @@ import {
   GitBranch,
   FileSpreadsheet,
   Wallet,
-  Building2
+  Building2,
+  ClipboardCheck,
+  Utensils,
+  FileCheck
 } from 'lucide-react';
 import Bridge from '../../constants/Bridge';
 import { useUser } from '../../context/UserContext';
@@ -54,7 +57,16 @@ const MainLayout: React.FC = () => {
     { name: 'NetSuite Dashboard', href: '/netsuite-dashboard', icon: Building2 },
     { name: 'JIRA Dashboard', href: '/jira-dashboard', icon: GitPullRequest },
     { name: 'Vendor Approval (ZIP)', href: '/zip-dashboard', icon: Wallet },
-    { name: 'Vendor Management', href: '/vendor-management', icon: User },
+    {
+      name: 'Vendor Management',
+      href: '/vendor-management',
+      icon: User,
+      children: [
+        { name: 'All Vendors', href: '/vendor-management', icon: User },
+        { name: 'Document Review', href: '/document-review', icon: FileCheck },
+        { name: 'Menu Review', href: '/menu-review', icon: Utensils },
+      ],
+    },
     {
       name: 'Transactions',
       href: '/transactions',
