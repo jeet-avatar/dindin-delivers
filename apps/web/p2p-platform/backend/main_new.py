@@ -6799,14 +6799,251 @@ def update_vendor_documents(
 @app.delete("/api/vendors/{vendor_id}")
 def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from models import Vendor
-    
+
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-    
+
     db.delete(vendor)
     db.commit()
     return {"message": "Vendor deleted successfully"}
+
+# ============================================================================
+# ADMIN DOCUMENT REVIEW ENDPOINTS
+# ============================================================================
+
+class AdminDocumentReviewRequest(BaseModel):
+    admin_notes: Optional[str] = None
+
+@app.post("/api/admin/vendors/{vendor_id}/documents/{document_type}/approve")
+def admin_approve_document(
+    vendor_id: int,
+    document_type: str,
+    request: AdminDocumentReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to approve a vendor document."""
+    from models import Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Map document type to model field
+    doc_field_map = {
+        "w9_form": "w9_form",
+        "health_permit": "health_permit",
+        "food_license": "food_license",
+        "food_handler": "food_license",
+        "insurance": "insurance",
+        "liability_insurance": "insurance",
+        "business_license": "w9_form",  # maps to W9 for now
+    }
+
+    field_name = doc_field_map.get(document_type)
+    if field_name and hasattr(vendor, field_name):
+        setattr(vendor, field_name, True)
+        vendor.last_activity = datetime.now()
+
+        # Check if all documents are now approved
+        all_docs = vendor.w9_form and vendor.health_permit and vendor.food_license and vendor.insurance
+        if all_docs:
+            vendor.documents_verified = True
+            vendor.documents_verified_at = datetime.now()
+
+        db.commit()
+
+    return {
+        "message": f"Document {document_type} approved for vendor {vendor_id}",
+        "admin_notes": request.admin_notes,
+        "reviewed_at": datetime.now().isoformat()
+    }
+
+@app.post("/api/admin/vendors/{vendor_id}/documents/{document_type}/reject")
+def admin_reject_document(
+    vendor_id: int,
+    document_type: str,
+    request: AdminDocumentReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to reject a vendor document."""
+    from models import Vendor
+
+    if not request.admin_notes:
+        raise HTTPException(status_code=400, detail="Admin notes required for rejection")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Map document type to model field
+    doc_field_map = {
+        "w9_form": "w9_form",
+        "health_permit": "health_permit",
+        "food_license": "food_license",
+        "food_handler": "food_license",
+        "insurance": "insurance",
+        "liability_insurance": "insurance",
+        "business_license": "w9_form",
+    }
+
+    field_name = doc_field_map.get(document_type)
+    if field_name and hasattr(vendor, field_name):
+        setattr(vendor, field_name, False)
+        vendor.last_activity = datetime.now()
+        vendor.documents_verified = False
+        db.commit()
+
+    return {
+        "message": f"Document {document_type} rejected for vendor {vendor_id}",
+        "admin_notes": request.admin_notes,
+        "reviewed_at": datetime.now().isoformat()
+    }
+
+# ============================================================================
+# ADMIN MENU REVIEW ENDPOINTS
+# ============================================================================
+
+class AdminMenuReviewRequest(BaseModel):
+    admin_notes: Optional[str] = None
+
+@app.post("/api/admin/menu/{item_id}/approve")
+def admin_approve_menu_item(
+    item_id: int,
+    request: AdminMenuReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to approve a menu item."""
+    from models import MenuItem
+
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    # Update item status if the model supports it
+    if hasattr(item, 'status'):
+        item.status = 'approved'
+    if hasattr(item, 'needs_review'):
+        item.needs_review = False
+    if hasattr(item, 'admin_notes'):
+        item.admin_notes = request.admin_notes
+    if hasattr(item, 'reviewed_at'):
+        item.reviewed_at = datetime.now()
+
+    item.is_available = True
+    db.commit()
+
+    return {
+        "message": f"Menu item {item_id} approved",
+        "admin_notes": request.admin_notes,
+        "reviewed_at": datetime.now().isoformat()
+    }
+
+@app.post("/api/admin/menu/{item_id}/reject")
+def admin_reject_menu_item(
+    item_id: int,
+    request: AdminMenuReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to reject a menu item."""
+    from models import MenuItem
+
+    if not request.admin_notes:
+        raise HTTPException(status_code=400, detail="Admin notes required for rejection")
+
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    if hasattr(item, 'status'):
+        item.status = 'rejected'
+    if hasattr(item, 'needs_review'):
+        item.needs_review = False
+    if hasattr(item, 'admin_notes'):
+        item.admin_notes = request.admin_notes
+    if hasattr(item, 'reviewed_at'):
+        item.reviewed_at = datetime.now()
+
+    item.is_available = False
+    db.commit()
+
+    return {
+        "message": f"Menu item {item_id} rejected",
+        "admin_notes": request.admin_notes,
+        "reviewed_at": datetime.now().isoformat()
+    }
+
+@app.post("/api/admin/menu/{item_id}/flag")
+def admin_flag_menu_item(
+    item_id: int,
+    request: AdminMenuReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to flag a menu item for further review."""
+    from models import MenuItem
+
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    if hasattr(item, 'status'):
+        item.status = 'flagged'
+    if hasattr(item, 'needs_review'):
+        item.needs_review = True
+    if hasattr(item, 'admin_notes'):
+        item.admin_notes = request.admin_notes or 'Flagged for review'
+    if hasattr(item, 'reviewed_at'):
+        item.reviewed_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "message": f"Menu item {item_id} flagged for review",
+        "admin_notes": request.admin_notes,
+        "reviewed_at": datetime.now().isoformat()
+    }
+
+@app.get("/api/admin/vendors/all-documents")
+def admin_get_all_vendor_documents(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to get all vendor documents across all vendors."""
+    from models import Vendor
+
+    vendors = db.query(Vendor).all()
+
+    all_documents = []
+    for vendor in vendors:
+        doc_types = [
+            ("w9_form", vendor.w9_form, vendor.w9_form_url),
+            ("health_permit", vendor.health_permit, vendor.health_permit_url),
+            ("food_license", vendor.food_license, vendor.food_license_url),
+            ("insurance", vendor.insurance, vendor.insurance_url),
+        ]
+
+        for doc_type, is_uploaded, url in doc_types:
+            if is_uploaded or url:
+                doc_status = "approved" if is_uploaded else "pending"
+                if status and doc_status != status:
+                    continue
+
+                all_documents.append({
+                    "id": f"{vendor.id}-{doc_type}",
+                    "vendor_id": vendor.id,
+                    "vendor_name": vendor.restaurant_name or vendor.company_name or "Unknown",
+                    "document_type": doc_type,
+                    "file_url": url,
+                    "status": doc_status,
+                    "upload_date": vendor.last_activity.isoformat() if vendor.last_activity else None,
+                })
+
+    return {
+        "documents": all_documents,
+        "total": len(all_documents),
+        "pending": len([d for d in all_documents if d["status"] == "pending"]),
+        "approved": len([d for d in all_documents if d["status"] == "approved"]),
+    }
 
 # ============================================================================
 # DOCUMENT VERIFICATION ENDPOINTS (Third-Party Integration)
