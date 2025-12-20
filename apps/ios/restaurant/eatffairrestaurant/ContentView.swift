@@ -23,8 +23,21 @@ struct ContentView: View {
         .onAppear {
             // Check P2P vendor login (single source of truth)
             if P2PAPIService.shared.currentVendorId != nil {
+                #if DEBUG
                 print("ContentView: Found P2P vendor ID, user is logged in")
+                #endif
                 isLoggedIn = true
+            }
+        }
+        .onChange(of: isLoggedIn) { _, newValue in
+            if newValue {
+                // Request notification permission after login (just-in-time)
+                // This follows Apple's App Store guidelines
+                NotificationManager.shared.requestAuthorization { granted in
+                    #if DEBUG
+                    print("ContentView: Notification permission \(granted ? "granted" : "denied")")
+                    #endif
+                }
             }
         }
     }

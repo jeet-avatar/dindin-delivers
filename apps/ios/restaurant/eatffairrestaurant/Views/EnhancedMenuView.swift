@@ -762,7 +762,9 @@ class MenuViewModel: ObservableObject {
                         // Generate AI suggestion
                         self?.generateMenuSuggestion()
                     case .failure(let error):
+                        #if DEBUG
                         print("Failed to fetch P2P menu: \(error)")
+                        #endif
                         // Fallback to Firebase
                         self?.fetchMenuFromFirebase()
                     }
@@ -970,7 +972,9 @@ class MenuViewModel: ObservableObject {
     private func uploadMenuItemImage(image: UIImage, restaurantId: String, itemId: String? = nil, completion: @escaping (String?) -> Void) {
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            #if DEBUG
             print("Failed to compress image")
+            #endif
             completion(nil)
             return
         }
@@ -989,7 +993,9 @@ class MenuViewModel: ObservableObject {
 
         storageRef.putData(imageData, metadata: metadata) { _, error in
             if let error = error {
+                #if DEBUG
                 print("Image upload failed: \(error.localizedDescription)")
+                #endif
                 completion(nil)
                 return
             }
@@ -997,7 +1003,9 @@ class MenuViewModel: ObservableObject {
             // Get download URL
             storageRef.downloadURL { url, error in
                 if let error = error {
+                    #if DEBUG
                     print("Failed to get download URL: \(error.localizedDescription)")
+                    #endif
                     completion(nil)
                     return
                 }

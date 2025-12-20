@@ -23,7 +23,9 @@ struct PersistenceController {
             try viewContext.save()
         } catch {
             let nsError = error as NSError
+            #if DEBUG
             print("CoreData preview save error: \(nsError), \(nsError.userInfo)")
+            #endif
         }
         return result
     }()
@@ -38,7 +40,9 @@ struct PersistenceController {
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 // Log the error but don't crash - allow app to continue with degraded functionality
+                #if DEBUG
                 print("CoreData persistent store error: \(error), \(error.userInfo)")
+                #endif
             }
         })
         container.viewContext.automaticallyMergesChangesFromParent = true

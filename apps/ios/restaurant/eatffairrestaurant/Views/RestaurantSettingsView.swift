@@ -729,7 +729,9 @@ class SettingsViewModel: ObservableObject {
                     print("Loaded vendor profile from P2P: \(profile.name)")
                     #endif
                 case .failure(let error):
+                    #if DEBUG
                     print("Error: Failed to fetch vendor profile - \(error.localizedDescription)")
+                    #endif
                 }
             }
         }

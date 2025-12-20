@@ -47,10 +47,6 @@
 	<string>Camera access allows you to take photos of menu items and restaurant interior.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access allows you to upload menu item photos and restaurant images.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access enables voice commands for hands-free order management.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Contacts access allows you to quickly call customers and delivery drivers from your contacts.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

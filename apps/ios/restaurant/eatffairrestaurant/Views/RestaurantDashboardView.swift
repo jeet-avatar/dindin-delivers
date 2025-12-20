@@ -8,7 +8,12 @@ import CoreLocation
 struct RestaurantDashboardView: View {
     @State private var isOnline = true
     @State private var selectedTab = 0
-    
+
+    /// Restaurant ID from Firebase Auth - used for API calls
+    private var restaurantId: String {
+        Auth.auth().currentUser?.uid ?? ""
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             OrdersView()
@@ -16,39 +21,38 @@ struct RestaurantDashboardView: View {
                     Label("Orders", systemImage: "list.bullet.clipboard")
                 }
                 .tag(0)
-            
+
             MenuView()
                 .tabItem {
                     Label("Menu", systemImage: "fork.knife")
                 }
                 .tag(1)
-            
-            // NEW: Promotions Tab
-            PromotionsView(restaurantId: Auth.auth().currentUser?.uid ?? "")
+
+            PromotionsView(restaurantId: restaurantId)
                 .tabItem {
                     Label("Promotions", systemImage: "tag.fill")
                 }
                 .tag(2)
-            
+
             DeliveryMapView()
                 .tabItem {
-                    Label("Map", systemImage: "map")
+                    Label("Map", systemImage: "map.fill")
                 }
                 .tag(3)
-            
+
             EarningsView()
                 .tabItem {
                     Label("Earnings", systemImage: "dollarsign.circle")
                 }
                 .tag(4)
-            
+
             ProfileView()
                 .tabItem {
-                    Label("Profile", systemImage: "person.circle")
+                    Label("Profile", systemImage: "person.circle.fill")
                 }
                 .tag(5)
         }
-        .accentColor(.orange) // Using system orange for now
+        .accentColor(.orange)
     }
 }
 
@@ -572,9 +576,10 @@ class EarningsViewModel: ObservableObject {
     }
 }
 struct ProfileView: View {
-    @State private var restaurantName = "My Restaurant"
-    @State private var cuisine = "Indian"
-    
+    @State private var restaurantName = ""
+    @State private var cuisine = ""
+    @State private var isLoading = true
+
     // Detailed Address Fields
     @State private var street = ""
     @State private var unit = ""
@@ -582,8 +587,8 @@ struct ProfileView: View {
     @State private var state = ""
     @State private var zipCode = ""
     @State private var instructions = ""
-    
-    @State private var phoneNumber = "555-0123"
+
+    @State private var phoneNumber = ""
     @State private var isEditing = false
     
     @State private var latitude: Double = 0.0
@@ -602,17 +607,20 @@ struct ProfileView: View {
                         HStack {
                             Text("Name")
                             Spacer()
-                            Text(restaurantName).foregroundColor(.gray)
+                            Text(restaurantName.isEmpty ? "Not set" : restaurantName)
+                                .foregroundColor(restaurantName.isEmpty ? .secondary : .primary)
                         }
                         HStack {
                             Text("Cuisine")
                             Spacer()
-                            Text(cuisine).foregroundColor(.gray)
+                            Text(cuisine.isEmpty ? "Not set" : cuisine)
+                                .foregroundColor(cuisine.isEmpty ? .secondary : .primary)
                         }
                         HStack {
                             Text("Phone")
                             Spacer()
-                            Text(phoneNumber).foregroundColor(.gray)
+                            Text(phoneNumber.isEmpty ? "Not set" : phoneNumber)
+                                .foregroundColor(phoneNumber.isEmpty ? .secondary : .primary)
                         }
                     }
                 }
@@ -705,24 +713,29 @@ struct ProfileView: View {
     }
     
     func fetchProfile() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid else {
+            isLoading = false
+            return
+        }
         let db = Firestore.firestore()
         db.collection("restaurants").document(uid).getDocument { snapshot, error in
+            defer { isLoading = false }
+
             if let data = snapshot?.data() {
-                self.restaurantName = data["name"] as? String ?? "My Restaurant"
-                self.cuisine = data["cuisine"] as? String ?? "Indian"
-                self.phoneNumber = data["phone"] as? String ?? "555-0123"
-                
+                self.restaurantName = data["name"] as? String ?? ""
+                self.cuisine = data["cuisine"] as? String ?? ""
+                self.phoneNumber = data["phone"] as? String ?? ""
+
                 self.street = data["street"] as? String ?? ""
                 self.unit = data["unit"] as? String ?? ""
                 self.city = data["city"] as? String ?? ""
                 self.state = data["state"] as? String ?? ""
                 self.zipCode = data["zipCode"] as? String ?? ""
                 self.instructions = data["instructions"] as? String ?? ""
-                
+
                 self.latitude = data["latitude"] as? Double ?? 0.0
                 self.longitude = data["longitude"] as? Double ?? 0.0
-                
+
                 // Fallback if detailed fields missing but address string exists
                 if self.street.isEmpty, let fullAddress = data["address"] as? String {
                     self.street = fullAddress
@@ -764,7 +777,9 @@ struct ProfileView: View {
                     self.longitude = location.coordinate.longitude
                     saveData(lat: location.coordinate.latitude, long: location.coordinate.longitude)
                 } else {
+                    #if DEBUG
                     print("Geocoding failed: \(error?.localizedDescription ?? "Unknown")")
+                    #endif
                     saveData(lat: 0.0, long: 0.0)
                 }
             }

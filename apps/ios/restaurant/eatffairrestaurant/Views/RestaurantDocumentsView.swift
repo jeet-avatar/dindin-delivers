@@ -489,7 +489,9 @@ class RestaurantDocumentsViewModel: ObservableObject {
 
     func fetchDocuments() {
         guard let vendorId = vendorId else {
+            #if DEBUG
             print("RestaurantDocumentsViewModel: No vendor ID available")
+            #endif
             return
         }
 
@@ -502,10 +504,14 @@ class RestaurantDocumentsViewModel: ObservableObject {
                 switch result {
                 case .success(let docs):
                     self?.documents = docs
+                    #if DEBUG
                     print("RestaurantDocumentsViewModel: Fetched \(docs.count) documents")
+                    #endif
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    #if DEBUG
                     print("RestaurantDocumentsViewModel: Error fetching documents: \(error)")
+                    #endif
                 }
             }
         }
@@ -513,22 +519,30 @@ class RestaurantDocumentsViewModel: ObservableObject {
 
     func uploadDocument(imageData: Data, documentType: String, completion: @escaping (Bool) -> Void) {
         guard let vendorId = vendorId else {
+            #if DEBUG
             print("RestaurantDocumentsViewModel: No vendor ID for upload")
+            #endif
             completion(false)
             return
         }
 
+        #if DEBUG
         print("RestaurantDocumentsViewModel: Uploading \(documentType) for vendor \(vendorId)")
+        #endif
 
         p2pAPI.uploadVendorDocument(vendorId: vendorId, imageData: imageData, documentType: documentType) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let response):
+                    #if DEBUG
                     print("RestaurantDocumentsViewModel: Upload successful - \(response.message)")
+                    #endif
                     self?.fetchDocuments() // Refresh documents list
                     completion(true)
                 case .failure(let error):
+                    #if DEBUG
                     print("RestaurantDocumentsViewModel: Upload failed - \(error)")
+                    #endif
                     self?.errorMessage = error.localizedDescription
                     completion(false)
                 }
@@ -544,7 +558,9 @@ class RestaurantDocumentsViewModel: ObservableObject {
         // This function just refreshes the documents list
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.isSubmitting = false
+            #if DEBUG
             print("RestaurantDocumentsViewModel: Submitted for review")
+            #endif
             self?.fetchDocuments()
         }
     }

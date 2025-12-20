@@ -472,7 +472,9 @@ struct EnhancedOrderCard: View {
 
                 HStack(spacing: 12) {
                     Button {
+                        #if DEBUG
                         print("🟡 Reject button tapped for order \(order.orderId)")
+                        #endif
                         onReject()
                     } label: {
                         HStack {
@@ -490,7 +492,9 @@ struct EnhancedOrderCard: View {
                     .buttonStyle(.borderless)
 
                     Button {
+                        #if DEBUG
                         print("🟡 Accept button tapped for order \(order.orderId)")
+                        #endif
                         onAccept()
                     } label: {
                         HStack {
@@ -512,7 +516,9 @@ struct EnhancedOrderCard: View {
                 Divider()
 
                 Button {
+                    #if DEBUG
                     print("🟡 Mark Ready button tapped for order \(order.orderId)")
+                    #endif
                     onMarkReady()
                 } label: {
                     HStack {
