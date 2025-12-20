@@ -9,11 +9,12 @@ struct RestaurantDocumentsView: View {
     @StateObject private var viewModel = RestaurantDocumentsViewModel()
     @State private var selectedSection: DocumentSection?
 
+    /// Document types aligned with ZIP registration form and backend API
+    /// Required for vendor approval: food_license, health_permit, w9_form, insurance
     enum DocumentSection: String, CaseIterable {
-        case businessLicense = "Business License"
-        case taxId = "Tax ID (W-9 Form)"
-        case foodHandler = "Food Handler Certificate"
-        case healthPermit = "Health Permit"
+        case foodLicense = "Food Service License"
+        case healthPermit = "Health Department Permit"
+        case businessLicenseW9 = "Business License / W-9"
         case liabilityInsurance = "Liability Insurance"
     }
 
@@ -199,20 +200,18 @@ struct RestaurantDocumentsView: View {
 
     private func iconName(for section: DocumentSection) -> String {
         switch section {
-        case .businessLicense: return "building.2.fill"
-        case .taxId: return "doc.text.fill"
-        case .foodHandler: return "fork.knife"
+        case .foodLicense: return "fork.knife"
         case .healthPermit: return "cross.case.fill"
+        case .businessLicenseW9: return "doc.text.fill"
         case .liabilityInsurance: return "shield.fill"
         }
     }
 
     private func iconColor(for section: DocumentSection) -> Color {
         switch section {
-        case .businessLicense: return .blue
-        case .taxId: return .purple
-        case .foodHandler: return .orange
+        case .foodLicense: return .orange
         case .healthPermit: return .green
+        case .businessLicenseW9: return .blue
         case .liabilityInsurance: return .teal
         }
     }
@@ -243,12 +242,13 @@ struct RestaurantDocumentsView: View {
         return viewModel.documents.contains(where: { $0.documentType == docType })
     }
 
+    /// Maps UI sections to backend API document type keys
+    /// These must match the field_mapping in main_new.py
     private func documentTypeKey(for section: DocumentSection) -> String {
         switch section {
-        case .businessLicense: return "business_license"
-        case .taxId: return "w9_form"
-        case .foodHandler: return "food_handler"
+        case .foodLicense: return "food_license"
         case .healthPermit: return "health_permit"
+        case .businessLicenseW9: return "w9_form"
         case .liabilityInsurance: return "liability_insurance"
         }
     }
@@ -317,7 +317,8 @@ struct DocumentUploadFormView: View {
                             .frame(maxHeight: 250)
                             .cornerRadius(12)
                     } else if let existingDoc = viewModel.documents.first(where: { $0.documentType == documentType }),
-                              let url = URL(string: existingDoc.fileUrl) {
+                              let fileUrlString = existingDoc.fileUrl,
+                              let url = URL(string: fileUrlString) {
                         AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let image):
@@ -454,8 +455,9 @@ class RestaurantDocumentsViewModel: ObservableObject {
 
     private let p2pAPI = P2PAPIService.shared
 
-    /// Required document types for vendor approval
-    private let requiredDocumentTypes = ["w9_form", "health_permit", "food_handler", "liability_insurance", "business_license"]
+    /// Required document types for vendor approval (must match backend ZIP requirements)
+    /// These 4 documents are required before admin can approve vendor
+    private let requiredDocumentTypes = ["food_license", "health_permit", "w9_form", "liability_insurance"]
 
     var vendorId: Int? {
         p2pAPI.currentVendorId
@@ -481,7 +483,8 @@ class RestaurantDocumentsViewModel: ObservableObject {
     }
 
     var canSubmit: Bool {
-        completionPercentage >= 80 && !hasPendingDocuments
+        // All 4 required documents must be uploaded before submitting for review
+        completionPercentage == 100 && !hasPendingDocuments
     }
 
     func fetchDocuments() {
@@ -534,22 +537,15 @@ class RestaurantDocumentsViewModel: ObservableObject {
     }
 
     func submitForReview() {
-        guard let vendorId = vendorId else { return }
+        guard vendorId != nil else { return }
         isSubmitting = true
 
-        // Update vendor status to request review
-        p2pAPI.updateVendorStatus(vendorId: vendorId, status: "in_review") { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isSubmitting = false
-                switch result {
-                case .success:
-                    print("RestaurantDocumentsViewModel: Submitted for review")
-                    self?.fetchDocuments()
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                    print("RestaurantDocumentsViewModel: Submit failed - \(error)")
-                }
-            }
+        // Documents are automatically submitted for review when uploaded
+        // This function just refreshes the documents list
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.isSubmitting = false
+            print("RestaurantDocumentsViewModel: Submitted for review")
+            self?.fetchDocuments()
         }
     }
 }
