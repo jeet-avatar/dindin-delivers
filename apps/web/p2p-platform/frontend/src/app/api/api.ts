@@ -11,6 +11,30 @@ const api = axios.create({
 // Export for use in other files
 export const getApiUrl = () => API_BASE_URL;
 
+/**
+ * Get the current vendor/user ID from localStorage.
+ * Returns the ID from the stored user object or null if not authenticated.
+ */
+export const getCurrentVendorId = (): number | null => {
+  try {
+    const userData = globalThis.localStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      // user.id can be string or number depending on auth method
+      if (user.id) {
+        return typeof user.id === 'number' ? user.id : parseInt(user.id, 10);
+      }
+      // Fallback to vendor_id if present
+      if (user.vendor_id) {
+        return typeof user.vendor_id === 'number' ? user.vendor_id : parseInt(user.vendor_id, 10);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to parse user data from localStorage:', error);
+  }
+  return null;
+};
+
 // Add a request interceptor
 api.interceptors.request.use(
   async (config) => {
@@ -405,6 +429,345 @@ export const updateClient = async (clientId: number, clientData: Record<string, 
 
 export const deleteClient = async (clientId: number) => {
   const response = await api.delete(`/clients/${clientId}`);
+  return response.data;
+};
+
+// ============================================================================
+// DRIVER API - Driver Portal Operations
+// ============================================================================
+
+// Driver Types
+export interface DriverProfile {
+  id: number;
+  driver_id: string;  // Driver code (e.g., "DRV-00001")
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  phone_number?: string;  // Alias for phone (iOS compatibility)
+  date_of_birth?: string;
+  license_number?: string;
+  photo_url?: string;
+  rating: number;
+  total_deliveries: number;
+  status: 'pending' | 'approved' | 'active' | 'inactive' | 'suspended';
+  approval_status?: string;  // Alias for status (iOS compatibility)
+  is_online: boolean;
+  // Vehicle info
+  vehicle_type?: string;
+  vehicle_make?: string;
+  vehicle_model?: string;
+  vehicle_year?: number;
+  vehicle_color?: string;
+  license_plate?: string;
+  // Documents
+  drivers_license?: boolean;
+  drivers_license_url?: string;
+  insurance?: boolean;
+  insurance_url?: string;
+  background_check?: boolean;
+  // Location
+  latitude?: number;
+  longitude?: number;
+  // Timestamps
+  created_at?: string;
+  approved_at?: string;
+}
+
+export interface AvailableDelivery {
+  id: number;
+  order_id: number;
+  restaurant_name: string;
+  restaurant_address: string;
+  customer_name: string;
+  delivery_address: string;
+  items_count: number;
+  total_amount: number;
+  delivery_fee: number;
+  tip: number;
+  distance_miles: number;
+  estimated_minutes: number;
+  priority_fee?: number;
+  created_at: string;
+}
+
+export interface ActiveDeliveryData {
+  id: number;
+  order_id: string;  // Order number
+  restaurant_name: string;
+  restaurant_address: string;
+  customer_name: string;
+  customer_phone?: string;
+  delivery_address: string;
+  items_count: number;
+  total_amount?: number;
+  payout: number;
+  distance: string;
+  estimated_time: string;
+  status: 'accepted' | 'picked_up' | 'delivering' | 'delivered';
+  // Location coordinates
+  pickup_latitude?: number;
+  pickup_longitude?: number;
+  dropoff_latitude?: number;
+  dropoff_longitude?: number;
+}
+
+export interface DriverDelivery {
+  id: number;
+  order_id: number;
+  restaurant_name: string;
+  customer_name: string;
+  delivery_address: string;
+  items_count: number;
+  total_amount: number;
+  payout: number;
+  tip?: number;
+  distance: string;
+  status: 'completed' | 'in_progress' | 'cancelled';
+  date: string;
+  time: string;
+  rating?: number;
+}
+
+export interface DriverEarningsData {
+  total: number;
+  base_pay: number;
+  tips: number;
+  bonuses: number;
+  previous_period: number;
+  deliveries: number;
+  hours_online: number;
+  avg_per_delivery: number;
+  daily_breakdown: {
+    day: string;
+    deliveries: number;
+    earnings: number;
+    hours: number;
+  }[];
+  payment_history: {
+    id: string;
+    date: string;
+    amount: number;
+    method: string;
+    status: string;
+  }[];
+}
+
+export interface DriverMessage {
+  id: string;
+  sender_name: string;
+  sender_type: 'customer' | 'support' | 'system';
+  last_message: string;
+  timestamp: string;
+  is_unread: boolean;
+  avatar_initial: string;
+}
+
+export interface DriverDashboardData {
+  driver_name: string;
+  driver_id: number;
+  is_online: boolean;
+  rating: number;
+  active_delivery: ActiveDeliveryData | null;
+  pending_deliveries: AvailableDelivery[];
+  today_stats: {
+    deliveries: number;
+    earnings: number;
+    hours_online: number;
+    acceptance_rate: number;
+  };
+  weekly_stats: {
+    deliveries: { current: number; goal: number };
+    earnings: { current: number; goal: number };
+    hours: { current: number; goal: number };
+  };
+}
+
+// Get driver token from localStorage
+const getDriverToken = (): string | null => {
+  return globalThis.localStorage.getItem('driver_token') || globalThis.localStorage.getItem('access_token');
+};
+
+// Get current driver ID from localStorage
+export const getCurrentDriverId = (): number | null => {
+  try {
+    const userData = globalThis.localStorage.getItem('driver_user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      if (user.id) {
+        return typeof user.id === 'number' ? user.id : parseInt(user.id, 10);
+      }
+      if (user.driver_id) {
+        return typeof user.driver_id === 'number' ? user.driver_id : parseInt(user.driver_id, 10);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to parse driver data from localStorage:', error);
+  }
+  return null;
+};
+
+// Driver Authentication
+export const driverLogin = async (email: string, password: string) => {
+  const formData = new URLSearchParams();
+  formData.append('username', email);
+  formData.append('password', password);
+
+  const response = await api.post('/auth/driver/login', formData, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  });
+  return response.data;
+};
+
+export const driverRegister = async (driverData: {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+}) => {
+  const response = await api.post('/auth/driver/register', driverData);
+  return response.data;
+};
+
+// Driver Dashboard
+export const getDriverDashboard = async (): Promise<DriverDashboardData> => {
+  const token = getDriverToken();
+  const response = await api.get('/driver/dashboard', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Driver Profile
+export const getDriverProfile = async (driverId: number): Promise<DriverProfile> => {
+  const token = getDriverToken();
+  const response = await api.get(`/erp/drivers/${driverId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+export const updateDriverProfile = async (driverId: number, data: Partial<DriverProfile>) => {
+  const token = getDriverToken();
+  const response = await api.put(`/drivers/${driverId}`, data, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+export const updateDriverOnlineStatus = async (isOnline: boolean) => {
+  const token = getDriverToken();
+  const response = await api.put('/auth/driver/online', null, {
+    params: { is_online: isOnline },
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Available Deliveries
+export const getAvailableDeliveries = async (): Promise<AvailableDelivery[]> => {
+  const token = getDriverToken();
+  const response = await api.get('/v2/driver/deliveries/available', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Accept Delivery
+export const acceptDelivery = async (deliveryId: number) => {
+  const token = getDriverToken();
+  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/accept`, null, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Mark Delivery as Picked Up
+export const markDeliveryPickedUp = async (deliveryId: number) => {
+  const token = getDriverToken();
+  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/pickup`, null, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Complete Delivery
+export const completeDelivery = async (deliveryId: number) => {
+  const token = getDriverToken();
+  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/complete`, null, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Get Driver's Deliveries History
+export const getDriverDeliveries = async (driverId: number): Promise<DriverDelivery[]> => {
+  const token = getDriverToken();
+  const response = await api.get(`/erp/driver/${driverId}/deliveries`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Get Active Delivery
+export const getActiveDelivery = async (): Promise<ActiveDeliveryData | null> => {
+  const token = getDriverToken();
+  try {
+    const response = await api.get('/driver/active-delivery', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return response.data;
+  } catch {
+    return null;
+  }
+};
+
+// Driver Earnings
+export const getDriverEarnings = async (driverId: number, period: string = 'week'): Promise<DriverEarningsData> => {
+  const token = getDriverToken();
+  const response = await api.get(`/drivers/${driverId}/earnings`, {
+    params: { period },
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Driver Messages
+export const getDriverMessages = async (): Promise<DriverMessage[]> => {
+  const token = getDriverToken();
+  const response = await api.get('/driver/messages', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Update Driver Location
+export const updateDriverLocation = async (latitude: number, longitude: number) => {
+  const token = getDriverToken();
+  const response = await api.post('/driver/location', { latitude, longitude }, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+// Driver Documents
+export const getDriverDocuments = async (driverId: number) => {
+  const token = getDriverToken();
+  const response = await api.get(`/drivers/${driverId}/documents`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data;
+};
+
+export const uploadDriverDocument = async (driverId: number, formData: FormData) => {
+  const token = getDriverToken();
+  const response = await api.post(`/drivers/${driverId}/documents`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
   return response.data;
 };
 

@@ -670,12 +670,15 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 
 # Vendor Demo Login - for App Store review testing
 class VendorDemoLoginRequest(BaseModel):
-    email_hint: str
+    email_hint: Optional[str] = None
+    email: Optional[str] = None  # Android sends 'email' field
 
 @app.post("/api/auth/vendor/demo-login")
 def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db)):
     """Demo login for vendor - creates or finds demo vendor account for App Store review"""
-    print(f"Vendor demo login attempt with hint: {request.email_hint}")
+    # Accept both email_hint (iOS) and email (Android)
+    hint = request.email_hint or request.email or ""
+    print(f"Vendor demo login attempt with hint: {hint}")
 
     demo_email = "demobusiness@dollor.ai"
     demo_password = "DemoVendor2025!"
@@ -696,8 +699,8 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
             company_name="Demo Restaurant LLC",
             contact_email=demo_email,
             contact_phone="+14155551234",
-            owner_name="Demo Owner",
-            address="123 Demo Street",
+            contact_name="Demo Owner",
+            street="123 Demo Street",
             city="San Francisco",
             state="CA",
             zip_code="94102",
@@ -712,9 +715,9 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         user = User(
             email=demo_email,
             password_hash=hashed_password,
+            full_name="Demo Owner",
             role=UserRole.VENDOR,
             vendor_id=demo_vendor.id,
-            is_active=True,
             created_at=datetime.utcnow()
         )
         db.add(user)
@@ -1478,7 +1481,7 @@ def set_driver_online(is_online: bool, current_user: User = Depends(get_current_
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
     driver.is_online = is_online
-    driver.last_location_update = datetime.utcnow()
+    driver.location_updated_at = datetime.utcnow()
     db.commit()
 
     return {"success": True, "is_online": driver.is_online}
@@ -1499,7 +1502,7 @@ def update_driver_location(latitude: float, longitude: float, current_user: User
 
     driver.current_latitude = latitude
     driver.current_longitude = longitude
-    driver.last_location_update = datetime.utcnow()
+    driver.location_updated_at = datetime.utcnow()
     db.commit()
 
     return {"success": True, "latitude": latitude, "longitude": longitude}
@@ -2635,8 +2638,9 @@ def update_driver_status(
 
     driver.updated_at = datetime.utcnow()
 
-    # If driver is being approved, send approval email
+    # If driver is being approved, set approved_at and send approval email
     if status.upper() in ["APPROVED", "ACTIVE"] and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+        driver.approved_at = datetime.utcnow()
         try:
             send_driver_approval_email(
                 to_email=driver.email,
@@ -3851,7 +3855,7 @@ def get_driver_dashboard(
         "location": {
             "latitude": driver.current_latitude,
             "longitude": driver.current_longitude,
-            "last_update": driver.last_location_update.isoformat() if driver.last_location_update else None
+            "last_update": driver.location_updated_at.isoformat() if driver.location_updated_at else None
         }
     }
 
@@ -5739,7 +5743,7 @@ class MenuItemCreate(BaseModel):
     dietary_info: Optional[List[str]] = []
 
 class VendorCreate(BaseModel):
-    company_name: str
+    company_name: Optional[str] = None  # Optional - restaurants can use restaurant_name instead
     tax_id: Optional[str] = None
     business_type: Optional[str] = None
     industry: Optional[str] = None
@@ -5872,6 +5876,10 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
 
         # Create vendor data dict excluding password and menu_items
         vendor_data = vendor.dict(exclude={'password', 'menu_items', 'scraped_menu_count', 'website_url'})
+
+        # For restaurant applications, use restaurant_name as company_name if not provided
+        if not vendor_data.get('company_name') and vendor_data.get('restaurant_name'):
+            vendor_data['company_name'] = vendor_data['restaurant_name']
 
         # Store website URL in the vendor's website field if not already set
         if vendor.website_url and not vendor_data.get('website'):
@@ -6580,6 +6588,127 @@ def update_vendor_status(
     return db_vendor
 
 
+# Vendor Online/Offline Status (for Restaurant App)
+@app.put("/api/vendors/{vendor_id}/online-status")
+def update_vendor_online_status(
+    vendor_id: int,
+    is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor online/offline status - Called from iOS/Android Restaurant App
+    When online, restaurant is accepting orders. When offline, restaurant is not accepting orders.
+    """
+    from models import Vendor
+
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Check if vendor is approved and published before allowing online status
+    if is_online and db_vendor.onboarding_status != VendorStatus.APPROVED:
+        raise HTTPException(
+            status_code=400,
+            detail="Vendor must be approved before going online"
+        )
+
+    # Update online status
+    db_vendor.is_online = is_online
+
+    # Track when vendor went online/offline
+    if is_online:
+        db_vendor.went_online_at = datetime.now()
+    else:
+        db_vendor.went_offline_at = datetime.now()
+
+    db_vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "is_online": db_vendor.is_online,
+        "went_online_at": db_vendor.went_online_at.isoformat() if db_vendor.went_online_at else None,
+        "went_offline_at": db_vendor.went_offline_at.isoformat() if db_vendor.went_offline_at else None
+    }
+
+
+# Also support the iOS app's expected endpoint format (PUT - what iOS uses)
+@app.put("/api/vendors/{vendor_id}/status")
+def update_vendor_online_status_put(
+    vendor_id: int,
+    is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor online/offline status (PUT variant for iOS compatibility)
+    Called from iOS Restaurant App: PUT /api/vendors/{id}/status?is_online=true
+    """
+    from models import Vendor
+
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if is_online and db_vendor.onboarding_status != VendorStatus.APPROVED:
+        raise HTTPException(
+            status_code=400,
+            detail="Vendor must be approved before going online"
+        )
+
+    db_vendor.is_online = is_online
+    if is_online:
+        db_vendor.went_online_at = datetime.now()
+    else:
+        db_vendor.went_offline_at = datetime.now()
+
+    db_vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "is_online": db_vendor.is_online
+    }
+
+
+# POST variant for compatibility
+@app.post("/api/vendors/{vendor_id}/status")
+def update_vendor_online_status_post(
+    vendor_id: int,
+    is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor online/offline status (POST variant)
+    """
+    from models import Vendor
+
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if is_online and db_vendor.onboarding_status != VendorStatus.APPROVED:
+        raise HTTPException(
+            status_code=400,
+            detail="Vendor must be approved before going online"
+        )
+
+    db_vendor.is_online = is_online
+    if is_online:
+        db_vendor.went_online_at = datetime.now()
+    else:
+        db_vendor.went_offline_at = datetime.now()
+
+    db_vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "is_online": db_vendor.is_online
+    }
+
 
 # Create Vendor User Account (Admin endpoint)
 @app.post("/api/vendors/{vendor_id}/create-account")
@@ -6728,12 +6857,14 @@ async def upload_vendor_document(
         f.write(content)
 
     # Update vendor document fields based on type
+    # Must match the public endpoint field_mapping for consistency
     field_mapping = {
+        'food_license': ('food_license', 'food_license_url'),
+        'food_handler': ('food_license', 'food_license_url'),
+        'health_permit': ('health_permit', 'health_permit_url'),
+        'business_license': ('w9_form', 'w9_form_url'),
         'w9_form': ('w9_form', 'w9_form_url'),
         'liability_insurance': ('insurance', 'insurance_url'),
-        'health_permit': ('health_permit', 'health_permit_url'),
-        'food_handler': ('food_license', 'food_license_url'),
-        'business_license': ('compliance_certs', 'compliance_certs_url'),
     }
 
     if safe_doc_type in field_mapping:
@@ -6914,29 +7045,26 @@ def admin_approve_menu_item(
     db: Session = Depends(get_db)
 ):
     """Admin endpoint to approve a menu item."""
-    from models import MenuItem
+    from models import VendorMenuItem
 
-    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found")
 
-    # Update item status if the model supports it
-    if hasattr(item, 'status'):
-        item.status = 'approved'
-    if hasattr(item, 'needs_review'):
-        item.needs_review = False
-    if hasattr(item, 'admin_notes'):
-        item.admin_notes = request.admin_notes
-    if hasattr(item, 'reviewed_at'):
-        item.reviewed_at = datetime.now()
-
+    # Update approval fields
+    item.review_status = 'approved'
+    item.needs_review = False
+    item.admin_notes = request.admin_notes
+    item.reviewed_at = datetime.now()
     item.is_available = True
     db.commit()
 
     return {
         "message": f"Menu item {item_id} approved",
+        "item_name": item.item_name,
+        "review_status": item.review_status,
         "admin_notes": request.admin_notes,
-        "reviewed_at": datetime.now().isoformat()
+        "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None
     }
 
 @app.post("/api/admin/menu/{item_id}/reject")
@@ -6946,31 +7074,29 @@ def admin_reject_menu_item(
     db: Session = Depends(get_db)
 ):
     """Admin endpoint to reject a menu item."""
-    from models import MenuItem
+    from models import VendorMenuItem
 
     if not request.admin_notes:
         raise HTTPException(status_code=400, detail="Admin notes required for rejection")
 
-    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found")
 
-    if hasattr(item, 'status'):
-        item.status = 'rejected'
-    if hasattr(item, 'needs_review'):
-        item.needs_review = False
-    if hasattr(item, 'admin_notes'):
-        item.admin_notes = request.admin_notes
-    if hasattr(item, 'reviewed_at'):
-        item.reviewed_at = datetime.now()
-
+    # Update rejection fields
+    item.review_status = 'rejected'
+    item.needs_review = False
+    item.admin_notes = request.admin_notes
+    item.reviewed_at = datetime.now()
     item.is_available = False
     db.commit()
 
     return {
         "message": f"Menu item {item_id} rejected",
+        "item_name": item.item_name,
+        "review_status": item.review_status,
         "admin_notes": request.admin_notes,
-        "reviewed_at": datetime.now().isoformat()
+        "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None
     }
 
 @app.post("/api/admin/menu/{item_id}/flag")
@@ -6980,28 +7106,261 @@ def admin_flag_menu_item(
     db: Session = Depends(get_db)
 ):
     """Admin endpoint to flag a menu item for further review."""
-    from models import MenuItem
+    from models import VendorMenuItem
 
-    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found")
 
-    if hasattr(item, 'status'):
-        item.status = 'flagged'
-    if hasattr(item, 'needs_review'):
-        item.needs_review = True
-    if hasattr(item, 'admin_notes'):
-        item.admin_notes = request.admin_notes or 'Flagged for review'
-    if hasattr(item, 'reviewed_at'):
-        item.reviewed_at = datetime.now()
-
+    # Update flag fields
+    item.review_status = 'flagged'
+    item.needs_review = True
+    item.admin_notes = request.admin_notes or 'Flagged for review'
+    item.reviewed_at = datetime.now()
     db.commit()
 
     return {
         "message": f"Menu item {item_id} flagged for review",
-        "admin_notes": request.admin_notes,
-        "reviewed_at": datetime.now().isoformat()
+        "item_name": item.item_name,
+        "review_status": item.review_status,
+        "admin_notes": item.admin_notes,
+        "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None
     }
+
+
+# ============================================================================
+# VENDOR PUBLISH/UNPUBLISH ENDPOINTS
+# ============================================================================
+
+class VendorPublishRequest(BaseModel):
+    platforms: Optional[List[str]] = ["ios", "android", "web"]
+    notes: Optional[str] = None
+
+@app.post("/api/admin/vendors/{vendor_id}/verify-menu")
+def admin_verify_vendor_menu(
+    vendor_id: int,
+    request: AdminMenuReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to verify a vendor's menu before publishing.
+    This marks the menu as reviewed and ready for go-live.
+    """
+    from models import Vendor, VendorMenuItem
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Check if vendor has menu items
+    menu_count = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id
+    ).count()
+
+    if menu_count == 0:
+        raise HTTPException(status_code=400, detail="Vendor has no menu items to verify")
+
+    # Mark all menu items as approved
+    items = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id).all()
+    for item in items:
+        item.review_status = 'approved'
+        item.needs_review = False
+        item.reviewed_at = datetime.now()
+
+    # Mark vendor menu as verified
+    vendor.menu_verified = True
+    vendor.menu_verified_at = datetime.now()
+    # vendor.menu_verified_by = admin_id  # Would need admin auth to get this
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Menu verified for {vendor.restaurant_name or vendor.company_name}",
+        "vendor_id": vendor_id,
+        "menu_items_verified": menu_count,
+        "menu_verified_at": vendor.menu_verified_at.isoformat() if vendor.menu_verified_at else None,
+        "notes": request.admin_notes
+    }
+
+
+@app.post("/api/admin/vendors/{vendor_id}/publish")
+def admin_publish_vendor(
+    vendor_id: int,
+    request: VendorPublishRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to publish a vendor (make them live on platforms).
+    Checks prerequisites before publishing.
+    """
+    from models import Vendor, VendorMenuItem, VendorStatus
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Check prerequisites before publishing
+    errors = []
+
+    # 1. Check vendor status
+    if vendor.onboarding_status != VendorStatus.APPROVED:
+        errors.append(f"Vendor status must be APPROVED (current: {vendor.onboarding_status.value})")
+
+    # 2. Check documents verified
+    if not vendor.documents_verified:
+        errors.append("Documents must be verified before publishing")
+
+    # 3. Check menu exists
+    menu_count = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id
+    ).count()
+    if menu_count == 0:
+        errors.append("Vendor must have at least one menu item")
+
+    # 4. Check menu verified
+    if not vendor.menu_verified:
+        errors.append("Menu must be verified before publishing")
+
+    # If there are errors, return them
+    if errors:
+        return {
+            "success": False,
+            "message": "Cannot publish vendor - prerequisites not met",
+            "vendor_id": vendor_id,
+            "errors": errors,
+            "checklist": {
+                "status_approved": vendor.onboarding_status == VendorStatus.APPROVED,
+                "documents_verified": vendor.documents_verified,
+                "menu_exists": menu_count > 0,
+                "menu_verified": vendor.menu_verified
+            }
+        }
+
+    # All checks passed - publish vendor
+    import json
+    vendor.is_published = True
+    vendor.published_at = datetime.now()
+    vendor.published_platforms = json.dumps(request.platforms)
+    # vendor.approved_by = admin_id  # Would need admin auth
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Vendor {vendor.restaurant_name or vendor.company_name} is now LIVE!",
+        "vendor_id": vendor_id,
+        "is_published": True,
+        "published_at": vendor.published_at.isoformat() if vendor.published_at else None,
+        "platforms": request.platforms,
+        "notes": request.notes
+    }
+
+
+@app.post("/api/admin/vendors/{vendor_id}/unpublish")
+def admin_unpublish_vendor(
+    vendor_id: int,
+    request: AdminMenuReviewRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to unpublish a vendor (take them offline).
+    Requires a reason/notes for unpublishing.
+    """
+    from models import Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.is_published:
+        return {
+            "success": False,
+            "message": "Vendor is not currently published",
+            "vendor_id": vendor_id
+        }
+
+    # Unpublish vendor
+    vendor.is_published = False
+    vendor.published_platforms = None
+    vendor.notes = f"[UNPUBLISHED {datetime.now().isoformat()}] {request.admin_notes or 'No reason provided'}"
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Vendor {vendor.restaurant_name or vendor.company_name} has been unpublished",
+        "vendor_id": vendor_id,
+        "is_published": False,
+        "reason": request.admin_notes
+    }
+
+
+@app.get("/api/admin/vendors/{vendor_id}/publish-checklist")
+def admin_get_publish_checklist(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the publish checklist for a vendor.
+    Shows what requirements are met and what's still needed.
+    """
+    from models import Vendor, VendorMenuItem, VendorStatus
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    menu_count = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id
+    ).count()
+
+    pending_menu_items = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id,
+        VendorMenuItem.review_status == 'pending'
+    ).count()
+
+    checklist = {
+        "vendor_approved": {
+            "status": vendor.onboarding_status == VendorStatus.APPROVED,
+            "current": vendor.onboarding_status.value if vendor.onboarding_status else "unknown",
+            "required": "APPROVED"
+        },
+        "documents_verified": {
+            "status": vendor.documents_verified or False,
+            "verified_at": vendor.documents_verified_at.isoformat() if vendor.documents_verified_at else None
+        },
+        "menu_exists": {
+            "status": menu_count > 0,
+            "count": menu_count
+        },
+        "menu_verified": {
+            "status": vendor.menu_verified or False,
+            "verified_at": vendor.menu_verified_at.isoformat() if vendor.menu_verified_at else None,
+            "pending_items": pending_menu_items
+        },
+        "stripe_setup": {
+            "status": vendor.stripe_onboarding_complete or False,
+            "account_id": vendor.stripe_account_id
+        }
+    }
+
+    all_passed = all([
+        checklist["vendor_approved"]["status"],
+        checklist["documents_verified"]["status"],
+        checklist["menu_exists"]["status"],
+        checklist["menu_verified"]["status"]
+    ])
+
+    return {
+        "vendor_id": vendor_id,
+        "vendor_name": vendor.restaurant_name or vendor.company_name,
+        "is_published": vendor.is_published,
+        "published_at": vendor.published_at.isoformat() if vendor.published_at else None,
+        "ready_to_publish": all_passed,
+        "checklist": checklist
+    }
+
 
 @app.get("/api/admin/vendors/all-documents")
 def admin_get_all_vendor_documents(
@@ -8738,6 +9097,430 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
             "count": 0,
             "message": "No deliveries available"
         }
+
+
+# ============================================================================
+# DRIVER APP ENDPOINTS - Missing endpoints for Web/iOS/Android driver apps
+# ============================================================================
+
+@app.get("/api/erp/driver/{driver_id}/deliveries")
+def get_driver_deliveries_history(
+    driver_id: int,
+    status: Optional[str] = None,
+    limit: int = Query(50, le=100),
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Get driver's delivery history"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Query orders assigned to this driver
+    query = db.query(Order).filter(Order.driver_id == driver_id)
+
+    if status:
+        if status == "completed":
+            query = query.filter(Order.status == OrderStatus.DELIVERED)
+        elif status == "in_progress":
+            query = query.filter(Order.status.in_([
+                OrderStatus.CONFIRMED, OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY
+            ]))
+        elif status == "cancelled":
+            query = query.filter(Order.status == OrderStatus.CANCELLED)
+
+    orders = query.order_by(Order.created_at.desc()).offset(offset).limit(limit).all()
+
+    deliveries = []
+    for order in orders:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+
+        # Parse items count from JSON
+        items_count = 0
+        if order.items:
+            try:
+                import json
+                items_data = json.loads(order.items) if isinstance(order.items, str) else order.items
+                items_count = len(items_data) if isinstance(items_data, list) else 0
+            except:
+                pass
+
+        deliveries.append({
+            "id": order.id,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
+            "customer_name": order.customer_name or "Customer",
+            "delivery_address": order.delivery_address,
+            "items_count": items_count,
+            "total_amount": float(order.total_amount) if order.total_amount else 0,
+            "payout": float(order.delivery_fee or 0) + float(order.tip or 0),
+            "tip": float(order.tip) if order.tip else 0,
+            "distance": "N/A",  # Would need distance calculation
+            "status": order.status.value if order.status else "unknown",
+            "date": order.created_at.strftime("%Y-%m-%d") if order.created_at else None,
+            "time": order.created_at.strftime("%I:%M %p") if order.created_at else None,
+            "rating": None  # Would need rating system
+        })
+
+    return deliveries
+
+
+@app.get("/api/driver/active-delivery")
+def get_driver_active_delivery(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get driver's current active delivery"""
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+            else:
+                email = payload.get("sub")
+                if email:
+                    driver = db.query(Driver).filter(Driver.email == email).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    # Find active order assigned to this driver
+    active_order = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status.in_([
+            OrderStatus.CONFIRMED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP,
+            OrderStatus.OUT_FOR_DELIVERY
+        ])
+    ).order_by(Order.created_at.desc()).first()
+
+    if not active_order:
+        return None
+
+    vendor = db.query(Vendor).filter(Vendor.id == active_order.vendor_id).first() if active_order.vendor_id else None
+
+    # Parse items count
+    items_count = 0
+    if active_order.items:
+        try:
+            import json
+            items_data = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
+            items_count = len(items_data) if isinstance(items_data, list) else 0
+        except:
+            pass
+
+    # Map order status to delivery status
+    status_map = {
+        OrderStatus.CONFIRMED: "accepted",
+        OrderStatus.PREPARING: "accepted",
+        OrderStatus.READY_FOR_PICKUP: "accepted",
+        OrderStatus.OUT_FOR_DELIVERY: "picked_up"
+    }
+
+    return {
+        "id": active_order.id,
+        "order_id": active_order.order_number,
+        "restaurant_name": vendor.restaurant_name if vendor else "Restaurant",
+        "restaurant_address": vendor.street if vendor else "",
+        "customer_name": active_order.customer_name or "Customer",
+        "delivery_address": active_order.delivery_address,
+        "items_count": items_count,
+        "distance": "N/A",
+        "estimated_time": "15-25 min",
+        "payout": float(active_order.delivery_fee or 0) + float(active_order.tip or 0),
+        "status": status_map.get(active_order.status, "accepted"),
+        "pickup_latitude": vendor.latitude if vendor else None,
+        "pickup_longitude": vendor.longitude if vendor else None,
+        "dropoff_latitude": active_order.delivery_latitude,
+        "dropoff_longitude": active_order.delivery_longitude
+    }
+
+
+@app.get("/api/driver/messages")
+def get_driver_messages(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get driver's messages/conversations"""
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+            else:
+                email = payload.get("sub")
+                if email:
+                    driver = db.query(Driver).filter(Driver.email == email).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    # For now, return system messages based on driver status
+    # In production, this would query a messages table
+    messages = []
+
+    # Welcome message
+    messages.append({
+        "id": "sys-1",
+        "sender_name": "Dollor Support",
+        "last_message": f"Welcome to Dollor, {driver.first_name}! We're glad to have you on our team.",
+        "timestamp": driver.created_at.strftime("%b %d") if driver.created_at else "Today",
+        "is_unread": False,
+        "avatar_initial": "D",
+        "sender_type": "support"
+    })
+
+    # Status-based messages
+    if driver.status == DriverStatus.PENDING:
+        messages.insert(0, {
+            "id": "sys-pending",
+            "sender_name": "Account Status",
+            "last_message": "Your account is pending approval. We'll notify you once approved.",
+            "timestamp": "Now",
+            "is_unread": True,
+            "avatar_initial": "!",
+            "sender_type": "system"
+        })
+    elif driver.status in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+        if driver.total_deliveries == 0:
+            messages.insert(0, {
+                "id": "sys-start",
+                "sender_name": "Getting Started",
+                "last_message": "Ready to earn? Go online and accept your first delivery!",
+                "timestamp": "Today",
+                "is_unread": True,
+                "avatar_initial": "🚀",
+                "sender_type": "system"
+            })
+
+    return messages
+
+
+@app.get("/api/drivers/{driver_id}/earnings")
+def get_driver_earnings_by_id(
+    driver_id: int,
+    period: str = Query("week", regex="^(today|week|month|year)$"),
+    db: Session = Depends(get_db)
+):
+    """Get driver earnings by driver ID"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Calculate date range based on period
+    now = datetime.utcnow()
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    else:  # year
+        start_date = now - timedelta(days=365)
+
+    # Query completed orders for this driver in the period
+    orders = db.query(Order).filter(
+        Order.driver_id == driver_id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.delivered_at >= start_date if Order.delivered_at else Order.created_at >= start_date
+    ).all()
+
+    # Calculate earnings
+    total_deliveries = len(orders)
+    base_pay = sum(float(o.delivery_fee or 0) for o in orders)
+    tips = sum(float(o.tip or 0) for o in orders)
+    bonuses = 0  # Would need bonus tracking system
+
+    # Calculate daily breakdown
+    daily_breakdown = []
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    if period == "week":
+        for i in range(7):
+            day_date = now - timedelta(days=6-i)
+            day_orders = [o for o in orders if o.created_at and o.created_at.date() == day_date.date()]
+            day_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in day_orders)
+            daily_breakdown.append({
+                "day": day_names[day_date.weekday()],
+                "deliveries": len(day_orders),
+                "earnings": round(day_earnings, 2),
+                "hours": round(len(day_orders) * 0.5, 1)  # Estimate 30 min per delivery
+            })
+
+    # Get previous period for comparison
+    if period == "week":
+        prev_start = start_date - timedelta(days=7)
+        prev_end = start_date
+    elif period == "month":
+        prev_start = start_date - timedelta(days=30)
+        prev_end = start_date
+    else:
+        prev_start = start_date - timedelta(days=365)
+        prev_end = start_date
+
+    prev_orders = db.query(Order).filter(
+        Order.driver_id == driver_id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.created_at >= prev_start,
+        Order.created_at < prev_end
+    ).all()
+
+    previous_total = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in prev_orders)
+
+    # Estimate hours online
+    hours_online = total_deliveries * 0.5  # Rough estimate
+
+    return {
+        "total": round(base_pay + tips + bonuses, 2),
+        "base_pay": round(base_pay, 2),
+        "tips": round(tips, 2),
+        "bonuses": round(bonuses, 2),
+        "previous_period": round(previous_total, 2),
+        "deliveries": total_deliveries,
+        "hours_online": round(hours_online, 1),
+        "avg_per_delivery": round((base_pay + tips) / total_deliveries, 2) if total_deliveries > 0 else 0,
+        "daily_breakdown": daily_breakdown,
+        "payment_history": []  # Would need payment history table
+    }
+
+
+@app.post("/api/v2/driver/deliveries/{delivery_id}/accept")
+def accept_delivery(
+    delivery_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Accept a delivery order"""
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+            else:
+                email = payload.get("sub")
+                if email:
+                    driver = db.query(Driver).filter(Driver.email == email).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    # Find the order
+    order = db.query(Order).filter(Order.id == delivery_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.driver_id and order.driver_id != driver.id:
+        raise HTTPException(status_code=400, detail="Order already assigned to another driver")
+
+    # Assign driver to order
+    order.driver_id = driver.id
+    order.driver_name = f"{driver.first_name} {driver.last_name}"
+    order.dispatched_at = datetime.utcnow()
+    order.status = OrderStatus.OUT_FOR_DELIVERY
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Delivery accepted",
+        "order_id": order.id,
+        "order_number": order.order_number
+    }
+
+
+@app.post("/api/v2/driver/deliveries/{delivery_id}/pickup")
+def mark_delivery_picked_up(
+    delivery_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Mark delivery as picked up from restaurant"""
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    order = db.query(Order).filter(Order.id == delivery_id, Order.driver_id == driver.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
+
+    order.status = OrderStatus.OUT_FOR_DELIVERY
+    db.commit()
+
+    return {"success": True, "message": "Marked as picked up"}
+
+
+@app.post("/api/v2/driver/deliveries/{delivery_id}/complete")
+def complete_delivery(
+    delivery_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Mark delivery as completed"""
+    # Extract driver from token
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    order = db.query(Order).filter(Order.id == delivery_id, Order.driver_id == driver.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
+
+    order.status = OrderStatus.DELIVERED
+    order.delivered_at = datetime.utcnow()
+
+    # Increment driver's delivery count
+    driver.total_deliveries = (driver.total_deliveries or 0) + 1
+    driver.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Delivery completed!",
+        "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
+    }
 
 
 if __name__ == "__main__":
