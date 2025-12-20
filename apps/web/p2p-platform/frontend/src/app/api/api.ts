@@ -142,9 +142,16 @@ export interface Vendor {
   published_platforms?: string; // JSON array: ["ios", "android", "web"]
 }
 
-// Get all vendors (with optional status filter)
+// Get all vendors (with optional status filter) - Admin use
 export const getVendors = async (params?: { status?: string; search?: string }) => {
   const response = await api.get('/vendors', { params });
+  return response.data;
+};
+
+// Get published vendors for customer-facing apps (web, ios, android)
+// Returns only approved and published restaurants
+export const getPublishedVendors = async (platform: 'ios' | 'android' | 'web' | 'all' = 'web') => {
+  const response = await api.get('/vendors/published', { params: { platform } });
   return response.data;
 };
 

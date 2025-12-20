@@ -56,17 +56,22 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Public Restaurant APIs (Customer App)
 
-    /// Fetch all available restaurants with addresses and menu previews
+    /// Fetch all published/approved restaurants for customer apps
+    /// Uses /api/vendors/published endpoint which returns only approved and published restaurants
     public func fetchRestaurants(
         city: String? = nil,
         cuisine: String? = nil,
         completion: @escaping (Result<[P2PRestaurant], Error>) -> Void
     ) {
-        guard var urlComponents = URLComponents(string: "\(baseURL)/erp/restaurants") else {
+        // Use vendors/published endpoint - returns only approved & published restaurants
+        guard var urlComponents = URLComponents(string: "\(baseURL)/vendors/published") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
-        var queryItems: [URLQueryItem] = []
+        var queryItems: [URLQueryItem] = [
+            // Always filter for iOS platform to get restaurants published for iOS
+            URLQueryItem(name: "platform", value: "ios")
+        ]
 
         if let city = city {
             queryItems.append(URLQueryItem(name: "city", value: city))
@@ -75,9 +80,7 @@ public class P2PAPIService: ObservableObject {
             queryItems.append(URLQueryItem(name: "cuisine", value: cuisine))
         }
 
-        if !queryItems.isEmpty {
-            urlComponents.queryItems = queryItems
-        }
+        urlComponents.queryItems = queryItems
 
         guard let url = urlComponents.url else {
             completion(.failure(P2PAPIError.invalidURL))
@@ -5248,6 +5251,210 @@ public struct P2PVendorProfile: Codable {
         averagePrepTime = try container.decodeIfPresent(Int.self, forKey: .averagePrepTime)
         rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
         reviewsCount = try container.decodeIfPresent(Int.self, forKey: .reviewsCount) ?? 0
+    }
+}
+
+// MARK: - Vendor Documents API
+
+public struct P2PVendorDocumentsResponse: Codable {
+    public let documents: [P2PVendorDocument]
+    public let count: Int
+}
+
+public struct P2PVendorDocument: Codable, Identifiable {
+    public let id: Int
+    public let documentType: String
+    public let fileName: String?
+    public let fileUrl: String?
+    public let uploadedAt: String?
+    public let status: String
+    public let adminNotes: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case documentType = "document_type"
+        case fileName = "file_name"
+        case fileUrl = "file_url"
+        case uploadedAt = "uploaded_at"
+        case status
+        case adminNotes = "admin_notes"
+    }
+}
+
+public struct P2PDocumentUploadResponse: Codable {
+    public let message: String
+    public let filePath: String?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case filePath = "file_path"
+    }
+}
+
+extension P2PAPIService {
+
+    /// Get documents for a vendor
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - completion: Completion handler with result
+    public func getVendorDocuments(
+        vendorId: Int,
+        completion: @escaping (Result<[P2PVendorDocument], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PVendorDocumentsResponse.self, from: data)
+                    completion(.success(response.documents))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Upload a document for a vendor to the backend API
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - imageData: The document image data
+    ///   - documentType: Type of document (w9_form, liability_insurance, health_permit, food_handler, business_license)
+    ///   - completion: Completion handler with result
+    public func uploadVendorDocument(
+        vendorId: Int,
+        imageData: Data,
+        documentType: String,
+        completion: @escaping (Result<P2PDocumentUploadResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/documents") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+
+        // Add document_type field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"document_type\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(documentType)\r\n".data(using: .utf8)!)
+
+        // Add file field
+        let filename = "\(documentType)_\(UUID().uuidString.prefix(8)).jpg"
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+
+        // End boundary
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to upload document")))
+                    }
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(P2PDocumentUploadResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    // Even if decode fails, if we got a success status, return a basic response
+                    if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 300 {
+                        completion(.success(P2PDocumentUploadResponse(message: "Document uploaded successfully", filePath: nil)))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete a document for a vendor
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - documentId: The document ID to delete
+    ///   - completion: Completion handler with result
+    public func deleteVendorDocument(
+        vendorId: Int,
+        documentId: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/documents/\(documentId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = vendorToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete document")))
+                    return
+                }
+
+                completion(.success(()))
+            }
+        }.resume()
     }
 }
 

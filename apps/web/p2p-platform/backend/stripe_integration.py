@@ -11,6 +11,7 @@ from pydantic import BaseModel
 import stripe
 import json
 import os
+import uuid
 from dotenv import load_dotenv
 
 from database import get_db
@@ -37,7 +38,7 @@ class CreateOrderRequest(BaseModel):
     customer_phone: str
     vendor_id: int
     items: List[OrderItem]
-    delivery_address: Dict[str, str]
+    delivery_address: Optional[Dict[str, str]] = None  # None for pickup orders
     delivery_instructions: Optional[str] = None
     delivery_latitude: Optional[float] = None
     delivery_longitude: Optional[float] = None
@@ -146,7 +147,7 @@ async def create_order(
         delivery_fee=DELIVERY_FEE,
         platform_fee=platform_fee,
         total_amount=total_amount,
-        delivery_address=json.dumps(order_data.delivery_address),
+        delivery_address=json.dumps(order_data.delivery_address) if order_data.delivery_address else None,
         delivery_instructions=order_data.delivery_instructions,
         delivery_latitude=order_data.delivery_latitude,
         delivery_longitude=order_data.delivery_longitude,
@@ -228,7 +229,7 @@ async def stripe_webhook(
         amount=event_data.get('amount', 0) / 100,
         currency=event_data.get('currency'),
         status=event_data.get('status'),
-        raw_data=json.dumps(event.data.object, default=str)
+        raw_data=json.dumps(event['data']['object'], default=str)
     )
     db.add(stripe_log)
     db.commit()
@@ -447,8 +448,9 @@ def sync_vendor_payouts(
             - payout_data["stripe_fees"]
         )
         
-        payout_count = db.query(VendorPayout).count()
-        payout_number = f"PAYOUT-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}"
+        # Generate unique payout number with UUID suffix to avoid conflicts
+        unique_suffix = str(uuid.uuid4())[:8].upper()
+        payout_number = f"PAYOUT-{datetime.now().strftime('%Y%m%d')}-{unique_suffix}"
         
         payout = VendorPayout(
             payout_number=payout_number,

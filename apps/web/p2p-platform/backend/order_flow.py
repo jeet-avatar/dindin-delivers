@@ -27,7 +27,7 @@ import json
 from database import get_db
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
-    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine
+    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
