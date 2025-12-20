@@ -209,7 +209,7 @@ struct LoginView: View {
                 ForgotPasswordView(isPresented: $showForgotPassword, successMessage: $successMessage)
             }
             .sheet(isPresented: $showSignUp) {
-                SignUpView(isPresented: $showSignUp, isLoggedIn: $isLoggedIn)
+                RestaurantRegistrationView(isPresented: $showSignUp, isLoggedIn: $isLoggedIn)
             }
         }
     }
