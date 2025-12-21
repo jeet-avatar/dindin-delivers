@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Input, message, Spin, Steps, Modal, Rate, Divider, Typography, Avatar, Tag } from 'antd';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, Button, Input, message, Spin, Steps, Modal, Rate, Divider, Typography, Avatar, Tag, Alert } from 'antd';
 import {
   EnvironmentOutlined,
   CarOutlined,
@@ -84,6 +84,12 @@ const RideBooking: React.FC = () => {
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [rating, setRating] = useState(5);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [geocodingPickup, setGeocodingPickup] = useState(false);
+  const [geocodingDropoff, setGeocodingDropoff] = useState(false);
+
+  // Debounce refs
+  const pickupDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const dropoffDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get customer info
   const customerId = localStorage.getItem('customer_id');
@@ -349,21 +355,80 @@ const RideBooking: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [API_URL]);
 
-  // Handle location input
-  const handlePickupChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPickupInput(e.target.value);
-    if (e.target.value.length > 5) {
-      const loc = await geocodeAddress(e.target.value);
-      if (loc) setPickup(loc);
+  // Handle location input with debouncing
+  const handlePickupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPickupInput(value);
+    setPickup(null); // Clear until geocoded
+
+    // Clear previous debounce
+    if (pickupDebounceRef.current) {
+      clearTimeout(pickupDebounceRef.current);
+    }
+
+    if (value.length > 3) {
+      setGeocodingPickup(true);
+      pickupDebounceRef.current = setTimeout(async () => {
+        const loc = await geocodeAddress(value);
+        if (loc) {
+          setPickup(loc);
+          message.success(`Pickup: ${loc.city || ''}, ${loc.state || ''} ${loc.zip || ''}`);
+        }
+        setGeocodingPickup(false);
+      }, 800); // Wait 800ms after user stops typing
     }
   };
 
-  const handleDropoffChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDropoffInput(e.target.value);
-    if (e.target.value.length > 5) {
-      const loc = await geocodeAddress(e.target.value);
-      if (loc) setDropoff(loc);
+  const handleDropoffChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDropoffInput(value);
+    setDropoff(null); // Clear until geocoded
+
+    // Clear previous debounce
+    if (dropoffDebounceRef.current) {
+      clearTimeout(dropoffDebounceRef.current);
     }
+
+    if (value.length > 3) {
+      setGeocodingDropoff(true);
+      dropoffDebounceRef.current = setTimeout(async () => {
+        const loc = await geocodeAddress(value);
+        if (loc) {
+          setDropoff(loc);
+          message.success(`Dropoff: ${loc.city || ''}, ${loc.state || ''} ${loc.zip || ''}`);
+        }
+        setGeocodingDropoff(false);
+      }, 800); // Wait 800ms after user stops typing
+    }
+  };
+
+  // Manual geocode button for when user wants to search explicitly
+  const geocodePickupManual = async () => {
+    if (pickupInput.length < 3) {
+      message.warning('Please enter a pickup address');
+      return;
+    }
+    setGeocodingPickup(true);
+    const loc = await geocodeAddress(pickupInput);
+    if (loc) {
+      setPickup(loc);
+      message.success(`Found: ${loc.city || ''}, ${loc.state || ''} ${loc.zip || ''}`);
+    }
+    setGeocodingPickup(false);
+  };
+
+  const geocodeDropoffManual = async () => {
+    if (dropoffInput.length < 3) {
+      message.warning('Please enter a destination address');
+      return;
+    }
+    setGeocodingDropoff(true);
+    const loc = await geocodeAddress(dropoffInput);
+    if (loc) {
+      setDropoff(loc);
+      message.success(`Found: ${loc.city || ''}, ${loc.state || ''} ${loc.zip || ''}`);
+    }
+    setGeocodingDropoff(false);
   };
 
   // Submit rating
@@ -429,37 +494,94 @@ const RideBooking: React.FC = () => {
               <Title level={3}>Where are you going?</Title>
 
               <div className="location-inputs">
-                <div className="location-input">
-                  <EnvironmentOutlined className="input-icon pickup" />
-                  <Input
-                    placeholder="Enter pickup location"
-                    value={pickupInput}
-                    onChange={handlePickupChange}
-                    size="large"
-                  />
-                  <Button
-                    type="link"
-                    icon={gettingLocation ? <LoadingOutlined /> : <AimOutlined />}
-                    onClick={useCurrentLocationForPickup}
-                    loading={gettingLocation}
-                    className="current-location-btn"
-                  >
-                    Use Current Location
-                  </Button>
+                <div className="location-input-group">
+                  <div className="location-input">
+                    <EnvironmentOutlined className="input-icon pickup" />
+                    <Input
+                      placeholder="Enter pickup address, city, or zip code"
+                      value={pickupInput}
+                      onChange={handlePickupChange}
+                      size="large"
+                      suffix={geocodingPickup ? <LoadingOutlined /> : null}
+                    />
+                    <Button
+                      type="link"
+                      icon={<AimOutlined />}
+                      onClick={useCurrentLocationForPickup}
+                      loading={gettingLocation}
+                      className="current-location-btn"
+                    >
+                      Use Current
+                    </Button>
+                  </div>
+                  {pickup && (
+                    <div className="resolved-location pickup">
+                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                      <span>{pickup.city || pickup.address.split(',')[0]}, {pickup.state} {pickup.zip}</span>
+                    </div>
+                  )}
+                  {!pickup && pickupInput.length > 3 && !geocodingPickup && (
+                    <Button size="small" onClick={geocodePickupManual} style={{ marginLeft: 36 }}>
+                      Search Location
+                    </Button>
+                  )}
                 </div>
 
                 <div className="location-connector" />
 
-                <div className="location-input">
-                  <EnvironmentOutlined className="input-icon dropoff" />
-                  <Input
-                    placeholder="Enter destination"
-                    value={dropoffInput}
-                    onChange={handleDropoffChange}
-                    size="large"
-                  />
+                <div className="location-input-group">
+                  <div className="location-input">
+                    <EnvironmentOutlined className="input-icon dropoff" />
+                    <Input
+                      placeholder="Enter destination (city, address, or zip)"
+                      value={dropoffInput}
+                      onChange={handleDropoffChange}
+                      size="large"
+                      suffix={geocodingDropoff ? <LoadingOutlined /> : null}
+                    />
+                    <Button
+                      type="default"
+                      size="small"
+                      onClick={geocodeDropoffManual}
+                      loading={geocodingDropoff}
+                      disabled={dropoffInput.length < 3}
+                      style={{ marginLeft: 8 }}
+                    >
+                      Search
+                    </Button>
+                  </div>
+                  {dropoff && (
+                    <div className="resolved-location dropoff">
+                      <CheckCircleOutlined style={{ color: '#f5222d' }} />
+                      <span>{dropoff.city || dropoff.address.split(',')[0]}, {dropoff.state} {dropoff.zip}</span>
+                      <span className="coords">({dropoff.lat.toFixed(4)}, {dropoff.lng.toFixed(4)})</span>
+                    </div>
+                  )}
+                  {!dropoff && dropoffInput.length > 3 && !geocodingDropoff && (
+                    <Alert
+                      message="Click 'Search' to find this location"
+                      type="info"
+                      showIcon
+                      style={{ marginTop: 8, marginLeft: 36 }}
+                    />
+                  )}
                 </div>
               </div>
+
+              {/* Distance Preview */}
+              {pickup && dropoff && (
+                <div className="distance-preview">
+                  <div className="preview-item">
+                    <Text type="secondary">From:</Text>
+                    <Text strong>{pickup.city || 'Current Location'}, {pickup.state}</Text>
+                  </div>
+                  <div className="preview-arrow">→</div>
+                  <div className="preview-item">
+                    <Text type="secondary">To:</Text>
+                    <Text strong>{dropoff.city || dropoff.address.split(',')[0]}, {dropoff.state}</Text>
+                  </div>
+                </div>
+              )}
 
               <div className="tip-section">
                 <Text strong>Add a tip for your driver (optional)</Text>
@@ -765,12 +887,20 @@ const RideBooking: React.FC = () => {
           margin: 24px 0;
         }
 
+        .location-input-group {
+          margin-bottom: 8px;
+        }
+
         .location-input {
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 12px;
           flex-wrap: wrap;
+        }
+
+        .location-input .ant-input-affix-wrapper {
+          flex: 1;
+          min-width: 200px;
         }
 
         .current-location-btn {
@@ -778,11 +908,59 @@ const RideBooking: React.FC = () => {
           height: auto;
           font-size: 13px;
           color: #1890ff;
-          margin-left: 36px;
         }
 
         .current-location-btn:hover {
           color: #40a9ff;
+        }
+
+        .resolved-location {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: 36px;
+          margin-top: 4px;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 13px;
+        }
+
+        .resolved-location.pickup {
+          background: #f6ffed;
+          border: 1px solid #b7eb8f;
+        }
+
+        .resolved-location.dropoff {
+          background: #fff2f0;
+          border: 1px solid #ffccc7;
+        }
+
+        .resolved-location .coords {
+          font-size: 11px;
+          color: #999;
+          margin-left: 8px;
+        }
+
+        .distance-preview {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          padding: 16px;
+          background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+          border-radius: 12px;
+          margin: 16px 0;
+        }
+
+        .preview-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .preview-arrow {
+          font-size: 24px;
+          color: #1890ff;
         }
 
         .input-icon {
