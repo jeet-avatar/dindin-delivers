@@ -5,7 +5,7 @@ namespace: production
 name: dollor-backend
 image:
   repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
-  tag: "0bb901b7fea72c00903c7bfdb6b4953f39419332"
+  tag: "313a02749fcafd86811206a075a8561529ff95be"
   pullPolicy: Always
 replicas: 3
 # Production uses BLUE-GREEN deployment
