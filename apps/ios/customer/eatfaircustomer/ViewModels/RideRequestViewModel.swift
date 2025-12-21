@@ -69,17 +69,24 @@ class RideRequestViewModel: ObservableObject {
     private let config = AppConfig.shared
 
     // MARK: - Computed Properties (from AppConfig)
-    // Platform fee is now DISTANCE-BASED:
-    //   $1 per 10 miles ($0.10 per mile), minimum $1
+    // Platform fee is FARE-BASED (tiered by fare value):
+    //   Fares ≤$35: $1, $35-$70: $2, >$70: $3
     //   Both rider AND driver pay this same fee
-    var platformFee: Double {
-        // Calculate platform fee based on distance
-        return config.calculateRidesharePlatformFee(distanceMiles: estimatedDistance)
+
+    /// Estimated fare for tier calculation (driver portion before platform fee)
+    private var fareForTierCalculation: Double {
+        let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
+        return max(driverPortion, minimumFare)
     }
 
-    /// Platform fee description for UI display (now distance-based)
+    var platformFee: Double {
+        // Calculate platform fee based on FARE (not distance)
+        return config.calculateRidesharePlatformFee(fareAmount: fareForTierCalculation)
+    }
+
+    /// Platform fee description for UI display (fare-based)
     var platformFeeTierDescription: String {
-        return config.getRideshareFeeDescription(distanceMiles: estimatedDistance)
+        return config.getRideshareFeeDescription(fareAmount: fareForTierCalculation)
     }
 
     /// Driver's platform fee (same as rider)
@@ -112,14 +119,14 @@ class RideRequestViewModel: ObservableObject {
     }
 
     /// What driver receives (fare - driver's platform fee + tip)
-    /// Driver pays $1 per 10 miles (same as rider)
+    /// Driver pays tiered fee based on fare: $1 (≤$35), $2 ($35-$70), $3 (>$70)
     var driverEarnings: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
         let fare = max(driverPortion, minimumFare)
         return fare - driverPlatformFee + tip
     }
 
-    /// Connection fee for matchmaking service ($1.00)
+    /// Connection fee for matchmaking service (tiered: $1-$3 based on fare)
     var platformEarnings: Double {
         platformFee
     }

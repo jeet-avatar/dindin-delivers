@@ -8,16 +8,17 @@ public class AppConfig: ObservableObject {
 
     // MARK: - P2P API Configuration
     /// Dollar.ai backend base URL - all data comes from here
-    /// Uses CloudFront CDN for HTTPS (App Store requirement)
-    @Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
+    /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
+    /// AWS EKS Staging API endpoint
+    @Published public var p2pAPIBaseURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080"
 
     // MARK: - Microservice URLs
     /// Negotiation service for real-time price negotiation between drivers and customers
-    @Published public var negotiationServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/negotiation"
+    @Published public var negotiationServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/negotiation"
     /// Chat service for real-time messaging between drivers and customers
-    @Published public var chatServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/chat"
+    @Published public var chatServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/chat"
     /// Call service for privacy-protected phone calls (number masking)
-    @Published public var callServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/call"
+    @Published public var callServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/call"
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
@@ -36,25 +37,24 @@ public class AppConfig: ObservableObject {
     // MATCHMAKING SERVICE - We connect parties, not deliver or drive
     //
     // FOOD DELIVERY - FLAT $1 PRICING (No tiered pricing):
-    //   Customer pays: $1 flat per order (regardless of order value)
-    //   Restaurant pays: $1 flat per restaurant in order
-    //   Driver pays: $0 (FREE - no commission)
+    //   Customer pays: $1 flat per order (per restaurant)
+    //   Restaurant pays: $1 flat per order
+    //   Driver pays: $0 (FREE - keeps 100% + tips)
     //   Tips: 100% go to driver
-    //   Pickup: $1 per restaurant + $1 per customer
     //
-    // RIDESHARE - TIERED DISTANCE-BASED PRICING:
-    //   Trips 0-10 miles:   $1 (both rider AND driver)
-    //   Trips 10-20 miles:  $2 (both rider AND driver)
-    //   Trips 20+ miles:    $3 (both rider AND driver)
+    // RIDESHARE - TIERED FARE-BASED PRICING:
+    //   Fares up to $35:    $1 rider + $1 driver (Tier 1)
+    //   Fares $35.01-$70:   $2 rider + $2 driver (Tier 2)
+    //   Fares above $70:    $3 rider + $3 driver (Tier 3)
     //   Tips: 100% go to driver
     //
     // Examples:
-    //   5 miles  -> $1 (Tier 1)
-    //   10 miles -> $1 (Tier 1)
-    //   15 miles -> $2 (Tier 2)
-    //   20 miles -> $2 (Tier 2)
-    //   25 miles -> $3 (Tier 3)
-    //   50 miles -> $3 (Tier 3)
+    //   $20 fare  -> $1 (Tier 1)
+    //   $35 fare  -> $1 (Tier 1)
+    //   $50 fare  -> $2 (Tier 2)
+    //   $70 fare  -> $2 (Tier 2)
+    //   $80 fare  -> $3 (Tier 3)
+    //   $100 fare -> $3 (Tier 3)
     //
     // Total transparency - no hidden fees!
     // =============================================================================
@@ -65,25 +65,26 @@ public class AppConfig: ObservableObject {
     @Published public var foodDriverFee: Double = 0.00        // FREE - drivers keep 100%
     @Published public var tipPlatformFee: Double = 0.00       // 100% of tips go to driver
 
-    // RIDESHARE - TIERED DISTANCE-BASED PRICING
-    // Distance tier thresholds (in miles)
-    @Published public var rideshareDistanceTier1Max: Double = 10.0   // Trips up to 10 miles
-    @Published public var rideshareDistanceTier2Max: Double = 20.0   // Trips 10.01 to 20 miles
-    // Tier 3: Trips above 20 miles
+    // RIDESHARE - TIERED FARE-BASED PRICING
+    // Fare tier thresholds (in dollars)
+    @Published public var rideshareTier1MaxFare: Double = 35.00   // Fares up to $35
+    @Published public var rideshareTier2MaxFare: Double = 70.00   // Fares $35.01 to $70
+    // Tier 3: Fares above $70
 
-    // Platform fees per distance tier (both rider AND driver pay)
-    @Published public var rideshareDistanceTier1Fee: Double = 1.00   // $1 for trips ≤ 10 miles
-    @Published public var rideshareDistanceTier2Fee: Double = 2.00   // $2 for trips 10.01-20 miles
-    @Published public var rideshareDistanceTier3Fee: Double = 3.00   // $3 for trips > 20 miles
+    // Platform fees per fare tier (both rider AND driver pay)
+    @Published public var rideshareTier1Fee: Double = 1.00   // $1 for fares ≤ $35
+    @Published public var rideshareTier2Fee: Double = 2.00   // $2 for fares $35.01-$70
+    @Published public var rideshareTier3Fee: Double = 3.00   // $3 for fares > $70
 
     // Legacy properties (kept for backwards compatibility)
     @Published public var ridesharePlatformFeePerMile: Double = 0.10  // Deprecated
     @Published public var ridesharePlatformFeeMinimum: Double = 1.00  // Deprecated
-    @Published public var rideshareTier1Max: Double = 35.00   // Deprecated (was fare-based)
-    @Published public var rideshareTier2Max: Double = 70.00   // Deprecated (was fare-based)
-    @Published public var rideshareTier1Fee: Double = 1.00    // Deprecated
-    @Published public var rideshareTier2Fee: Double = 2.00    // Deprecated
-    @Published public var rideshareTier3Fee: Double = 3.00    // Deprecated
+    // Distance-based properties deprecated - use fare-based above
+    @Published public var rideshareDistanceTier1Max: Double = 10.0   // Deprecated
+    @Published public var rideshareDistanceTier2Max: Double = 20.0   // Deprecated
+    @Published public var rideshareDistanceTier1Fee: Double = 1.00   // Deprecated
+    @Published public var rideshareDistanceTier2Fee: Double = 2.00   // Deprecated
+    @Published public var rideshareDistanceTier3Fee: Double = 3.00   // Deprecated
 
     // Legacy properties (kept for backwards compatibility)
     @Published public var serviceFee: Double = 1.00           // Legacy - use foodCustomerFee
@@ -112,78 +113,89 @@ public class AppConfig: ObservableObject {
         return getFoodFeeDescription()
     }
 
-    /// Calculate TIERED DISTANCE-BASED platform fee for RIDESHARE.
-    /// Trips 0-10 miles: $1, 10-20 miles: $2, 20+ miles: $3
+    /// Calculate TIERED FARE-BASED platform fee for RIDESHARE.
+    /// Fares ≤$35: $1, $35.01-$70: $2, >$70: $3
     /// Both rider AND driver pay this same fee.
-    public func calculateRidesharePlatformFee(distanceMiles: Double) -> Double {
-        if distanceMiles <= rideshareDistanceTier1Max {
-            return rideshareDistanceTier1Fee  // $1
-        } else if distanceMiles <= rideshareDistanceTier2Max {
-            return rideshareDistanceTier2Fee  // $2
+    public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
+        if fareAmount <= rideshareTier1MaxFare {
+            return rideshareTier1Fee  // $1
+        } else if fareAmount <= rideshareTier2MaxFare {
+            return rideshareTier2Fee  // $2
         } else {
-            return rideshareDistanceTier3Fee  // $3
+            return rideshareTier3Fee  // $3
         }
     }
 
-    /// Legacy method - use calculateRidesharePlatformFee(distanceMiles:) instead.
-    /// This estimates distance from fare using average $1.50/mile.
-    public func calculateRidesharePlatformFee(fareAmount: Double) -> Double {
-        // Estimate distance from fare (average ~$1.50/mile)
-        let estimatedDistance = fareAmount / 1.50
-        return calculateRidesharePlatformFee(distanceMiles: estimatedDistance)
+    /// Legacy method - kept for backwards compatibility.
+    /// Now uses fare-based calculation (estimates fare from distance).
+    public func calculateRidesharePlatformFee(distanceMiles: Double) -> Double {
+        // Estimate fare from distance (average ~$1.50/mile + $5 base)
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        return calculateRidesharePlatformFee(fareAmount: estimatedFare)
     }
 
-    /// Get rideshare distance tier (1, 2, or 3).
-    public func getRideshareDistanceTier(distanceMiles: Double) -> Int {
-        if distanceMiles <= rideshareDistanceTier1Max {
+    /// Get rideshare fare tier (1, 2, or 3) based on fare amount.
+    public func getRideshareTier(fareAmount: Double) -> Int {
+        if fareAmount <= rideshareTier1MaxFare {
             return 1
-        } else if distanceMiles <= rideshareDistanceTier2Max {
+        } else if fareAmount <= rideshareTier2MaxFare {
             return 2
         } else {
             return 3
         }
     }
 
-    /// Get rideshare platform fee breakdown for display.
-    public func getRidesharePlatformFeeBreakdown(distanceMiles: Double) -> (fee: Double, description: String, tier: Int) {
-        let fee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
-        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
-        let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
+    /// Get rideshare platform fee breakdown for display (fare-based).
+    public func getRidesharePlatformFeeBreakdown(fareAmount: Double) -> (fee: Double, description: String, tier: Int) {
+        let fee = calculateRidesharePlatformFee(fareAmount: fareAmount)
+        let tier = getRideshareTier(fareAmount: fareAmount)
+        let tierDesc = tier == 1 ? "≤$35" : tier == 2 ? "$35-$70" : ">$70"
         let description = "$\(String(format: "%.2f", fee)) (Tier \(tier): \(tierDesc))"
         return (fee, description, tier)
     }
 
-    /// Get rideshare tier number for display based on distance.
-    public func getRideshareTier(fareAmount: Double) -> Int {
-        // Estimate distance from fare
-        let estimatedDistance = fareAmount / 1.50
-        return getRideshareDistanceTier(distanceMiles: estimatedDistance)
-    }
-
-    /// Get rideshare tier name for display (tiered distance model).
+    /// Get rideshare tier name for display (fare-based).
     public func getRideshareTierName(fareAmount: Double) -> String {
         let tier = getRideshareTier(fareAmount: fareAmount)
-        return "Tier \(tier): $\(tier) fee"
-    }
-
-    /// Get rideshare tier name with distance.
-    public func getRideshareTierName(distanceMiles: Double) -> String {
-        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
-        let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
-        return "Tier \(tier): \(tierDesc)"
+        let tierDesc = tier == 1 ? "up to $35" : tier == 2 ? "$35-$70" : "above $70"
+        return "Tier \(tier) (\(tierDesc))"
     }
 
     /// Get rideshare fee description for UI display.
     public func getRideshareFeeDescription(fareAmount: Double) -> String {
         let fee = calculateRidesharePlatformFee(fareAmount: fareAmount)
         let tier = getRideshareTier(fareAmount: fareAmount)
-        return "$\(String(format: "%.2f", fee)) Platform Fee (Tier \(tier))"
+        return "$\(String(format: "%.0f", fee)) Platform Fee (Tier \(tier))"
     }
 
-    /// Get rideshare fee description with distance (preferred method).
+    // MARK: - Legacy Distance-Based Methods (Deprecated)
+
+    /// Legacy method - use getRideshareTier(fareAmount:) instead.
+    @available(*, deprecated, message: "Use getRideshareTier(fareAmount:) instead")
+    public func getRideshareDistanceTier(distanceMiles: Double) -> Int {
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        return getRideshareTier(fareAmount: estimatedFare)
+    }
+
+    /// Legacy method - use getRideshareTierName(fareAmount:) instead.
+    @available(*, deprecated, message: "Use getRideshareTierName(fareAmount:) instead")
+    public func getRideshareTierName(distanceMiles: Double) -> String {
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        return getRideshareTierName(fareAmount: estimatedFare)
+    }
+
+    /// Legacy method - use getRideshareFeeDescription(fareAmount:) instead.
+    @available(*, deprecated, message: "Use getRideshareFeeDescription(fareAmount:) instead")
     public func getRideshareFeeDescription(distanceMiles: Double) -> String {
-        let (fee, description, _) = getRidesharePlatformFeeBreakdown(distanceMiles: distanceMiles)
-        return description
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        return getRideshareFeeDescription(fareAmount: estimatedFare)
+    }
+
+    /// Legacy method - use getRidesharePlatformFeeBreakdown(fareAmount:) instead.
+    @available(*, deprecated, message: "Use getRidesharePlatformFeeBreakdown(fareAmount:) instead")
+    public func getRidesharePlatformFeeBreakdown(distanceMiles: Double) -> (fee: Double, description: String, tier: Int) {
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        return getRidesharePlatformFeeBreakdown(fareAmount: estimatedFare)
     }
 
     // Driver/Delivery Config (matches pricing_config.py)
@@ -283,8 +295,8 @@ public class AppConfig: ObservableObject {
         return "$\(Int(fee)) (Tier \(tier): \(tierDesc))"
     }
 
-    // Support - Using CloudFront CDN for HTTPS
-    @Published public var supportUrl: String = "https://d3kuu45w6kl8hr.cloudfront.net/support"
+    // Support - Using Staging API
+    @Published public var supportUrl: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/support"
     @Published public var supportPhone: String = "+1-800-365-5671"
     @Published public var supportEmail: String = "support@dollor.ai"
 
@@ -449,7 +461,8 @@ public struct OrderStatusConstants {
 // All data comes from Dollar.ai P2P backend
 
 public struct APIEndpoints {
-    public static let baseURL = "https://d3kuu45w6kl8hr.cloudfront.net"
+    /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
+    public static let baseURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080"
 
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
@@ -540,9 +553,9 @@ public struct AppConstants {
     public static let termsVersion = "1.1"
 
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
-    // Using CloudFront CDN for HTTPS support
-    public static let termsOfServiceURL = "https://d3kuu45w6kl8hr.cloudfront.net/terms"
-    public static let privacyPolicyURL = "https://d3kuu45w6kl8hr.cloudfront.net/privacy"
+    // STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
+    public static let termsOfServiceURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/terms"
+    public static let privacyPolicyURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/privacy"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)

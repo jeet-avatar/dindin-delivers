@@ -47,10 +47,10 @@ struct CheckoutView: View {
 
     /// Delivery fee - 100% goes to driver
     private var deliveryFee: Double {
-        let baseFee = 2.99
+        let baseFee = AppConfig.shared.baseDeliveryFee
         let extraMiles = max(0, estimatedDistance - 2.0)
-        let distanceCharge = extraMiles * 0.50
-        return baseFee + distanceCharge
+        let distanceCharge = extraMiles * AppConfig.shared.perMileDeliveryFee
+        return min(baseFee + distanceCharge, AppConfig.shared.maxDeliveryFee)
     }
 
     /// California state tax (7.25%)
@@ -73,20 +73,20 @@ struct CheckoutView: View {
         stateTax + cityTax + districtTax
     }
 
-    /// Platform fee - TIERED based on order value
-    /// ≤$35: $1, $35-$70: $2, >$70: $3
+    /// Platform fee - FLAT $1 for food delivery (per restaurant)
+    /// Note: Rideshare uses tiered pricing, but food is always $1 flat
     private var platformFee: Double {
         AppConfig.shared.getCustomerDeliveryFee(orderSubtotal: foodSubtotal)
     }
 
-    /// Platform fee tier description for display
+    /// Platform fee description for display
     private var platformFeeTierDescription: String {
-        AppConfig.shared.getFeeTierDescription(orderSubtotal: foodSubtotal)
+        AppConfig.shared.getFoodFeeDescription()
     }
 
-    /// Small order fee (orders under $15)
+    /// Small order fee (orders under threshold from AppConfig)
     private var smallOrderFee: Double {
-        foodSubtotal < 15.0 ? 2.00 : 0.0
+        foodSubtotal < AppConfig.shared.smallOrderThreshold ? AppConfig.shared.smallOrderFee : 0.0
     }
 
     /// Payment processing fee (Stripe: 2.9% + $0.30) - passed through at cost
@@ -344,7 +344,7 @@ struct CheckoutView: View {
                                             .font(.caption)
                                             .foregroundColor(Theme.textGrey)
                                         Spacer()
-                                        Text("$2.99")
+                                        Text("$\(String(format: "%.2f", AppConfig.shared.baseDeliveryFee))")
                                             .font(.caption)
                                     }
                                     HStack {
@@ -352,7 +352,7 @@ struct CheckoutView: View {
                                             .font(.caption)
                                             .foregroundColor(Theme.textGrey)
                                         Spacer()
-                                        Text("$\(String(format: "%.2f", max(0, (estimatedDistance - 2.0) * 0.50)))")
+                                        Text("$\(String(format: "%.2f", max(0, (estimatedDistance - 2.0) * AppConfig.shared.perMileDeliveryFee)))")
                                             .font(.caption)
                                     }
                                 }
@@ -445,13 +445,13 @@ struct CheckoutView: View {
                                                 .foregroundColor(.purple)
                                         }
                                     }
-                                    if foodSubtotal < 15.0 {
+                                    if foodSubtotal < AppConfig.shared.smallOrderThreshold {
                                         HStack {
                                             Text("  Small order fee")
                                                 .font(.caption)
                                                 .foregroundColor(Theme.textGrey)
                                             Spacer()
-                                            Text("$2.00")
+                                            Text("$\(String(format: "%.2f", AppConfig.shared.smallOrderFee))")
                                                 .font(.caption)
                                         }
                                     }
@@ -999,7 +999,7 @@ struct FeeBreakdownDetailView: View {
                         title: "Delivery Fee",
                         recipient: "100% to Driver",
                         recipientColor: .blue,
-                        explanation: "Base $2.99 + $0.50/mile after 2 miles. This entire amount goes to your driver for picking up and delivering your food."
+                        explanation: "Base $\(String(format: "%.2f", AppConfig.shared.baseDeliveryFee)) + $\(String(format: "%.2f", AppConfig.shared.perMileDeliveryFee))/mile after 2 miles. This entire amount goes to your driver for picking up and delivering your food."
                     )
 
                     // Driver Tip
@@ -1020,13 +1020,13 @@ struct FeeBreakdownDetailView: View {
                         explanation: "Sales taxes are required by law and vary by location. In California: State (7.25%) + City (1.25%) + District (1%). We itemize every tax so you know exactly what goes where."
                     )
 
-                    // Platform Fee - TIERED
+                    // Platform Fee - FLAT $1 for food
                     FeeExplanationCard(
                         icon: "app.connected.to.app.below.fill",
-                        title: "Platform Fee ($1-$3)",
+                        title: "Platform Fee ($\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)))",
                         recipient: "Dollor.ai",
                         recipientColor: .orange,
-                        explanation: "This is how we make money - a simple tiered fee:\n• Orders ≤$35: $1\n• Orders $35-$70: $2\n• Orders >$70: $3\n\nNo hidden fees, no inflated prices. Competitors charge 15-30% commission!"
+                        explanation: "This is how we make money - a simple flat $\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)) matchmaking fee per restaurant.\n\nNo hidden fees, no inflated prices. Competitors charge 15-30% commission!"
                     )
 
                     // Processing Fee
@@ -1048,8 +1048,8 @@ struct FeeBreakdownDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             PromiseRow(icon: "checkmark.circle.fill", text: "No hidden fees in menu prices")
                             PromiseRow(icon: "checkmark.circle.fill", text: "100% of tips go to drivers")
-                            PromiseRow(icon: "checkmark.circle.fill", text: "$1-$3 flat fee to restaurants (vs 30% competitors)")
-                            PromiseRow(icon: "checkmark.circle.fill", text: "Simple tiered platform fee ($1-$3)")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "$\(String(format: "%.0f", AppConfig.shared.foodRestaurantFee)) flat fee to restaurants (vs 30% competitors)")
+                            PromiseRow(icon: "checkmark.circle.fill", text: "Simple $\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)) platform fee per restaurant")
                             PromiseRow(icon: "checkmark.circle.fill", text: "All fees clearly itemized")
                         }
                         .padding()
