@@ -1042,3 +1042,85 @@ class TicketComment(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# =========================================================================
+# CHAT/MESSAGING MODELS - Real-time communication between riders and drivers
+# =========================================================================
+
+class MessageSenderType(enum.Enum):
+    CUSTOMER = "customer"
+    DRIVER = "driver"
+    SYSTEM = "system"
+
+
+class ChatConversation(Base):
+    """Chat conversation between customer and driver for an order"""
+    __tablename__ = "chat_conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Link to order (one conversation per order)
+    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False, index=True)
+
+    # Participants
+    customer_id = Column(Integer, nullable=False, index=True)
+    customer_name = Column(String(255))
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True, index=True)
+    driver_name = Column(String(255))
+
+    # Conversation state
+    is_active = Column(Boolean, default=True)  # Active while order in progress
+    last_message_at = Column(DateTime)
+    last_message_preview = Column(String(255))
+
+    # Unread counts
+    customer_unread_count = Column(Integer, default=0)
+    driver_unread_count = Column(Integer, default=0)
+
+    # Typing indicators (ephemeral, updated via WebSocket)
+    customer_typing = Column(Boolean, default=False)
+    driver_typing = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    order = relationship("Order")
+    driver = relationship("Driver")
+    messages = relationship("ChatMessage", back_populates="conversation", order_by="ChatMessage.created_at")
+
+
+class ChatMessage(Base):
+    """Individual chat message in a conversation"""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("chat_conversations.id"), nullable=False, index=True)
+
+    # Sender info
+    sender_type = Column(SQLEnum(MessageSenderType), nullable=False)
+    sender_id = Column(Integer, nullable=False)  # customer_id or driver_id
+    sender_name = Column(String(255))
+
+    # Message content
+    message = Column(Text, nullable=False)
+    message_type = Column(String(50), default="text")  # text, image, location, system
+
+    # Attachments (JSON for images, locations, etc.)
+    attachments = Column(Text)  # JSON: [{"type": "image", "url": "..."}, {"type": "location", "lat": ..., "lng": ...}]
+
+    # Read receipt
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime)
+
+    # Delivery status
+    is_delivered = Column(Boolean, default=False)
+    delivered_at = Column(DateTime)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    conversation = relationship("ChatConversation", back_populates="messages")

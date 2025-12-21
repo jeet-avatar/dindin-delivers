@@ -202,7 +202,7 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         except Exception as e:
             errors.append(f"drivers.{col_name}: {str(e)}")
 
-    # Migration: Add verification columns to vendors table
+    # Migration: Add verification and online status columns to vendors table
     vendor_columns = [
         ("verification_id", "VARCHAR(255)"),
         ("verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
@@ -210,6 +210,23 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         ("documents_verified_at", "TIMESTAMP"),
         ("verification_notes", "TEXT"),
         ("verification_reviewer_id", "INTEGER"),
+        # Online/Offline Status columns
+        ("is_online", "BOOLEAN DEFAULT FALSE"),
+        ("went_online_at", "TIMESTAMP"),
+        ("went_offline_at", "TIMESTAMP"),
+        # Publishing Status columns
+        ("is_published", "BOOLEAN DEFAULT FALSE"),
+        ("published_at", "TIMESTAMP"),
+        ("published_platforms", "TEXT"),
+        # Menu verification columns
+        ("menu_verified", "BOOLEAN DEFAULT FALSE"),
+        ("menu_verified_at", "TIMESTAMP"),
+        ("menu_verified_by", "INTEGER"),
+        # Admin approval columns
+        ("approved_by", "INTEGER"),
+        # Stripe integration columns
+        ("stripe_account_id", "VARCHAR(255)"),
+        ("stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
     ]
 
     for col_name, col_type in vendor_columns:
@@ -475,6 +492,25 @@ def _run_startup_migrations():
         ("drivers", "photo_url", "VARCHAR(500)"),
         # Customers table columns - for customer authentication
         ("customers", "password_hash", "VARCHAR(255)"),
+        # Vendors table columns - for online status and verification
+        ("vendors", "is_online", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "went_online_at", "TIMESTAMP"),
+        ("vendors", "went_offline_at", "TIMESTAMP"),
+        ("vendors", "is_published", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "published_at", "TIMESTAMP"),
+        ("vendors", "published_platforms", "TEXT"),
+        ("vendors", "menu_verified", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "menu_verified_at", "TIMESTAMP"),
+        ("vendors", "menu_verified_by", "INTEGER"),
+        ("vendors", "approved_by", "INTEGER"),
+        ("vendors", "stripe_account_id", "VARCHAR(255)"),
+        ("vendors", "stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "verification_id", "VARCHAR(255)"),
+        ("vendors", "verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("vendors", "documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "documents_verified_at", "TIMESTAMP"),
+        ("vendors", "verification_notes", "TEXT"),
+        ("vendors", "verification_reviewer_id", "INTEGER"),
     ]
 
     try:
@@ -582,6 +618,115 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+# Admin Demo Login - for testing
+class AdminDemoLoginRequest(BaseModel):
+    email_hint: Optional[str] = None
+    email: Optional[str] = None
+
+@app.post("/api/auth/admin/demo-login")
+def admin_demo_login(request: AdminDemoLoginRequest, db: Session = Depends(get_db)):
+    """Demo login for admin - creates or finds admin account for testing"""
+    demo_email = "admin@invoice.com"
+    demo_password = "admin123"
+
+    # Check if admin user exists
+    user = db.query(User).filter(
+        User.email == demo_email,
+        User.role == UserRole.ADMIN
+    ).first()
+
+    if not user:
+        # Create admin user
+        hashed_password = get_password_hash(demo_password)
+        user = User(
+            email=demo_email,
+            password_hash=hashed_password,
+            full_name="Admin User",
+            role=UserRole.ADMIN,
+            created_at=datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created admin user: {demo_email}")
+    else:
+        # Reset password to ensure it works
+        user.password_hash = get_password_hash(demo_password)
+        db.commit()
+        db.refresh(user)
+        print(f"Reset admin password for: {demo_email}")
+
+    # Generate token
+    access_token = create_access_token(data={"sub": user.email, "role": "admin"})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": "admin"
+        }
+    }
+
+# Admin JSON Login endpoint (for web frontend)
+class AdminLoginRequest(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None
+    password: str
+
+    def get_email(self) -> str:
+        return self.email or self.username or ""
+
+@app.post("/api/admin/login")
+def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
+    """JSON-based admin login endpoint for web frontend"""
+    login_email = request.get_email()
+    if not login_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or username is required"
+        )
+    print(f"Admin JSON login attempt for: {login_email}")
+
+    # Find user with ADMIN role
+    user = db.query(User).filter(
+        User.email == login_email,
+        User.role == UserRole.ADMIN
+    ).first()
+
+    if not user:
+        print(f"Admin user not found: {login_email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not verify_password(request.password, user.password_hash):
+        print(f"Password verification failed for admin")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    print(f"Admin login successful for: {user.email}")
+
+    access_token = create_access_token(data={"sub": user.email, "role": "admin"})
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": "admin"
+        }
+    }
 
 @app.post("/api/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -892,18 +1037,61 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
 
 # Vendor Google OAuth
 class VendorGoogleAuthRequest(BaseModel):
-    email: EmailStr
-    name: str
-    google_id: str
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+    id_token: Optional[str] = None  # Web frontend sends this
+    credential: Optional[str] = None  # Alternative field name
+
+def decode_google_jwt(token: str) -> dict:
+    """Decode Google JWT to extract user info (without signature verification for dev)"""
+    import base64
+    import json
+    try:
+        # JWT has 3 parts: header.payload.signature
+        parts = token.split('.')
+        if len(parts) != 3:
+            return {}
+        # Decode the payload (second part)
+        payload = parts[1]
+        # Add padding if needed
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += '=' * padding
+        decoded = base64.urlsafe_b64decode(payload)
+        return json.loads(decoded)
+    except Exception as e:
+        print(f"Error decoding Google JWT: {e}")
+        return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
 def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
     from models import VendorStatus
-    print(f"Vendor Google auth for: {request.email}")
+
+    # Get token from either field
+    token = request.id_token or request.credential
+
+    # If token provided, decode it to get user info
+    if token:
+        decoded = decode_google_jwt(token)
+        email = decoded.get('email', request.email)
+        name = decoded.get('name', request.name)
+        google_id = decoded.get('sub', request.google_id)
+    else:
+        email = request.email
+        name = request.name
+        google_id = request.google_id
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if not name:
+        name = email.split('@')[0]  # Use email prefix as fallback name
+
+    print(f"Vendor Google auth for: {email}")
 
     # Check if user exists
-    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
+    user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
     if user:
         # Existing vendor - check if approved
@@ -918,9 +1106,9 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
-            company_name=request.name,
-            contact_name=request.name,
-            contact_email=request.email,
+            company_name=name,
+            contact_name=name,
+            contact_email=email,
             onboarding_status=VendorStatus.PENDING,
             street="",
             city="",
@@ -932,22 +1120,22 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
         db.commit()
         db.refresh(new_vendor)
 
-        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
         user = User(
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
-            full_name=request.name,
+            full_name=name,
             role=UserRole.VENDOR,
             vendor_id=new_vendor.id
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new vendor via Google auth: {request.email}")
+        print(f"Created new vendor via Google auth: {email}")
 
     # Get vendor info
     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
+    business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
     print(f"Vendor Google auth successful for: {user.email}")
     access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
@@ -1273,17 +1461,39 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
 
 # Driver Google OAuth
 class DriverGoogleAuthRequest(BaseModel):
-    email: EmailStr
-    name: str
-    google_id: str
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+    id_token: Optional[str] = None  # Web frontend sends this
+    credential: Optional[str] = None  # Alternative field name
 
 @app.post("/api/auth/driver/google")
 def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for drivers - handles both login and registration"""
-    print(f"Driver Google auth for: {request.email}")
+
+    # Get token from either field
+    token = request.id_token or request.credential
+
+    # If token provided, decode it to get user info
+    if token:
+        decoded = decode_google_jwt(token)
+        email = decoded.get('email', request.email)
+        name = decoded.get('name', request.name)
+        google_id = decoded.get('sub', request.google_id)
+    else:
+        email = request.email
+        name = request.name
+        google_id = request.google_id
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if not name:
+        name = email.split('@')[0]  # Use email prefix as fallback name
+
+    print(f"Driver Google auth for: {email}")
 
     # Check if user exists with DRIVER role
-    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
+    user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
 
     if user:
         # Existing driver - check if approved
@@ -1296,7 +1506,7 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
                 )
     else:
         # Create new driver and user
-        name_parts = request.name.split(" ", 1)
+        name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
@@ -1307,31 +1517,31 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
             driver_id=driver_code,
             first_name=first_name,
             last_name=last_name,
-            email=request.email,
+            email=email,
             status=DriverStatus.PENDING
         )
         db.add(new_driver)
         db.commit()
         db.refresh(new_driver)
 
-        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
         user = User(
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
-            full_name=request.name,
+            full_name=name,
             role=UserRole.DRIVER,
             driver_id=new_driver.id
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new driver via Google auth: {request.email}")
+        print(f"Created new driver via Google auth: {email}")
 
         # Send registration confirmation
         try:
             send_driver_registration_confirmation(
-                to_email=request.email,
-                driver_name=request.name,
+                to_email=email,
+                driver_name=name,
                 driver_code=driver_code
             )
         except Exception as e:
@@ -1347,7 +1557,7 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
         "token_type": "bearer",
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
-        "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
+        "name": f"{driver.first_name} {driver.last_name}" if driver else name,
         "email": user.email
     }
 
@@ -1744,17 +1954,36 @@ def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depen
 
 # Customer Google OAuth
 class CustomerGoogleAuthRequest(BaseModel):
-    email: EmailStr
-    name: str
-    google_id: str
+    """Google auth request - accepts id_token from web or separate fields"""
+    email: Optional[str] = None
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+    id_token: Optional[str] = None  # Web sends this JWT credential
 
 @app.post("/api/auth/customer/google")
 def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration"""
-    print(f"Customer Google auth for: {request.email}")
+
+    # Decode id_token if provided (web sends this)
+    if request.id_token:
+        decoded = decode_google_jwt(request.id_token)
+        email = decoded.get('email', request.email)
+        name = decoded.get('name', request.name)
+        google_id = decoded.get('sub', request.google_id)
+    else:
+        email = request.email
+        name = request.name
+        google_id = request.google_id
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required. Please try again.")
+    if not name:
+        name = email.split('@')[0]  # Use email prefix as fallback name
+
+    print(f"Customer Google auth for: {email}")
 
     # Check if customer exists
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    customer = db.query(Customer).filter(Customer.email == email).first()
 
     if customer:
         # Existing customer - check status
@@ -1765,29 +1994,29 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
             )
     else:
         # Create new customer
-        name_parts = request.name.split(" ", 1)
+        name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
         customer_count = db.query(Customer).count()
         customer_code = f"CUST-{customer_count + 1:05d}"
 
-        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
 
         customer = Customer(
             customer_id=customer_code,
             first_name=first_name,
             last_name=last_name,
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
             is_active=True
         )
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer via Google auth: {request.email}")
+        print(f"Created new customer via Google auth: {email}")
 
-    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or request.name
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
     print(f"Customer Google auth successful for: {customer.email}")
     access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
     return {
@@ -3068,38 +3297,82 @@ def customer_google_auth_v2(request: CustomerGoogleAuthRequest, db: Session = De
 
 
 class CustomerAppleAuthRequest(BaseModel):
-    email: str
-    name: str
+    email: Optional[str] = None  # Apple only provides on first sign-in
+    name: Optional[str] = None   # Apple only provides on first sign-in
     apple_id: str
+    identity_token: Optional[str] = None  # JWT from Apple
 
 @app.post("/api/customer/apple-auth")
+@app.post("/api/auth/customer/apple-auth")  # Alias for Android compatibility
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for customers - handles both login and registration"""
-    print(f"Customer Apple auth for: {request.email}")
+    print(f"Customer Apple auth - apple_id: {request.apple_id[:20] if request.apple_id else 'None'}...")
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email).first()
+    email = request.email
+    name = request.name
+
+    # Always try to decode identity_token first (Apple JWT contains email)
+    if request.identity_token:
+        try:
+            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+            print(f"Decoded Apple token: {decoded.keys()}")
+            # Token email takes priority over request.email
+            token_email = decoded.get('email')
+            if token_email:
+                email = token_email
+            if not name and email:
+                name = email.split('@')[0]
+        except Exception as e:
+            print(f"Error decoding Apple identity token: {e}")
+
+    if not name and email:
+        name = email.split('@')[0]
+    elif not name:
+        name = 'Apple User'
+
+    # For returning users without email, look up by apple_id hash
+    apple_id_hash = f"apple_oauth_{request.apple_id}"
+
+    # Check if user exists by email or by apple password hash
+    user = None
+    if email:
+        user = db.query(User).filter(User.email == email).first()
 
     if not user:
-        # Create new user
+        # Try to find by apple_id in password hash (for returning users)
+        users_with_apple = db.query(User).filter(User.password_hash.contains("apple_oauth_")).all()
+        for u in users_with_apple:
+            if verify_password(apple_id_hash, u.password_hash) or u.password_hash == get_password_hash(apple_id_hash):
+                user = u
+                email = u.email
+                break
+
+    if not user and not email:
+        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In")
+
+    if not user:
+        # Create new user - need email and name for new users
+        if not name:
+            name = email.split('@')[0] if email else 'Apple User'
         hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
         user = User(
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
-            full_name=request.name,
+            full_name=name,
             role=UserRole.USER
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new user for Apple auth: {request.email}")
+        print(f"Created new user for Apple auth: {email}")
 
     # Check if customer record exists
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    customer = db.query(Customer).filter(Customer.email == email).first()
 
     if not customer:
         # Parse name into first_name and last_name
-        name_parts = request.name.split(" ", 1)
+        display_name = name or user.full_name or email.split('@')[0]
+        name_parts = display_name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
@@ -3112,12 +3385,12 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
             customer_id=customer_id,
             first_name=first_name,
             last_name=last_name,
-            email=request.email
+            email=email
         )
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer record for: {request.email} with ID: {customer_id}")
+        print(f"Created new customer record for: {email} with ID: {customer_id}")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
@@ -8433,6 +8706,10 @@ app.include_router(verification_router)
 from vibing_routes import router as vibing_router
 app.include_router(vibing_router)
 
+# Include Chat routes (Rider-Driver messaging)
+from chat_routes import router as chat_router
+app.include_router(chat_router)
+
 # ==================== MICROSERVICE PROXY ENDPOINTS ====================
 # These endpoints forward requests to the appropriate microservices
 # In production, an API Gateway (Kong/NGINX) should handle this routing
@@ -8440,11 +8717,11 @@ app.include_router(vibing_router)
 import httpx
 from fastapi.responses import JSONResponse
 
-# Microservice URLs (configurable via environment)
-RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://localhost:8014")
-RESTAURANT_SERVICE_URL = os.getenv("RESTAURANT_SERVICE_URL", "http://localhost:8004")
-PRICING_SERVICE_URL = os.getenv("PRICING_SERVICE_URL", "http://localhost:8015")
-LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://localhost:8007")
+# STAGING ENVIRONMENT - Microservice URLs (K8s internal services)
+RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://ride-service:8014")
+RESTAURANT_SERVICE_URL = os.getenv("RESTAURANT_SERVICE_URL", "http://restaurant-service:8004")
+PRICING_SERVICE_URL = os.getenv("PRICING_SERVICE_URL", "http://pricing-service:8015")
+LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://location-service:8007")
 
 async def proxy_request(service_url: str, path: str, method: str = "GET",
                         params: dict = None, json_data: dict = None):
@@ -9317,85 +9594,155 @@ def get_driver_earnings_by_id(
     period: str = Query("week", regex="^(today|week|month|year)$"),
     db: Session = Depends(get_db)
 ):
-    """Get driver earnings by driver ID"""
+    """
+    Get driver earnings by driver ID - Unified structure for iOS, Android, and Web
+
+    Returns comprehensive earnings data aligned across all platforms:
+    - Period-based earnings with breakdown (base_pay, tips, bonuses)
+    - Multi-period data (today, this_week, this_month)
+    - Daily breakdown for charts
+    - Ratings summary
+    - Payout/balance info
+    - Payment history
+    """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # Calculate date range based on period
     now = datetime.utcnow()
+
+    # Helper function to calculate period earnings
+    def calc_period_earnings(start_dt, end_dt=None):
+        query = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.created_at >= start_dt
+        )
+        if end_dt:
+            query = query.filter(Order.created_at < end_dt)
+        orders = query.all()
+
+        deliveries = len(orders)
+        base_pay = sum(float(o.delivery_fee or 0) for o in orders)
+        tips = sum(float(o.tip or 0) for o in orders)
+        bonuses = 0  # TODO: Add bonus tracking
+        total = base_pay + tips + bonuses
+        hours = deliveries * 0.5  # Estimate 30 min per delivery
+
+        return {
+            "deliveries": deliveries,
+            "gross_earnings": round(total, 2),
+            "base_pay": round(base_pay, 2),
+            "tips": round(tips, 2),
+            "bonuses": round(bonuses, 2),
+            "active_hours": round(hours, 1),
+            "effective_hourly_rate": round(total / hours, 2) if hours > 0 else 0,
+            "per_delivery_average": round(total / deliveries, 2) if deliveries > 0 else 0
+        }
+
+    # Calculate today's earnings
+    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_data = calc_period_earnings(start_of_today)
+
+    # Calculate this week's earnings (last 7 days)
+    start_of_week = now - timedelta(days=7)
+    week_data = calc_period_earnings(start_of_week)
+
+    # Calculate this month's earnings (last 30 days)
+    start_of_month = now - timedelta(days=30)
+    month_data = calc_period_earnings(start_of_month)
+
+    # Calculate selected period earnings
     if period == "today":
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = start_of_today
     elif period == "week":
-        start_date = now - timedelta(days=7)
+        start_date = start_of_week
     elif period == "month":
-        start_date = now - timedelta(days=30)
+        start_date = start_of_month
     else:  # year
         start_date = now - timedelta(days=365)
 
-    # Query completed orders for this driver in the period
-    orders = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.delivered_at >= start_date if Order.delivered_at else Order.created_at >= start_date
-    ).all()
+    current_period = calc_period_earnings(start_date)
 
-    # Calculate earnings
-    total_deliveries = len(orders)
-    base_pay = sum(float(o.delivery_fee or 0) for o in orders)
-    tips = sum(float(o.tip or 0) for o in orders)
-    bonuses = 0  # Would need bonus tracking system
+    # Previous period for comparison
+    period_days = {"today": 1, "week": 7, "month": 30, "year": 365}
+    days = period_days.get(period, 7)
+    prev_start = start_date - timedelta(days=days)
+    prev_data = calc_period_earnings(prev_start, start_date)
 
-    # Calculate daily breakdown
+    # Calculate daily breakdown (last 7 days)
     daily_breakdown = []
-    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    for i in range(7):
+        day_date = now - timedelta(days=6-i)
+        day_start = day_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        day_orders = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.created_at >= day_start,
+            Order.created_at < day_end
+        ).all()
+        day_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in day_orders)
+        daily_breakdown.append({
+            "day": day_names[day_date.weekday()],
+            "date": day_date.strftime("%Y-%m-%d"),
+            "deliveries": len(day_orders),
+            "earnings": round(day_earnings, 2),
+            "hours": round(len(day_orders) * 0.5, 1)
+        })
 
-    if period == "week":
-        for i in range(7):
-            day_date = now - timedelta(days=6-i)
-            day_orders = [o for o in orders if o.created_at and o.created_at.date() == day_date.date()]
-            day_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in day_orders)
-            daily_breakdown.append({
-                "day": day_names[day_date.weekday()],
-                "deliveries": len(day_orders),
-                "earnings": round(day_earnings, 2),
-                "hours": round(len(day_orders) * 0.5, 1)  # Estimate 30 min per delivery
-            })
+    # Driver ratings
+    ratings = {
+        "average": float(driver.rating or 5.0),
+        "total_ratings": driver.total_deliveries or 0,
+        "five_star": 0,
+        "four_star": 0,
+        "three_star": 0,
+        "two_star": 0,
+        "one_star": 0,
+        "on_time_percentage": 95  # TODO: Calculate from actual data
+    }
 
-    # Get previous period for comparison
-    if period == "week":
-        prev_start = start_date - timedelta(days=7)
-        prev_end = start_date
-    elif period == "month":
-        prev_start = start_date - timedelta(days=30)
-        prev_end = start_date
-    else:
-        prev_start = start_date - timedelta(days=365)
-        prev_end = start_date
+    # Payout info (mock for now - would need payout table)
+    available_balance = current_period["gross_earnings"]
 
-    prev_orders = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.created_at >= prev_start,
-        Order.created_at < prev_end
-    ).all()
-
-    previous_total = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in prev_orders)
-
-    # Estimate hours online
-    hours_online = total_deliveries * 0.5  # Rough estimate
-
+    # Return unified structure matching iOS/Android/Web
     return {
-        "total": round(base_pay + tips + bonuses, 2),
-        "base_pay": round(base_pay, 2),
-        "tips": round(tips, 2),
-        "bonuses": round(bonuses, 2),
-        "previous_period": round(previous_total, 2),
-        "deliveries": total_deliveries,
-        "hours_online": round(hours_online, 1),
-        "avg_per_delivery": round((base_pay + tips) / total_deliveries, 2) if total_deliveries > 0 else 0,
+        # === Primary earnings data (for selected period) ===
+        "total": current_period["gross_earnings"],
+        "base_pay": current_period["base_pay"],
+        "tips": current_period["tips"],
+        "bonuses": current_period["bonuses"],
+        "previous_period": prev_data["gross_earnings"],
+        "deliveries": current_period["deliveries"],
+        "hours_online": current_period["active_hours"],
+        "avg_per_delivery": current_period["per_delivery_average"],
+        "hourly_rate": current_period["effective_hourly_rate"],
+
+        # === Multi-period data (for iOS/Android dashboard) ===
+        "today": today_data,
+        "this_week": week_data,
+        "this_month": month_data,
+
+        # === Daily breakdown (for charts) ===
         "daily_breakdown": daily_breakdown,
-        "payment_history": []  # Would need payment history table
+
+        # === Ratings ===
+        "ratings": ratings,
+
+        # === Payout info ===
+        "available_balance": round(available_balance, 2),
+        "pending_balance": 0.0,
+        "last_payout": None,
+
+        # === Payment history ===
+        "payment_history": [],
+
+        # === Metadata ===
+        "driver_id": driver_id,
+        "period": period,
+        "snapshot_time": now.isoformat()
     }
 
 
