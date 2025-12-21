@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Steps, Typography, Tag, Row, Col, Divider, Spin, Empty, message } from 'antd';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Card, Button, Steps, Typography, Tag, Row, Col, Divider, Spin, Empty, message, Badge } from 'antd';
 import {
   EnvironmentOutlined,
   PhoneOutlined,
@@ -11,8 +11,9 @@ import {
   CompassOutlined,
   LoadingOutlined
 } from '@ant-design/icons';
-import { getActiveDelivery, markDeliveryPickedUp, completeDelivery, ActiveDeliveryData } from '../../api/api';
+import { getActiveDelivery, markDeliveryPickedUp, completeDelivery, ActiveDeliveryData, getWebSocketUrl, getCurrentDriverId } from '../../api/api';
 import { useNavigate } from 'react-router-dom';
+import ChatPanel from '../../components/chat/ChatPanel';
 
 const { Title, Text } = Typography;
 
@@ -33,9 +34,88 @@ const ActiveDelivery: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeDelivery, setActiveDelivery] = useState<ActiveDeliveryData | null>(null);
 
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // WebSocket ref
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get driver info
+  const driverId = getCurrentDriverId() || 0;
+  const driverName = localStorage.getItem('driver_name') || 'Driver';
+
+  // WebSocket connection for real-time updates
+  const connectWebSocket = useCallback(() => {
+    if (!activeDelivery || wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      const wsUrl = `${getWebSocketUrl()}/driver/${driverId}`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Driver WebSocket connected');
+        // Subscribe to order topic
+        ws.send(JSON.stringify({
+          type: 'subscribe',
+          topic: `order:${activeDelivery.id}`
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Handle chat message notification
+          if (data.type === 'chat_message' && !chatOpen) {
+            const msgData = data.data || data;
+            if (msgData.order_id === activeDelivery.id && msgData.sender_type === 'customer') {
+              setUnreadMessages(prev => prev + 1);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Driver WebSocket disconnected');
+        // Reconnect after 5 seconds if delivery is still active
+        if (activeDelivery && activeDelivery.status !== 'delivered') {
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error);
+    }
+  }, [activeDelivery, driverId, chatOpen]);
+
   useEffect(() => {
     fetchActiveDelivery();
   }, []);
+
+  // Connect WebSocket after delivery is loaded
+  useEffect(() => {
+    if (activeDelivery && activeDelivery.status !== 'delivered') {
+      connectWebSocket();
+    }
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [activeDelivery?.id, connectWebSocket]);
 
   const fetchActiveDelivery = async () => {
     setLoading(true);
@@ -252,9 +332,21 @@ const ActiveDelivery: React.FC = () => {
                 </Button>
               </Col>
               <Col span={12}>
-                <Button icon={<MessageOutlined />} block size="large" className="contact-btn">
-                  Message
-                </Button>
+                <Badge count={unreadMessages} size="small">
+                  <Button
+                    icon={<MessageOutlined />}
+                    block
+                    size="large"
+                    className="contact-btn"
+                    type={unreadMessages > 0 ? 'primary' : 'default'}
+                    onClick={() => {
+                      setChatOpen(true);
+                      setUnreadMessages(0);
+                    }}
+                  >
+                    Message
+                  </Button>
+                </Badge>
               </Col>
             </Row>
           </Card>
@@ -273,6 +365,18 @@ const ActiveDelivery: React.FC = () => {
           </Button>
         </Col>
       </Row>
+
+      {/* Chat Panel */}
+      <ChatPanel
+        orderId={activeDelivery.id}
+        userType="driver"
+        userId={driverId}
+        userName={driverName}
+        otherPartyName={activeDelivery.customer_name}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onUnreadCountChange={setUnreadMessages}
+      />
 
       <style>{`
         .active-delivery {

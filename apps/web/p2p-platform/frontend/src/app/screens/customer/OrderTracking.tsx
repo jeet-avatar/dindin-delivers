@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Row, Col, Button, Typography, Steps, Tag, Avatar, Divider, Timeline, Spin, Empty, Rate, Modal, message } from 'antd';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Card, Row, Col, Button, Typography, Steps, Tag, Avatar, Divider, Timeline, Spin, Empty, Rate, Modal, message, Badge } from 'antd';
 import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
@@ -16,7 +16,9 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { getApiUrl } from '../../api/api';
+import { getApiUrl, getWebSocketUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
+import ChatPanel from '../../components/chat/ChatPanel';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -85,14 +87,133 @@ const OrderTracking: React.FC = () => {
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
 
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // WebSocket ref
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get customer info from localStorage
+  const customerId = parseInt(localStorage.getItem('customer_id') || '0');
+  const customerName = localStorage.getItem('customer_name') || 'Customer';
+
+  // WebSocket connection for real-time order updates
+  const connectWebSocket = useCallback(() => {
+    if (!orderId || wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      const wsUrl = `${getWebSocketUrl()}/customer/${customerId}`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Order tracking WebSocket connected');
+        // Subscribe to order topic
+        ws.send(JSON.stringify({
+          type: 'subscribe',
+          topic: `order:${orderId}`
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Handle order status updates
+          if (data.type === 'order_status' || data.type === 'order:status') {
+            const statusData = data.data || data;
+            if (statusData.order_id?.toString() === orderId) {
+              // Update order status in real-time
+              setOrder(prev => prev ? {
+                ...prev,
+                status: statusData.status,
+                driver: statusData.driver || prev.driver
+              } : null);
+            }
+          }
+
+          // Handle driver assignment
+          if (data.type === 'driver_assigned') {
+            const driverData = data.data || data;
+            if (driverData.order_id?.toString() === orderId) {
+              setOrder(prev => prev ? {
+                ...prev,
+                driver: driverData.driver
+              } : null);
+              message.success('A driver has been assigned to your order!');
+            }
+          }
+
+          // Handle chat message notification
+          if (data.type === 'chat_message' && !chatOpen) {
+            const msgData = data.data || data;
+            if (msgData.order_id?.toString() === orderId && msgData.sender_type === 'driver') {
+              setUnreadMessages(prev => prev + 1);
+            }
+          }
+
+          // Handle driver location updates
+          if (data.type === 'driver_location') {
+            const locData = data.data || data;
+            if (order?.driver && locData.driver_id === order.driver.id) {
+              setOrder(prev => prev && prev.driver ? {
+                ...prev,
+                driver: {
+                  ...prev.driver,
+                  current_lat: locData.latitude,
+                  current_lng: locData.longitude
+                }
+              } : null);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Order tracking WebSocket disconnected');
+        // Reconnect after 5 seconds if order is still active
+        if (order && !['delivered', 'cancelled'].includes(order.status)) {
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error);
+    }
+  }, [orderId, customerId, order, chatOpen]);
+
   useEffect(() => {
     fetchOrder();
   }, [orderId]);
 
+  // Connect WebSocket after order is loaded
   useEffect(() => {
-    // Poll for updates every 10 seconds
     if (order && !['delivered', 'cancelled'].includes(order.status)) {
-      const interval = setInterval(fetchOrder, 10000);
+      connectWebSocket();
+    }
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [order?.id, connectWebSocket]);
+
+  // Fallback polling every 30 seconds (reduced from 10 since we have WebSocket)
+  useEffect(() => {
+    if (order && !['delivered', 'cancelled'].includes(order.status)) {
+      const interval = setInterval(fetchOrder, 30000);
       return () => clearInterval(interval);
     }
   }, [order?.status]);
@@ -136,8 +257,8 @@ const OrderTracking: React.FC = () => {
       restaurant_name: orderData.restaurant_name as string || 'Restaurant',
       items: orderData.items as OrderItem[] || [],
       subtotal: orderData.subtotal as number || 0,
-      delivery_fee: orderData.delivery_fee as number || 2.99,
-      platform_fee: 1.00,
+      delivery_fee: orderData.delivery_fee as number || 0,
+      platform_fee: orderData.platform_fee as number || pricing.foodDelivery.customerFee,
       tax: orderData.tax as number || 0,
       tip: orderData.tip as number || 0,
       total: orderData.total_amount as number || 0,
@@ -279,9 +400,18 @@ const OrderTracking: React.FC = () => {
                     >
                       Call
                     </Button>
-                    <Button icon={<MessageOutlined />}>
-                      Chat
-                    </Button>
+                    <Badge count={unreadMessages} size="small">
+                      <Button
+                        icon={<MessageOutlined />}
+                        onClick={() => {
+                          setChatOpen(true);
+                          setUnreadMessages(0);
+                        }}
+                        type={unreadMessages > 0 ? 'primary' : 'default'}
+                      >
+                        Chat
+                      </Button>
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -400,6 +530,20 @@ const OrderTracking: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Chat Panel */}
+      {order && order.driver && (
+        <ChatPanel
+          orderId={order.id}
+          userType="customer"
+          userId={customerId}
+          userName={customerName}
+          otherPartyName={order.driver.name}
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          onUnreadCountChange={setUnreadMessages}
+        />
+      )}
 
       {/* Rating Modal */}
       <Modal

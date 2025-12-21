@@ -529,7 +529,63 @@ export interface DriverDelivery {
   rating?: number;
 }
 
+/**
+ * Period-based earnings breakdown - Unified structure across iOS, Android, Web
+ */
+export interface EarningsPeriod {
+  deliveries: number;
+  gross_earnings: number;
+  base_pay: number;
+  tips: number;
+  bonuses: number;
+  active_hours: number;
+  effective_hourly_rate: number;
+  per_delivery_average: number;
+}
+
+/**
+ * Driver ratings summary
+ */
+export interface DriverRatings {
+  average: number;
+  total_ratings: number;
+  five_star: number;
+  four_star: number;
+  three_star: number;
+  two_star: number;
+  one_star: number;
+  on_time_percentage: number;
+}
+
+/**
+ * Payout/payment record
+ */
+export interface PayoutRecord {
+  id: string;
+  date: string;
+  amount: number;
+  method: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  fee?: number;
+}
+
+/**
+ * Daily earnings breakdown for charts
+ */
+export interface DailyEarning {
+  day: string;
+  date: string;
+  deliveries: number;
+  earnings: number;
+  hours: number;
+}
+
+/**
+ * Unified Driver Earnings Data - Aligned across iOS, Android, and Web
+ * Matches backend /api/drivers/{driver_id}/earnings response
+ */
 export interface DriverEarningsData {
+  // === Primary earnings data (for selected period) ===
   total: number;
   base_pay: number;
   tips: number;
@@ -538,19 +594,31 @@ export interface DriverEarningsData {
   deliveries: number;
   hours_online: number;
   avg_per_delivery: number;
-  daily_breakdown: {
-    day: string;
-    deliveries: number;
-    earnings: number;
-    hours: number;
-  }[];
-  payment_history: {
-    id: string;
-    date: string;
-    amount: number;
-    method: string;
-    status: string;
-  }[];
+  hourly_rate: number;
+
+  // === Multi-period data (for dashboard) ===
+  today: EarningsPeriod;
+  this_week: EarningsPeriod;
+  this_month: EarningsPeriod;
+
+  // === Daily breakdown (for charts) ===
+  daily_breakdown: DailyEarning[];
+
+  // === Ratings ===
+  ratings: DriverRatings;
+
+  // === Payout info ===
+  available_balance: number;
+  pending_balance: number;
+  last_payout: PayoutRecord | null;
+
+  // === Payment history ===
+  payment_history: PayoutRecord[];
+
+  // === Metadata ===
+  driver_id: number;
+  period: string;
+  snapshot_time: string;
 }
 
 export interface DriverMessage {
@@ -730,6 +798,30 @@ export const getActiveDelivery = async (): Promise<ActiveDeliveryData | null> =>
 };
 
 // Driver Earnings
+// Default empty earnings period
+const emptyEarningsPeriod: EarningsPeriod = {
+  deliveries: 0,
+  gross_earnings: 0,
+  base_pay: 0,
+  tips: 0,
+  bonuses: 0,
+  active_hours: 0,
+  effective_hourly_rate: 0,
+  per_delivery_average: 0
+};
+
+// Default empty ratings
+const emptyRatings: DriverRatings = {
+  average: 0,
+  total_ratings: 0,
+  five_star: 0,
+  four_star: 0,
+  three_star: 0,
+  two_star: 0,
+  one_star: 0,
+  on_time_percentage: 0
+};
+
 export const getDriverEarnings = async (driverId: number, period: string = 'week'): Promise<DriverEarningsData> => {
   const token = getDriverToken();
   try {
@@ -740,6 +832,7 @@ export const getDriverEarnings = async (driverId: number, period: string = 'week
     return response.data;
   } catch {
     return {
+      // Primary earnings data
       total: 0,
       base_pay: 0,
       tips: 0,
@@ -748,8 +841,25 @@ export const getDriverEarnings = async (driverId: number, period: string = 'week
       deliveries: 0,
       hours_online: 0,
       avg_per_delivery: 0,
+      hourly_rate: 0,
+      // Multi-period data
+      today: emptyEarningsPeriod,
+      this_week: emptyEarningsPeriod,
+      this_month: emptyEarningsPeriod,
+      // Daily breakdown
       daily_breakdown: [],
-      payment_history: []
+      // Ratings
+      ratings: emptyRatings,
+      // Payout info
+      available_balance: 0,
+      pending_balance: 0,
+      last_payout: null,
+      // Payment history
+      payment_history: [],
+      // Metadata
+      driver_id: driverId,
+      period: period,
+      snapshot_time: new Date().toISOString()
     };
   }
 };
@@ -794,6 +904,120 @@ export const uploadDriverDocument = async (driverId: number, formData: FormData)
     }
   });
   return response.data;
+};
+
+// ===================== CHAT API =====================
+
+export interface ChatMessage {
+  id: number;
+  sender_type: 'customer' | 'driver' | 'system';
+  sender_id: number;
+  sender_name?: string;
+  message: string;
+  message_type: string;
+  attachments?: string;
+  is_read: boolean;
+  is_delivered: boolean;
+  created_at: string;
+}
+
+export interface ChatConversation {
+  id: number;
+  order_id: number;
+  customer_id: number;
+  customer_name?: string;
+  driver_id?: number;
+  driver_name?: string;
+  is_active: boolean;
+  last_message_at?: string;
+  last_message_preview?: string;
+  customer_unread_count: number;
+  driver_unread_count: number;
+  customer_typing: boolean;
+  driver_typing: boolean;
+}
+
+// Send a chat message
+export const sendChatMessage = async (
+  orderId: number,
+  senderType: 'customer' | 'driver',
+  senderId: number,
+  message: string,
+  senderName?: string
+) => {
+  const response = await api.post('/chat/send', {
+    order_id: orderId,
+    sender_type: senderType,
+    sender_id: senderId,
+    sender_name: senderName,
+    message: message,
+    message_type: 'text'
+  });
+  return response.data;
+};
+
+// Get chat messages for an order
+export const getChatMessages = async (orderId: number, limit = 50, offset = 0) => {
+  const response = await api.get(`/chat/messages/${orderId}`, {
+    params: { limit, offset }
+  });
+  return response.data;
+};
+
+// Mark messages as read
+export const markMessagesRead = async (
+  orderId: number,
+  readerType: 'customer' | 'driver',
+  readerId: number
+) => {
+  const response = await api.post(`/chat/read/${orderId}`, null, {
+    params: { reader_type: readerType, reader_id: readerId }
+  });
+  return response.data;
+};
+
+// Update typing indicator
+export const updateTypingIndicator = async (
+  orderId: number,
+  senderType: 'customer' | 'driver',
+  senderId: number,
+  isTyping: boolean
+) => {
+  const response = await api.post(`/chat/typing/${orderId}`, {
+    sender_type: senderType,
+    sender_id: senderId,
+    is_typing: isTyping
+  });
+  return response.data;
+};
+
+// Get conversation info for an order
+export const getChatConversation = async (orderId: number) => {
+  const response = await api.get(`/chat/conversation/${orderId}`);
+  return response.data;
+};
+
+// Get driver's conversations list
+export const getDriverConversations = async (driverId: number, activeOnly = true) => {
+  const response = await api.get(`/chat/driver/${driverId}/conversations`, {
+    params: { active_only: activeOnly }
+  });
+  return response.data;
+};
+
+// Get customer's conversations list
+export const getCustomerConversations = async (customerId: number, activeOnly = true) => {
+  const response = await api.get(`/chat/customer/${customerId}/conversations`, {
+    params: { active_only: activeOnly }
+  });
+  return response.data;
+};
+
+// ===================== WEBSOCKET HELPERS =====================
+
+export const getWebSocketUrl = () => {
+  const baseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+  return `${baseUrl}/api/realtime/ws`;
 };
 
 export default api;

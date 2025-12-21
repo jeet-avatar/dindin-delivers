@@ -342,6 +342,37 @@ async def handle_websocket_message(websocket: WebSocket, client_id: str, data: d
         if conversation_id and message_text:
             await broadcast_chat_message(conversation_id, client_id, sender_type, message_text)
 
+    elif message_type == "typing":
+        # Typing indicator
+        order_id = data.get("order_id")
+        sender_type = data.get("sender_type")
+        is_typing = data.get("is_typing", False)
+        recipient_id = data.get("recipient_id")
+
+        if order_id and sender_type and recipient_id:
+            recipient_type = "customer" if sender_type == "driver" else "driver"
+            await manager.send_personal_message({
+                "type": "typing_indicator",
+                "order_id": order_id,
+                "sender_type": sender_type,
+                "is_typing": is_typing
+            }, f"{recipient_type}_{recipient_id}")
+
+    elif message_type == "mark_read":
+        # Mark messages as read notification
+        order_id = data.get("order_id")
+        reader_type = data.get("reader_type")
+        recipient_id = data.get("recipient_id")
+
+        if order_id and reader_type and recipient_id:
+            sender_type = "driver" if reader_type == "customer" else "customer"
+            await manager.send_personal_message({
+                "type": "read_receipt",
+                "order_id": order_id,
+                "reader_type": reader_type,
+                "read_at": datetime.utcnow().isoformat()
+            }, f"{sender_type}_{recipient_id}")
+
     elif message_type == "get_subscriptions":
         subscriptions = manager.get_client_subscriptions(client_id)
         await manager.send_personal_message({
