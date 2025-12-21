@@ -18,11 +18,49 @@ import VendorPayouts from './app/screens/accounting/VendorPayouts';
 import PlatformRevenue from './app/screens/accounting/PlatformRevenue';
 import MainLayout from './app/components/layout/MainLayout';
 
+// Public Pages
+import LandingPage from './app/screens/public/LandingPage';
+import TermsOfService from './app/screens/public/TermsOfService';
+import PrivacyPolicy from './app/screens/public/PrivacyPolicy';
+import RestaurantApplication from './app/screens/public/RestaurantApplication';
+import DriverApplication from './app/screens/public/DriverApplication';
+import HelpSupport from './app/screens/public/HelpSupport';
+import ReferAndEarn from './app/screens/public/ReferAndEarn';
+
+// Customer Pages
+import CustomerLogin from './app/screens/auth/CustomerLogin';
+import CustomerHome from './app/screens/customer/CustomerHome';
+import Restaurants from './app/screens/customer/Restaurants';
+import RestaurantDetail from './app/screens/customer/RestaurantDetail';
+import Cart from './app/screens/customer/Cart';
+import Checkout from './app/screens/customer/Checkout';
+import OrderTracking from './app/screens/customer/OrderTracking';
+import RideBooking from './app/screens/customer/RideBooking';
+import DealsPage from './app/screens/customer/DealsPage';
+
+// Vendor Pages
+import VendorLogin from './app/screens/auth/VendorLogin';
+
+// Driver Pages
+import DriverLogin from './app/screens/auth/DriverLogin';
+import DriverLayout from './app/components/layout/DriverLayout';
+import AvailableOrders from './app/screens/driver/AvailableOrders';
+import ActiveDelivery from './app/screens/driver/ActiveDelivery';
+import DriverDeliveries from './app/screens/driver/Deliveries';
+import DriverMessages from './app/screens/driver/Messages';
+import DriverProfile from './app/screens/driver/Profile';
+import DriverDashboard from './app/screens/driver/Dashboard';
+import DriverEarnings from './app/screens/driver/Earnings';
+
 /**
- * ADMIN PORTAL - BACKEND OPERATIONS ONLY
+ * DOLLOR.AI WEB APPLICATION
  *
- * This is the only UI for Dollor.ai backend operations.
- * All admin, invoicing, accounting, and management tasks are done here.
+ * Routes:
+ * - / : Public landing page
+ * - /customer/* : Customer ordering and ride booking
+ * - /vendor/* : Restaurant portal
+ * - /driver/* : Driver portal
+ * - /admin/* : Admin backend operations
  *
  * See CLAUDE.md for full documentation.
  */
@@ -42,7 +80,57 @@ function App() {
   return (
     <UserProvider>
       <Routes>
-        {/* Auth Routes */}
+        {/* Public Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+
+        {/* Public Pages */}
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/help" element={<HelpSupport />} />
+        <Route path="/support" element={<HelpSupport />} />
+        <Route path="/refer" element={<ReferAndEarn />} />
+        <Route path="/referral" element={<ReferAndEarn />} />
+
+        {/* Restaurant & Driver Applications */}
+        <Route path="/restaurant/apply" element={<RestaurantApplication />} />
+        <Route path="/driver/apply" element={<DriverApplication />} />
+
+        {/* Customer Routes */}
+        <Route path="/customer/login" element={<CustomerLogin />} />
+        <Route path="/customer" element={<CustomerHome />} />
+        <Route path="/customer/home" element={<CustomerHome />} />
+        <Route path="/customer/dashboard" element={<CustomerHome />} />
+        <Route path="/customer/restaurants" element={<Restaurants />} />
+        <Route path="/customer/restaurant/:id" element={<RestaurantDetail />} />
+        <Route path="/customer/cart" element={<Cart />} />
+        <Route path="/customer/checkout" element={<Checkout />} />
+        <Route path="/customer/order/:orderId" element={<OrderTracking />} />
+        <Route path="/customer/order-tracking" element={<OrderTracking />} />
+        <Route path="/customer/rides" element={<RideBooking />} />
+        <Route path="/customer/ride" element={<RideBooking />} />
+        <Route path="/customer/deals" element={<DealsPage />} />
+        <Route path="/customer/search" element={<Restaurants />} />
+        <Route path="/customer/address" element={<CustomerHome />} />
+        <Route path="/customer/profile" element={<CustomerHome />} />
+        <Route path="/customer/history" element={<OrderTracking />} />
+
+        {/* Vendor Routes */}
+        <Route path="/vendor/login" element={<VendorLogin />} />
+
+        {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
+        <Route path="/driver/login" element={<DriverLogin />} />
+        <Route path="/driver" element={<DriverLayout />}>
+          <Route index element={<AvailableOrders />} />
+          <Route path="orders" element={<AvailableOrders />} />
+          <Route path="active" element={<ActiveDelivery />} />
+          <Route path="history" element={<DriverDeliveries />} />
+          <Route path="messages" element={<DriverMessages />} />
+          <Route path="profile" element={<DriverProfile />} />
+          <Route path="dashboard" element={<DriverDashboard />} />
+          <Route path="earnings" element={<DriverEarnings />} />
+        </Route>
+
+        {/* Admin Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
@@ -65,9 +153,8 @@ function App() {
           <Route path="clients" element={<Clients />} />
         </Route>
 
-        {/* Default redirect to admin dashboard */}
-        <Route path="/" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </UserProvider>
   );

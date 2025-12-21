@@ -19,6 +19,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -183,7 +184,7 @@ const CustomerHome: React.FC = () => {
 
       {/* Service Selection - matches iOS */}
       <div className="service-selection">
-        <div className="service-card food-card" onClick={() => {}}>
+        <div className="service-card food-card" onClick={() => navigate('/customer/restaurants')}>
           <div className="service-icon food-icon">
             <ShoppingOutlined />
           </div>
@@ -192,7 +193,7 @@ const CustomerHome: React.FC = () => {
             <Text type="secondary" className="service-subtitle">Order delivery</Text>
           </div>
         </div>
-        <div className="service-card ride-card" onClick={() => navigate('/customer/ride')}>
+        <div className="service-card ride-card" onClick={() => navigate('/customer/rides')}>
           <div className="service-icon ride-icon">
             <CarOutlined />
           </div>
@@ -260,16 +261,16 @@ const CustomerHome: React.FC = () => {
       )}
 
       {/* Multi-Restaurant Promo - matches iOS */}
-      <div className="multi-restaurant-promo">
+      <div className="multi-restaurant-promo" onClick={() => navigate('/customer/restaurants')}>
         <div className="promo-content">
           <div className="promo-header">
             <StarFilled style={{ color: '#fbbf24' }} />
             <Text strong className="promo-title">NEW: Multi-Restaurant Orders</Text>
           </div>
           <Text className="promo-desc">
-            Order from up to 3 restaurants in one delivery! Just $1.00 per restaurant.
+            Order from up to 3 restaurants in one delivery! Just {pricing.display.foodDelivery.customerFee}.
           </Text>
-          <Text className="learn-more">Learn More →</Text>
+          <Text className="learn-more">Start Ordering →</Text>
         </div>
       </div>
 
