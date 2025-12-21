@@ -21,7 +21,7 @@ import os
 from dotenv import load_dotenv
 
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
 from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation
 from document_verification_service import (
     DocumentVerificationService,

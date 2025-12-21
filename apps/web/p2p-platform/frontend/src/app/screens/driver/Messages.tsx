@@ -38,36 +38,7 @@ const Messages: React.FC = () => {
       setConversations(data || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
-      // Use fallback mock data if API not available
-      setConversations([
-        {
-          id: '1',
-          sender_name: 'Support Team',
-          last_message: 'Welcome to Dollor! Start accepting orders to begin earning.',
-          timestamp: '2h ago',
-          is_unread: true,
-          avatar_initial: 'S',
-          sender_type: 'support',
-        },
-        {
-          id: '2',
-          sender_name: 'John D.',
-          last_message: 'Thanks for the quick delivery!',
-          timestamp: 'Yesterday',
-          is_unread: false,
-          avatar_initial: 'J',
-          sender_type: 'customer',
-        },
-        {
-          id: '3',
-          sender_name: 'System',
-          last_message: 'Your earnings have been deposited to your account.',
-          timestamp: '2 days ago',
-          is_unread: false,
-          avatar_initial: '$',
-          sender_type: 'system',
-        },
-      ]);
+      setConversations([]);
     } finally {
       setLoading(false);
     }

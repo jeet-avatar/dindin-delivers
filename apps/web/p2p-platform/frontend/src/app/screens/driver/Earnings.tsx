@@ -41,31 +41,7 @@ const DriverEarnings: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch earnings:', error);
-      // Use fallback mock data
-      setEarningsData({
-        total: 687.50,
-        base_pay: 425.00,
-        tips: 185.50,
-        bonuses: 77.00,
-        previous_period: 612.30,
-        deliveries: 48,
-        hours_online: 32.5,
-        avg_per_delivery: 14.32,
-        daily_breakdown: [
-          { day: 'Monday', deliveries: 8, earnings: 98.50, hours: 5.2 },
-          { day: 'Tuesday', deliveries: 6, earnings: 72.00, hours: 4.0 },
-          { day: 'Wednesday', deliveries: 9, earnings: 115.25, hours: 5.5 },
-          { day: 'Thursday', deliveries: 7, earnings: 89.00, hours: 4.8 },
-          { day: 'Friday', deliveries: 10, earnings: 142.75, hours: 6.0 },
-          { day: 'Saturday', deliveries: 5, earnings: 98.00, hours: 4.0 },
-          { day: 'Sunday', deliveries: 3, earnings: 72.00, hours: 3.0 }
-        ],
-        payment_history: [
-          { id: 'PAY-001', date: '2024-01-14', amount: 325.50, method: 'Direct Deposit', status: 'completed' },
-          { id: 'PAY-002', date: '2024-01-07', amount: 298.75, method: 'Direct Deposit', status: 'completed' },
-          { id: 'PAY-003', date: '2023-12-31', amount: 412.00, method: 'Direct Deposit', status: 'completed' },
-        ]
-      });
+      setEarningsData(null);
     } finally {
       setLoading(false);
     }

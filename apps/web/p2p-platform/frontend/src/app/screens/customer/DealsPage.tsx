@@ -76,26 +76,12 @@ const DealsPage: React.FC = () => {
       setPromotions(promoRes.data.promotions || []);
     } catch (error) {
       console.error('Error fetching deals:', error);
-      // Use fallback data
-      setFeaturedDeals(getMockFeaturedDeals());
-      setPromotions(getMockPromotions());
+      setFeaturedDeals([]);
+      setPromotions([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockFeaturedDeals = (): FeaturedDeal[] => [
-    { id: 1, title: '20% OFF First Order', description: 'Welcome discount for new customers', discount_text: '20% OFF', restaurant_name: 'All Restaurants' },
-    { id: 2, title: 'Free Delivery Week', description: 'No delivery fee on all orders', discount_text: 'FREE DELIVERY', restaurant_name: 'Platform-wide' },
-    { id: 3, title: '$5 Off Orders $25+', description: 'Limited time offer', discount_text: '$5 OFF', restaurant_name: 'Select Restaurants' },
-  ];
-
-  const getMockPromotions = (): Promotion[] => [
-    { id: 1, name: '20% OFF First Order', description: 'New customer welcome discount', type: 'percentage', value: 20, promotion_code: 'FIRST20', vendor_name: 'All Restaurants', min_order_amount: 15 },
-    { id: 2, name: 'Free Delivery', description: 'No delivery fee on orders $25+', type: 'free_delivery', value: 0, promotion_code: 'FREEDELIVERY', vendor_name: 'Platform-wide', min_order_amount: 25 },
-    { id: 3, name: '$5 Off Any Order', description: 'Flat discount on orders $20+', type: 'flat_amount', value: 5, promotion_code: 'SAVE5', vendor_name: 'Select Restaurants', min_order_amount: 20 },
-    { id: 4, name: 'Buy 1 Get 1 Free', description: 'On select menu items', type: 'bogo', value: 0, promotion_code: 'BOGO', vendor_name: 'Pizza Italia' },
-  ];
 
   const filteredPromotions = promotions.filter(promo => {
     if (selectedFilter === 'all') return true;

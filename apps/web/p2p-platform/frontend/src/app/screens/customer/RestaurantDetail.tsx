@@ -90,50 +90,22 @@ const RestaurantDetail: React.FC = () => {
       if (restaurantRes.data.success) {
         setRestaurant(restaurantRes.data.restaurant);
       } else {
-        setRestaurant(getMockRestaurant());
+        setRestaurant(null);
       }
 
       if (menuRes.data.success) {
         setMenuItems(menuRes.data.menu || []);
       } else {
-        setMenuItems(getMockMenu());
+        setMenuItems([]);
       }
     } catch (error) {
       console.error('Error fetching restaurant:', error);
-      setRestaurant(getMockRestaurant());
-      setMenuItems(getMockMenu());
+      setRestaurant(null);
+      setMenuItems([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockRestaurant = (): Restaurant => ({
-    id: parseInt(id || '1'),
-    name: 'Burger Palace',
-    description: 'Best burgers in town with fresh ingredients and homemade sauces',
-    cuisine_type: 'American',
-    address: '123 Main St, San Francisco, CA 94102',
-    rating: 4.5,
-    review_count: 234,
-    delivery_time_min: 20,
-    delivery_time_max: 35,
-    delivery_fee: 2.99,
-    minimum_order: 15,
-    is_open: true
-  });
-
-  const getMockMenu = (): MenuItem[] => [
-    { id: 1, name: 'Classic Burger', description: 'Juicy beef patty with lettuce, tomato, and special sauce', price: 12.99, category: 'Burgers', is_available: true, is_popular: true, dietary_tags: [] },
-    { id: 2, name: 'Cheese Burger', description: 'Classic burger with melted cheddar cheese', price: 14.99, category: 'Burgers', is_available: true, dietary_tags: [] },
-    { id: 3, name: 'Bacon Burger', description: 'Topped with crispy bacon and BBQ sauce', price: 16.99, category: 'Burgers', is_available: true, is_popular: true, dietary_tags: [] },
-    { id: 4, name: 'Veggie Burger', description: 'Plant-based patty with avocado and sprouts', price: 13.99, category: 'Burgers', is_available: true, dietary_tags: ['Vegetarian'] },
-    { id: 5, name: 'French Fries', description: 'Crispy golden fries with sea salt', price: 4.99, category: 'Sides', is_available: true, dietary_tags: ['Vegan'] },
-    { id: 6, name: 'Onion Rings', description: 'Beer-battered crispy onion rings', price: 5.99, category: 'Sides', is_available: true, dietary_tags: ['Vegetarian'] },
-    { id: 7, name: 'Caesar Salad', description: 'Romaine lettuce with parmesan and croutons', price: 8.99, category: 'Salads', is_available: true, dietary_tags: ['Vegetarian'] },
-    { id: 8, name: 'Coca-Cola', description: 'Classic Coca-Cola', price: 2.49, category: 'Drinks', is_available: true, dietary_tags: [] },
-    { id: 9, name: 'Lemonade', description: 'Fresh squeezed lemonade', price: 3.49, category: 'Drinks', is_available: true, dietary_tags: ['Vegan'] },
-    { id: 10, name: 'Chocolate Shake', description: 'Rich chocolate milkshake', price: 5.99, category: 'Drinks', is_available: false, dietary_tags: ['Vegetarian'] },
-  ];
 
   const loadCart = () => {
     const savedCart = localStorage.getItem('cart');

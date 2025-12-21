@@ -78,103 +78,15 @@ const Restaurants: React.FC = () => {
       if (response.data.success) {
         setRestaurants(response.data.restaurants || []);
       } else {
-        // Use mock data if API fails
-        setRestaurants(getMockRestaurants());
+        setRestaurants([]);
       }
     } catch (error) {
       console.error('Error fetching restaurants:', error);
-      setRestaurants(getMockRestaurants());
+      setRestaurants([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockRestaurants = (): Restaurant[] => [
-    {
-      id: 1,
-      name: 'Burger Palace',
-      description: 'Best burgers in town with fresh ingredients',
-      cuisine_type: 'american',
-      address: '123 Main St, San Francisco',
-      rating: 4.5,
-      review_count: 234,
-      delivery_time_min: 20,
-      delivery_time_max: 35,
-      delivery_fee: 2.99,
-      minimum_order: 15,
-      is_open: true
-    },
-    {
-      id: 2,
-      name: 'Pizza Italia',
-      description: 'Authentic Italian pizza and pasta',
-      cuisine_type: 'italian',
-      address: '456 Oak Ave, San Francisco',
-      rating: 4.7,
-      review_count: 456,
-      delivery_time_min: 25,
-      delivery_time_max: 40,
-      delivery_fee: 1.99,
-      minimum_order: 20,
-      is_open: true
-    },
-    {
-      id: 3,
-      name: 'Dragon Wok',
-      description: 'Traditional Chinese cuisine',
-      cuisine_type: 'chinese',
-      address: '789 Pine St, San Francisco',
-      rating: 4.3,
-      review_count: 189,
-      delivery_time_min: 15,
-      delivery_time_max: 30,
-      delivery_fee: 2.49,
-      minimum_order: 12,
-      is_open: true
-    },
-    {
-      id: 4,
-      name: 'Taco Fiesta',
-      description: 'Authentic Mexican tacos and burritos',
-      cuisine_type: 'mexican',
-      address: '321 Market St, San Francisco',
-      rating: 4.6,
-      review_count: 312,
-      delivery_time_min: 20,
-      delivery_time_max: 35,
-      delivery_fee: 1.99,
-      minimum_order: 10,
-      is_open: true
-    },
-    {
-      id: 5,
-      name: 'Sushi Master',
-      description: 'Fresh sushi and Japanese delicacies',
-      cuisine_type: 'japanese',
-      address: '567 Howard St, San Francisco',
-      rating: 4.8,
-      review_count: 567,
-      delivery_time_min: 30,
-      delivery_time_max: 45,
-      delivery_fee: 3.99,
-      minimum_order: 25,
-      is_open: true
-    },
-    {
-      id: 6,
-      name: 'Curry House',
-      description: 'Flavorful Indian curries and tandoori',
-      cuisine_type: 'indian',
-      address: '890 Mission St, San Francisco',
-      rating: 4.4,
-      review_count: 278,
-      delivery_time_min: 25,
-      delivery_time_max: 40,
-      delivery_fee: 2.49,
-      minimum_order: 18,
-      is_open: false
-    }
-  ];
 
   const loadFavorites = () => {
     const saved = localStorage.getItem('favorite_restaurants');

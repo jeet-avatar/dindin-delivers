@@ -104,7 +104,7 @@ const OrderTracking: React.FC = () => {
         if (response.data.success) {
           setOrder(mapApiOrder(response.data));
         } else {
-          setOrder(getMockOrder());
+          setOrder(null);
         }
       } else {
         // Get most recent order
@@ -114,12 +114,12 @@ const OrderTracking: React.FC = () => {
         if (response.data && response.data.length > 0) {
           setOrder(mapApiOrder(response.data[0]));
         } else {
-          setOrder(getMockOrder());
+          setOrder(null);
         }
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      setOrder(getMockOrder());
+      setOrder(null);
     } finally {
       setLoading(false);
     }
@@ -149,40 +149,6 @@ const OrderTracking: React.FC = () => {
     };
   };
 
-  const getMockOrder = (): Order => ({
-    id: 1,
-    order_number: `ORD-${Date.now().toString().slice(-8)}`,
-    status: 'preparing',
-    restaurant_name: 'Burger Palace',
-    restaurant_address: '123 Main St',
-    items: [
-      { name: 'Classic Burger', quantity: 2, price: 12.99 },
-      { name: 'French Fries', quantity: 1, price: 4.99 },
-      { name: 'Coca-Cola', quantity: 2, price: 2.49 }
-    ],
-    subtotal: 35.95,
-    delivery_fee: 2.99,
-    platform_fee: 1.00,
-    tax: 3.15,
-    tip: 5.00,
-    total: 48.09,
-    delivery_address: '456 Oak Ave, San Francisco, CA 94102',
-    estimated_delivery: new Date(Date.now() + 25 * 60000).toISOString(),
-    driver: {
-      id: 1,
-      name: 'John D.',
-      phone: '+1 (555) 123-4567',
-      rating: 4.9,
-      vehicle: 'Silver Toyota Camry',
-      license_plate: '7ABC123'
-    },
-    status_history: [
-      { status: 'pending', label: 'Order Placed', timestamp: new Date(Date.now() - 20 * 60000).toISOString() },
-      { status: 'confirmed', label: 'Order Confirmed', timestamp: new Date(Date.now() - 18 * 60000).toISOString() },
-      { status: 'preparing', label: 'Restaurant Preparing', timestamp: new Date(Date.now() - 10 * 60000).toISOString() }
-    ],
-    created_at: new Date(Date.now() - 20 * 60000).toISOString()
-  });
 
   const getCurrentStep = () => {
     if (!order) return 0;

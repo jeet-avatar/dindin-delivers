@@ -42,55 +42,7 @@ const DriverDeliveries: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch deliveries:', error);
-      // Use fallback mock data
-      setDeliveries([
-        {
-          id: 1,
-          order_id: 1001,
-          restaurant_name: 'Pasta Paradise',
-          customer_name: 'John Smith',
-          delivery_address: '123 Main Street, Apt 4B',
-          items_count: 3,
-          total_amount: 42.50,
-          payout: 9.50,
-          distance: '2.3 mi',
-          status: 'completed',
-          date: '2024-01-15',
-          time: '12:30 PM',
-          rating: 5,
-          tip: 5.00
-        },
-        {
-          id: 2,
-          order_id: 1002,
-          restaurant_name: 'Burger Bliss',
-          customer_name: 'Emily Davis',
-          delivery_address: '456 Oak Avenue, Suite 201',
-          items_count: 2,
-          total_amount: 28.00,
-          payout: 7.25,
-          distance: '1.8 mi',
-          status: 'completed',
-          date: '2024-01-15',
-          time: '1:15 PM',
-          rating: 4,
-          tip: 3.00
-        },
-        {
-          id: 3,
-          order_id: 1003,
-          restaurant_name: 'Sushi Supreme',
-          customer_name: 'Michael Brown',
-          delivery_address: '789 Pine Road',
-          items_count: 5,
-          total_amount: 78.50,
-          payout: 14.00,
-          distance: '3.2 mi',
-          status: 'in_progress',
-          date: '2024-01-15',
-          time: '2:00 PM'
-        },
-      ]);
+      setDeliveries([]);
     } finally {
       setLoading(false);
     }
