@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text } = Typography;
 
@@ -352,27 +353,44 @@ const DriverDashboard: React.FC = () => {
               <div className="fee-info-header">
                 <DollarOutlined style={{ fontSize: 24, color: '#10B981' }} />
                 <div>
-                  <Text strong style={{ fontSize: 16 }}>Tiered Platform Fees</Text>
-                  <Text type="secondary" style={{ display: 'block' }}>Platform fee deducted based on trip distance</Text>
+                  <Text strong style={{ fontSize: 16 }}>Platform Fee Structure</Text>
+                  <Text type="secondary" style={{ display: 'block' }}>Low flat fees - you keep more!</Text>
                 </div>
               </div>
-              <div className="fee-tiers">
-                <div className="fee-tier">
-                  <Tag color="green">0-10 mi</Tag>
-                  <Text strong>$1</Text>
+
+              {/* Food Delivery */}
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ color: '#10B981' }}>Food Delivery</Text>
+                <div className="fee-tiers" style={{ marginTop: 8 }}>
+                  <div className="fee-tier">
+                    <Tag color="green">Driver Fee</Tag>
+                    <Text strong>${pricing.foodDelivery.driverFee.toFixed(0)} (FREE)</Text>
+                  </div>
                 </div>
-                <div className="fee-tier">
-                  <Tag color="blue">10-20 mi</Tag>
-                  <Text strong>$2</Text>
-                </div>
-                <div className="fee-tier">
-                  <Tag color="purple">20+ mi</Tag>
-                  <Text strong>$3</Text>
-                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>You keep 100% of delivery fees + tips</Text>
               </div>
-              <Text type="secondary" style={{ marginTop: 8, display: 'block', fontSize: 12 }}>
-                You receive: Ride fare - platform fee + 100% of tips
-              </Text>
+
+              {/* Rideshare */}
+              <div>
+                <Text strong style={{ color: '#6366F1' }}>Rideshare (by fare value)</Text>
+                <div className="fee-tiers" style={{ marginTop: 8 }}>
+                  <div className="fee-tier">
+                    <Tag color="green">≤${pricing.rideshare.tier1MaxFare}</Tag>
+                    <Text strong>${pricing.rideshare.tier1Fee.toFixed(0)}</Text>
+                  </div>
+                  <div className="fee-tier">
+                    <Tag color="blue">${pricing.rideshare.tier1MaxFare}-${pricing.rideshare.tier2MaxFare}</Tag>
+                    <Text strong>${pricing.rideshare.tier2Fee.toFixed(0)}</Text>
+                  </div>
+                  <div className="fee-tier">
+                    <Tag color="purple">${pricing.rideshare.tier2MaxFare}+</Tag>
+                    <Text strong>${pricing.rideshare.tier3Fee.toFixed(0)}</Text>
+                  </div>
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Platform fee based on fare value. You receive: Fare - platform fee + 100% tips
+                </Text>
+              </div>
             </div>
           </Card>
         </Col>
