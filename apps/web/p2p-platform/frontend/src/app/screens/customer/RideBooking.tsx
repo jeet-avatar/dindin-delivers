@@ -256,55 +256,60 @@ const RideBooking: React.FC = () => {
     }
   };
 
-  // Request ride
+  // Request ride using bidding API - broadcasts to all drivers
   const requestRide = async () => {
     if (!pickup || !dropoff || !fareEstimate) return;
 
+    // Ensure customer_id is available
+    if (!customerId) {
+      message.error('Please log in to request a ride');
+      navigate('/customer/login');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/api/erp/rides/request`, {
-        customer_name: customerName,
-        customer_email: customerEmail,
-        customer_phone: customerPhone,
-        pickup_address: {
-          street: pickup.address,
-          city: pickup.city || 'San Francisco',
-          state: pickup.state || 'CA',
-          zip: pickup.zip || '94102',
-          lat: pickup.lat,
-          lng: pickup.lng
-        },
-        dropoff_address: {
-          street: dropoff.address,
-          city: dropoff.city || 'San Francisco',
-          state: dropoff.state || 'CA',
-          zip: dropoff.zip || '94102',
-          lat: dropoff.lat,
-          lng: dropoff.lng
-        },
-        notes: '',
-        tip: tip
+      // Use bidding API that broadcasts to all nearby drivers
+      const response = await axios.post(`${API_URL}/api/rides/request`, {
+        customer_id: parseInt(customerId),
+        pickup_address: pickup.address,
+        pickup_latitude: pickup.lat,
+        pickup_longitude: pickup.lng,
+        pickup_place_name: pickup.city || '',
+        dropoff_address: dropoff.address,
+        dropoff_latitude: dropoff.lat,
+        dropoff_longitude: dropoff.lng,
+        dropoff_place_name: dropoff.city || '',
+        ride_type: 'standard',
+        customer_max_price: fareEstimate.total_fare + 10, // Allow up to $10 over estimate
+        customer_preferred_price: fareEstimate.total_fare,
+        special_requests: tip > 0 ? `Tip included: $${tip}` : '',
+        bidding_duration_minutes: 5
       });
 
       if (response.data.success) {
+        const rideRequest = response.data.ride_request;
         setActiveRide({
-          ride_id: response.data.ride_id,
-          ride_number: response.data.ride_number,
-          status: response.data.status,
+          ride_id: rideRequest.id,
+          ride_number: rideRequest.request_id,
+          status: rideRequest.status,
           pickup,
           dropoff,
           fare: fareEstimate,
-          created_at: new Date().toISOString()
+          created_at: rideRequest.created_at || new Date().toISOString()
         });
         setStep(2);
-        message.success('Ride requested! Finding a driver...');
+        message.success('Ride request sent! Waiting for driver bids...');
 
-        // Start polling for driver assignment
-        pollRideStatus(response.data.ride_id);
+        // Navigate to RideBids page to view incoming bids
+        setTimeout(() => {
+          navigate(`/customer/ride-bids/${rideRequest.id}`);
+        }, 2000);
       }
     } catch (error: any) {
       console.error('Error requesting ride:', error);
-      message.error('Failed to request ride. Please try again.');
+      const errMsg = error.response?.data?.detail || 'Failed to request ride. Please try again.';
+      message.error(errMsg);
     } finally {
       setLoading(false);
     }
