@@ -251,7 +251,7 @@ struct PartialOrderView: View {
                     .fontWeight(.bold)
             }
 
-            Text("Platform fee remains $1.00")
+            Text("Platform fee remains $\(String(format: "%.2f", AppConfig.shared.foodCustomerFee))")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

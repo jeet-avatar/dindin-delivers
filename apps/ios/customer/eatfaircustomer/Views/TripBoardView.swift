@@ -1307,11 +1307,11 @@ struct ConfirmMatchSheet: View {
                         HStack {
                             Image(systemName: "dollarsign.circle.fill")
                                 .foregroundColor(.orange)
-                            Text("Match Success Fee: $1.00")
+                            Text("Match Success Fee: $\(String(format: "%.2f", AppConfig.shared.rideshareTier1Fee))")
                                 .fontWeight(.semibold)
                         }
 
-                        Text("By confirming this match, you agree to pay a $1 matchmaking service fee. This fee is for the platform service, NOT for transportation.")
+                        Text("By confirming this match, you agree to pay a $\(String(format: "%.0f", AppConfig.shared.rideshareTier1Fee)) matchmaking service fee. This fee is for the platform service, NOT for transportation.")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
