@@ -10,11 +10,13 @@ import {
   LoadingOutlined,
   ClockCircleOutlined,
   SafetyOutlined,
-  StarOutlined
+  StarOutlined,
+  AimOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -38,7 +40,7 @@ interface FareEstimate {
   driver_earnings: number;
   distance_miles: number;
   duration_minutes: number;
-  fee_tier?: string;  // "0-10 miles", "10-20 miles", or "20+ miles"
+  fee_tier?: string;  // Tier based on fare: "Tier 1 (up to $35)", "Tier 2 ($35-$70)", "Tier 3 (above $70)"
 }
 
 interface Driver {
@@ -81,6 +83,7 @@ const RideBooking: React.FC = () => {
   const [tip, setTip] = useState(0);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [rating, setRating] = useState(5);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   // Get customer info
   const customerId = localStorage.getItem('customer_id');
@@ -96,32 +99,123 @@ const RideBooking: React.FC = () => {
     }
   }, [customerId, navigate]);
 
-  // Geocode address (simplified - in production use Google Maps API)
+  // Geocode address using OpenStreetMap Nominatim API (free, no API key required)
   const geocodeAddress = async (address: string): Promise<Location | null> => {
-    // For demo, return mock coordinates based on city names
-    const mockLocations: Record<string, Location> = {
-      'san francisco': { address, lat: 37.7749, lng: -122.4194, city: 'San Francisco', state: 'CA' },
-      'los angeles': { address, lat: 34.0522, lng: -118.2437, city: 'Los Angeles', state: 'CA' },
-      'new york': { address, lat: 40.7128, lng: -74.0060, city: 'New York', state: 'NY' },
-      'chicago': { address, lat: 41.8781, lng: -87.6298, city: 'Chicago', state: 'IL' },
-      'miami': { address, lat: 25.7617, lng: -80.1918, city: 'Miami', state: 'FL' },
-    };
+    try {
+      // Use Nominatim for real geocoding (limit to USA for rideshare)
+      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+        params: {
+          q: address,
+          format: 'json',
+          addressdetails: 1,
+          limit: 1,
+          countrycodes: 'us'
+        },
+        headers: {
+          'User-Agent': 'DollorAI-Rideshare/1.0'
+        }
+      });
 
-    const lowerAddress = address.toLowerCase();
-    for (const [city, loc] of Object.entries(mockLocations)) {
-      if (lowerAddress.includes(city)) {
-        return { ...loc, address };
+      if (response.data && response.data.length > 0) {
+        const result = response.data[0];
+        const addressDetails = result.address || {};
+
+        return {
+          address: result.display_name || address,
+          lat: parseFloat(result.lat),
+          lng: parseFloat(result.lon),
+          city: addressDetails.city || addressDetails.town || addressDetails.village || addressDetails.county || '',
+          state: addressDetails.state || '',
+          zip: addressDetails.postcode || ''
+        };
       }
-    }
 
-    // Default: use first mock location with user's address
-    return {
-      address,
-      lat: 37.7749 + (Math.random() - 0.5) * 0.1,
-      lng: -122.4194 + (Math.random() - 0.5) * 0.1,
-      city: 'San Francisco',
-      state: 'CA'
-    };
+      message.warning('Address not found. Please try a more specific address.');
+      return null;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      message.error('Failed to lookup address. Please try again.');
+      return null;
+    }
+  };
+
+  // Get current location using browser geolocation
+  const getCurrentLocation = (): Promise<Location | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        message.warning('Geolocation is not supported by your browser');
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            // Reverse geocode to get address
+            const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+              params: {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                format: 'json',
+                addressdetails: 1
+              },
+              headers: {
+                'User-Agent': 'DollorAI-Rideshare/1.0'
+              }
+            });
+
+            if (response.data) {
+              const addressDetails = response.data.address || {};
+              resolve({
+                address: response.data.display_name || 'Current Location',
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                city: addressDetails.city || addressDetails.town || addressDetails.village || '',
+                state: addressDetails.state || '',
+                zip: addressDetails.postcode || ''
+              });
+            } else {
+              resolve({
+                address: 'Current Location',
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                city: '',
+                state: ''
+              });
+            }
+          } catch {
+            resolve({
+              address: 'Current Location',
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              city: '',
+              state: ''
+            });
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          message.warning('Unable to get current location');
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  };
+
+  // Use current location for pickup
+  const useCurrentLocationForPickup = async () => {
+    setGettingLocation(true);
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        setPickup(location);
+        setPickupInput(location.address);
+        message.success('Current location set as pickup');
+      }
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   // Get fare estimate
@@ -343,6 +437,15 @@ const RideBooking: React.FC = () => {
                     onChange={handlePickupChange}
                     size="large"
                   />
+                  <Button
+                    type="link"
+                    icon={gettingLocation ? <LoadingOutlined /> : <AimOutlined />}
+                    onClick={useCurrentLocationForPickup}
+                    loading={gettingLocation}
+                    className="current-location-btn"
+                  >
+                    Use Current Location
+                  </Button>
                 </div>
 
                 <div className="location-connector" />
@@ -387,7 +490,7 @@ const RideBooking: React.FC = () => {
 
               <div className="pricing-info">
                 <DollarOutlined />
-                <Text>Tiered platform fee: $1 (0-10mi) | $2 (10-20mi) | $3 (20+mi). No surge pricing.</Text>
+                <Text>{pricing.display.rideshare.summary}</Text>
               </div>
             </Card>
           )}
@@ -427,7 +530,7 @@ const RideBooking: React.FC = () => {
                   <Text>${fareEstimate.time_fee.toFixed(2)}</Text>
                 </div>
                 <div className="fare-line highlight">
-                  <Text><DollarOutlined /> Platform Fee ({fareEstimate.fee_tier || `${fareEstimate.distance_miles.toFixed(0)} mi`})</Text>
+                  <Text><DollarOutlined /> Platform Fee ({fareEstimate.fee_tier || pricing.rideshare.getTierName(fareEstimate.total_fare)})</Text>
                   <Text strong>${fareEstimate.platform_fee.toFixed(2)}</Text>
                 </div>
                 <div className="fare-line">
@@ -667,6 +770,19 @@ const RideBooking: React.FC = () => {
           align-items: center;
           gap: 12px;
           margin-bottom: 12px;
+          flex-wrap: wrap;
+        }
+
+        .current-location-btn {
+          padding: 0;
+          height: auto;
+          font-size: 13px;
+          color: #1890ff;
+          margin-left: 36px;
+        }
+
+        .current-location-btn:hover {
+          color: #40a9ff;
         }
 
         .input-icon {
