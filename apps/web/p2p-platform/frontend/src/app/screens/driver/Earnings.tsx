@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { getDriverEarnings, getCurrentDriverId, DriverEarningsData } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text } = Typography;
 
@@ -159,11 +160,16 @@ const DriverEarnings: React.FC = () => {
             <Divider />
 
             <div className="fee-structure">
-              <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>Platform Fee Structure (by distance)</Text>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <Tag color="green">0-10 mi: $1</Tag>
-                <Tag color="blue">10-20 mi: $2</Tag>
-                <Tag color="purple">20+ mi: $3</Tag>
+              <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>Platform Fee Structure</Text>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: '#10B981', fontSize: 12 }}>Food Delivery: </Text>
+                <Tag color="green">$0 (FREE - keep 100%)</Tag>
+              </div>
+              <div>
+                <Text strong style={{ color: '#6366F1', fontSize: 12 }}>Rideshare (by fare): </Text>
+                <Tag color="green">≤${pricing.rideshare.tier1MaxFare}: ${pricing.rideshare.tier1Fee}</Tag>
+                <Tag color="blue">${pricing.rideshare.tier1MaxFare}-${pricing.rideshare.tier2MaxFare}: ${pricing.rideshare.tier2Fee}</Tag>
+                <Tag color="purple">${pricing.rideshare.tier2MaxFare}+: ${pricing.rideshare.tier3Fee}</Tag>
               </div>
             </div>
           </Col>
