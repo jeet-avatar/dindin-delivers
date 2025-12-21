@@ -95,7 +95,7 @@ const CustomerHome: React.FC = () => {
     try {
       // Fetch restaurants
       const restaurantsRes = await axios.get(`${API_URL}/api/erp/restaurants`);
-      const restaurantData = restaurantsRes.data.restaurants || getMockRestaurants();
+      const restaurantData = restaurantsRes.data.restaurants || [];
       setRestaurants(restaurantData);
       setFeaturedRestaurants(restaurantData.filter((r: Restaurant) => r.rating >= 4.5).slice(0, 5));
 
@@ -115,34 +115,19 @@ const CustomerHome: React.FC = () => {
                 d.discount_text?.includes('BOGO') ? 'bogo' : 'flat_amount',
           min_order_amount: d.min_order_amount
         }));
-        setFeaturedDeals(mappedDeals.length > 0 ? mappedDeals : getMockDeals());
+        setFeaturedDeals(mappedDeals);
       } catch {
-        setFeaturedDeals(getMockDeals());
+        setFeaturedDeals([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
-      setRestaurants(getMockRestaurants());
-      setFeaturedRestaurants(getMockRestaurants().slice(0, 3));
-      setFeaturedDeals(getMockDeals());
+      setRestaurants([]);
+      setFeaturedRestaurants([]);
+      setFeaturedDeals([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const getMockRestaurants = (): Restaurant[] => [
-    { id: 1, name: 'Burger Palace', cuisine_type: 'american', rating: 4.5, delivery_time: '20-35 min', delivery_fee: 1, is_open: true },
-    { id: 2, name: 'Pizza Italia', cuisine_type: 'italian', rating: 4.7, delivery_time: '25-40 min', delivery_fee: 1, is_open: true },
-    { id: 3, name: 'Dragon Wok', cuisine_type: 'chinese', rating: 4.3, delivery_time: '15-30 min', delivery_fee: 1, is_open: true },
-    { id: 4, name: 'Taco Fiesta', cuisine_type: 'mexican', rating: 4.6, delivery_time: '20-35 min', delivery_fee: 1, is_open: true },
-    { id: 5, name: 'Sushi Master', cuisine_type: 'japanese', rating: 4.8, delivery_time: '30-45 min', delivery_fee: 1, is_open: true },
-    { id: 6, name: 'Curry House', cuisine_type: 'indian', rating: 4.4, delivery_time: '25-40 min', delivery_fee: 1, is_open: true },
-  ];
-
-  const getMockDeals = (): FeaturedDeal[] => [
-    { id: 1, headline: '20% OFF', vendor_name: 'Burger Palace', description: 'First order discount', promotion_code: 'FIRST20', type: 'percentage', min_order_amount: 15 },
-    { id: 2, headline: 'FREE DELIVERY', vendor_name: 'Pizza Italia', description: 'On orders $25+', promotion_code: 'FREEDELIVERY', type: 'free_delivery', min_order_amount: 25 },
-    { id: 3, headline: 'BUY 1 GET 1', vendor_name: 'Sushi Master', description: 'On select rolls', promotion_code: 'BOGO', type: 'bogo' },
-  ];
 
   const filteredRestaurants = restaurants.filter(r => {
     if (!selectedCategory || selectedCategory === 'all') return true;

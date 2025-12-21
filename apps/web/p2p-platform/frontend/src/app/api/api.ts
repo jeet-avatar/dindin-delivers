@@ -674,28 +674,30 @@ export const getAvailableDeliveries = async (): Promise<AvailableDelivery[]> => 
   return response.data;
 };
 
-// Accept Delivery
-export const acceptDelivery = async (deliveryId: number) => {
+// Accept Delivery - uses order assign-driver endpoint
+export const acceptDelivery = async (orderId: number) => {
   const token = getDriverToken();
-  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/accept`, null, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
+  const driverId = getCurrentDriverId();
+  const response = await api.post(`/erp/orders/${orderId}/assign-driver`,
+    { driver_id: driverId },
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  );
   return response.data;
 };
 
 // Mark Delivery as Picked Up
-export const markDeliveryPickedUp = async (deliveryId: number) => {
+export const markDeliveryPickedUp = async (orderId: number) => {
   const token = getDriverToken();
-  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/pickup`, null, {
+  const response = await api.post(`/erp/orders/${orderId}/picked-up`, null, {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
   return response.data;
 };
 
 // Complete Delivery
-export const completeDelivery = async (deliveryId: number) => {
+export const completeDelivery = async (orderId: number) => {
   const token = getDriverToken();
-  const response = await api.post(`/v2/driver/deliveries/${deliveryId}/complete`, null, {
+  const response = await api.post(`/erp/orders/${orderId}/delivered`, null, {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
   return response.data;
@@ -704,10 +706,14 @@ export const completeDelivery = async (deliveryId: number) => {
 // Get Driver's Deliveries History
 export const getDriverDeliveries = async (driverId: number): Promise<DriverDelivery[]> => {
   const token = getDriverToken();
-  const response = await api.get(`/erp/driver/${driverId}/deliveries`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
+  try {
+    const response = await api.get(`/erp/driver/${driverId}/deliveries`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return response.data || [];
+  } catch {
+    return [];
+  }
 };
 
 // Get Active Delivery
@@ -726,20 +732,39 @@ export const getActiveDelivery = async (): Promise<ActiveDeliveryData | null> =>
 // Driver Earnings
 export const getDriverEarnings = async (driverId: number, period: string = 'week'): Promise<DriverEarningsData> => {
   const token = getDriverToken();
-  const response = await api.get(`/drivers/${driverId}/earnings`, {
-    params: { period },
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
+  try {
+    const response = await api.get(`/drivers/${driverId}/earnings`, {
+      params: { period },
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return response.data;
+  } catch {
+    return {
+      total: 0,
+      base_pay: 0,
+      tips: 0,
+      bonuses: 0,
+      previous_period: 0,
+      deliveries: 0,
+      hours_online: 0,
+      avg_per_delivery: 0,
+      daily_breakdown: [],
+      payment_history: []
+    };
+  }
 };
 
 // Driver Messages
 export const getDriverMessages = async (): Promise<DriverMessage[]> => {
   const token = getDriverToken();
-  const response = await api.get('/driver/messages', {
-    headers: token ? { Authorization: `Bearer ${token}` } : {}
-  });
-  return response.data;
+  try {
+    const response = await api.get('/driver/messages', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return response.data || [];
+  } catch {
+    return [];
+  }
 };
 
 // Update Driver Location
