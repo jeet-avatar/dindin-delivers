@@ -8710,6 +8710,10 @@ app.include_router(vibing_router)
 from chat_routes import router as chat_router
 app.include_router(chat_router)
 
+# Include Ride Bidding routes (Matchmaking platform)
+from bid_routes import router as bid_router
+app.include_router(bid_router)
+
 # ==================== MICROSERVICE PROXY ENDPOINTS ====================
 # These endpoints forward requests to the appropriate microservices
 # In production, an API Gateway (Kong/NGINX) should handle this routing

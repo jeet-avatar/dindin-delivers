@@ -1013,6 +1013,219 @@ export const getCustomerConversations = async (customerId: number, activeOnly = 
   return response.data;
 };
 
+// ===================== RIDE BIDDING API =====================
+
+// Types for ride bidding
+export interface RideRequest {
+  id: number;
+  request_id: string;
+  customer_id: number;
+  customer_name: string;
+  pickup: {
+    address: string;
+    latitude: number;
+    longitude: number;
+    place_name?: string;
+  };
+  dropoff: {
+    address: string;
+    latitude: number;
+    longitude: number;
+    place_name?: string;
+  };
+  estimated_distance_km: number;
+  estimated_duration_minutes: number;
+  ride_type: string;
+  suggested_price: number;
+  customer_max_price?: number;
+  customer_preferred_price?: number;
+  final_price?: number;
+  status: 'open' | 'bidding' | 'matched' | 'in_progress' | 'completed' | 'cancelled' | 'expired';
+  bidding_expires_at?: string;
+  special_requests?: string;
+  created_at: string;
+  matched_at?: string;
+  bid_count: number;
+  bids?: RideBid[];
+  distance_to_pickup_km?: number;
+  already_bid?: boolean;
+  my_bid?: RideBid;
+  matched_driver?: {
+    id: number;
+    name: string;
+  };
+}
+
+export interface RideBid {
+  id: number;
+  bid_id: string;
+  ride_request_id: number;
+  driver_id: number;
+  driver_name: string;
+  driver_rating: number;
+  driver_photo_url?: string;
+  driver_vehicle: string;
+  proposed_price: number;
+  message?: string;
+  estimated_arrival_minutes?: number;
+  is_counter_offer: boolean;
+  original_price?: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'countered' | 'withdrawn' | 'expired';
+  customer_response?: string;
+  customer_counter_price?: number;
+  expires_at?: string;
+  created_at: string;
+  ride_request?: RideRequest;
+}
+
+// Customer creates a ride request for bidding
+export const createRideRequest = async (data: {
+  customer_id: number;
+  pickup_address: string;
+  pickup_latitude: number;
+  pickup_longitude: number;
+  pickup_place_name?: string;
+  dropoff_address: string;
+  dropoff_latitude: number;
+  dropoff_longitude: number;
+  dropoff_place_name?: string;
+  ride_type?: string;
+  customer_max_price?: number;
+  customer_preferred_price?: number;
+  special_requests?: string;
+  bidding_duration_minutes?: number;
+}) => {
+  const response = await api.post('/rides/request', data);
+  return response.data;
+};
+
+// Get ride request details with bids
+export const getRideRequest = async (requestId: number) => {
+  const response = await api.get(`/rides/request/${requestId}`);
+  return response.data;
+};
+
+// Get customer's ride requests
+export const getCustomerRideRequests = async (customerId: number, status?: string) => {
+  const response = await api.get(`/rides/customer/${customerId}/requests`, {
+    params: { status }
+  });
+  return response.data;
+};
+
+// Get all bids for a ride request
+export const getBidsForRequest = async (requestId: number) => {
+  const response = await api.get(`/rides/request/${requestId}/bids`);
+  return response.data;
+};
+
+// Customer responds to a bid (accept/reject/counter)
+export const respondToBid = async (
+  bidId: number,
+  action: 'accept' | 'reject' | 'counter',
+  counterPrice?: number,
+  message?: string
+) => {
+  const response = await api.post(`/rides/bid/${bidId}/respond`, {
+    action,
+    counter_price: counterPrice,
+    message
+  });
+  return response.data;
+};
+
+// Customer cancels ride request
+export const cancelRideRequest = async (requestId: number) => {
+  const response = await api.post(`/rides/request/${requestId}/cancel`);
+  return response.data;
+};
+
+// Driver: Get available ride requests for bidding
+export const getAvailableRideRequests = async (
+  driverId: number,
+  latitude: number,
+  longitude: number,
+  radiusKm = 15
+) => {
+  const response = await api.get('/rides/available', {
+    params: {
+      driver_id: driverId,
+      latitude,
+      longitude,
+      radius_km: radiusKm
+    }
+  });
+  return response.data;
+};
+
+// Driver submits a bid
+export const submitBid = async (
+  requestId: number,
+  driverId: number,
+  proposedPrice: number,
+  message?: string,
+  estimatedArrivalMinutes?: number
+) => {
+  const response = await api.post(`/rides/request/${requestId}/bid`, {
+    driver_id: driverId,
+    proposed_price: proposedPrice,
+    message,
+    estimated_arrival_minutes: estimatedArrivalMinutes
+  });
+  return response.data;
+};
+
+// Driver updates their bid
+export const updateBid = async (
+  bidId: number,
+  proposedPrice: number,
+  message?: string
+) => {
+  const response = await api.put(`/rides/bid/${bidId}`, {
+    proposed_price: proposedPrice,
+    message
+  });
+  return response.data;
+};
+
+// Driver withdraws their bid
+export const withdrawBid = async (bidId: number) => {
+  const response = await api.post(`/rides/bid/${bidId}/withdraw`);
+  return response.data;
+};
+
+// Driver accepts customer's counter-offer
+export const acceptCounterOffer = async (bidId: number) => {
+  const response = await api.post(`/rides/bid/${bidId}/accept-counter`);
+  return response.data;
+};
+
+// Driver rejects customer's counter-offer
+export const rejectCounterOffer = async (bidId: number) => {
+  const response = await api.post(`/rides/bid/${bidId}/reject-counter`);
+  return response.data;
+};
+
+// Get driver's bids
+export const getDriverBids = async (driverId: number, status?: string) => {
+  const response = await api.get(`/rides/driver/${driverId}/bids`, {
+    params: { status }
+  });
+  return response.data;
+};
+
+// Start a matched ride
+export const startRide = async (requestId: number) => {
+  const response = await api.post(`/rides/request/${requestId}/start`);
+  return response.data;
+};
+
+// Complete a ride
+export const completeRide = async (requestId: number) => {
+  const response = await api.post(`/rides/request/${requestId}/complete`);
+  return response.data;
+};
+
 // ===================== WEBSOCKET HELPERS =====================
 
 export const getWebSocketUrl = () => {

@@ -51,6 +51,8 @@ import DriverMessages from './app/screens/driver/Messages';
 import DriverProfile from './app/screens/driver/Profile';
 import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverEarnings from './app/screens/driver/Earnings';
+import RideBidding from './app/screens/driver/RideBidding';
+import RideBids from './app/screens/customer/RideBids';
 
 /**
  * DOLLOR.AI WEB APPLICATION
@@ -108,6 +110,8 @@ function App() {
         <Route path="/customer/order-tracking" element={<OrderTracking />} />
         <Route path="/customer/rides" element={<RideBooking />} />
         <Route path="/customer/ride" element={<RideBooking />} />
+        <Route path="/customer/ride-bids" element={<RideBids customerId={1} />} />
+        <Route path="/customer/ride-bids/:requestId" element={<RideBids customerId={1} />} />
         <Route path="/customer/deals" element={<DealsPage />} />
         <Route path="/customer/search" element={<Restaurants />} />
         <Route path="/customer/address" element={<CustomerHome />} />
@@ -122,6 +126,7 @@ function App() {
         <Route path="/driver" element={<DriverLayout />}>
           <Route index element={<AvailableOrders />} />
           <Route path="orders" element={<AvailableOrders />} />
+          <Route path="bidding" element={<RideBidding />} />
           <Route path="active" element={<ActiveDelivery />} />
           <Route path="history" element={<DriverDeliveries />} />
           <Route path="messages" element={<DriverMessages />} />

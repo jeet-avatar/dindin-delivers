@@ -1124,3 +1124,142 @@ class ChatMessage(Base):
 
     # Relationships
     conversation = relationship("ChatConversation", back_populates="messages")
+
+
+# =========================================================================
+# RIDE BIDDING MODELS - Matchmaking platform for price negotiation
+# =========================================================================
+
+class RideRequestStatus(enum.Enum):
+    OPEN = "open"                    # Waiting for driver bids
+    BIDDING = "bidding"              # Has received bids, customer reviewing
+    MATCHED = "matched"              # Customer accepted a bid
+    IN_PROGRESS = "in_progress"      # Ride is happening
+    COMPLETED = "completed"          # Ride finished
+    CANCELLED = "cancelled"          # Customer cancelled
+    EXPIRED = "expired"              # No bids received in time
+
+
+class BidStatus(enum.Enum):
+    PENDING = "pending"              # Waiting for customer response
+    ACCEPTED = "accepted"            # Customer accepted this bid
+    REJECTED = "rejected"            # Customer rejected this bid
+    COUNTERED = "countered"          # Customer made counter-offer
+    WITHDRAWN = "withdrawn"          # Driver withdrew bid
+    EXPIRED = "expired"              # Bid expired without response
+
+
+class RideRequest(Base):
+    """Ride request from customer - open for driver bidding"""
+    __tablename__ = "ride_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(String(50), unique=True, nullable=False, index=True)  # RR-20241221-001
+
+    # Customer
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    customer_name = Column(String(255))
+    customer_phone = Column(String(50))
+
+    # Pickup Location
+    pickup_address = Column(Text, nullable=False)
+    pickup_latitude = Column(Float, nullable=False)
+    pickup_longitude = Column(Float, nullable=False)
+    pickup_place_name = Column(String(255))  # "Downtown Mall"
+
+    # Dropoff Location
+    dropoff_address = Column(Text, nullable=False)
+    dropoff_latitude = Column(Float, nullable=False)
+    dropoff_longitude = Column(Float, nullable=False)
+    dropoff_place_name = Column(String(255))  # "Airport Terminal 2"
+
+    # Trip Details
+    estimated_distance_km = Column(Float)
+    estimated_duration_minutes = Column(Integer)
+    ride_type = Column(String(50), default="standard")  # standard, premium, xl
+
+    # Pricing - Customer Preferences
+    suggested_price = Column(Float)           # System-calculated suggested price
+    customer_max_price = Column(Float)        # Max customer willing to pay (optional)
+    customer_preferred_price = Column(Float)  # What customer hopes to pay (optional)
+
+    # Matched Bid (after acceptance)
+    matched_bid_id = Column(Integer, ForeignKey("ride_bids.id"), nullable=True)
+    matched_driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    final_price = Column(Float)  # Agreed price after negotiation
+
+    # Status
+    status = Column(SQLEnum(RideRequestStatus), default=RideRequestStatus.OPEN)
+
+    # Bidding Window
+    bidding_expires_at = Column(DateTime)  # When bidding closes
+    max_bids = Column(Integer, default=10)  # Max bids to accept
+
+    # Broadcast
+    broadcast_radius_km = Column(Float, default=10.0)
+    drivers_notified = Column(Integer, default=0)
+
+    # Notes
+    special_requests = Column(Text)  # "Need car seat", "Wheelchair accessible"
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    matched_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    cancelled_at = Column(DateTime)
+
+    # Relationships
+    customer = relationship("Customer")
+    matched_driver = relationship("Driver", foreign_keys=[matched_driver_id])
+    bids = relationship("RideBid", back_populates="ride_request", foreign_keys="RideBid.ride_request_id")
+
+
+class RideBid(Base):
+    """Driver's bid on a ride request"""
+    __tablename__ = "ride_bids"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bid_id = Column(String(50), unique=True, nullable=False, index=True)  # BID-20241221-001
+
+    # Ride Request
+    ride_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=False, index=True)
+
+    # Driver
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False, index=True)
+    driver_name = Column(String(255))
+    driver_rating = Column(Float)
+    driver_photo_url = Column(String(500))
+    driver_vehicle = Column(String(255))  # "Toyota Camry 2022 - Silver"
+
+    # Bid Details
+    proposed_price = Column(Float, nullable=False)
+    message = Column(Text)  # "I'm 5 mins away, can pick up quickly!"
+    estimated_arrival_minutes = Column(Integer)  # ETA to pickup
+
+    # Counter-offer tracking
+    is_counter_offer = Column(Boolean, default=False)
+    counter_to_bid_id = Column(Integer, ForeignKey("ride_bids.id"), nullable=True)
+    original_price = Column(Float)  # Price before counter-offer
+
+    # Status
+    status = Column(SQLEnum(BidStatus), default=BidStatus.PENDING)
+
+    # Expiration
+    expires_at = Column(DateTime)  # Bid expires if not responded
+
+    # Response
+    customer_response = Column(Text)  # Customer's counter-offer message
+    customer_counter_price = Column(Float)  # If customer counters
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    responded_at = Column(DateTime)  # When customer responded
+    accepted_at = Column(DateTime)
+    rejected_at = Column(DateTime)
+
+    # Relationships
+    ride_request = relationship("RideRequest", back_populates="bids", foreign_keys=[ride_request_id])
+    driver = relationship("Driver")
+    counter_to = relationship("RideBid", remote_side=[id], foreign_keys=[counter_to_bid_id])
