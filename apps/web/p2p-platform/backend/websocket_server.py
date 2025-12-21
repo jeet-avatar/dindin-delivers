@@ -302,6 +302,139 @@ async def broadcast_eta_update(order_id: int = None, ride_id: str = None,
         await manager.broadcast_to_topic(message, f"ride:{ride_id}")
 
 
+# ===================== BID/MATCHMAKING BROADCAST FUNCTIONS =====================
+
+async def broadcast_new_ride_request(ride_request_data: dict, driver_ids: list = None):
+    """
+    Broadcast a new ride request to nearby drivers for bidding.
+    If driver_ids is None, broadcasts to all drivers.
+    """
+    message = {
+        "type": "new_ride_request",
+        "ride_request": ride_request_data
+    }
+
+    if driver_ids:
+        # Send to specific drivers
+        for driver_id in driver_ids:
+            await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+    else:
+        # Broadcast to all drivers (they'll filter by distance on their end)
+        # Create a topic for ride requests
+        await manager.broadcast_to_topic(message, "ride_requests")
+
+
+async def broadcast_new_bid(ride_request_id: int, customer_id: int, bid_data: dict):
+    """Notify customer of a new bid on their ride request."""
+    message = {
+        "type": "new_bid",
+        "ride_request_id": ride_request_id,
+        "bid": bid_data
+    }
+
+    # Send to the customer
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+    # Also broadcast to the ride request topic
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_response(driver_id: int, bid_id: int, action: str, details: dict = None):
+    """
+    Notify driver of customer's response to their bid.
+    Actions: accepted, rejected, countered
+    """
+    message = {
+        "type": "bid_response",
+        "bid_id": bid_id,
+        "action": action,
+        "details": details or {}
+    }
+
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+
+async def broadcast_ride_matched(ride_request_id: int, customer_id: int,
+                                  driver_id: int, match_details: dict):
+    """Notify both parties when a ride is successfully matched."""
+    message = {
+        "type": "ride_matched",
+        "ride_request_id": ride_request_id,
+        "match_details": match_details
+    }
+
+    # Notify customer
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+    # Notify matched driver
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+    # Broadcast to ride request topic (other drivers will know to stop bidding)
+    await manager.broadcast_to_topic({
+        "type": "ride_request_closed",
+        "ride_request_id": ride_request_id,
+        "reason": "matched"
+    }, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_ride_request_cancelled(ride_request_id: int, bidder_driver_ids: list = None):
+    """Notify drivers that a ride request was cancelled."""
+    message = {
+        "type": "ride_request_cancelled",
+        "ride_request_id": ride_request_id
+    }
+
+    # Notify specific drivers who had bids
+    if bidder_driver_ids:
+        for driver_id in bidder_driver_ids:
+            await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+    # Also broadcast to the ride request topic
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_update(ride_request_id: int, customer_id: int, bid_data: dict):
+    """Notify customer that a driver updated their bid."""
+    message = {
+        "type": "bid_updated",
+        "ride_request_id": ride_request_id,
+        "bid": bid_data
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_withdrawn(ride_request_id: int, customer_id: int, bid_id: int, driver_id: int):
+    """Notify customer that a driver withdrew their bid."""
+    message = {
+        "type": "bid_withdrawn",
+        "ride_request_id": ride_request_id,
+        "bid_id": bid_id,
+        "driver_id": driver_id
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_counter_offer_response(customer_id: int, ride_request_id: int,
+                                            bid_id: int, action: str, new_price: float = None):
+    """
+    Notify customer when driver responds to their counter-offer.
+    Actions: accepted, rejected
+    """
+    message = {
+        "type": "counter_offer_response",
+        "ride_request_id": ride_request_id,
+        "bid_id": bid_id,
+        "action": action,
+        "new_price": new_price
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+
 # ===================== WEBSOCKET MESSAGE HANDLER =====================
 
 async def handle_websocket_message(websocket: WebSocket, client_id: str, data: dict):

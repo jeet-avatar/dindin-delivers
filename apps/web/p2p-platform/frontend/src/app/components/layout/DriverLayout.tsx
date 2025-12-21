@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Tag, Badge } from 'antd';
 import {
-  DashboardOutlined,
   CarOutlined,
-  DollarOutlined,
-  FileTextOutlined,
-  SettingOutlined,
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
@@ -13,7 +9,8 @@ import {
   BellOutlined,
   EnvironmentOutlined,
   StarOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  DollarOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -22,6 +19,7 @@ const { Header, Sider, Content } = Layout;
 interface UserData {
   id?: string;
   name?: string;
+  full_name?: string;
   email?: string;
 }
 
@@ -45,36 +43,46 @@ const DriverLayout: React.FC = () => {
     navigate('/driver/login');
   };
 
+  /**
+   * Navigation items aligned with iOS DriverDashboardView tabs
+   *
+   * iOS Tab Structure:
+   * 1. Orders (bag.fill) - AvailableOrdersView
+   * 2. Active (location.fill) - PickupDropoffView
+   * 3. History (clock.fill) - MyDeliveriesView
+   * 4. Messages (message.fill) - ConversationsListView
+   * 5. Profile (person.crop.circle.fill) - DriverProfileView
+   */
   const menuItems = [
     {
-      key: '/driver/dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
-    },
-    {
-      key: '/driver/deliveries',
+      key: '/driver/orders',
       icon: <CarOutlined />,
-      label: 'Deliveries',
+      label: 'Orders',
     },
     {
-      key: '/driver/earnings',
+      key: '/driver/bidding',
       icon: <DollarOutlined />,
-      label: 'Earnings',
+      label: 'Ride Bids',
     },
     {
-      key: '/driver/documents',
-      icon: <FileTextOutlined />,
-      label: 'Documents',
+      key: '/driver/active',
+      icon: <EnvironmentOutlined />,
+      label: 'Active',
     },
     {
-      key: '/driver/ratings',
-      icon: <StarOutlined />,
-      label: 'Ratings',
+      key: '/driver/history',
+      icon: <ClockCircleOutlined />,
+      label: 'History',
     },
     {
-      key: '/driver/settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
+      key: '/driver/messages',
+      icon: <BellOutlined />,
+      label: 'Messages',
+    },
+    {
+      key: '/driver/profile',
+      icon: <UserOutlined />,
+      label: 'Profile',
     },
   ];
 
