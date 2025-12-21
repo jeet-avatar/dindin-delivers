@@ -4145,6 +4145,286 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Ride Bidding APIs (P2P Matchmaking Platform)
+
+    /// Fetch available ride requests near the driver for bidding
+    public func fetchAvailableRideRequests(
+        latitude: Double,
+        longitude: Double,
+        radiusKm: Double = 15.0,
+        completion: @escaping (Result<[RideRequestForBidding], Error>) -> Void
+    ) {
+        guard let driverId = currentDriverId else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        var urlComponents = URLComponents(string: "\(baseURL)/rides/available")
+        urlComponents?.queryItems = [
+            URLQueryItem(name: "driver_id", value: String(driverId)),
+            URLQueryItem(name: "latitude", value: String(latitude)),
+            URLQueryItem(name: "longitude", value: String(longitude)),
+            URLQueryItem(name: "radius_km", value: String(radiusKm))
+        ]
+
+        guard let url = urlComponents?.url else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.success([]))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(AvailableRideRequestsResponse.self, from: data)
+                    completion(.success(response.available_requests))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchAvailableRideRequests decode error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Raw response: \(jsonString.prefix(500))")
+                    }
+                    #endif
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
+    /// Submit a bid on a ride request
+    public func submitRideBid(
+        requestId: Int,
+        proposedPrice: Double,
+        message: String? = nil,
+        estimatedArrivalMinutes: Int? = nil,
+        completion: @escaping (Result<RideBidResponse, Error>) -> Void
+    ) {
+        guard let driverId = currentDriverId else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/rides/request/\(requestId)/bid") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "driver_id": driverId,
+            "proposed_price": proposedPrice
+        ]
+        if let message = message {
+            body["message"] = message
+        }
+        if let eta = estimatedArrivalMinutes {
+            body["estimated_arrival_minutes"] = eta
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(RideBidResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    /// Get driver's bids
+    public func fetchDriverBids(
+        status: String? = nil,
+        completion: @escaping (Result<[RideBid], Error>) -> Void
+    ) {
+        guard let driverId = currentDriverId else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        var urlComponents = URLComponents(string: "\(baseURL)/rides/driver/\(driverId)/bids")
+        if let status = status {
+            urlComponents?.queryItems = [URLQueryItem(name: "status", value: status)]
+        }
+
+        guard let url = urlComponents?.url else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.success([]))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(DriverBidsResponse.self, from: data)
+                    completion(.success(response.bids))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] fetchDriverBids decode error: \(error)")
+                    #endif
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
+    /// Withdraw a bid
+    public func withdrawBid(
+        bidId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/withdraw") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to withdraw bid")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Accept customer's counter-offer
+    public func acceptCounterOffer(
+        bidId: Int,
+        completion: @escaping (Result<RideBidResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/accept-counter") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(RideBidResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Reject customer's counter-offer
+    public func rejectCounterOffer(
+        bidId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/reject-counter") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to reject counter-offer")))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Fare Negotiation APIs (Rideshare Only - $1+$1 Model)
 
     /// Submit a fare counter-offer (driver or customer)
@@ -6212,9 +6492,13 @@ public struct DriverDashboardResponse: Codable {
     }
 }
 
+/// Earnings for a specific time period - Unified across iOS, Android, and Web
 public struct DriverEarningsPeriod: Codable {
     public let deliveries: Int
     public let grossEarnings: Double
+    public let basePay: Double?
+    public let tips: Double?
+    public let bonuses: Double?
     public let totalMiles: Double?
     public let activeHours: Double?
     public let effectiveHourlyRate: Double?
@@ -6223,10 +6507,26 @@ public struct DriverEarningsPeriod: Codable {
     enum CodingKeys: String, CodingKey {
         case deliveries
         case grossEarnings = "gross_earnings"
+        case basePay = "base_pay"
+        case tips
+        case bonuses
         case totalMiles = "total_miles"
         case activeHours = "active_hours"
         case effectiveHourlyRate = "effective_hourly_rate"
         case perDeliveryAverage = "per_delivery_average"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        deliveries = try container.decodeIfPresent(Int.self, forKey: .deliveries) ?? 0
+        grossEarnings = try container.decodeIfPresent(Double.self, forKey: .grossEarnings) ?? 0.0
+        basePay = try container.decodeIfPresent(Double.self, forKey: .basePay)
+        tips = try container.decodeIfPresent(Double.self, forKey: .tips)
+        bonuses = try container.decodeIfPresent(Double.self, forKey: .bonuses)
+        totalMiles = try container.decodeIfPresent(Double.self, forKey: .totalMiles)
+        activeHours = try container.decodeIfPresent(Double.self, forKey: .activeHours)
+        effectiveHourlyRate = try container.decodeIfPresent(Double.self, forKey: .effectiveHourlyRate)
+        perDeliveryAverage = try container.decodeIfPresent(Double.self, forKey: .perDeliveryAverage)
     }
 }
 
@@ -6270,17 +6570,166 @@ public struct DriverPaymentMethods: Codable {
     }
 }
 
+/// Driver ratings summary - Unified across iOS, Android, and Web
 public struct DriverRatings: Codable {
-    public let overall: Double?
-    public let totalReviews: Int?
+    public let average: Double?
+    public let overall: Double?  // Legacy field, use average
+    public let totalRatings: Int?
+    public let totalReviews: Int?  // Legacy field, use totalRatings
+    public let fiveStar: Int?
+    public let fourStar: Int?
+    public let threeStar: Int?
+    public let twoStar: Int?
+    public let oneStar: Int?
     public let onTimePercentage: Int?
     public let customerCompliments: Int?
 
     enum CodingKeys: String, CodingKey {
+        case average
         case overall
+        case totalRatings = "total_ratings"
         case totalReviews = "total_reviews"
+        case fiveStar = "five_star"
+        case fourStar = "four_star"
+        case threeStar = "three_star"
+        case twoStar = "two_star"
+        case oneStar = "one_star"
         case onTimePercentage = "on_time_percentage"
         case customerCompliments = "customer_compliments"
+    }
+}
+
+/// Daily earnings breakdown for charts - Unified across iOS, Android, and Web
+public struct DailyEarning: Codable, Identifiable {
+    public var id: String { date }
+    public let day: String
+    public let date: String
+    public let deliveries: Int
+    public let earnings: Double
+    public let hours: Double
+
+    enum CodingKeys: String, CodingKey {
+        case day, date, deliveries, earnings, hours
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        day = try container.decodeIfPresent(String.self, forKey: .day) ?? ""
+        date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
+        deliveries = try container.decodeIfPresent(Int.self, forKey: .deliveries) ?? 0
+        earnings = try container.decodeIfPresent(Double.self, forKey: .earnings) ?? 0.0
+        hours = try container.decodeIfPresent(Double.self, forKey: .hours) ?? 0.0
+    }
+}
+
+/// Payout record - Unified across iOS, Android, and Web
+public struct PayoutRecord: Codable, Identifiable {
+    public var id: String
+    public let date: String
+    public let amount: Double
+    public let method: String
+    public let status: String  // pending, processing, completed, failed
+    public let fee: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, date, amount, method, status, fee
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
+        amount = try container.decodeIfPresent(Double.self, forKey: .amount) ?? 0.0
+        method = try container.decodeIfPresent(String.self, forKey: .method) ?? ""
+        status = try container.decodeIfPresent(String.self, forKey: .status) ?? "pending"
+        fee = try container.decodeIfPresent(Double.self, forKey: .fee)
+    }
+}
+
+/// Unified Driver Earnings Response - Aligned across iOS, Android, and Web
+/// Matches backend /api/drivers/{driver_id}/earnings response
+public struct DriverEarningsResponse: Codable {
+    // Primary earnings data (for selected period)
+    public let total: Double
+    public let basePay: Double
+    public let tips: Double
+    public let bonuses: Double
+    public let previousPeriod: Double
+    public let deliveries: Int
+    public let hoursOnline: Double
+    public let avgPerDelivery: Double
+    public let hourlyRate: Double
+
+    // Multi-period data (for dashboard)
+    public let today: DriverEarningsPeriod?
+    public let thisWeek: DriverEarningsPeriod?
+    public let thisMonth: DriverEarningsPeriod?
+
+    // Daily breakdown (for charts)
+    public let dailyBreakdown: [DailyEarning]?
+
+    // Ratings
+    public let ratings: DriverRatings?
+
+    // Payout info
+    public let availableBalance: Double?
+    public let pendingBalance: Double?
+    public let lastPayout: PayoutRecord?
+
+    // Payment history
+    public let paymentHistory: [PayoutRecord]?
+
+    // Metadata
+    public let driverId: Int?
+    public let period: String?
+    public let snapshotTime: String?
+
+    enum CodingKeys: String, CodingKey {
+        case total
+        case basePay = "base_pay"
+        case tips, bonuses
+        case previousPeriod = "previous_period"
+        case deliveries
+        case hoursOnline = "hours_online"
+        case avgPerDelivery = "avg_per_delivery"
+        case hourlyRate = "hourly_rate"
+        case today
+        case thisWeek = "this_week"
+        case thisMonth = "this_month"
+        case dailyBreakdown = "daily_breakdown"
+        case ratings
+        case availableBalance = "available_balance"
+        case pendingBalance = "pending_balance"
+        case lastPayout = "last_payout"
+        case paymentHistory = "payment_history"
+        case driverId = "driver_id"
+        case period
+        case snapshotTime = "snapshot_time"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        total = try container.decodeIfPresent(Double.self, forKey: .total) ?? 0.0
+        basePay = try container.decodeIfPresent(Double.self, forKey: .basePay) ?? 0.0
+        tips = try container.decodeIfPresent(Double.self, forKey: .tips) ?? 0.0
+        bonuses = try container.decodeIfPresent(Double.self, forKey: .bonuses) ?? 0.0
+        previousPeriod = try container.decodeIfPresent(Double.self, forKey: .previousPeriod) ?? 0.0
+        deliveries = try container.decodeIfPresent(Int.self, forKey: .deliveries) ?? 0
+        hoursOnline = try container.decodeIfPresent(Double.self, forKey: .hoursOnline) ?? 0.0
+        avgPerDelivery = try container.decodeIfPresent(Double.self, forKey: .avgPerDelivery) ?? 0.0
+        hourlyRate = try container.decodeIfPresent(Double.self, forKey: .hourlyRate) ?? 0.0
+        today = try container.decodeIfPresent(DriverEarningsPeriod.self, forKey: .today)
+        thisWeek = try container.decodeIfPresent(DriverEarningsPeriod.self, forKey: .thisWeek)
+        thisMonth = try container.decodeIfPresent(DriverEarningsPeriod.self, forKey: .thisMonth)
+        dailyBreakdown = try container.decodeIfPresent([DailyEarning].self, forKey: .dailyBreakdown)
+        ratings = try container.decodeIfPresent(DriverRatings.self, forKey: .ratings)
+        availableBalance = try container.decodeIfPresent(Double.self, forKey: .availableBalance)
+        pendingBalance = try container.decodeIfPresent(Double.self, forKey: .pendingBalance)
+        lastPayout = try container.decodeIfPresent(PayoutRecord.self, forKey: .lastPayout)
+        paymentHistory = try container.decodeIfPresent([PayoutRecord].self, forKey: .paymentHistory)
+        driverId = try container.decodeIfPresent(Int.self, forKey: .driverId)
+        period = try container.decodeIfPresent(String.self, forKey: .period)
+        snapshotTime = try container.decodeIfPresent(String.self, forKey: .snapshotTime)
     }
 }
 
@@ -6467,6 +6916,84 @@ public struct P2PRideLocation: Codable {
         guard let lat = lat, let lng = lng else { return nil }
         return (lat, lng)
     }
+}
+
+// MARK: - Ride Bidding Models (P2P Matchmaking Platform)
+
+/// Available ride requests response
+public struct AvailableRideRequestsResponse: Codable {
+    public let success: Bool
+    public let available_requests: [RideRequestForBidding]
+    public let count: Int
+}
+
+/// Ride request available for bidding
+public struct RideRequestForBidding: Identifiable, Codable {
+    public let id: Int
+    public let request_id: String
+    public let customer_id: Int
+    public let customer_name: String?
+    public let pickup: RideLocation
+    public let dropoff: RideLocation
+    public let estimated_distance_km: Double?
+    public let estimated_duration_minutes: Int?
+    public let ride_type: String?
+    public let suggested_price: Double?
+    public let customer_max_price: Double?
+    public let customer_preferred_price: Double?
+    public let status: String
+    public let bidding_expires_at: String?
+    public let special_requests: String?
+    public let created_at: String?
+    public let bid_count: Int?
+    public let distance_to_pickup_km: Double?
+    public let already_bid: Bool?
+    public let my_bid: RideBid?
+
+    public struct RideLocation: Codable {
+        public let address: String
+        public let latitude: Double
+        public let longitude: Double
+        public let place_name: String?
+    }
+}
+
+/// Ride bid response
+public struct RideBidResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let bid: RideBid?
+    public let ride_request: RideRequestForBidding?
+    public let accepted_bid: RideBid?
+}
+
+/// Driver's bids response
+public struct DriverBidsResponse: Codable {
+    public let success: Bool
+    public let bids: [RideBid]
+}
+
+/// Ride bid model
+public struct RideBid: Identifiable, Codable {
+    public let id: Int
+    public let bid_id: String
+    public let ride_request_id: Int
+    public let driver_id: Int
+    public let driver_name: String?
+    public let driver_rating: Double?
+    public let driver_photo_url: String?
+    public let driver_vehicle: String?
+    public let proposed_price: Double
+    public let message: String?
+    public let estimated_arrival_minutes: Int?
+    public let is_counter_offer: Bool?
+    public let original_price: Double?
+    public let status: String
+    public let customer_response: String?
+    public let customer_counter_price: Double?
+    public let expires_at: String?
+    public let created_at: String?
+    public let ride_request: RideRequestForBidding?
 }
 
 // MARK: - Customer Address Model (for saved delivery addresses)

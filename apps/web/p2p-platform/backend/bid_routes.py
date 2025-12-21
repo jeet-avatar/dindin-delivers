@@ -17,6 +17,12 @@ from models import (
     RideRequest, RideBid, RideRequestStatus, BidStatus,
     Customer, Driver
 )
+from websocket_server import (
+    broadcast_new_ride_request, broadcast_new_bid, broadcast_bid_response,
+    broadcast_ride_matched, broadcast_ride_request_cancelled,
+    broadcast_bid_update, broadcast_bid_withdrawn, broadcast_counter_offer_response
+)
+import asyncio
 
 router = APIRouter(prefix="/api/rides", tags=["Ride Bidding"])
 
@@ -252,7 +258,14 @@ async def create_ride_request(data: CreateRideRequestInput, db: Session = Depend
     db.commit()
     db.refresh(ride_request)
 
-    # TODO: Broadcast to nearby drivers via WebSocket
+    # Broadcast to nearby drivers via WebSocket
+    try:
+        asyncio.create_task(broadcast_new_ride_request(
+            ride_request_data=serialize_ride_request(ride_request),
+            driver_ids=None  # Broadcast to all drivers
+        ))
+    except Exception as e:
+        print(f"WebSocket broadcast error: {e}")
 
     return {
         "success": True,
@@ -372,8 +385,16 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
 
         db.commit()
 
-        # TODO: Send push notification to matched driver
-        # TODO: Send WebSocket update to all drivers
+        # Send WebSocket update - ride matched
+        try:
+            asyncio.create_task(broadcast_ride_matched(
+                ride_request_id=ride_request.id,
+                customer_id=ride_request.customer_id,
+                driver_id=bid.driver_id,
+                match_details=serialize_bid(bid)
+            ))
+        except Exception as e:
+            print(f"WebSocket broadcast error: {e}")
 
         return {
             "success": True,
@@ -390,7 +411,16 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
 
         db.commit()
 
-        # TODO: Send push notification to driver
+        # Send WebSocket update to driver
+        try:
+            asyncio.create_task(broadcast_bid_response(
+                driver_id=bid.driver_id,
+                bid_id=bid.id,
+                action="rejected",
+                details={"message": bid.customer_response}
+            ))
+        except Exception as e:
+            print(f"WebSocket broadcast error: {e}")
 
         return {
             "success": True,
@@ -409,7 +439,19 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
 
         db.commit()
 
-        # TODO: Send push notification to driver with counter-offer
+        # Send WebSocket update to driver with counter-offer
+        try:
+            asyncio.create_task(broadcast_bid_response(
+                driver_id=bid.driver_id,
+                bid_id=bid.id,
+                action="countered",
+                details={
+                    "counter_price": data.counter_price,
+                    "message": data.message
+                }
+            ))
+        except Exception as e:
+            print(f"WebSocket broadcast error: {e}")
 
         return {
             "success": True,
@@ -586,8 +628,15 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     db.commit()
     db.refresh(bid)
 
-    # TODO: Send push notification to customer about new bid
-    # TODO: Send WebSocket update
+    # Send WebSocket update to customer about new bid
+    try:
+        asyncio.create_task(broadcast_new_bid(
+            ride_request_id=request_id,
+            customer_id=ride_request.customer_id,
+            bid_data=serialize_bid(bid)
+        ))
+    except Exception as e:
+        print(f"WebSocket broadcast error: {e}")
 
     return {
         "success": True,
