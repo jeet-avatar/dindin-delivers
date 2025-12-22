@@ -449,6 +449,115 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
+
+def sanitize_input(text: str) -> str:
+    """Sanitize user input to prevent XSS attacks"""
+    if not text:
+        return text
+    # Escape HTML special characters
+    replacements = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        '&': '&amp;',
+    }
+    for char, escaped in replacements.items():
+        text = text.replace(char, escaped)
+    return text
+
+
+async def get_current_customer(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get current customer from JWT token - queries Customer table directly"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # First try customer_id from JWT (set during customer registration)
+        customer_id = payload.get("customer_id")
+        if customer_id:
+            customer = db.query(Customer).filter(Customer.id == customer_id).first()
+            if customer:
+                return customer
+
+        # Fallback to email lookup
+        email: str = payload.get("sub")
+        if email:
+            customer = db.query(Customer).filter(Customer.email == email).first()
+            if customer:
+                return customer
+
+        raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+
+async def get_current_driver(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get current driver from JWT token - queries Driver table directly"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # First try driver_id from JWT
+        driver_id = payload.get("driver_id")
+        if driver_id:
+            # driver_id in JWT could be integer or string ID
+            if isinstance(driver_id, int):
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+            else:
+                driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
+            if driver:
+                return driver
+
+        # Fallback to email lookup
+        email: str = payload.get("sub")
+        if email:
+            driver = db.query(Driver).filter(Driver.email == email).first()
+            if driver:
+                return driver
+
+        raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+
+async def get_current_vendor(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get current vendor from JWT token - queries Vendor table directly"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        # First try vendor_id from JWT
+        vendor_id = payload.get("vendor_id")
+        if vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+            if vendor:
+                return vendor
+
+        # Fallback to email lookup
+        email: str = payload.get("sub")
+        if email:
+            vendor = db.query(Vendor).filter(Vendor.email == email).first()
+            if vendor:
+                return vendor
+
+        raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+
 def generate_invoice_number(db: Session) -> str:
     """Generate unique invoice number"""
     today = datetime.now()
@@ -918,6 +1027,10 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         # Get names using flexible getters (accept both field name variants)
         owner_name = request.get_name()
         rest_name = request.get_restaurant_name()
+
+        # Sanitize inputs to prevent XSS
+        owner_name = sanitize_input(owner_name) if owner_name else None
+        rest_name = sanitize_input(rest_name) if rest_name else None
 
         # Validate required fields
         if not owner_name:
@@ -1391,10 +1504,14 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         # Hash password once, store in both driver and user tables
         hashed_password = get_password_hash(request.password)
 
+        # Sanitize inputs to prevent XSS
+        first_name = sanitize_input(request.first_name)
+        last_name = sanitize_input(request.last_name)
+
         new_driver = Driver(
             driver_id=driver_code,
-            first_name=request.first_name,
-            last_name=request.last_name,
+            first_name=first_name,
+            last_name=last_name,
             email=request.email,
             phone=request.phone,
             password_hash=hashed_password,  # Store password in driver table for mobile app compatibility
@@ -1412,7 +1529,7 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         new_user = User(
             email=request.email,
             password_hash=hashed_password,
-            full_name=f"{request.first_name} {request.last_name}",
+            full_name=f"{first_name} {last_name}",
             role=UserRole.DRIVER,
             driver_id=new_driver.id
         )
@@ -1890,6 +2007,8 @@ def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depen
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required (send 'name' or 'full_name')"
             )
+        # Sanitize name to prevent XSS
+        customer_name = sanitize_input(customer_name)
         name_parts = customer_name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -2122,8 +2241,8 @@ class FareEstimateRequest(BaseModel):
     ride_type: Optional[str] = "standard"
 
 class RideRequestModel(BaseModel):
-    customer_name: str
-    customer_email: str
+    customer_name: Optional[str] = None  # Optional - derived from auth if not provided
+    customer_email: Optional[str] = None  # Optional - derived from auth if not provided
     customer_phone: Optional[str] = None
     pickup_address: dict
     dropoff_address: dict
@@ -2241,7 +2360,11 @@ def estimate_fare(request: FareEstimateRequest):
     }
 
 @app.post("/api/erp/rides/request")
-def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
+async def request_ride(
+    request: RideRequestModel,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """
     Request a new ride - creates ride request and matches with available drivers
 
@@ -2253,6 +2376,31 @@ def request_ride(request: RideRequestModel, db: Session = Depends(get_db)):
     import random
     import string
     from datetime import datetime
+
+    # Try to get customer info from token if not provided in request
+    customer_name = request.customer_name
+    customer_email = request.customer_email
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            customer_id = payload.get("customer_id")
+            if customer_id:
+                customer = db.query(Customer).filter(Customer.id == customer_id).first()
+                if customer:
+                    if not customer_name:
+                        customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
+                    if not customer_email:
+                        customer_email = customer.email
+        except JWTError:
+            pass
+
+    # Fallback if still no customer info
+    if not customer_name:
+        customer_name = "Guest"
+    if not customer_email:
+        customer_email = "guest@dollor.ai"
 
     # Generate ride ID
     ride_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
@@ -3184,6 +3332,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required (send 'name' or 'full_name')"
             )
+        # Sanitize name to prevent XSS
+        customer_name = sanitize_input(customer_name)
         name_parts = customer_name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -3514,52 +3664,38 @@ def customer_confirm_password_reset(request: PasswordResetConfirm, db: Session =
 
 
 @app.get("/api/customer/profile")
-def get_customer_profile_v2(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get current customer's profile (v2 endpoint)"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-
-    if not customer:
-        # Return basic info from user if customer record doesn't exist
-        return {
-            "id": 0,
-            "name": current_user.full_name,
-            "email": current_user.email,
-            "phone": "",
-            "status": "active",
-            "loyalty_points": 0,
-            "total_orders": 0
-        }
-
+async def get_customer_profile_v2(customer: Customer = Depends(get_current_customer)):
+    """Get current customer's profile - uses Customer table directly via JWT"""
     # Construct full name from first_name and last_name
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
 
     return {
         "id": customer.id,
+        "customer_code": customer.customer_id,
         "name": full_name,
         "email": customer.email,
-        "phone": customer.phone,
+        "phone": customer.phone or "",
         "status": "active" if customer.is_active else "inactive",
-        "loyalty_points": customer.loyalty_points,
-        "total_orders": customer.total_orders,
-        "saved_addresses": customer.saved_addresses
+        "loyalty_points": customer.loyalty_points or 0,
+        "total_orders": customer.total_orders or 0,
+        "total_spent": float(customer.total_spent or 0),
+        "saved_addresses": customer.saved_addresses or []
     }
 
 
 # ==================== CUSTOMER DASHBOARD ====================
 
 @app.get("/api/customer/dashboard")
-def get_customer_dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_customer_dashboard(customer: Customer = Depends(get_current_customer), db: Session = Depends(get_db)):
     """Get customer dashboard data with rides history and stats"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-
-    customer_id = customer.id if customer else 0
+    customer_id = customer.id
 
     # Get recent rides from database (or mock data if no real rides)
     recent_rides = []
 
     # Calculate stats from customer record
-    total_rides = customer.total_orders if customer else 0
-    total_spent = customer.total_spent if customer else 0.0
+    total_rides = customer.total_orders or 0
+    total_spent = float(customer.total_spent or 0)
 
     # Calculate savings (estimated 20% savings vs traditional platforms)
     # Traditional platforms charge ~25-30% fees, we charge $1 flat
@@ -3600,7 +3736,7 @@ def get_customer_dashboard(current_user: User = Depends(get_current_user), db: S
             })
 
     # Quick destinations (from customer saved addresses or defaults)
-    saved_addresses = customer.saved_addresses if customer and customer.saved_addresses else []
+    saved_addresses = customer.saved_addresses if customer.saved_addresses else []
     quick_destinations = [
         {"icon": "🏠", "label": "Home", "address": saved_addresses[0] if len(saved_addresses) > 0 else "Set home address"},
         {"icon": "💼", "label": "Work", "address": saved_addresses[1] if len(saved_addresses) > 1 else "Set work address"},
@@ -3608,7 +3744,7 @@ def get_customer_dashboard(current_user: User = Depends(get_current_user), db: S
     ]
 
     return {
-        "customer_name": f"{customer.first_name or ''} {customer.last_name or ''}".strip() if customer else current_user.full_name,
+        "customer_name": f"{customer.first_name or ''} {customer.last_name or ''}".strip(),
         "customer_id": customer_id,
         "stats": {
             "total_rides": total_rides,
@@ -3618,25 +3754,20 @@ def get_customer_dashboard(current_user: User = Depends(get_current_user), db: S
         "recent_rides": recent_rides,
         "quick_destinations": quick_destinations,
         "loyalty": {
-            "points": customer.loyalty_points if customer else 0,
-            "tier": customer.loyalty_tier if customer else "bronze"
+            "points": customer.loyalty_points or 0,
+            "tier": getattr(customer, 'loyalty_tier', 'bronze') or "bronze"
         }
     }
 
 
 @app.get("/api/customer/rides/history")
-def get_customer_ride_history(
+async def get_customer_ride_history(
     limit: int = 20,
     offset: int = 0,
-    current_user: User = Depends(get_current_user),
+    customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
     """Get customer's ride history with pagination"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-
-    if not customer:
-        return {"rides": [], "total": 0, "has_more": False}
-
     # In production, query from rides table
     # For now, generate sample data based on total_orders
     total_rides = customer.total_orders or 0
@@ -4171,31 +4302,12 @@ def get_driver_dashboard(
 
 
 @app.get("/api/driver/earnings")
-def get_driver_earnings(
+async def get_driver_earnings(
     period: str = "today",  # today, week, month, all
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(get_current_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver earnings breakdown - uses actual data from delivered orders"""
-
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
-            else:
-                email = payload.get("sub")
-                if email:
-                    driver = db.query(Driver).filter(Driver.email == email).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     # Calculate period start date
     now = datetime.utcnow()
@@ -4209,11 +4321,15 @@ def get_driver_earnings(
         start_date = datetime(2020, 1, 1)  # Far enough back
 
     # Query actual delivered orders for this driver
-    orders = db.query(Order).filter(
-        Order.driver_id == driver.id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.created_at >= start_date
-    ).all()
+    try:
+        orders = db.query(Order).filter(
+            Order.driver_id == driver.id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.created_at >= start_date
+        ).all()
+    except Exception:
+        # If query fails, return empty data
+        orders = []
 
     # Calculate real earnings from order data
     deliveries = len(orders)
@@ -4221,15 +4337,23 @@ def get_driver_earnings(
     tips = sum(float(o.tip or 0) for o in orders)
     bonuses = 0  # Bonus tracking not yet implemented
 
+    # Also return period-based totals for dashboard display
     return {
         "period": period,
+        "driver_id": driver.id,
+        "driver_name": f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
         "deliveries": deliveries,
         "base_earnings": round(base_earnings, 2),
         "tips": round(tips, 2),
         "bonuses": round(bonuses, 2),
         "total_earnings": round(base_earnings + tips + bonuses, 2),
         "platform_fee": 0.00,  # Drivers pay $0 commission per CLAUDE.md
-        "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers."
+        "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers.",
+        # Period totals for iOS/Android apps
+        "today": round(base_earnings + tips, 2) if period == "today" else 0,
+        "week": round(base_earnings + tips, 2) if period == "week" else 0,
+        "month": round(base_earnings + tips, 2) if period == "month" else 0,
+        "pending": 0.0  # Pending payout amount
     }
 
 
@@ -6707,6 +6831,63 @@ def get_vendor_profile(db: Session = Depends(get_db), current_user: User = Depen
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor profile not found")
     return vendor
+
+
+@app.get("/api/vendor/earnings")
+async def get_vendor_earnings(
+    period: str = "today",  # today, week, month, all
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """Get vendor/restaurant earnings breakdown - uses actual data from orders"""
+
+    # Calculate period start date
+    now = datetime.utcnow()
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    else:  # all time
+        start_date = datetime(2020, 1, 1)
+
+    # Query completed orders for this vendor
+    try:
+        orders = db.query(Order).filter(
+            Order.vendor_id == vendor.id,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.COMPLETED]),
+            Order.created_at >= start_date
+        ).all()
+    except Exception:
+        orders = []
+
+    # Calculate earnings
+    total_orders = len(orders)
+    gross_sales = sum(float(o.subtotal or 0) for o in orders)
+    platform_fees = total_orders * 1.0  # $1 per order platform fee
+    net_earnings = gross_sales - platform_fees
+
+    # Calculate tips received (if any go to restaurant)
+    tips_received = 0  # Tips go to drivers, not restaurants
+
+    return {
+        "period": period,
+        "vendor_id": vendor.id,
+        "restaurant_name": vendor.restaurant_name or vendor.business_name,
+        "total_orders": total_orders,
+        "gross_sales": round(gross_sales, 2),
+        "platform_fee": round(platform_fees, 2),
+        "platform_fee_rate": "$1.00 per order",
+        "net_earnings": round(net_earnings, 2),
+        "tips_received": round(tips_received, 2),
+        "note": "Platform fee is $1 flat per order. You keep 100% of food sales minus this fee.",
+        # Period totals for iOS/Android apps
+        "today": round(net_earnings, 2) if period == "today" else 0,
+        "week": round(net_earnings, 2) if period == "week" else 0,
+        "month": round(net_earnings, 2) if period == "month" else 0,
+        "pending_payout": 0.0  # Pending payout amount
+    }
 
 
 @app.put("/api/vendors/{vendor_id}", response_model=VendorResponse)
