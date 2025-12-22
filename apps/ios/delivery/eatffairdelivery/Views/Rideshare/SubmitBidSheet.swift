@@ -15,7 +15,9 @@ struct SubmitBidSheet: View {
     @State private var message: String = ""
     @FocusState private var isPriceFocused: Bool
 
-    private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
+    private var platformFee: Double {
+        viewModel.getPlatformFee(for: proposedAmount)
+    }
 
     private var suggestedPrice: Double {
         request.suggested_price ?? 0
@@ -26,11 +28,27 @@ struct SubmitBidSheet: View {
     }
 
     private var driverEarnings: Double {
-        max(0, proposedAmount - platformFee)
+        viewModel.calculateEarnings(proposedPrice: proposedAmount)
     }
 
     private var isValidBid: Bool {
         proposedAmount > platformFee
+    }
+
+    private var suggestedBids: (quickAccept: Double, fairPrice: Double, premium: Double) {
+        viewModel.calculateSuggestedBids(baseFare: suggestedPrice)
+    }
+
+    private var earningsPerMile: Double? {
+        viewModel.calculateEarningsPerMile(proposedPrice: proposedAmount, distanceKm: request.estimated_distance_km)
+    }
+
+    private var earningsPerHour: Double? {
+        viewModel.calculateEarningsPerHour(proposedPrice: proposedAmount, durationMinutes: request.estimated_duration_minutes)
+    }
+
+    private var keepPercentage: Double {
+        viewModel.calculateDriverKeepPercentage(proposedPrice: proposedAmount)
     }
 
     var body: some View {
@@ -216,58 +234,161 @@ struct SubmitBidSheet: View {
                     .foregroundColor(.blue)
             }
 
-            // Price Input
-            HStack {
-                Text("$")
-                    .font(.system(size: 32, weight: .bold))
+            // Suggested Bid Options - Quick Accept 92%, Fair Price 100%, Premium 108%
+            VStack(spacing: 8) {
+                Text("Suggested Bids")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    // Quick Accept - 92% (8% discount to win fast)
+                    BidOptionButton(
+                        title: "Quick Accept",
+                        subtitle: "92%",
+                        amount: suggestedBids.quickAccept,
+                        earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.quickAccept),
+                        color: .orange,
+                        isSelected: proposedAmount == suggestedBids.quickAccept,
+                        action: {
+                            proposedPrice = String(format: "%.0f", suggestedBids.quickAccept)
+                        }
+                    )
+
+                    // Fair Price - 100% (market rate)
+                    BidOptionButton(
+                        title: "Fair Price",
+                        subtitle: "100%",
+                        amount: suggestedBids.fairPrice,
+                        earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.fairPrice),
+                        color: .blue,
+                        isSelected: proposedAmount == suggestedBids.fairPrice,
+                        action: {
+                            proposedPrice = String(format: "%.0f", suggestedBids.fairPrice)
+                        }
+                    )
+
+                    // Premium - 108% (8% premium for guaranteed higher earnings)
+                    BidOptionButton(
+                        title: "Premium",
+                        subtitle: "108%",
+                        amount: suggestedBids.premium,
+                        earnings: viewModel.calculateEarnings(proposedPrice: suggestedBids.premium),
+                        color: .green,
+                        isSelected: proposedAmount == suggestedBids.premium,
+                        action: {
+                            proposedPrice = String(format: "%.0f", suggestedBids.premium)
+                        }
+                    )
+                }
+            }
+
+            // Price Input - Custom bid
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Custom Bid")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
                     .foregroundColor(Theme.textSecondary)
 
-                TextField("0", text: $proposedPrice)
-                    .font(.system(size: 32, weight: .bold))
-                    .keyboardType(.decimalPad)
-                    .foregroundColor(Theme.textPrimary)
-                    .focused($isPriceFocused)
-            }
-            .padding()
-            .background(Color.white)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.blue, lineWidth: 2)
-            )
+                HStack {
+                    Text("$")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.textSecondary)
 
-            // Quick Price Buttons
-            HStack(spacing: 8) {
-                ForEach([-5, 0, 5, 10], id: \.self) { adjustment in
-                    Button(action: {
-                        let newPrice = max(platformFee + 1, suggestedPrice + Double(adjustment))
-                        proposedPrice = String(format: "%.0f", newPrice)
-                    }) {
-                        Text(adjustment >= 0 ? "+$\(adjustment)" : "-$\(abs(adjustment))")
+                    TextField("0", text: $proposedPrice)
+                        .font(.system(size: 28, weight: .bold))
+                        .keyboardType(.decimalPad)
+                        .foregroundColor(Theme.textPrimary)
+                        .focused($isPriceFocused)
+                }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.blue, lineWidth: 2)
+                )
+            }
+
+            // Earnings Breakdown
+            if proposedAmount > 0 {
+                VStack(spacing: 12) {
+                    // Keep percentage messaging
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Keep \(String(format: "%.0f", keepPercentage))%+ of every fare")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                        Spacer()
+                    }
+
+                    Divider()
+
+                    // Driver earnings
+                    HStack {
+                        Text("You earn:")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textSecondary)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", driverEarnings))")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
+
+                    // Earnings per mile
+                    if let perMile = earningsPerMile {
+                        HStack {
+                            Image(systemName: "arrow.left.and.right")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                            Text("Per mile:")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", perMile))")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Theme.textPrimary)
+                        }
+                    }
+
+                    // Earnings per hour
+                    if let perHour = earningsPerHour {
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                            Text("Per hour:")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", perHour))")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Theme.textPrimary)
+                        }
+                    }
+
+                    Divider()
+
+                    // Platform fee transparency
+                    HStack {
+                        Text("Platform fee:")
                             .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
+                            .foregroundColor(Theme.textSecondary)
+                        Spacer()
+                        Text("$\(String(format: "%.0f", platformFee))")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
                     }
                 }
-            }
-
-            // Earnings Preview
-            if proposedAmount > 0 {
-                HStack {
-                    Text("You earn after $\(String(format: "%.0f", platformFee)) fee:")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-                    Spacer()
-                    Text("$\(String(format: "%.2f", driverEarnings))")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(driverEarnings > 0 ? .green : .red)
-                }
-                .padding(.top, 4)
+                .padding()
+                .background(Color.green.opacity(0.05))
+                .cornerRadius(12)
             }
         }
         .padding()
@@ -334,20 +455,85 @@ struct SubmitBidSheet: View {
     // MARK: - Platform Fee Info
 
     private var platformFeeInfo: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "info.circle.fill")
-                .foregroundColor(.green)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Only $\(String(format: "%.0f", platformFee)) connection fee!")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "info.circle.fill")
                     .foregroundColor(.green)
+                    .font(.title3)
 
-                Text("You set your own price. We only charge a small matchmaking fee.")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keep 96%+ of every fare")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+
+                    Text("$1-3 flat fee, NOT a percentage")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+
+                Spacer()
             }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Platform Fee Structure:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textPrimary)
+                    Spacer()
+                }
+
+                HStack {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                    Text("Fares up to $35:")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Text("$1 flat")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+
+                HStack {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                    Text("Fares $35.01-$70:")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Text("$2 flat")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+
+                HStack {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                    Text("Fares over $70:")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Text("$3 flat")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+            }
+
+            Text("You control your earnings. No percentage commissions!")
+                .font(.caption)
+                .foregroundColor(Theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding()
         .background(Color.green.opacity(0.1))
@@ -406,6 +592,52 @@ struct SubmitBidSheet: View {
                 onDismiss()
             }
         }
+    }
+}
+
+// MARK: - Bid Option Button Component
+
+struct BidOptionButton: View {
+    let title: String
+    let subtitle: String
+    let amount: Double
+    let earnings: Double
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(isSelected ? .white : color)
+
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(isSelected ? .white.opacity(0.9) : color.opacity(0.8))
+
+                Text("$\(String(format: "%.0f", amount))")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(isSelected ? .white : color)
+
+                Text("Earn $\(String(format: "%.0f", earnings))")
+                    .font(.caption2)
+                    .foregroundColor(isSelected ? .white.opacity(0.9) : Theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 4)
+            .background(isSelected ? color : color.opacity(0.1))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(color, lineWidth: isSelected ? 0 : 2)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

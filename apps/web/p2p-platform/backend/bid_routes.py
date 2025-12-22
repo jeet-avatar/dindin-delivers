@@ -22,6 +22,7 @@ from websocket_server import (
     broadcast_ride_matched, broadcast_ride_request_cancelled,
     broadcast_bid_update, broadcast_bid_withdrawn, broadcast_counter_offer_response
 )
+from pricing_config import pricing_engine, get_fare_estimate, get_bid_label
 import asyncio
 
 router = APIRouter(prefix="/api/rides", tags=["Ride Bidding"])
@@ -100,34 +101,25 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
 
 
 def calculate_suggested_price(distance_km: float, duration_minutes: int, ride_type: str) -> float:
-    """Calculate suggested price based on distance, duration, and ride type"""
-    # Base fare
-    base_fare = 2.50
+    """
+    Calculate suggested price using competitive market-rate pricing.
+    Uses the DollorPricingEngine for consistent pricing across all platforms.
+    """
+    # Use the centralized pricing engine
+    estimate = pricing_engine.calculate_estimate(
+        distance_km=distance_km,
+        duration_minutes=duration_minutes
+    )
 
-    # Per km rate
-    per_km_rate = 1.50
+    base_price = estimate.subtotal
+
+    # Apply ride type multipliers
     if ride_type == "premium":
-        per_km_rate = 2.50
+        base_price *= 1.5
     elif ride_type == "xl":
-        per_km_rate = 2.00
+        base_price *= 1.25
 
-    # Per minute rate (for traffic)
-    per_minute_rate = 0.20
-
-    # Calculate
-    distance_cost = distance_km * per_km_rate
-    time_cost = duration_minutes * per_minute_rate
-
-    suggested = base_fare + distance_cost + time_cost
-
-    # Minimum fare
-    min_fare = 5.00
-    if ride_type == "premium":
-        min_fare = 10.00
-    elif ride_type == "xl":
-        min_fare = 8.00
-
-    return max(suggested, min_fare)
+    return round(base_price, 2)
 
 
 def estimate_duration_minutes(distance_km: float) -> int:
@@ -838,4 +830,139 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
         "message": "Ride completed",
         "ride_request": serialize_ride_request(ride_request),
         "final_price": ride_request.final_price
+    }
+
+
+# =========================================================================
+# FARE ESTIMATE ENDPOINTS - Competitive Pricing
+# =========================================================================
+
+class FareEstimateInput(BaseModel):
+    """Input for fare estimate calculation"""
+    pickup_latitude: float
+    pickup_longitude: float
+    dropoff_latitude: float
+    dropoff_longitude: float
+    ride_type: str = "standard"
+
+
+@router.post("/estimate")
+async def get_fare_estimate_endpoint(data: FareEstimateInput):
+    """
+    Get fare estimate with full breakdown and driver suggestions.
+
+    Returns competitive market-rate pricing with:
+    - Detailed fare breakdown
+    - Platform fee (transparent, $1-3 flat)
+    - Suggested bid prices for drivers
+    - Driver earnings information
+    - Bid comparison labels for customers
+    """
+    # Calculate distance
+    distance_km = calculate_distance_km(
+        data.pickup_latitude, data.pickup_longitude,
+        data.dropoff_latitude, data.dropoff_longitude
+    )
+
+    # Estimate duration
+    duration_minutes = estimate_duration_minutes(distance_km)
+
+    # Get full fare estimate
+    estimate = get_fare_estimate(
+        distance_km=distance_km,
+        duration_minutes=duration_minutes
+    )
+
+    # Apply ride type multiplier to suggested bids
+    multiplier = 1.0
+    if data.ride_type == "premium":
+        multiplier = 1.5
+    elif data.ride_type == "xl":
+        multiplier = 1.25
+
+    if multiplier != 1.0:
+        estimate["subtotal"] = round(estimate["subtotal"] * multiplier, 2)
+        estimate["total"] = round(estimate["total"] * multiplier, 2)
+        estimate["driver_info"]["earnings"] = round(estimate["driver_info"]["earnings"] * multiplier, 2)
+        for bid in estimate["suggested_bids"]:
+            bid["price"] = round(bid["price"] * multiplier, 2)
+            bid["driver_earnings"] = round(bid["driver_earnings"] * multiplier, 2)
+
+    estimate["ride_type"] = data.ride_type
+    estimate["distance_km"] = round(distance_km, 2)
+
+    return {
+        "success": True,
+        "estimate": estimate
+    }
+
+
+@router.get("/estimate/bid-label")
+async def get_bid_label_endpoint(bid_price: float, fare_estimate: float):
+    """
+    Get comparison label for a bid price vs fare estimate.
+
+    Returns:
+    - label: "Great Deal", "Good Value", "Fair Price", "Above Average", "Premium"
+    - description: Explanation of the label
+    - color: Suggested UI color (green, blue, orange, gray)
+    """
+    label_info = get_bid_label(bid_price, fare_estimate)
+    return {
+        "success": True,
+        **label_info
+    }
+
+
+@router.get("/pricing/tiers")
+async def get_pricing_tiers():
+    """
+    Get current pricing tier information.
+
+    Dollor.ai uses flat platform fees ($1-3) instead of percentage-based
+    commissions (unlike industry-standard 25-30%).
+
+    This means:
+    - Riders pay less
+    - Drivers earn more
+    - Transparent pricing
+    """
+    return {
+        "success": True,
+        "tiers": [
+            {
+                "tier": 1,
+                "fare_range": "Up to $35",
+                "platform_fee": 1.00,
+                "driver_keeps": "97%+"
+            },
+            {
+                "tier": 2,
+                "fare_range": "$35.01 - $70",
+                "platform_fee": 2.00,
+                "driver_keeps": "97%+"
+            },
+            {
+                "tier": 3,
+                "fare_range": "Above $70",
+                "platform_fee": 3.00,
+                "driver_keeps": "96%+"
+            }
+        ],
+        "comparison": {
+            "dollor_ai": {
+                "fee_type": "Flat fee ($1-3)",
+                "driver_keeps": "96-97%",
+                "transparent": True
+            },
+            "industry_average": {
+                "fee_type": "Percentage (25-30%)",
+                "driver_keeps": "70-75%",
+                "transparent": False
+            }
+        },
+        "messaging": {
+            "customer": "Pay fair market rates. 96% goes directly to your driver.",
+            "driver": "Keep 96%+ of every fare. No commission cuts. Your price, your earnings."
+        }
     }
