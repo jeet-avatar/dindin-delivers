@@ -20,11 +20,11 @@ import json
 import uuid
 
 from database import get_db
-from models import Vendor, Order, OrderStatus
+from models import Vendor, Order, OrderStatus, Customer
 from models_extended import (
     Promotion, PromotionType, PromotionStatus, PromotionTargetAudience,
     PromotionRedemption, RealTimeEvent, Communication, CommunicationChannel,
-    CommunicationStatus, RecipientType, Customer, VendorAnalytics
+    CommunicationStatus, RecipientType, VendorAnalytics
 )
 
 router = APIRouter(prefix="/api/promotions", tags=["promotions"])

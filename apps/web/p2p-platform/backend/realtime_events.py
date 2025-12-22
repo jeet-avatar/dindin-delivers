@@ -22,10 +22,10 @@ import asyncio
 import os
 
 from database import get_db
-from models import Vendor, Order, OrderStatus
+from models import Vendor, Order, OrderStatus, Customer
 from models_extended import (
     RealTimeEvent, Communication, CommunicationChannel,
-    CommunicationStatus, RecipientType, Customer
+    CommunicationStatus, RecipientType
 )
 
 router = APIRouter(prefix="/api/realtime", tags=["realtime"])
