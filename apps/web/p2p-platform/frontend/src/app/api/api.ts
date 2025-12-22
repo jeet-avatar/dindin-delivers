@@ -248,10 +248,9 @@ export const updateVendorDocuments = async (vendorId: number, documents: Partial
 };
 
 // Create vendor user account (admin)
+// SOC 2 Compliant: Password sent in request body, not query params
 export const createVendorAccount = async (vendorId: number, password: string) => {
-  const response = await api.post(`/vendors/${vendorId}/create-account`, null, {
-    params: { password }
-  });
+  const response = await api.post(`/vendors/${vendorId}/create-account`, { password });
   return response.data;
 };
 

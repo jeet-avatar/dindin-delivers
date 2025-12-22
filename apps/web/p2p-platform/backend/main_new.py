@@ -65,33 +65,35 @@ def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
 
 app = FastAPI(title="Invoice Management System")
 
-# CORS - Allow dollor.ai, vibingticket.com, and local development
+# CORS Configuration - SOC 2 Compliant
+# Production origins only - localhost removed for security
+# Use ENVIRONMENT=development to enable localhost (local dev only)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
+PRODUCTION_ORIGINS = [
+    "https://dollor.ai",
+    "https://www.dollor.ai",
+    "https://api.dollor.ai",
+    "https://vibingticket.com",
+    "https://www.vibingticket.com",
+    "https://d3pus2gxlb5cer.cloudfront.net",
+]
+
+# Only add localhost in development environment (never in production)
+DEVELOPMENT_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+]
+
+ALLOWED_ORIGINS = PRODUCTION_ORIGINS + (DEVELOPMENT_ORIGINS if ENVIRONMENT == "development" else [])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:5177",
-        "http://localhost:5178",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://dollor.ai",
-        "https://dollor.ai",
-        "http://www.dollor.ai",
-        "https://www.dollor.ai",
-        "http://api.dollor.ai",
-        "https://api.dollor.ai",
-        "http://vibingticket.com",
-        "https://vibingticket.com",
-        "http://www.vibingticket.com",
-        "https://www.vibingticket.com",
-        "https://d3pus2gxlb5cer.cloudfront.net",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
 # Health Check Endpoint
@@ -150,7 +152,9 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     Run database migrations to add missing columns.
     Protected with ADMIN_SECRET_KEY environment variable.
     """
-    expected_key = os.getenv("ADMIN_SECRET_KEY", "dollor-admin-2025")
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_SECRET_KEY not configured")
     if secret_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
@@ -288,7 +292,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# SOC 2 Compliant - JWT secret MUST be set via environment variable
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is required for security")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
@@ -7021,11 +7028,15 @@ def update_vendor_online_status_post(
     }
 
 
+# SOC 2 Compliant: Password model for secure request body
+class CreateAccountRequest(BaseModel):
+    password: str
+
 # Create Vendor User Account (Admin endpoint)
 @app.post("/api/vendors/{vendor_id}/create-account")
 def create_vendor_account(
     vendor_id: int,
-    password: str,
+    request: CreateAccountRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -7043,7 +7054,7 @@ def create_vendor_account(
         raise HTTPException(status_code=400, detail="User account already exists for this email")
     
     # Create vendor user
-    hashed_password = get_password_hash(password)
+    hashed_password = get_password_hash(request.password)
     vendor_user = User(
         email=vendor.contact_email,
         password_hash=hashed_password,
