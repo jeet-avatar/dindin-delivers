@@ -12,8 +12,8 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import execute_values
 
-# Database connection
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/invoice_db"
+# STAGING ENVIRONMENT - Database connection
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dollor_admin:f4QA0dDzfpDXYpSRWsJMbXSD7WwfESKa@dollor-staging.c23qcukqe810.us-east-1.rds.amazonaws.com:5432/dollor_staging")
 
 def extract_price(price_str):
     """Extract numeric price from string"""
