@@ -750,11 +750,11 @@ async def get_ride_receipt(
 
         # Legal footer
         "legal": {
-            "company_name": "DinDin Delivers (EatFair Inc.)",
+            "company_name": "Dollor.ai (TechCloudPro Inc.)",
             "tax_id": "XX-XXXXXXX",  # Placeholder - replace with real EIN
             "address": "123 Main Street, San Francisco, CA 94102",
-            "support_email": "support@dindindelivers.com",
-            "terms_url": "https://dindindelivers.com/terms"
+            "support_email": "support@dollor.ai",
+            "terms_url": "https://dollor.ai/terms"
         }
     }
 
@@ -2102,7 +2102,7 @@ async def save_customer_fcm_token(
     db: Session = Depends(get_db)
 ):
     """Save FCM token for customer push notifications"""
-    from models_extended import Customer
+    from models import Customer
 
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
