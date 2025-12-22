@@ -902,7 +902,6 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             )
     
     print(f"Vendor login successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
 
     # Get vendor business name for Android compatibility
     business_name = None
@@ -910,6 +909,8 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
         if vendor:
             business_name = vendor.restaurant_name or vendor.company_name
+
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
 
     return {
         "access_token": access_token,
@@ -978,12 +979,12 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.refresh(user)
         print(f"Created demo vendor: {demo_email}")
 
-    # Generate token
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
-
     # Get vendor details
     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
     business_name = vendor.restaurant_name if vendor else "Demo Restaurant"
+
+    # Generate token with vendor_id
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
 
     return {
         "access_token": access_token,
@@ -1105,7 +1106,7 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         print(f"User record created: {new_user.id}")
 
         print(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
-        access_token = create_access_token(data={"sub": new_user.email, "role": "vendor"})
+        access_token = create_access_token(data={"sub": new_user.email, "role": "vendor", "vendor_id": new_vendor.id})
 
         # Send registration confirmation email (non-blocking)
         try:
@@ -1250,7 +1251,7 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
     business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
     print(f"Vendor Google auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -1320,7 +1321,7 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
     business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
 
     print(f"Vendor Apple auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor"})
+    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
     return {
         "access_token": access_token,
         "token_type": "bearer",
