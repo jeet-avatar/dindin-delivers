@@ -637,16 +637,13 @@ class Driver(Base):
     current_latitude = Column(Float)
     current_longitude = Column(Float)
     is_online = Column(Boolean, default=False)
-    # NOTE: last_location_update and location_updated_at serve same purpose - consolidate to location_updated_at
-    last_location_update = Column(DateTime)  # Used by main_new.py - DEPRECATED, use location_updated_at
-    location_updated_at = Column(DateTime)   # Used by order_flow.py - PRIMARY field for GPS updates
+    location_updated_at = Column(DateTime)   # Primary field for GPS updates
     went_online_at = Column(DateTime)  # When driver came online
     went_offline_at = Column(DateTime)  # When driver went offline
 
     # Mobile App & Push Notifications
-    # NOTE: device_id is unused - consider removal in future migration
-    device_id = Column(String(255))
-    # NOTE: push_token and fcm_token overlap - push_token for APNS/generic, fcm_token for Firebase
+    # push_token: Generic push token for basic notifications
+    # fcm_token: Firebase Cloud Messaging token specifically for order dispatch
     push_token = Column(String(500))   # Generic push token (used by register_push_token)
     platform = Column(String(20))       # 'ios' or 'android' (set during push registration)
     fcm_token = Column(String(500))     # Firebase Cloud Messaging token (used for order dispatch)
