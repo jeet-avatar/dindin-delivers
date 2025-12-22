@@ -30,6 +30,7 @@ import ReferAndEarn from './app/screens/public/ReferAndEarn';
 // Customer Pages
 import CustomerLogin from './app/screens/auth/CustomerLogin';
 import CustomerHome from './app/screens/customer/CustomerHome';
+import CustomerProfile from './app/screens/customer/CustomerProfile';
 import Restaurants from './app/screens/customer/Restaurants';
 import RestaurantDetail from './app/screens/customer/RestaurantDetail';
 import Cart from './app/screens/customer/Cart';
@@ -40,6 +41,7 @@ import DealsPage from './app/screens/customer/DealsPage';
 
 // Vendor Pages
 import VendorLogin from './app/screens/auth/VendorLogin';
+import VendorProfile from './app/screens/vendor/Profile';
 
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
@@ -68,12 +70,12 @@ import RideBids from './app/screens/customer/RideBids';
  */
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user: _user } = useUser();
+  const { user } = useUser();
 
-  // TODO: Enable auth requirement for production
-  // if (!_user) {
-  //   return <Navigate to="/login" replace />;
-  // }
+  // Authentication required for admin routes
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return <>{children}</>;
 }
@@ -115,11 +117,14 @@ function App() {
         <Route path="/customer/deals" element={<DealsPage />} />
         <Route path="/customer/search" element={<Restaurants />} />
         <Route path="/customer/address" element={<CustomerHome />} />
-        <Route path="/customer/profile" element={<CustomerHome />} />
+        <Route path="/customer/profile" element={<CustomerProfile />} />
         <Route path="/customer/history" element={<OrderTracking />} />
 
         {/* Vendor Routes */}
         <Route path="/vendor/login" element={<VendorLogin />} />
+        <Route path="/vendor/profile" element={<VendorProfile />} />
+        <Route path="/vendor/settings" element={<VendorProfile />} />
+        <Route path="/vendor/dashboard" element={<VendorProfile />} />
 
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
         <Route path="/driver/login" element={<DriverLogin />} />
