@@ -599,10 +599,55 @@ const RideBidding: React.FC = () => {
 
             <Divider />
 
+            {/* Suggested Bid Options */}
+            <div className="suggested-bids">
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>Quick Bid Options</Text>
+              <Row gutter={8}>
+                <Col span={8}>
+                  <Button
+                    type={bidPrice === selectedRequest.suggested_price * 0.92 ? 'primary' : 'default'}
+                    onClick={() => setBidPrice(parseFloat((selectedRequest.suggested_price * 0.92).toFixed(2)))}
+                    block
+                    className="bid-option-btn quick-accept"
+                  >
+                    <div className="bid-option-label">Quick Accept</div>
+                    <div className="bid-option-price">${(selectedRequest.suggested_price * 0.92).toFixed(2)}</div>
+                    <div className="bid-option-tag">92%</div>
+                  </Button>
+                </Col>
+                <Col span={8}>
+                  <Button
+                    type={bidPrice === selectedRequest.suggested_price ? 'primary' : 'default'}
+                    onClick={() => setBidPrice(selectedRequest.suggested_price)}
+                    block
+                    className="bid-option-btn fair-price"
+                  >
+                    <div className="bid-option-label">Fair Price</div>
+                    <div className="bid-option-price">${selectedRequest.suggested_price.toFixed(2)}</div>
+                    <div className="bid-option-tag">100%</div>
+                  </Button>
+                </Col>
+                <Col span={8}>
+                  <Button
+                    type={bidPrice === selectedRequest.suggested_price * 1.08 ? 'primary' : 'default'}
+                    onClick={() => setBidPrice(parseFloat((selectedRequest.suggested_price * 1.08).toFixed(2)))}
+                    block
+                    className="bid-option-btn premium"
+                  >
+                    <div className="bid-option-label">Premium</div>
+                    <div className="bid-option-price">${(selectedRequest.suggested_price * 1.08).toFixed(2)}</div>
+                    <div className="bid-option-tag">108%</div>
+                  </Button>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
             {/* Bid Form */}
             <div className="bid-form">
               <div className="form-item">
-                <Text strong>Your Price ($)</Text>
+                <Text strong>Custom Price ($)</Text>
                 <InputNumber
                   min={1}
                   max={1000}
@@ -637,6 +682,50 @@ const RideBidding: React.FC = () => {
                   maxLength={200}
                 />
               </div>
+
+              {/* Earnings Breakdown */}
+              {bidPrice > 0 && selectedRequest.estimated_distance_km > 0 && selectedRequest.estimated_duration_minutes > 0 && (
+                <div className="earnings-breakdown">
+                  <Text strong style={{ color: '#10B981', fontSize: 16, display: 'block', marginBottom: 8 }}>
+                    Your Earnings
+                  </Text>
+                  <Row gutter={16}>
+                    <Col span={8}>
+                      <div className="earnings-stat">
+                        <Text type="secondary" style={{ fontSize: 12 }}>Per Mile</Text>
+                        <Text strong style={{ fontSize: 18, color: '#10B981' }}>
+                          ${(bidPrice / (selectedRequest.estimated_distance_km * 0.621371)).toFixed(2)}
+                        </Text>
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div className="earnings-stat">
+                        <Text type="secondary" style={{ fontSize: 12 }}>Per Hour</Text>
+                        <Text strong style={{ fontSize: 18, color: '#10B981' }}>
+                          ${((bidPrice / selectedRequest.estimated_duration_minutes) * 60).toFixed(2)}
+                        </Text>
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div className="earnings-stat">
+                        <Text type="secondary" style={{ fontSize: 12 }}>You Keep</Text>
+                        <Text strong style={{ fontSize: 18, color: '#10B981' }}>
+                          {((1 - (selectedRequest.suggested_price <= 35 ? 1 : selectedRequest.suggested_price <= 70 ? 2 : 3) / bidPrice) * 100).toFixed(0)}%
+                        </Text>
+                      </div>
+                    </Col>
+                  </Row>
+                  <div className="platform-message" style={{ marginTop: 12, padding: '12px', background: '#f0f9ff', borderRadius: 8, textAlign: 'center' }}>
+                    <Text strong style={{ color: '#10B981', fontSize: 15 }}>
+                      Keep 96%+ of every fare
+                    </Text>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Only ${selectedRequest.suggested_price <= 35 ? '1' : selectedRequest.suggested_price <= 70 ? '2' : '3'} platform fee per ride
+                    </Text>
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="primary"
@@ -843,6 +932,49 @@ const RideBidding: React.FC = () => {
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           border: none;
           height: 48px;
+        }
+        .suggested-bids {
+          margin-bottom: 16px;
+        }
+        .bid-option-btn {
+          padding: 12px 4px;
+          height: auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+        .bid-option-btn.ant-btn-primary {
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          border: none;
+        }
+        .bid-option-label {
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        .bid-option-price {
+          font-size: 15px;
+          font-weight: 700;
+        }
+        .bid-option-tag {
+          font-size: 10px;
+          padding: 2px 6px;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 4px;
+        }
+        .earnings-breakdown {
+          background: #f6ffed;
+          border: 1px solid #b7eb8f;
+          border-radius: 12px;
+          padding: 16px;
+          margin-top: 16px;
+        }
+        .earnings-stat {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
       `}</style>
     </div>

@@ -686,8 +686,14 @@ const RideBooking: React.FC = () => {
                     Driver earns ${(fareEstimate.driver_earnings + tip).toFixed(2)} (ride fare - ${fareEstimate.platform_fee.toFixed(0)} platform fee + 100% tip)
                   </Text>
                 </div>
-                <div className="platform-info" style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-                  <DollarOutlined /> Platform earns ${(fareEstimate.platform_fee * 2).toFixed(0)} total (${fareEstimate.platform_fee.toFixed(0)} from you + ${fareEstimate.platform_fee.toFixed(0)} from driver)
+                <div className="platform-message" style={{ marginTop: 12, padding: '12px', background: '#f0f9ff', borderRadius: 8, textAlign: 'center' }}>
+                  <Text strong style={{ color: '#10B981', fontSize: 15 }}>
+                    96% goes to your driver
+                  </Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Only ${fareEstimate.platform_fee.toFixed(0)} platform fee per person
+                  </Text>
                 </div>
               </div>
 

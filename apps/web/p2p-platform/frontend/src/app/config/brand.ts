@@ -148,10 +148,10 @@ export const pricing = {
     tier2Fee: 2.00,              // $2 for fares $35.01-$70
     tier3Fee: 3.00,              // $3 for fares > $70
 
-    // Fare calculation
-    baseFare: 5.00,              // Minimum fare
-    perMileRate: 1.50,           // Per mile rate
-    perMinuteRate: 0.25,         // Per minute rate
+    // Fare calculation - COMPETITIVE PRICING
+    baseFare: 2.50,              // Minimum fare (competitive vs Uber/Lyft)
+    perMileRate: 1.15,           // Per mile rate (competitive vs Uber/Lyft)
+    perMinuteRate: 0.18,         // Per minute rate (competitive vs Uber/Lyft)
 
     // Tips
     tipPlatformFee: 0.00,        // 100% of tips go to driver

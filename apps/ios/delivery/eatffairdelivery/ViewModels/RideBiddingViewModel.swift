@@ -400,6 +400,44 @@ class RideBiddingViewModel: ObservableObject {
         let timeRemaining = expiryDate.timeIntervalSinceNow
         return timeRemaining > 0 && timeRemaining < 300 // 5 minutes
     }
+
+    // MARK: - Competitive Pricing Helpers
+
+    /// Calculate suggested bid options (Quick Accept 92%, Fair Price 100%, Premium 108%)
+    func calculateSuggestedBids(baseFare: Double) -> (quickAccept: Double, fairPrice: Double, premium: Double) {
+        let quickAccept = baseFare * 0.92  // 8% discount to win quickly
+        let fairPrice = baseFare             // Market rate
+        let premium = baseFare * 1.08       // 8% premium for guaranteed earnings
+        return (quickAccept, fairPrice, premium)
+    }
+
+    /// Calculate earnings per mile
+    func calculateEarningsPerMile(proposedPrice: Double, distanceKm: Double?) -> Double? {
+        guard let distanceKm = distanceKm, distanceKm > 0 else { return nil }
+        let distanceMiles = distanceKm * 0.621371
+        let earnings = calculateEarnings(proposedPrice: proposedPrice)
+        return earnings / distanceMiles
+    }
+
+    /// Calculate earnings per hour based on estimated trip duration
+    func calculateEarningsPerHour(proposedPrice: Double, durationMinutes: Int?) -> Double? {
+        guard let durationMinutes = durationMinutes, durationMinutes > 0 else { return nil }
+        let earnings = calculateEarnings(proposedPrice: proposedPrice)
+        let hours = Double(durationMinutes) / 60.0
+        return earnings / hours
+    }
+
+    /// Calculate what percentage of the fare the driver keeps
+    func calculateDriverKeepPercentage(proposedPrice: Double) -> Double {
+        guard proposedPrice > 0 else { return 0 }
+        let earnings = calculateEarnings(proposedPrice: proposedPrice)
+        return (earnings / proposedPrice) * 100
+    }
+
+    /// Get platform fee based on fare tier
+    func getPlatformFee(for fareAmount: Double) -> Double {
+        return AppConfig.shared.calculateRidesharePlatformFee(fareAmount: fareAmount)
+    }
 }
 
 // MARK: - Preview Helper

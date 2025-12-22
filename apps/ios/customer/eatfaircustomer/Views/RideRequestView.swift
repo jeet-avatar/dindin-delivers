@@ -409,7 +409,12 @@ struct RideBottomSheet: View {
 
                     // Suggested Payment Breakdown (Driver sets final price)
                     VStack(spacing: 6) {
-                        FareLineItem(label: "Suggested Driver Payment", amount: viewModel.baseFare + viewModel.distanceFee + viewModel.timeFee)
+                        // Base fare breakdown components
+                        FareLineItem(label: "Base Fare", amount: viewModel.baseFare)
+                        FareLineItem(label: "Distance (\(viewModel.estimatedDistanceText))", amount: viewModel.distanceFee)
+                        FareLineItem(label: "Time (\(viewModel.estimatedTimeText))", amount: viewModel.timeFee)
+
+                        Divider()
 
                         // Tiered Connection Fee with tier description
                         HStack {
@@ -431,6 +436,20 @@ struct RideBottomSheet: View {
                                 label: "Tax (\(String(format: "%.2f", viewModel.taxRate * 100))%)",
                                 amount: viewModel.taxAmount
                             )
+                        }
+
+                        Divider()
+
+                        // 96% to driver messaging in green
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.subheadline)
+                            Text("\(AppConfig.shared.driverEarningsPercentage)% goes to your driver")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.green)
+                            Spacer()
                         }
                     }
 

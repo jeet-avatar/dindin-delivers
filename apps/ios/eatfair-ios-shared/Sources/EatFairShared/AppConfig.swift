@@ -210,7 +210,7 @@ public class AppConfig: ObservableObject {
     @Published public var deliveryTipPercentages: [Int] = [0, 15, 20, 25]   // Percentages
 
     // Driver earnings info (for transparency display)
-    @Published public var driverEarningsPercentage: Int = 90  // Drivers keep 90%+ of fare
+    @Published public var driverEarningsPercentage: Int = 96  // Drivers keep 96% of fare
 
     // AI/Analytics Thresholds
     @Published public var busyLevelThresholds: BusyLevelThresholds = BusyLevelThresholds()
@@ -224,9 +224,9 @@ public class AppConfig: ObservableObject {
     //   - Trips 10-20 miles:  $2 rider + $2 driver (Tier 2)
     //   - Trips 20+ miles:    $3 rider + $3 driver (Tier 3)
 
-    @Published public var rideBaseFare: Double = 5.00          // Minimum base fare
-    @Published public var ridePerMileRate: Double = 1.50       // Per mile rate
-    @Published public var ridePerMinuteRate: Double = 0.25     // Per minute rate
+    @Published public var rideBaseFare: Double = 2.50          // Minimum base fare
+    @Published public var ridePerMileRate: Double = 1.15       // Per mile rate
+    @Published public var ridePerMinuteRate: Double = 0.18     // Per minute rate
     @Published public var rideMinFare: Double = 5.00           // Minimum fare
     @Published public var rideCancellationFee: Double = 5.00   // Cancellation fee (base)
     @Published public var rideCancellationFeeDriverEnRoute: Double = 5.00  // Fee when driver assigned
