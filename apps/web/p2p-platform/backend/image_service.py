@@ -33,8 +33,8 @@ from stock_images import get_stock_image_for_dish, STOCK_IMAGES
 # CONFIGURATION - INTERNAL INFRASTRUCTURE ONLY
 # ============================================================================
 
-# Ollama/Qwen settings (VibingTicket)
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+# Ollama/Qwen settings (VibingTicket) - NO localhost defaults
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "")  # Must be configured via env var
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:32b")
 
 # Replicate settings (for image generation)

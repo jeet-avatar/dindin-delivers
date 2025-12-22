@@ -66,27 +66,19 @@ def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
 app = FastAPI(title="Invoice Management System")
 
 # CORS Configuration - SOC 2 Compliant
-# Production origins only - localhost removed for security
-# Use ENVIRONMENT=development to enable localhost (local dev only)
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
-
-PRODUCTION_ORIGINS = [
+# Staging and Production origins ONLY - NO localhost
+ALLOWED_ORIGINS = [
+    # Production
     "https://dollor.ai",
     "https://www.dollor.ai",
     "https://api.dollor.ai",
     "https://vibingticket.com",
     "https://www.vibingticket.com",
+    # Staging (CloudFront + ELB)
     "https://d3pus2gxlb5cer.cloudfront.net",
+    "https://d3kuu45w6kl8hr.cloudfront.net",
+    "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080",
 ]
-
-# Only add localhost in development environment (never in production)
-DEVELOPMENT_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:3000",
-]
-
-ALLOWED_ORIGINS = PRODUCTION_ORIGINS + (DEVELOPMENT_ORIGINS if ENVIRONMENT == "development" else [])
 
 app.add_middleware(
     CORSMiddleware,

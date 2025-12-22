@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-REDIRECT_URI = "http://localhost:3000/auth/callback"
+REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "https://d3kuu45w6kl8hr.cloudfront.net/auth/callback")
 AUTHORIZATION_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/authorize"
 TOKEN_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/token"
 USERINFO_URL = f"https://{OKTA_DOMAIN}/oauth2/default/v1/userinfo"

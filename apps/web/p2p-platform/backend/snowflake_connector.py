@@ -20,8 +20,8 @@ class DecimalEncoder(json.JSONEncoder):
             return obj.isoformat()
         return json.JSONEncoder.default(self, obj)
 
-# Initialize Redis client
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+# Initialize Redis client - NO localhost defaults for staging/production
+REDIS_HOST = os.getenv("REDIS_HOST", "")  # Must be configured via env var
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
 REDIS_CACHE_EXPIRY = int(os.getenv("REDIS_CACHE_EXPIRY", 300)) # 5 minutes

@@ -16,8 +16,12 @@ from psycopg2 import sql
 def check_postgres_running():
     """Check if PostgreSQL is accessible"""
     try:
+        host = os.environ.get("POSTGRES_HOST")
+        if not host:
+            print("❌ POSTGRES_HOST environment variable not set")
+            return False
         conn = psycopg2.connect(
-            host=os.environ.get("POSTGRES_HOST", "localhost"),
+            host=host,
             port=os.environ.get("POSTGRES_PORT", "5432"),
             user=os.environ.get("POSTGRES_USER", "postgres"),
             password=os.environ.get("POSTGRES_PASSWORD", ""),
@@ -35,8 +39,12 @@ def check_postgres_running():
 def check_database_exists():
     """Check if invoice_db database exists"""
     try:
+        host = os.environ.get("POSTGRES_HOST")
+        if not host:
+            print("❌ POSTGRES_HOST environment variable not set")
+            return False
         conn = psycopg2.connect(
-            host=os.environ.get("POSTGRES_HOST", "localhost"),
+            host=host,
             port=os.environ.get("POSTGRES_PORT", "5432"),
             user=os.environ.get("POSTGRES_USER", "postgres"),
             password=os.environ.get("POSTGRES_PASSWORD", ""),
