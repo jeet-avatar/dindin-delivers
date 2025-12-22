@@ -7434,6 +7434,7 @@ VENDOR_DOC_FIELD_MAP = {
 }
 
 @app.get("/api/vendors/{vendor_id}/documents")
+@app.get("/vendors/{vendor_id}/documents")  # Alias for Android app without /api prefix
 def get_vendor_documents(
     vendor_id: int,
     db: Session = Depends(get_db),
@@ -7483,6 +7484,7 @@ def get_vendor_documents(
     return {"documents": documents, "count": len(documents)}
 
 @app.post("/api/vendors/{vendor_id}/documents")
+@app.post("/vendors/{vendor_id}/documents")  # Alias for Android app without /api prefix
 async def upload_vendor_document(
     vendor_id: int,
     file: UploadFile = File(...),
@@ -7546,6 +7548,7 @@ async def upload_vendor_document(
     return {"message": "Document uploaded successfully", "file_path": file_path}
 
 @app.delete("/api/vendors/{vendor_id}/documents/{document_id}")
+@app.delete("/vendors/{vendor_id}/documents/{document_id}")  # Alias for Android app without /api prefix
 def delete_vendor_document(
     vendor_id: int,
     document_id: int,
