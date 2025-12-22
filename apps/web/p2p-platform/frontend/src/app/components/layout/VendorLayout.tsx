@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Tag } from 'antd';
 import {
-  DashboardOutlined,
+  ShoppingCartOutlined,
   ShoppingOutlined,
-  FileTextOutlined,
+  TagOutlined,
+  EnvironmentOutlined,
   DollarOutlined,
-  SettingOutlined,
-  LogoutOutlined,
   UserOutlined,
+  LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ShopOutlined,
@@ -44,14 +44,24 @@ const VendorLayout: React.FC = () => {
 
   const menuItems = [
     {
-      key: '/vendor/dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      key: '/vendor/orders',
+      icon: <ShoppingCartOutlined />,
+      label: 'Orders',
     },
     {
       key: '/vendor/menu',
       icon: <ShoppingOutlined />,
-      label: 'Menu Management',
+      label: 'Menu',
+    },
+    {
+      key: '/vendor/promotions',
+      icon: <TagOutlined />,
+      label: 'Promotions',
+    },
+    {
+      key: '/vendor/map',
+      icon: <EnvironmentOutlined />,
+      label: 'Map',
     },
     {
       key: '/vendor/earnings',
@@ -59,14 +69,9 @@ const VendorLayout: React.FC = () => {
       label: 'Earnings',
     },
     {
-      key: '/vendor/documents',
-      icon: <FileTextOutlined />,
-      label: 'Documents',
-    },
-    {
-      key: '/vendor/settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
+      key: '/vendor/profile',
+      icon: <UserOutlined />,
+      label: 'Profile',
     },
   ];
 

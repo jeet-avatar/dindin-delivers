@@ -3,6 +3,7 @@ import { Modal, Descriptions, Tag, Table, Button, Space, Steps, Timeline, messag
 import { CheckCircleOutlined, ClockCircleOutlined, CarOutlined, ShoppingOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
+import { getApiUrl } from '../../api/api';
 
 const { Option } = Select;
 
@@ -72,7 +73,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
 
     setUpdating(true);
     try {
-      await axios.patch(`http://localhost:3000/api/orders/${order.id}/status`, {
+      await axios.patch(`${getApiUrl()}/api/orders/${order.id}/status`, {
         status: newStatus
       });
       message.success('Order status updated successfully');

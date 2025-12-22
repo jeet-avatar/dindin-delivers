@@ -311,6 +311,7 @@ struct ProfileTabSelector: View {
 // MARK: - Personal Info Section
 struct PersonalInfoSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
+    @StateObject private var locationManager = LocationManager.shared
 
     var body: some View {
         VStack(spacing: 16) {
@@ -405,11 +406,11 @@ struct PersonalInfoSection: View {
                 }
             }
 
-            // Current Location Map
+            // Current Location Map - Uses live GPS location
             ProfileCard(title: "Current Location", icon: "map.fill") {
                 CurrentLocationMapView(
-                    latitude: viewModel.driver?.currentLatitude ?? 0,
-                    longitude: viewModel.driver?.currentLongitude ?? 0
+                    latitude: locationManager.currentCoordinate?.latitude ?? viewModel.driver?.currentLatitude ?? 0,
+                    longitude: locationManager.currentCoordinate?.longitude ?? viewModel.driver?.currentLongitude ?? 0
                 )
                 .frame(height: 200)
                 .cornerRadius(12)

@@ -4425,6 +4425,121 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Respond to customer's counter-offer (accept, reject, or counter)
+    public func respondToCounterOffer(
+        bidId: Int,
+        action: String,  // "accept", "reject", or "counter"
+        counterPrice: Double?,
+        completion: @escaping (Result<RideBidResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/respond") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["action": action]
+        if let price = counterPrice {
+            body["counter_price"] = price
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(RideBidResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Start a ride (driver picked up passenger)
+    public func startRide(
+        rideRequestId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/start") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to start ride")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Complete a ride (driver dropped off passenger)
+    public func completeRideRequest(
+        rideRequestId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/complete") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to complete ride")))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Fare Negotiation APIs (Rideshare Only - $1+$1 Model)
 
     /// Submit a fare counter-offer (driver or customer)
@@ -6927,7 +7042,22 @@ public struct AvailableRideRequestsResponse: Codable {
     public let count: Int
 }
 
-/// Ride request available for bidding
+/// Shared location type for ride requests
+public struct RideLocation: Codable {
+    public let address: String
+    public let latitude: Double
+    public let longitude: Double
+    public let place_name: String?
+
+    public init(address: String, latitude: Double, longitude: Double, place_name: String? = nil) {
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+        self.place_name = place_name
+    }
+}
+
+/// Ride request available for bidding (without circular reference)
 public struct RideRequestForBidding: Identifiable, Codable {
     public let id: Int
     public let request_id: String
@@ -6948,14 +7078,7 @@ public struct RideRequestForBidding: Identifiable, Codable {
     public let bid_count: Int?
     public let distance_to_pickup_km: Double?
     public let already_bid: Bool?
-    public let my_bid: RideBid?
-
-    public struct RideLocation: Codable {
-        public let address: String
-        public let latitude: Double
-        public let longitude: Double
-        public let place_name: String?
-    }
+    // Note: my_bid removed to avoid circular reference - fetch separately if needed
 }
 
 /// Ride bid response

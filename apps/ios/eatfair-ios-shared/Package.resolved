@@ -20,15 +20,6 @@
         }
       },
       {
-        "package": "AppAuth",
-        "repositoryURL": "https://github.com/openid/AppAuth-iOS.git",
-        "state": {
-          "branch": null,
-          "revision": "145104f5ea9d58ae21b60add007c33c1cc0c948e",
-          "version": "2.0.0"
-        }
-      },
-      {
         "package": "Firebase",
         "repositoryURL": "https://github.com/firebase/firebase-ios-sdk.git",
         "state": {
@@ -65,15 +56,6 @@
         }
       },
       {
-        "package": "GoogleSignIn",
-        "repositoryURL": "https://github.com/google/GoogleSignIn-iOS",
-        "state": {
-          "branch": null,
-          "revision": "3996d908c7b3ce8a87d39c808f9a6b2a08fbe043",
-          "version": "9.0.0"
-        }
-      },
-      {
         "package": "GoogleUtilities",
         "repositoryURL": "https://github.com/google/GoogleUtilities.git",
         "state": {
@@ -98,15 +80,6 @@
           "branch": null,
           "revision": "a2ab612cb980066ee56d90d60d8462992c07f24b",
           "version": "3.5.0"
-        }
-      },
-      {
-        "package": "GTMAppAuth",
-        "repositoryURL": "https://github.com/google/GTMAppAuth.git",
-        "state": {
-          "branch": null,
-          "revision": "56e0ccf09a6dd29dc7e68bdf729598240ca8aa16",
-          "version": "5.0.0"
         }
       },
       {
@@ -143,15 +116,6 @@
           "branch": null,
           "revision": "540318ecedd63d883069ae7f1ed811a2df00b6ac",
           "version": "2.4.0"
-        }
-      },
-      {
-        "package": "Stripe",
-        "repositoryURL": "https://github.com/stripe/stripe-ios-spm",
-        "state": {
-          "branch": null,
-          "revision": "6724dcb1a3c4f72ad9131eb2bc586f898a354e1f",
-          "version": "25.1.1"
         }
       },
       {

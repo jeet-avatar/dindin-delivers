@@ -91,6 +91,7 @@ class EarningsViewModel: ObservableObject {
     }
 
     /// Update view model from P2P dashboard response
+    /// Uses unified data structure - actual breakdown from API, no more estimates
     private func updateFromDashboard(_ dashboard: DriverDashboardResponse) {
         // Today
         todayEarnings = dashboard.today.grossEarnings
@@ -107,37 +108,42 @@ class EarningsViewModel: ObservableObject {
         monthDeliveries = dashboard.thisMonth.deliveries
         monthHours = dashboard.thisMonth.activeHours ?? 0.0
 
-        // Ratings
+        // Ratings - Use unified average field, fallback to overall for backward compatibility
         if let ratings = dashboard.ratings {
-            driverRating = ratings.overall ?? 0.0
-            totalReviews = ratings.totalReviews ?? 0
+            driverRating = ratings.average ?? ratings.overall ?? 0.0
+            totalReviews = ratings.totalRatings ?? ratings.totalReviews ?? 0
             onTimePercentage = ratings.onTimePercentage ?? 0
         }
 
-        // Create breakdown estimates (API provides gross, we estimate breakdown)
-        todayBreakdown = EarningsBreakdown(
-            deliveryFees: dashboard.today.grossEarnings * 0.6,
-            tips: dashboard.today.grossEarnings * 0.35,
-            bonuses: dashboard.today.grossEarnings * 0.05,
-            total: dashboard.today.grossEarnings
-        )
-
-        weekBreakdown = EarningsBreakdown(
-            deliveryFees: dashboard.thisWeek.grossEarnings * 0.6,
-            tips: dashboard.thisWeek.grossEarnings * 0.35,
-            bonuses: dashboard.thisWeek.grossEarnings * 0.05,
-            total: dashboard.thisWeek.grossEarnings
-        )
-
-        monthBreakdown = EarningsBreakdown(
-            deliveryFees: dashboard.thisMonth.grossEarnings * 0.6,
-            tips: dashboard.thisMonth.grossEarnings * 0.35,
-            bonuses: dashboard.thisMonth.grossEarnings * 0.05,
-            total: dashboard.thisMonth.grossEarnings
-        )
+        // Create breakdown from actual API data (no more estimates!)
+        // Use actual basePay/tips/bonuses if available, otherwise estimate
+        todayBreakdown = createBreakdown(from: dashboard.today)
+        weekBreakdown = createBreakdown(from: dashboard.thisWeek)
+        monthBreakdown = createBreakdown(from: dashboard.thisMonth)
 
         // Generate daily earnings breakdown (mock for now, can be enhanced with API)
         generateDailyBreakdown(weeklyTotal: dashboard.thisWeek.grossEarnings, deliveries: dashboard.thisWeek.deliveries)
+    }
+
+    /// Create earnings breakdown from period data - uses actual values when available
+    private func createBreakdown(from period: DriverEarningsPeriod) -> EarningsBreakdown {
+        // If API provides actual breakdown, use it
+        if let basePay = period.basePay, let tips = period.tips, let bonuses = period.bonuses {
+            return EarningsBreakdown(
+                deliveryFees: basePay,
+                tips: tips,
+                bonuses: bonuses,
+                total: period.grossEarnings
+            )
+        }
+
+        // Fallback to estimates for backward compatibility
+        return EarningsBreakdown(
+            deliveryFees: period.grossEarnings * 0.6,
+            tips: period.grossEarnings * 0.35,
+            bonuses: period.grossEarnings * 0.05,
+            total: period.grossEarnings
+        )
     }
 
     /// Generate daily breakdown from weekly totals

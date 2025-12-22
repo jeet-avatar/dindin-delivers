@@ -2760,9 +2760,30 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
     }
 
 
+class DriverProfileUpdate(BaseModel):
+    """Request body for driver profile update (iOS app compatible)"""
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_year: Optional[int] = None
+    vehicle_color: Optional[str] = None
+    license_plate: Optional[str] = None
+    license_number: Optional[str] = None
+    license_expiry: Optional[str] = None
+    insurance_expiry: Optional[str] = None
+
+    class Config:
+        extra = "ignore"  # Ignore extra fields
+
+
 @app.put("/drivers/{driver_id}")
+@app.put("/api/drivers/{driver_id}")
 def update_driver_profile_by_id(
     driver_id: int,
+    body: Optional[DriverProfileUpdate] = None,
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
     phone: Optional[str] = None,
@@ -2775,10 +2796,25 @@ def update_driver_profile_by_id(
     license_number: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Update driver profile by ID (iOS app compatible endpoint)"""
+    """Update driver profile by ID (iOS app compatible endpoint)
+    Accepts both JSON body and query parameters for flexibility.
+    """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Merge body and query params - body takes precedence
+    if body:
+        first_name = body.first_name or first_name
+        last_name = body.last_name or last_name
+        phone = body.phone or phone
+        vehicle_type = body.vehicle_type or vehicle_type
+        vehicle_make = body.vehicle_make or vehicle_make
+        vehicle_model = body.vehicle_model or vehicle_model
+        vehicle_year = body.vehicle_year or vehicle_year
+        vehicle_color = body.vehicle_color or vehicle_color
+        license_plate = body.license_plate or license_plate
+        license_number = body.license_number or license_number
 
     # Update fields if provided
     if first_name is not None:
@@ -2892,6 +2928,7 @@ def update_driver_status(
 
 
 @app.get("/drivers/{driver_id}/documents")
+@app.get("/api/drivers/{driver_id}/documents")
 def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver documents status (iOS app compatible endpoint)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -2944,6 +2981,7 @@ def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/drivers/{driver_id}/documents")
+@app.post("/api/drivers/{driver_id}/documents")
 async def upload_driver_document_by_id(
     driver_id: int,
     document_type: str = Form(...),

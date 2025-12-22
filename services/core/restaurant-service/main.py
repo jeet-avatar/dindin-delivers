@@ -16,7 +16,7 @@ Error Prefix: REST
 import os
 import sys
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 import enum
 
 from fastapi import Depends, HTTPException, status, Query
@@ -228,7 +228,7 @@ class RestaurantUpdate(BaseModel):
 
 class RestaurantResponse(BaseModel):
     id: int
-    vendor_id: str
+    vendor_id: Union[str, int]  # Accept both string and int from database
     company_name: str
     restaurant_name: Optional[str] = None
     cuisine_type: Optional[str] = None

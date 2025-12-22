@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -74,7 +75,7 @@ const Cart: React.FC = () => {
     summary: {
       subtotal: 0,
       delivery_fee: 0,
-      platform_fee: 1.00,
+      platform_fee: pricing.foodDelivery.customerFee,
       tax: 0,
       discount: 0,
       total: 0
@@ -103,13 +104,15 @@ const Cart: React.FC = () => {
     }));
   }, []);
 
-  // Calculate summary for local cart
+  // Calculate summary for local cart using pricing config
   const calculateLocalSummary = useCallback((items: CartItemData[]): CartSummary => {
     const subtotal = items.reduce((sum, item) => sum + (item.item_price * item.quantity), 0);
     const uniqueVendors = new Set(items.map(item => item.vendor_id));
-    const delivery_fee = uniqueVendors.size * 2.99;
-    const platform_fee = 1.00;
-    const tax = subtotal * 0.0875;
+    // $1 platform fee per restaurant (not delivery fee)
+    const platform_fee = pricing.foodDelivery.getCustomerFee(uniqueVendors.size);
+    // Delivery fee is calculated by backend based on distance
+    const delivery_fee = 0; // Will be calculated by backend
+    const tax = subtotal * pricing.tax.defaultTaxRate;
 
     return {
       subtotal,
@@ -276,7 +279,7 @@ const Cart: React.FC = () => {
           summary: {
             subtotal: 0,
             delivery_fee: 0,
-            platform_fee: 1.00,
+            platform_fee: pricing.foodDelivery.customerFee,
             tax: 0,
             discount: 0,
             total: 0
@@ -296,7 +299,7 @@ const Cart: React.FC = () => {
         summary: {
           subtotal: 0,
           delivery_fee: 0,
-          platform_fee: 1.00,
+          platform_fee: pricing.foodDelivery.customerFee,
           tax: 0,
           discount: 0,
           total: 0
@@ -360,8 +363,8 @@ const Cart: React.FC = () => {
       return;
     }
 
-    if (cartData.summary.subtotal < 10) {
-      message.warning('Minimum order is $10.00');
+    if (cartData.summary.subtotal < pricing.foodDelivery.minimumOrder) {
+      message.warning(`Minimum order is ${pricing.display.foodDelivery.minimumOrder}`);
       return;
     }
 

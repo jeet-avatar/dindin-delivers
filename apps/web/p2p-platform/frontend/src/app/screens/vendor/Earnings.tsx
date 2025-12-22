@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, DatePicker, Button, Space } from 'antd';
+import { Card, Row, Col, Statistic, Table, DatePicker, Button, Space, message } from 'antd';
 import { DollarOutlined, ShoppingOutlined, RiseOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Line } from 'react-chartjs-2';
 import axios from 'axios';
 import moment from 'moment';
-import { getApiUrl } from '../../api/api';
+import { getApiUrl, getCurrentVendorId } from '../../api/api';
 
 const API_URL = getApiUrl();
 
@@ -34,13 +34,19 @@ const VendorEarnings: React.FC = () => {
     avgOrderValue: 0
   });
 
-  const vendorId = 1; // Get from auth context
+  const vendorId = getCurrentVendorId();
 
   useEffect(() => {
-    fetchEarnings();
-  }, [dateRange]);
+    if (vendorId) {
+      fetchEarnings();
+    }
+  }, [dateRange, vendorId]);
 
   const fetchEarnings = async () => {
+    if (!vendorId) {
+      message.error('Not authenticated. Please log in again.');
+      return;
+    }
     setLoading(true);
     try {
       // Fetch orders for the date range

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, InputNumber, Select, Upload, Switch, message, Space, Tag, Alert, Progress, Checkbox, Divider, Tabs, Badge, Tooltip, Steps, Row, Col, Statistic } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, GlobalOutlined, RobotOutlined, FileTextOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyOutlined, GiftOutlined, RocketOutlined, ExclamationCircleOutlined, DollarOutlined, PercentageOutlined, ThunderboltOutlined, PlayCircleOutlined, PauseCircleOutlined, MessageOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { getApiUrl } from '../../api/api';
+import { getApiUrl, getCurrentVendorId } from '../../api/api';
 
 const API_URL = getApiUrl();
 
@@ -107,13 +107,19 @@ const VendorMenuManagement: React.FC = () => {
   const [acceptedBundles, setAcceptedBundles] = useState<string[]>([]);
   const [editingBundlePrice, setEditingBundlePrice] = useState<{ [key: string]: number }>({});
 
-  const vendorId = 1; // Get from auth context
+  const vendorId = getCurrentVendorId();
 
   useEffect(() => {
-    fetchMenuItems();
-  }, []);
+    if (vendorId) {
+      fetchMenuItems();
+    }
+  }, [vendorId]);
 
   const fetchMenuItems = async () => {
+    if (!vendorId) {
+      message.error('Not authenticated. Please log in again.');
+      return;
+    }
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/vendors/${vendorId}/menu`);

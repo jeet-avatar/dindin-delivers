@@ -3,7 +3,7 @@ import { Card, Row, Col, Statistic, Table, Tag, Button, Space, Timeline, message
 import { DollarOutlined, ShoppingOutlined, ClockCircleOutlined, CheckCircleOutlined, BellOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
-import { getApiUrl } from '../../api/api';
+import { getApiUrl, getCurrentVendorId } from '../../api/api';
 
 const API_URL = getApiUrl();
 
@@ -28,13 +28,19 @@ const VendorDashboard: React.FC = () => {
     completedToday: 0
   });
 
-  const vendorId = 1; // Get from auth context
+  const vendorId = getCurrentVendorId();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    if (vendorId) {
+      fetchOrders();
+    }
+  }, [vendorId]);
 
   const fetchOrders = async () => {
+    if (!vendorId) {
+      message.error('Not authenticated. Please log in again.');
+      return;
+    }
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/orders?vendor_id=${vendorId}`);

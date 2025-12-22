@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -63,7 +64,7 @@ const Checkout: React.FC = () => {
   const [summary, setSummary] = useState({
     subtotal: 0,
     deliveryFee: 0,
-    platformFee: 1.00,
+    platformFee: pricing.foodDelivery.customerFee,
     tax: 0,
     tip: 0,
     total: 0
@@ -104,9 +105,9 @@ const Checkout: React.FC = () => {
   const calculateSummary = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
     const uniqueRestaurants = new Set(cart.map(item => item.restaurantId));
-    const deliveryFee = uniqueRestaurants.size * 2.99;
-    const platformFee = 1.00;
-    const tax = subtotal * 0.0875;
+    const deliveryFee = 0; // Calculated by backend based on distance
+    const platformFee = pricing.foodDelivery.getCustomerFee(uniqueRestaurants.size);
+    const tax = subtotal * pricing.tax.defaultTaxRate;
 
     setSummary({
       subtotal,
@@ -182,9 +183,9 @@ const Checkout: React.FC = () => {
           delivery_instructions: address.instructions,
           items: orderItems,
           subtotal: orderSubtotal,
-          delivery_fee: 2.99,
-          platform_fee: 1.00 / Object.keys(ordersByRestaurant).length, // Split platform fee
-          tax: orderSubtotal * 0.0875,
+          delivery_fee: 0, // Calculated by backend based on distance
+          platform_fee: pricing.foodDelivery.customerFee, // $1 per restaurant
+          tax: orderSubtotal * pricing.tax.defaultTaxRate,
           tip: tip / Object.keys(ordersByRestaurant).length, // Split tip
           payment_method: paymentMethod.type
         });
