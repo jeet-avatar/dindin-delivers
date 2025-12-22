@@ -1449,7 +1449,7 @@ eatfaircustomer/
 
 ### Backend
 ```
-dindin/backend/
+apps/web/p2p-platform/backend/
 ├── main_new.py                         # FastAPI application
 ├── models.py                           # SQLAlchemy models
 ├── order_flow.py                       # Order processing

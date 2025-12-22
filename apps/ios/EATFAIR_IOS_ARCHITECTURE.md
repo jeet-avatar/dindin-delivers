@@ -77,11 +77,13 @@ eatfair-ios/
 │       │
 │       └── EatFair.xcworkspace          # Combined Workspace
 │
-└── dindin/
-    └── backend/                         # Python FastAPI Backend
-        ├── main_new.py
-        ├── models.py
-        └── requirements.txt
+└── apps/web/p2p-platform/
+    ├── backend/                         # Python FastAPI Backend
+    │   ├── main_new.py
+    │   ├── models.py
+    │   └── requirements.txt
+    └── frontend/                        # React Admin Portal
+        └── src/app/screens/
 ```
 
 ---

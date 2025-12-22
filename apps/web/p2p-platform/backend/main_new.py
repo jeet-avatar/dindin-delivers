@@ -4176,7 +4176,7 @@ def get_driver_earnings(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
-    """Get driver earnings breakdown"""
+    """Get driver earnings breakdown - uses actual data from delivered orders"""
 
     # Extract driver from token
     driver = None
@@ -4197,36 +4197,38 @@ def get_driver_earnings(
     if not driver:
         raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
-    total_deliveries = driver.total_deliveries or 0
-
-    # Calculate earnings based on period (mock data)
-    import random
-
+    # Calculate period start date
+    now = datetime.utcnow()
     if period == "today":
-        deliveries = min(random.randint(0, 15), total_deliveries)
-        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
-        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
-        deliveries = min(random.randint(30, 50), total_deliveries)
-        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
-        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+        start_date = now - timedelta(days=7)
     elif period == "month":
-        deliveries = min(random.randint(100, 200), total_deliveries)
-        base_earnings = round(deliveries * random.uniform(8.0, 12.0), 2)
-        tips = round(deliveries * random.uniform(2.0, 5.0), 2)
+        start_date = now - timedelta(days=30)
     else:  # all time
-        deliveries = total_deliveries
-        base_earnings = round(deliveries * 10.0, 2)
-        tips = round(deliveries * 3.5, 2)
+        start_date = datetime(2020, 1, 1)  # Far enough back
+
+    # Query actual delivered orders for this driver
+    orders = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.created_at >= start_date
+    ).all()
+
+    # Calculate real earnings from order data
+    deliveries = len(orders)
+    base_earnings = sum(float(o.delivery_fee or 0) for o in orders)
+    tips = sum(float(o.tip or 0) for o in orders)
+    bonuses = 0  # Bonus tracking not yet implemented
 
     return {
         "period": period,
         "deliveries": deliveries,
-        "base_earnings": base_earnings,
-        "tips": tips,
-        "bonuses": round(deliveries * 0.5, 2) if deliveries > 10 else 0,
-        "total_earnings": round(base_earnings + tips + (deliveries * 0.5 if deliveries > 10 else 0), 2),
-        "platform_fee": 0.00,  # We don't charge drivers!
+        "base_earnings": round(base_earnings, 2),
+        "tips": round(tips, 2),
+        "bonuses": round(bonuses, 2),
+        "total_earnings": round(base_earnings + tips + bonuses, 2),
+        "platform_fee": 0.00,  # Drivers pay $0 commission per CLAUDE.md
         "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers."
     }
 

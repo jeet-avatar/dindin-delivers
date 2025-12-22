@@ -121,12 +121,17 @@ async def create_order(
         })
     
     # Calculate fees and taxes
+    # Platform Fee Structure (from CLAUDE.md):
+    # - Customer pays: $1 matchmaking fee (flat)
+    # - Restaurant pays: $1 platform listing fee (deducted from payout)
+    # - Driver receives: Delivery Fee + 100% of Tip (no platform fee)
+    # - Platform revenue: $2 per order ($1 from customer + $1 from restaurant)
     TAX_RATE = 0.08  # 8% tax (configure per location)
     DELIVERY_FEE = 5.99 if order_data.delivery_address else 0.0
-    PLATFORM_FEE_RATE = 0.15  # 15% platform commission
-    
+    PLATFORM_FEE = 1.00  # $1 flat matchmaking fee from customer
+
     tax_amount = subtotal * TAX_RATE
-    platform_fee = subtotal * PLATFORM_FEE_RATE
+    platform_fee = PLATFORM_FEE  # $1 flat fee, not percentage
     total_amount = subtotal + tax_amount + DELIVERY_FEE + platform_fee
     
     # Generate order number
@@ -421,6 +426,12 @@ def sync_vendor_payouts(
     ).all()
     
     # Group by vendor
+    # Platform Fee Structure (from CLAUDE.md):
+    # - Customer pays: $1 matchmaking fee (already collected in order)
+    # - Restaurant pays: $1 platform listing fee (deducted from payout)
+    # - Platform revenue: $2 per order ($1 from customer + $1 from restaurant)
+    RESTAURANT_LISTING_FEE = 1.00  # $1 per order deducted from restaurant payout
+
     vendor_payouts = {}
     for order in orders:
         if order.vendor_id not in vendor_payouts:
@@ -430,11 +441,11 @@ def sync_vendor_payouts(
                 "platform_fees": 0.0,
                 "stripe_fees": 0.0
             }
-        
+
         vendor_payouts[order.vendor_id]["orders"].append(order.id)
         vendor_payouts[order.vendor_id]["total_revenue"] += order.subtotal
-        vendor_payouts[order.vendor_id]["platform_fees"] += order.platform_fee
-        
+        vendor_payouts[order.vendor_id]["platform_fees"] += RESTAURANT_LISTING_FEE  # $1 flat fee per order
+
         # Estimate Stripe fees (2.9% + $0.30)
         stripe_fee = (order.total_amount * 0.029) + 0.30
         vendor_payouts[order.vendor_id]["stripe_fees"] += stripe_fee
