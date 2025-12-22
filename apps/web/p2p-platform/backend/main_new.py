@@ -9298,37 +9298,8 @@ async def proxy_active_rides_count():
     }
 
 
-@app.post("/api/erp/rides/request")
-async def proxy_request_ride(
-    customer_id: int,
-    pickup_lat: float,
-    pickup_lng: float,
-    dropoff_lat: float,
-    dropoff_lng: float,
-    ride_type: str = "standard"
-):
-    """Proxy to ride-service: Request a new ride"""
-    data = {
-        "customer_id": customer_id,
-        "pickup_location": {"latitude": pickup_lat, "longitude": pickup_lng},
-        "dropoff_location": {"latitude": dropoff_lat, "longitude": dropoff_lng},
-        "ride_type": ride_type
-    }
-
-    result = await proxy_request(RIDE_SERVICE_URL, "/api/rides", method="POST", json_data=data)
-    if result:
-        return result
-
-    # Fallback - create ride locally
-    import uuid
-    ride_id = f"RIDE-{uuid.uuid4().hex[:8].upper()}"
-    return {
-        "ride_id": ride_id,
-        "status": "searching",
-        "message": "Looking for drivers nearby...",
-        "estimated_wait": "2-5 minutes"
-    }
-
+# Note: POST /api/erp/rides/request is handled by request_ride (line ~2490)
+# Removed duplicate proxy_request_ride - was causing route conflict
 
 @app.post("/api/erp/rides/{ride_id}/cancel")
 async def proxy_cancel_ride(ride_id: str, reason: str = "customer_request"):
