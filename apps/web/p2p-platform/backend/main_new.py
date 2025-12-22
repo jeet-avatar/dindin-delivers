@@ -3025,6 +3025,7 @@ def vendor_login_json(request: VendorLoginRequest, db: Session = Depends(get_db)
 
 
 @app.get("/erp/drivers/{driver_id}")
+@app.get("/api/erp/drivers/{driver_id}")  # Alias with /api prefix for consistency
 def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver profile by ID (iOS app compatible endpoint)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -3084,6 +3085,8 @@ class DriverProfileUpdate(BaseModel):
 
 @app.put("/drivers/{driver_id}")
 @app.put("/api/drivers/{driver_id}")
+@app.put("/erp/drivers/{driver_id}")  # Alias for Android app using erp/ prefix
+@app.put("/api/erp/drivers/{driver_id}")  # Alias with /api prefix
 def update_driver_profile_by_id(
     driver_id: int,
     body: Optional[DriverProfileUpdate] = None,
