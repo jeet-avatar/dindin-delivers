@@ -546,10 +546,10 @@ async def get_current_vendor(token: str = Depends(oauth2_scheme), db: Session = 
             if vendor:
                 return vendor
 
-        # Fallback to email lookup
+        # Fallback to email lookup (Vendor uses contact_email, not email)
         email: str = payload.get("sub")
         if email:
-            vendor = db.query(Vendor).filter(Vendor.email == email).first()
+            vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
             if vendor:
                 return vendor
 
