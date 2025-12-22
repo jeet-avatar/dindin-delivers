@@ -3043,8 +3043,8 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "phone": driver.phone,
         "phone_number": driver.phone,
         "date_of_birth": driver.date_of_birth,
-        "status": driver.status.value,
-        "approval_status": driver.status.value,
+        "status": driver.status.value if driver.status else "pending",
+        "approval_status": driver.status.value if driver.status else "pending",
         "rating": driver.rating,
         "total_deliveries": driver.total_deliveries,
         "is_online": driver.is_online,
@@ -9685,38 +9685,8 @@ def get_privacy_policy_android():
     return get_privacy_policy()
 
 
-# Driver profile endpoint for Android
-@app.get("/api/erp/drivers/{driver_id}")
-def get_driver_profile_erp(driver_id: int, db: Session = Depends(get_db)):
-    """Get driver profile by ID (Android/ERP compatible endpoint)."""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    return {
-        "id": driver.id,
-        "driver_code": driver.driver_id,
-        "name": f"{driver.first_name} {driver.last_name}",
-        "full_name": f"{driver.first_name} {driver.last_name}",
-        "first_name": driver.first_name,
-        "last_name": driver.last_name,
-        "email": driver.email,
-        "phone": driver.phone,
-        "status": driver.status.value if driver.status else "pending",
-        "rating": driver.rating,
-        "total_deliveries": driver.total_deliveries,
-        "is_online": driver.is_online,
-        "latitude": driver.current_latitude,
-        "longitude": driver.current_longitude,
-        "vehicle_type": driver.vehicle_type,
-        "vehicle_make": driver.vehicle_make,
-        "vehicle_model": driver.vehicle_model,
-        "license_plate": driver.license_plate,
-        "created_at": driver.created_at.isoformat() if driver.created_at else None
-    }
-
-
 # Fare estimate endpoint for Android
+# Note: Driver profile GET /api/erp/drivers/{driver_id} is handled by get_driver_profile_by_id (line ~3027)
 @app.post("/api/rides/estimate")
 def get_fare_estimate_android(request: dict, db: Session = Depends(get_db)):
     """Android-compatible fare estimate endpoint."""
