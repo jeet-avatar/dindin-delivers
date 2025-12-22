@@ -51,43 +51,42 @@ const MainLayout: React.FC = () => {
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'System Dashboards', href: '/system-dashboard', icon: BarChart },
-    { name: 'Coupa Dashboard', href: '/coupa-dashboard', icon: FileSpreadsheet },
-    { name: 'NetSuite Dashboard', href: '/netsuite-dashboard', icon: Building2 },
-    { name: 'JIRA Dashboard', href: '/jira-dashboard', icon: GitPullRequest },
-    { name: 'Vendor Approval (ZIP)', href: '/zip-dashboard', icon: Wallet },
+    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { name: 'Coupa Dashboard', href: '/admin/coupa-dashboard', icon: FileSpreadsheet },
+    { name: 'NetSuite Dashboard', href: '/admin/netsuite-dashboard', icon: Building2 },
+    { name: 'JIRA Dashboard', href: '/admin/jira-dashboard', icon: GitPullRequest },
+    { name: 'Vendor Approval (ZIP)', href: '/admin/zip-dashboard', icon: Wallet },
     {
       name: 'Vendor Management',
-      href: '/vendor-management',
+      href: '/admin/vendor-management',
       icon: User,
       children: [
-        { name: 'All Vendors', href: '/vendor-management', icon: User },
-        { name: 'Document Review', href: '/document-review', icon: FileCheck },
-        { name: 'Menu Review', href: '/menu-review', icon: Utensils },
+        { name: 'All Vendors', href: '/admin/vendor-management', icon: User },
+        { name: 'Document Review', href: '/admin/document-review', icon: FileCheck },
+        { name: 'Menu Review', href: '/admin/menu-review', icon: Utensils },
       ],
     },
     {
       name: 'Transactions',
-      href: '/transactions',
+      href: '/admin/transactions',
       icon: Briefcase,
       children: [
-        { name: 'Coupa Transactions', href: '/transactions/coupa', icon: FileSpreadsheet },
-        { name: 'NetSuite Transactions', href: '/transactions/netsuite', icon: Building2 },
+        { name: 'Coupa Transactions', href: '/admin/transactions/coupa', icon: FileSpreadsheet },
+        { name: 'NetSuite Transactions', href: '/admin/transactions/netsuite', icon: Building2 },
       ],
     },
-    { name: 'Orders', href: '/orders', icon: GitBranch },
+    { name: 'Orders', href: '/admin/orders', icon: GitBranch },
     {
       name: 'Accounting',
-      href: '/accounting',
+      href: '/admin/accounting',
       icon: Wallet,
       children: [
-        { name: 'Platform Revenue', href: '/accounting/platform-revenue', icon: Wallet },
-        { name: 'Vendor Payouts', href: '/accounting/vendor-payouts', icon: FileText },
+        { name: 'Platform Revenue', href: '/admin/accounting/platform-revenue', icon: Wallet },
+        { name: 'Vendor Payouts', href: '/admin/accounting/vendor-payouts', icon: FileText },
       ],
     },
-    { name: 'Invoices', href: '/invoices', icon: FileText },
-    { name: 'Clients', href: '/clients', icon: User },
+    { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+    { name: 'Clients', href: '/admin/clients', icon: User },
   ];
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
@@ -138,13 +137,11 @@ const MainLayout: React.FC = () => {
       >
         <div className="h-16 flex items-center justify-between px-4 border-b border-neutral-200">
           <div className="flex items-center space-x-3">
-            <a href="/" className='flex items-center space-x-3'>
-              <img 
-                src="https://th.bing.com/th/id/OIP.U6BcwosycN9N7WOesvICDQAAAA?cb=iwp2&rs=1&pid=ImgDetMain" 
-                alt="DoorDash Logo" 
-                className="h-8 w-auto"
-              />
-              <span className="text-lg font-semibold text-neutral-900">DoorDash P2P</span>
+            <a href="/admin" className='flex items-center space-x-3'>
+              <div className="h-8 w-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">$</span>
+              </div>
+              <span className="text-lg font-semibold text-neutral-900">Dollor.ai Admin</span>
             </a>
           </div>
           <button 

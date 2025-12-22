@@ -5,19 +5,28 @@ struct DriverDashboardView: View {
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var deliveryViewModel = DeliveryViewModel()
     @StateObject private var chatManager = ChatManager.shared
+    @StateObject private var rideBiddingViewModel = RideBiddingViewModel()
     @State private var selectedTab = 0
     @State private var showTerms = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Food Delivery App - No mode toggle needed
+            // Driver App - Food Delivery and Rideshare
             TabView(selection: $selectedTab) {
-                // Available Orders Tab
+                // Available Orders Tab (Food Delivery)
                 AvailableOrdersView(viewModel: deliveryViewModel)
                     .tabItem {
-                        Label("Orders", systemImage: "bag.fill")
+                        Label("Delivery", systemImage: "bag.fill")
                     }
                     .tag(0)
+
+                // Rideshare Tab - P2P Ride Bidding
+                RideshareDashboardView()
+                    .tabItem {
+                        Label("Rideshare", systemImage: "car.fill")
+                    }
+                    .tag(1)
+                    .badge(rideBiddingViewModel.counteredBids.count > 0 ? rideBiddingViewModel.counteredBids.count : 0)
 
                 // Active Delivery Tab
                 NavigationView {
@@ -26,14 +35,7 @@ struct DriverDashboardView: View {
                 .tabItem {
                     Label("Active", systemImage: "location.fill")
                 }
-                .tag(1)
-
-                // Delivery History Tab
-                MyDeliveriesView(viewModel: deliveryViewModel)
-                    .tabItem {
-                        Label("History", systemImage: "clock.fill")
-                    }
-                    .tag(2)
+                .tag(2)
 
                 // Messages Tab
                 ConversationsListView()

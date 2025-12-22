@@ -5,7 +5,8 @@ import axios from 'axios';
 import moment from 'moment';
 import { useUser } from '../../context/UserContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Use staging ELB as fallback - NO localhost calls allowed
+const API_URL = import.meta.env.VITE_API_URL || 'http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080';
 
 interface Document {
   id: number;

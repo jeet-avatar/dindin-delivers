@@ -16,6 +16,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl } from '../../api/api';
+import { pricing } from '../../config/brand';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -84,7 +85,7 @@ const RestaurantDetail: React.FC = () => {
     try {
       const [restaurantRes, menuRes] = await Promise.all([
         axios.get(`${API_URL}/api/erp/restaurants/${id}`),
-        axios.get(`${API_URL}/api/erp/restaurants/${id}/menu`)
+        axios.get(`${API_URL}/api/vendors/${id}/menu`)  // Use vendors menu endpoint
       ]);
 
       if (restaurantRes.data.success) {
@@ -262,7 +263,7 @@ const RestaurantDetail: React.FC = () => {
                 <Divider type="vertical" />
                 <div className="fee-item platform-fee">
                   <Text type="secondary">Platform Fee</Text>
-                  <Text strong className="green">$1.00</Text>
+                  <Text strong className="green">{pricing.display.foodDelivery.customerFee}</Text>
                 </div>
               </div>
             </Col>

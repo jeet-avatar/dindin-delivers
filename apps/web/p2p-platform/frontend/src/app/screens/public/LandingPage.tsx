@@ -37,7 +37,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="nav-actions">
             <Button type="primary" className="customer-btn" onClick={() => navigate('/customer/login')}>
-              <UserOutlined /> Book a Ride
+              <UserOutlined /> Customer Login
             </Button>
             <Button ghost onClick={() => navigate('/vendor/login')}>Restaurant</Button>
             <Button ghost onClick={() => navigate('/driver/login')}>Driver</Button>
@@ -74,7 +74,7 @@ const LandingPage: React.FC = () => {
           </div>
           <div className="mobile-menu-actions">
             <Button block size="large" type="primary" className="mobile-btn-customer" onClick={() => { navigate('/customer/login'); setMobileMenuOpen(false); }}>
-              <UserOutlined /> Book a Ride
+              <UserOutlined /> Customer Login
             </Button>
             <Button block size="large" className="mobile-btn" onClick={() => { navigate('/vendor/login'); setMobileMenuOpen(false); }}>
               Restaurant Login
@@ -108,14 +108,16 @@ const LandingPage: React.FC = () => {
               className="cta-customer"
               onClick={() => navigate('/customer/login')}
             >
-              <UserOutlined /> Book a Ride <ArrowRightOutlined />
+              <ShopOutlined /> Order Food <ArrowRightOutlined />
             </Button>
             <Button
+              type="primary"
               size="large"
-              className="cta-secondary"
-              onClick={() => navigate('/ride')}
+              className="cta-customer"
+              style={{ marginLeft: 16 }}
+              onClick={() => navigate('/customer/login')}
             >
-              Quick Estimate
+              <CarOutlined /> Book a Ride <ArrowRightOutlined />
             </Button>
           </div>
           <div className="hero-partner-links">
