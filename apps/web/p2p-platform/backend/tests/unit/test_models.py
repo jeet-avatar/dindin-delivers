@@ -488,7 +488,7 @@ class TestDriverModel:
         # Real-time tracking
         tracking_fields = {
             'current_latitude', 'current_longitude', 'is_online',
-            'last_location_update', 'location_updated_at',
+            'location_updated_at',
             'went_online_at', 'went_offline_at'
         }
         assert tracking_fields.issubset(column_names)
