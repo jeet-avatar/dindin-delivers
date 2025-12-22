@@ -7,7 +7,7 @@ handling food delivery and rideshare coordination.
 Version: 1.0.1
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -443,11 +443,39 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_current_customer_from_token(authorization: str, db: Session) -> Optional[Customer]:
+    """Extract customer from authorization token - works with both User and Customer tokens"""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        customer_id = payload.get("customer_id")
+
+        # Try to find customer by ID first (more efficient)
+        if customer_id:
+            customer = db.query(Customer).filter(Customer.id == customer_id).first()
+            if customer:
+                return customer
+
+        # Fall back to email lookup
+        if email:
+            customer = db.query(Customer).filter(Customer.email == email).first()
+            if customer:
+                return customer
+
+        return None
+    except JWTError:
+        return None
 
 
 def sanitize_input(text: str) -> str:
@@ -619,10 +647,88 @@ def _run_startup_migrations():
         ("vendors", "documents_verified_at", "TIMESTAMP"),
         ("vendors", "verification_notes", "TEXT"),
         ("vendors", "verification_reviewer_id", "INTEGER"),
+        # Vendor menu items - admin review fields
+        ("vendor_menu_items", "review_status", "VARCHAR(50) DEFAULT 'pending'"),
+        ("vendor_menu_items", "needs_review", "BOOLEAN DEFAULT TRUE"),
+        ("vendor_menu_items", "admin_notes", "TEXT"),
+        ("vendor_menu_items", "reviewed_at", "TIMESTAMP"),
+        ("vendor_menu_items", "reviewed_by", "INTEGER"),
+        # Rides table - full schema
+        ("rides", "ride_id", "VARCHAR(50)"),
+        ("rides", "customer_id", "INTEGER"),
+        ("rides", "driver_id", "INTEGER"),
+        ("rides", "status", "VARCHAR(50) DEFAULT 'pending'"),
+        ("rides", "pickup_address", "TEXT"),
+        ("rides", "pickup_lat", "FLOAT"),
+        ("rides", "pickup_lng", "FLOAT"),
+        ("rides", "dropoff_address", "TEXT"),
+        ("rides", "dropoff_lat", "FLOAT"),
+        ("rides", "dropoff_lng", "FLOAT"),
+        ("rides", "fare_amount", "FLOAT"),
+        ("rides", "tip_amount", "FLOAT DEFAULT 0"),
+        ("rides", "platform_fee", "FLOAT DEFAULT 0"),
+        ("rides", "driver_payout", "FLOAT"),
+        ("rides", "distance_miles", "FLOAT"),
+        ("rides", "duration_minutes", "INTEGER"),
+        ("rides", "vehicle_type", "VARCHAR(50)"),
+        ("rides", "requested_at", "TIMESTAMP"),
+        ("rides", "accepted_at", "TIMESTAMP"),
+        ("rides", "picked_up_at", "TIMESTAMP"),
+        ("rides", "completed_at", "TIMESTAMP"),
+        ("rides", "cancelled_at", "TIMESTAMP"),
+        ("rides", "cancelled_by", "VARCHAR(20)"),
+        ("rides", "cancellation_reason", "TEXT"),
+        ("rides", "driver_rating", "FLOAT"),
+        ("rides", "passenger_rating", "FLOAT"),
+        ("rides", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+    ]
+
+    # Tables to create if they don't exist
+    table_creates = [
+        """
+        CREATE TABLE IF NOT EXISTS rides (
+            id SERIAL PRIMARY KEY,
+            ride_id VARCHAR(50) UNIQUE,
+            customer_id INTEGER,
+            driver_id INTEGER,
+            status VARCHAR(50) DEFAULT 'pending',
+            pickup_address TEXT,
+            pickup_lat FLOAT,
+            pickup_lng FLOAT,
+            dropoff_address TEXT,
+            dropoff_lat FLOAT,
+            dropoff_lng FLOAT,
+            fare_amount FLOAT,
+            tip_amount FLOAT DEFAULT 0,
+            platform_fee FLOAT DEFAULT 0,
+            driver_payout FLOAT,
+            distance_miles FLOAT,
+            duration_minutes INTEGER,
+            vehicle_type VARCHAR(50),
+            requested_at TIMESTAMP,
+            accepted_at TIMESTAMP,
+            picked_up_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            cancelled_at TIMESTAMP,
+            cancelled_by VARCHAR(20),
+            cancellation_reason TEXT,
+            driver_rating FLOAT,
+            passenger_rating FLOAT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
     ]
 
     try:
         with engine.connect() as conn:
+            # Create tables first
+            for create_sql in table_creates:
+                try:
+                    conn.execute(text(create_sql))
+                except Exception as e:
+                    print(f"Table creation: {e}")
+
+            # Then add columns
             for table, col_name, col_type in migrations:
                 try:
                     # Safe: table/col_name/col_type from hardcoded migrations list, not user input
@@ -1424,6 +1530,7 @@ class DriverLoginResponse(BaseModel):
         from_attributes = True
 
 @app.post("/api/auth/driver/login")
+@app.post("/auth/driver/login")  # Alias for mobile apps without /api prefix
 def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
     print(f"Driver login attempt for: {form_data.username}")
@@ -1477,6 +1584,7 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 
 
 @app.post("/api/auth/driver/register")
+@app.post("/auth/driver/register")  # Alias for mobile apps without /api prefix
 def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db)):
     """Register a new driver account"""
     print(f"Driver registration attempt for: {request.email}")
@@ -1585,6 +1693,7 @@ class DriverGoogleAuthRequest(BaseModel):
     credential: Optional[str] = None  # Alternative field name
 
 @app.post("/api/auth/driver/google")
+@app.post("/auth/driver/google")  # Alias for mobile apps without /api prefix
 def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for drivers - handles both login and registration"""
 
@@ -1686,6 +1795,7 @@ class DriverAppleAuthRequest(BaseModel):
     apple_id: str
 
 @app.post("/api/auth/driver/apple-auth")
+@app.post("/auth/driver/apple-auth")  # Alias for mobile apps without /api prefix
 def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for drivers - handles both login and registration"""
     print(f"Driver Apple auth for: {request.email}")
@@ -1795,8 +1905,21 @@ def get_driver_profile(current_user: User = Depends(get_current_user), db: Sessi
 
 
 @app.put("/api/auth/driver/online")
-def set_driver_online(is_online: bool, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.post("/api/auth/driver/online")
+def set_driver_online(
+    is_online: Optional[bool] = None,
+    request_body: Optional[dict] = Body(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Toggle driver online/offline status"""
+    # Accept is_online from query param or request body
+    online_status = is_online
+    if online_status is None and request_body:
+        online_status = request_body.get("is_online", request_body.get("online", True))
+    if online_status is None:
+        online_status = True  # Default to going online
+
     if current_user.role != UserRole.DRIVER or not current_user.driver_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1807,7 +1930,7 @@ def set_driver_online(is_online: bool, current_user: User = Depends(get_current_
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
-    driver.is_online = is_online
+    driver.is_online = online_status
     driver.location_updated_at = datetime.utcnow()
     db.commit()
 
@@ -1885,6 +2008,7 @@ class CustomerLoginRequest(BaseModel):
 
 
 @app.post("/api/auth/customer/login")
+@app.post("/auth/customer/login")  # Alias for mobile apps without /api prefix
 def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
     print(f"Customer login attempt for: {form_data.username}")
@@ -1931,6 +2055,7 @@ def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Se
 # JSON-based customer login (alternative to OAuth2 form data)
 # Accepts both 'email' and 'username' fields for maximum compatibility
 @app.post("/api/auth/customer/login/json")
+@app.post("/auth/customer/login/json")  # Alias for mobile apps without /api prefix
 def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
     """Customer login with JSON body - accepts email or username field"""
     login_email = request.get_email()
@@ -1981,6 +2106,7 @@ def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depend
 
 
 @app.post("/api/auth/customer/register")
+@app.post("/auth/customer/register")  # Alias for mobile apps without /api prefix
 def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
     print(f"Customer registration attempt for: {request.email}")
@@ -2080,6 +2206,7 @@ class CustomerGoogleAuthRequest(BaseModel):
     id_token: Optional[str] = None  # Web sends this JWT credential
 
 @app.post("/api/auth/customer/google")
+@app.post("/auth/customer/google")  # Alias for mobile apps without /api prefix
 def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration"""
 
@@ -2466,53 +2593,66 @@ async def request_ride(
 @app.get("/api/erp/rides/{ride_id}/status")
 def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
     """Get current status of a ride from database"""
-    from sqlalchemy import text
+    try:
+        from sqlalchemy import text
 
-    # Query ride from database
-    result = db.execute(
-        text("""
-            SELECT r.id, r.status, r.driver_id, r.pickup_address, r.dropoff_address,
-                   d.first_name, d.last_name, d.rating, d.vehicle_type,
-                   d.vehicle_make, d.vehicle_model, d.vehicle_year, d.license_plate, d.phone
-            FROM rides r
-            LEFT JOIN drivers d ON r.driver_id = d.id
-            WHERE r.id = :ride_id OR r.ride_id = :ride_id
-        """),
-        {"ride_id": ride_id}
-    ).fetchone()
+        # Query ride from database
+        result = db.execute(
+            text("""
+                SELECT r.id, r.status, r.driver_id, r.pickup_address, r.dropoff_address,
+                       d.first_name, d.last_name, d.rating, d.vehicle_type,
+                       d.vehicle_make, d.vehicle_model, d.vehicle_year, d.license_plate, d.phone
+                FROM rides r
+                LEFT JOIN drivers d ON r.driver_id = d.id
+                WHERE r.id = :ride_id OR r.ride_id = :ride_id
+            """),
+            {"ride_id": ride_id}
+        ).fetchone()
 
-    if not result:
-        raise HTTPException(status_code=404, detail="Ride not found")
+        if not result:
+            raise HTTPException(status_code=404, detail="Ride not found")
 
-    ride_data = {
-        "ride_id": ride_id,
-        "status": result[1] if result[1] else "searching",
-        "driver": None,
-        "eta_minutes": None,
-        "message": "Searching for a driver..."
-    }
-
-    # If driver assigned, include driver info
-    if result[2]:  # driver_id exists
-        ride_data["driver"] = {
-            "id": result[2],
-            "name": f"{result[5]} {result[6][0]}." if result[5] and result[6] else "Driver",
-            "rating": float(result[7]) if result[7] else 4.8,
-            "vehicle": {
-                "make": result[9] or "Unknown",
-                "model": result[10] or "Vehicle",
-                "year": result[11] or 2020,
-                "color": "Unknown",
-                "license_plate": result[12] or "N/A"
-            },
-            "photo_url": None,
-            "phone": result[13] or None,
-            "eta_minutes": 5  # Calculate from location service
+        ride_data = {
+            "ride_id": ride_id,
+            "status": result[1] if result[1] else "searching",
+            "driver": None,
+            "eta_minutes": None,
+            "message": "Searching for a driver..."
         }
-        ride_data["eta_minutes"] = 5
-        ride_data["message"] = f"Your driver {ride_data['driver']['name']} is on the way!"
 
-    return ride_data
+        # If driver assigned, include driver info
+        if result[2]:  # driver_id exists
+            ride_data["driver"] = {
+                "id": result[2],
+                "name": f"{result[5]} {result[6][0]}." if result[5] and result[6] else "Driver",
+                "rating": float(result[7]) if result[7] else 4.8,
+                "vehicle": {
+                    "make": result[9] or "Unknown",
+                    "model": result[10] or "Vehicle",
+                    "year": result[11] or 2020,
+                    "color": "Unknown",
+                    "license_plate": result[12] or "N/A"
+                },
+                "photo_url": None,
+                "phone": result[13] or None,
+                "eta_minutes": 5  # Calculate from location service
+            }
+            ride_data["eta_minutes"] = 5
+            ride_data["message"] = f"Your driver {ride_data['driver']['name']} is on the way!"
+
+        return ride_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Return mock status if database query fails
+        return {
+            "ride_id": ride_id,
+            "status": "pending",
+            "driver": None,
+            "eta_minutes": None,
+            "message": "Looking for drivers...",
+            "error": str(e) if str(e) else None
+        }
 
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
@@ -2598,45 +2738,60 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     """
     Full tracking endpoint for frontend - queries real data from database
     """
-    from sqlalchemy import text
+    try:
+        from sqlalchemy import text
 
-    # Query ride with driver info
-    result = db.execute(
-        text("""
-            SELECT r.id, r.status, r.driver_id,
-                   d.first_name, d.last_name, d.phone, d.rating,
-                   d.vehicle_make, d.vehicle_model, d.license_plate
-            FROM rides r
-            LEFT JOIN drivers d ON r.driver_id = d.id
-            WHERE r.id = :ride_id OR r.ride_id = :ride_id
-        """),
-        {"ride_id": ride_id}
-    ).fetchone()
+        # Query ride with driver info
+        result = db.execute(
+            text("""
+                SELECT r.id, r.status, r.driver_id,
+                       d.first_name, d.last_name, d.phone, d.rating,
+                       d.vehicle_make, d.vehicle_model, d.license_plate
+                FROM rides r
+                LEFT JOIN drivers d ON r.driver_id = d.id
+                WHERE r.id = :ride_id OR r.ride_id = :ride_id
+            """),
+            {"ride_id": ride_id}
+        ).fetchone()
 
-    if not result:
-        raise HTTPException(status_code=404, detail="Ride not found")
+        if not result:
+            raise HTTPException(status_code=404, detail="Ride not found")
 
-    driver_data = None
-    if result[2]:  # driver_id exists
-        driver_data = {
-            "id": result[2],
-            "name": f"{result[3]} {result[4][0]}." if result[3] and result[4] else "Driver",
-            "phone": result[5] or None,
-            "rating": float(result[6]) if result[6] else 4.8,
-            "photo_url": None,
-            "vehicle": f"{result[7] or 'Unknown'} {result[8] or 'Vehicle'}",
-            "license_plate": result[9] or "N/A"
+        driver_data = None
+        if result[2]:  # driver_id exists
+            driver_data = {
+                "id": result[2],
+                "name": f"{result[3]} {result[4][0]}." if result[3] and result[4] else "Driver",
+                "phone": result[5] or None,
+                "rating": float(result[6]) if result[6] else 4.8,
+                "photo_url": None,
+                "vehicle": f"{result[7] or 'Unknown'} {result[8] or 'Vehicle'}",
+                "license_plate": result[9] or "N/A"
+            }
+
+        return {
+            "success": True,
+            "order": {
+                "status": result[1] or "searching",
+                "ride_id": ride_id
+            },
+            "driver": driver_data,
+            "eta_minutes": 5 if driver_data else None
         }
-
-    return {
-        "success": True,
-        "order": {
-            "status": result[1] or "searching",
-            "ride_id": ride_id
-        },
-        "driver": driver_data,
-        "eta_minutes": 5 if driver_data else None
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Return mock tracking if database query fails
+        return {
+            "success": True,
+            "order": {
+                "status": "pending",
+                "ride_id": ride_id
+            },
+            "driver": None,
+            "eta_minutes": None,
+            "error": str(e) if str(e) else None
+        }
 
 
 # Ride rating endpoint
@@ -3492,6 +3647,7 @@ class CustomerAppleAuthRequest(BaseModel):
 
 @app.post("/api/customer/apple-auth")
 @app.post("/api/auth/customer/apple-auth")  # Alias for Android compatibility
+@app.post("/auth/customer/apple-auth")  # Alias for mobile apps without /api prefix
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for customers - handles both login and registration"""
     print(f"Customer Apple auth - apple_id: {request.apple_id[:20] if request.apple_id else 'None'}...")
@@ -3889,11 +4045,14 @@ def calculate_cart_summary(cart: Cart, db: Session) -> dict:
 
 
 @app.get("/api/cart")
-def get_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_cart(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """Get current customer's cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        return {"items": [], "summary": {"subtotal": 0, "delivery_fee": 0, "platform_fee": 1.00, "tax": 0, "discount": 0, "total": 0, "item_count": 0, "restaurant_count": 0}}
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     cart = get_or_create_cart(customer.id, db)
 
@@ -3926,13 +4085,13 @@ def get_cart(current_user: User = Depends(get_current_user), db: Session = Depen
 @app.post("/api/cart/items")
 def add_to_cart(
     request: AddToCartRequest,
-    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """Add an item to the cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     # Verify menu item exists
     menu_item = db.query(VendorMenuItem).filter(VendorMenuItem.id == request.menu_item_id).first()
@@ -3999,13 +4158,13 @@ def add_to_cart(
 def update_cart_item(
     item_id: int,
     request: UpdateCartItemRequest,
-    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """Update a cart item's quantity or special instructions"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
@@ -4044,13 +4203,13 @@ def update_cart_item(
 @app.delete("/api/cart/items/{item_id}")
 def remove_cart_item(
     item_id: int,
-    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """Remove an item from the cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
@@ -4077,11 +4236,14 @@ def remove_cart_item(
 
 
 @app.delete("/api/cart")
-def clear_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def clear_cart(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
     """Clear all items from the cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
@@ -4107,13 +4269,13 @@ def clear_cart(current_user: User = Depends(get_current_user), db: Session = Dep
 @app.post("/api/cart/apply-promo")
 def apply_promo_code(
     request: ApplyPromoRequest,
-    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """Apply a promo code to the cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer = get_current_customer_from_token(authorization, db)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     cart = get_or_create_cart(customer.id, db)
 
@@ -4210,8 +4372,12 @@ def get_driver_dashboard(
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             driver_id = payload.get("driver_id")
             if driver_id:
-                driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
-            else:
+                # driver_id in JWT is integer ID, not string code
+                if isinstance(driver_id, int):
+                    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+                else:
+                    driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
+            if not driver:
                 email = payload.get("sub")
                 if email:
                     driver = db.query(Driver).filter(Driver.email == email).first()
@@ -8325,10 +8491,10 @@ class MenuItemResponse(BaseModel):
     class Config:
         from_attributes = True
 
-@app.post("/api/vendors/{vendor_id}/menu", response_model=MenuItemResponse)
+@app.post("/api/vendors/{vendor_id}/menu")
 def create_menu_item(
     vendor_id: int,
-    menu_item: MenuItemCreate,
+    menu_item: Optional[dict] = Body(None),
     db: Session = Depends(get_db)
 ):
     from models import Vendor, VendorMenuItem
@@ -8337,39 +8503,101 @@ def create_menu_item(
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Convert to dict and handle customizations
-    item_data = menu_item.dict()
-    # Convert customizations to list of dicts if present
-    if item_data.get('customizations'):
-        item_data['customizations'] = [c.dict() if hasattr(c, 'dict') else c for c in item_data['customizations']]
+    if not menu_item:
+        raise HTTPException(status_code=400, detail="Menu item data required")
 
-    db_menu_item = VendorMenuItem(
-        vendor_id=vendor_id,
-        **item_data
-    )
+    # Normalize field names - accept both 'name' and 'item_name'
+    item_name = menu_item.get("item_name") or menu_item.get("name")
+    if not item_name:
+        raise HTTPException(status_code=400, detail="item_name or name is required")
+
+    # Build item data with defaults
+    item_data = {
+        "vendor_id": vendor_id,
+        "item_name": item_name,
+        "description": menu_item.get("description"),
+        "category": menu_item.get("category", "Other"),
+        "price": float(menu_item.get("price", 0)),
+        "is_available": menu_item.get("is_available", True),
+        "is_vegetarian": menu_item.get("is_vegetarian", False),
+        "is_vegan": menu_item.get("is_vegan", False),
+        "is_gluten_free": menu_item.get("is_gluten_free", False),
+        "is_spicy": menu_item.get("is_spicy", False),
+        "spice_level": int(menu_item.get("spice_level", 0)),
+        "prep_time": menu_item.get("prep_time"),
+        "calories": menu_item.get("calories"),
+        "image_url": menu_item.get("image_url"),
+        "in_stock": menu_item.get("in_stock", True),
+        "daily_limit": menu_item.get("daily_limit"),
+        "customizations": menu_item.get("customizations")
+    }
+
+    db_menu_item = VendorMenuItem(**item_data)
     db.add(db_menu_item)
     db.commit()
     db.refresh(db_menu_item)
-    return db_menu_item
 
-@app.get("/api/vendors/{vendor_id}/menu", response_model=List[MenuItemResponse])
+    return {
+        "id": db_menu_item.id,
+        "vendor_id": db_menu_item.vendor_id,
+        "item_name": db_menu_item.item_name,
+        "category": db_menu_item.category,
+        "price": float(db_menu_item.price) if db_menu_item.price else 0,
+        "success": True
+    }
+
+@app.get("/api/vendors/{vendor_id}/menu")
 def get_vendor_menu(
     vendor_id: int,
     category: Optional[str] = None,
     available_only: bool = False,
     db: Session = Depends(get_db)
 ):
-    from models import VendorMenuItem
-    
-    query = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id)
-    
-    if category:
-        query = query.filter(VendorMenuItem.category == category)
-    
-    if available_only:
-        query = query.filter(VendorMenuItem.is_available == True, VendorMenuItem.in_stock == True)
-    
-    return query.all()
+    try:
+        from models import VendorMenuItem
+
+        query = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id)
+
+        if category:
+            query = query.filter(VendorMenuItem.category == category)
+
+        if available_only:
+            query = query.filter(VendorMenuItem.is_available == True, VendorMenuItem.in_stock == True)
+
+        items = query.all()
+
+        # Manually serialize to avoid Pydantic validation issues
+        result = []
+        for item in items:
+            result.append({
+                "id": item.id,
+                "vendor_id": item.vendor_id,
+                "item_name": item.item_name,
+                "description": item.description,
+                "category": item.category or "Other",
+                "price": float(item.price) if item.price else 0.0,
+                "is_available": bool(item.is_available) if item.is_available is not None else True,
+                "is_vegetarian": bool(item.is_vegetarian) if item.is_vegetarian is not None else False,
+                "is_vegan": bool(item.is_vegan) if item.is_vegan is not None else False,
+                "is_gluten_free": bool(item.is_gluten_free) if item.is_gluten_free is not None else False,
+                "is_spicy": bool(item.is_spicy) if item.is_spicy is not None else False,
+                "spice_level": int(item.spice_level) if item.spice_level is not None else 0,
+                "prep_time": item.prep_time,
+                "calories": item.calories,
+                "image_url": item.image_url,
+                "in_stock": bool(item.in_stock) if item.in_stock is not None else True,
+                "daily_limit": item.daily_limit,
+                "items_sold_today": int(item.items_sold_today) if item.items_sold_today is not None else 0,
+                "customizations": item.customizations if hasattr(item, 'customizations') and item.customizations else None,
+                "created_at": item.created_at.isoformat() if item.created_at else None
+            })
+        return result
+    except Exception as e:
+        import traceback
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "trace": traceback.format_exc()}
+        )
 
 @app.put("/api/vendors/{vendor_id}/menu/{item_id}", response_model=MenuItemResponse)
 def update_menu_item(
@@ -8492,80 +8720,93 @@ def get_public_restaurants(
     Public endpoint to get list of approved restaurants with their addresses.
     Used by customer-facing app to browse restaurants.
     """
-    from models import Vendor, VendorStatus, VendorMenuItem
-    from stock_images import get_stock_image_for_dish
+    try:
+        from models import Vendor, VendorStatus, VendorMenuItem
+        from stock_images import get_stock_image_for_dish
+    except ImportError:
+        # Fallback if stock_images not available
+        def get_stock_image_for_dish(name, category, is_veg):
+            return None
 
-    query = db.query(Vendor).filter(
-        Vendor.onboarding_status == VendorStatus.APPROVED,
-        Vendor.cuisine_type.isnot(None)  # Only show actual restaurants (have cuisine type)
-    )
+    try:
+        query = db.query(Vendor).filter(
+            Vendor.onboarding_status == VendorStatus.APPROVED
+        )
+        # Only filter by cuisine_type if column has values
+        # query = query.filter(Vendor.cuisine_type.isnot(None))
 
-    if city:
-        query = query.filter(Vendor.city.ilike(f"%{city}%"))
+        if city:
+            query = query.filter(Vendor.city.ilike(f"%{city}%"))
 
-    if cuisine:
-        query = query.filter(Vendor.cuisine_type.ilike(f"%{cuisine}%"))
+        if cuisine:
+            query = query.filter(Vendor.cuisine_type.ilike(f"%{cuisine}%"))
 
-    restaurants = query.all()
+        restaurants = query.all()
 
-    result = []
-    for vendor in restaurants:
-        # Get menu item count
-        menu_count = db.query(VendorMenuItem).filter(
-            VendorMenuItem.vendor_id == vendor.id,
-            VendorMenuItem.is_available == True
-        ).count()
+        result = []
+        for vendor in restaurants:
+            # Get menu item count
+            menu_count = db.query(VendorMenuItem).filter(
+                VendorMenuItem.vendor_id == vendor.id,
+                VendorMenuItem.is_available == True
+            ).count()
 
-        # Get sample menu items for preview
-        sample_items = db.query(VendorMenuItem).filter(
-            VendorMenuItem.vendor_id == vendor.id,
-            VendorMenuItem.is_available == True
-        ).limit(4).all()
+            # Get sample menu items for preview
+            sample_items = db.query(VendorMenuItem).filter(
+                VendorMenuItem.vendor_id == vendor.id,
+                VendorMenuItem.is_available == True
+            ).limit(4).all()
 
-        # Build preview images from menu items
-        preview_images = []
-        for item in sample_items:
-            img = item.image_url if item.image_url else get_stock_image_for_dish(
-                item.item_name, item.category, item.is_vegetarian
-            )
-            preview_images.append(img)
+            # Build preview images from menu items
+            preview_images = []
+            for item in sample_items:
+                img = item.image_url if item.image_url else get_stock_image_for_dish(
+                    item.item_name, item.category, item.is_vegetarian
+                )
+                preview_images.append(img)
 
-        result.append({
-            "id": vendor.id,
-            "vendor_id": vendor.vendor_id,
-            "name": vendor.restaurant_name or vendor.company_name,
-            "cuisine_type": vendor.cuisine_type,
-            "address": {
-                "street": vendor.street,
-                "city": vendor.city,
-                "state": vendor.state,
-                "zip_code": vendor.zip_code,
-                "country": vendor.country,
-                "full_address": f"{vendor.street}, {vendor.city}, {vendor.state} {vendor.zip_code}" if vendor.street else None
-            },
-            "location": {
-                "latitude": vendor.latitude,
-                "longitude": vendor.longitude
-            },
-            "contact": {
-                "phone": vendor.contact_phone,
-                "email": vendor.contact_email
-            },
-            "operating_hours": vendor.operating_hours,
-            "delivery_available": vendor.delivery_available,
-            "pickup_available": vendor.pickup_available,
-            "average_prep_time": vendor.average_prep_time,
-            "menu_items_count": menu_count,
-            "preview_images": preview_images,
-            "rating": 4.5,  # Placeholder - implement actual ratings
-            "is_open": True  # Placeholder - implement actual hours check
-        })
+            result.append({
+                "id": vendor.id,
+                "vendor_id": vendor.vendor_id,
+                "name": vendor.restaurant_name or vendor.company_name,
+                "cuisine_type": vendor.cuisine_type,
+                "address": {
+                    "street": vendor.street,
+                    "city": vendor.city,
+                    "state": vendor.state,
+                    "zip_code": vendor.zip_code,
+                    "country": vendor.country,
+                    "full_address": f"{vendor.street}, {vendor.city}, {vendor.state} {vendor.zip_code}" if vendor.street else None
+                },
+                "location": {
+                    "latitude": vendor.latitude,
+                    "longitude": vendor.longitude
+                },
+                "contact": {
+                    "phone": vendor.contact_phone,
+                    "email": vendor.contact_email
+                },
+                "operating_hours": vendor.operating_hours,
+                "delivery_available": vendor.delivery_available,
+                "pickup_available": vendor.pickup_available,
+                "average_prep_time": vendor.average_prep_time,
+                "menu_items_count": menu_count,
+                "preview_images": preview_images,
+                "rating": 4.5,  # Placeholder - implement actual ratings
+                "is_open": True  # Placeholder - implement actual hours check
+            })
 
-    return {
-        "success": True,
-        "count": len(result),
-        "restaurants": result
-    }
+        return {
+            "success": True,
+            "count": len(result),
+            "restaurants": result
+        }
+    except Exception as e:
+        import traceback
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e), "trace": traceback.format_exc()}
+        )
 
 
 @app.get("/api/public/restaurants/{vendor_id}")
@@ -10096,6 +10337,142 @@ def complete_delivery(
         "success": True,
         "message": "Delivery completed!",
         "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
+    }
+
+
+# ============================================================
+# ADMIN INSPECTION ENDPOINTS
+# ============================================================
+
+@app.get("/api/admin/database/schema")
+def get_database_schema(db: Session = Depends(get_db)):
+    """Get complete database schema - all tables and columns"""
+    from sqlalchemy import text
+
+    try:
+        # Get all tables
+        tables_result = db.execute(text("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """))
+        tables = [row[0] for row in tables_result.fetchall()]
+
+        schema = {}
+        for table in tables:
+            cols_result = db.execute(text("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+                ORDER BY ordinal_position
+            """), {"table_name": table})
+
+            columns = []
+            for row in cols_result.fetchall():
+                columns.append({
+                    "name": row[0],
+                    "type": row[1],
+                    "nullable": row[2] == 'YES',
+                    "default": row[3]
+                })
+            schema[table] = {
+                "column_count": len(columns),
+                "columns": columns
+            }
+
+        return {
+            "success": True,
+            "table_count": len(tables),
+            "tables": list(schema.keys()),
+            "schema": schema
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/admin/api/routes")
+def get_all_api_routes():
+    """Get all API routes with methods and paths"""
+    routes = []
+    route_set = set()  # For duplicate detection
+
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            for method in route.methods:
+                if method not in ['HEAD', 'OPTIONS']:
+                    route_key = f"{method}:{route.path}"
+                    is_duplicate = route_key in route_set
+                    route_set.add(route_key)
+
+                    routes.append({
+                        "method": method,
+                        "path": route.path,
+                        "name": route.name if hasattr(route, 'name') else None,
+                        "duplicate": is_duplicate
+                    })
+
+    # Group by prefix
+    groups = {}
+    for r in routes:
+        prefix = r['path'].split('/')[2] if len(r['path'].split('/')) > 2 else 'root'
+        if prefix not in groups:
+            groups[prefix] = []
+        groups[prefix].append(r)
+
+    # Find duplicates
+    duplicates = [r for r in routes if r['duplicate']]
+
+    return {
+        "success": True,
+        "total_routes": len(routes),
+        "duplicate_count": len(duplicates),
+        "duplicates": duplicates,
+        "routes_by_group": {k: len(v) for k, v in groups.items()},
+        "routes": sorted(routes, key=lambda x: (x['path'], x['method']))
+    }
+
+
+@app.get("/api/admin/api/duplicates")
+def get_duplicate_routes():
+    """Find duplicate API routes and schemas"""
+    from collections import defaultdict
+
+    # Find duplicate routes
+    route_counts = defaultdict(list)
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            for method in route.methods:
+                if method not in ['HEAD', 'OPTIONS']:
+                    key = f"{method}:{route.path}"
+                    route_counts[key].append({
+                        "name": route.name if hasattr(route, 'name') else None,
+                        "endpoint": str(route.endpoint) if hasattr(route, 'endpoint') else None
+                    })
+
+    duplicate_routes = {k: v for k, v in route_counts.items() if len(v) > 1}
+
+    # Find similar paths (potential duplicates with different naming)
+    paths = [route.path for route in app.routes if hasattr(route, 'path')]
+    similar_paths = []
+
+    # Check for auth patterns
+    auth_paths = [p for p in paths if '/auth/' in p]
+    customer_paths = [p for p in paths if '/customer/' in p]
+    driver_paths = [p for p in paths if '/driver/' in p]
+    vendor_paths = [p for p in paths if '/vendor/' in p]
+
+    return {
+        "success": True,
+        "duplicate_routes": duplicate_routes,
+        "duplicate_count": len(duplicate_routes),
+        "path_analysis": {
+            "auth_endpoints": len(auth_paths),
+            "customer_endpoints": len(customer_paths),
+            "driver_endpoints": len(driver_paths),
+            "vendor_endpoints": len(vendor_paths),
+            "total_paths": len(paths)
+        }
     }
 
 
