@@ -7,10 +7,10 @@ metadata:
 namespace: staging
 
 resources:
-  - ../../base
-  - namespace.yaml
-  - rollout.yaml
-  - analysistemplate.yaml
+- ../../base
+- namespace.yaml
+- rollout.yaml
+- analysistemplate.yaml
 
 namePrefix: staging-
 
@@ -21,70 +21,70 @@ commonAnnotations:
   app.kubernetes.io/environment: staging
 
 images:
-  - name: dollor-api
-    newName: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
-    newTag: staging-latest
+- name: dollor-api
+  newName: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  newTag: 61aa02877d730f3300e8f75f9303e082e94c9c27
 
 # Remove base deployment since we use Argo Rollout
-patches:
   # Delete the base deployment (replaced by Rollout)
-  - target:
-      kind: Deployment
-      name: dollor-backend
-    patch: |-
-      $patch: delete
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: dollor-backend
 
   # Patch ingress for staging domain
-  - target:
-      kind: Ingress
-      name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: staging-api.dollor.ai
-      - op: replace
-        path: /spec/tls/0/hosts/0
-        value: staging-api.dollor.ai
-      - op: replace
-        path: /spec/tls/0/secretName
-        value: staging-dollor-backend-tls
 
   # Update HPA for staging
-  - target:
-      kind: HorizontalPodAutoscaler
-      name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/minReplicas
-        value: 2
-      - op: replace
-        path: /spec/maxReplicas
-        value: 5
-      - op: replace
-        path: /spec/scaleTargetRef/kind
-        value: Rollout
-      - op: replace
-        path: /spec/scaleTargetRef/apiVersion
-        value: argoproj.io/v1alpha1
 
   # Update PDB for staging
-  - target:
-      kind: PodDisruptionBudget
+patches:
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
       name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/minAvailable
-        value: 1
+  target:
+    kind: Deployment
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: staging-api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: staging-api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/secretName
+      value: staging-dollor-backend-tls
+  target:
+    kind: Ingress
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 5
+    - op: replace
+      path: /spec/scaleTargetRef/kind
+      value: Rollout
+    - op: replace
+      path: /spec/scaleTargetRef/apiVersion
+      value: argoproj.io/v1alpha1
+  target:
+    kind: HorizontalPodAutoscaler
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minAvailable
+      value: 1
+  target:
+    kind: PodDisruptionBudget
+    name: dollor-backend
 
 configMapGenerator:
-  - name: dollor-backend-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=staging
-      - LOG_LEVEL=INFO
-      - CORS_ORIGINS=https://staging.dollor.ai
-      - RATE_LIMIT=500
+- behavior: merge
+  literals:
+  - ENVIRONMENT=staging
+  - LOG_LEVEL=INFO
+  - CORS_ORIGINS=https://staging.dollor.ai
+  - RATE_LIMIT=500
+  name: dollor-backend-config
