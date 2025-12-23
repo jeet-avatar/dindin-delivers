@@ -2,9 +2,19 @@ name: iOS CI/CD
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [ main, develop, staging, feature/* ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, staging ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - release
 
 env:
   XCODE_VERSION: '16.1'
