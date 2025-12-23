@@ -394,6 +394,7 @@ class Order(Base):
     preparing_at = Column(DateTime)
     delivered_at = Column(DateTime)
     dispatched_at = Column(DateTime)  # When driver was assigned
+    cancelled_at = Column(DateTime)  # When order was cancelled
 
     # Auto-Dispatch System
     auto_dispatched = Column(Boolean, default=False)  # Was this auto-dispatched?
