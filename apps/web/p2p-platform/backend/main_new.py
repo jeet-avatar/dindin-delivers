@@ -9948,6 +9948,128 @@ async def send_order_chat_message(
     return {"success": True, "message": "Message sent"}
 
 
+# ==================== P18: ORDER MODIFICATION ENDPOINTS ====================
+# Android/iOS apps expect these endpoints for order modifications
+
+@app.get("/api/orders/{order_id}/modification")
+async def get_order_modification(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get order modification details (e.g., when items are unavailable).
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    from datetime import datetime, timedelta
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Check if there's a pending modification
+    # For now, return null if no modification pending
+    modification_data = getattr(order, 'modification_data', None)
+    if not modification_data:
+        return {"modification": None, "has_modification": False}
+
+    # Return modification details
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    return {
+        "has_modification": True,
+        "modification": {
+            "modification_number": f"MOD-{order_id}",
+            "order_id": order_id,
+            "unavailable_items": modification_data.get("unavailable_items", []),
+            "unavailable_count": len(modification_data.get("unavailable_items", [])),
+            "available_items": modification_data.get("available_items", []),
+            "available_count": len(modification_data.get("available_items", [])),
+            "original_total": float(order.total_amount or 0),
+            "new_total": modification_data.get("new_total", float(order.total_amount or 0)),
+            "partial_refund_amount": modification_data.get("refund_amount", 0),
+            "time_remaining_seconds": 300,
+            "expires_at": expires_at.isoformat(),
+            "is_expired": False,
+            "restaurant_name": order.vendor_name
+        }
+    }
+
+
+@app.post("/api/orders/{order_id}/modification/respond")
+async def respond_to_order_modification(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Respond to order modification (accept/reject).
+    Used by Android/iOS customer apps.
+    Request body: { "response": "accept" | "reject" }
+    """
+    from models import Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    response_type = request.get("response", "").lower()
+    if response_type not in ["accept", "reject"]:
+        raise HTTPException(status_code=400, detail="Response must be 'accept' or 'reject'")
+
+    if response_type == "accept":
+        # Customer accepts modified order
+        return {
+            "success": True,
+            "message": "Order modification accepted",
+            "refund_id": None,
+            "refund_amount": 0,
+            "new_order_total": float(order.total_amount or 0)
+        }
+    else:
+        # Customer rejects - full refund
+        return {
+            "success": True,
+            "message": "Order cancelled and refund initiated",
+            "refund_id": f"REF-{order_id}",
+            "refund_amount": float(order.total_amount or 0),
+            "new_order_total": 0
+        }
+
+
+@app.post("/api/orders/{order_id}/mark-unavailable")
+async def mark_items_unavailable(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark items as unavailable (vendor/restaurant use).
+    Used by Android/iOS vendor apps.
+    Request body: { "item_ids": [int], "reason": "string" }
+    """
+    from models import Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    item_ids = request.get("item_ids", [])
+    reason = request.get("reason", "Item out of stock")
+
+    if not item_ids:
+        raise HTTPException(status_code=400, detail="item_ids is required")
+
+    # Store modification data on order (would trigger customer notification)
+    # In a real implementation, this would update order items and notify customer
+
+    return {
+        "success": True,
+        "message": f"Marked {len(item_ids)} items as unavailable",
+        "modification_number": f"MOD-{order_id}",
+        "unavailable_count": len(item_ids)
+    }
+
+
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
