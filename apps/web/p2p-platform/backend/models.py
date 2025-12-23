@@ -496,6 +496,7 @@ class Customer(Base):
     # Preferences
     dietary_preferences = Column(JSON)  # ["vegetarian", "gluten_free"]
     favorite_cuisines = Column(JSON)
+    favorite_vendors = Column(JSON)  # Array of vendor IDs [1, 5, 12]
     notification_preferences = Column(JSON)
 
     # Loyalty

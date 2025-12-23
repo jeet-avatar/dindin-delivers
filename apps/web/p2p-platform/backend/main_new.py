@@ -629,6 +629,7 @@ def _run_startup_migrations():
         ("drivers", "photo_url", "VARCHAR(500)"),
         # Customers table columns - for customer authentication
         ("customers", "password_hash", "VARCHAR(255)"),
+        ("customers", "favorite_vendors", "JSON"),
         # Vendors table columns - for online status and verification
         ("vendors", "is_online", "BOOLEAN DEFAULT FALSE"),
         ("vendors", "went_online_at", "TIMESTAMP"),
@@ -9734,8 +9735,97 @@ async def get_customer_favorites(
     Get favorite restaurants for a customer.
     Used by Android/iOS customer apps.
     """
-    # Return empty list for now - can be populated from customer preferences
-    return []
+    from models import Customer, Vendor
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        return []
+
+    favorite_vendor_ids = customer.favorite_vendors or []
+    if not favorite_vendor_ids:
+        return []
+
+    # Get vendor details for favorites
+    vendors = db.query(Vendor).filter(Vendor.id.in_(favorite_vendor_ids)).all()
+    return [
+        {
+            "id": v.id,
+            "name": v.restaurant_name or v.company_name,
+            "cuisine_type": v.cuisine_type,
+            "rating": 4.5,  # Default rating - can add rating column later
+            "is_open": getattr(v, 'is_online', False) or False
+        } for v in vendors
+    ]
+
+
+@app.post("/api/customer/favorites/{customer_id}/{vendor_id}")
+async def add_customer_favorite(
+    customer_id: int,
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a restaurant to customer's favorites.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer, Vendor
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    favorite_vendors = customer.favorite_vendors or []
+    if vendor_id not in favorite_vendors:
+        favorite_vendors.append(vendor_id)
+        customer.favorite_vendors = favorite_vendors
+        db.commit()
+
+    return {"success": True, "message": "Added to favorites"}
+
+
+@app.delete("/api/customer/favorites/{customer_id}/{vendor_id}")
+async def remove_customer_favorite(
+    customer_id: int,
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Remove a restaurant from customer's favorites.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    favorite_vendors = customer.favorite_vendors or []
+    if vendor_id in favorite_vendors:
+        favorite_vendors.remove(vendor_id)
+        customer.favorite_vendors = favorite_vendors
+        db.commit()
+
+    return {"success": True, "message": "Removed from favorites"}
+
+
+@app.get("/api/customer/favorites/{customer_id}/check/{vendor_id}")
+async def check_customer_favorite(
+    customer_id: int,
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if a restaurant is in customer's favorites.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        return {"is_favorite": False}
+
+    favorite_vendors = customer.favorite_vendors or []
+    return {"is_favorite": vendor_id in favorite_vendors}
 
 
 @app.post("/api/customer/orders/{order_id}/rate-driver")
