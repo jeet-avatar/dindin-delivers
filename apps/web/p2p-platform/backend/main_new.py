@@ -7,7 +7,7 @@ handling food delivery and rideshare coordination.
 Version: 1.0.1
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -87,6 +87,60 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
+
+# ===================== RATE LIMITING =====================
+# SECURITY: Protect auth endpoints from brute force attacks
+from collections import defaultdict
+import time
+import threading
+
+class RateLimiter:
+    """Simple in-memory rate limiter with sliding window"""
+
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+        self.lock = threading.Lock()
+
+    def is_allowed(self, key: str) -> bool:
+        """Check if request is allowed for the given key (IP or email)"""
+        now = time.time()
+        with self.lock:
+            # Clean old requests
+            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
+            # Check limit
+            if len(self.requests[key]) >= self.max_requests:
+                return False
+            # Record this request
+            self.requests[key].append(now)
+            return True
+
+    def get_retry_after(self, key: str) -> int:
+        """Get seconds until the rate limit resets"""
+        if not self.requests[key]:
+            return 0
+        oldest = min(self.requests[key])
+        return max(0, int(self.window_seconds - (time.time() - oldest)))
+
+# Rate limiters for different endpoints
+auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
+registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 registrations per 5 minutes
+
+def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
+    """Check rate limit and raise HTTPException if exceeded"""
+    # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+    key = f"{key_prefix}:{client_ip}"
+
+    if not limiter.is_allowed(key):
+        retry_after = limiter.get_retry_after(key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)}
+        )
 
 # Health Check Endpoint
 @app.get("/health")
@@ -2013,8 +2067,10 @@ class CustomerLoginRequest(BaseModel):
 
 @app.post("/api/auth/customer/login")
 @app.post("/auth/customer/login")  # Alias for mobile apps without /api prefix
-def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "customer_login")
     print(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
@@ -2111,8 +2167,10 @@ def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depend
 
 @app.post("/api/auth/customer/register")
 @app.post("/auth/customer/register")  # Alias for mobile apps without /api prefix
-def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+def customer_auth_register(http_request: Request, request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
+    # SECURITY: Rate limit registration attempts
+    check_rate_limit(http_request, registration_rate_limiter, "customer_register")
     print(f"Customer registration attempt for: {request.email}")
 
     try:
@@ -2124,11 +2182,34 @@ def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depen
                 detail="Email already registered"
             )
 
-        # Validate password is not empty
+        # Validate password is not empty and meets security requirements
         if not request.password or len(request.password.strip()) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password is required and cannot be empty"
+            )
+
+        # SECURITY: Enforce password policy
+        password = request.password
+        if len(password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+        if not any(c.isupper() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one uppercase letter"
+            )
+        if not any(c.islower() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one lowercase letter"
+            )
+        if not any(c.isdigit() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one number"
             )
 
         # Split name (accepts both 'name' and 'full_name' fields)
@@ -2648,15 +2729,11 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        # Return mock status if database query fails
-        return {
-            "ride_id": ride_id,
-            "status": "pending",
-            "driver": None,
-            "eta_minutes": None,
-            "message": "Looking for drivers...",
-            "error": str(e) if str(e) else None
-        }
+        # SECURITY: Log the full error but don't expose SQL/system details to client
+        import logging
+        logging.error(f"Ride status query error for {ride_id}: {str(e)}")
+        # Return generic error - don't expose database/SQL details
+        raise HTTPException(status_code=400, detail="Invalid ride ID format")
 
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
@@ -5643,14 +5720,46 @@ def get_orders(
 
 
 @app.get("/api/orders/{order_id}")
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    """Get single order by ID."""
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    authorization: str = Header(None)
+):
+    """Get single order by ID - requires authorization and ownership verification."""
     from models import Order, Vendor
     import json
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the requesting user owns this order or is the vendor/driver
+    if authorization:
+        customer = get_current_customer_from_token(authorization, db)
+        if customer:
+            # Customer can only view their own orders
+            if order.customer_email != customer.email:
+                raise HTTPException(status_code=403, detail="Access denied: You can only view your own orders")
+        else:
+            # Try to extract vendor/driver from token
+            try:
+                token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                role = payload.get("role", "").lower()
+
+                if role == "vendor":
+                    vendor_id = payload.get("vendor_id")
+                    if vendor_id and order.vendor_id != vendor_id:
+                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders for your restaurant")
+                elif role == "driver":
+                    driver_id = payload.get("driver_id")
+                    if driver_id and order.driver_id != driver_id:
+                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders assigned to you")
+            except JWTError:
+                raise HTTPException(status_code=401, detail="Invalid authorization token")
+    else:
+        # No authorization provided - deny access
+        raise HTTPException(status_code=401, detail="Authorization required to view order details")
 
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
 
