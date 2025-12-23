@@ -158,9 +158,11 @@
 | `/api/rides/estimate` | [x] Working | Full fare breakdown |
 | `/api/promotions/active` | [x] Working | 3 active promos |
 | `/api/legal/terms` | [x] Working | Returns legal summary |
-| `/api/customers/login` | [ ] Not Found | Needs backend check |
-| `/api/customers/register` | [ ] Not Found | Needs backend check |
+| `/api/auth/customer/login` | [x] Working | Returns JWT token |
+| `/api/auth/customer/register` | [x] Working | Creates customer, returns JWT |
 | `/privacy`, `/terms` pages | [ ] Not Found | Static pages missing |
+
+**Note**: Auth endpoints use `/api/auth/customer/*` NOT `/api/customers/*`
 
 ---
 
