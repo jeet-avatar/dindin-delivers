@@ -253,7 +253,8 @@ jobs:
       security-events: write
       contents: read
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      # Use explicit ECR image path with commit SHA to avoid multiline issues from docker/metadata-action
+      image_tag: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
       image_digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
