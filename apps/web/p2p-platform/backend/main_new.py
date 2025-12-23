@@ -9073,12 +9073,12 @@ def get_active_promotions(db: Session = Depends(get_db)):
 
 
 @app.post("/api/promotions/apply")
-def apply_promo_code(
+def apply_promotion_code(
     request: dict,
     db: Session = Depends(get_db)
 ):
     """
-    Apply a promo code to an order.
+    Apply a promo code to an order (Promotions API).
     Request: { "code": "WELCOME20", "order_total": 30.00 }
     Response: { "success": true, "discount": 6.00, "message": "..." }
     """
@@ -9467,7 +9467,7 @@ async def track_customer_order(
 
 
 @app.post("/api/rides/{ride_id}/rate")
-async def rate_ride(
+async def rate_ride_customer(
     ride_id: int,
     rating: int = 5,
     comment: str = None,
@@ -9475,7 +9475,7 @@ async def rate_ride(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Rate a completed ride.
+    Rate a completed ride (Customer API).
     Used by Android/iOS customer apps.
     """
     return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
