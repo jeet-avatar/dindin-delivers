@@ -2546,6 +2546,8 @@ Screen-by-screen comparison between iOS (40+ screens) and Android (45+ screens) 
 | **SettingsView** | `Views/SettingsView.swift` | Notification settings, language, legal pages, bug report, account deletion |
 | **ReferAndEarnView** | `Views/ReferAndEarnView.swift` | Referral program with share/copy code, stats, rewards tiers |
 | **LegalAcceptanceView** | `Views/LegalAcceptanceView.swift` | Terms and Privacy acceptance for App Store compliance |
+| **RegisterView** | `Views/RegisterView.swift` | User registration with email, password, name, phone, zip code, benefits card |
+| **NotificationView** | `Views/NotificationView.swift` | Notification center with order updates, promotions, mark as read, clear all |
 
 **WelcomeView Features:**
 - Animated gold dollar sign logo with pulsing effect
@@ -2580,6 +2582,21 @@ Screen-by-screen comparison between iOS (40+ screens) and Android (45+ screens) 
 - Privacy Policy link with checkbox
 - Both must be accepted to continue
 - App Store/Play Store compliance ready
+
+**RegisterView Features:**
+- Email, password, name, phone, zip code input fields
+- Field-level validation with error messages
+- Benefits card highlighting $1 fee, easy ordering, fair platform
+- Calls staging API for customer registration
+- Matches Android RegisterScreen exactly
+
+**NotificationView Features:**
+- List of notifications with type-based icons (order, promotion, system, delivery)
+- Unread indicator with accent color dot
+- Mark as read on tap
+- Clear All button to remove all notifications
+- Relative timestamp formatting (e.g., "2 min ago")
+- Empty state with bell icon
 
 ### Android Screens Added
 
@@ -2682,6 +2699,9 @@ Both iOS (`P2PAPIService.swift`) and Android (`DollorApiService.kt`) API service
 | Driver Profile | ✓ | ✓ | Identical |
 | Location Updates | ✓ | ✓ | Identical |
 | Ratings | ✓ | ✓ | Identical |
+| Rideshare Fare Estimate | ✓ | ✓ | Identical |
+| Customer Registration | ✓ | ✓ | Identical |
+| Notifications | ✓ | ✓ | Identical |
 
 ### Pricing Parity
 
@@ -2702,6 +2722,10 @@ All platforms display consistent pricing:
 | Order Success | ✓ | ✓ | N/A |
 | Menu Customization | ✓ | ✓ | N/A |
 | Legal Acceptance | ✓ | ✓ | N/A |
+| Registration | ✓ | ✓ | N/A |
+| Notifications | ✓ | ✓ | N/A |
+| Forgot Password | ✓ | ✓ | N/A |
+| Edit Profile | ✓ | ✓ | N/A |
 
 ### File Paths Reference
 
@@ -2712,7 +2736,10 @@ apps/ios/customer/eatfaircustomer/Views/
 ├── SettingsView.swift
 ├── ReferAndEarnView.swift
 ├── LegalAcceptanceView.swift
-└── ProfileView.swift (updated)
+├── RegisterView.swift
+├── NotificationView.swift
+├── ProfileView.swift (updated)
+└── LoginView.swift (includes ForgotPasswordView)
 ```
 
 **Android (eatfair-android):**

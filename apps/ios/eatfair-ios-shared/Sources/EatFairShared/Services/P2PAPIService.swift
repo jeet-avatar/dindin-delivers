@@ -4037,6 +4037,63 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Customer Ride Request APIs
 
+    /// Get fare estimate from staging API (consistent pricing with Android)
+    /// Uses same endpoint as Android: /api/rides/estimate
+    public func estimateRideFare(
+        pickupLat: Double,
+        pickupLng: Double,
+        dropoffLat: Double,
+        dropoffLng: Double,
+        stateCode: String = "CA",
+        completion: @escaping (Result<RideFareEstimateResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/estimate") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "pickup_latitude": pickupLat,
+            "pickup_longitude": pickupLng,
+            "dropoff_latitude": dropoffLat,
+            "dropoff_longitude": dropoffLng,
+            "state_code": stateCode
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(RideFareEstimateResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Fare estimate decode error: \(error)")
+                    if let str = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Response: \(str)")
+                    }
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Request a ride (customer requests pickup)
     public func requestRide(
         customerName: String,
@@ -5366,6 +5423,107 @@ public struct FareNegotiationResponse: Codable {
 }
 
 /// MARK: - Customer Ride Request Models
+
+/// Response from fare estimate API (matches Android RideEstimateResponse)
+/// Endpoint: POST /api/rides/estimate
+public struct RideFareEstimateResponse: Codable {
+    public let success: Bool
+    public let estimate: RideFareEstimate
+
+    enum CodingKeys: String, CodingKey {
+        case success, estimate
+    }
+}
+
+/// Fare estimate details from staging API
+public struct RideFareEstimate: Codable {
+    public let distanceMiles: Double
+    public let durationMinutes: Double
+    public let breakdown: RideFareBreakdown
+    public let subtotal: Double
+    public let platformFee: Double
+    public let total: Double
+    public let tier: Int
+    public let tierLabel: String
+    public let driverInfo: RideDriverInfo?
+    public let suggestedBids: [RideSuggestedBid]?
+    public let messaging: RideMessaging?
+    public let rideType: String?
+    public let distanceKm: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case distanceMiles = "distance_miles"
+        case durationMinutes = "duration_minutes"
+        case breakdown, subtotal
+        case platformFee = "platform_fee"
+        case total, tier
+        case tierLabel = "tier_label"
+        case driverInfo = "driver_info"
+        case suggestedBids = "suggested_bids"
+        case messaging
+        case rideType = "ride_type"
+        case distanceKm = "distance_km"
+    }
+}
+
+/// Fare breakdown from staging API
+public struct RideFareBreakdown: Codable {
+    public let baseFare: Double
+    public let distanceCost: Double
+    public let timeCost: Double
+    public let timeAdjustment: Double?
+    public let timeAdjustmentLabel: String?
+    public let longDistanceDiscount: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case baseFare = "base_fare"
+        case distanceCost = "distance_cost"
+        case timeCost = "time_cost"
+        case timeAdjustment = "time_adjustment"
+        case timeAdjustmentLabel = "time_adjustment_label"
+        case longDistanceDiscount = "long_distance_discount"
+    }
+}
+
+/// Driver earnings info from fare estimate
+public struct RideDriverInfo: Codable {
+    public let earnings: Double
+    public let perMile: Double
+    public let perHour: Double
+    public let percentage: Double
+
+    enum CodingKeys: String, CodingKey {
+        case earnings
+        case perMile = "per_mile"
+        case perHour = "per_hour"
+        case percentage
+    }
+}
+
+/// Suggested bid options for fare negotiation
+public struct RideSuggestedBid: Codable {
+    public let label: String
+    public let emoji: String
+    public let price: Double
+    public let driverEarnings: Double
+    public let acceptanceHint: String
+    public let perMile: Double
+    public let isRecommended: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case label, emoji, price
+        case driverEarnings = "driver_earnings"
+        case acceptanceHint = "acceptance_hint"
+        case perMile = "per_mile"
+        case isRecommended = "is_recommended"
+    }
+}
+
+/// Messaging hints for customer and driver
+public struct RideMessaging: Codable {
+    public let customer: String?
+    public let driver: [String]?
+}
 
 /// Input for ride address (pickup or dropoff)
 public struct RideAddressInput: Codable {
