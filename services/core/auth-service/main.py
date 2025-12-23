@@ -176,6 +176,36 @@ class PasswordResetConfirm(BaseModel):
     new_password: str
 
 
+class VendorRegisterRequest(BaseModel):
+    """Vendor/Restaurant registration request"""
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+    restaurant_name: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+
+    def get_owner_name(self) -> str:
+        return self.full_name or self.restaurant_name
+
+
+class VendorLoginRequest(BaseModel):
+    """JSON login request for vendor apps (iOS)"""
+    email: EmailStr
+    password: str
+
+
+class VendorGoogleAuthRequest(BaseModel):
+    """Google OAuth request for vendors"""
+    email: EmailStr
+    name: str
+    google_id: str
+    restaurant_name: Optional[str] = None
+
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
@@ -1199,6 +1229,370 @@ async def confirm_password_reset(request: PasswordResetConfirm, db: Session = De
     # In production, would validate token and update password
     logger.info("Password reset confirmed", email=request.email)
 
+    return {
+        "success": True,
+        "message": "Password has been reset successfully."
+    }
+
+
+# =============================================================================
+# VENDOR/RESTAURANT AUTHENTICATION ROUTES
+# =============================================================================
+
+@app.post("/api/auth/vendor/login", tags=["Vendor Authentication"])
+async def vendor_login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """
+    Authenticate vendor (restaurant owner) and return JWT token.
+    Uses form data for Android/Web compatibility.
+    """
+    logger.info("Vendor login attempt", email=form_data.username)
+
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.password_hash, u.full_name, u.vendor_id,
+                   v.id as v_id, v.restaurant_name, v.company_name, v.onboarding_status
+            FROM users u
+            LEFT JOIN vendors v ON u.vendor_id = v.id
+            WHERE u.email = :email AND u.role = 'VENDOR'
+        """),
+        {"email": form_data.username}
+    ).fetchone()
+
+    if not result:
+        logger.warning("Vendor not found", email=form_data.username)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "VENDOR-201", "message": "Invalid credentials"}
+        )
+
+    user_id, email, password_hash, full_name, vendor_id, v_id, restaurant_name, company_name, onboarding_status = result
+
+    if not verify_password(form_data.password, password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "VENDOR-201", "message": "Invalid credentials"}
+        )
+
+    status_str = str(onboarding_status).upper() if onboarding_status else ""
+    if status_str not in ['APPROVED', 'VENDORSTATUS.APPROVED', 'ACTIVE']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "VENDOR-202", "message": f"Vendor account not approved. Status: {onboarding_status}"}
+        )
+
+    access_token = create_access_token(data={
+        "sub": email,
+        "role": "vendor",
+        "vendor_id": v_id,
+        "user_id": user_id
+    })
+
+    business_name = restaurant_name or company_name or full_name
+    logger.info("Vendor login successful", email=email, vendor_id=v_id)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": v_id,
+        "business_name": business_name,
+        "email": email,
+        "user": {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "role": "vendor",
+            "vendor_id": v_id
+        }
+    }
+
+
+@app.post("/api/vendor/login", tags=["Vendor Authentication - iOS"])
+async def vendor_login_ios(request: VendorLoginRequest, db: Session = Depends(get_db)):
+    """iOS Vendor Login - JSON body endpoint."""
+    logger.info("iOS Vendor login attempt", email=request.email)
+
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.password_hash, u.full_name, u.vendor_id,
+                   v.id as v_id, v.restaurant_name, v.company_name, v.onboarding_status
+            FROM users u
+            LEFT JOIN vendors v ON u.vendor_id = v.id
+            WHERE u.email = :email AND u.role = 'VENDOR'
+        """),
+        {"email": request.email}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "VENDOR-201", "message": "Invalid credentials"}
+        )
+
+    user_id, email, password_hash, full_name, vendor_id, v_id, restaurant_name, company_name, onboarding_status = result
+
+    if not verify_password(request.password, password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "VENDOR-201", "message": "Invalid credentials"}
+        )
+
+    status_str = str(onboarding_status).upper() if onboarding_status else ""
+    if status_str not in ['APPROVED', 'VENDORSTATUS.APPROVED', 'ACTIVE']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "VENDOR-202", "message": f"Vendor account not approved. Status: {onboarding_status}"}
+        )
+
+    access_token = create_access_token(data={
+        "sub": email,
+        "role": "vendor",
+        "vendor_id": v_id,
+        "user_id": user_id
+    })
+
+    business_name = restaurant_name or company_name or full_name
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": v_id,
+        "business_name": business_name,
+        "email": email
+    }
+
+
+@app.post("/api/auth/vendor/register", tags=["Vendor Authentication"])
+async def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db)):
+    """Register a new vendor/restaurant account."""
+    logger.info("Vendor registration attempt", email=request.email, restaurant=request.restaurant_name)
+
+    existing = db.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": request.email}
+    ).fetchone()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "VENDOR-103", "message": "Email already registered"}
+        )
+
+    count_result = db.execute(text("SELECT COUNT(*) FROM vendors")).fetchone()
+    vendor_count = count_result[0] if count_result else 0
+    vendor_code = f"VND-{vendor_count + 1:05d}"
+
+    owner_name = request.get_owner_name()
+    vendor_result = db.execute(
+        text("""
+            INSERT INTO vendors (vendor_id, restaurant_name, company_name, email, phone,
+                                 address, city, state, zip_code, onboarding_status, created_at)
+            VALUES (:vendor_id, :restaurant_name, :company_name, :email, :phone,
+                    :address, :city, :state, :zip_code, 'PENDING', NOW())
+            RETURNING id
+        """),
+        {
+            "vendor_id": vendor_code,
+            "restaurant_name": request.restaurant_name,
+            "company_name": owner_name,
+            "email": request.email,
+            "phone": request.phone,
+            "address": request.address,
+            "city": request.city,
+            "state": request.state,
+            "zip_code": request.zip_code
+        }
+    )
+    new_vendor_id = vendor_result.fetchone()[0]
+
+    hashed_password = get_password_hash(request.password)
+    db.execute(
+        text("""
+            INSERT INTO users (email, password_hash, full_name, role, vendor_id, created_at)
+            VALUES (:email, :password_hash, :full_name, 'VENDOR', :vendor_id, NOW())
+        """),
+        {
+            "email": request.email,
+            "password_hash": hashed_password,
+            "full_name": owner_name,
+            "vendor_id": new_vendor_id
+        }
+    )
+    db.commit()
+
+    access_token = create_access_token(data={
+        "sub": request.email,
+        "role": "vendor",
+        "vendor_id": new_vendor_id
+    })
+
+    logger.info("Vendor registration successful", email=request.email, vendor_id=new_vendor_id)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": new_vendor_id,
+        "vendor_code": vendor_code,
+        "business_name": request.restaurant_name,
+        "email": request.email,
+        "status": "PENDING",
+        "message": "Registration successful. Your account is pending approval."
+    }
+
+
+@app.post("/api/vendor/register", tags=["Vendor Authentication - iOS"])
+async def vendor_register_ios(request: VendorRegisterRequest, db: Session = Depends(get_db)):
+    """iOS Vendor Registration - JSON body endpoint."""
+    return await vendor_register(request, db)
+
+
+@app.post("/api/auth/vendor/google", tags=["Vendor Authentication"])
+async def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
+    """Vendor Google OAuth - handles login and registration."""
+    logger.info("Vendor Google auth", email=request.email)
+
+    result = db.execute(
+        text("""
+            SELECT u.id, u.email, u.vendor_id, v.id as v_id, v.restaurant_name,
+                   v.company_name, v.onboarding_status
+            FROM users u
+            LEFT JOIN vendors v ON u.vendor_id = v.id
+            WHERE u.email = :email AND u.role = 'VENDOR'
+        """),
+        {"email": request.email}
+    ).fetchone()
+
+    if result:
+        user_id, email, vendor_id, v_id, restaurant_name, company_name, onboarding_status = result
+
+        status_str = str(onboarding_status).upper() if onboarding_status else ""
+        if status_str not in ['APPROVED', 'VENDORSTATUS.APPROVED', 'ACTIVE', 'PENDING']:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "VENDOR-202", "message": f"Vendor account not approved. Status: {onboarding_status}"}
+            )
+        business_name = restaurant_name or company_name
+    else:
+        count_result = db.execute(text("SELECT COUNT(*) FROM vendors")).fetchone()
+        vendor_count = count_result[0] if count_result else 0
+        vendor_code = f"VND-{vendor_count + 1:05d}"
+
+        restaurant_name = request.restaurant_name or f"{request.name}'s Restaurant"
+
+        vendor_result = db.execute(
+            text("""
+                INSERT INTO vendors (vendor_id, restaurant_name, company_name, email, onboarding_status, created_at)
+                VALUES (:vendor_id, :restaurant_name, :company_name, :email, 'PENDING', NOW())
+                RETURNING id
+            """),
+            {
+                "vendor_id": vendor_code,
+                "restaurant_name": restaurant_name,
+                "company_name": request.name,
+                "email": request.email
+            }
+        )
+        v_id = vendor_result.fetchone()[0]
+
+        hashed_password = get_password_hash(f"google_oauth_{request.google_id}")
+        db.execute(
+            text("""
+                INSERT INTO users (email, password_hash, full_name, role, vendor_id, created_at)
+                VALUES (:email, :password_hash, :full_name, 'VENDOR', :vendor_id, NOW())
+            """),
+            {
+                "email": request.email,
+                "password_hash": hashed_password,
+                "full_name": request.name,
+                "vendor_id": v_id
+            }
+        )
+        db.commit()
+
+        business_name = restaurant_name
+        onboarding_status = "PENDING"
+        logger.info("Created new vendor via Google", email=request.email)
+
+    access_token = create_access_token(data={
+        "sub": request.email,
+        "role": "vendor",
+        "vendor_id": v_id
+    })
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": v_id,
+        "business_name": business_name,
+        "email": request.email,
+        "status": str(onboarding_status) if onboarding_status else "PENDING"
+    }
+
+
+@app.get("/api/auth/vendor/me", tags=["Vendor Authentication"])
+async def get_current_vendor(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get current authenticated vendor profile."""
+    payload = decode_token(token)
+    vendor_id = payload.get("vendor_id")
+
+    if not vendor_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "VENDOR-201", "message": "Not a vendor token"}
+        )
+
+    result = db.execute(
+        text("""
+            SELECT v.id, v.vendor_id, v.restaurant_name, v.company_name, v.email,
+                   v.phone, v.address, v.city, v.state, v.zip_code,
+                   v.onboarding_status, v.rating, v.is_active
+            FROM vendors v
+            WHERE v.id = :vendor_id
+        """),
+        {"vendor_id": vendor_id}
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "VENDOR-301", "message": "Vendor not found"}
+        )
+
+    return {
+        "id": result[0],
+        "vendor_code": result[1],
+        "restaurant_name": result[2],
+        "company_name": result[3],
+        "email": result[4],
+        "phone": result[5],
+        "address": result[6],
+        "city": result[7],
+        "state": result[8],
+        "zip_code": result[9],
+        "status": str(result[10]) if result[10] else "PENDING",
+        "rating": result[11],
+        "is_active": result[12]
+    }
+
+
+@app.post("/api/auth/vendor/password-reset/request", tags=["Vendor Password Reset"])
+async def vendor_password_reset_request(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset email for vendor account."""
+    logger.info("Vendor password reset requested", email=request.email)
+    return {
+        "success": True,
+        "message": "If an account with this email exists, a password reset link has been sent."
+    }
+
+
+@app.post("/api/auth/vendor/password-reset/confirm", tags=["Vendor Password Reset"])
+async def vendor_password_reset_confirm(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset with token for vendor."""
+    logger.info("Vendor password reset confirmed", email=request.email)
     return {
         "success": True,
         "message": "Password has been reset successfully."

@@ -10249,9 +10249,6 @@ PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8
 LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://location-service:8007")
 MENU_SERVICE_URL = os.getenv("MENU_SERVICE_URL", "http://menu-service:8008")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")
-# Auth Services
-RESTAURANT_AUTH_SERVICE_URL = os.getenv("RESTAURANT_AUTH_SERVICE_URL", "http://restaurant-auth-service:8010")
-DRIVER_AUTH_SERVICE_URL = os.getenv("DRIVER_AUTH_SERVICE_URL", "http://driver-auth-service:8011")
 # Feature Services
 RATING_SERVICE_URL = os.getenv("RATING_SERVICE_URL", "http://rating-service:8013")
 RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://ride-service:8014")
