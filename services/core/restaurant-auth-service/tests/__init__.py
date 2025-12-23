@@ -1,1 +1,0 @@
-# Restaurant Auth Service Tests
