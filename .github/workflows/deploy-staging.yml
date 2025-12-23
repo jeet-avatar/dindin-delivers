@@ -51,6 +51,7 @@ jobs:
         working-directory: apps/web/p2p-platform/backend
         env:
           SECRET_KEY: test-secret-key-for-ci
+          JWT_SECRET_KEY: test-jwt-secret-key-for-ci
           TESTING: "true"
         run: |
           pytest tests/unit/ -v --tb=short
