@@ -9828,6 +9828,126 @@ async def check_customer_favorite(
     return {"is_favorite": vendor_id in favorite_vendors}
 
 
+# ==================== P17: CUSTOMER ORDER CHAT ENDPOINTS ====================
+# Android/iOS customer apps expect these specific endpoints for order chat
+
+@app.get("/api/customer/orders/{order_id}/chat")
+async def get_order_chat_messages(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get chat messages for an order.
+    Used by Android/iOS customer apps.
+    Returns list of ChatMessage objects.
+    """
+    from models import ChatConversation, ChatMessage
+
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        return []
+
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.conversation_id == conversation.id
+    ).order_by(ChatMessage.created_at.asc()).all()
+
+    return [
+        {
+            "id": m.id,
+            "order_id": order_id,
+            "sender_type": m.sender_type.value if hasattr(m.sender_type, 'value') else str(m.sender_type),
+            "sender_id": m.sender_id,
+            "sender_name": m.sender_name,
+            "message": m.message,
+            "created_at": m.created_at.isoformat() if m.created_at else None
+        }
+        for m in messages
+    ]
+
+
+@app.post("/api/customer/orders/{order_id}/chat")
+async def send_order_chat_message(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Send a chat message for an order.
+    Used by Android/iOS customer apps.
+    Request body: { "message": "string", "sender_type": "customer" }
+    """
+    from models import ChatConversation, ChatMessage, MessageSenderType, Order
+    from datetime import datetime
+
+    # Get the order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Get or create conversation
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        conversation = ChatConversation(
+            order_id=order_id,
+            customer_id=order.customer_id or 0,
+            customer_name=order.customer_name,
+            driver_id=order.driver_id,
+            driver_name=order.driver_name,
+            is_active=True
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    # Get sender info
+    message_text = request.get("message", "")
+    sender_type_str = request.get("sender_type", "customer")
+
+    # Determine sender type enum
+    sender_type_enum = MessageSenderType.CUSTOMER if sender_type_str == "customer" else MessageSenderType.DRIVER
+
+    # Get sender_id based on type
+    if sender_type_str == "customer":
+        sender_id = order.customer_id or 0
+        sender_name = order.customer_name
+    else:
+        sender_id = order.driver_id or 0
+        sender_name = order.driver_name
+
+    # Create message
+    message = ChatMessage(
+        conversation_id=conversation.id,
+        sender_type=sender_type_enum,
+        sender_id=sender_id,
+        sender_name=sender_name,
+        message=message_text,
+        message_type="text",
+        is_delivered=True,
+        delivered_at=datetime.utcnow()
+    )
+    db.add(message)
+
+    # Update conversation
+    conversation.last_message_at = datetime.utcnow()
+    conversation.last_message_preview = message_text[:100] if len(message_text) > 100 else message_text
+
+    # Increment unread count for recipient
+    if sender_type_str == "customer":
+        conversation.driver_unread_count = (conversation.driver_unread_count or 0) + 1
+    else:
+        conversation.customer_unread_count = (conversation.customer_unread_count or 0) + 1
+
+    db.commit()
+
+    return {"success": True, "message": "Message sent"}
+
+
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
