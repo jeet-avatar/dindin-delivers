@@ -88,19 +88,21 @@ xcodebuild -workspace eatfaircustomer.xcworkspace \
 ### Authentication
 | Endpoint | Status |
 |----------|--------|
-| `/auth/customer/login` | [ ] |
-| `/auth/customer/register` | [ ] |
+| `/auth/customer/login` | [ ] Endpoint not found |
+| `/auth/customer/register` | [ ] Endpoint not found |
 | `/auth/customer/google` | [ ] |
 | `/auth/customer/apple-auth` | [ ] |
 
 ### Core Features
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Restaurants | `/vendors/published`, `/vendors/{id}/menu` | [ ] |
+| Restaurants | `/vendors/published`, `/vendors/{id}/menu` | [x] 14 restaurants |
 | Orders | `/orders/create`, `/customer/orders`, `/orders/{id}/track` | [ ] |
 | Addresses | `/addresses/{id}/*` | [ ] |
-| Rideshare | `/rides/*` | [ ] |
+| Rideshare | `/rides/estimate` | [x] Working |
 | Payments | `/payments/*`, `/customers/{id}/cards` | [ ] |
+| Promotions | `/promotions/active` | [x] 3 active promos |
+| Legal | `/api/legal/terms` | [x] Working |
 
 ---
 

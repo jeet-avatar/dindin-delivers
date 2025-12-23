@@ -144,6 +144,23 @@
 | 2025-12-23 | Fixed RideEstimateRequest field names | `ApiModels.kt` |
 | 2025-12-23 | Updated all iOS URLs to CloudFront staging | `AppConfig.swift` |
 | 2025-12-23 | Added fare estimate API to iOS | `P2PAPIService.swift`, `RideRequestViewModel.swift` |
+| 2025-12-23 | API Endpoint Testing - Verified working endpoints | See API Status below |
+
+---
+
+## Staging API Status (Tested 2025-12-23)
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `/health` | [x] Working | DB connected, v1.0.1 |
+| `/api/vendors/published` | [x] Working | 14 restaurants |
+| `/api/vendors/{id}/menu` | [x] Working | Empty for test vendors |
+| `/api/rides/estimate` | [x] Working | Full fare breakdown |
+| `/api/promotions/active` | [x] Working | 3 active promos |
+| `/api/legal/terms` | [x] Working | Returns legal summary |
+| `/api/customers/login` | [ ] Not Found | Needs backend check |
+| `/api/customers/register` | [ ] Not Found | Needs backend check |
+| `/privacy`, `/terms` pages | [ ] Not Found | Static pages missing |
 
 ---
 
