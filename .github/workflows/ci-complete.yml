@@ -203,7 +203,7 @@ jobs:
           path: apps/web/p2p-platform/backend/
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v4
+        uses: SonarSource/sonarcloud-github-action@v3
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -351,6 +351,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add infrastructure/kustomize/overlays/dev/
           git diff --staged --quiet || git commit -m "chore(dev): update image to ${{ github.sha }} [skip ci]"
+          git pull --rebase origin develop || true
           git push
 
   # ============================================
@@ -383,6 +384,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add infrastructure/kustomize/overlays/staging/
           git diff --staged --quiet || git commit -m "chore(staging): update image to ${{ github.sha }} - canary deployment [skip ci]"
+          git pull --rebase origin staging || true
           git push
 
   # ============================================
@@ -415,6 +417,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add infrastructure/kustomize/overlays/production/
           git diff --staged --quiet || git commit -m "chore(production): update image to ${{ github.sha }} - blue-green deployment [skip ci]"
+          git pull --rebase origin main || true
           git push
 
       - name: Deployment Summary
