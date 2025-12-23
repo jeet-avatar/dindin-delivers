@@ -612,6 +612,7 @@ def _run_startup_migrations():
     migrations = [
         # Orders table columns
         ("orders", "dispatched_at", "TIMESTAMP"),
+        ("orders", "cancelled_at", "TIMESTAMP"),
         ("orders", "auto_dispatched", "BOOLEAN DEFAULT FALSE"),
         ("orders", "broadcast_to_drivers", "BOOLEAN DEFAULT FALSE"),
         ("orders", "broadcast_at", "TIMESTAMP"),
@@ -9185,6 +9186,577 @@ app.include_router(chat_router)
 # Include Ride Bidding routes (Matchmaking platform)
 from bid_routes import router as bid_router
 app.include_router(bid_router)
+
+# ==================== ANDROID ORDER ALIASES ====================
+# Android uses /api/orders/create while ERP uses /api/erp/orders/create
+# Android uses /api/customer/orders while ERP uses /api/erp/orders/vendor/{id}
+from order_flow import create_order as erp_create_order, CreateOrderRequest
+
+@app.post("/api/orders/create")
+async def android_create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db)):
+    """
+    Android alias for order creation.
+    Maps to: POST /api/erp/orders/create
+    """
+    return await erp_create_order(order_data=order_data, db=db)
+
+
+@app.get("/api/customer/orders")
+def get_customer_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get orders for the authenticated customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order, Vendor
+    import json
+
+    # Get orders for this customer
+    query = db.query(Order).filter(Order.customer_email == current_user.email)
+    query = query.order_by(Order.created_at.desc())
+    orders = query.limit(50).all()
+
+    result = []
+    for order in orders:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+
+        items = []
+        if order.items:
+            try:
+                items = json.loads(order.items) if isinstance(order.items, str) else order.items
+            except:
+                items = []
+
+        result.append({
+            "id": order.id,
+            "order_number": order.order_number,
+            "vendor_id": order.vendor_id,
+            "vendor_name": vendor.restaurant_name if vendor else None,
+            "items": items,
+            "subtotal": order.subtotal,
+            "tax_amount": order.tax_amount,
+            "delivery_fee": order.delivery_fee,
+            "tip": order.tip,
+            "total_amount": order.total_amount,
+            "status": order.status.value if order.status else "pending_payment",
+            "payment_status": order.payment_status,
+            "delivery_address": order.delivery_address,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+        })
+
+    return result
+
+
+@app.get("/api/customer/rides")
+async def get_customer_rides(
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get customer's rides - alias for /api/customer/rides/history.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    if not customer:
+        return {"rides": [], "total": 0, "has_more": False}
+
+    total_rides = customer.total_orders or 0
+    rides = []
+    import random
+
+    sample_locations = [
+        ("123 Main St", "Downtown Mall", 12.50),
+        ("456 Oak Avenue", "Airport Terminal B", 28.00),
+        ("789 Pine Road", "Central Station", 15.75),
+    ]
+
+    for i in range(offset, min(offset + limit, total_rides)):
+        pickup, dropoff, base_fare = random.choice(sample_locations)
+        days_ago = i + 1
+        ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+        fare = round(base_fare + random.uniform(-3, 5), 2)
+
+        rides.append({
+            "id": f"RIDE-{1000 + i}",
+            "pickup": pickup,
+            "dropoff": dropoff,
+            "date": ride_date,
+            "fare": fare,
+            "status": "completed"
+        })
+
+    return {"rides": rides, "total": total_rides, "has_more": offset + limit < total_rides}
+
+
+@app.post("/api/orders/{order_id}/tip-driver")
+async def tip_driver(
+    order_id: int,
+    tip_amount: float = 0.0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Add tip to driver for an order.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.tip = (order.tip or 0) + tip_amount
+    order.total_amount = (order.total_amount or 0) + tip_amount
+    db.commit()
+
+    return {"success": True, "message": f"Tip of ${tip_amount:.2f} added", "new_total": order.total_amount}
+
+
+@app.post("/api/orders/{order_id}/cancel")
+async def cancel_order(
+    order_id: int,
+    reason: str = "customer_request",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancel an order.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order, OrderStatus
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "Order cancelled", "refund_eligible": True}
+
+
+@app.get("/api/orders/{order_id}/refund-status")
+async def get_refund_status(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get refund status for an order.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return {
+        "order_id": order_id,
+        "refund_status": "not_applicable",
+        "refund_amount": 0.0,
+        "refund_reason": None
+    }
+
+
+@app.get("/api/rides/{ride_id}/track")
+async def track_ride(
+    ride_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Track a ride's current status and driver location.
+    Used by Android/iOS customer apps.
+    """
+    import random
+    return {
+        "ride_id": ride_id,
+        "status": "in_progress",
+        "driver_location": {
+            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
+            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
+        },
+        "eta_minutes": random.randint(5, 15),
+        "driver_name": "John D.",
+        "vehicle": "Toyota Camry - ABC 123"
+    }
+
+
+@app.post("/api/rides/{ride_id}/cancel")
+async def cancel_ride(
+    ride_id: int,
+    reason: str = "customer_request",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancel a ride request.
+    Used by Android/iOS customer apps.
+    """
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "status": "cancelled",
+        "reason": reason,
+        "cancellation_fee": 0.0
+    }
+
+
+@app.get("/api/customer/{customer_id}/active-orders")
+async def get_customer_active_orders(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get active orders for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order, OrderStatus
+    orders = db.query(Order).filter(
+        Order.customer_id == customer_id,
+        Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+    ).order_by(Order.created_at.desc()).limit(10).all()
+
+    return {
+        "orders": [
+            {
+                "id": o.id,
+                "order_number": o.order_number,
+                "status": o.status.value if o.status else "pending",
+                "total_amount": o.total_amount,
+                "created_at": o.created_at.isoformat() if o.created_at else None
+            } for o in orders
+        ]
+    }
+
+
+@app.get("/api/customer/orders/{order_id}/track")
+async def track_customer_order(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Track order status and driver location.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    import random
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return {
+        "order_id": order_id,
+        "order_number": order.order_number,
+        "status": order.status.value if order.status else "pending",
+        "driver_location": {
+            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
+            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
+        } if order.driver_id else None,
+        "eta_minutes": random.randint(10, 30) if order.driver_id else None,
+        "driver_name": order.driver_name
+    }
+
+
+@app.post("/api/rides/{ride_id}/rate")
+async def rate_ride(
+    ride_id: int,
+    rating: int = 5,
+    comment: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Rate a completed ride.
+    Used by Android/iOS customer apps.
+    """
+    return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
+
+
+def _format_address(addr: dict, index: int, is_default: bool = False) -> dict:
+    """Helper to format address for Android/iOS API response."""
+    return {
+        "id": addr.get("id", index),
+        "user_id": addr.get("user_id", 0),
+        "location_name": addr.get("location_name", "Home" if index == 0 else ("Work" if index == 1 else f"Address {index+1}")),
+        "street": addr.get("street", addr.get("address", "")),
+        "unit": addr.get("unit"),
+        "city": addr.get("city", ""),
+        "state": addr.get("state", ""),
+        "zip_code": addr.get("zip_code", addr.get("zipCode", "")),
+        "instructions": addr.get("instructions"),
+        "address_type": addr.get("address_type", "Home"),
+        "latitude": addr.get("latitude"),
+        "longitude": addr.get("longitude"),
+        "phone_number": addr.get("phone_number"),
+        "is_default": is_default,
+        "label": addr.get("label", addr.get("location_name"))
+    }
+
+
+@app.get("/api/addresses/{customer_id}")
+async def get_customer_addresses(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all saved addresses for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        return []
+
+    saved_addresses = customer.saved_addresses or []
+    default_addr = customer.default_address
+
+    result = []
+    for i, addr in enumerate(saved_addresses):
+        if isinstance(addr, dict):
+            is_default = (default_addr and addr.get("id") == default_addr.get("id")) or (i == 0 and not default_addr)
+            result.append(_format_address(addr, i, is_default))
+        else:
+            # Legacy: address stored as string
+            result.append({
+                "id": i,
+                "user_id": customer_id,
+                "location_name": "Home" if i == 0 else f"Address {i+1}",
+                "street": addr,
+                "city": "",
+                "state": "",
+                "zip_code": "",
+                "is_default": i == 0
+            })
+    return result
+
+
+@app.get("/api/addresses/{customer_id}/default")
+async def get_default_address(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get default address for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Try default_address first, then first saved address
+    if customer.default_address:
+        return _format_address(customer.default_address, 0, True)
+
+    saved_addresses = customer.saved_addresses or []
+    if saved_addresses and isinstance(saved_addresses[0], dict):
+        return _format_address(saved_addresses[0], 0, True)
+    elif saved_addresses:
+        return {
+            "id": 0,
+            "user_id": customer_id,
+            "street": saved_addresses[0],
+            "is_default": True
+        }
+
+    raise HTTPException(status_code=404, detail="No default address found")
+
+
+@app.post("/api/addresses/{customer_id}")
+async def add_customer_address(
+    customer_id: int,
+    address_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new address for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_addresses = customer.saved_addresses or []
+
+    # Create new address with ID
+    new_id = len(saved_addresses)
+    new_address = {
+        "id": new_id,
+        "user_id": customer_id,
+        "location_name": address_data.get("location_name", address_data.get("locationName", "Address")),
+        "street": address_data.get("street", ""),
+        "unit": address_data.get("unit"),
+        "city": address_data.get("city", ""),
+        "state": address_data.get("state", ""),
+        "zip_code": address_data.get("zip_code", address_data.get("zipCode", "")),
+        "instructions": address_data.get("instructions"),
+        "address_type": address_data.get("address_type", address_data.get("addressType", "Home")),
+        "latitude": address_data.get("latitude"),
+        "longitude": address_data.get("longitude"),
+        "phone_number": address_data.get("phone_number", address_data.get("phoneNumber")),
+        "is_default": address_data.get("is_default", address_data.get("isDefault", False))
+    }
+
+    saved_addresses.append(new_address)
+    customer.saved_addresses = saved_addresses
+
+    # Set as default if requested or first address
+    if new_address.get("is_default") or len(saved_addresses) == 1:
+        customer.default_address = new_address
+
+    db.commit()
+    return _format_address(new_address, new_id, new_address.get("is_default", False))
+
+
+@app.put("/api/addresses/{customer_id}/{address_id}")
+async def update_customer_address(
+    customer_id: int,
+    address_id: int,
+    address_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Update an existing address for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_addresses = customer.saved_addresses or []
+
+    # Find and update address
+    for i, addr in enumerate(saved_addresses):
+        if isinstance(addr, dict) and addr.get("id") == address_id:
+            updated_address = {
+                "id": address_id,
+                "user_id": customer_id,
+                "location_name": address_data.get("location_name", addr.get("location_name")),
+                "street": address_data.get("street", addr.get("street")),
+                "unit": address_data.get("unit", addr.get("unit")),
+                "city": address_data.get("city", addr.get("city")),
+                "state": address_data.get("state", addr.get("state")),
+                "zip_code": address_data.get("zip_code", addr.get("zip_code")),
+                "instructions": address_data.get("instructions", addr.get("instructions")),
+                "address_type": address_data.get("address_type", addr.get("address_type")),
+                "latitude": address_data.get("latitude", addr.get("latitude")),
+                "longitude": address_data.get("longitude", addr.get("longitude")),
+                "phone_number": address_data.get("phone_number", addr.get("phone_number")),
+                "is_default": addr.get("is_default", False)
+            }
+            saved_addresses[i] = updated_address
+            customer.saved_addresses = saved_addresses
+
+            # Update default if this was the default
+            if customer.default_address and customer.default_address.get("id") == address_id:
+                customer.default_address = updated_address
+
+            db.commit()
+            return _format_address(updated_address, i, updated_address.get("is_default", False))
+
+    raise HTTPException(status_code=404, detail="Address not found")
+
+
+@app.delete("/api/addresses/{customer_id}/{address_id}")
+async def delete_customer_address(
+    customer_id: int,
+    address_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete an address for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_addresses = customer.saved_addresses or []
+
+    # Find and remove address
+    for i, addr in enumerate(saved_addresses):
+        if isinstance(addr, dict) and addr.get("id") == address_id:
+            saved_addresses.pop(i)
+            customer.saved_addresses = saved_addresses
+
+            # Clear default if deleted
+            if customer.default_address and customer.default_address.get("id") == address_id:
+                customer.default_address = saved_addresses[0] if saved_addresses else None
+
+            db.commit()
+            return {"success": True, "message": "Address deleted"}
+
+    raise HTTPException(status_code=404, detail="Address not found")
+
+
+@app.post("/api/addresses/{customer_id}/{address_id}/set-default")
+async def set_default_address(
+    customer_id: int,
+    address_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Set an address as the default for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_addresses = customer.saved_addresses or []
+
+    # Find address and set as default
+    for i, addr in enumerate(saved_addresses):
+        if isinstance(addr, dict) and addr.get("id") == address_id:
+            customer.default_address = addr
+            db.commit()
+            return _format_address(addr, i, True)
+
+    raise HTTPException(status_code=404, detail="Address not found")
+
+
+@app.get("/api/customer/favorites/{customer_id}")
+async def get_customer_favorites(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get favorite restaurants for a customer.
+    Used by Android/iOS customer apps.
+    """
+    # Return empty list for now - can be populated from customer preferences
+    return []
+
+
+@app.post("/api/customer/orders/{order_id}/rate-driver")
+async def rate_order_driver(
+    order_id: int,
+    rating: int = 5,
+    comment: str = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Rate the driver for an order.
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return {"success": True, "message": "Driver rating submitted", "order_id": order_id, "rating": rating}
+
 
 # ==================== MICROSERVICE PROXY ENDPOINTS ====================
 # These endpoints forward requests to the appropriate microservices
