@@ -521,6 +521,7 @@ class Customer(Base):
 
     # Stripe
     stripe_customer_id = Column(String(255))
+    saved_cards = Column(JSON)  # Array of payment cards [{id, brand, last4, exp_month, exp_year, is_default}]
 
     # Status
     is_active = Column(Boolean, default=True)
