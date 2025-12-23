@@ -3980,7 +3980,7 @@ async def get_customer_ride_history(
 
 # ==================== CUSTOMER CART ====================
 
-from models import Cart, CartItem, VendorMenuItem, Vendor
+from models import Cart, CartItem, VendorMenuItem
 
 class AddToCartRequest(BaseModel):
     menu_item_id: int
@@ -5787,8 +5787,8 @@ def get_platform_revenue(
 
     # Sort by date
     daily_breakdown = [
-        {"date": date, **data}
-        for date, data in sorted(daily_revenue.items())
+        {"date": day_date, **data}
+        for day_date, data in sorted(daily_revenue.items())
     ]
 
     # Top vendors by revenue
@@ -6835,7 +6835,7 @@ async def create_vendor_public_with_menu(
                 to_email=vendor_data.get('contact_email'),
                 restaurant_name=vendor_data.get('restaurant_name') or vendor_data.get('company_name') or "Your Restaurant",
                 contact_name=vendor_data.get('contact_name') or "Partner",
-                vendor_id=vendor_id
+                vendor_id=db_vendor.id
             )
             print(f"📧 Registration confirmation email sent to: {vendor_data.get('contact_email')}")
         except Exception as e:
@@ -7266,7 +7266,7 @@ def update_vendor_online_status(
     Update vendor online/offline status - Called from iOS/Android Restaurant App
     When online, restaurant is accepting orders. When offline, restaurant is not accepting orders.
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -7311,7 +7311,7 @@ def update_vendor_online_status_put(
     Update vendor online/offline status (PUT variant for iOS compatibility)
     Called from iOS Restaurant App: PUT /api/vendors/{id}/status?is_online=true
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -7349,7 +7349,7 @@ def update_vendor_online_status_post(
     """
     Update vendor online/offline status (POST variant)
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -9133,7 +9133,7 @@ def assign_stock_images_to_menu(
 
     items = db.query(VendorMenuItem).filter(
         VendorMenuItem.vendor_id == vendor_id,
-        (VendorMenuItem.image_url == None) | (VendorMenuItem.image_url == "")
+        (VendorMenuItem.image_url.is_(None)) | (VendorMenuItem.image_url == "")
     ).all()
 
     updated_count = 0
@@ -11536,10 +11536,10 @@ async def check_all_services_health():
 
     health_status = {}
     healthy_count = 0
-    for name, is_healthy, status in results:
+    for name, is_healthy, svc_status in results:
         health_status[name] = {
             "healthy": is_healthy,
-            "status": status
+            "status": svc_status
         }
         if is_healthy:
             healthy_count += 1
@@ -11819,7 +11819,7 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
         # Get orders that are ready for pickup and don't have a driver assigned
         orders = db.query(Order).filter(
             Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY]),
-            Order.driver_id == None
+            Order.driver_id.is_(None)
         ).limit(20).all()
 
         deliveries = []
