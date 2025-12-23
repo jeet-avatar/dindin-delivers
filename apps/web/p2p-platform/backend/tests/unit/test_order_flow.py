@@ -1728,7 +1728,7 @@ class TestEdgeCases:
     def test_fee_constants(self):
         """Test all fee constants are defined correctly"""
         assert RESTAURANT_PLATFORM_FEE == 1.00
-        assert CUSTOMER_SERVICE_FEE == 0.00
+        assert CUSTOMER_SERVICE_FEE == 1.00  # $1 service fee from customer per order
         assert DELIVERY_FEE == 4.99
         assert BASE_FARE == 2.00
         assert PER_MILE_RATE == 1.00
