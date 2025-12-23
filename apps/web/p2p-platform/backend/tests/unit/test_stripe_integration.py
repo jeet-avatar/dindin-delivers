@@ -402,7 +402,7 @@ class TestCreateOrder:
             loop.run_until_complete(create_order(order_request, db_session))
 
         assert exc_info.value.status_code == 500
-        assert "Payment processing error" in str(exc_info.value.detail)
+        assert "Payment processing failed" in str(exc_info.value.detail)
 
         # Verify order was rolled back
         final_order_count = db_session.query(Order).count()
