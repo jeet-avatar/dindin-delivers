@@ -67,11 +67,11 @@ xcodebuild -workspace eatfaircustomer.xcworkspace \
 ### Shared Module (`eatfair-ios-shared/`)
 | Component | Status | Notes |
 |-----------|--------|-------|
-| `P2PAPIService` | [ ] | All customer endpoints |
-| `P2PAuthService` | [ ] | Authentication |
-| `SessionManager` | [ ] | Token management |
-| `AppConfig` | [ ] | Staging URLs |
-| `SecureStorage` | [ ] | Keychain storage |
+| `P2PAPIService` | [x] | All customer endpoints including fare estimate |
+| `P2PAuthService` | [x] | Authentication |
+| `SessionManager` | [x] | Token management |
+| `AppConfig` | [x] | CloudFront staging URLs |
+| `SecureStorage` | [x] | Keychain storage |
 
 ### External SDKs (via CocoaPods/SPM)
 | SDK | Purpose | Status |
@@ -107,20 +107,27 @@ xcodebuild -workspace eatfaircustomer.xcworkspace \
 ## UI Screens Checklist
 
 ### Auth Flow
-- [ ] Launch Screen
-- [ ] Onboarding
-- [ ] Login (Email + Google + Apple)
-- [ ] Register
-- [ ] Forgot Password
+- [x] Launch Screen
+- [x] Onboarding (WelcomeView)
+- [x] Login (Email + Google + Apple) (LoginView)
+- [x] Register (RegisterView)
+- [x] Forgot Password (in LoginView)
 
 ### Main Features
-- [ ] Home - Featured, categories
-- [ ] Restaurant List & Detail
-- [ ] Menu & Cart
-- [ ] Checkout & Payment
-- [ ] Order Tracking
-- [ ] Rideshare Flow
-- [ ] Profile & Settings
+- [x] Home - Featured, categories (HomeView)
+- [x] Restaurant List & Detail (RestaurantDetailView)
+- [x] Menu & Cart (MenuView, CartView)
+- [x] Checkout & Payment (CheckoutView)
+- [x] Order Tracking (OrderTrackingView)
+- [x] Rideshare Flow (RideRequestView)
+- [x] Profile & Settings (ProfileView, SettingsView)
+- [x] Notifications (NotificationView)
+- [x] Edit Profile (in ProfileView)
+- [x] Order History (OrderHistoryView)
+- [x] Favorites (FavoritesView)
+- [x] Legal Acceptance (LegalAcceptanceView)
+- [x] Refer & Earn (ReferAndEarnView)
+- [x] Help & Support (HelpSupportView)
 
 ---
 
