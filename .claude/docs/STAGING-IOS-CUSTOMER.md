@@ -88,8 +88,8 @@ xcodebuild -workspace eatfaircustomer.xcworkspace \
 ### Authentication
 | Endpoint | Status |
 |----------|--------|
-| `/auth/customer/login` | [ ] Endpoint not found |
-| `/auth/customer/register` | [ ] Endpoint not found |
+| `/auth/customer/login` | [x] Working - returns JWT |
+| `/auth/customer/register` | [x] Working - creates customer |
 | `/auth/customer/google` | [ ] |
 | `/auth/customer/apple-auth` | [ ] |
 
