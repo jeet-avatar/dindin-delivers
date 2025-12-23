@@ -5,7 +5,7 @@ namespace: staging
 name: dollor-backend-staging
 image:
   repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
-  tag: "666b604a63cf37fdb241c91d9bcee1db4b0ea940"
+  tag: "cad394611b84ec8f27617c188cb3e0a165c95576"
   pullPolicy: Always
 replicas: 2
 # Staging uses CANARY deployment
