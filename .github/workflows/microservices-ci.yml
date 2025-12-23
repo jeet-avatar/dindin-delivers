@@ -348,7 +348,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.service-path.outputs.skip != 'true' && env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarcloud-github-action@v4
+        uses: SonarSource/sonarcloud-github-action@v3
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
