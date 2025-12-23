@@ -630,6 +630,8 @@ def _run_startup_migrations():
         # Customers table columns - for customer authentication
         ("customers", "password_hash", "VARCHAR(255)"),
         ("customers", "favorite_vendors", "JSON"),
+        ("customers", "saved_cards", "JSON"),
+        ("customers", "stripe_customer_id", "VARCHAR(255)"),
         # Vendors table columns - for online status and verification
         ("vendors", "is_online", "BOOLEAN DEFAULT FALSE"),
         ("vendors", "went_online_at", "TIMESTAMP"),
@@ -10068,6 +10070,145 @@ async def mark_items_unavailable(
         "modification_number": f"MOD-{order_id}",
         "unavailable_count": len(item_ids)
     }
+
+
+# ==================== P19: PAYMENT CARDS ENDPOINTS ====================
+# Endpoints for managing saved payment cards (Stripe integration)
+
+@app.get("/api/customers/{customer_id}/cards")
+async def get_saved_cards(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all saved payment cards for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    return {"cards": saved_cards, "count": len(saved_cards)}
+
+
+@app.post("/api/customers/{customer_id}/cards")
+async def add_payment_card(
+    customer_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new payment card for a customer.
+    In production, this would use Stripe's PaymentMethod API.
+    """
+    from models import Customer
+    import uuid
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Extract card details from request
+    card_token = request.get("card_token")  # Stripe token from client
+    brand = request.get("brand", "visa")
+    last4 = request.get("last4", "4242")
+    exp_month = request.get("exp_month", 12)
+    exp_year = request.get("exp_year", 2025)
+
+    # Generate card ID (in production, this comes from Stripe)
+    card_id = f"card_{uuid.uuid4().hex[:16]}"
+
+    saved_cards = customer.saved_cards or []
+    is_default = len(saved_cards) == 0  # First card is default
+
+    new_card = {
+        "id": card_id,
+        "brand": brand,
+        "last4": last4,
+        "exp_month": exp_month,
+        "exp_year": exp_year,
+        "is_default": is_default
+    }
+
+    saved_cards.append(new_card)
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {
+        "success": True,
+        "card": new_card,
+        "message": "Card added successfully"
+    }
+
+
+@app.delete("/api/customers/{customer_id}/cards/{card_id}")
+async def delete_payment_card(
+    customer_id: int,
+    card_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a saved payment card.
+    """
+    from models import Customer
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    original_count = len(saved_cards)
+
+    # Remove the card
+    saved_cards = [c for c in saved_cards if c.get("id") != card_id]
+
+    if len(saved_cards) == original_count:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    # If deleted card was default, make first remaining card default
+    if saved_cards and not any(c.get("is_default") for c in saved_cards):
+        saved_cards[0]["is_default"] = True
+
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {"success": True, "message": "Card deleted successfully"}
+
+
+@app.post("/api/customers/{customer_id}/cards/{card_id}/default")
+async def set_default_card(
+    customer_id: int,
+    card_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Set a payment card as the default card.
+    """
+    from models import Customer
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    card_found = False
+
+    for card in saved_cards:
+        if card.get("id") == card_id:
+            card["is_default"] = True
+            card_found = True
+        else:
+            card["is_default"] = False
+
+    if not card_found:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {"success": True, "message": "Default card updated", "card_id": card_id}
 
 
 @app.post("/api/customer/orders/{order_id}/rate-driver")
