@@ -128,7 +128,7 @@ async def create_ride_payment_intent(
     fare_amount = ride_request.final_price or ride_request.suggested_price
     platform_fee = calculate_platform_fee(fare_amount)
     driver_payout = calculate_driver_payout(fare_amount)
-    total_charge = fare_amount + platform_fee  # Customer pays fare + platform fee
+    total_charge = fare_amount  # Customer pays the agreed fare only (platform fee comes from fare)
 
     # Get customer email
     customer_email = data.customer_email
@@ -172,7 +172,7 @@ async def create_ride_payment_intent(
             currency="usd",
             platform_fee=platform_fee,
             driver_payout=driver_payout,
-            message=f"Payment of ${total_charge:.2f} ready. Driver will receive ${driver_payout:.2f}"
+            message=f"Fare: ${fare_amount:.2f}. Platform fee: ${platform_fee:.2f}. Driver receives: ${driver_payout:.2f}"
         )
 
     except stripe.error.StripeError as e:

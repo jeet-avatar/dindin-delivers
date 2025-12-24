@@ -340,7 +340,7 @@ class RideshareFlowTest:
             platform_fee = 3.0
 
         driver_payout = fare - platform_fee
-        customer_pays = fare + platform_fee
+        customer_pays = fare  # Customer pays agreed fare, platform fee comes from fare
 
         self.log("PRICING", f"Fare: ${fare:.2f} | Platform Fee: ${platform_fee:.2f}")
         self.log("PRICING", f"Customer pays: ${customer_pays:.2f} | Driver receives: ${driver_payout:.2f}")
