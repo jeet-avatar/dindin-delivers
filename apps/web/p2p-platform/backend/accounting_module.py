@@ -22,12 +22,14 @@ from decimal import Decimal
 from enum import Enum
 from pydantic import BaseModel
 from database import get_db
-import jwt
+from jose import jwt, JWTError
 import os
 
 # Security - Admin only access
 security = HTTPBearer()
-ADMIN_SECRET = os.getenv("ADMIN_JWT_SECRET", "admin-secret-key-change-in-production")
+# Use same JWT secret as main app for token validation
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "")
+ALGORITHM = "HS256"
 ADMIN_ROLES = ["admin", "super_admin", "finance", "accountant"]
 
 router = APIRouter(prefix="/api/admin/accounting", tags=["Admin - Accounting & ERP"])
@@ -40,7 +42,9 @@ def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(secu
     """
     try:
         token = credentials.credentials
-        payload = jwt.decode(token, ADMIN_SECRET, algorithms=["HS256"])
+        if not JWT_SECRET:
+            raise HTTPException(status_code=500, detail="JWT_SECRET_KEY not configured")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
 
         # Check for admin role
         user_role = payload.get("role", "")
@@ -51,9 +55,10 @@ def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(secu
             )
 
         return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except JWTError as e:
+        error_msg = str(e).lower()
+        if "expired" in error_msg:
+            raise HTTPException(status_code=401, detail="Token expired")
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
