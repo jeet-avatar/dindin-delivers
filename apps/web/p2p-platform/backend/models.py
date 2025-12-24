@@ -1205,8 +1205,8 @@ class RideRequest(Base):
     # Payment (Stripe integration)
     stripe_payment_intent_id = Column(String(255))
     payment_status = Column(String(50), default="pending")  # pending, processing, completed, failed
-    platform_fee = Column(Float)  # $1-3 based on tier
-    driver_payout = Column(Float)  # fare - platform_fee
+    platform_fee = Column(Float)  # $2 total ($1 from customer + $1 from driver)
+    driver_payout = Column(Float)  # fare - $1
     payment_completed_at = Column(DateTime)
     driver_paid_at = Column(DateTime)  # When driver received payout
     stripe_transfer_id = Column(String(255))  # Stripe Connect transfer ID

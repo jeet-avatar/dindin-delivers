@@ -3648,8 +3648,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
             )
 
 
-class CustomerGoogleAuthRequest(BaseModel):
-    """Google auth request - accepts id_token from Android/iOS or google_id from web"""
+class CustomerGoogleAuthRequestV2(BaseModel):
+    """Google auth request v2 - requires email and name"""
     email: str
     name: str
     google_id: Optional[str] = None
@@ -3661,7 +3661,7 @@ class CustomerGoogleAuthRequest(BaseModel):
         return self.id_token or self.google_id or ""
 
 @app.post("/api/customer/google-auth")
-def customer_google_auth_v2(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+def customer_google_auth_v2(request: CustomerGoogleAuthRequestV2, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration (v2 endpoint)"""
     print(f"Customer Google auth for: {request.email}")
     google_identifier = request.identifier
@@ -3838,16 +3838,16 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
 # In-memory storage for password reset codes (in production, use Redis or database)
 password_reset_codes = {}
 
-class PasswordResetRequest(BaseModel):
+class CustomerPasswordResetRequest(BaseModel):
     email: str
 
-class PasswordResetConfirm(BaseModel):
+class CustomerPasswordResetConfirm(BaseModel):
     email: str
     code: str
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def customer_request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
     import random
 
@@ -3873,7 +3873,7 @@ def customer_request_password_reset(request: PasswordResetRequest, db: Session =
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/customer/password-reset/confirm")
-def customer_confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
     from datetime import datetime
 
