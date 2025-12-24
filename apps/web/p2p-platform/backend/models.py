@@ -1202,6 +1202,15 @@ class RideRequest(Base):
     # Notes
     special_requests = Column(Text)  # "Need car seat", "Wheelchair accessible"
 
+    # Payment (Stripe integration)
+    stripe_payment_intent_id = Column(String(255))
+    payment_status = Column(String(50), default="pending")  # pending, processing, completed, failed
+    platform_fee = Column(Float)  # $1-3 based on tier
+    driver_payout = Column(Float)  # fare - platform_fee
+    payment_completed_at = Column(DateTime)
+    driver_paid_at = Column(DateTime)  # When driver received payout
+    stripe_transfer_id = Column(String(255))  # Stripe Connect transfer ID
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
