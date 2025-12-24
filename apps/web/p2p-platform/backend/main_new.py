@@ -9303,6 +9303,14 @@ app.include_router(bid_router)
 from rideshare_payments import router as rideshare_payments_router
 app.include_router(rideshare_payments_router)
 
+# Include Matchmaking routes (Wyoming - Legal P2P without TNC)
+from matchmaking_routes import router as matchmaking_router
+app.include_router(matchmaking_router)
+
+# Include Admin Accounting Module (Protected - Admin JWT required)
+from accounting_module import router as accounting_router
+app.include_router(accounting_router)
+
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
 # Android uses /api/customer/orders while ERP uses /api/erp/orders/vendor/{id}
