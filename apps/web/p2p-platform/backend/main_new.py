@@ -9299,6 +9299,10 @@ app.include_router(chat_router)
 from bid_routes import router as bid_router
 app.include_router(bid_router)
 
+# Include Rideshare Payment routes (Stripe integration for drivers)
+from rideshare_payments import router as rideshare_payments_router
+app.include_router(rideshare_payments_router)
+
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
 # Android uses /api/customer/orders while ERP uses /api/erp/orders/vendor/{id}

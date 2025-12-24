@@ -1077,8 +1077,14 @@ struct RideLocationSearchView: View {
                     return
                 }
 
+                // Show full address with house number (subThoroughfare + thoroughfare)
+                // Example: "123 Main St" not just "Main St"
+                let streetNumber = placemark.subThoroughfare ?? ""
+                let streetName = placemark.thoroughfare ?? ""
+                let fullStreet = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+
                 let address = RideAddressInput(
-                    street: placemark.thoroughfare ?? placemark.name ?? "Current Location",
+                    street: fullStreet.isEmpty ? (placemark.name ?? "Current Location") : fullStreet,
                     city: placemark.locality ?? "",
                     state: placemark.administrativeArea ?? "",
                     zip: placemark.postalCode ?? "",
