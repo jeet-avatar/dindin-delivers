@@ -2,8 +2,11 @@
 """
 Scrape NatrajUSA.com menu and add to database
 AI Employee: Nova - Onboard Specialist
+
+Requires DATABASE_URL environment variable.
 """
 
+import os
 import httpx
 from bs4 import BeautifulSoup
 import re
@@ -11,9 +14,13 @@ import json
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
 
-# STAGING ENVIRONMENT - Database connection
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://dollor_admin:f4QA0dDzfpDXYpSRWsJMbXSD7WwfESKa@dollor-staging.c23qcukqe810.us-east-1.rds.amazonaws.com:5432/dollor_staging")
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
 
 def extract_price(price_str):
     """Extract numeric price from string"""

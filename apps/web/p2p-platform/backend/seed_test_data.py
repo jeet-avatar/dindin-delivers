@@ -2,18 +2,21 @@
 """
 Seed Test Data for Dollor.ai Staging Environment
 Creates test users and fixes vendor status for E2E testing
+
+Requires DATABASE_URL environment variable.
 """
 
 import os
 import sys
 import hashlib
 from datetime import datetime
+from dotenv import load_dotenv
 
-# Database connection
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://dollor_admin:f4QA0dDzfpDXYpSRWsJMbXSD7WwfESKa@dollor-staging.c23qcukqe810.us-east-1.rds.amazonaws.com:5432/dollor_staging"
-)
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
 
 try:
     import psycopg2
