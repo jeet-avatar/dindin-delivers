@@ -1,30 +1,37 @@
 """
-Rideshare Payment Routes
-========================
+Rideshare Payment Routes - Tiered Platform Fee
+===============================================
 
-Platform Fee Model:
-- Customer pays: fare + $1
-- Driver receives: fare - $1
-- Platform earns: $2 per ride ($1 from each side)
+Tiered Fee Model (based on fare):
+- Tier 1 (fare <= $35):  $1 from customer + $1 from driver = $2 platform
+- Tier 2 ($35 < fare <= $70): $2 from customer + $2 from driver = $4 platform
+- Tier 3 (fare > $70): $3 from customer + $3 from driver = $6 platform
 """
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime, timedelta
 from pydantic import BaseModel
 from typing import Optional
 import stripe
 import os
 
 from database import get_db
-from models import RideRequest, RideRequestStatus, Driver, Customer
+from models import RideRequest, RideRequestStatus, Driver
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
 router = APIRouter(prefix="/api/payments/ride", tags=["Rideshare Payments"])
 
-PLATFORM_FEE = 1.00  # $1 from customer, $1 from driver
+
+def get_tier_fee(fare: float) -> float:
+    """Get platform fee based on fare tier."""
+    if fare <= 35.00:
+        return 1.00
+    elif fare <= 70.00:
+        return 2.00
+    else:
+        return 3.00
 
 
 class CreatePaymentIntent(BaseModel):
@@ -34,6 +41,7 @@ class CreatePaymentIntent(BaseModel):
 class PaymentResponse(BaseModel):
     success: bool
     fare: float
+    tier_fee: float
     customer_pays: float
     driver_receives: float
     platform_earns: float
@@ -43,7 +51,7 @@ class PaymentResponse(BaseModel):
 
 @router.post("/create-intent", response_model=PaymentResponse)
 async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends(get_db)):
-    """Create Stripe payment for completed ride."""
+    """Create Stripe payment for completed ride with tiered pricing."""
     ride = db.query(RideRequest).filter(RideRequest.id == data.ride_request_id).first()
 
     if not ride:
@@ -53,9 +61,10 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
         raise HTTPException(status_code=400, detail=f"Invalid status: {ride.status.value}")
 
     fare = ride.final_price or ride.suggested_price
-    customer_pays = fare + PLATFORM_FEE
-    driver_receives = fare - PLATFORM_FEE
-    platform_earns = PLATFORM_FEE * 2
+    tier_fee = get_tier_fee(fare)
+    customer_pays = fare + tier_fee
+    driver_receives = fare - tier_fee
+    platform_earns = tier_fee * 2
 
     try:
         payment_intent = stripe.PaymentIntent.create(
@@ -64,9 +73,10 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
             metadata={
                 "ride_id": ride.id,
                 "fare": str(fare),
-                "platform_fee_customer": str(PLATFORM_FEE),
-                "platform_fee_driver": str(PLATFORM_FEE),
-                "driver_payout": str(driver_receives)
+                "tier_fee": str(tier_fee),
+                "customer_pays": str(customer_pays),
+                "driver_payout": str(driver_receives),
+                "platform_earns": str(platform_earns)
             }
         )
 
@@ -78,6 +88,7 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
         return PaymentResponse(
             success=True,
             fare=fare,
+            tier_fee=tier_fee,
             customer_pays=customer_pays,
             driver_receives=driver_receives,
             platform_earns=platform_earns,
@@ -90,7 +101,7 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
 
 @router.get("/driver/{driver_id}/earnings")
 async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db)):
-    """Get driver earnings summary."""
+    """Get driver earnings summary with tiered fees."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -102,27 +113,31 @@ async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db)):
         )
     ).all()
 
-    total_earnings = sum((r.final_price or r.suggested_price or 0) - PLATFORM_FEE for r in rides)
+    total_earnings = 0.0
+    for r in rides:
+        fare = r.final_price or r.suggested_price or 0
+        tier_fee = get_tier_fee(fare)
+        total_earnings += fare - tier_fee
 
     return {
         "driver_id": driver_id,
         "total_rides": len(rides),
-        "total_earnings": round(total_earnings, 2),
-        "platform_fee_per_ride": PLATFORM_FEE
+        "total_earnings": round(total_earnings, 2)
     }
 
 
 @router.get("/pricing-info")
 async def get_pricing_info():
-    """Platform pricing: $1 from customer + $1 from driver = $2 per ride."""
+    """Platform tiered pricing info."""
     return {
-        "platform_fee_customer": PLATFORM_FEE,
-        "platform_fee_driver": PLATFORM_FEE,
-        "platform_total_per_ride": PLATFORM_FEE * 2,
-        "example": {
-            "fare": 25.00,
-            "customer_pays": 26.00,
-            "driver_receives": 24.00,
-            "platform_earns": 2.00
-        }
+        "tiers": [
+            {"max_fare": 35.00, "fee": 1.00, "platform_total": 2.00},
+            {"min_fare": 35.01, "max_fare": 70.00, "fee": 2.00, "platform_total": 4.00},
+            {"min_fare": 70.01, "fee": 3.00, "platform_total": 6.00}
+        ],
+        "examples": [
+            {"fare": 25.00, "tier_fee": 1.00, "customer_pays": 26.00, "driver_receives": 24.00, "platform_earns": 2.00},
+            {"fare": 50.00, "tier_fee": 2.00, "customer_pays": 52.00, "driver_receives": 48.00, "platform_earns": 4.00},
+            {"fare": 100.00, "tier_fee": 3.00, "customer_pays": 103.00, "driver_receives": 97.00, "platform_earns": 6.00}
+        ]
     }
