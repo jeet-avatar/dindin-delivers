@@ -8102,8 +8102,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     private var clientType: String = "customer"
     private var clientId: String = ""
 
-    // Production WebSocket URL - connected to Dollar.ai live backend
-    private let wsBaseURL = "wss://dollor.ai/api/realtime/ws"
+    // Staging WebSocket URL - connected to staging backend only
+    // Production will be enabled after staging validation is complete
+    private let wsBaseURL = "wss://d3kuu45w6kl8hr.cloudfront.net/api/realtime/ws"
 
     private override init() {
         super.init()
