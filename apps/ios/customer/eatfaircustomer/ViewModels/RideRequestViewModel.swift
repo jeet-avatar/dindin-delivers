@@ -300,16 +300,21 @@ class RideRequestViewModel: ObservableObject {
             return
         }
 
+        // Get customer ID from UserDefaults (set during login)
+        let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+        guard customerId > 0 else {
+            showErrorMessage("Please login to request a ride")
+            return
+        }
+
         isLoading = true
 
         p2pService.requestRide(
-            customerName: customerName,
-            customerEmail: customerEmail,
-            customerPhone: customerPhone,
+            customerId: customerId,
             pickupAddress: pickup,
             dropoffAddress: dropoff,
             notes: notes.isEmpty ? nil : notes,
-            tip: tip
+            preferredPrice: initialFareOffer
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }

@@ -4095,17 +4095,25 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Request a ride (customer requests pickup)
+    /// Staging: POST /api/rides/request
+    ///
+    /// Required fields per OpenAPI CreateRideRequestInput schema:
+    /// - customer_id: Int
+    /// - pickup_address: String
+    /// - pickup_latitude: Double
+    /// - pickup_longitude: Double
+    /// - dropoff_address: String
+    /// - dropoff_latitude: Double
+    /// - dropoff_longitude: Double
     public func requestRide(
-        customerName: String,
-        customerEmail: String,
-        customerPhone: String,
+        customerId: Int,
         pickupAddress: RideAddressInput,
         dropoffAddress: RideAddressInput,
         notes: String? = nil,
-        tip: Double = 0.0,
+        preferredPrice: Double? = nil,
         completion: @escaping (Result<RideRequestResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/request") else {
+        guard let url = URL(string: "\(baseURL)/rides/request") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -4114,29 +4122,26 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
-            "customer_name": customerName,
-            "customer_email": customerEmail,
-            "customer_phone": customerPhone,
-            "pickup_address": [
-                "street": pickupAddress.street,
-                "city": pickupAddress.city,
-                "state": pickupAddress.state,
-                "zip": pickupAddress.zip,
-                "lat": pickupAddress.lat,
-                "lng": pickupAddress.lng
-            ],
-            "dropoff_address": [
-                "street": dropoffAddress.street,
-                "city": dropoffAddress.city,
-                "state": dropoffAddress.state,
-                "zip": dropoffAddress.zip,
-                "lat": dropoffAddress.lat,
-                "lng": dropoffAddress.lng
-            ],
-            "notes": notes ?? "",
-            "tip": tip
+        // Build flat structure matching staging API schema
+        var body: [String: Any] = [
+            "customer_id": customerId,
+            "pickup_address": pickupAddress.fullAddress,
+            "pickup_latitude": pickupAddress.lat,
+            "pickup_longitude": pickupAddress.lng,
+            "dropoff_address": dropoffAddress.fullAddress,
+            "dropoff_latitude": dropoffAddress.lat,
+            "dropoff_longitude": dropoffAddress.lng,
+            "ride_type": "standard",
+            "bidding_duration_minutes": 5
         ]
+
+        // Add optional fields
+        if let notes = notes, !notes.isEmpty {
+            body["special_requests"] = notes
+        }
+        if let price = preferredPrice, price > 0 {
+            body["customer_preferred_price"] = price
+        }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
