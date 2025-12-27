@@ -132,6 +132,52 @@
 | `/ws/order/{order_id}` | Order tracking |
 | `/ws/ride/{ride_id}` | Ride tracking |
 | `/ws/chat/{conversation_id}` | Real-time chat |
+| `/ws/negotiation/{id}` | Price negotiation updates |
+
+---
+
+## Communication Services
+
+### Negotiation Service (Port 8017)
+
+Real-time price negotiation between drivers and customers.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/negotiations` | POST | Create new negotiation |
+| `/api/negotiations/{id}/customer-offer` | POST | Customer counter-offer |
+| `/api/negotiations/{id}/driver-offer` | POST | Driver counter-offer |
+| `/api/negotiations/{id}/accept` | POST | Accept current price |
+| `/api/negotiations/{id}` | GET | Get negotiation status |
+
+### Chat Service (Port 8018)
+
+Real-time messaging between drivers and customers.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat/conversations` | POST | Create conversation |
+| `/api/chat/conversations/{id}/messages` | POST | Send message |
+| `/api/chat/conversations/{id}/messages` | GET | Get message history |
+| `/api/chat/conversations/{id}/read` | POST | Mark messages read |
+
+**Quick Replies:**
+- Customer: "I'm at pickup", "Running late", "Can you call me?", "Thank you!"
+- Driver: "On my way!", "I've arrived", "Share your location?", "I'll wait here"
+
+### Call Service (Port 8019)
+
+Privacy-protected phone calls via Twilio number masking.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/call/sessions` | POST | Create call session |
+| `/api/call/sessions/{id}` | PUT | Add driver to session |
+| `/api/call/sessions/{id}` | GET | Get session details |
+| `/api/call/masked-number` | GET | Get masked number to dial |
+| `/api/call/initiate` | POST | Log call initiation |
+| `/api/call/logs/{session_id}` | GET | Get call history |
+| `/api/call/sessions/{id}` | DELETE | End call session |
 
 ---
 
