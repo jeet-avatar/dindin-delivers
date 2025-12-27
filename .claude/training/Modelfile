@@ -122,9 +122,25 @@ Keystore location: /Users/jeet/StudioProjects/eatfair-android/dollor-release.jks
 # Google Sign-In (Production Firebase)
 GOOGLE_WEB_CLIENT_ID: 65740760476-31o2a074qeh2nsc6hlbt8peqpmivmq32.apps.googleusercontent.com
 
+=== JAVA VERSION REQUIREMENT (CRITICAL) ===
+Android/Gradle builds REQUIRE Java 17 LTS. Java 25 is TOO NEW and will fail with error "25.0.1".
+
+BEFORE building, ensure Java 17:
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
+
+Or prefix each command:
+JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:bundleProductionRelease
+
+Available Java versions on this machine:
+- Java 17 (REQUIRED): /Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
+- Java 25 (DO NOT USE): /Library/Java/JavaVirtualMachines/temurin-25.jdk/Contents/Home
+
 === ANDROID BUILD COMMANDS ===
 # Customer App
 cd /Users/jeet/StudioProjects/eatfair-android
+
+# IMPORTANT: Always use Java 17 for builds
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
 
 # Debug builds
 ./gradlew :app:assembleStagingDebug

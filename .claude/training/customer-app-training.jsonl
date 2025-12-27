@@ -94,3 +94,10 @@
 {"prompt": "What is the customer login endpoint path?", "completion": "/api/auth/customer/login"}
 {"prompt": "What is the ride request endpoint path?", "completion": "/api/rides/request"}
 {"prompt": "What is the order creation endpoint path?", "completion": "/api/orders/create"}
+{"prompt": "What Java version is required for Android builds?", "completion": "Java 17 LTS is REQUIRED. Java 25 is TOO NEW and will fail with error '25.0.1'. Set JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home before building."}
+{"prompt": "Why does Gradle fail with error 25.0.1?", "completion": "Error '25.0.1' means you're using Java 25 which is too new for Kotlin/Gradle. Switch to Java 17: export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"}
+{"prompt": "What is the correct Java command for Android builds?", "completion": "JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:bundleProductionRelease"}
+{"prompt": "Where is Java 17 installed?", "completion": "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home - use this for all Android/Gradle builds."}
+{"prompt": "How do I set JAVA_HOME for Gradle?", "completion": "export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home OR prefix command: JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:bundleProductionRelease"}
+{"prompt": "What is the complete AAB build command?", "completion": "cd /Users/jeet/StudioProjects/eatfair-android && JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:bundleProductionRelease"}
+{"prompt": "What is the complete APK build command?", "completion": "cd /Users/jeet/StudioProjects/eatfair-android && JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:assembleProductionRelease"}
