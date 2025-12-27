@@ -128,10 +128,11 @@ For detailed information, see `.claude/docs/`:
 |------|----------|
 | `01-BUSINESS_MODEL.md` | Legal positioning, pricing details, matchmaking definition |
 | `02-ARCHITECTURE.md` | Full repo structure, microservices, mobile app mapping |
-| `03-API_ENDPOINTS.md` | All API endpoints with methods and auth requirements |
+| `03-API_ENDPOINTS.md` | All API endpoints including communication services |
 | `04-DEVELOPMENT.md` | Local setup, Docker, environment variables |
 | `05-DEPLOYMENT.md` | CI/CD pipeline, AWS infrastructure, security scanning |
 | `06-APP_STORE.md` | iOS/Android submission requirements, demo accounts |
+| `07-EVENT_ARCHITECTURE.md` | CQRS, Kafka, H3 location system, error codes |
 | `99-CHANGELOG.md` | Historical implementation phases |
 
 ---
