@@ -56,9 +56,10 @@ public struct NetworkConfig: Codable {
         case debug, info, warning, error, critical
     }
 
-    /// Default production configuration
+    /// Default configuration - STAGING ONLY
+    /// All environments use staging until production is validated
     public static let production = NetworkConfig(
-        p2pBaseURL: "https://api.dollor.ai",
+        p2pBaseURL: "https://d3kuu45w6kl8hr.cloudfront.net",
         p2pTimeout: 30.0,
         firebaseEnabled: true,
         firebaseProjectId: "eatfair-p2p",
@@ -74,13 +75,13 @@ public struct NetworkConfig: Codable {
         cacheEnabled: true,
         cacheTTLSeconds: 300,
         logLevel: .info,
-        remoteLoggingEnabled: true,
-        remoteLoggingEndpoint: "https://api.dollor.ai/api/logs"
+        remoteLoggingEnabled: false,
+        remoteLoggingEndpoint: nil
     )
 
-    /// Development configuration - uses same production endpoint for consistency
+    /// Development configuration - STAGING ONLY
     public static let development = NetworkConfig(
-        p2pBaseURL: "https://dollor.ai",
+        p2pBaseURL: "https://d3kuu45w6kl8hr.cloudfront.net",
         p2pTimeout: 60.0,
         firebaseEnabled: true,
         firebaseProjectId: "eatfair-p2p",

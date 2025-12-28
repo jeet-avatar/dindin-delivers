@@ -142,9 +142,9 @@ class DollorPricingEngine:
         tier = self._get_tier(subtotal)
         tier_label = self._get_tier_label(subtotal)
 
-        # Total and driver earnings
-        total = subtotal + platform_fee
-        driver_earnings = subtotal
+        # Total and driver earnings (iOS model: both customer AND driver pay tier fee)
+        total = subtotal + platform_fee  # Customer pays fare + platform_fee
+        driver_earnings = subtotal - platform_fee  # Driver pays platform_fee too
         driver_per_mile = driver_earnings / distance_miles if distance_miles > 0 else 0
         driver_per_hour = (driver_earnings / duration_minutes) * 60 if duration_minutes > 0 else 0
         driver_percentage = (driver_earnings / total) * 100 if total > 0 else 0
@@ -328,10 +328,10 @@ class DollorPricingEngine:
             elif per_hour >= 25:
                 messages.append(f"📈 ${per_hour:.0f}/hour equivalent")
 
-        # Platform fee transparency
-        fee = self._get_platform_fee(earnings)
-        percentage = ((earnings - fee) / earnings) * 100 if earnings > 0 else 0
-        messages.append(f"💎 Platform fee: only ${fee:.2f} (you keep {percentage:.0f}%)")
+        # Platform fee transparency (driver pays tier fee from fare)
+        fare_estimate = earnings + self._get_platform_fee(earnings)  # Estimate original fare
+        fee = self._get_platform_fee(fare_estimate)
+        messages.append(f"💎 Platform fee: ${fee:.2f} from fare")
 
         # Long trip bonus messaging
         if distance_miles > 20:

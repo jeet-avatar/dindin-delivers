@@ -57,66 +57,80 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 # PLATFORM FEE CONFIGURATION - TIERED DISTANCE-BASED PRICING
 # =============================================================================
 # Dollor.ai Matchmaking Platform - Tiered Distance Pricing
-# Both rider AND driver pay the SAME fee based on trip distance:
-#   - Trips 0-10 miles:   $1
-#   - Trips 10-20 miles:  $2
-#   - Trips 20+ miles:    $3
+# Both rider AND driver pay the SAME fee based on FARE AMOUNT:
+#   - Fares ≤ $35:      $1
+#   - Fares $35-$70:    $2
+#   - Fares > $70:      $3
 #
-# Distance tier thresholds (in miles)
-DISTANCE_TIER_1_MAX = 10.0   # Trips up to 10 miles
-DISTANCE_TIER_2_MAX = 20.0   # Trips 10.01 to 20 miles
-# Tier 3: Trips above 20 miles
+# =============================================================================
+# FARE-BASED TIER PRICING (Matches iOS/Android/Backend)
+# =============================================================================
+FARE_TIER_1_MAX = 35.00    # Fares up to $35
+FARE_TIER_2_MAX = 70.00    # Fares $35.01 to $70
+# Tier 3: Fares above $70
 
-# Platform fees per distance tier
-DISTANCE_TIER_1_FEE = 1.00   # $1 for trips ≤ 10 miles
-DISTANCE_TIER_2_FEE = 2.00   # $2 for trips 10.01-20 miles
-DISTANCE_TIER_3_FEE = 3.00   # $3 for trips > 20 miles
+# Platform fees per fare tier
+FARE_TIER_1_FEE = 1.00     # $1 for fares ≤ $35
+FARE_TIER_2_FEE = 2.00     # $2 for fares $35.01-$70
+FARE_TIER_3_FEE = 3.00     # $3 for fares > $70
+
+# Deprecated distance-based constants (kept for backward compatibility)
+DISTANCE_TIER_1_MAX = 10.0   # Deprecated
+DISTANCE_TIER_2_MAX = 20.0   # Deprecated
+DISTANCE_TIER_1_FEE = 1.00   # Deprecated
+DISTANCE_TIER_2_FEE = 2.00   # Deprecated
+DISTANCE_TIER_3_FEE = 3.00   # Deprecated
 
 
-def calculate_platform_fee(distance_km: float) -> float:
+def calculate_platform_fee(fare_amount: float) -> float:
     """
-    Calculate platform fee based on trip distance (TIERED).
+    Calculate platform fee based on FARE AMOUNT (TIERED).
 
-    Pricing Model (Distance-Based Tiers):
-    - Trips 0-10 miles:   $1
-    - Trips 10-20 miles:  $2
-    - Trips 20+ miles:    $3
+    Matches iOS/Android/Backend pricing model.
+
+    Pricing Model (Fare-Based Tiers):
+    - Fares ≤ $35:      $1
+    - Fares $35-$70:    $2
+    - Fares > $70:      $3
 
     Both rider AND driver pay this same fee amount.
 
     Args:
-        distance_km: Trip distance in kilometers
+        fare_amount: The fare/price amount in dollars
 
     Returns:
         Platform fee amount
     """
-    # Convert km to miles (1 km = 0.621371 miles)
-    distance_miles = distance_km * 0.621371
-
-    # Apply tiered pricing based on distance
-    if distance_miles <= DISTANCE_TIER_1_MAX:
-        return DISTANCE_TIER_1_FEE
-    elif distance_miles <= DISTANCE_TIER_2_MAX:
-        return DISTANCE_TIER_2_FEE
+    if fare_amount <= FARE_TIER_1_MAX:
+        return FARE_TIER_1_FEE
+    elif fare_amount <= FARE_TIER_2_MAX:
+        return FARE_TIER_2_FEE
     else:
-        return DISTANCE_TIER_3_FEE
+        return FARE_TIER_3_FEE
 
 
-def get_distance_tier(distance_miles: float) -> int:
-    """Get the tier number based on trip distance."""
-    if distance_miles <= DISTANCE_TIER_1_MAX:
+def get_fare_tier(fare_amount: float) -> int:
+    """Get the tier number based on fare amount."""
+    if fare_amount <= FARE_TIER_1_MAX:
         return 1
-    elif distance_miles <= DISTANCE_TIER_2_MAX:
+    elif fare_amount <= FARE_TIER_2_MAX:
         return 2
     else:
         return 3
 
 
-def get_platform_fee_description(distance_miles: float) -> str:
+# Deprecated alias for backward compatibility
+def get_distance_tier(distance_miles: float) -> int:
+    """(Deprecated) Use get_fare_tier instead."""
+    approx_fare = distance_miles * 2.0  # Rough $2/mile estimate
+    return get_fare_tier(approx_fare)
+
+
+def get_platform_fee_description(fare_amount: float) -> str:
     """Get human-readable description of platform fee."""
-    tier = get_distance_tier(distance_miles)
-    fee = calculate_platform_fee(distance_miles / 0.621371)  # Convert to km for function
-    return f"${fee:.2f} (Tier {tier}: {'≤10' if tier == 1 else '10-20' if tier == 2 else '>20'} miles)"
+    tier = get_fare_tier(fare_amount)
+    fee = calculate_platform_fee(fare_amount)
+    return f"${fee:.2f} (Tier {tier}: {'≤$35' if tier == 1 else '$35-$70' if tier == 2 else '>$70'})"
 
 # =============================================================================
 # DATABASE SETUP

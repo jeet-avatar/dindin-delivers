@@ -234,14 +234,15 @@ class TestCreateOrder:
         assert result is not None
         assert result.order_number.startswith("ORD-")
         assert result.client_secret == 'pi_test123_secret_abc'
-        assert result.amount == pytest.approx(37.95, rel=0.01)
+        # Total: subtotal(25.98) + tax(2.08) + delivery(5.99) + platform($1.00) = 35.05
+        assert result.amount == pytest.approx(35.05, rel=0.01)
         assert result.currency == 'usd'
 
         # Verify Stripe was called with correct parameters
         mock_stripe_create.assert_called_once()
         call_kwargs = mock_stripe_create.call_args[1]
-        # Allow 1 cent tolerance for floating point rounding
-        assert abs(call_kwargs['amount'] - 3795) <= 1
+        # Allow 1 cent tolerance for floating point rounding (35.05 * 100 = 3505 cents)
+        assert abs(call_kwargs['amount'] - 3505) <= 1
         assert call_kwargs['currency'] == 'usd'
         assert call_kwargs['receipt_email'] == 'john@example.com'
         assert 'order_id' in call_kwargs['metadata']
@@ -401,7 +402,7 @@ class TestCreateOrder:
             loop.run_until_complete(create_order(order_request, db_session))
 
         assert exc_info.value.status_code == 500
-        assert "Payment processing error" in str(exc_info.value.detail)
+        assert "Payment processing failed" in str(exc_info.value.detail)
 
         # Verify order was rolled back
         final_order_count = db_session.query(Order).count()
@@ -439,15 +440,15 @@ class TestCreateOrder:
         # Subtotal: 12.99 * 2 = 25.98
         # Tax (8%): 25.98 * 0.08 = 2.08
         # Delivery: 5.99
-        # Platform fee (15%): 25.98 * 0.15 = 3.90
-        # Total: 25.98 + 2.08 + 5.99 + 3.90 = 37.95
+        # Platform fee: $1.00 flat fee (competitive pricing model)
+        # Total: 25.98 + 2.08 + 5.99 + 1.00 = 35.05
 
         order = db_session.query(Order).filter_by(stripe_payment_intent_id='pi_test123').first()
         assert order.subtotal == pytest.approx(25.98, rel=0.01)
         assert order.tax_amount == pytest.approx(2.08, rel=0.01)
         assert order.delivery_fee == pytest.approx(5.99, rel=0.01)
-        assert order.platform_fee == pytest.approx(3.90, rel=0.01)
-        assert order.total_amount == pytest.approx(37.95, rel=0.01)
+        assert order.platform_fee == pytest.approx(1.00, rel=0.01)
+        assert order.total_amount == pytest.approx(35.05, rel=0.01)
 
 
     @patch('stripe_integration.stripe.PaymentIntent.create')

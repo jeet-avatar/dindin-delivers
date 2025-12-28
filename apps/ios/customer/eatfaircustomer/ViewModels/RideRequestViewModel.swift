@@ -203,8 +203,58 @@ class RideRequestViewModel: ObservableObject {
         estimateFare()
     }
 
-    // MARK: - Fare Estimation (Haversine + pricing formula)
+    // MARK: - Fare Estimation (from Staging API - consistent with Android)
+    /// Fetches fare estimate from staging API instead of local calculation
+    /// This ensures consistent pricing between iOS and Android platforms
     private func estimateFare() {
+        guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
+
+        isLoading = true
+
+        // Get state code for tax calculation
+        let stateCode = StateTaxRates.stateCode(from: pickup.state)
+
+        // Call staging API for fare estimate (same endpoint as Android)
+        p2pService.estimateRideFare(
+            pickupLat: pickup.lat,
+            pickupLng: pickup.lng,
+            dropoffLat: dropoff.lat,
+            dropoffLng: dropoff.lng,
+            stateCode: stateCode
+        ) { [weak self] result in
+            guard let self = self else { return }
+            self.isLoading = false
+
+            switch result {
+            case .success(let response):
+                let estimate = response.estimate
+                // Update published properties from API response
+                self.estimatedDistance = estimate.distanceMiles
+                self.estimatedDuration = estimate.durationMinutes
+                self.baseFare = estimate.breakdown.baseFare
+                self.distanceFee = estimate.breakdown.distanceCost
+                self.timeFee = estimate.breakdown.timeCost
+
+                #if DEBUG
+                print("[RideRequestViewModel] Fare estimate from staging API:")
+                print("  Distance: \(estimate.distanceMiles) miles")
+                print("  Duration: \(estimate.durationMinutes) min")
+                print("  Total: $\(estimate.total)")
+                print("  Platform fee: $\(estimate.platformFee)")
+                #endif
+
+            case .failure(let error):
+                #if DEBUG
+                print("[RideRequestViewModel] Fare estimate API error: \(error)")
+                #endif
+                // Fallback to local calculation if API fails
+                self.estimateFareLocally()
+            }
+        }
+    }
+
+    /// Fallback local calculation if API is unavailable
+    private func estimateFareLocally() {
         guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
 
         // Calculate distance using Haversine formula
@@ -221,6 +271,10 @@ class RideRequestViewModel: ObservableObject {
         estimatedDuration = duration
         distanceFee = distance * perMileRate
         timeFee = duration * perMinuteRate
+
+        #if DEBUG
+        print("[RideRequestViewModel] Using local fallback calculation")
+        #endif
     }
 
     /// Haversine formula to calculate distance between two coordinates
@@ -246,16 +300,21 @@ class RideRequestViewModel: ObservableObject {
             return
         }
 
+        // Get customer ID from UserDefaults (set during login)
+        let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+        guard customerId > 0 else {
+            showErrorMessage("Please login to request a ride")
+            return
+        }
+
         isLoading = true
 
         p2pService.requestRide(
-            customerName: customerName,
-            customerEmail: customerEmail,
-            customerPhone: customerPhone,
+            customerId: customerId,
             pickupAddress: pickup,
             dropoffAddress: dropoff,
             notes: notes.isEmpty ? nil : notes,
-            tip: tip
+            preferredPrice: initialFareOffer
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }

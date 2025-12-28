@@ -521,6 +521,7 @@ class Customer(Base):
 
     # Stripe
     stripe_customer_id = Column(String(255))
+    saved_cards = Column(JSON)  # Array of payment cards [{id, brand, last4, exp_month, exp_year, is_default}]
 
     # Status
     is_active = Column(Boolean, default=True)
@@ -1200,6 +1201,15 @@ class RideRequest(Base):
 
     # Notes
     special_requests = Column(Text)  # "Need car seat", "Wheelchair accessible"
+
+    # Payment (Stripe integration)
+    stripe_payment_intent_id = Column(String(255))
+    payment_status = Column(String(50), default="pending")  # pending, processing, completed, failed
+    platform_fee = Column(Float)  # $2 total ($1 from customer + $1 from driver)
+    driver_payout = Column(Float)  # fare - $1
+    payment_completed_at = Column(DateTime)
+    driver_paid_at = Column(DateTime)  # When driver received payout
+    stripe_transfer_id = Column(String(255))  # Stripe Connect transfer ID
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

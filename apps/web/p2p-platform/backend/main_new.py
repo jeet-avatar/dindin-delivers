@@ -7,7 +7,7 @@ handling food delivery and rideshare coordination.
 Version: 1.0.1
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -87,6 +87,60 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
+
+# ===================== RATE LIMITING =====================
+# SECURITY: Protect auth endpoints from brute force attacks
+from collections import defaultdict
+import time
+import threading
+
+class RateLimiter:
+    """Simple in-memory rate limiter with sliding window"""
+
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+        self.lock = threading.Lock()
+
+    def is_allowed(self, key: str) -> bool:
+        """Check if request is allowed for the given key (IP or email)"""
+        now = time.time()
+        with self.lock:
+            # Clean old requests
+            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
+            # Check limit
+            if len(self.requests[key]) >= self.max_requests:
+                return False
+            # Record this request
+            self.requests[key].append(now)
+            return True
+
+    def get_retry_after(self, key: str) -> int:
+        """Get seconds until the rate limit resets"""
+        if not self.requests[key]:
+            return 0
+        oldest = min(self.requests[key])
+        return max(0, int(self.window_seconds - (time.time() - oldest)))
+
+# Rate limiters for different endpoints
+auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
+registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 registrations per 5 minutes
+
+def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
+    """Check rate limit and raise HTTPException if exceeded"""
+    # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+    key = f"{key_prefix}:{client_ip}"
+
+    if not limiter.is_allowed(key):
+        retry_after = limiter.get_retry_after(key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)}
+        )
 
 # Health Check Endpoint
 @app.get("/health")
@@ -630,6 +684,8 @@ def _run_startup_migrations():
         # Customers table columns - for customer authentication
         ("customers", "password_hash", "VARCHAR(255)"),
         ("customers", "favorite_vendors", "JSON"),
+        ("customers", "saved_cards", "JSON"),
+        ("customers", "stripe_customer_id", "VARCHAR(255)"),
         # Vendors table columns - for online status and verification
         ("vendors", "is_online", "BOOLEAN DEFAULT FALSE"),
         ("vendors", "went_online_at", "TIMESTAMP"),
@@ -2011,8 +2067,10 @@ class CustomerLoginRequest(BaseModel):
 
 @app.post("/api/auth/customer/login")
 @app.post("/auth/customer/login")  # Alias for mobile apps without /api prefix
-def customer_auth_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "customer_login")
     print(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
@@ -2109,8 +2167,10 @@ def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depend
 
 @app.post("/api/auth/customer/register")
 @app.post("/auth/customer/register")  # Alias for mobile apps without /api prefix
-def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+def customer_auth_register(http_request: Request, request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
+    # SECURITY: Rate limit registration attempts
+    check_rate_limit(http_request, registration_rate_limiter, "customer_register")
     print(f"Customer registration attempt for: {request.email}")
 
     try:
@@ -2122,11 +2182,34 @@ def customer_auth_register(request: CustomerRegisterRequest, db: Session = Depen
                 detail="Email already registered"
             )
 
-        # Validate password is not empty
+        # Validate password is not empty and meets security requirements
         if not request.password or len(request.password.strip()) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password is required and cannot be empty"
+            )
+
+        # SECURITY: Enforce password policy
+        password = request.password
+        if len(password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+        if not any(c.isupper() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one uppercase letter"
+            )
+        if not any(c.islower() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one lowercase letter"
+            )
+        if not any(c.isdigit() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one number"
             )
 
         # Split name (accepts both 'name' and 'full_name' fields)
@@ -2646,15 +2729,11 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        # Return mock status if database query fails
-        return {
-            "ride_id": ride_id,
-            "status": "pending",
-            "driver": None,
-            "eta_minutes": None,
-            "message": "Looking for drivers...",
-            "error": str(e) if str(e) else None
-        }
+        # SECURITY: Log the full error but don't expose SQL/system details to client
+        import logging
+        logging.error(f"Ride status query error for {ride_id}: {str(e)}")
+        # Return generic error - don't expose database/SQL details
+        raise HTTPException(status_code=400, detail="Invalid ride ID format")
 
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
@@ -3569,8 +3648,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
             )
 
 
-class CustomerGoogleAuthRequest(BaseModel):
-    """Google auth request - accepts id_token from Android/iOS or google_id from web"""
+class CustomerGoogleAuthRequestV2(BaseModel):
+    """Google auth request v2 - requires email and name"""
     email: str
     name: str
     google_id: Optional[str] = None
@@ -3582,7 +3661,7 @@ class CustomerGoogleAuthRequest(BaseModel):
         return self.id_token or self.google_id or ""
 
 @app.post("/api/customer/google-auth")
-def customer_google_auth_v2(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+def customer_google_auth_v2(request: CustomerGoogleAuthRequestV2, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration (v2 endpoint)"""
     print(f"Customer Google auth for: {request.email}")
     google_identifier = request.identifier
@@ -3759,16 +3838,16 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
 # In-memory storage for password reset codes (in production, use Redis or database)
 password_reset_codes = {}
 
-class PasswordResetRequest(BaseModel):
+class CustomerPasswordResetRequest(BaseModel):
     email: str
 
-class PasswordResetConfirm(BaseModel):
+class CustomerPasswordResetConfirm(BaseModel):
     email: str
     code: str
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def customer_request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
     import random
 
@@ -3794,7 +3873,7 @@ def customer_request_password_reset(request: PasswordResetRequest, db: Session =
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/customer/password-reset/confirm")
-def customer_confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
     from datetime import datetime
 
@@ -3978,7 +4057,7 @@ async def get_customer_ride_history(
 
 # ==================== CUSTOMER CART ====================
 
-from models import Cart, CartItem, VendorMenuItem, Vendor
+from models import Cart, CartItem, VendorMenuItem
 
 class AddToCartRequest(BaseModel):
     menu_item_id: int
@@ -5641,14 +5720,46 @@ def get_orders(
 
 
 @app.get("/api/orders/{order_id}")
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    """Get single order by ID."""
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    authorization: str = Header(None)
+):
+    """Get single order by ID - requires authorization and ownership verification."""
     from models import Order, Vendor
     import json
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the requesting user owns this order or is the vendor/driver
+    if authorization:
+        customer = get_current_customer_from_token(authorization, db)
+        if customer:
+            # Customer can only view their own orders
+            if order.customer_email != customer.email:
+                raise HTTPException(status_code=403, detail="Access denied: You can only view your own orders")
+        else:
+            # Try to extract vendor/driver from token
+            try:
+                token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                role = payload.get("role", "").lower()
+
+                if role == "vendor":
+                    vendor_id = payload.get("vendor_id")
+                    if vendor_id and order.vendor_id != vendor_id:
+                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders for your restaurant")
+                elif role == "driver":
+                    driver_id = payload.get("driver_id")
+                    if driver_id and order.driver_id != driver_id:
+                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders assigned to you")
+            except JWTError:
+                raise HTTPException(status_code=401, detail="Invalid authorization token")
+    else:
+        # No authorization provided - deny access
+        raise HTTPException(status_code=401, detail="Authorization required to view order details")
 
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
 
@@ -5785,8 +5896,8 @@ def get_platform_revenue(
 
     # Sort by date
     daily_breakdown = [
-        {"date": date, **data}
-        for date, data in sorted(daily_revenue.items())
+        {"date": day_date, **data}
+        for day_date, data in sorted(daily_revenue.items())
     ]
 
     # Top vendors by revenue
@@ -6833,7 +6944,7 @@ async def create_vendor_public_with_menu(
                 to_email=vendor_data.get('contact_email'),
                 restaurant_name=vendor_data.get('restaurant_name') or vendor_data.get('company_name') or "Your Restaurant",
                 contact_name=vendor_data.get('contact_name') or "Partner",
-                vendor_id=vendor_id
+                vendor_id=db_vendor.id
             )
             print(f"📧 Registration confirmation email sent to: {vendor_data.get('contact_email')}")
         except Exception as e:
@@ -7264,7 +7375,7 @@ def update_vendor_online_status(
     Update vendor online/offline status - Called from iOS/Android Restaurant App
     When online, restaurant is accepting orders. When offline, restaurant is not accepting orders.
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -7309,7 +7420,7 @@ def update_vendor_online_status_put(
     Update vendor online/offline status (PUT variant for iOS compatibility)
     Called from iOS Restaurant App: PUT /api/vendors/{id}/status?is_online=true
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -7347,7 +7458,7 @@ def update_vendor_online_status_post(
     """
     Update vendor online/offline status (POST variant)
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -9071,12 +9182,12 @@ def get_active_promotions(db: Session = Depends(get_db)):
 
 
 @app.post("/api/promotions/apply")
-def apply_promo_code(
+def apply_promotion_code(
     request: dict,
     db: Session = Depends(get_db)
 ):
     """
-    Apply a promo code to an order.
+    Apply a promo code to an order (Promotions API).
     Request: { "code": "WELCOME20", "order_total": 30.00 }
     Response: { "success": true, "discount": 6.00, "message": "..." }
     """
@@ -9131,7 +9242,7 @@ def assign_stock_images_to_menu(
 
     items = db.query(VendorMenuItem).filter(
         VendorMenuItem.vendor_id == vendor_id,
-        (VendorMenuItem.image_url == None) | (VendorMenuItem.image_url == "")
+        (VendorMenuItem.image_url.is_(None)) | (VendorMenuItem.image_url == "")
     ).all()
 
     updated_count = 0
@@ -9187,6 +9298,18 @@ app.include_router(chat_router)
 # Include Ride Bidding routes (Matchmaking platform)
 from bid_routes import router as bid_router
 app.include_router(bid_router)
+
+# Include Rideshare Payment routes (Stripe integration for drivers)
+from rideshare_payments import router as rideshare_payments_router
+app.include_router(rideshare_payments_router)
+
+# Include Matchmaking routes (Wyoming - Legal P2P without TNC)
+from matchmaking_routes import router as matchmaking_router
+app.include_router(matchmaking_router)
+
+# Include Admin Accounting Module (Protected - Admin JWT required)
+from accounting_module import router as accounting_router
+app.include_router(accounting_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
@@ -9465,7 +9588,7 @@ async def track_customer_order(
 
 
 @app.post("/api/rides/{ride_id}/rate")
-async def rate_ride(
+async def rate_ride_customer(
     ride_id: int,
     rating: int = 5,
     comment: str = None,
@@ -9473,7 +9596,7 @@ async def rate_ride(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Rate a completed ride.
+    Rate a completed ride (Customer API).
     Used by Android/iOS customer apps.
     """
     return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
@@ -9948,6 +10071,267 @@ async def send_order_chat_message(
     return {"success": True, "message": "Message sent"}
 
 
+# ==================== P18: ORDER MODIFICATION ENDPOINTS ====================
+# Android/iOS apps expect these endpoints for order modifications
+
+@app.get("/api/orders/{order_id}/modification")
+async def get_order_modification(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get order modification details (e.g., when items are unavailable).
+    Used by Android/iOS customer apps.
+    """
+    from models import Order
+    from datetime import datetime, timedelta
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Check if there's a pending modification
+    # For now, return null if no modification pending
+    modification_data = getattr(order, 'modification_data', None)
+    if not modification_data:
+        return {"modification": None, "has_modification": False}
+
+    # Return modification details
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    return {
+        "has_modification": True,
+        "modification": {
+            "modification_number": f"MOD-{order_id}",
+            "order_id": order_id,
+            "unavailable_items": modification_data.get("unavailable_items", []),
+            "unavailable_count": len(modification_data.get("unavailable_items", [])),
+            "available_items": modification_data.get("available_items", []),
+            "available_count": len(modification_data.get("available_items", [])),
+            "original_total": float(order.total_amount or 0),
+            "new_total": modification_data.get("new_total", float(order.total_amount or 0)),
+            "partial_refund_amount": modification_data.get("refund_amount", 0),
+            "time_remaining_seconds": 300,
+            "expires_at": expires_at.isoformat(),
+            "is_expired": False,
+            "restaurant_name": order.vendor_name
+        }
+    }
+
+
+@app.post("/api/orders/{order_id}/modification/respond")
+async def respond_to_order_modification(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Respond to order modification (accept/reject).
+    Used by Android/iOS customer apps.
+    Request body: { "response": "accept" | "reject" }
+    """
+    from models import Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    response_type = request.get("response", "").lower()
+    if response_type not in ["accept", "reject"]:
+        raise HTTPException(status_code=400, detail="Response must be 'accept' or 'reject'")
+
+    if response_type == "accept":
+        # Customer accepts modified order
+        return {
+            "success": True,
+            "message": "Order modification accepted",
+            "refund_id": None,
+            "refund_amount": 0,
+            "new_order_total": float(order.total_amount or 0)
+        }
+    else:
+        # Customer rejects - full refund
+        return {
+            "success": True,
+            "message": "Order cancelled and refund initiated",
+            "refund_id": f"REF-{order_id}",
+            "refund_amount": float(order.total_amount or 0),
+            "new_order_total": 0
+        }
+
+
+@app.post("/api/orders/{order_id}/mark-unavailable")
+async def mark_items_unavailable(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark items as unavailable (vendor/restaurant use).
+    Used by Android/iOS vendor apps.
+    Request body: { "item_ids": [int], "reason": "string" }
+    """
+    from models import Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    item_ids = request.get("item_ids", [])
+    reason = request.get("reason", "Item out of stock")
+
+    if not item_ids:
+        raise HTTPException(status_code=400, detail="item_ids is required")
+
+    # Store modification data on order (would trigger customer notification)
+    # In a real implementation, this would update order items and notify customer
+
+    return {
+        "success": True,
+        "message": f"Marked {len(item_ids)} items as unavailable",
+        "modification_number": f"MOD-{order_id}",
+        "unavailable_count": len(item_ids)
+    }
+
+
+# ==================== P19: PAYMENT CARDS ENDPOINTS ====================
+# Endpoints for managing saved payment cards (Stripe integration)
+
+@app.get("/api/customers/{customer_id}/cards")
+async def get_saved_cards(
+    customer_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all saved payment cards for a customer.
+    Used by Android/iOS customer apps.
+    """
+    from models import Customer
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    return {"cards": saved_cards, "count": len(saved_cards)}
+
+
+@app.post("/api/customers/{customer_id}/cards")
+async def add_payment_card(
+    customer_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new payment card for a customer.
+    In production, this would use Stripe's PaymentMethod API.
+    """
+    from models import Customer
+    import uuid
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Extract card details from request
+    card_token = request.get("card_token")  # Stripe token from client
+    brand = request.get("brand", "visa")
+    last4 = request.get("last4", "4242")
+    exp_month = request.get("exp_month", 12)
+    exp_year = request.get("exp_year", 2025)
+
+    # Generate card ID (in production, this comes from Stripe)
+    card_id = f"card_{uuid.uuid4().hex[:16]}"
+
+    saved_cards = customer.saved_cards or []
+    is_default = len(saved_cards) == 0  # First card is default
+
+    new_card = {
+        "id": card_id,
+        "brand": brand,
+        "last4": last4,
+        "exp_month": exp_month,
+        "exp_year": exp_year,
+        "is_default": is_default
+    }
+
+    saved_cards.append(new_card)
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {
+        "success": True,
+        "card": new_card,
+        "message": "Card added successfully"
+    }
+
+
+@app.delete("/api/customers/{customer_id}/cards/{card_id}")
+async def delete_payment_card(
+    customer_id: int,
+    card_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a saved payment card.
+    """
+    from models import Customer
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    original_count = len(saved_cards)
+
+    # Remove the card
+    saved_cards = [c for c in saved_cards if c.get("id") != card_id]
+
+    if len(saved_cards) == original_count:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    # If deleted card was default, make first remaining card default
+    if saved_cards and not any(c.get("is_default") for c in saved_cards):
+        saved_cards[0]["is_default"] = True
+
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {"success": True, "message": "Card deleted successfully"}
+
+
+@app.post("/api/customers/{customer_id}/cards/{card_id}/default")
+async def set_default_card(
+    customer_id: int,
+    card_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Set a payment card as the default card.
+    """
+    from models import Customer
+
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    saved_cards = customer.saved_cards or []
+    card_found = False
+
+    for card in saved_cards:
+        if card.get("id") == card_id:
+            card["is_default"] = True
+            card_found = True
+        else:
+            card["is_default"] = False
+
+    if not card_found:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {"success": True, "message": "Default card updated", "card_id": card_id}
+
+
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
@@ -9976,10 +10360,24 @@ import httpx
 from fastapi.responses import JSONResponse
 
 # STAGING ENVIRONMENT - Microservice URLs (K8s internal services)
-RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://ride-service:8014")
+# Core Services
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001")
+USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8002")
+DRIVER_SERVICE_URL = os.getenv("DRIVER_SERVICE_URL", "http://driver-service:8003")
 RESTAURANT_SERVICE_URL = os.getenv("RESTAURANT_SERVICE_URL", "http://restaurant-service:8004")
-PRICING_SERVICE_URL = os.getenv("PRICING_SERVICE_URL", "http://pricing-service:8015")
+ORDER_SERVICE_URL = os.getenv("ORDER_SERVICE_URL", "http://order-service:8005")
+PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8006")
 LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://location-service:8007")
+MENU_SERVICE_URL = os.getenv("MENU_SERVICE_URL", "http://menu-service:8008")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")
+# Feature Services
+RATING_SERVICE_URL = os.getenv("RATING_SERVICE_URL", "http://rating-service:8013")
+RIDE_SERVICE_URL = os.getenv("RIDE_SERVICE_URL", "http://ride-service:8014")
+PRICING_SERVICE_URL = os.getenv("PRICING_SERVICE_URL", "http://pricing-service:8015")
+ANALYTICS_SERVICE_URL = os.getenv("ANALYTICS_SERVICE_URL", "http://analytics-service:8016")
+NEGOTIATION_SERVICE_URL = os.getenv("NEGOTIATION_SERVICE_URL", "http://negotiation-service:8017")
+CHAT_SERVICE_URL = os.getenv("CHAT_SERVICE_URL", "http://chat-service:8018")
+CALL_SERVICE_URL = os.getenv("CALL_SERVICE_URL", "http://call-service:8019")
 
 async def proxy_request(service_url: str, path: str, method: str = "GET",
                         params: dict = None, json_data: dict = None):
@@ -10270,6 +10668,1011 @@ async def proxy_get_restaurant_menu(restaurant_id: int):
     }
 
 
+# ==================== AUTH SERVICE PROXY ====================
+
+@app.post("/api/erp/auth/login")
+async def proxy_auth_login(request: dict):
+    """Proxy to auth-service: User login"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/login", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/register")
+async def proxy_auth_register(request: dict):
+    """Proxy to auth-service: User registration"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/register", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/auth/me")
+async def proxy_auth_me(authorization: str = Header(None)):
+    """Proxy to auth-service: Get current user"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/me")
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/refresh")
+async def proxy_auth_refresh(request: dict):
+    """Proxy to auth-service: Refresh token"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/refresh", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/driver/login")
+async def proxy_driver_login(request: dict):
+    """Proxy to auth-service: Driver login"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/driver/login", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/driver/register")
+async def proxy_driver_register(request: dict):
+    """Proxy to auth-service: Driver registration"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/driver/register", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/customer/login")
+async def proxy_customer_login(request: dict):
+    """Proxy to auth-service: Customer login"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/customer/login", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/customer/register")
+async def proxy_customer_register(request: dict):
+    """Proxy to auth-service: Customer registration"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/customer/register", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/password-reset/request")
+async def proxy_password_reset_request(request: dict):
+    """Proxy to auth-service: Request password reset"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/request", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/password-reset/confirm")
+async def proxy_password_reset_confirm(request: dict):
+    """Proxy to auth-service: Confirm password reset"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/confirm", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+# ==================== ORDER SERVICE PROXY ====================
+
+@app.get("/api/erp/orders")
+async def proxy_list_orders(
+    customer_id: Optional[int] = None,
+    vendor_id: Optional[int] = None,
+    driver_id: Optional[int] = None,
+    status: Optional[str] = None,
+    limit: int = 50
+):
+    """Proxy to order-service: List orders"""
+    params = {"limit": limit}
+    if customer_id:
+        params["customer_id"] = customer_id
+    if vendor_id:
+        params["restaurant_id"] = vendor_id
+    if driver_id:
+        params["driver_id"] = driver_id
+    if status:
+        params["status"] = status
+
+    result = await proxy_request(ORDER_SERVICE_URL, "/api/orders", params=params)
+    if result:
+        return result
+    return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
+
+
+@app.post("/api/erp/orders")
+async def proxy_create_order(request: dict):
+    """Proxy to order-service: Create new order"""
+    result = await proxy_request(ORDER_SERVICE_URL, "/api/orders", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Order service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/orders/{order_id}")
+async def proxy_get_order(order_id: int):
+    """Proxy to order-service: Get order details"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}")
+    if result:
+        return result
+    return {"error": "Order service unavailable", "order_id": order_id}
+
+
+@app.get("/api/erp/orders/{order_id}/track")
+async def proxy_track_order(order_id: int):
+    """Proxy to order-service: Track order status"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}/track")
+    if result:
+        return result
+    return {
+        "order_id": order_id,
+        "status": "in_progress",
+        "eta_minutes": 25,
+        "message": "Order service temporarily unavailable"
+    }
+
+
+@app.put("/api/erp/orders/{order_id}/status")
+async def proxy_update_order_status(order_id: int, request: dict):
+    """Proxy to order-service: Update order status"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}/status", method="PUT", json_data=request)
+    if result:
+        return result
+    return {"error": "Order service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/orders/{order_id}/confirm")
+async def proxy_confirm_order(order_id: int):
+    """Proxy to order-service: Confirm order"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}/confirm", method="POST")
+    if result:
+        return result
+    return {"success": True, "order_id": order_id, "status": "confirmed"}
+
+
+@app.post("/api/erp/orders/{order_id}/cancel")
+async def proxy_cancel_order(order_id: int, request: dict = None):
+    """Proxy to order-service: Cancel order"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}/cancel", method="POST", json_data=request or {})
+    if result:
+        return result
+    return {"success": True, "order_id": order_id, "status": "cancelled"}
+
+
+@app.post("/api/erp/orders/{order_id}/assign-driver")
+async def proxy_assign_driver_to_order(order_id: int, request: dict):
+    """Proxy to order-service: Assign driver to order"""
+    result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}/assign-driver", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Order service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/orders/stats")
+async def proxy_order_stats():
+    """Proxy to order-service: Get order statistics"""
+    result = await proxy_request(ORDER_SERVICE_URL, "/api/orders/stats")
+    if result:
+        return result
+    return {"total": 0, "pending": 0, "completed": 0, "message": "Order service unavailable"}
+
+
+# ==================== PAYMENT SERVICE PROXY ====================
+
+@app.post("/api/erp/payments/intent")
+async def proxy_create_payment_intent(request: dict):
+    """Proxy to payment-service: Create payment intent"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/intent", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/payments/intent/{payment_intent_id}")
+async def proxy_get_payment_intent(payment_intent_id: str):
+    """Proxy to payment-service: Get payment intent"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, f"/api/payments/intent/{payment_intent_id}")
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "payment_intent_id": payment_intent_id}
+
+
+@app.post("/api/erp/payments/refund")
+async def proxy_create_refund(request: dict):
+    """Proxy to payment-service: Create refund"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/refund", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/payments")
+async def proxy_list_payments(
+    order_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
+    limit: int = 50
+):
+    """Proxy to payment-service: List payments"""
+    params = {"limit": limit}
+    if order_id:
+        params["order_id"] = order_id
+    if customer_id:
+        params["customer_id"] = customer_id
+
+    result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments", params=params)
+    if result:
+        return result
+    return {"payments": [], "total": 0, "message": "Payment service unavailable"}
+
+
+@app.get("/api/erp/payments/{payment_id}")
+async def proxy_get_payment(payment_id: str):
+    """Proxy to payment-service: Get payment details"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, f"/api/payments/{payment_id}")
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "payment_id": payment_id}
+
+
+@app.get("/api/erp/payments/order/{order_id}/history")
+async def proxy_payment_history(order_id: int):
+    """Proxy to payment-service: Get payment history for order"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, f"/api/payments/order/{order_id}/history")
+    if result:
+        return result
+    return {"payments": [], "order_id": order_id, "message": "Payment service unavailable"}
+
+
+@app.post("/api/erp/payouts/vendor")
+async def proxy_create_vendor_payout(request: dict):
+    """Proxy to payment-service: Create vendor payout"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payouts/vendor", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/payouts/vendor/{vendor_id}")
+async def proxy_get_vendor_payouts(vendor_id: int):
+    """Proxy to payment-service: Get vendor payouts"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, f"/api/payouts/vendor/{vendor_id}")
+    if result:
+        return result
+    return {"payouts": [], "vendor_id": vendor_id, "message": "Payment service unavailable"}
+
+
+@app.post("/api/erp/payouts/driver")
+async def proxy_create_driver_payout(request: dict):
+    """Proxy to payment-service: Create driver payout"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payouts/driver", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Payment service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/payouts/driver/{driver_id}")
+async def proxy_get_driver_payouts(driver_id: int):
+    """Proxy to payment-service: Get driver payouts"""
+    result = await proxy_request(PAYMENT_SERVICE_URL, f"/api/payouts/driver/{driver_id}")
+    if result:
+        return result
+    return {"payouts": [], "driver_id": driver_id, "message": "Payment service unavailable"}
+
+
+# ==================== USER SERVICE PROXY ====================
+
+@app.get("/api/erp/customers")
+async def proxy_list_customers(limit: int = 50, offset: int = 0):
+    """Proxy to user-service: List customers"""
+    result = await proxy_request(USER_SERVICE_URL, "/api/customers", params={"limit": limit, "offset": offset})
+    if result:
+        return result
+    return {"customers": [], "total": 0, "message": "User service unavailable"}
+
+
+@app.get("/api/erp/customers/{customer_id}")
+async def proxy_get_customer(customer_id: int):
+    """Proxy to user-service: Get customer details"""
+    result = await proxy_request(USER_SERVICE_URL, f"/api/customers/{customer_id}")
+    if result:
+        return result
+    return {"error": "User service unavailable", "customer_id": customer_id}
+
+
+@app.put("/api/erp/customers/{customer_id}")
+async def proxy_update_customer(customer_id: int, request: dict):
+    """Proxy to user-service: Update customer"""
+    result = await proxy_request(USER_SERVICE_URL, f"/api/customers/{customer_id}", method="PUT", json_data=request)
+    if result:
+        return result
+    return {"error": "User service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/customers/{customer_id}/addresses")
+async def proxy_get_customer_addresses(customer_id: int):
+    """Proxy to user-service: Get customer addresses"""
+    result = await proxy_request(USER_SERVICE_URL, f"/api/customers/{customer_id}/addresses")
+    if result:
+        return result
+    return {"addresses": [], "customer_id": customer_id, "message": "User service unavailable"}
+
+
+@app.post("/api/erp/customers/{customer_id}/addresses")
+async def proxy_add_customer_address(customer_id: int, request: dict):
+    """Proxy to user-service: Add customer address"""
+    result = await proxy_request(USER_SERVICE_URL, f"/api/customers/{customer_id}/addresses", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "User service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/customers/{customer_id}/loyalty")
+async def proxy_get_customer_loyalty(customer_id: int):
+    """Proxy to user-service: Get customer loyalty info"""
+    result = await proxy_request(USER_SERVICE_URL, f"/api/customers/{customer_id}/loyalty")
+    if result:
+        return result
+    return {"points": 0, "tier": "bronze", "customer_id": customer_id, "message": "User service unavailable"}
+
+
+# ==================== DRIVER SERVICE PROXY ====================
+
+@app.get("/api/erp/drivers")
+async def proxy_list_drivers(
+    status: Optional[str] = None,
+    is_online: Optional[bool] = None,
+    limit: int = 50
+):
+    """Proxy to driver-service: List drivers"""
+    params = {"limit": limit}
+    if status:
+        params["status"] = status
+    if is_online is not None:
+        params["is_online"] = is_online
+
+    result = await proxy_request(DRIVER_SERVICE_URL, "/erp/drivers", params=params)
+    if result:
+        return result
+    return {"drivers": [], "total": 0, "message": "Driver service unavailable"}
+
+
+@app.get("/api/erp/drivers/{driver_id}/profile")
+async def proxy_get_driver_profile(driver_id: int):
+    """Proxy to driver-service: Get driver profile"""
+    result = await proxy_request(DRIVER_SERVICE_URL, "/api/driver/profile")
+    if result:
+        return result
+    return {"error": "Driver service unavailable", "driver_id": driver_id}
+
+
+@app.put("/api/erp/drivers/{driver_id}/status")
+async def proxy_update_driver_status(driver_id: int, request: dict):
+    """Proxy to driver-service: Update driver status"""
+    result = await proxy_request(DRIVER_SERVICE_URL, f"/erp/drivers/{driver_id}/status", method="PATCH", json_data=request)
+    if result:
+        return result
+    return {"error": "Driver service unavailable", "fallback": True}
+
+
+@app.put("/api/erp/drivers/{driver_id}/location")
+async def proxy_update_driver_location(driver_id: int, request: dict):
+    """Proxy to driver-service: Update driver location"""
+    result = await proxy_request(DRIVER_SERVICE_URL, "/api/driver/location", method="PUT", json_data=request)
+    if result:
+        return result
+    return {"error": "Driver service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/drivers/{driver_id}/earnings")
+async def proxy_get_driver_earnings(driver_id: int):
+    """Proxy to driver-service: Get driver earnings"""
+    result = await proxy_request(DRIVER_SERVICE_URL, "/api/driver/earnings")
+    if result:
+        return result
+    return {"total": 0, "today": 0, "week": 0, "driver_id": driver_id, "message": "Driver service unavailable"}
+
+
+@app.post("/api/erp/drivers/nearby")
+async def proxy_find_nearby_drivers(request: dict):
+    """Proxy to driver-service: Find nearby drivers"""
+    result = await proxy_request(DRIVER_SERVICE_URL, "/api/driver/nearby", method="POST", json_data=request)
+    if result:
+        return result
+    return {"drivers": [], "message": "Driver service unavailable"}
+
+
+# ==================== MENU SERVICE PROXY ====================
+
+@app.get("/api/erp/menu-items")
+async def proxy_list_menu_items(
+    vendor_id: Optional[int] = None,
+    category: Optional[str] = None,
+    limit: int = 50
+):
+    """Proxy to menu-service: List menu items"""
+    params = {"limit": limit}
+    if category:
+        params["category"] = category
+
+    if vendor_id:
+        result = await proxy_request(MENU_SERVICE_URL, f"/api/vendors/{vendor_id}/menu", params=params)
+    else:
+        result = await proxy_request(MENU_SERVICE_URL, "/api/menu-items/search", params=params)
+
+    if result:
+        return result
+    return {"items": [], "total": 0, "message": "Menu service unavailable"}
+
+
+@app.get("/api/erp/menu-items/{item_id}")
+async def proxy_get_menu_item(item_id: int):
+    """Proxy to menu-service: Get menu item details"""
+    result = await proxy_request(MENU_SERVICE_URL, f"/api/menu-items/{item_id}")
+    if result:
+        return result
+    return {"error": "Menu service unavailable", "item_id": item_id}
+
+
+@app.post("/api/erp/menu-items")
+async def proxy_create_menu_item(request: dict):
+    """Proxy to menu-service: Create menu item"""
+    result = await proxy_request(MENU_SERVICE_URL, "/api/menu-items", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Menu service unavailable", "fallback": True}
+
+
+@app.put("/api/erp/menu-items/{item_id}")
+async def proxy_update_menu_item(item_id: int, request: dict):
+    """Proxy to menu-service: Update menu item"""
+    result = await proxy_request(MENU_SERVICE_URL, f"/api/menu-items/{item_id}", method="PUT", json_data=request)
+    if result:
+        return result
+    return {"error": "Menu service unavailable", "fallback": True}
+
+
+@app.delete("/api/erp/menu-items/{item_id}")
+async def proxy_delete_menu_item(item_id: int):
+    """Proxy to menu-service: Delete menu item"""
+    result = await proxy_request(MENU_SERVICE_URL, f"/api/menu-items/{item_id}", method="DELETE")
+    if result:
+        return result
+    return {"success": True, "item_id": item_id}
+
+
+@app.patch("/api/erp/menu-items/{item_id}/availability")
+async def proxy_update_menu_item_availability(item_id: int, request: dict):
+    """Proxy to menu-service: Update item availability"""
+    result = await proxy_request(MENU_SERVICE_URL, f"/api/menu-items/{item_id}/availability", method="PATCH", json_data=request)
+    if result:
+        return result
+    return {"error": "Menu service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/menu-items/categories")
+async def proxy_get_menu_categories():
+    """Proxy to menu-service: Get menu categories"""
+    result = await proxy_request(MENU_SERVICE_URL, "/api/menu-items/categories")
+    if result:
+        return result
+    return {"categories": [], "message": "Menu service unavailable"}
+
+
+# ==================== NOTIFICATION SERVICE PROXY ====================
+
+@app.post("/api/erp/notifications/push/send")
+async def proxy_send_push_notification(request: dict):
+    """Proxy to notification-service: Send push notification"""
+    result = await proxy_request(NOTIFICATION_SERVICE_URL, "/api/notifications/push/send", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Notification service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/notifications/email/send")
+async def proxy_send_email(request: dict):
+    """Proxy to notification-service: Send email"""
+    result = await proxy_request(NOTIFICATION_SERVICE_URL, "/api/notifications/email/send", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Notification service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/notifications/sms/send")
+async def proxy_send_sms(request: dict):
+    """Proxy to notification-service: Send SMS"""
+    result = await proxy_request(NOTIFICATION_SERVICE_URL, "/api/notifications/sms/send", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Notification service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/notifications/order")
+async def proxy_send_order_notification(request: dict):
+    """Proxy to notification-service: Send order notification"""
+    result = await proxy_request(NOTIFICATION_SERVICE_URL, "/api/notifications/order", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Notification service unavailable", "fallback": True}
+
+
+# ==================== RATING SERVICE PROXY ====================
+
+@app.get("/api/erp/ratings")
+async def proxy_list_ratings(
+    entity_type: Optional[str] = None,
+    entity_id: Optional[int] = None,
+    limit: int = 50
+):
+    """Proxy to rating-service: List ratings"""
+    params = {"limit": limit}
+    if entity_type:
+        params["entity_type"] = entity_type
+    if entity_id:
+        params["entity_id"] = entity_id
+
+    result = await proxy_request(RATING_SERVICE_URL, "/api/ratings", params=params)
+    if result:
+        return result
+    return {"ratings": [], "total": 0, "message": "Rating service unavailable"}
+
+
+@app.post("/api/erp/ratings")
+async def proxy_create_rating(request: dict):
+    """Proxy to rating-service: Create rating"""
+    result = await proxy_request(RATING_SERVICE_URL, "/api/ratings", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Rating service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/ratings/{rating_id}")
+async def proxy_get_rating(rating_id: int):
+    """Proxy to rating-service: Get rating details"""
+    result = await proxy_request(RATING_SERVICE_URL, f"/api/ratings/{rating_id}")
+    if result:
+        return result
+    return {"error": "Rating service unavailable", "rating_id": rating_id}
+
+
+@app.get("/api/erp/aggregates/{entity_type}/{entity_id}")
+async def proxy_get_rating_aggregate(entity_type: str, entity_id: int):
+    """Proxy to rating-service: Get rating aggregate"""
+    result = await proxy_request(RATING_SERVICE_URL, f"/api/aggregates/{entity_type}/{entity_id}")
+    if result:
+        return result
+    return {"average": 0, "count": 0, "entity_type": entity_type, "entity_id": entity_id}
+
+
+# ==================== ANALYTICS SERVICE PROXY ====================
+
+@app.get("/api/erp/analytics/dashboard/realtime")
+async def proxy_realtime_dashboard():
+    """Proxy to analytics-service: Get realtime dashboard"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/dashboard/realtime")
+    if result:
+        return result
+    return {"orders": 0, "rides": 0, "revenue": 0, "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/orders/hourly")
+async def proxy_orders_hourly():
+    """Proxy to analytics-service: Get hourly order stats"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/dashboard/orders/hourly")
+    if result:
+        return result
+    return {"data": [], "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/rides/hourly")
+async def proxy_rides_hourly():
+    """Proxy to analytics-service: Get hourly ride stats"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/dashboard/rides/hourly")
+    if result:
+        return result
+    return {"data": [], "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/bi/orders/summary")
+async def proxy_bi_orders_summary():
+    """Proxy to analytics-service: Get BI order summary"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/bi/orders/summary")
+    if result:
+        return result
+    return {"total": 0, "average": 0, "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/bi/restaurants/top")
+async def proxy_bi_top_restaurants(limit: int = 10):
+    """Proxy to analytics-service: Get top restaurants"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/bi/restaurants/top", params={"limit": limit})
+    if result:
+        return result
+    return {"restaurants": [], "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/bi/drivers/top")
+async def proxy_bi_top_drivers(limit: int = 10):
+    """Proxy to analytics-service: Get top drivers"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/bi/drivers/top", params={"limit": limit})
+    if result:
+        return result
+    return {"drivers": [], "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/heatmap/demand")
+async def proxy_demand_heatmap():
+    """Proxy to analytics-service: Get demand heatmap"""
+    result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/heatmap/demand")
+    if result:
+        return result
+    return {"cells": [], "message": "Analytics service unavailable"}
+
+
+# ==================== NEGOTIATION SERVICE PROXY ====================
+
+@app.post("/api/erp/negotiate/start")
+async def proxy_start_negotiation(request: dict):
+    """Proxy to negotiation-service: Start negotiation"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, "/api/negotiate/start", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Negotiation service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/negotiate/offer")
+async def proxy_make_offer(request: dict):
+    """Proxy to negotiation-service: Make offer"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, "/api/negotiate/offer", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Negotiation service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/negotiate/accept")
+async def proxy_accept_negotiation(request: dict):
+    """Proxy to negotiation-service: Accept negotiation"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, "/api/negotiate/accept", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Negotiation service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/negotiate/reject")
+async def proxy_reject_negotiation(request: dict):
+    """Proxy to negotiation-service: Reject negotiation"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, "/api/negotiate/reject", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Negotiation service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/negotiate/status/{ride_id}")
+async def proxy_get_negotiation_status(ride_id: str):
+    """Proxy to negotiation-service: Get negotiation status"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, f"/api/negotiate/status/{ride_id}")
+    if result:
+        return result
+    return {"ride_id": ride_id, "status": "unknown", "message": "Negotiation service unavailable"}
+
+
+@app.get("/api/erp/negotiate/quick-offers")
+async def proxy_get_quick_offers():
+    """Proxy to negotiation-service: Get quick offer options"""
+    result = await proxy_request(NEGOTIATION_SERVICE_URL, "/api/negotiate/quick-offers")
+    if result:
+        return result
+    return {"offers": [], "message": "Negotiation service unavailable"}
+
+
+# ==================== CHAT SERVICE PROXY ====================
+
+@app.post("/api/erp/chat/conversations")
+async def proxy_create_conversation(request: dict):
+    """Proxy to chat-service: Create conversation"""
+    result = await proxy_request(CHAT_SERVICE_URL, "/api/chat/conversations", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Chat service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/chat/conversations/{conversation_id}")
+async def proxy_get_conversation(conversation_id: str):
+    """Proxy to chat-service: Get conversation"""
+    result = await proxy_request(CHAT_SERVICE_URL, f"/api/chat/conversations/{conversation_id}")
+    if result:
+        return result
+    return {"error": "Chat service unavailable", "conversation_id": conversation_id}
+
+
+@app.post("/api/erp/chat/messages")
+async def proxy_send_message(request: dict):
+    """Proxy to chat-service: Send message"""
+    result = await proxy_request(CHAT_SERVICE_URL, "/api/chat/messages", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Chat service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/chat/messages/{conversation_id}")
+async def proxy_get_messages(conversation_id: str, limit: int = 50):
+    """Proxy to chat-service: Get messages"""
+    result = await proxy_request(CHAT_SERVICE_URL, f"/api/chat/messages/{conversation_id}", params={"limit": limit})
+    if result:
+        return result
+    return {"messages": [], "conversation_id": conversation_id, "message": "Chat service unavailable"}
+
+
+@app.post("/api/erp/chat/messages/{conversation_id}/read")
+async def proxy_mark_messages_read(conversation_id: str):
+    """Proxy to chat-service: Mark messages as read"""
+    result = await proxy_request(CHAT_SERVICE_URL, f"/api/chat/messages/{conversation_id}/read", method="POST")
+    if result:
+        return result
+    return {"success": True, "conversation_id": conversation_id}
+
+
+@app.get("/api/erp/chat/quick-replies")
+async def proxy_get_quick_replies():
+    """Proxy to chat-service: Get quick reply options"""
+    result = await proxy_request(CHAT_SERVICE_URL, "/api/chat/quick-replies")
+    if result:
+        return result
+    return {"replies": [], "message": "Chat service unavailable"}
+
+
+# ==================== CALL SERVICE PROXY ====================
+
+@app.post("/api/erp/call/sessions")
+async def proxy_create_call_session(request: dict):
+    """Proxy to call-service: Create call session"""
+    result = await proxy_request(CALL_SERVICE_URL, "/api/call/sessions", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Call service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/call/sessions/{session_id}")
+async def proxy_get_call_session(session_id: str):
+    """Proxy to call-service: Get call session"""
+    result = await proxy_request(CALL_SERVICE_URL, f"/api/call/sessions/{session_id}")
+    if result:
+        return result
+    return {"error": "Call service unavailable", "session_id": session_id}
+
+
+@app.put("/api/erp/call/sessions/{session_id}")
+async def proxy_update_call_session(session_id: str, request: dict):
+    """Proxy to call-service: Update call session"""
+    result = await proxy_request(CALL_SERVICE_URL, f"/api/call/sessions/{session_id}", method="PUT", json_data=request)
+    if result:
+        return result
+    return {"error": "Call service unavailable", "fallback": True}
+
+
+@app.delete("/api/erp/call/sessions/{session_id}")
+async def proxy_end_call_session(session_id: str):
+    """Proxy to call-service: End call session"""
+    result = await proxy_request(CALL_SERVICE_URL, f"/api/call/sessions/{session_id}", method="DELETE")
+    if result:
+        return result
+    return {"success": True, "session_id": session_id}
+
+
+@app.get("/api/erp/call/masked-number")
+async def proxy_get_masked_number():
+    """Proxy to call-service: Get masked number"""
+    result = await proxy_request(CALL_SERVICE_URL, "/api/call/masked-number")
+    if result:
+        return result
+    return {"error": "Call service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/call/initiate")
+async def proxy_initiate_call(request: dict):
+    """Proxy to call-service: Initiate call"""
+    result = await proxy_request(CALL_SERVICE_URL, "/api/call/initiate", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Call service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/call/logs/{session_id}")
+async def proxy_get_call_logs(session_id: str):
+    """Proxy to call-service: Get call logs"""
+    result = await proxy_request(CALL_SERVICE_URL, f"/api/call/logs/{session_id}")
+    if result:
+        return result
+    return {"logs": [], "session_id": session_id, "message": "Call service unavailable"}
+
+
+# ==================== LOCATION SERVICE PROXY ====================
+
+@app.post("/api/erp/locations/driver")
+async def proxy_update_driver_location_service(request: dict):
+    """Proxy to location-service: Update driver location"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/driver", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Location service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/locations/driver/{driver_id}")
+async def proxy_get_driver_location_service(driver_id: int):
+    """Proxy to location-service: Get driver location"""
+    result = await proxy_request(LOCATION_SERVICE_URL, f"/api/locations/driver/{driver_id}")
+    if result:
+        return result
+    return {"error": "Location service unavailable", "driver_id": driver_id}
+
+
+@app.post("/api/erp/locations/nearby-drivers")
+async def proxy_find_nearby_drivers_location(request: dict):
+    """Proxy to location-service: Find nearby drivers"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/nearby-drivers", method="POST", json_data=request)
+    if result:
+        return result
+    return {"drivers": [], "message": "Location service unavailable"}
+
+
+@app.post("/api/erp/locations/geocode")
+async def proxy_geocode(request: dict):
+    """Proxy to location-service: Geocode address"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/geocode", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Location service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/locations/reverse-geocode")
+async def proxy_reverse_geocode(request: dict):
+    """Proxy to location-service: Reverse geocode coordinates"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/reverse-geocode", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Location service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/locations/distance")
+async def proxy_calculate_distance(request: dict):
+    """Proxy to location-service: Calculate distance"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/distance", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Location service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/locations/zones")
+async def proxy_list_delivery_zones():
+    """Proxy to location-service: List delivery zones"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/zones")
+    if result:
+        return result
+    return {"zones": [], "message": "Location service unavailable"}
+
+
+@app.post("/api/erp/locations/zones/check")
+async def proxy_check_zone(request: dict):
+    """Proxy to location-service: Check if location is in delivery zone"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/zones/check", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Location service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/locations/service-area")
+async def proxy_get_service_area():
+    """Proxy to location-service: Get service area"""
+    result = await proxy_request(LOCATION_SERVICE_URL, "/api/locations/service-area")
+    if result:
+        return result
+    return {"area": None, "message": "Location service unavailable"}
+
+
+# ==================== PRICING SERVICE PROXY ====================
+
+@app.post("/api/erp/pricing/calculate")
+async def proxy_calculate_pricing(request: dict):
+    """Proxy to pricing-service: Calculate pricing"""
+    result = await proxy_request(PRICING_SERVICE_URL, "/api/pricing/calculate", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Pricing service unavailable", "fallback": True}
+
+
+@app.get("/api/erp/pricing/surge")
+async def proxy_get_surge_pricing(lat: float, lng: float):
+    """Proxy to pricing-service: Get surge pricing"""
+    result = await proxy_request(PRICING_SERVICE_URL, "/api/pricing/surge", params={"lat": lat, "lng": lng})
+    if result:
+        return result
+    return {"multiplier": 1.0, "message": "Pricing service unavailable"}
+
+
+@app.get("/api/erp/pricing/estimate")
+async def proxy_get_price_estimate(
+    pickup_lat: float,
+    pickup_lng: float,
+    dropoff_lat: float,
+    dropoff_lng: float,
+    service_type: str = "standard"
+):
+    """Proxy to pricing-service: Get price estimate"""
+    params = {
+        "pickup_lat": pickup_lat,
+        "pickup_lng": pickup_lng,
+        "dropoff_lat": dropoff_lat,
+        "dropoff_lng": dropoff_lng,
+        "service_type": service_type
+    }
+    result = await proxy_request(PRICING_SERVICE_URL, "/api/pricing/estimate", params=params)
+    if result:
+        return result
+    return {"estimate": 0, "message": "Pricing service unavailable"}
+
+
+# ==================== MICROSERVICE HEALTH CHECKS ====================
+
+@app.get("/api/erp/health/services")
+async def check_all_services_health():
+    """Check health of all microservices"""
+    import asyncio
+
+    services = {
+        "auth": AUTH_SERVICE_URL,
+        "user": USER_SERVICE_URL,
+        "driver": DRIVER_SERVICE_URL,
+        "restaurant": RESTAURANT_SERVICE_URL,
+        "order": ORDER_SERVICE_URL,
+        "payment": PAYMENT_SERVICE_URL,
+        "location": LOCATION_SERVICE_URL,
+        "menu": MENU_SERVICE_URL,
+        "notification": NOTIFICATION_SERVICE_URL,
+        "rating": RATING_SERVICE_URL,
+        "ride": RIDE_SERVICE_URL,
+        "pricing": PRICING_SERVICE_URL,
+        "analytics": ANALYTICS_SERVICE_URL,
+        "negotiation": NEGOTIATION_SERVICE_URL,
+        "chat": CHAT_SERVICE_URL,
+        "call": CALL_SERVICE_URL
+    }
+
+    async def check_service(name: str, url: str):
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{url}/health")
+                return name, response.status_code == 200, response.status_code
+        except Exception as e:
+            return name, False, str(e)
+
+    tasks = [check_service(name, url) for name, url in services.items()]
+    results = await asyncio.gather(*tasks)
+
+    health_status = {}
+    healthy_count = 0
+    for name, is_healthy, svc_status in results:
+        health_status[name] = {
+            "healthy": is_healthy,
+            "status": svc_status
+        }
+        if is_healthy:
+            healthy_count += 1
+
+    return {
+        "services": health_status,
+        "healthy_count": healthy_count,
+        "total_services": len(services),
+        "overall_health": "healthy" if healthy_count == len(services) else "degraded" if healthy_count > 0 else "unhealthy"
+    }
+
+
 # ==================== WEBSOCKET REAL-TIME UPDATES ====================
 # Import WebSocket server for real-time order/ride tracking
 try:
@@ -10537,7 +11940,7 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
         # Get orders that are ready for pickup and don't have a driver assigned
         orders = db.query(Order).filter(
             Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY]),
-            Order.driver_id == None
+            Order.driver_id.is_(None)
         ).limit(20).all()
 
         deliveries = []

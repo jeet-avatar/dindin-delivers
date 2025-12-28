@@ -175,8 +175,7 @@ def add_sample_vendors():
     db.close()
 
 if __name__ == "__main__":
-    print("🔧 Adding sample vendor data for ZIP Dashboard...")
+    print("Adding sample vendor data for ZIP Dashboard...")
     print("-" * 50)
     add_sample_vendors()
-    print("\n🚀 ZIP Dashboard is now ready with sample data!")
-    print("   View at: http://localhost:5173/zip-dashboard")
+    print("\nZIP Dashboard is now ready with sample data!")

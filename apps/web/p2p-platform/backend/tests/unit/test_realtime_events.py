@@ -66,9 +66,9 @@ from realtime_events import (
 )
 from models_extended import (
     RealTimeEvent, Communication, CommunicationChannel,
-    CommunicationStatus, RecipientType, Customer
+    CommunicationStatus, RecipientType
 )
-from models import Vendor, Order, OrderStatus
+from models import Vendor, Order, OrderStatus, Customer
 
 
 # ==================== FIXTURES ====================

@@ -153,7 +153,35 @@ struct ProfileView: View {
                             .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
                         }
                         .padding(.horizontal)
-                        
+
+                        // Privacy & Safety Section - Uber Eats style transparency
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("PRIVACY & SAFETY")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(Theme.textGrey)
+                                .padding(.leading, 20)
+                                .padding(.bottom, 10)
+
+                            VStack(spacing: 0) {
+                                NavigationLink(destination: WhatDriversSeePage()) {
+                                    ProfileOptionRow(icon: "eye.fill", title: "What Drivers See")
+                                }
+                                Divider()
+                                NavigationLink(destination: YourPrivacyPage()) {
+                                    ProfileOptionRow(icon: "lock.shield.fill", title: "Your Privacy")
+                                }
+                                Divider()
+                                NavigationLink(destination: SafetyFeaturesPage()) {
+                                    ProfileOptionRow(icon: "checkmark.shield.fill", title: "Safety Features")
+                                }
+                            }
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                        }
+                        .padding(.horizontal)
+
                         // Logout Button
                         Button(action: {
                             // Use the authViewModel to properly logout
