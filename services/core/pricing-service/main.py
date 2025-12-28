@@ -87,27 +87,34 @@ FOOD_DRIVER_FEE = 0.00          # FREE - drivers keep 100%
 # Platform fee tiers based on trip distance:
 #   0-10 miles:  $1 (rider) + $1 (driver) = $2 total
 #   10-20 miles: $2 (rider) + $2 (driver) = $4 total
-#   20+ miles:   $3 (rider) + $3 (driver) = $6 total
+#   >$70:        $3 (rider) + $3 (driver) = $6 total
 # Both rider AND driver pay the same fee per tier
 
-# Distance tier thresholds (in miles)
-RIDESHARE_DISTANCE_TIER_1_MAX = 10.0   # Trips up to 10 miles
-RIDESHARE_DISTANCE_TIER_2_MAX = 20.0   # Trips 10.01 to 20 miles
-# Tier 3: Trips above 20 miles
+# =============================================================================
+# FARE-BASED TIER PRICING (Primary - matches iOS/Android/Backend)
+# =============================================================================
+# Fare tier thresholds
+RIDESHARE_TIER_1_MAX = 35.00    # Fares up to $35
+RIDESHARE_TIER_2_MAX = 70.00    # Fares $35.01 to $70
+# Tier 3: Fares above $70
 
-# Platform fees per distance tier
-RIDESHARE_DISTANCE_TIER_1_FEE = 1.00   # $1 for trips <= 10 miles
-RIDESHARE_DISTANCE_TIER_2_FEE = 2.00   # $2 for trips 10.01-20 miles
-RIDESHARE_DISTANCE_TIER_3_FEE = 3.00   # $3 for trips > 20 miles
+# Platform fees per fare tier
+RIDESHARE_TIER_1_FEE = 1.00     # $1 for fares <= $35
+RIDESHARE_TIER_2_FEE = 2.00     # $2 for fares $35.01-$70
+RIDESHARE_TIER_3_FEE = 3.00     # $3 for fares > $70
 
-# Legacy constants (kept for backward compatibility)
+# Minimum platform fee
+RIDESHARE_MIN_PLATFORM_FEE = 1.00  # Minimum $1 platform fee
+
+# =============================================================================
+# DEPRECATED: Distance-based tiers (kept for backward compatibility only)
+# =============================================================================
+RIDESHARE_DISTANCE_TIER_1_MAX = 10.0   # Deprecated - use fare-based
+RIDESHARE_DISTANCE_TIER_2_MAX = 20.0   # Deprecated - use fare-based
+RIDESHARE_DISTANCE_TIER_1_FEE = 1.00   # Deprecated
+RIDESHARE_DISTANCE_TIER_2_FEE = 2.00   # Deprecated
+RIDESHARE_DISTANCE_TIER_3_FEE = 3.00   # Deprecated
 RIDESHARE_PLATFORM_FEE_PER_MILE = 0.10  # Deprecated
-RIDESHARE_MIN_PLATFORM_FEE = 1.00       # Minimum $1 platform fee
-RIDESHARE_TIER_1_MAX = 35.00    # Legacy fare-based tiers
-RIDESHARE_TIER_2_MAX = 70.00
-RIDESHARE_TIER_1_FEE = 1.00
-RIDESHARE_TIER_2_FEE = 2.00
-RIDESHARE_TIER_3_FEE = 3.00
 
 # Legacy constants for backward compatibility
 PLATFORM_FEE_FOOD = 1.00  # Same as FOOD_CUSTOMER_FEE
@@ -160,82 +167,93 @@ def get_food_restaurant_fee(order_value: float) -> float:
     return FOOD_RESTAURANT_FEE
 
 
-def get_rideshare_platform_fee(distance_miles: float, fare_value: float = None) -> float:
+def get_rideshare_platform_fee(fare_amount: float, distance_miles: float = None) -> float:
     """
-    Calculate TIERED DISTANCE-BASED platform fee for rideshare.
+    Calculate TIERED FARE-BASED platform fee for rideshare.
 
-    Pricing Model (based on trip distance):
-        0-10 miles:  $1
-        10-20 miles: $2
-        20+ miles:   $3
+    Matches iOS/Android/Backend pricing model.
+
+    Pricing Model (based on fare amount):
+        Fares <= $35:     $1
+        Fares $35-$70:    $2
+        Fares > $70:      $3
 
     Both rider AND driver pay this same fee amount.
 
     Args:
-        distance_miles: Trip distance in miles
-        fare_value: (Deprecated) Fare value, kept for backward compatibility
+        fare_amount: The fare/price amount in dollars
+        distance_miles: (Deprecated) Distance, kept for backward compatibility
 
     Returns:
         Platform fee amount (same for both rider and driver)
 
     Examples:
-        5 miles  -> $1.00 (Tier 1)
-        10 miles -> $1.00 (Tier 1)
-        15 miles -> $2.00 (Tier 2)
-        20 miles -> $2.00 (Tier 2)
-        25 miles -> $3.00 (Tier 3)
-        50 miles -> $3.00 (Tier 3)
+        $20 fare -> $1.00 (Tier 1)
+        $35 fare -> $1.00 (Tier 1)
+        $50 fare -> $2.00 (Tier 2)
+        $70 fare -> $2.00 (Tier 2)
+        $80 fare -> $3.00 (Tier 3)
+        $150 fare -> $3.00 (Tier 3)
     """
-    if distance_miles <= RIDESHARE_DISTANCE_TIER_1_MAX:
-        return RIDESHARE_DISTANCE_TIER_1_FEE
-    elif distance_miles <= RIDESHARE_DISTANCE_TIER_2_MAX:
-        return RIDESHARE_DISTANCE_TIER_2_FEE
+    if fare_amount <= RIDESHARE_TIER_1_MAX:
+        return RIDESHARE_TIER_1_FEE
+    elif fare_amount <= RIDESHARE_TIER_2_MAX:
+        return RIDESHARE_TIER_2_FEE
     else:
-        return RIDESHARE_DISTANCE_TIER_3_FEE
+        return RIDESHARE_TIER_3_FEE
 
 
-def get_rideshare_distance_tier(distance_miles: float) -> int:
+def get_rideshare_fare_tier(fare_amount: float) -> int:
     """
-    Get tier number (1, 2, or 3) based on trip distance.
+    Get tier number (1, 2, or 3) based on fare amount.
+    Matches iOS/Android/Backend.
     """
-    if distance_miles <= RIDESHARE_DISTANCE_TIER_1_MAX:
+    if fare_amount <= RIDESHARE_TIER_1_MAX:
         return 1
-    elif distance_miles <= RIDESHARE_DISTANCE_TIER_2_MAX:
+    elif fare_amount <= RIDESHARE_TIER_2_MAX:
         return 2
     else:
         return 3
 
 
-def get_rideshare_platform_fee_breakdown(distance_miles: float) -> dict:
+# Deprecated alias for backward compatibility
+def get_rideshare_distance_tier(distance_miles: float) -> int:
+    """(Deprecated) Use get_rideshare_fare_tier instead."""
+    # Convert to approximate fare for backward compat
+    approx_fare = distance_miles * 2.0  # Rough $2/mile estimate
+    return get_rideshare_fare_tier(approx_fare)
+
+
+def get_rideshare_platform_fee_breakdown(fare_amount: float) -> dict:
     """
     Get detailed breakdown of rideshare platform fees.
 
     Args:
-        distance_miles: Trip distance in miles
+        fare_amount: The fare/price amount in dollars
 
     Returns:
         Dictionary with fee breakdown for both rider and driver
     """
-    platform_fee = get_rideshare_platform_fee(distance_miles)
-    tier = get_rideshare_distance_tier(distance_miles)
+    platform_fee = get_rideshare_platform_fee(fare_amount)
+    tier = get_rideshare_fare_tier(fare_amount)
 
     tier_descriptions = {
-        1: "0-10 miles: $1",
-        2: "10-20 miles: $2",
-        3: "20+ miles: $3"
+        1: "Fares ≤$35: $1",
+        2: "Fares $35-$70: $2",
+        3: "Fares >$70: $3"
     }
 
     return {
-        "distance_miles": distance_miles,
+        "fare_amount": fare_amount,
         "tier": tier,
         "tier_description": tier_descriptions[tier],
         "rider_fee": platform_fee,
         "driver_fee": platform_fee,
         "total_platform_revenue": round(platform_fee * 2, 2),  # Rider + Driver
         "pricing_tiers": {
-            "tier_1": {"max_miles": RIDESHARE_DISTANCE_TIER_1_MAX, "fee": RIDESHARE_DISTANCE_TIER_1_FEE},
-            "tier_2": {"max_miles": RIDESHARE_DISTANCE_TIER_2_MAX, "fee": RIDESHARE_DISTANCE_TIER_2_FEE},
-            "tier_3": {"min_miles": RIDESHARE_DISTANCE_TIER_2_MAX, "fee": RIDESHARE_DISTANCE_TIER_3_FEE},
+            "tier_1": {"max_fare": RIDESHARE_TIER_1_MAX, "fee": RIDESHARE_TIER_1_FEE, "description": "Fares ≤$35: $1"},
+            "tier_2": {"max_fare": RIDESHARE_TIER_2_MAX, "fee": RIDESHARE_TIER_2_FEE, "description": "Fares $35-$70: $2"},
+            "tier_3": {"min_fare": RIDESHARE_TIER_2_MAX, "fee": RIDESHARE_TIER_3_FEE, "description": "Fares >$70: $3"},
         }
     }
 

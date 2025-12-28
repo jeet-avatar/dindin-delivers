@@ -65,16 +65,16 @@ AI_EMPLOYEES = {
 # ===========================================
 # EatFair Food Delivery - World's First $1 General Store!
 #
-# Customer pays: Food + Tax + Delivery Fee + Tip (NO service fee!)
+# Customer pays: Food + Tax + Delivery Fee + $1 Service Fee + Tip
 # Restaurant pays: $1 flat platform fee (deducted from their payout)
 # Driver gets: Delivery Fee + 100% of Tip
-# Platform gets: $1 from restaurant per order
+# Platform gets: $1 from restaurant + $1 from customer = $2 per order
 #
-# This is different from Uber/DoorDash that charge customers service fees!
+# Simple, transparent pricing - customers and restaurants both pay $1 per order
 # ===========================================
 
 RESTAURANT_PLATFORM_FEE = 1.00  # $1 flat fee per order from restaurant (platform revenue)
-CUSTOMER_SERVICE_FEE = 0.00     # $0 - NO service fee to customer!
+CUSTOMER_SERVICE_FEE = 1.00     # $1 service fee from customer per order (platform revenue)
 DELIVERY_FEE = 4.99             # $4.99 delivery fee from customer (goes to driver)
 
 # Legacy variable for backward compatibility

@@ -9,16 +9,17 @@ public class AppConfig: ObservableObject {
     // MARK: - P2P API Configuration
     /// Dollar.ai backend base URL - all data comes from here
     /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    /// AWS EKS Staging API endpoint
-    @Published public var p2pAPIBaseURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080"
+    /// AWS CloudFront Staging API endpoint (HTTPS)
+    /// Note: P2PAPIService appends /api to this URL
+    @Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
 
-    // MARK: - Microservice URLs
+    // MARK: - Microservice URLs (all go through CloudFront staging)
     /// Negotiation service for real-time price negotiation between drivers and customers
-    @Published public var negotiationServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/negotiation"
+    @Published public var negotiationServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/negotiation"
     /// Chat service for real-time messaging between drivers and customers
-    @Published public var chatServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/chat"
+    @Published public var chatServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/chat"
     /// Call service for privacy-protected phone calls (number masking)
-    @Published public var callServiceURL: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/call"
+    @Published public var callServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/call"
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
@@ -296,7 +297,7 @@ public class AppConfig: ObservableObject {
     }
 
     // Support - Using Staging API
-    @Published public var supportUrl: String = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/support"
+    @Published public var supportUrl: String = "https://d3kuu45w6kl8hr.cloudfront.net/support"
     @Published public var supportPhone: String = "+1-800-365-5671"
     @Published public var supportEmail: String = "support@dollor.ai"
 
@@ -462,7 +463,8 @@ public struct OrderStatusConstants {
 
 public struct APIEndpoints {
     /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    public static let baseURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080"
+    /// AWS CloudFront Staging API endpoint (HTTPS)
+    public static let baseURL = "https://d3kuu45w6kl8hr.cloudfront.net"
 
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
@@ -554,8 +556,8 @@ public struct AppConstants {
 
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
     // STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    public static let termsOfServiceURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/terms"
-    public static let privacyPolicyURL = "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080/privacy"
+    public static let termsOfServiceURL = "https://d3kuu45w6kl8hr.cloudfront.net/terms"
+    public static let privacyPolicyURL = "https://d3kuu45w6kl8hr.cloudfront.net/privacy"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)

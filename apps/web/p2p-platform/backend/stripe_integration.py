@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import stripe
 import json
 import os
@@ -31,6 +31,26 @@ class OrderItem(BaseModel):
     name: str
     quantity: int
     price: float
+
+    # SECURITY: Validate quantity is positive
+    @field_validator('quantity')
+    @classmethod
+    def quantity_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError('Quantity must be greater than 0')
+        if v > 100:
+            raise ValueError('Quantity cannot exceed 100 items')
+        return v
+
+    # SECURITY: Validate price is positive
+    @field_validator('price')
+    @classmethod
+    def price_must_be_positive(cls, v):
+        if v < 0:
+            raise ValueError('Price cannot be negative')
+        if v > 10000:
+            raise ValueError('Price cannot exceed $10,000')
+        return v
 
 class CreateOrderRequest(BaseModel):
     customer_name: str
@@ -196,7 +216,10 @@ async def create_order(
         # Rollback order if Stripe fails
         db.delete(new_order)
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
+        # SECURITY: Log the full error but don't expose sensitive details to client
+        import logging
+        logging.error(f"Stripe error for order: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment processing failed. Please try again or contact support.")
 
 # ===================== STRIPE WEBHOOK =====================
 

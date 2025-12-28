@@ -4037,18 +4037,17 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Customer Ride Request APIs
 
-    /// Request a ride (customer requests pickup)
-    public func requestRide(
-        customerName: String,
-        customerEmail: String,
-        customerPhone: String,
-        pickupAddress: RideAddressInput,
-        dropoffAddress: RideAddressInput,
-        notes: String? = nil,
-        tip: Double = 0.0,
-        completion: @escaping (Result<RideRequestResponse, Error>) -> Void
+    /// Get fare estimate from staging API (consistent pricing with Android)
+    /// Uses same endpoint as Android: /api/rides/estimate
+    public func estimateRideFare(
+        pickupLat: Double,
+        pickupLng: Double,
+        dropoffLat: Double,
+        dropoffLng: Double,
+        stateCode: String = "CA",
+        completion: @escaping (Result<RideFareEstimateResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/rides/request") else {
+        guard let url = URL(string: "\(baseURL)/rides/estimate") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -4058,28 +4057,91 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "customer_name": customerName,
-            "customer_email": customerEmail,
-            "customer_phone": customerPhone,
-            "pickup_address": [
-                "street": pickupAddress.street,
-                "city": pickupAddress.city,
-                "state": pickupAddress.state,
-                "zip": pickupAddress.zip,
-                "lat": pickupAddress.lat,
-                "lng": pickupAddress.lng
-            ],
-            "dropoff_address": [
-                "street": dropoffAddress.street,
-                "city": dropoffAddress.city,
-                "state": dropoffAddress.state,
-                "zip": dropoffAddress.zip,
-                "lat": dropoffAddress.lat,
-                "lng": dropoffAddress.lng
-            ],
-            "notes": notes ?? "",
-            "tip": tip
+            "pickup_latitude": pickupLat,
+            "pickup_longitude": pickupLng,
+            "dropoff_latitude": dropoffLat,
+            "dropoff_longitude": dropoffLng,
+            "state_code": stateCode
         ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(RideFareEstimateResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] Fare estimate decode error: \(error)")
+                    if let str = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Response: \(str)")
+                    }
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Request a ride (customer requests pickup)
+    /// Staging: POST /api/rides/request
+    ///
+    /// Required fields per OpenAPI CreateRideRequestInput schema:
+    /// - customer_id: Int
+    /// - pickup_address: String
+    /// - pickup_latitude: Double
+    /// - pickup_longitude: Double
+    /// - dropoff_address: String
+    /// - dropoff_latitude: Double
+    /// - dropoff_longitude: Double
+    public func requestRide(
+        customerId: Int,
+        pickupAddress: RideAddressInput,
+        dropoffAddress: RideAddressInput,
+        notes: String? = nil,
+        preferredPrice: Double? = nil,
+        completion: @escaping (Result<RideRequestResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Build flat structure matching staging API schema
+        var body: [String: Any] = [
+            "customer_id": customerId,
+            "pickup_address": pickupAddress.fullAddress,
+            "pickup_latitude": pickupAddress.lat,
+            "pickup_longitude": pickupAddress.lng,
+            "dropoff_address": dropoffAddress.fullAddress,
+            "dropoff_latitude": dropoffAddress.lat,
+            "dropoff_longitude": dropoffAddress.lng,
+            "ride_type": "standard",
+            "bidding_duration_minutes": 5
+        ]
+
+        // Add optional fields
+        if let notes = notes, !notes.isEmpty {
+            body["special_requests"] = notes
+        }
+        if let price = preferredPrice, price > 0 {
+            body["customer_preferred_price"] = price
+        }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
@@ -5078,6 +5140,102 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Rideshare Chat APIs (REST - matches Android)
+
+    /// Fetch chat messages for a ride request
+    /// Endpoint: GET /api/p2p/ride-requests/{id}/chat
+    /// Uses staging URL only - no localhost or production
+    public func fetchRideChatMessages(
+        rideRequestId: Int,
+        completion: @escaping (Result<[RideChatMessage], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/p2p/ride-requests/\(rideRequestId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.noData))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let messages = try JSONDecoder().decode([RideChatMessage].self, from: data)
+                    completion(.success(messages))
+                } catch {
+                    // Try to parse as empty array if no messages
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
+    /// Send a chat message for a ride request
+    /// Endpoint: POST /api/p2p/ride-requests/{id}/chat
+    /// Uses staging URL only - no localhost or production
+    public func sendRideChatMessage(
+        rideRequestId: Int,
+        message: String,
+        senderType: String, // "customer" or "driver"
+        completion: @escaping (Result<RideChatMessage, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/p2p/ride-requests/\(rideRequestId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "message": message,
+            "sender_type": senderType
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.noData))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let chatMessage = try JSONDecoder().decode(RideChatMessage.self, from: data)
+                    completion(.success(chatMessage))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Customer fare negotiation - submit counter offer
     public func customerSubmitFareOffer(
         rideId: Int,
@@ -5365,7 +5523,132 @@ public struct FareNegotiationResponse: Codable {
     }
 }
 
+/// Chat message between driver and rider (matches Android RideChatMessage)
+/// Used by REST API endpoints: /api/p2p/ride-requests/{id}/chat
+public struct RideChatMessage: Identifiable, Codable {
+    public let id: Int
+    public let rideRequestId: Int
+    public let senderType: String // "driver" or "customer"
+    public let senderId: Int
+    public let message: String
+    public let createdAt: String
+
+    public var isFromDriver: Bool {
+        return senderType == "driver"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case rideRequestId = "ride_request_id"
+        case senderType = "sender_type"
+        case senderId = "sender_id"
+        case message
+        case createdAt = "created_at"
+    }
+}
+
 /// MARK: - Customer Ride Request Models
+
+/// Response from fare estimate API (matches Android RideEstimateResponse)
+/// Endpoint: POST /api/rides/estimate
+public struct RideFareEstimateResponse: Codable {
+    public let success: Bool
+    public let estimate: RideFareEstimate
+
+    enum CodingKeys: String, CodingKey {
+        case success, estimate
+    }
+}
+
+/// Fare estimate details from staging API
+public struct RideFareEstimate: Codable {
+    public let distanceMiles: Double
+    public let durationMinutes: Double
+    public let breakdown: RideFareBreakdown
+    public let subtotal: Double
+    public let platformFee: Double
+    public let total: Double
+    public let tier: Int
+    public let tierLabel: String
+    public let driverInfo: RideDriverInfo?
+    public let suggestedBids: [RideSuggestedBid]?
+    public let messaging: RideMessaging?
+    public let rideType: String?
+    public let distanceKm: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case distanceMiles = "distance_miles"
+        case durationMinutes = "duration_minutes"
+        case breakdown, subtotal
+        case platformFee = "platform_fee"
+        case total, tier
+        case tierLabel = "tier_label"
+        case driverInfo = "driver_info"
+        case suggestedBids = "suggested_bids"
+        case messaging
+        case rideType = "ride_type"
+        case distanceKm = "distance_km"
+    }
+}
+
+/// Fare breakdown from staging API
+public struct RideFareBreakdown: Codable {
+    public let baseFare: Double
+    public let distanceCost: Double
+    public let timeCost: Double
+    public let timeAdjustment: Double?
+    public let timeAdjustmentLabel: String?
+    public let longDistanceDiscount: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case baseFare = "base_fare"
+        case distanceCost = "distance_cost"
+        case timeCost = "time_cost"
+        case timeAdjustment = "time_adjustment"
+        case timeAdjustmentLabel = "time_adjustment_label"
+        case longDistanceDiscount = "long_distance_discount"
+    }
+}
+
+/// Driver earnings info from fare estimate
+public struct RideDriverInfo: Codable {
+    public let earnings: Double
+    public let perMile: Double
+    public let perHour: Double
+    public let percentage: Double
+
+    enum CodingKeys: String, CodingKey {
+        case earnings
+        case perMile = "per_mile"
+        case perHour = "per_hour"
+        case percentage
+    }
+}
+
+/// Suggested bid options for fare negotiation
+public struct RideSuggestedBid: Codable {
+    public let label: String
+    public let emoji: String
+    public let price: Double
+    public let driverEarnings: Double
+    public let acceptanceHint: String
+    public let perMile: Double
+    public let isRecommended: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case label, emoji, price
+        case driverEarnings = "driver_earnings"
+        case acceptanceHint = "acceptance_hint"
+        case perMile = "per_mile"
+        case isRecommended = "is_recommended"
+    }
+}
+
+/// Messaging hints for customer and driver
+public struct RideMessaging: Codable {
+    public let customer: String?
+    public let driver: [String]?
+}
 
 /// Input for ride address (pickup or dropoff)
 public struct RideAddressInput: Codable {
@@ -7824,8 +8107,9 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     private var clientType: String = "customer"
     private var clientId: String = ""
 
-    // Production WebSocket URL - connected to Dollar.ai live backend
-    private let wsBaseURL = "wss://dollor.ai/api/realtime/ws"
+    // Staging WebSocket URL - connected to staging backend only
+    // Production will be enabled after staging validation is complete
+    private let wsBaseURL = "wss://d3kuu45w6kl8hr.cloudfront.net/api/realtime/ws"
 
     private override init() {
         super.init()
