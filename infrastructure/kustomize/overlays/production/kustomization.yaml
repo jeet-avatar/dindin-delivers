@@ -7,11 +7,11 @@ metadata:
 namespace: production
 
 resources:
-  - ../../base
-  - namespace.yaml
-  - rollout.yaml
-  - analysistemplate.yaml
-  - networkpolicy.yaml
+- ../../base
+- namespace.yaml
+- rollout.yaml
+- analysistemplate.yaml
+- networkpolicy.yaml
 
 namePrefix: prod-
 
@@ -22,74 +22,74 @@ commonAnnotations:
   app.kubernetes.io/environment: production
 
 images:
-  - name: dollor-api
-    newName: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
-    newTag: production-latest
+- name: dollor-api
+  newName: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  newTag: f3446ae1f985a434ec727d5d44b7a73ec74062a2
 
 # Remove base deployment since we use Argo Rollout
-patches:
   # Delete the base deployment (replaced by Rollout)
-  - target:
-      kind: Deployment
-      name: dollor-backend
-    patch: |-
-      $patch: delete
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: dollor-backend
 
   # Patch ingress for production domain
-  - target:
-      kind: Ingress
-      name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: api.dollor.ai
-      - op: replace
-        path: /spec/tls/0/hosts/0
-        value: api.dollor.ai
-      - op: replace
-        path: /spec/tls/0/secretName
-        value: prod-dollor-backend-tls
 
   # Update HPA for production
-  - target:
-      kind: HorizontalPodAutoscaler
-      name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/minReplicas
-        value: 3
-      - op: replace
-        path: /spec/maxReplicas
-        value: 20
-      - op: replace
-        path: /spec/scaleTargetRef/kind
-        value: Rollout
-      - op: replace
-        path: /spec/scaleTargetRef/apiVersion
-        value: argoproj.io/v1alpha1
-      - op: replace
-        path: /spec/metrics/0/resource/target/averageUtilization
-        value: 60
 
   # Update PDB for production (higher availability)
-  - target:
-      kind: PodDisruptionBudget
+patches:
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
       name: dollor-backend
-    patch: |-
-      - op: replace
-        path: /spec/minAvailable
-        value: 2
+  target:
+    kind: Deployment
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/secretName
+      value: prod-dollor-backend-tls
+  target:
+    kind: Ingress
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 20
+    - op: replace
+      path: /spec/scaleTargetRef/kind
+      value: Rollout
+    - op: replace
+      path: /spec/scaleTargetRef/apiVersion
+      value: argoproj.io/v1alpha1
+    - op: replace
+      path: /spec/metrics/0/resource/target/averageUtilization
+      value: 60
+  target:
+    kind: HorizontalPodAutoscaler
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minAvailable
+      value: 2
+  target:
+    kind: PodDisruptionBudget
+    name: dollor-backend
 
 configMapGenerator:
-  - name: dollor-backend-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=production
-      - LOG_LEVEL=WARNING
-      - CORS_ORIGINS=https://dollor.ai,https://www.dollor.ai
-      - RATE_LIMIT=100
-      - WORKERS=8
+- behavior: merge
+  literals:
+  - ENVIRONMENT=production
+  - LOG_LEVEL=WARNING
+  - CORS_ORIGINS=https://dollor.ai,https://www.dollor.ai
+  - RATE_LIMIT=100
+  - WORKERS=8
+  name: dollor-backend-config
