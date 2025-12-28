@@ -7,10 +7,18 @@
 
 ## CRITICAL RULES
 
-1. **NEVER HALLUCINATE** - If unsure about an API, service, or pattern, ASK. Do not invent.
+1. **NEVER HALLUCINATE** - If unsure, run `ollama run dollor-customer "YOUR QUESTION"` first.
 2. **DEV → STAGING → PRODUCTION** - Never skip environments. Never touch production directly.
 3. **WE ARE A MATCHMAKING SERVICE** - Not a delivery company, not a TNC. This is legally critical.
 4. **ASK BEFORE MAJOR CHANGES** - Get approval before architectural changes or new dependencies.
+
+### Anti-Hallucination Rules (VERIFIED)
+| Rule | Wrong | Correct |
+|------|-------|---------|
+| Customer status | `status=CustomerStatus.X` | `is_active` Boolean |
+| Driver vehicle | `vehicle_registration` field | Does NOT exist |
+| Platform fee | 15% commission | $1 flat / $1-$3 tiered |
+| Registration | `first_name/last_name` | `name` field only |
 
 ---
 
@@ -34,12 +42,13 @@ You seamlessly switch between three expert roles:
 | **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` | Testing, development |
 | **Production** | `https://api.dollor.ai` | Live users |
 
-### Demo Credentials
+### Demo Credentials (App Store Review)
 ```
-Customer: demo@dollor.ai / demo123
-Driver:   demodriver@dollor.ai
-Vendor:   demobusiness@dollor.ai
+Customer: demo.customer@dollor.ai / DemoCustomer2025!
+Driver:   demo.driver@dollor.ai / DemoDriver2025!
+Vendor:   demo.restaurant@dollor.ai / DemoRestaurant2025!
 ```
+Create demo accounts: `POST /api/demo/setup`
 
 ### Pricing Model (Matchmaking Fees)
 | Service | Customer Pays | Provider Pays | Driver Keeps |
@@ -103,9 +112,28 @@ npm run dev
 ### Build Android Apps
 ```bash
 cd /Users/jeet/StudioProjects/eatfair-android
-./gradlew :app:assembleDebug          # Customer
-./gradlew :orderapp:assembleDebug     # Driver
-./gradlew :partner:assembleDebug      # Restaurant
+
+# Debug builds (Staging)
+./gradlew :app:assembleStagingDebug       # Customer
+./gradlew :orderapp:assembleStagingDebug  # Driver
+./gradlew :partner:assembleStagingDebug   # Restaurant
+
+# Production Release (Play Store)
+./gradlew :app:assembleProductionRelease      # Customer APK
+./gradlew :app:bundleProductionRelease        # Customer AAB
+./gradlew :orderapp:assembleProductionRelease # Driver APK
+./gradlew :partner:assembleProductionRelease  # Restaurant APK
+```
+
+### Ollama Anti-Hallucination Check
+```bash
+# Before ANY code changes, verify with trained model:
+ollama run dollor-customer "YOUR QUESTION HERE"
+
+# Examples:
+ollama run dollor-customer "What is production API URL?"
+ollama run dollor-customer "Show me CustomerLoginResponse code"
+ollama run dollor-customer "What gradle command builds production APK?"
 ```
 
 ### Run Tests
@@ -134,6 +162,14 @@ For detailed information, see `.claude/docs/`:
 | `06-APP_STORE.md` | iOS/Android submission requirements, demo accounts |
 | `07-EVENT_ARCHITECTURE.md` | CQRS, Kafka, H3 location system, error codes |
 | `99-CHANGELOG.md` | Historical implementation phases |
+
+### Ollama Training (`.claude/training/`)
+| File | Purpose |
+|------|---------|
+| `Modelfile` | Enterprise production training (240 lines) |
+| `customer-app-training.jsonl` | 65 Q&A pairs for general knowledge |
+| `customer-app-code.jsonl` | 45 actual Kotlin code snippets |
+| `README.md` | Model creation and testing instructions |
 
 ---
 

@@ -10357,7 +10357,7 @@ async def rate_order_driver(
 # In production, an API Gateway (Kong/NGINX) should handle this routing
 
 import httpx
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 # STAGING ENVIRONMENT - Microservice URLs (K8s internal services)
 # Core Services
@@ -11822,7 +11822,127 @@ def get_privacy_policy():
     }
 
 
-# Demo account endpoint removed for production - use proper user registration
+# ==================== DEMO ACCOUNT SETUP (App Store Review) ====================
+@app.post("/api/demo/setup")
+def setup_demo_accounts(db: Session = Depends(get_db)):
+    """Create demo accounts for App Store/Play Store review."""
+    results = {"created": [], "existing": [], "errors": []}
+
+    # --- Demo Customer ---
+    try:
+        customer_email = "demo.customer@dollor.ai"
+        existing = db.query(Customer).filter(Customer.email == customer_email).first()
+        if not existing:
+            demo_customer = Customer(
+                customer_id="DEMO-CUST-001",
+                first_name="Demo",
+                last_name="Customer",
+                email=customer_email,
+                phone="+14155551001",
+                password_hash=get_password_hash("DemoCustomer2025!"),
+                default_address={"street": "123 Market St", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+                is_active=True,
+                is_verified=True,
+                loyalty_points=500,
+                loyalty_tier="gold",
+                total_orders=25,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_customer)
+            db.commit()
+            results["created"].append("customer")
+        else:
+            results["existing"].append("customer")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"customer: {str(e)}")
+
+    # --- Demo Driver ---
+    try:
+        driver_email = "demo.driver@dollor.ai"
+        existing = db.query(Driver).filter(Driver.email == driver_email).first()
+        if not existing:
+            demo_driver = Driver(
+                driver_id="DEMO-DRV-001",
+                first_name="Demo",
+                last_name="Driver",
+                email=driver_email,
+                phone="+14155551002",
+                password_hash=get_password_hash("DemoDriver2025!"),
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                vehicle_type="car",
+                vehicle_make="Toyota",
+                vehicle_model="Camry",
+                vehicle_year=2022,
+                vehicle_color="Silver",
+                license_plate="DEMO123",
+                drivers_license=True,
+                insurance=True,
+                background_check=True,
+                status=DriverStatus.APPROVED,
+                rating=4.9,
+                total_deliveries=150,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_driver)
+            db.commit()
+            results["created"].append("driver")
+        else:
+            results["existing"].append("driver")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"driver: {str(e)}")
+
+    # --- Demo Restaurant (Vendor + User) ---
+    try:
+        vendor_email = "demo.restaurant@dollor.ai"
+        existing = db.query(Vendor).filter(Vendor.contact_email == vendor_email).first()
+        if not existing:
+            demo_vendor = Vendor(
+                restaurant_name="Demo Restaurant",
+                company_name="Demo Restaurant LLC",
+                contact_email=vendor_email,
+                contact_phone="+14155551003",
+                contact_name="Demo Owner",
+                street="456 Demo Ave",
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                cuisine_type="American",
+                onboarding_status="APPROVED",
+                is_online=True,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_vendor)
+            db.flush()
+            vendor_user = User(
+                email=vendor_email,
+                password_hash=get_password_hash("DemoRestaurant2025!"),
+                full_name="Demo Owner",
+                role=UserRole.VENDOR,
+                vendor_id=demo_vendor.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(vendor_user)
+            db.commit()
+            results["created"].append("restaurant")
+        else:
+            results["existing"].append("restaurant")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"restaurant: {str(e)}")
+
+    return {
+        "success": len(results["errors"]) == 0,
+        "results": results,
+        "credentials": {
+            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"}
+        }
+    }
 
 
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
@@ -11839,6 +11959,33 @@ def get_terms_of_service_android():
 def get_privacy_policy_android():
     """Android-compatible Privacy Policy endpoint (alias for /api/legal/privacy)."""
     return get_privacy_policy()
+
+
+# ==================== LEGAL HTML PAGES (App Store Requirement) ====================
+# These serve the actual HTML pages at /privacy and /terms for App Store compliance
+
+@app.get("/privacy", response_class=HTMLResponse)
+def serve_privacy_policy_page():
+    """Serve Privacy Policy HTML page for App Store compliance."""
+    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
+    privacy_file = os.path.join(legal_dir, "privacy.html")
+    try:
+        with open(privacy_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Privacy policy page not found")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def serve_terms_of_service_page():
+    """Serve Terms of Service HTML page for App Store compliance."""
+    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
+    terms_file = os.path.join(legal_dir, "terms.html")
+    try:
+        with open(terms_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Terms of service page not found")
 
 
 # Fare estimate endpoint for Android
