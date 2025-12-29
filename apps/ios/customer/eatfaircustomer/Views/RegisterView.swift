@@ -299,7 +299,7 @@ struct RegisterView: View {
 
         isLoading = true
 
-        // Call staging API for registration
+        // Call production API for registration
         P2PAPIService.shared.customerRegister(
             email: email,
             password: password,
