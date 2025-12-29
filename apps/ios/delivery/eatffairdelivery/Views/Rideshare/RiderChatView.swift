@@ -3,7 +3,7 @@ import EatFairShared
 
 /// RiderChatView - Chat with rider during a ride
 /// Uses REST API (matches Android) - no Firebase dependency
-/// Endpoint: /api/p2p/ride-requests/{id}/chat (staging only)
+/// Endpoint: /api/p2p/ride-requests/{id}/chat (api.dollor.ai)
 struct RiderChatView: View {
     let rideRequestId: Int
     let riderName: String
