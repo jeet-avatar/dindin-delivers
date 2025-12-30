@@ -5882,15 +5882,23 @@ def get_platform_revenue(
         Order.payment_status == "succeeded"
     ).all()
 
-    # Calculate revenue metrics from ACTUAL database values - NO HARDCODING
+    # Calculate revenue metrics from ACTUAL database values
     total_orders = len(orders)
     total_gmv = sum(o.total_amount or 0 for o in orders)  # Gross Merchandise Value
-    total_platform_fees = sum(o.platform_fee or 0 for o in orders)  # Actual from DB
-    total_delivery_fees = sum(o.delivery_fee or 0 for o in orders)  # Actual from DB
-    total_tips = sum(o.tip or 0 for o in orders)  # Actual from DB
+    total_customer_fees = sum(o.platform_fee or 0 for o in orders)  # $1 per order from customer (stored in DB)
+    total_delivery_fees = sum(o.delivery_fee or 0 for o in orders)  # Goes to driver
+    total_tips = sum(o.tip or 0 for o in orders)  # Goes to driver
 
-    # Food delivery revenue - ACTUAL VALUES from database
-    food_delivery_revenue = total_platform_fees  # Use actual platform fees, not hardcoded
+    # Restaurant fee is $1 per completed order (deducted during settlement, not stored in platform_fee column)
+    RESTAURANT_PLATFORM_FEE = 1.00  # $1 flat fee from restaurant
+    completed_orders_count = len([o for o in orders if o.status == OrderStatus.DELIVERED])
+    total_restaurant_fees = completed_orders_count * RESTAURANT_PLATFORM_FEE
+
+    # Total platform fees = customer fees + restaurant fees
+    total_platform_fees = total_customer_fees + total_restaurant_fees
+
+    # Food delivery revenue = $1 from customer + $1 from restaurant = $2 per completed order
+    food_delivery_revenue = total_platform_fees
 
     # Group by status
     completed_orders = len([o for o in orders if o.status == OrderStatus.DELIVERED])
@@ -5938,8 +5946,9 @@ def get_platform_revenue(
         },
         "revenue_breakdown": {
             "food_delivery": {
-                "platform_fees": round(total_platform_fees, 2),  # Actual from DB
-                "total": round(food_delivery_revenue, 2),
+                "customer_fees": round(total_customer_fees, 2),  # $1 per order from customer
+                "restaurant_fees": round(total_restaurant_fees, 2),  # $1 per completed order from restaurant
+                "total": round(food_delivery_revenue, 2),  # $2 per completed order
             },
             "rideshare": {
                 "tier_1_under_35": 0,  # TODO: Query from ride_requests table
