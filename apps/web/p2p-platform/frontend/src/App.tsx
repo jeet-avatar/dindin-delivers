@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { UserProvider, useUser } from './app/context/UserContext';
+import { useUser } from './app/context/UserContext';
 import Login from './app/screens/auth/Login';
 import ForgotPassword from './app/screens/auth/ForgotPassword';
 import Dashboard from './app/screens/dashboard/Main';
@@ -70,10 +70,33 @@ import RideBids from './app/screens/customer/RideBids';
  */
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
+  const { user, loading } = useUser();
+
+  // Wait for auth check to complete before making decisions
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
+      }}>
+        <div style={{ textAlign: 'center', color: '#fff' }}>
+          <div style={{ fontSize: '24px', marginBottom: '16px' }}>🔐</div>
+          <div>Verifying authentication...</div>
+        </div>
+      </div>
+    );
+  }
 
   // Authentication required for admin routes
   if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Verify admin role
+  if (user.role !== 'admin') {
     return <Navigate to="/login" replace />;
   }
 
@@ -82,8 +105,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <UserProvider>
-      <Routes>
+    <Routes>
         {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
 
@@ -165,8 +187,7 @@ function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </UserProvider>
+    </Routes>
   );
 }
 

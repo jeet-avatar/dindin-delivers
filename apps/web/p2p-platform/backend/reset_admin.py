@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reset admin password and verify login"""
+"""Reset admin password and verify login - Production version"""
 import os
 from dotenv import load_dotenv
 from database import SessionLocal
@@ -11,17 +11,19 @@ load_dotenv()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def reset_admin_password():
-    """Reset admin password to admin123"""
+    """Reset admin password using environment variables"""
     db = SessionLocal()
-    
+
+    admin_email = os.getenv("ADMIN_EMAIL", "support@dollor.ai")
+    new_password = os.getenv("ADMIN_PASSWORD", "DollorAdmin2026")
+
     try:
-        admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+        admin = db.query(User).filter(User.email == admin_email).first()
         if not admin:
-            print("❌ Admin user not found!")
+            print(f"❌ Admin user ({admin_email}) not found!")
             return False
-        
+
         # Hash the password
-        new_password = "admin123"
         password_hash = pwd_context.hash(new_password)
         
         print(f"Old hash: {admin.password_hash[:50]}...")

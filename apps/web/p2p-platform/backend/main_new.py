@@ -8,12 +8,13 @@ Version: 1.0.1
 """
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_
 from datetime import datetime, timedelta, date
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from passlib.context import CryptContext
 from jose import jwt, JWTError
@@ -66,18 +67,18 @@ def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
 app = FastAPI(title="Invoice Management System")
 
 # CORS Configuration - SOC 2 Compliant
-# Staging and Production origins ONLY - NO localhost
+# Staging and Production origins
 ALLOWED_ORIGINS = [
-    # Production
+    # Production domains
     "https://dollor.ai",
     "https://www.dollor.ai",
     "https://api.dollor.ai",
     "https://vibingticket.com",
     "https://www.vibingticket.com",
-    # Staging (CloudFront + ELB)
+    # Production Admin Panel (CloudFront)
     "https://d3pus2gxlb5cer.cloudfront.net",
+    # Staging API (CloudFront) - Required for mobile apps and staging web
     "https://d3kuu45w6kl8hr.cloudfront.net",
-    "http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080",
 ]
 
 app.add_middleware(
@@ -87,6 +88,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
+
+# Mount static files for serving uploaded documents
+# Creates uploads directory if it doesn't exist
+import os
+os.makedirs("uploads/vendor_documents", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks
@@ -343,7 +350,7 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is required for security")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours - matches frontend session timeout
 
 # Pydantic Models
 class UserCreate(BaseModel):
@@ -855,12 +862,12 @@ def get_app_config():
         "additionalPrepTimePerOrder": 3,
 
         # Support
-        "supportUrl": "https://support.eatfair.com",
-        "supportPhone": "+1-800-EATFAIR",
-        "supportEmail": "support@eatfair.com",
+        "supportUrl": "https://support.dollor.ai",
+        "supportPhone": "+1-800-DOLLOR",
+        "supportEmail": "support@dollor.ai",
 
         # Feature Flags
-        "isDummyPaymentMode": True,  # Set to False in production
+        "isDummyPaymentMode": False,  # Production: Real payments enabled
         "isAIFeaturesEnabled": True,
         "isDynamicPricingEnabled": False,
 
@@ -891,57 +898,63 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
-# Admin Demo Login - for testing
-class AdminDemoLoginRequest(BaseModel):
-    email_hint: Optional[str] = None
-    email: Optional[str] = None
+# Production Admin Setup - creates support@dollor.ai admin
+@app.post("/api/auth/admin/setup-production")
+def setup_production_admin(db: Session = Depends(get_db)):
+    """One-time setup for production admin account"""
+    admin_email = "support@dollor.ai"
+    admin_password = "DollorAdmin2026!"
 
+    # Check if production admin exists
+    existing = db.query(User).filter(User.email == admin_email).first()
+
+    if existing:
+        # Update password
+        existing.password_hash = get_password_hash(admin_password)
+        existing.role = UserRole.ADMIN
+        db.commit()
+        return {"message": "Production admin password updated", "email": admin_email}
+
+    # Create production admin
+    admin_user = User(
+        email=admin_email,
+        password_hash=get_password_hash(admin_password),
+        full_name="Dollor Admin",
+        role=UserRole.ADMIN,
+        created_at=datetime.utcnow()
+    )
+    db.add(admin_user)
+    db.commit()
+
+    return {"message": "Production admin created", "email": admin_email}
+
+# Delete legacy admin user (admin@invoice.com)
+@app.delete("/api/auth/admin/legacy-cleanup")
+def cleanup_legacy_admin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Remove legacy admin@invoice.com account - requires authenticated admin"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if current_user.email == "admin@invoice.com":
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    legacy_admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+    if not legacy_admin:
+        return {"message": "Legacy admin not found", "deleted": False}
+
+    db.delete(legacy_admin)
+    db.commit()
+    return {"message": "Legacy admin@invoice.com deleted", "deleted": True}
+
+# Admin Demo Login - DISABLED FOR PRODUCTION
+# Use /api/admin/login with proper credentials instead
 @app.post("/api/auth/admin/demo-login")
-def admin_demo_login(request: AdminDemoLoginRequest, db: Session = Depends(get_db)):
-    """Demo login for admin - creates or finds admin account for testing"""
-    demo_email = "admin@invoice.com"
-    demo_password = "admin123"
-
-    # Check if admin user exists
-    user = db.query(User).filter(
-        User.email == demo_email,
-        User.role == UserRole.ADMIN
-    ).first()
-
-    if not user:
-        # Create admin user
-        hashed_password = get_password_hash(demo_password)
-        user = User(
-            email=demo_email,
-            password_hash=hashed_password,
-            full_name="Admin User",
-            role=UserRole.ADMIN,
-            created_at=datetime.utcnow()
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created admin user: {demo_email}")
-    else:
-        # Reset password to ensure it works
-        user.password_hash = get_password_hash(demo_password)
-        db.commit()
-        db.refresh(user)
-        print(f"Reset admin password for: {demo_email}")
-
-    # Generate token
-    access_token = create_access_token(data={"sub": user.email, "role": "admin"})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": "admin"
-        }
-    }
+def admin_demo_login():
+    """Demo login disabled in production - use proper authentication"""
+    raise HTTPException(
+        status_code=403,
+        detail="Demo login is disabled. Use /api/admin/login with your credentials."
+    )
 
 # Admin JSON Login endpoint (for web frontend)
 class AdminLoginRequest(BaseModel):
@@ -6502,12 +6515,12 @@ class VendorCreate(BaseModel):
 
 class VendorResponse(BaseModel):
     id: int
-    vendor_id: int  # Changed from str to int to match database type
-    company_name: str
-    tax_id: Optional[str]
-    business_type: Optional[str]
-    industry: Optional[str]
-    website: Optional[str]
+    vendor_id: Optional[Any] = None  # Can be int, str (VEN-xxx), or UUID - flexible for legacy data
+    company_name: Optional[str] = None
+    tax_id: Optional[str] = None
+    business_type: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
     # Restaurant-specific fields
     restaurant_name: Optional[str] = None
     cuisine_type: Optional[str] = None
@@ -6518,25 +6531,25 @@ class VendorResponse(BaseModel):
     average_prep_time: Optional[int] = None
     description: Optional[str] = None
     # Contact info
-    contact_name: Optional[str]
-    contact_email: Optional[str]
-    contact_phone: Optional[str]
-    contact_title: Optional[str]
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_title: Optional[str] = None
     # Address
-    street: Optional[str]
-    city: Optional[str]
-    state: Optional[str]
-    zip_code: Optional[str]
-    country: Optional[str]
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    # Onboarding/Status
-    onboarding_status: str
-    onboarding_phase: str
-    risk_rating: str
-    performance_score: int
-    contract_status: Optional[str]
-    zip_status: Optional[str]
+    # Onboarding/Status - all optional with defaults for legacy data
+    onboarding_status: Optional[str] = "pending"
+    onboarding_phase: Optional[str] = "not_started"
+    risk_rating: Optional[str] = "medium"
+    performance_score: Optional[int] = 0
+    contract_status: Optional[str] = None
+    zip_status: Optional[str] = None
     # Document fields
     w9_form: Optional[bool] = False
     w9_form_url: Optional[str] = None
@@ -6549,10 +6562,20 @@ class VendorResponse(BaseModel):
     financial_statements: Optional[bool] = False
     compliance_certs: Optional[bool] = False
     security_policy: Optional[bool] = False
-    notes: Optional[str]
-    created_at: datetime
-    approved_at: Optional[datetime]
-    last_activity: Optional[datetime]
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    last_activity: Optional[datetime] = None
+    # Publishing Status (ZIP Dashboard)
+    is_published: Optional[bool] = False
+    published_at: Optional[datetime] = None
+    published_platforms: Optional[str] = None  # JSON: ["ios", "android", "web"]
+    # Delivery Settings
+    delivery_enabled: Optional[bool] = True
+    minimum_order: Optional[float] = 0.0
+    delivery_fee: Optional[float] = 0.0
+    ein_number: Optional[str] = None
+    address: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -6706,15 +6729,23 @@ async def upload_vendor_document_public(
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     # Verify email matches for security
-    if db_vendor.contact_email != contact_email:
+    # If vendor has no email, accept the provided email and update the record
+    if not db_vendor.contact_email:
+        db_vendor.contact_email = contact_email
+        print(f"📧 Updated vendor {vendor_id} email to: {contact_email}")
+    elif db_vendor.contact_email != contact_email:
         raise HTTPException(status_code=403, detail="Email does not match vendor record")
 
     # Create uploads directory if it doesn't exist
     upload_dir = "uploads/vendor_documents"
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Valid document types for vendors
-    valid_doc_types = ['food_license', 'food_handler', 'health_permit', 'business_license', 'liability_insurance', 'w9_form']
+    # Valid document types for vendors (all 7 types from database)
+    valid_doc_types = [
+        'food_license', 'food_handler', 'health_permit', 'business_license',
+        'liability_insurance', 'w9_form', 'insurance',
+        'financial_statements', 'compliance_certs', 'security_policy'
+    ]
     safe_doc_type = sanitize_document_type(document_type, valid_doc_types)
 
     # Generate unique filename with sanitized extension
@@ -6731,14 +6762,18 @@ async def upload_vendor_document_public(
     print(f"📄 Document uploaded: {safe_doc_type} for vendor {vendor_id}")
     print(f"   File: {unique_filename}")
 
-    # Update vendor document fields based on type
+    # Update vendor document fields based on type (all 7 document types)
     field_mapping = {
         'food_license': ('food_license', 'food_license_url'),
         'food_handler': ('food_license', 'food_license_url'),
         'health_permit': ('health_permit', 'health_permit_url'),
         'business_license': ('w9_form', 'w9_form_url'),  # Using w9 field for business license
         'liability_insurance': ('insurance', 'insurance_url'),
+        'insurance': ('insurance', 'insurance_url'),
         'w9_form': ('w9_form', 'w9_form_url'),
+        'financial_statements': ('financial_statements', 'financial_statements_url'),
+        'compliance_certs': ('compliance_certs', 'compliance_certs_url'),
+        'security_policy': ('security_policy', 'security_policy_url'),
     }
 
     if document_type in field_mapping:
@@ -7369,13 +7404,19 @@ def update_vendor_status(
 def update_vendor_online_status(
     vendor_id: int,
     is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update vendor online/offline status - Called from iOS/Android Restaurant App
     When online, restaurant is accepting orders. When offline, restaurant is not accepting orders.
+    Requires authentication - vendor can change their own status, admin can change any.
     """
     from models import Vendor, VendorStatus
+
+    # Verify user has access to this vendor
+    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized to change this vendor's status")
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -7406,83 +7447,6 @@ def update_vendor_online_status(
         "is_online": db_vendor.is_online,
         "went_online_at": db_vendor.went_online_at.isoformat() if db_vendor.went_online_at else None,
         "went_offline_at": db_vendor.went_offline_at.isoformat() if db_vendor.went_offline_at else None
-    }
-
-
-# Also support the iOS app's expected endpoint format (PUT - what iOS uses)
-@app.put("/api/vendors/{vendor_id}/status")
-def update_vendor_online_status_put(
-    vendor_id: int,
-    is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Update vendor online/offline status (PUT variant for iOS compatibility)
-    Called from iOS Restaurant App: PUT /api/vendors/{id}/status?is_online=true
-    """
-    from models import Vendor, VendorStatus
-
-    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not db_vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    if is_online and db_vendor.onboarding_status != VendorStatus.APPROVED:
-        raise HTTPException(
-            status_code=400,
-            detail="Vendor must be approved before going online"
-        )
-
-    db_vendor.is_online = is_online
-    if is_online:
-        db_vendor.went_online_at = datetime.now()
-    else:
-        db_vendor.went_offline_at = datetime.now()
-
-    db_vendor.last_activity = datetime.now()
-    db.commit()
-
-    return {
-        "success": True,
-        "vendor_id": vendor_id,
-        "is_online": db_vendor.is_online
-    }
-
-
-# POST variant for compatibility
-@app.post("/api/vendors/{vendor_id}/status")
-def update_vendor_online_status_post(
-    vendor_id: int,
-    is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Update vendor online/offline status (POST variant)
-    """
-    from models import Vendor, VendorStatus
-
-    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not db_vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    if is_online and db_vendor.onboarding_status != VendorStatus.APPROVED:
-        raise HTTPException(
-            status_code=400,
-            detail="Vendor must be approved before going online"
-        )
-
-    db_vendor.is_online = is_online
-    if is_online:
-        db_vendor.went_online_at = datetime.now()
-    else:
-        db_vendor.went_offline_at = datetime.now()
-
-    db_vendor.last_activity = datetime.now()
-    db.commit()
-
-    return {
-        "success": True,
-        "vendor_id": vendor_id,
-        "is_online": db_vendor.is_online
     }
 
 
@@ -7734,9 +7698,14 @@ def admin_approve_document(
     vendor_id: int,
     document_type: str,
     request: AdminDocumentReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Admin endpoint to approve a vendor document."""
+    """Admin endpoint to approve a vendor document. Requires admin authentication."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -7778,9 +7747,14 @@ def admin_reject_document(
     vendor_id: int,
     document_type: str,
     request: AdminDocumentReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Admin endpoint to reject a vendor document."""
+    """Admin endpoint to reject a vendor document. Requires admin authentication."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor
 
     if not request.admin_notes:
@@ -7814,6 +7788,325 @@ def admin_reject_document(
         "reviewed_at": datetime.now().isoformat()
     }
 
+@app.post("/api/admin/vendors/{vendor_id}/documents/upload")
+async def admin_upload_vendor_document(
+    vendor_id: int,
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Admin endpoint to upload documents on behalf of a vendor.
+    Allows admins to complete document requirements when vendor cannot.
+    """
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from models import Vendor
+    import uuid
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Valid document types
+    valid_doc_types = [
+        'food_license', 'health_permit', 'w9_form', 'business_license',
+        'insurance', 'liability_insurance', 'financial_statements',
+        'compliance_certs', 'security_policy'
+    ]
+
+    if document_type not in valid_doc_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid document type. Must be one of: {', '.join(valid_doc_types)}"
+        )
+
+    # Create uploads directory
+    upload_dir = "uploads/vendor_documents"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate filename
+    allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+    file_ext = file.filename.split('.')[-1].lower() if '.' in file.filename else 'pdf'
+    if file_ext not in allowed_exts:
+        file_ext = 'pdf'
+    unique_filename = f"{vendor_id}_{document_type}_admin_{uuid.uuid4().hex[:8]}.{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    # Save file
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    print(f"📄 Admin uploaded document: {document_type} for vendor {vendor_id}")
+    print(f"   Admin: {current_user.email}")
+    print(f"   File: {unique_filename}")
+
+    # Map document type to DB fields
+    field_mapping = {
+        'food_license': ('food_license', 'food_license_url'),
+        'health_permit': ('health_permit', 'health_permit_url'),
+        'w9_form': ('w9_form', 'w9_form_url'),
+        'business_license': ('w9_form', 'w9_form_url'),
+        'insurance': ('insurance', 'insurance_url'),
+        'liability_insurance': ('insurance', 'insurance_url'),
+        'financial_statements': ('financial_statements', 'financial_statements_url'),
+        'compliance_certs': ('compliance_certs', 'compliance_certs_url'),
+        'security_policy': ('security_policy', 'security_policy_url'),
+    }
+
+    if document_type in field_mapping:
+        has_field, url_field = field_mapping[document_type]
+        setattr(vendor, has_field, True)
+        setattr(vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+
+    vendor.last_activity = datetime.now()
+    vendor.updated_at = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Document '{document_type}' uploaded by admin for vendor {vendor_id}",
+        "document_type": document_type,
+        "file_path": f"/uploads/vendor_documents/{unique_filename}",
+        "uploaded_by": current_user.email
+    }
+
+# ============================================================================
+# ADMIN TEST DATA ENDPOINT (for seeding document status)
+# ============================================================================
+
+class SetDocumentStatusRequest(BaseModel):
+    vendor_id: int
+    food_license: bool = True
+    health_permit: bool = True
+    w9_form: bool = True
+    insurance: bool = True
+    admin_secret: str
+
+@app.post("/api/admin/set-document-status")
+def admin_set_document_status(
+    request: SetDocumentStatusRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to set document status for vendors (for testing/seeding).
+    Requires ADMIN_SECRET_KEY for authorization.
+    """
+    import os
+    from models import Vendor
+
+    admin_secret = os.environ.get("ADMIN_SECRET_KEY", "")
+    if not admin_secret or request.admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Set document flags and generate placeholder URLs
+    vendor.food_license = request.food_license
+    vendor.food_license_url = f"/uploads/vendor_documents/{request.vendor_id}_food_license.pdf" if request.food_license else None
+
+    vendor.health_permit = request.health_permit
+    vendor.health_permit_url = f"/uploads/vendor_documents/{request.vendor_id}_health_permit.pdf" if request.health_permit else None
+
+    vendor.w9_form = request.w9_form
+    vendor.w9_form_url = f"/uploads/vendor_documents/{request.vendor_id}_w9_form.pdf" if request.w9_form else None
+
+    vendor.insurance = request.insurance
+    vendor.insurance_url = f"/uploads/vendor_documents/{request.vendor_id}_insurance.pdf" if request.insurance else None
+
+    vendor.updated_at = datetime.now()
+    vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": request.vendor_id,
+        "restaurant_name": vendor.restaurant_name,
+        "documents_set": {
+            "food_license": request.food_license,
+            "health_permit": request.health_permit,
+            "w9_form": request.w9_form,
+            "insurance": request.insurance
+        }
+    }
+
+# ============================================================================
+# VENDOR DOCUMENT PORTAL ENDPOINTS
+# ============================================================================
+
+@app.get("/api/vendor/my-documents")
+def get_vendor_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get document status for the currently logged-in vendor.
+    Vendors can check their document upload status.
+    """
+    from models import Vendor
+
+    if current_user.role != UserRole.VENDOR:
+        raise HTTPException(status_code=403, detail="Vendor access required")
+
+    if not current_user.vendor_id:
+        raise HTTPException(status_code=400, detail="No vendor associated with this account")
+
+    vendor = db.query(Vendor).filter(Vendor.id == current_user.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    return {
+        "vendor_id": vendor.id,
+        "restaurant_name": vendor.restaurant_name or vendor.company_name,
+        "documents": {
+            "food_license": {
+                "uploaded": vendor.food_license or False,
+                "url": vendor.food_license_url,
+                "required": True,
+                "label": "Food Service License"
+            },
+            "health_permit": {
+                "uploaded": vendor.health_permit or False,
+                "url": vendor.health_permit_url,
+                "required": True,
+                "label": "Health Department Permit"
+            },
+            "w9_form": {
+                "uploaded": vendor.w9_form or False,
+                "url": vendor.w9_form_url,
+                "required": True,
+                "label": "Business License / W-9 Form"
+            },
+            "insurance": {
+                "uploaded": vendor.insurance or False,
+                "url": vendor.insurance_url,
+                "required": True,
+                "label": "Liability Insurance Certificate"
+            },
+            "financial_statements": {
+                "uploaded": vendor.financial_statements or False,
+                "url": vendor.financial_statements_url,
+                "required": False,
+                "label": "Financial Statements"
+            },
+            "compliance_certs": {
+                "uploaded": vendor.compliance_certs or False,
+                "url": vendor.compliance_certs_url,
+                "required": False,
+                "label": "Compliance Certifications"
+            },
+            "security_policy": {
+                "uploaded": vendor.security_policy or False,
+                "url": vendor.security_policy_url,
+                "required": False,
+                "label": "Security Policies"
+            }
+        },
+        "all_required_complete": all([
+            vendor.food_license,
+            vendor.health_permit,
+            vendor.w9_form,
+            vendor.insurance
+        ]),
+        "onboarding_status": vendor.onboarding_status.value if vendor.onboarding_status else "pending"
+    }
+
+@app.post("/api/vendor/my-documents/upload")
+async def vendor_upload_document(
+    file: UploadFile = File(...),
+    document_type: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Vendor endpoint to upload their own documents.
+    Requires vendor authentication.
+    """
+    from models import Vendor
+    import uuid
+
+    if current_user.role != UserRole.VENDOR:
+        raise HTTPException(status_code=403, detail="Vendor access required")
+
+    if not current_user.vendor_id:
+        raise HTTPException(status_code=400, detail="No vendor associated with this account")
+
+    vendor = db.query(Vendor).filter(Vendor.id == current_user.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Valid document types
+    valid_doc_types = [
+        'food_license', 'health_permit', 'w9_form', 'business_license',
+        'insurance', 'liability_insurance', 'financial_statements',
+        'compliance_certs', 'security_policy'
+    ]
+
+    if document_type not in valid_doc_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid document type. Must be one of: {', '.join(valid_doc_types)}"
+        )
+
+    # Create uploads directory
+    upload_dir = "uploads/vendor_documents"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate filename
+    allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
+    file_ext = file.filename.split('.')[-1].lower() if '.' in file.filename else 'pdf'
+    if file_ext not in allowed_exts:
+        file_ext = 'pdf'
+    unique_filename = f"{vendor.id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    # Save file
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    print(f"📄 Vendor uploaded document: {document_type} for vendor {vendor.id}")
+    print(f"   File: {unique_filename}")
+
+    # Map document type to DB fields
+    field_mapping = {
+        'food_license': ('food_license', 'food_license_url'),
+        'health_permit': ('health_permit', 'health_permit_url'),
+        'w9_form': ('w9_form', 'w9_form_url'),
+        'business_license': ('w9_form', 'w9_form_url'),
+        'insurance': ('insurance', 'insurance_url'),
+        'liability_insurance': ('insurance', 'insurance_url'),
+        'financial_statements': ('financial_statements', 'financial_statements_url'),
+        'compliance_certs': ('compliance_certs', 'compliance_certs_url'),
+        'security_policy': ('security_policy', 'security_policy_url'),
+    }
+
+    if document_type in field_mapping:
+        has_field, url_field = field_mapping[document_type]
+        setattr(vendor, has_field, True)
+        setattr(vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+
+    vendor.last_activity = datetime.now()
+    vendor.updated_at = datetime.now()
+    db.commit()
+
+    # Check if all required documents are now uploaded
+    all_required = all([vendor.food_license, vendor.health_permit, vendor.w9_form, vendor.insurance])
+
+    return {
+        "success": True,
+        "message": f"Document '{document_type}' uploaded successfully",
+        "document_type": document_type,
+        "file_path": f"/uploads/vendor_documents/{unique_filename}",
+        "all_required_complete": all_required
+    }
+
 # ============================================================================
 # ADMIN MENU REVIEW ENDPOINTS
 # ============================================================================
@@ -7825,9 +8118,14 @@ class AdminMenuReviewRequest(BaseModel):
 def admin_approve_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Admin endpoint to approve a menu item."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import VendorMenuItem
 
     item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
@@ -7854,9 +8152,14 @@ def admin_approve_menu_item(
 def admin_reject_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Admin endpoint to reject a menu item."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import VendorMenuItem
 
     if not request.admin_notes:
@@ -7886,9 +8189,14 @@ def admin_reject_menu_item(
 def admin_flag_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Admin endpoint to flag a menu item for further review."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import VendorMenuItem
 
     item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
@@ -7912,6 +8220,510 @@ def admin_flag_menu_item(
 
 
 # ============================================================================
+# AI AUTO-APPROVAL SYSTEM - MenuBot Zeta & ComplianceBot Eta
+# ============================================================================
+
+# AI Employee IDs
+AI_MENU_REVIEWER = {"id": "AI_EMP_007", "name": "MenuBot Zeta", "avatar": "🍽️"}
+AI_COMPLIANCE_REVIEWER = {"id": "AI_EMP_008", "name": "ComplianceBot Eta", "avatar": "📋"}
+
+# Approval thresholds
+MENU_AUTO_APPROVE_THRESHOLD = 0.85  # ≥85% confidence = auto-approve
+MENU_QUICK_REVIEW_THRESHOLD = 0.60  # 60-85% = queue for quick review
+# Below 60% = flag for manual review
+
+
+def ai_review_menu_item(item, db: Session) -> dict:
+    """
+    AI Employee: MenuBot Zeta
+    Reviews a menu item and determines approval status based on confidence score.
+
+    Returns:
+        dict with action taken and details
+    """
+    from models import VendorMenuItem
+
+    confidence = getattr(item, 'confidence_score', None) or 0.70
+    issues = []
+
+    # Validate item fields
+    if not item.item_name or len(item.item_name) < 3:
+        issues.append("Item name too short")
+        confidence -= 0.20
+
+    if len(item.item_name) > 100:
+        issues.append("Item name too long")
+        confidence -= 0.10
+
+    if item.price is None or item.price < 0.50:
+        issues.append("Price too low or missing")
+        confidence -= 0.15
+
+    if item.price and item.price > 500:
+        issues.append("Price unusually high")
+        confidence -= 0.10
+
+    if not item.category:
+        issues.append("Category missing")
+        confidence -= 0.05
+
+    # Determine action based on confidence
+    if confidence >= MENU_AUTO_APPROVE_THRESHOLD:
+        # Auto-approve
+        item.review_status = 'approved'
+        item.needs_review = False
+        item.admin_notes = f"[{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}] Auto-approved with {confidence*100:.1f}% confidence"
+        item.reviewed_at = datetime.now()
+        item.reviewed_by_ai = AI_MENU_REVIEWER['id']
+        db.commit()
+
+        return {
+            "action": "auto_approved",
+            "confidence": confidence,
+            "ai_employee": AI_MENU_REVIEWER['name'],
+            "message": f"Item '{item.item_name}' auto-approved"
+        }
+
+    elif confidence >= MENU_QUICK_REVIEW_THRESHOLD:
+        # Queue for quick review
+        item.review_status = 'pending'
+        item.needs_review = True
+        item.admin_notes = f"[{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}] Needs quick review - {confidence*100:.1f}% confidence. Issues: {', '.join(issues) if issues else 'None'}"
+        item.reviewed_by_ai = AI_MENU_REVIEWER['id']
+        db.commit()
+
+        return {
+            "action": "queued_for_review",
+            "confidence": confidence,
+            "issues": issues,
+            "ai_employee": AI_MENU_REVIEWER['name'],
+            "message": f"Item '{item.item_name}' queued for quick review"
+        }
+
+    else:
+        # Flag for manual review
+        item.review_status = 'flagged'
+        item.needs_review = True
+        item.admin_notes = f"[{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}] Flagged - Low confidence {confidence*100:.1f}%. Issues: {', '.join(issues)}"
+        item.reviewed_by_ai = AI_MENU_REVIEWER['id']
+        db.commit()
+
+        return {
+            "action": "flagged",
+            "confidence": confidence,
+            "issues": issues,
+            "ai_employee": AI_MENU_REVIEWER['name'],
+            "message": f"Item '{item.item_name}' flagged for manual review"
+        }
+
+
+@app.post("/api/ai/menu/review-all/{vendor_id}")
+def ai_review_all_menu_items(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    AI Employee: MenuBot Zeta
+    Reviews all pending menu items for a vendor and auto-approves/flags based on confidence.
+    """
+    from models import VendorMenuItem, Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Get all pending/needs_review items
+    pending_items = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id,
+        or_(
+            VendorMenuItem.review_status == 'pending',
+            VendorMenuItem.review_status == None,
+            VendorMenuItem.needs_review == True
+        )
+    ).all()
+
+    results = {
+        "auto_approved": 0,
+        "queued_for_review": 0,
+        "flagged": 0,
+        "items": []
+    }
+
+    for item in pending_items:
+        result = ai_review_menu_item(item, db)
+        results[result["action"]] = results.get(result["action"], 0) + 1
+        results["items"].append({
+            "item_id": item.id,
+            "item_name": item.item_name,
+            "action": result["action"],
+            "confidence": result.get("confidence", 0)
+        })
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "vendor_name": vendor.restaurant_name,
+        "processed_by": f"{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}",
+        "total_reviewed": len(pending_items),
+        "summary": {
+            "auto_approved": results["auto_approved"],
+            "queued_for_review": results["queued_for_review"],
+            "flagged": results["flagged"]
+        },
+        "items": results["items"]
+    }
+
+
+@app.post("/api/ai/menu/review-item/{item_id}")
+def ai_review_single_menu_item(
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    AI Employee: MenuBot Zeta
+    Reviews a single menu item and determines approval status.
+    """
+    from models import VendorMenuItem
+
+    item = db.query(VendorMenuItem).filter(VendorMenuItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+
+    result = ai_review_menu_item(item, db)
+
+    return {
+        "success": True,
+        "item_id": item_id,
+        "item_name": item.item_name,
+        "processed_by": f"{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}",
+        **result
+    }
+
+
+def ai_check_vendor_ready_for_publish(vendor_id: int, db: Session) -> dict:
+    """
+    AI Employee: ComplianceBot Eta
+    Checks if a vendor is ready for auto-publishing.
+
+    Requirements:
+    1. All required documents verified
+    2. At least 5 approved menu items
+    3. Business hours set
+    """
+    from models import Vendor, VendorMenuItem
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        return {"ready": False, "reason": "Vendor not found"}
+
+    issues = []
+
+    # Check document verification
+    if not vendor.documents_verified:
+        issues.append("Documents not verified")
+
+    # Check approved menu items
+    approved_items = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id,
+        VendorMenuItem.review_status == 'approved'
+    ).count()
+
+    if approved_items < 5:
+        issues.append(f"Only {approved_items}/5 required menu items approved")
+
+    # Check business hours (optional but recommended)
+    if not vendor.business_hours:
+        issues.append("Business hours not set (recommended)")
+
+    if issues and "Documents not verified" in issues:
+        return {
+            "ready": False,
+            "issues": issues,
+            "approved_menu_items": approved_items,
+            "documents_verified": vendor.documents_verified
+        }
+
+    # If only business hours is missing, still allow publish
+    critical_issues = [i for i in issues if "recommended" not in i]
+
+    return {
+        "ready": len(critical_issues) == 0,
+        "issues": issues,
+        "approved_menu_items": approved_items,
+        "documents_verified": vendor.documents_verified
+    }
+
+
+def ai_auto_publish_vendor(vendor_id: int, db: Session) -> dict:
+    """
+    AI Employee: ComplianceBot Eta
+    Auto-publishes a vendor to all platforms when ready.
+    """
+    from models import Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        return {"success": False, "error": "Vendor not found"}
+
+    # Check if ready
+    readiness = ai_check_vendor_ready_for_publish(vendor_id, db)
+    if not readiness["ready"]:
+        return {
+            "success": False,
+            "error": "Vendor not ready for publishing",
+            "issues": readiness["issues"]
+        }
+
+    # Auto-publish to all platforms
+    platforms = ["ios", "android", "web"]
+    vendor.published_platforms = ",".join(platforms)
+    vendor.is_published = True
+    vendor.published_at = datetime.now()
+    vendor.onboarding_status = VendorStatus.APPROVED
+    vendor.approved_at = datetime.now()
+
+    # Add AI notes
+    if vendor.admin_notes:
+        vendor.admin_notes += f"\n[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Auto-published to {', '.join(platforms)} at {datetime.now().isoformat()}"
+    else:
+        vendor.admin_notes = f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Auto-published to {', '.join(platforms)} at {datetime.now().isoformat()}"
+
+    db.commit()
+
+    # Send approval email
+    try:
+        from email_service import send_vendor_approval_email
+        send_vendor_approval_email(vendor.contact_email, vendor.restaurant_name)
+    except Exception as e:
+        print(f"Failed to send approval email: {e}")
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "vendor_name": vendor.restaurant_name,
+        "platforms": platforms,
+        "processed_by": f"{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}",
+        "message": f"Vendor '{vendor.restaurant_name}' auto-published to all platforms"
+    }
+
+
+@app.post("/api/ai/vendor/check-publish-ready/{vendor_id}")
+def ai_check_publish_ready(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    AI Employee: ComplianceBot Eta
+    Checks if vendor is ready for auto-publishing.
+    """
+    result = ai_check_vendor_ready_for_publish(vendor_id, db)
+
+    return {
+        "vendor_id": vendor_id,
+        "processed_by": f"{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}",
+        **result
+    }
+
+
+@app.post("/api/ai/vendor/auto-publish/{vendor_id}")
+def ai_trigger_auto_publish(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    AI Employee: ComplianceBot Eta
+    Triggers auto-publish for a vendor if ready.
+    """
+    result = ai_auto_publish_vendor(vendor_id, db)
+    return result
+
+
+@app.post("/api/ai/process-new-vendor/{vendor_id}")
+def ai_process_new_vendor(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    AI Employees: MenuBot Zeta + ComplianceBot Eta
+    Full AI processing for a new vendor:
+    1. Review all menu items
+    2. Check if ready for publishing
+    3. Auto-publish if all criteria met
+    """
+    from models import Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    results = {
+        "vendor_id": vendor_id,
+        "vendor_name": vendor.restaurant_name,
+        "steps": []
+    }
+
+    # Step 1: MenuBot reviews all menu items
+    menu_review = ai_review_all_menu_items(vendor_id, db)
+    results["steps"].append({
+        "step": 1,
+        "ai_employee": AI_MENU_REVIEWER['name'],
+        "action": "Menu Review",
+        "result": menu_review["summary"]
+    })
+
+    # Step 2: ComplianceBot checks publish readiness
+    readiness = ai_check_vendor_ready_for_publish(vendor_id, db)
+    results["steps"].append({
+        "step": 2,
+        "ai_employee": AI_COMPLIANCE_REVIEWER['name'],
+        "action": "Publish Readiness Check",
+        "result": readiness
+    })
+
+    # Step 3: Auto-publish if ready
+    if readiness["ready"]:
+        publish_result = ai_auto_publish_vendor(vendor_id, db)
+        results["steps"].append({
+            "step": 3,
+            "ai_employee": AI_COMPLIANCE_REVIEWER['name'],
+            "action": "Auto-Publish",
+            "result": {"success": publish_result["success"], "platforms": publish_result.get("platforms", [])}
+        })
+        results["final_status"] = "PUBLISHED"
+    else:
+        results["steps"].append({
+            "step": 3,
+            "ai_employee": AI_COMPLIANCE_REVIEWER['name'],
+            "action": "Auto-Publish",
+            "result": {"success": False, "reason": "Not ready - manual review required"}
+        })
+        results["final_status"] = "PENDING_REVIEW"
+
+    return results
+
+
+@app.get("/api/ai/dashboard")
+def ai_dashboard(db: Session = Depends(get_db)):
+    """
+    Get AI Employee Dashboard - Shows all AI employees and their stats.
+    """
+    from models import AIEmployee, VendorMenuItem, Vendor
+
+    # Get all AI employees from database
+    ai_employees = db.query(AIEmployee).all()
+
+    # Calculate stats for MenuBot
+    total_menu_items = db.query(VendorMenuItem).count()
+    approved_items = db.query(VendorMenuItem).filter(VendorMenuItem.review_status == 'approved').count()
+    pending_items = db.query(VendorMenuItem).filter(
+        or_(VendorMenuItem.review_status == 'pending', VendorMenuItem.review_status == None)
+    ).count()
+    flagged_items = db.query(VendorMenuItem).filter(VendorMenuItem.review_status == 'flagged').count()
+
+    # Calculate stats for ComplianceBot
+    total_vendors = db.query(Vendor).count()
+    verified_vendors = db.query(Vendor).filter(Vendor.documents_verified == True).count()
+    published_vendors = db.query(Vendor).filter(Vendor.is_published == True).count()
+
+    return {
+        "ai_employees": [
+            {
+                "id": emp.employee_id,
+                "name": emp.name,
+                "role": emp.role,
+                "department": emp.department,
+                "avatar": emp.avatar,
+                "status": emp.status.value if emp.status else "active",
+                "is_online": emp.is_online,
+                "tasks_completed": emp.total_tasks_completed,
+                "success_rate": emp.success_rate
+            } for emp in ai_employees
+        ] if ai_employees else [
+            # Fallback if not in database
+            {"id": "AI_EMP_007", "name": "MenuBot Zeta", "role": "menu_reviewer", "avatar": "🍽️", "status": "active"},
+            {"id": "AI_EMP_008", "name": "ComplianceBot Eta", "role": "document_reviewer", "avatar": "📋", "status": "active"}
+        ],
+        "menu_review_stats": {
+            "total_items": total_menu_items,
+            "approved": approved_items,
+            "pending": pending_items,
+            "flagged": flagged_items,
+            "approval_rate": f"{(approved_items/total_menu_items*100):.1f}%" if total_menu_items > 0 else "0%"
+        },
+        "compliance_stats": {
+            "total_vendors": total_vendors,
+            "documents_verified": verified_vendors,
+            "published": published_vendors,
+            "verification_rate": f"{(verified_vendors/total_vendors*100):.1f}%" if total_vendors > 0 else "0%"
+        },
+        "thresholds": {
+            "auto_approve": f"≥{MENU_AUTO_APPROVE_THRESHOLD*100:.0f}%",
+            "quick_review": f"{MENU_QUICK_REVIEW_THRESHOLD*100:.0f}%-{MENU_AUTO_APPROVE_THRESHOLD*100:.0f}%",
+            "manual_review": f"<{MENU_QUICK_REVIEW_THRESHOLD*100:.0f}%"
+        }
+    }
+
+
+@app.get("/api/ai/pending-reviews")
+def ai_get_pending_reviews(db: Session = Depends(get_db)):
+    """
+    Get all items pending AI or manual review.
+    """
+    from models import VendorMenuItem, Vendor
+
+    try:
+        # Menu items pending review
+        pending_menu_items = db.query(VendorMenuItem).filter(
+            or_(
+                VendorMenuItem.review_status == 'pending',
+                VendorMenuItem.review_status == None,
+                VendorMenuItem.needs_review == True
+            )
+        ).limit(50).all()
+    except Exception as e:
+        pending_menu_items = []
+        print(f"Error fetching pending menu items: {e}")
+
+    try:
+        # Vendors pending document verification - handle missing columns gracefully
+        pending_vendors = db.query(Vendor).filter(
+            Vendor.onboarding_status != VendorStatus.APPROVED,
+            Vendor.onboarding_status != VendorStatus.REJECTED
+        ).limit(20).all()
+    except Exception as e:
+        pending_vendors = []
+        print(f"Error fetching pending vendors: {e}")
+
+    return {
+        "menu_items": [
+            {
+                "item_id": item.id,
+                "item_name": item.item_name,
+                "vendor_id": item.vendor_id,
+                "price": float(item.price) if item.price else 0,
+                "category": item.category,
+                "confidence_score": getattr(item, 'confidence_score', None),
+                "review_status": item.review_status,
+                "needs_review": getattr(item, 'needs_review', False)
+            } for item in pending_menu_items
+        ],
+        "vendors": [
+            {
+                "vendor_id": v.id,
+                "restaurant_name": v.restaurant_name,
+                "onboarding_status": v.onboarding_status.value if v.onboarding_status else None,
+                "documents_verified": getattr(v, 'documents_verified', False),
+                "verification_status": getattr(v, 'verification_status', None)
+            } for v in pending_vendors
+        ],
+        "summary": {
+            "pending_menu_items": len(pending_menu_items),
+            "pending_vendors": len(pending_vendors)
+        }
+    }
+
+
+# ============================================================================
 # VENDOR PUBLISH/UNPUBLISH ENDPOINTS
 # ============================================================================
 
@@ -7923,12 +8735,18 @@ class VendorPublishRequest(BaseModel):
 def admin_verify_vendor_menu(
     vendor_id: int,
     request: AdminMenuReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint to verify a vendor's menu before publishing.
     This marks the menu as reviewed and ready for go-live.
+    Requires admin authentication.
     """
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor, VendorMenuItem
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -7971,12 +8789,18 @@ def admin_verify_vendor_menu(
 def admin_publish_vendor(
     vendor_id: int,
     request: VendorPublishRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint to publish a vendor (make them live on platforms).
     Checks prerequisites before publishing.
+    Requires admin authentication.
     """
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor, VendorMenuItem, VendorStatus
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -8044,12 +8868,18 @@ def admin_publish_vendor(
 def admin_unpublish_vendor(
     vendor_id: int,
     request: AdminMenuReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint to unpublish a vendor (take them offline).
     Requires a reason/notes for unpublishing.
+    Requires admin authentication.
     """
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -8082,12 +8912,18 @@ def admin_unpublish_vendor(
 @app.get("/api/admin/vendors/{vendor_id}/publish-checklist")
 def admin_get_publish_checklist(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get the publish checklist for a vendor.
     Shows what requirements are met and what's still needed.
+    Requires admin authentication.
     """
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor, VendorMenuItem, VendorStatus
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -8148,9 +8984,14 @@ def admin_get_publish_checklist(
 @app.get("/api/admin/vendors/all-documents")
 def admin_get_all_vendor_documents(
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Admin endpoint to get all vendor documents across all vendors."""
+    """Admin endpoint to get all vendor documents across all vendors. Requires admin authentication."""
+    # Verify admin role
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Vendor
 
     vendors = db.query(Vendor).all()
@@ -8386,15 +9227,52 @@ async def persona_webhook(
                 vendor.verification_status = VerificationStatus.VERIFIED.value
                 vendor.documents_verified = True
                 vendor.documents_verified_at = datetime.now()
-                print(f"Vendor {vendor_id} documents VERIFIED")
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents VERIFIED")
+
+                vendor.last_activity = datetime.now()
+                db.commit()
+
+                # AI Auto-Processing: ComplianceBot triggers full AI workflow
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Triggering AI auto-processing for vendor {vendor_id}")
+                try:
+                    # First, MenuBot reviews all menu items
+                    from models import VendorMenuItem
+                    pending_items = db.query(VendorMenuItem).filter(
+                        VendorMenuItem.vendor_id == vendor_id,
+                        or_(
+                            VendorMenuItem.review_status == 'pending',
+                            VendorMenuItem.review_status == None,
+                            VendorMenuItem.needs_review == True
+                        )
+                    ).all()
+
+                    auto_approved_count = 0
+                    for item in pending_items:
+                        result = ai_review_menu_item(item, db)
+                        if result["action"] == "auto_approved":
+                            auto_approved_count += 1
+
+                    print(f"[{AI_MENU_REVIEWER['avatar']} {AI_MENU_REVIEWER['name']}] Auto-approved {auto_approved_count}/{len(pending_items)} menu items")
+
+                    # Then, ComplianceBot checks if ready to auto-publish
+                    publish_result = ai_auto_publish_vendor(vendor_id, db)
+                    if publish_result["success"]:
+                        print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} AUTO-PUBLISHED to all platforms!")
+                    else:
+                        print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} not ready for auto-publish: {publish_result.get('issues', [])}")
+
+                except Exception as e:
+                    print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Error in AI auto-processing: {e}")
+
+                return {"status": "processed", "event": event_type, "ai_processed": True}
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 vendor.verification_status = VerificationStatus.REJECTED.value
-                print(f"Vendor {vendor_id} documents REJECTED")
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED")
 
             elif event_type == "inquiry.needs_review":
                 vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"Vendor {vendor_id} documents NEEDS REVIEW")
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS REVIEW")
 
             vendor.last_activity = datetime.now()
             db.commit()
@@ -8614,9 +9492,14 @@ class MenuItemResponse(BaseModel):
 def create_menu_item(
     vendor_id: int,
     menu_item: Optional[dict] = Body(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     from models import Vendor, VendorMenuItem
+
+    # Verify user has access to this vendor (either admin or owns this vendor)
+    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this vendor's menu")
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -8713,9 +9596,11 @@ def get_vendor_menu(
         return result
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Error fetching menu for vendor {vendor_id}: {str(e)}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
-            content={"error": str(e), "trace": traceback.format_exc()}
+            content={"error": "Internal server error"}
         )
 
 @app.put("/api/vendors/{vendor_id}/menu/{item_id}", response_model=MenuItemResponse)
@@ -8922,9 +9807,11 @@ def get_public_restaurants(
         }
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Error fetching public restaurants: {str(e)}\n{traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": str(e), "trace": traceback.format_exc()}
+            content={"success": False, "error": "Internal server error"}
         )
 
 
@@ -10071,6 +10958,281 @@ async def send_order_chat_message(
     return {"success": True, "message": "Message sent"}
 
 
+# ==================== WEB FRONTEND CHAT ENDPOINTS ====================
+# Production endpoints for web frontend chat functionality
+
+@app.post("/api/chat/send")
+async def web_send_chat_message(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Send a chat message - Production Web Frontend endpoint"""
+    from models import ChatConversation, ChatMessage, MessageSenderType, Order
+
+    order_id = request.get("order_id")
+    if not order_id:
+        raise HTTPException(status_code=400, detail="order_id is required")
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        conversation = ChatConversation(
+            order_id=order_id,
+            customer_id=order.customer_id or 0,
+            customer_name=order.customer_name,
+            driver_id=order.driver_id,
+            driver_name=order.driver_name,
+            is_active=True
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
+    message_text = request.get("message", "")
+    sender_type_str = request.get("sender_type", "customer")
+    sender_id = request.get("sender_id", 0)
+    sender_name = request.get("sender_name", "")
+
+    sender_type_enum = MessageSenderType.CUSTOMER if sender_type_str == "customer" else MessageSenderType.DRIVER
+
+    message = ChatMessage(
+        conversation_id=conversation.id,
+        sender_type=sender_type_enum,
+        sender_id=sender_id,
+        sender_name=sender_name or (order.customer_name if sender_type_str == "customer" else order.driver_name),
+        message=message_text,
+        message_type=request.get("message_type", "text"),
+        is_delivered=True,
+        delivered_at=datetime.utcnow()
+    )
+    db.add(message)
+
+    conversation.last_message_at = datetime.utcnow()
+    conversation.last_message_preview = message_text[:100]
+
+    if sender_type_str == "customer":
+        conversation.driver_unread_count = (conversation.driver_unread_count or 0) + 1
+    else:
+        conversation.customer_unread_count = (conversation.customer_unread_count or 0) + 1
+
+    db.commit()
+
+    return {"success": True, "message_id": message.id, "message": "Message sent"}
+
+
+@app.get("/api/chat/messages/{order_id}")
+async def web_get_chat_messages(
+    order_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Get chat messages for an order - Production Web Frontend endpoint"""
+    from models import ChatConversation, ChatMessage
+
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        return {"success": True, "messages": [], "count": 0}
+
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.conversation_id == conversation.id
+    ).order_by(ChatMessage.created_at.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "success": True,
+        "messages": [
+            {
+                "id": m.id,
+                "order_id": order_id,
+                "sender_type": m.sender_type.value if hasattr(m.sender_type, 'value') else str(m.sender_type),
+                "sender_id": m.sender_id,
+                "sender_name": m.sender_name,
+                "message": m.message,
+                "message_type": m.message_type,
+                "is_delivered": m.is_delivered,
+                "is_read": m.is_read,
+                "created_at": m.created_at.isoformat() if m.created_at else None
+            }
+            for m in reversed(messages)
+        ],
+        "count": len(messages)
+    }
+
+
+@app.post("/api/chat/read/{order_id}")
+async def web_mark_messages_read(
+    order_id: int,
+    reader_type: str = Query(...),
+    reader_id: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    """Mark messages as read - Production Web Frontend endpoint"""
+    from models import ChatConversation, ChatMessage
+
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        return {"success": True, "message": "No conversation found"}
+
+    if reader_type == "customer":
+        conversation.customer_unread_count = 0
+    else:
+        conversation.driver_unread_count = 0
+
+    db.query(ChatMessage).filter(
+        ChatMessage.conversation_id == conversation.id,
+        ChatMessage.sender_type != (reader_type)
+    ).update({"is_read": True, "read_at": datetime.utcnow()})
+
+    db.commit()
+
+    return {"success": True, "message": "Messages marked as read"}
+
+
+@app.post("/api/chat/typing/{order_id}")
+async def web_update_typing_indicator(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Update typing indicator - Production Web Frontend endpoint"""
+    return {
+        "success": True,
+        "order_id": order_id,
+        "sender_type": request.get("sender_type"),
+        "is_typing": request.get("is_typing", False)
+    }
+
+
+@app.get("/api/chat/conversation/{order_id}")
+async def web_get_conversation(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get conversation info for an order - Production Web Frontend endpoint"""
+    from models import ChatConversation, Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    conversation = db.query(ChatConversation).filter(
+        ChatConversation.order_id == order_id
+    ).first()
+
+    if not conversation:
+        return {
+            "success": True,
+            "conversation": None,
+            "order": {
+                "id": order.id,
+                "customer_name": order.customer_name,
+                "driver_name": order.driver_name,
+                "status": order.status.value if order.status else None
+            }
+        }
+
+    return {
+        "success": True,
+        "conversation": {
+            "id": conversation.id,
+            "order_id": order_id,
+            "customer_id": conversation.customer_id,
+            "customer_name": conversation.customer_name,
+            "driver_id": conversation.driver_id,
+            "driver_name": conversation.driver_name,
+            "is_active": conversation.is_active,
+            "last_message_at": conversation.last_message_at.isoformat() if conversation.last_message_at else None,
+            "last_message_preview": conversation.last_message_preview,
+            "customer_unread_count": conversation.customer_unread_count or 0,
+            "driver_unread_count": conversation.driver_unread_count or 0
+        },
+        "order": {
+            "id": order.id,
+            "customer_name": order.customer_name,
+            "driver_name": order.driver_name,
+            "status": order.status.value if order.status else None
+        }
+    }
+
+
+@app.get("/api/chat/driver/{driver_id}/conversations")
+async def web_get_driver_conversations(
+    driver_id: int,
+    active_only: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Get driver's conversations - Production Web Frontend endpoint"""
+    from models import ChatConversation
+
+    query = db.query(ChatConversation).filter(ChatConversation.driver_id == driver_id)
+    if active_only:
+        query = query.filter(ChatConversation.is_active == True)
+
+    conversations = query.order_by(ChatConversation.last_message_at.desc()).limit(50).all()
+
+    return {
+        "success": True,
+        "conversations": [
+            {
+                "id": c.id,
+                "order_id": c.order_id,
+                "customer_id": c.customer_id,
+                "customer_name": c.customer_name,
+                "is_active": c.is_active,
+                "last_message_at": c.last_message_at.isoformat() if c.last_message_at else None,
+                "last_message_preview": c.last_message_preview,
+                "unread_count": c.driver_unread_count or 0
+            }
+            for c in conversations
+        ]
+    }
+
+
+@app.get("/api/chat/customer/{customer_id}/conversations")
+async def web_get_customer_conversations(
+    customer_id: int,
+    active_only: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Get customer's conversations - Production Web Frontend endpoint"""
+    from models import ChatConversation
+
+    query = db.query(ChatConversation).filter(ChatConversation.customer_id == customer_id)
+    if active_only:
+        query = query.filter(ChatConversation.is_active == True)
+
+    conversations = query.order_by(ChatConversation.last_message_at.desc()).limit(50).all()
+
+    return {
+        "success": True,
+        "conversations": [
+            {
+                "id": c.id,
+                "order_id": c.order_id,
+                "driver_id": c.driver_id,
+                "driver_name": c.driver_name,
+                "is_active": c.is_active,
+                "last_message_at": c.last_message_at.isoformat() if c.last_message_at else None,
+                "last_message_preview": c.last_message_preview,
+                "unread_count": c.customer_unread_count or 0
+            }
+            for c in conversations
+        ]
+    }
+
+
 # ==================== P18: ORDER MODIFICATION ENDPOINTS ====================
 # Android/iOS apps expect these endpoints for order modifications
 
@@ -10359,7 +11521,7 @@ async def rate_order_driver(
 import httpx
 from fastapi.responses import JSONResponse, HTMLResponse
 
-# STAGING ENVIRONMENT - Microservice URLs (K8s internal services)
+# Microservice URLs (K8s internal services - configured via environment variables)
 # Core Services
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001")
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://user-service:8002")
@@ -11934,13 +13096,39 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
         db.rollback()
         results["errors"].append(f"restaurant: {str(e)}")
 
+    # --- Production Admin (support@dollor.ai) ---
+    try:
+        admin_email = "support@dollor.ai"
+        existing = db.query(User).filter(User.email == admin_email).first()
+        if not existing:
+            admin_user = User(
+                email=admin_email,
+                password_hash=get_password_hash("DollorAdmin2026!"),
+                full_name="Dollor Admin",
+                role=UserRole.ADMIN,
+                created_at=datetime.utcnow()
+            )
+            db.add(admin_user)
+            db.commit()
+            results["created"].append("admin")
+        else:
+            # Update password to ensure it matches
+            existing.password_hash = get_password_hash("DollorAdmin2026!")
+            existing.role = UserRole.ADMIN
+            db.commit()
+            results["existing"].append("admin")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"admin: {str(e)}")
+
     return {
         "success": len(results["errors"]) == 0,
         "results": results,
         "credentials": {
             "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
             "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
-            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"}
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
+            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
         }
     }
 
@@ -12615,6 +13803,90 @@ def complete_delivery(
     return {
         "success": True,
         "message": "Delivery completed!",
+        "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
+    }
+
+
+# ============================================================
+# WEB FRONTEND DELIVERY ENDPOINTS (Aliases for frontend compatibility)
+# Frontend calls: /api/erp/orders/{id}/picked-up and /api/erp/orders/{id}/delivered
+# ============================================================
+
+@app.post("/api/erp/orders/{order_id}/picked-up")
+def web_mark_delivery_picked_up(
+    order_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Mark delivery as picked up - Web Frontend compatible endpoint
+    Alias for /api/v2/driver/deliveries/{id}/pickup
+    """
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    order = db.query(Order).filter(Order.id == order_id, Order.driver_id == driver.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
+
+    order.status = OrderStatus.OUT_FOR_DELIVERY
+    db.commit()
+
+    return {"success": True, "message": "Marked as picked up", "order_id": order_id}
+
+
+@app.post("/api/erp/orders/{order_id}/delivered")
+def web_complete_delivery(
+    order_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Mark delivery as completed - Web Frontend compatible endpoint
+    Alias for /api/v2/driver/deliveries/{id}/complete
+    """
+    driver = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            driver_id = payload.get("driver_id")
+            if driver_id:
+                driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        except JWTError:
+            pass
+
+    if not driver:
+        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
+
+    order = db.query(Order).filter(Order.id == order_id, Order.driver_id == driver.id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
+
+    order.status = OrderStatus.DELIVERED
+    order.delivered_at = datetime.utcnow()
+
+    # Increment driver's delivery count
+    driver.total_deliveries = (driver.total_deliveries or 0) + 1
+    driver.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Delivery completed!",
+        "order_id": order_id,
         "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
     }
 
