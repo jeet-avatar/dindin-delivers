@@ -438,18 +438,18 @@ async def get_income_statement(
         else:  # year
             start_date = end_date.replace(month=1, day=1)
 
-    # Get revenue from orders
+    # Get revenue from orders (consistent with platform-revenue endpoint)
     revenue_query = """
         SELECT
             COUNT(*) as total_orders,
-            COALESCE(SUM(total), 0) as gross_revenue,
+            COALESCE(SUM(total_amount), 0) as gross_revenue,
             COALESCE(SUM(platform_fee), 0) as platform_fee_revenue,
             COALESCE(SUM(delivery_fee), 0) as delivery_fee_revenue,
             COALESCE(SUM(tip), 0) as tips_collected,
             COALESCE(SUM(subtotal), 0) as food_sales,
             COALESCE(SUM(tax), 0) as taxes_collected
         FROM orders
-        WHERE status IN ('delivered', 'completed')
+        WHERE (status IN ('delivered', 'completed') OR payment_status IN ('paid', 'succeeded'))
         AND created_at BETWEEN :start_date AND :end_date
     """
 
@@ -585,16 +585,16 @@ async def get_balance_sheet(
     if not as_of_date:
         as_of_date = date.today()
 
-    # Get cash position from Stripe (simplified - would query Stripe API in production)
+    # Get cash position from orders (use same filter as platform-revenue for consistency)
     cash_query = """
         SELECT
-            COALESCE(SUM(total), 0) as total_collected,
+            COALESCE(SUM(total_amount), 0) as total_collected,
             COALESCE(SUM(subtotal), 0) as restaurant_portion,
             COALESCE(SUM(delivery_fee + tip), 0) as driver_portion,
-            COALESCE(SUM(platform_fee), 0) as platform_portion
+            COALESCE(SUM(platform_fee), 0) as platform_portion,
+            COUNT(*) as order_count
         FROM orders
-        WHERE status IN ('delivered', 'completed')
-        AND payment_status = 'paid'
+        WHERE (status IN ('delivered', 'completed') OR payment_status IN ('paid', 'succeeded'))
         AND created_at <= :as_of_date
     """
 
@@ -645,9 +645,22 @@ async def get_balance_sheet(
     assets["current_assets"]["total_current_assets"] = assets["current_assets"]["cash_stripe"]
     assets["total_assets"] = assets["current_assets"]["total_current_assets"] + assets["fixed_assets"]["total_fixed_assets"]
 
+    # Query actual unpaid restaurant payouts
+    restaurant_unpaid_query = """
+        SELECT COALESCE(SUM(amount), 0) as unpaid
+        FROM vendor_payouts
+        WHERE status = 'pending'
+        AND created_at <= :as_of_date
+    """
+    try:
+        result = db.execute(text(restaurant_unpaid_query), params)
+        restaurant_unpaid = float(result.fetchone()[0] or 0)
+    except Exception:
+        restaurant_unpaid = 0
+
     liabilities = {
         "current_liabilities": {
-            "accounts_payable_restaurants": round(restaurant_owed * 0.1, 2),  # Assume 10% unpaid
+            "accounts_payable_restaurants": round(restaurant_unpaid, 2),
             "accounts_payable_drivers": float(payables_data.get("driver_payables", 0) or 0),
             "sales_tax_payable": 0,
             "accrued_expenses": 0,
@@ -664,13 +677,15 @@ async def get_balance_sheet(
     )
     liabilities["total_liabilities"] = liabilities["current_liabilities"]["total_current_liabilities"]
 
+    # Equity = Assets - Liabilities (fundamental accounting equation)
+    total_equity_calc = assets["total_assets"] - liabilities["total_liabilities"]
+
     equity = {
         "common_stock": 0,
-        "retained_earnings": round(platform_earned * 0.8, 2),  # Simplified
-        "current_period_earnings": round(platform_earned * 0.2, 2),
-        "total_equity": 0
+        "retained_earnings": round(total_equity_calc, 2),
+        "current_period_earnings": 0,
+        "total_equity": round(total_equity_calc, 2)
     }
-    equity["total_equity"] = equity["retained_earnings"] + equity["current_period_earnings"]
 
     # Verify accounting equation
     total_liabilities_equity = liabilities["total_liabilities"] + equity["total_equity"]
