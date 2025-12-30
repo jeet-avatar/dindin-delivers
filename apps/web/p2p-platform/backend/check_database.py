@@ -133,12 +133,13 @@ def check_sample_data():
             print("\n⚠️  No users found. Run: python init_db.py")
             return False
         
-        # Check for admin user
-        admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+        # Check for admin user (production: support@dollor.ai)
+        admin_email = os.getenv("ADMIN_EMAIL", "support@dollor.ai")
+        admin = db.query(User).filter(User.email == admin_email).first()
         if admin:
-            print(f"  ✓ Admin user exists: admin@invoice.com")
+            print(f"  ✓ Admin user exists: {admin_email}")
         else:
-            print(f"  ⚠️  Admin user not found")
+            print(f"  ⚠️  Admin user not found ({admin_email})")
         
         return True
     except Exception as e:
