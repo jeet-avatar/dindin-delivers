@@ -5882,15 +5882,15 @@ def get_platform_revenue(
         Order.payment_status == "succeeded"
     ).all()
 
-    # Calculate revenue metrics
+    # Calculate revenue metrics from ACTUAL database values - NO HARDCODING
     total_orders = len(orders)
     total_gmv = sum(o.total_amount or 0 for o in orders)  # Gross Merchandise Value
-    total_platform_fees = sum(o.platform_fee or 0 for o in orders)
-    total_delivery_fees = sum(o.delivery_fee or 0 for o in orders)
-    total_tips = sum(o.tip or 0 for o in orders)
+    total_platform_fees = sum(o.platform_fee or 0 for o in orders)  # Actual from DB
+    total_delivery_fees = sum(o.delivery_fee or 0 for o in orders)  # Actual from DB
+    total_tips = sum(o.tip or 0 for o in orders)  # Actual from DB
 
-    # Food delivery revenue ($1 customer + $1 restaurant per order)
-    food_delivery_revenue = total_orders * 2  # $2 per order
+    # Food delivery revenue - ACTUAL VALUES from database
+    food_delivery_revenue = total_platform_fees  # Use actual platform fees, not hardcoded
 
     # Group by status
     completed_orders = len([o for o in orders if o.status == OrderStatus.DELIVERED])
@@ -5938,17 +5938,16 @@ def get_platform_revenue(
         },
         "revenue_breakdown": {
             "food_delivery": {
-                "customer_fees": total_orders * 1,  # $1 per order
-                "restaurant_fees": total_orders * 1,  # $1 per order
-                "total": food_delivery_revenue,
+                "platform_fees": round(total_platform_fees, 2),  # Actual from DB
+                "total": round(food_delivery_revenue, 2),
             },
             "rideshare": {
-                "tier_1_under_35": 0,  # TODO: Add rideshare orders
+                "tier_1_under_35": 0,  # TODO: Query from ride_requests table
                 "tier_2_35_70": 0,
                 "tier_3_over_70": 0,
                 "total": 0,
             },
-            "total_platform_revenue": food_delivery_revenue,
+            "total_platform_revenue": round(total_platform_fees, 2),  # Actual from DB
         },
         "driver_earnings": {
             "delivery_fees_to_drivers": round(total_delivery_fees, 2),
