@@ -16,6 +16,7 @@ import Clients from './app/screens/clients/Clients';
 import Orders from './app/screens/orders/Main';
 import VendorPayouts from './app/screens/accounting/VendorPayouts';
 import PlatformRevenue from './app/screens/accounting/PlatformRevenue';
+import AccountingReports from './app/screens/accounting/Main';
 import MainLayout from './app/components/layout/MainLayout';
 
 // Public Pages
@@ -181,6 +182,7 @@ function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="accounting/vendor-payouts" element={<VendorPayouts />} />
           <Route path="accounting/platform-revenue" element={<PlatformRevenue />} />
+          <Route path="accounting/reports" element={<AccountingReports />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="clients" element={<Clients />} />
         </Route>

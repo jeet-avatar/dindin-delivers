@@ -83,6 +83,9 @@ const Main: React.FC = () => {
   const { insights, analyzeVendorOnboarding } = useVendorAnalytics();
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [publishingVendorId, setPublishingVendorId] = useState<string | null>(null);
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [selectedChecklist, setSelectedChecklist] = useState<any>(null);
+  const [loadingChecklist, setLoadingChecklist] = useState(false);
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   
@@ -476,6 +479,28 @@ const Main: React.FC = () => {
     return Math.round((completed / total) * 100);
   };
 
+  const handleViewChecklist = async (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setLoadingChecklist(true);
+    setShowChecklistModal(true);
+    try {
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/admin/vendors/${vendor.id}/publish-checklist`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedChecklist(data);
+      } else {
+        setSelectedChecklist({ error: 'Failed to load checklist' });
+      }
+    } catch (error) {
+      setSelectedChecklist({ error: 'Failed to load checklist' });
+    } finally {
+      setLoadingChecklist(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* AI Analytics Panel */}
@@ -692,12 +717,16 @@ const Main: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center">
+                    <button
+                      onClick={() => handleViewChecklist(vendor)}
+                      className="flex items-center hover:bg-primary-50 rounded px-2 py-1 cursor-pointer transition-colors"
+                      title="Click to view publish checklist"
+                    >
                       {getPhaseIcon(vendor.onboardingPhase)}
-                      <span className="ml-2 text-sm text-neutral-700 capitalize">
+                      <span className="ml-2 text-sm text-primary-600 underline capitalize">
                         {(vendor.onboardingPhase || 'unknown').replace('_', ' ')}
                       </span>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getZipStatusColor(vendor.zipStatus)}`}>

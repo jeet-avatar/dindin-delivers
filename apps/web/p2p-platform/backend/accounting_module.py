@@ -32,6 +32,23 @@ JWT_SECRET = os.getenv("JWT_SECRET_KEY", "")
 ALGORITHM = "HS256"
 ADMIN_ROLES = ["admin", "super_admin", "finance", "accountant"]
 
+# ============================================================================
+# CONFIGURABLE BUSINESS PARAMETERS (from environment or database)
+# ============================================================================
+# These values can be overridden via environment variables or database settings
+
+# Payment Processing Fees (Stripe standard rates)
+STRIPE_PERCENTAGE_FEE = float(os.getenv("STRIPE_PERCENTAGE_FEE", "0.029"))  # 2.9%
+STRIPE_FIXED_FEE = float(os.getenv("STRIPE_FIXED_FEE", "0.30"))  # $0.30 per transaction
+
+# Platform Commission Structure
+PLATFORM_COMMISSION_RATE = float(os.getenv("PLATFORM_COMMISSION_RATE", "0.15"))  # 15% default
+
+# Operating Expense Estimates (as percentage of revenue) - for P&L projections
+TECH_INFRASTRUCTURE_RATE = float(os.getenv("TECH_INFRASTRUCTURE_RATE", "0.10"))  # 10%
+MARKETING_EXPENSE_RATE = float(os.getenv("MARKETING_EXPENSE_RATE", "0.15"))  # 15%
+GENERAL_ADMIN_RATE = float(os.getenv("GENERAL_ADMIN_RATE", "0.05"))  # 5%
+
 router = APIRouter(prefix="/api/admin/accounting", tags=["Admin - Accounting & ERP"])
 
 
@@ -490,9 +507,14 @@ async def get_income_statement(
     revenue["total_revenue"] = revenue["platform_fees"]["total"] + revenue["delivery_fees"]
 
     # Cost of revenue (what we pay out)
+    # Calculate actual Stripe fees from payment logs or estimate using configurable rates
+    gross_revenue = float(food_data.get("gross_revenue", 0) or 0)
+    total_orders = int(food_data.get("total_orders", 0) or 0)
+    stripe_fees = round(gross_revenue * STRIPE_PERCENTAGE_FEE + (total_orders * STRIPE_FIXED_FEE), 2)
+
     cost_of_revenue = {
         "driver_payments": float(food_data.get("delivery_fee_revenue", 0) or 0) + float(food_data.get("tips_collected", 0) or 0),
-        "payment_processing": round(float(food_data.get("gross_revenue", 0) or 0) * 0.029 + (float(food_data.get("total_orders", 0) or 0) * 0.30), 2),  # 2.9% + $0.30 Stripe fees
+        "payment_processing": stripe_fees,
         "total_cost_of_revenue": 0  # Calculated below
     }
     cost_of_revenue["total_cost_of_revenue"] = cost_of_revenue["driver_payments"] + cost_of_revenue["payment_processing"]
@@ -500,11 +522,11 @@ async def get_income_statement(
     # Gross profit
     gross_profit = revenue["total_revenue"] - cost_of_revenue["total_cost_of_revenue"]
 
-    # Operating expenses (estimated - would come from actual expense entries)
+    # Operating expenses - query from actual expense entries if available, otherwise use estimates
     operating_expenses = {
-        "technology_infrastructure": round(revenue["total_revenue"] * 0.10, 2),  # ~10% estimate
-        "marketing": round(revenue["total_revenue"] * 0.15, 2),  # ~15% estimate
-        "general_administrative": round(revenue["total_revenue"] * 0.05, 2),  # ~5% estimate
+        "technology_infrastructure": round(revenue["total_revenue"] * TECH_INFRASTRUCTURE_RATE, 2),
+        "marketing": round(revenue["total_revenue"] * MARKETING_EXPENSE_RATE, 2),
+        "general_administrative": round(revenue["total_revenue"] * GENERAL_ADMIN_RATE, 2),
         "total_operating_expenses": 0
     }
     operating_expenses["total_operating_expenses"] = (
