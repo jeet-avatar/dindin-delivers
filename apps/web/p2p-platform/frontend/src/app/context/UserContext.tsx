@@ -1,8 +1,8 @@
 import { createContext, useState, useContext, ReactNode, useMemo, useEffect } from 'react';
 import axios from 'axios';
 
-// Use staging ELB as fallback - NO localhost calls allowed
-const API_URL = import.meta.env.VITE_API_URL || 'http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080';
+// Production API - NO localhost or staging fallback
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
 
 interface User {
   id: number;
@@ -43,13 +43,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
         }
       } else {
-        // Set a mock user for now to allow access to old UI
-        setUser({
-          id: 1,
-          email: 'demo@doordash.com',
-          full_name: 'Demo User',
-          role: 'Admin'
-        });
+        // No token - user must login
+        setUser(null);
       }
       setLoading(false);
     };

@@ -4037,7 +4037,7 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Customer Ride Request APIs
 
-    /// Get fare estimate from staging API (consistent pricing with Android)
+    /// Get fare estimate from production API (consistent pricing with Android)
     /// Uses same endpoint as Android: /api/rides/estimate
     public func estimateRideFare(
         pickupLat: Double,
@@ -4095,7 +4095,7 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Request a ride (customer requests pickup)
-    /// Staging: POST /api/rides/request
+    /// Production: POST /api/rides/request
     ///
     /// Required fields per OpenAPI CreateRideRequestInput schema:
     /// - customer_id: Int
@@ -4122,7 +4122,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Build flat structure matching staging API schema
+        // Build flat structure matching production API schema
         var body: [String: Any] = [
             "customer_id": customerId,
             "pickup_address": pickupAddress.fullAddress,
@@ -5144,7 +5144,7 @@ public class P2PAPIService: ObservableObject {
 
     /// Fetch chat messages for a ride request
     /// Endpoint: GET /api/p2p/ride-requests/{id}/chat
-    /// Uses staging URL only - no localhost or production
+    /// Uses production URL (api.dollor.ai)
     public func fetchRideChatMessages(
         rideRequestId: Int,
         completion: @escaping (Result<[RideChatMessage], Error>) -> Void
@@ -5187,7 +5187,7 @@ public class P2PAPIService: ObservableObject {
 
     /// Send a chat message for a ride request
     /// Endpoint: POST /api/p2p/ride-requests/{id}/chat
-    /// Uses staging URL only - no localhost or production
+    /// Uses production URL (api.dollor.ai)
     public func sendRideChatMessage(
         rideRequestId: Int,
         message: String,
@@ -5560,7 +5560,7 @@ public struct RideFareEstimateResponse: Codable {
     }
 }
 
-/// Fare estimate details from staging API
+/// Fare estimate details from production API
 public struct RideFareEstimate: Codable {
     public let distanceMiles: Double
     public let durationMinutes: Double
@@ -5591,7 +5591,7 @@ public struct RideFareEstimate: Codable {
     }
 }
 
-/// Fare breakdown from staging API
+/// Fare breakdown from production API
 public struct RideFareBreakdown: Codable {
     public let baseFare: Double
     public let distanceCost: Double
@@ -8107,9 +8107,8 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     private var clientType: String = "customer"
     private var clientId: String = ""
 
-    // Staging WebSocket URL - connected to staging backend only
-    // Production will be enabled after staging validation is complete
-    private let wsBaseURL = "wss://d3kuu45w6kl8hr.cloudfront.net/api/realtime/ws"
+    // PRODUCTION BUILD - Dollar.ai WebSocket URL
+    private let wsBaseURL = "wss://api.dollor.ai/api/realtime/ws"
 
     private override init() {
         super.init()
