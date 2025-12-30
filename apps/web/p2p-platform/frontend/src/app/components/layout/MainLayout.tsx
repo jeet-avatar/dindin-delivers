@@ -16,7 +16,8 @@ import {
   Building2,
   ClipboardCheck,
   Utensils,
-  FileCheck
+  FileCheck,
+  LogOut
 } from 'lucide-react';
 import Bridge from '../../constants/Bridge';
 import { useUser } from '../../context/UserContext';
@@ -317,28 +318,15 @@ const MainLayout: React.FC = () => {
               )}
             </div>
 
-            {/* Notifications */}
-            {/* <div className="relative">
-              <button 
-                onClick={toggleNotifications}
-                className="relative p-1.5 text-neutral-400 hover:text-neutral-500 rounded-full hover:bg-neutral-100 transition-colors duration-150"
-                aria-label="Notifications"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 h-4 w-4 bg-primary-600 rounded-full flex items-center justify-center text-[10px] text-white font-medium">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              
-              {notificationsOpen && (
-                <NotificationDropdown 
-                  notifications={notifications} 
-                  onClose={() => setNotificationsOpen(false)}
-                />
-              )}
-            </div> */}
+            {/* Logout Button - Visible */}
+            <button
+              onClick={showSignoutModal}
+              className="flex items-center space-x-2 px-3 py-2 text-sm text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150"
+              aria-label="Sign out"
+            >
+              <LogOut size={18} />
+              <span className="hidden md:inline">Sign Out</span>
+            </button>
           </div>
         </header>
 

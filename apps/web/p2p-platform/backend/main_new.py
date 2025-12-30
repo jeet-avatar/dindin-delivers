@@ -350,7 +350,7 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is required for security")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours - matches frontend session timeout
 
 # Pydantic Models
 class UserCreate(BaseModel):
