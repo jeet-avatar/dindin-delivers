@@ -7872,6 +7872,67 @@ async def admin_upload_vendor_document(
     }
 
 # ============================================================================
+# ADMIN TEST DATA ENDPOINT (for seeding document status)
+# ============================================================================
+
+class SetDocumentStatusRequest(BaseModel):
+    vendor_id: int
+    food_license: bool = True
+    health_permit: bool = True
+    w9_form: bool = True
+    insurance: bool = True
+    admin_secret: str
+
+@app.post("/api/admin/set-document-status")
+def admin_set_document_status(
+    request: SetDocumentStatusRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to set document status for vendors (for testing/seeding).
+    Requires ADMIN_SECRET_KEY for authorization.
+    """
+    import os
+    from models import Vendor
+
+    admin_secret = os.environ.get("ADMIN_SECRET_KEY", "")
+    if not admin_secret or request.admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Set document flags and generate placeholder URLs
+    vendor.food_license = request.food_license
+    vendor.food_license_url = f"/uploads/vendor_documents/{request.vendor_id}_food_license.pdf" if request.food_license else None
+
+    vendor.health_permit = request.health_permit
+    vendor.health_permit_url = f"/uploads/vendor_documents/{request.vendor_id}_health_permit.pdf" if request.health_permit else None
+
+    vendor.w9_form = request.w9_form
+    vendor.w9_form_url = f"/uploads/vendor_documents/{request.vendor_id}_w9_form.pdf" if request.w9_form else None
+
+    vendor.insurance = request.insurance
+    vendor.insurance_url = f"/uploads/vendor_documents/{request.vendor_id}_insurance.pdf" if request.insurance else None
+
+    vendor.updated_at = datetime.now()
+    vendor.last_activity = datetime.now()
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": request.vendor_id,
+        "restaurant_name": vendor.restaurant_name,
+        "documents_set": {
+            "food_license": request.food_license,
+            "health_permit": request.health_permit,
+            "w9_form": request.w9_form,
+            "insurance": request.insurance
+        }
+    }
+
+# ============================================================================
 # VENDOR DOCUMENT PORTAL ENDPOINTS
 # ============================================================================
 
