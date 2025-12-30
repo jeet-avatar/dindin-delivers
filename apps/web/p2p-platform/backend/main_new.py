@@ -7944,6 +7944,123 @@ def admin_set_document_status(
         }
     }
 
+
+class SeedOrdersRequest(BaseModel):
+    count: int = 15
+    vendor_id: int
+    admin_secret: str
+    mark_delivered: bool = True  # If True, mark orders as delivered
+
+
+@app.post("/api/admin/seed-orders")
+def admin_seed_orders(
+    request: SeedOrdersRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to seed test orders for accounting testing.
+    Creates orders with payment_status='succeeded' and optionally marks them as delivered.
+    """
+    import os
+    import random
+    import json
+    from models import Order, Vendor, OrderStatus
+
+    admin_secret = os.environ.get("ADMIN_SECRET_KEY", "")
+    if not admin_secret or request.admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Sample menu items for test orders
+    sample_items = [
+        {"name": "Burger", "price": 12.99, "quantity": 1},
+        {"name": "Pizza", "price": 15.99, "quantity": 1},
+        {"name": "Salad", "price": 9.99, "quantity": 1},
+        {"name": "Fries", "price": 4.99, "quantity": 2},
+        {"name": "Sandwich", "price": 11.99, "quantity": 1},
+        {"name": "Pasta", "price": 14.99, "quantity": 1},
+        {"name": "Soup", "price": 6.99, "quantity": 1},
+        {"name": "Tacos", "price": 10.99, "quantity": 2},
+    ]
+
+    # Sample customer info
+    test_customers = [
+        ("John Doe", "john@test.com", "555-0101"),
+        ("Jane Smith", "jane@test.com", "555-0102"),
+        ("Bob Wilson", "bob@test.com", "555-0103"),
+        ("Alice Brown", "alice@test.com", "555-0104"),
+        ("Charlie Davis", "charlie@test.com", "555-0105"),
+    ]
+
+    created_orders = []
+    for i in range(request.count):
+        # Random customer
+        customer = random.choice(test_customers)
+
+        # Random items (1-3 items per order)
+        num_items = random.randint(1, 3)
+        order_items = random.sample(sample_items, num_items)
+
+        # Calculate totals
+        subtotal = sum(item["price"] * item["quantity"] for item in order_items)
+        tax_amount = round(subtotal * 0.0825, 2)  # 8.25% tax
+        delivery_fee = 4.99
+        platform_fee = 1.00  # $1 customer service fee
+        tip = round(random.uniform(2, 8), 2)
+        total_amount = subtotal + tax_amount + delivery_fee + platform_fee + tip
+
+        # Generate order number
+        order_number = f"TEST-{datetime.now().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+
+        order = Order(
+            order_number=order_number,
+            vendor_id=request.vendor_id,
+            customer_name=customer[0],
+            customer_email=customer[1],
+            customer_phone=customer[2],
+            items=json.dumps(order_items),
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            delivery_fee=delivery_fee,
+            platform_fee=platform_fee,
+            tip=tip,
+            total_amount=total_amount,
+            status=OrderStatus.DELIVERED if request.mark_delivered else OrderStatus.CONFIRMED,
+            payment_status="succeeded",
+            delivery_address=json.dumps({
+                "street": f"{random.randint(100, 999)} Test Street",
+                "city": "Test City",
+                "state": "TX",
+                "zip": "75001"
+            }),
+            created_at=datetime.now() - timedelta(hours=random.randint(1, 72)),
+            delivered_at=datetime.now() if request.mark_delivered else None,
+        )
+        db.add(order)
+        created_orders.append({
+            "order_number": order_number,
+            "customer": customer[0],
+            "subtotal": subtotal,
+            "total": total_amount,
+            "platform_fee": platform_fee
+        })
+
+    db.commit()
+
+    return {
+        "success": True,
+        "orders_created": len(created_orders),
+        "vendor_id": request.vendor_id,
+        "vendor_name": vendor.restaurant_name,
+        "mark_delivered": request.mark_delivered,
+        "total_platform_fees": len(created_orders) * 1.00,  # $1 per order
+        "orders": created_orders
+    }
+
+
 # ============================================================================
 # VENDOR DOCUMENT PORTAL ENDPOINTS
 # ============================================================================
