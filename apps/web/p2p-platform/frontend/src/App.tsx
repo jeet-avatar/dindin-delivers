@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { UserProvider, useUser } from './app/context/UserContext';
+import { useUser } from './app/context/UserContext';
 import Login from './app/screens/auth/Login';
 import ForgotPassword from './app/screens/auth/ForgotPassword';
 import Dashboard from './app/screens/dashboard/Main';
@@ -105,8 +105,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <UserProvider>
-      <Routes>
+    <Routes>
         {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
 
@@ -188,8 +187,7 @@ function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </UserProvider>
+    </Routes>
   );
 }
 
