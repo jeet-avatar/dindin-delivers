@@ -928,6 +928,24 @@ def setup_production_admin(db: Session = Depends(get_db)):
 
     return {"message": "Production admin created", "email": admin_email}
 
+# Delete legacy admin user (admin@invoice.com)
+@app.delete("/api/auth/admin/legacy-cleanup")
+def cleanup_legacy_admin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Remove legacy admin@invoice.com account - requires authenticated admin"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if current_user.email == "admin@invoice.com":
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    legacy_admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+    if not legacy_admin:
+        return {"message": "Legacy admin not found", "deleted": False}
+
+    db.delete(legacy_admin)
+    db.commit()
+    return {"message": "Legacy admin@invoice.com deleted", "deleted": True}
+
 # Admin Demo Login - DISABLED FOR PRODUCTION
 # Use /api/admin/login with proper credentials instead
 @app.post("/api/auth/admin/demo-login")
