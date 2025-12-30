@@ -5,8 +5,8 @@ import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useUser } from '../../context/UserContext';
 import axios from 'axios';
 
-// Use staging ELB as fallback - NO localhost calls allowed
-const API_URL = import.meta.env.VITE_API_URL || 'http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080';
+// Production API - NO localhost or staging fallback
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
 
 const Login: React.FC = () => {
   const { user, login } = useUser();
@@ -17,19 +17,20 @@ const Login: React.FC = () => {
   useEffect(() => {
     if (user && !hasRedirected) {
       setHasRedirected(true);
-      navigate('/', { replace: true });
+      // Admin users go to admin dashboard
+      navigate('/admin', { replace: true });
     }
   }, [user, navigate, hasRedirected]);
 
   const handleSubmit = async (values: { email: string; password: string }) => {
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('username', values.email);
-      formData.append('password', values.password);
-
-      const response = await axios.post(`${API_URL}/api/auth/login`, formData, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      // Use admin login endpoint with JSON
+      const response = await axios.post(`${API_URL}/api/admin/login`, {
+        email: values.email,
+        password: values.password
+      }, {
+        headers: { 'Content-Type': 'application/json' }
       });
 
       const { access_token, user: userData } = response.data;
@@ -38,7 +39,7 @@ const Login: React.FC = () => {
       login(userData);
       
       message.success('Login successful!');
-      navigate('/');
+      navigate('/admin');
     } catch (error: any) {
       console.error('Login error:', error);
       let errorMsg = 'Invalid email or password';
@@ -71,10 +72,10 @@ const Login: React.FC = () => {
       >
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>
-            Invoice Management
+            Dollor.ai Admin
           </h1>
           <p style={{ color: '#666', marginTop: '8px' }}>
-            Sign in to continue
+            Sign in to admin dashboard
           </p>
         </div>
 
