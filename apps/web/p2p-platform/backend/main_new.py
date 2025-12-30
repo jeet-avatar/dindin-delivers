@@ -6729,7 +6729,11 @@ async def upload_vendor_document_public(
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     # Verify email matches for security
-    if db_vendor.contact_email != contact_email:
+    # If vendor has no email, accept the provided email and update the record
+    if not db_vendor.contact_email:
+        db_vendor.contact_email = contact_email
+        print(f"📧 Updated vendor {vendor_id} email to: {contact_email}")
+    elif db_vendor.contact_email != contact_email:
         raise HTTPException(status_code=403, detail="Email does not match vendor record")
 
     # Create uploads directory if it doesn't exist
