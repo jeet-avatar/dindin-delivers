@@ -14,17 +14,19 @@ def create_sample_data():
     db = SessionLocal()
     
     try:
-        # Check if admin user exists
-        admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+        # Check if admin user exists - use production credentials from env
+        admin_email = os.getenv("ADMIN_EMAIL", "support@dollor.ai")
+        admin = db.query(User).filter(User.email == admin_email).first()
         if not admin:
+            admin_password = os.getenv("ADMIN_PASSWORD", "DollorAdmin2026")
             admin = User(
-                email="admin@invoice.com",
-                password_hash=pwd_context.hash("admin123"),
-                full_name="Admin User",
+                email=admin_email,
+                password_hash=pwd_context.hash(admin_password),
+                full_name="Dollor Admin",
                 role=UserRole.ADMIN
             )
             db.add(admin)
-            print("✓ Created admin user (email: admin@invoice.com, password: admin123)")
+            print(f"✓ Created admin user (email: {admin_email})")
         
         # Create sample clients
         if db.query(Client).count() == 0:
@@ -205,10 +207,8 @@ def create_sample_data():
         
         db.commit()
         print("\n✅ Database initialization completed successfully!")
-        print("\n📋 Login credentials:")
-        print("   Email: admin@invoice.com")
-        print("   Password: admin123")
-        print("\n🚀 Start the server with: uvicorn main:app --reload --port 3000")
+        print("\n📋 Admin login: Use credentials from environment variables or ADMIN_EMAIL/ADMIN_PASSWORD")
+        print("\n🚀 Start the server with: uvicorn main_new:app --reload --port 3000")
         
     except Exception as e:
         print(f"\n❌ Error: {e}")

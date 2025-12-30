@@ -171,18 +171,18 @@ def seed_vendors(conn):
 
     vendors = [
         {
-            "email": "admin@invoice.com",
-            "password": "admin123",
-            "company_name": "Admin Restaurant",
-            "contact_name": "Admin User",
-            "phone": "+14155559999"
-        },
-        {
             "email": "test.vendor@dollor.ai",
             "password": "Test123!",
             "company_name": "Test Restaurant LA",
             "contact_name": "Test Vendor",
             "phone": "+12135550303"
+        },
+        {
+            "email": "test.vendor2@dollor.ai",
+            "password": "Test123!",
+            "company_name": "Test Restaurant SF",
+            "contact_name": "Test Vendor 2",
+            "phone": "+14155550404"
         }
     ]
 
@@ -349,10 +349,10 @@ def main():
         print("\n" + "=" * 50)
         print("TEST DATA SEEDING COMPLETE!")
         print("=" * 50)
-        print("\nTest Credentials:")
+        print("\nTest Credentials (Staging Only):")
         print("  Customer: test.customer.la@dollor.ai / Test123!")
         print("  Driver:   test.driver.la@dollor.ai / Test123!")
-        print("  Vendor:   admin@invoice.com / admin123")
+        print("  Vendor:   test.vendor@dollor.ai / Test123!")
         print("=" * 50)
 
     except Exception as e:
