@@ -13055,13 +13055,39 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
         db.rollback()
         results["errors"].append(f"restaurant: {str(e)}")
 
+    # --- Production Admin (support@dollor.ai) ---
+    try:
+        admin_email = "support@dollor.ai"
+        existing = db.query(User).filter(User.email == admin_email).first()
+        if not existing:
+            admin_user = User(
+                email=admin_email,
+                password_hash=get_password_hash("DollorAdmin2026!"),
+                full_name="Dollor Admin",
+                role=UserRole.ADMIN,
+                created_at=datetime.utcnow()
+            )
+            db.add(admin_user)
+            db.commit()
+            results["created"].append("admin")
+        else:
+            # Update password to ensure it matches
+            existing.password_hash = get_password_hash("DollorAdmin2026!")
+            existing.role = UserRole.ADMIN
+            db.commit()
+            results["existing"].append("admin")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"admin: {str(e)}")
+
     return {
         "success": len(results["errors"]) == 0,
         "results": results,
         "credentials": {
             "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
             "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
-            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"}
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
+            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
         }
     }
 
