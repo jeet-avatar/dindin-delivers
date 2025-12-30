@@ -154,6 +154,7 @@ interface ChartOfAccountsData {
 const AccountingDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('balance-sheet');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('month');
   const [asOfDate, setAsOfDate] = useState(dayjs());
 
@@ -170,8 +171,14 @@ const AccountingDashboard: React.FC = () => {
 
   const fetchData = async (tab: string) => {
     setLoading(true);
+    setError(null);
     try {
       const token = localStorage.getItem('id_token');
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        setLoading(false);
+        return;
+      }
       const headers = { Authorization: `Bearer ${token}` };
 
       switch (tab) {
@@ -180,6 +187,7 @@ const AccountingDashboard: React.FC = () => {
             params: { as_of_date: asOfDate.format('YYYY-MM-DD') },
             headers
           });
+          console.log('Balance Sheet Response:', bsRes.data);
           setBalanceSheet(bsRes.data.balance_sheet);
           break;
 
@@ -188,6 +196,7 @@ const AccountingDashboard: React.FC = () => {
             params: { period },
             headers
           });
+          console.log('Income Statement Response:', isRes.data);
           setIncomeStatement(isRes.data.income_statement);
           break;
 
@@ -196,21 +205,26 @@ const AccountingDashboard: React.FC = () => {
             params: { as_of_date: asOfDate.format('YYYY-MM-DD') },
             headers
           });
+          console.log('Trial Balance Response:', tbRes.data);
           setTrialBalance(tbRes.data.trial_balance);
           break;
 
         case 'cash-flow':
           const cfRes = await api.get('/admin/accounting/cash-flow', { headers });
+          console.log('Cash Flow Response:', cfRes.data);
           setCashFlow(cfRes.data.cash_flow_statement);
           break;
 
         case 'chart-of-accounts':
           const coaRes = await api.get('/admin/accounting/chart-of-accounts', { headers });
+          console.log('Chart of Accounts Response:', coaRes.data);
           setChartOfAccounts(coaRes.data.grouped);
           break;
       }
-    } catch (error) {
-      console.error('Error fetching accounting data:', error);
+    } catch (err: any) {
+      console.error('Error fetching accounting data:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Failed to load data';
+      setError(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -225,7 +239,9 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const renderBalanceSheet = () => {
-    if (!balanceSheet) return <Spin />;
+    if (loading) return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+    if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+    if (!balanceSheet) return <Alert message="No Data" description="No balance sheet data available. Check if there are completed orders in the system." type="info" showIcon />;
 
     return (
       <div className="balance-sheet">
@@ -360,7 +376,9 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const renderIncomeStatement = () => {
-    if (!incomeStatement) return <Spin />;
+    if (loading) return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+    if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+    if (!incomeStatement) return <Alert message="No Data" description="No income statement data available. Check if there are completed orders in the system." type="info" showIcon />;
 
     return (
       <div className="income-statement">
@@ -520,7 +538,9 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const renderTrialBalance = () => {
-    if (!trialBalance) return <Spin />;
+    if (loading) return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+    if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+    if (!trialBalance) return <Alert message="No Data" description="No trial balance data available." type="info" showIcon />;
 
     const columns = [
       { title: 'Account Code', dataIndex: 'account_code', key: 'account_code', width: 120 },
@@ -622,7 +642,9 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const renderCashFlow = () => {
-    if (!cashFlow) return <Spin />;
+    if (loading) return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+    if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+    if (!cashFlow) return <Alert message="No Data" description="No cash flow data available." type="info" showIcon />;
 
     return (
       <div className="cash-flow">
@@ -696,7 +718,9 @@ const AccountingDashboard: React.FC = () => {
   };
 
   const renderChartOfAccounts = () => {
-    if (!chartOfAccounts) return <Spin />;
+    if (loading) return <div className="flex justify-center py-12"><Spin size="large" /></div>;
+    if (error) return <Alert message="Error" description={error} type="error" showIcon />;
+    if (!chartOfAccounts) return <Alert message="No Data" description="No chart of accounts data available." type="info" showIcon />;
 
     const columns = [
       { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
