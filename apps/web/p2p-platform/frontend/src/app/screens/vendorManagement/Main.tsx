@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Plus, 
-  Filter, 
-  Search, 
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+import {
+  Users,
+  Plus,
+  Filter,
+  Search,
   Upload,
   FileText,
   CheckCircle,
@@ -17,7 +19,9 @@ import {
   ExternalLink,
   Edit,
   Eye,
-  Brain
+  Brain,
+  Send,
+  Loader2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import VendorOnboardingModal from '../../components/vendors/VendorOnboardingModal';
@@ -29,9 +33,6 @@ import VendorAnalyticsPanel from '../../components/vendors/VendorAnalyticsPanel'
 import VendorInsightCard from '../../components/vendors/VendorInsightCard';
 import { useVendorAnalytics } from '../../hooks/useVendorAnalytics';
 import AIOnboardingAssistant from '../../components/vendors/AIOnboardingAssistant';
-import { getApiUrl } from '../../api/api';
-
-const API_URL = getApiUrl();
 
 interface Vendor {
   id: string;
@@ -81,7 +82,8 @@ const Main: React.FC = () => {
   const [showAnalytics, setShowAnalytics] = useState(true);
   const { insights, analyzeVendorOnboarding } = useVendorAnalytics();
   const [showAIAssistant, setShowAIAssistant] = useState(false);
-  
+  const [publishingVendorId, setPublishingVendorId] = useState<string | null>(null);
+
   const [vendors, setVendors] = useState<Vendor[]>([]);
   
   // Fetch vendors from backend on component mount
@@ -436,10 +438,36 @@ const Main: React.FC = () => {
   };
 
   const handleSaveVendor = (updatedVendor: Vendor) => {
-    setVendors(prev => 
+    setVendors(prev =>
       prev.map(v => v.id === updatedVendor.id ? updatedVendor : v)
     );
     console.log('Vendor updated and synced to external systems:', updatedVendor.companyName);
+  };
+
+  const handlePublishVendor = async (vendor: Vendor) => {
+    setPublishingVendorId(vendor.id);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_URL}/api/admin/vendors/${vendor.id}/publish`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ platforms: ['ios', 'android', 'web'] })
+      });
+      if (response.ok) {
+        alert(`${vendor.companyName} published successfully to iOS, Android, and Web!`);
+        fetchVendors();
+      } else {
+        const error = await response.json();
+        alert(`Publish failed: ${error.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Publish failed: ${error}`);
+    } finally {
+      setPublishingVendorId(null);
+    }
   };
 
   const getDocumentCompletionPercentage = (docs: Vendor['requiredDocuments']) => {
@@ -755,6 +783,16 @@ const Main: React.FC = () => {
                         className="text-warning-600 border-warning-600 hover:bg-warning-50"
                       >
                         ZIP
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={publishingVendorId === vendor.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                        onClick={() => handlePublishVendor(vendor)}
+                        disabled={publishingVendorId === vendor.id || vendor.onboardingStatus !== 'approved'}
+                        className="text-success-600 border-success-600 hover:bg-success-50 disabled:opacity-50"
+                      >
+                        {publishingVendorId === vendor.id ? 'Publishing...' : 'Publish'}
                       </Button>
                     </div>
                   </td>
