@@ -138,7 +138,7 @@ const Main: React.FC = () => {
       setVendors(mappedVendors);
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
-      message.error('Failed to load vendors from backend');
+      alert('Failed to load vendors from backend');
     }
   };
 
