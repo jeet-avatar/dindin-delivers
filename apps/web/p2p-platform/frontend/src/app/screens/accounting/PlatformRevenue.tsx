@@ -78,12 +78,12 @@ const PlatformRevenue: React.FC = () => {
       });
       const data = response.data;
 
-      // Map API response to component state
+      // Map API response to component state - using ACTUAL values from database
       setRevenueData({
         food_delivery: {
           total_orders: data.summary?.total_orders || 0,
-          customer_fees: data.revenue_breakdown?.food_delivery?.customer_fees || 0,
-          restaurant_fees: data.revenue_breakdown?.food_delivery?.restaurant_fees || 0,
+          customer_fees: data.revenue_breakdown?.food_delivery?.platform_fees || 0,
+          restaurant_fees: 0,  // Now combined into platform_fees
           total_revenue: data.revenue_breakdown?.food_delivery?.total || 0
         },
         rideshare: {
@@ -297,21 +297,11 @@ const PlatformRevenue: React.FC = () => {
             <div className="fee-structure">
               <div className="fee-row">
                 <div className="fee-label">
-                  <Tag color="blue">Customer Fee</Tag>
-                  <Text>$1 per order (flat)</Text>
+                  <Tag color="green">Platform Fees Collected</Tag>
+                  <Text>Actual from database</Text>
                 </div>
-                <Text strong style={{ color: '#1890ff' }}>
-                  ${revenueData.food_delivery.customer_fees.toFixed(2)}
-                </Text>
-              </div>
-              <Divider style={{ margin: '12px 0' }} />
-              <div className="fee-row">
-                <div className="fee-label">
-                  <Tag color="orange">Restaurant Fee</Tag>
-                  <Text>$1 per order (flat)</Text>
-                </div>
-                <Text strong style={{ color: '#fa8c16' }}>
-                  ${revenueData.food_delivery.restaurant_fees.toFixed(2)}
+                <Text strong style={{ color: '#52c41a' }}>
+                  ${revenueData.food_delivery.total_revenue.toFixed(2)}
                 </Text>
               </div>
               <Divider style={{ margin: '12px 0' }} />
@@ -325,7 +315,7 @@ const PlatformRevenue: React.FC = () => {
 
             <div className="info-box" style={{ marginTop: 16 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Food delivery uses a flat $1+$1 model: $1 from customer + $1 from restaurant = $2 platform revenue per order
+                Actual platform fees from orders. Fee structure: $1 per order from restaurant.
               </Text>
             </div>
           </Card>
