@@ -688,20 +688,20 @@ const Main: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(vendor.onboardingStatus)}`}>
-                      {vendor.onboardingStatus.replace('_', ' ')}
+                      {(vendor.onboardingStatus || 'unknown').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       {getPhaseIcon(vendor.onboardingPhase)}
                       <span className="ml-2 text-sm text-neutral-700 capitalize">
-                        {vendor.onboardingPhase.replace('_', ' ')}
+                        {(vendor.onboardingPhase || 'unknown').replace('_', ' ')}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getZipStatusColor(vendor.zipStatus)}`}>
-                      {vendor.zipStatus.replace('_', ' ')}
+                      {(vendor.zipStatus || 'not_uploaded').replace('_', ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4">
