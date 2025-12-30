@@ -120,18 +120,6 @@ const Login: React.FC = () => {
             </Button>
           </Form.Item>
         </Form>
-
-        <div style={{ 
-          marginTop: '16px', 
-          padding: '12px', 
-          background: '#f0f2f5', 
-          borderRadius: '4px',
-          fontSize: '12px'
-        }}>
-          <strong>Demo Credentials:</strong>
-          <div>Email: admin@invoice.com</div>
-          <div>Password: admin123</div>
-        </div>
       </Card>
     </div>
   );
