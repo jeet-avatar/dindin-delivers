@@ -928,57 +928,15 @@ def setup_production_admin(db: Session = Depends(get_db)):
 
     return {"message": "Production admin created", "email": admin_email}
 
-# Admin Demo Login - for testing
-class AdminDemoLoginRequest(BaseModel):
-    email_hint: Optional[str] = None
-    email: Optional[str] = None
-
+# Admin Demo Login - DISABLED FOR PRODUCTION
+# Use /api/admin/login with proper credentials instead
 @app.post("/api/auth/admin/demo-login")
-def admin_demo_login(request: AdminDemoLoginRequest, db: Session = Depends(get_db)):
-    """Demo login for admin - creates or finds admin account for testing"""
-    demo_email = "admin@invoice.com"
-    demo_password = "admin123"
-
-    # Check if admin user exists
-    user = db.query(User).filter(
-        User.email == demo_email,
-        User.role == UserRole.ADMIN
-    ).first()
-
-    if not user:
-        # Create admin user
-        hashed_password = get_password_hash(demo_password)
-        user = User(
-            email=demo_email,
-            password_hash=hashed_password,
-            full_name="Admin User",
-            role=UserRole.ADMIN,
-            created_at=datetime.utcnow()
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created admin user: {demo_email}")
-    else:
-        # Reset password to ensure it works
-        user.password_hash = get_password_hash(demo_password)
-        db.commit()
-        db.refresh(user)
-        print(f"Reset admin password for: {demo_email}")
-
-    # Generate token
-    access_token = create_access_token(data={"sub": user.email, "role": "admin"})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": "admin"
-        }
-    }
+def admin_demo_login():
+    """Demo login disabled in production - use proper authentication"""
+    raise HTTPException(
+        status_code=403,
+        detail="Demo login is disabled. Use /api/admin/login with your credentials."
+    )
 
 # Admin JSON Login endpoint (for web frontend)
 class AdminLoginRequest(BaseModel):
