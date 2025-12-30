@@ -7952,6 +7952,54 @@ class SeedOrdersRequest(BaseModel):
     mark_delivered: bool = True  # If True, mark orders as delivered
 
 
+class MarkOrdersPaidRequest(BaseModel):
+    order_ids: List[int]
+    admin_secret: str
+    mark_delivered: bool = True
+
+
+@app.post("/api/admin/mark-orders-paid")
+def admin_mark_orders_paid(
+    request: MarkOrdersPaidRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to mark orders as paid and delivered for testing.
+    """
+    import os
+    from models import Order, OrderStatus
+
+    # Allow default dev key when ADMIN_SECRET_KEY is not configured
+    admin_secret = os.environ.get("ADMIN_SECRET_KEY", "")
+    dev_key = "dollor-dev-seed-2024"
+    if admin_secret:
+        if request.admin_secret != admin_secret:
+            raise HTTPException(status_code=403, detail="Invalid admin secret")
+    else:
+        if request.admin_secret != dev_key:
+            raise HTTPException(status_code=403, detail="Invalid admin secret (use dev key)")
+
+    updated = []
+    for order_id in request.order_ids:
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if order:
+            order.payment_status = "succeeded"
+            if request.mark_delivered:
+                order.status = OrderStatus.DELIVERED
+                order.delivered_at = datetime.now()
+            updated.append(order_id)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "orders_updated": len(updated),
+        "order_ids": updated,
+        "payment_status": "succeeded",
+        "marked_delivered": request.mark_delivered
+    }
+
+
 @app.post("/api/admin/seed-orders")
 def admin_seed_orders(
     request: SeedOrdersRequest,
