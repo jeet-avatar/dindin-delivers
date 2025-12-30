@@ -173,7 +173,8 @@ const AccountingDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('id_token');
+      // Try multiple token keys for compatibility
+      const token = localStorage.getItem('token') || localStorage.getItem('id_token') || localStorage.getItem('access_token');
       if (!token) {
         setError('Authentication required. Please log in again.');
         setLoading(false);
