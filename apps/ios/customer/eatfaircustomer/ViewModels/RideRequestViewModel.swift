@@ -203,8 +203,8 @@ class RideRequestViewModel: ObservableObject {
         estimateFare()
     }
 
-    // MARK: - Fare Estimation (from Staging API - consistent with Android)
-    /// Fetches fare estimate from staging API instead of local calculation
+    // MARK: - Fare Estimation (from Production API - consistent with Android)
+    /// Fetches fare estimate from production API instead of local calculation
     /// This ensures consistent pricing between iOS and Android platforms
     private func estimateFare() {
         guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
@@ -214,7 +214,7 @@ class RideRequestViewModel: ObservableObject {
         // Get state code for tax calculation
         let stateCode = StateTaxRates.stateCode(from: pickup.state)
 
-        // Call staging API for fare estimate (same endpoint as Android)
+        // Call production API for fare estimate (same endpoint as Android)
         p2pService.estimateRideFare(
             pickupLat: pickup.lat,
             pickupLng: pickup.lng,
@@ -236,7 +236,7 @@ class RideRequestViewModel: ObservableObject {
                 self.timeFee = estimate.breakdown.timeCost
 
                 #if DEBUG
-                print("[RideRequestViewModel] Fare estimate from staging API:")
+                print("[RideRequestViewModel] Fare estimate from production API:")
                 print("  Distance: \(estimate.distanceMiles) miles")
                 print("  Duration: \(estimate.durationMinutes) min")
                 print("  Total: $\(estimate.total)")

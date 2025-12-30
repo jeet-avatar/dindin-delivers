@@ -84,7 +84,7 @@ struct NotificationView: View {
     private func loadNotifications() {
         isLoading = true
 
-        // Call staging API to fetch notifications
+        // Call production API to fetch notifications
         P2PAPIService.shared.getNotifications { result in
             DispatchQueue.main.async {
                 isLoading = false
