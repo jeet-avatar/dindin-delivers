@@ -18,7 +18,9 @@ import {
   Mail,
   MapPin,
   Smartphone,
-  Globe
+  Globe,
+  Utensils,
+  ClipboardCheck
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -38,7 +40,7 @@ import { Spin, message, Modal, Tabs, Tag, Badge, Empty, Input, Select, Table, De
 import * as htmlToImage from "html-to-image";
 import { saveAs } from 'file-saver';
 import * as api from '../../api/api';
-import type { Vendor } from '../../api/api';
+import type { Vendor, PublishChecklist } from '../../api/api';
 
 ChartJS.register(
   CategoryScale,
@@ -80,6 +82,8 @@ const Main: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [checklist, setChecklist] = useState<PublishChecklist | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   // Fetch vendors and stats
   const fetchData = useCallback(async () => {
@@ -148,19 +152,62 @@ const Main: React.FC = () => {
     return { docs, completed, total, allComplete: completed === total };
   };
 
+  // Fetch publish checklist for a vendor
+  const fetchChecklist = async (vendorId: number) => {
+    setChecklistLoading(true);
+    try {
+      const data = await api.getVendorPublishChecklist(vendorId);
+      setChecklist(data);
+    } catch (error) {
+      console.error('Failed to fetch checklist:', error);
+      setChecklist(null);
+    } finally {
+      setChecklistLoading(false);
+    }
+  };
+
+  // Open vendor modal and fetch checklist
+  const openVendorModal = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setIsModalVisible(true);
+    fetchChecklist(vendor.id);
+  };
+
   // Handle approve vendor
   const handleApprove = async (vendorId: number, skipCheck: boolean = false) => {
     setActionLoading(vendorId);
     try {
       await api.updateVendorStatus(vendorId, 'approved', skipCheck);
-      message.success('Vendor approved and published to iOS, Android, and Web! Approval email sent.');
+
+      // Show detailed success message
+      Modal.success({
+        title: '🎉 Restaurant Published Successfully!',
+        content: (
+          <div className="space-y-3 mt-4">
+            <p><strong>{selectedVendor?.restaurant_name}</strong> is now live on:</p>
+            <div className="flex gap-2 flex-wrap">
+              <Tag color="blue" className="flex items-center gap-1">📱 iOS Customer App</Tag>
+              <Tag color="green" className="flex items-center gap-1">🤖 Android Customer App</Tag>
+              <Tag color="purple" className="flex items-center gap-1">🌐 Web Platform</Tag>
+            </div>
+            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-green-700 text-sm">
+                ✉️ Approval email has been sent to <strong>{selectedVendor?.contact_email}</strong>
+              </p>
+            </div>
+          </div>
+        ),
+        okText: 'Great!',
+        width: 500,
+      });
+
       fetchData();
       setIsModalVisible(false);
     } catch (error: any) {
       const detail = error.response?.data?.detail;
       if (detail?.missing_documents) {
         Modal.confirm({
-          title: 'Missing Documents',
+          title: '📄 Missing Documents',
           content: (
             <div>
               <p className="mb-2">Cannot approve vendor - the following documents are missing:</p>
@@ -178,6 +225,37 @@ const Main: React.FC = () => {
           okType: 'danger',
           cancelText: 'Cancel',
           onOk: () => handleApprove(vendorId, true),
+        });
+      } else if (detail?.checklist_errors) {
+        // Show checklist errors (menu items, etc.)
+        Modal.error({
+          title: '⚠️ Pre-Publish Checklist Incomplete',
+          content: (
+            <div className="mt-4">
+              <p className="mb-3 text-gray-600">Cannot publish restaurant - the following items need attention:</p>
+              <div className="space-y-2">
+                {detail.checklist_errors.map((err: any, idx: number) => (
+                  <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <XCircle size={16} className="text-red-500" />
+                      <span className="font-medium text-red-700">{err.item}</span>
+                    </div>
+                    <p className="text-sm text-red-600 mt-1 ml-6">{err.message}</p>
+                  </div>
+                ))}
+              </div>
+              {detail.menu_items_count === 0 && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-amber-700 text-sm">
+                    💡 <strong>Tip:</strong> Ask the restaurant to add their menu items through the Vendor Portal,
+                    or use the Menu Review screen to add items on their behalf.
+                  </p>
+                </div>
+              )}
+            </div>
+          ),
+          okText: 'Got it',
+          width: 500,
         });
       } else {
         message.error(detail?.message || 'Failed to approve vendor');
@@ -394,10 +472,7 @@ const Main: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setSelectedVendor(record);
-              setIsModalVisible(true);
-            }}
+            onClick={() => openVendorModal(record)}
           >
             <Eye size={14} className="mr-1" /> View
           </Button>
@@ -906,6 +981,176 @@ const Main: React.FC = () => {
                   </span>
                 ),
                 children: <DocumentStatus vendor={selectedVendor} />,
+              },
+              {
+                key: 'checklist',
+                label: (
+                  <span className="flex items-center gap-2">
+                    <ClipboardCheck size={14} />
+                    Publish Checklist
+                    {checklist && !checklist.ready_to_publish && (
+                      <Badge status="error" />
+                    )}
+                    {checklist?.ready_to_publish && (
+                      <Badge status="success" />
+                    )}
+                  </span>
+                ),
+                children: (
+                  <div className="space-y-4">
+                    {checklistLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Spin />
+                      </div>
+                    ) : checklist ? (
+                      <>
+                        {/* Summary */}
+                        <div className={`p-4 rounded-lg border ${
+                          checklist.ready_to_publish
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-amber-50 border-amber-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {checklist.ready_to_publish ? (
+                                <CheckCircle size={24} className="text-green-600" />
+                              ) : (
+                                <AlertCircle size={24} className="text-amber-600" />
+                              )}
+                              <div>
+                                <p className={`font-semibold ${
+                                  checklist.ready_to_publish ? 'text-green-700' : 'text-amber-700'
+                                }`}>
+                                  {checklist.ready_to_publish
+                                    ? 'Ready to Publish!'
+                                    : 'Not Ready - Items Need Attention'}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {checklist.summary.complete} of {checklist.summary.total} items complete
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-2xl font-bold">
+                              {checklist.summary.percentage}%
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Documents Section */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <FileText size={16} /> Required Documents ({checklist.summary.documents_complete}/{checklist.summary.documents_total})
+                          </h4>
+                          <div className="space-y-2">
+                            {checklist.items.filter(i => i.category === 'documents').map(item => (
+                              <div
+                                key={item.key}
+                                className={`p-3 rounded-lg border flex items-center justify-between ${
+                                  item.status === 'complete'
+                                    ? 'bg-green-50 border-green-200'
+                                    : 'bg-red-50 border-red-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {item.status === 'complete' ? (
+                                    <CheckCircle size={16} className="text-green-600" />
+                                  ) : (
+                                    <XCircle size={16} className="text-red-600" />
+                                  )}
+                                  <span>{item.label}</span>
+                                </div>
+                                {item.url && (
+                                  <a
+                                    href={item.url.startsWith('/') ? `${api.getApiUrl()}${item.url}` : item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                                  >
+                                    View <ExternalLink size={12} />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Menu Items Section */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <Utensils size={16} /> Menu Items
+                          </h4>
+                          {checklist.items.filter(i => i.category === 'menu').map(item => (
+                            <div
+                              key={item.key}
+                              className={`p-3 rounded-lg border ${
+                                item.status === 'complete'
+                                  ? 'bg-green-50 border-green-200'
+                                  : 'bg-red-50 border-red-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {item.status === 'complete' ? (
+                                    <CheckCircle size={16} className="text-green-600" />
+                                  ) : (
+                                    <XCircle size={16} className="text-red-600" />
+                                  )}
+                                  <span>{item.message}</span>
+                                </div>
+                                {item.status === 'incomplete' && (
+                                  <Tag color="red">Required</Tag>
+                                )}
+                              </div>
+                              {item.status === 'incomplete' && (
+                                <div className="mt-2 ml-6 space-y-2">
+                                  <p className="text-sm text-gray-500">
+                                    Restaurant must add menu items before going live.
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <a
+                                      href={`/admin/menu-review?vendor_id=${selectedVendor?.id}`}
+                                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                    >
+                                      Add Menu Items (Admin) <ExternalLink size={12} />
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Restaurant Info Section */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <Building size={16} /> Restaurant Information
+                          </h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {checklist.items.filter(i => i.category === 'info').map(item => (
+                              <div
+                                key={item.key}
+                                className={`p-2 rounded border flex items-center gap-2 ${
+                                  item.status === 'complete'
+                                    ? 'bg-green-50 border-green-200'
+                                    : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                {item.status === 'complete' ? (
+                                  <CheckCircle size={14} className="text-green-600" />
+                                ) : (
+                                  <AlertCircle size={14} className="text-gray-400" />
+                                )}
+                                <span className="text-sm">{item.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <Empty description="Failed to load checklist" />
+                    )}
+                  </div>
+                ),
               },
               {
                 key: 'delivery',
