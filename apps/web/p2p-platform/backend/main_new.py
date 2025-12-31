@@ -5965,12 +5965,12 @@ def get_coupa_suppliers_filter(db: Session = Depends(get_db)):
     from models import CoupaSupplier
 
     suppliers = db.query(CoupaSupplier).filter(
-        CoupaSupplier.is_active == True
+        CoupaSupplier.status == "active"
     ).order_by(CoupaSupplier.name).all()
 
     return {
         "suppliers": [
-            {"id": s.id, "name": s.name, "code": s.supplier_code}
+            {"id": s.id, "name": s.name, "code": s.supplier_number}
             for s in suppliers
         ]
     }
