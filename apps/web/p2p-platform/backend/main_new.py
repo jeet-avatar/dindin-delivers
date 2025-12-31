@@ -9423,6 +9423,54 @@ def admin_publish_vendor(
     }
 
 
+@app.post("/api/vendors/{vendor_id}/quick-publish")
+def quick_publish_vendor(
+    vendor_id: int,
+    platforms: str = Query("ios,android,web", description="Comma-separated platforms"),
+    db: Session = Depends(get_db)
+):
+    """
+    Quick publish endpoint for development/testing.
+    Approves and publishes a vendor to specified platforms.
+    """
+    from models import Vendor, VendorMenuItem, VendorStatus
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Check menu exists
+    menu_count = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == vendor_id
+    ).count()
+
+    if menu_count == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Vendor must have at least one menu item before publishing"
+        )
+
+    # Approve and publish
+    vendor.onboarding_status = VendorStatus.APPROVED
+    vendor.approved_at = datetime.now()
+    vendor.is_published = True
+    vendor.published_at = datetime.now()
+    vendor.published_platforms = platforms
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Vendor '{vendor.restaurant_name or vendor.company_name}' is now LIVE!",
+        "vendor_id": vendor_id,
+        "vendor_name": vendor.restaurant_name,
+        "is_published": True,
+        "published_at": vendor.published_at.isoformat(),
+        "platforms": platforms.split(","),
+        "menu_items_count": menu_count
+    }
+
+
 @app.post("/api/admin/vendors/{vendor_id}/unpublish")
 def admin_unpublish_vendor(
     vendor_id: int,
