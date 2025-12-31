@@ -1,0 +1,79 @@
+# Environment files (NEVER commit these)
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+
+# Local properties (Android - contains signing keys)
+android/local.properties
+local.properties
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+ENV/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+*.xcworkspace
+*.xcuserdata
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+*.jks
+*.keystore
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
