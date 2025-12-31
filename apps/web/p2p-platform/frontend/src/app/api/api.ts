@@ -38,8 +38,11 @@ export const getCurrentVendorId = (): number | null => {
 // Add a request interceptor
 api.interceptors.request.use(
   async (config) => {
-    // Get the token from local storage
-    const token = globalThis.localStorage.getItem("id_token");
+    // Get the token from local storage - check multiple keys for compatibility
+    // Admin uses 'token', OAuth callback uses 'id_token', drivers use 'driver_token'
+    const token = globalThis.localStorage.getItem("token")
+      || globalThis.localStorage.getItem("id_token")
+      || globalThis.localStorage.getItem("access_token");
 
     // If the token exists, add it to the Authorization header
     if (token) {
