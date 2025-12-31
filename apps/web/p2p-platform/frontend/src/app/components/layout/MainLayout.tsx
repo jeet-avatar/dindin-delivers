@@ -17,7 +17,14 @@ import {
   ClipboardCheck,
   Utensils,
   FileCheck,
-  LogOut
+  LogOut,
+  Car,
+  Users,
+  DollarSign,
+  ShoppingBag,
+  Truck,
+  Settings,
+  PieChart
 } from 'lucide-react';
 import Bridge from '../../constants/Bridge';
 import { useUser } from '../../context/UserContext';
@@ -51,44 +58,81 @@ const MainLayout: React.FC = () => {
     });
   }
 
+  // =========================================================================
+  // DOLLOR.AI ERP NAVIGATION
+  // Matchmaking Platform for Food Delivery & Rideshare
+  // Revenue Model: $1 customer + $1 restaurant (food) | Tiered fees (rideshare)
+  // =========================================================================
   const navigation = [
+    // === MAIN DASHBOARD ===
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Coupa Dashboard', href: '/admin/coupa-dashboard', icon: FileSpreadsheet },
-    { name: 'NetSuite Dashboard', href: '/admin/netsuite-dashboard', icon: Building2 },
-    { name: 'JIRA Dashboard', href: '/admin/jira-dashboard', icon: GitPullRequest },
-    { name: 'Vendor Approval (ZIP)', href: '/admin/zip-dashboard', icon: Wallet },
+
+    // === FOOD DELIVERY ===
     {
-      name: 'Vendor Management',
+      name: 'Food Delivery',
+      href: '/admin/orders',
+      icon: ShoppingBag,
+      children: [
+        { name: 'Orders', href: '/admin/orders', icon: ShoppingBag },
+        { name: 'Restaurants', href: '/admin/vendor-management', icon: Utensils },
+        { name: 'Menu Review', href: '/admin/menu-review', icon: FileCheck },
+      ],
+    },
+
+    // === RIDESHARE ===
+    {
+      name: 'Rideshare',
+      href: '/admin/rideshare',
+      icon: Car,
+      children: [
+        { name: 'Ride Requests', href: '/admin/rideshare/requests', icon: Car },
+        { name: 'Active Rides', href: '/admin/rideshare/active', icon: Truck },
+      ],
+    },
+
+    // === PARTNERS ===
+    {
+      name: 'Partners',
       href: '/admin/vendor-management',
-      icon: User,
+      icon: Users,
       children: [
-        { name: 'All Vendors', href: '/admin/vendor-management', icon: User },
+        { name: 'Restaurants', href: '/admin/vendor-management', icon: Utensils },
+        { name: 'Drivers', href: '/admin/drivers', icon: Truck },
         { name: 'Document Review', href: '/admin/document-review', icon: FileCheck },
-        { name: 'Menu Review', href: '/admin/menu-review', icon: Utensils },
+        { name: 'Onboarding (ZIP)', href: '/admin/zip-dashboard', icon: ClipboardCheck },
       ],
     },
+
+    // === FINANCE (Platform Revenue Only - Not Pass-Throughs) ===
     {
-      name: 'Transactions',
-      href: '/admin/transactions',
-      icon: Briefcase,
+      name: 'Finance',
+      href: '/admin/accounting/platform-revenue',
+      icon: DollarSign,
       children: [
-        { name: 'Coupa Transactions', href: '/admin/transactions/coupa', icon: FileSpreadsheet },
-        { name: 'NetSuite Transactions', href: '/admin/transactions/netsuite', icon: Building2 },
+        { name: 'Platform Revenue', href: '/admin/accounting/platform-revenue', icon: DollarSign },
+        { name: 'Financial Reports', href: '/admin/accounting/reports', icon: PieChart },
+        { name: 'Settlement', href: '/admin/accounting/vendor-payouts', icon: Wallet },
       ],
     },
-    { name: 'Orders', href: '/admin/orders', icon: GitBranch },
+
+    // === ERP INTEGRATIONS ===
     {
-      name: 'Accounting',
-      href: '/admin/accounting',
-      icon: Wallet,
+      name: 'ERP',
+      href: '/admin/coupa-dashboard',
+      icon: Building2,
       children: [
-        { name: 'Financial Reports', href: '/admin/accounting/reports', icon: BarChart },
-        { name: 'Platform Revenue', href: '/admin/accounting/platform-revenue', icon: Wallet },
-        { name: 'Vendor Payouts', href: '/admin/accounting/vendor-payouts', icon: FileText },
+        { name: 'Coupa (Procurement)', href: '/admin/coupa-dashboard', icon: FileSpreadsheet },
+        { name: 'NetSuite (Accounting)', href: '/admin/netsuite-dashboard', icon: Building2 },
+        { name: 'JIRA (Support)', href: '/admin/jira-dashboard', icon: GitPullRequest },
+        { name: 'Transactions', href: '/admin/transactions', icon: Briefcase },
       ],
     },
+
+    // === CUSTOMERS ===
+    { name: 'Customers', href: '/admin/clients', icon: User },
+
+    // === INVOICES ===
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
-    { name: 'Clients', href: '/admin/clients', icon: User },
   ];
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);

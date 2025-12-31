@@ -19,6 +19,13 @@ import PlatformRevenue from './app/screens/accounting/PlatformRevenue';
 import AccountingReports from './app/screens/accounting/Main';
 import MainLayout from './app/components/layout/MainLayout';
 
+// Admin - Rideshare
+import RideRequests from './app/screens/rideshare/RideRequests';
+import ActiveRides from './app/screens/rideshare/ActiveRides';
+
+// Admin - Drivers
+import DriversAdmin from './app/screens/drivers/DriversAdmin';
+
 // Public Pages
 import LandingPage from './app/screens/public/LandingPage';
 import TermsOfService from './app/screens/public/TermsOfService';
@@ -180,6 +187,9 @@ function App() {
           <Route path="menu-review" element={<MenuReview />} />
           <Route path="transactions/*" element={<Transactions />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="rideshare/requests" element={<RideRequests />} />
+          <Route path="rideshare/active" element={<ActiveRides />} />
+          <Route path="drivers" element={<DriversAdmin />} />
           <Route path="accounting/vendor-payouts" element={<VendorPayouts />} />
           <Route path="accounting/platform-revenue" element={<PlatformRevenue />} />
           <Route path="accounting/reports" element={<AccountingReports />} />
