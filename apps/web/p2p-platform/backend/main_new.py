@@ -9423,6 +9423,34 @@ def admin_publish_vendor(
     }
 
 
+@app.patch("/api/vendors/{vendor_id}/location")
+def update_vendor_location(
+    vendor_id: int,
+    latitude: float = Query(..., description="Latitude coordinate"),
+    longitude: float = Query(..., description="Longitude coordinate"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor GPS coordinates.
+    """
+    from models import Vendor
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.latitude = latitude
+    vendor.longitude = longitude
+    db.commit()
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "latitude": latitude,
+        "longitude": longitude
+    }
+
+
 @app.post("/api/vendors/{vendor_id}/quick-publish")
 def quick_publish_vendor(
     vendor_id: int,
