@@ -344,7 +344,16 @@ const Main: React.FC = () => {
       key: 'published',
       render: (record: Vendor) => {
         const isPublished = record.is_published;
-        const platforms = record.published_platforms ? JSON.parse(record.published_platforms) : [];
+        // Handle both JSON array format and comma-separated string format
+        let platforms: string[] = [];
+        if (record.published_platforms) {
+          try {
+            platforms = JSON.parse(record.published_platforms);
+          } catch {
+            // Fallback for comma-separated format like "android,ios,web"
+            platforms = record.published_platforms.split(',').map(p => p.trim());
+          }
+        }
 
         if (!isPublished) {
           return (
@@ -844,9 +853,14 @@ const Main: React.FC = () => {
                           </Tag>
                           <div className="flex items-center gap-2 text-sm">
                             {(() => {
-                              const platforms = selectedVendor.published_platforms
-                                ? JSON.parse(selectedVendor.published_platforms)
-                                : [];
+                              let platforms: string[] = [];
+                              if (selectedVendor.published_platforms) {
+                                try {
+                                  platforms = JSON.parse(selectedVendor.published_platforms);
+                                } catch {
+                                  platforms = selectedVendor.published_platforms.split(',').map(p => p.trim());
+                                }
+                              }
                               return (
                                 <>
                                   {platforms.includes('ios') && <Tag icon={<Smartphone size={10} />}>iOS</Tag>}
