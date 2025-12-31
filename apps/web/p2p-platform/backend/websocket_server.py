@@ -1,0 +1,588 @@
+"""
+WebSocket Server for Real-Time Updates
+Dollor.ai Matchmaking Platform
+
+Provides real-time updates for:
+- Order status changes
+- Driver location tracking
+- Ride status updates
+- Chat messages
+"""
+
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import Dict, Set, Optional, Any
+from datetime import datetime
+import json
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class ConnectionManager:
+    """
+    Manages WebSocket connections for real-time updates.
+
+    Connection Types:
+    - customer:{customer_id} - Customer tracking their orders/rides
+    - driver:{driver_id} - Driver receiving order assignments and updates
+    - restaurant:{vendor_id} - Restaurant receiving new orders
+    - order:{order_id} - Anyone tracking a specific order
+    - ride:{ride_id} - Anyone tracking a specific ride
+    """
+
+    def __init__(self):
+        # Active WebSocket connections by client_id
+        self.active_connections: Dict[str, WebSocket] = {}
+
+        # Subscription groups (topic -> set of client_ids)
+        self.subscriptions: Dict[str, Set[str]] = {}
+
+        # Client metadata (client_id -> metadata dict)
+        self.client_metadata: Dict[str, Dict[str, Any]] = {}
+
+        # Rate limiting (client_id -> last message timestamps)
+        self.rate_limits: Dict[str, list] = {}
+
+    async def connect(self, websocket: WebSocket, client_id: str, metadata: Optional[Dict] = None):
+        """Accept a new WebSocket connection."""
+        await websocket.accept()
+        self.active_connections[client_id] = websocket
+        self.client_metadata[client_id] = metadata or {}
+        self.rate_limits[client_id] = []
+
+        logger.info(f"WebSocket connected: {client_id}")
+
+        # Send connection confirmation
+        await self.send_personal_message({
+            "type": "connected",
+            "client_id": client_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }, client_id)
+
+    def disconnect(self, client_id: str):
+        """Handle WebSocket disconnection."""
+        if client_id in self.active_connections:
+            del self.active_connections[client_id]
+
+        if client_id in self.client_metadata:
+            del self.client_metadata[client_id]
+
+        if client_id in self.rate_limits:
+            del self.rate_limits[client_id]
+
+        # Remove from all subscriptions
+        for topic in list(self.subscriptions.keys()):
+            if client_id in self.subscriptions[topic]:
+                self.subscriptions[topic].remove(client_id)
+                if not self.subscriptions[topic]:
+                    del self.subscriptions[topic]
+
+        logger.info(f"WebSocket disconnected: {client_id}")
+
+    async def subscribe(self, client_id: str, topic: str):
+        """Subscribe a client to a topic."""
+        if topic not in self.subscriptions:
+            self.subscriptions[topic] = set()
+        self.subscriptions[topic].add(client_id)
+
+        logger.info(f"Client {client_id} subscribed to {topic}")
+
+        await self.send_personal_message({
+            "type": "subscribed",
+            "topic": topic,
+            "timestamp": datetime.utcnow().isoformat()
+        }, client_id)
+
+    async def unsubscribe(self, client_id: str, topic: str):
+        """Unsubscribe a client from a topic."""
+        if topic in self.subscriptions and client_id in self.subscriptions[topic]:
+            self.subscriptions[topic].remove(client_id)
+            if not self.subscriptions[topic]:
+                del self.subscriptions[topic]
+
+        logger.info(f"Client {client_id} unsubscribed from {topic}")
+
+        await self.send_personal_message({
+            "type": "unsubscribed",
+            "topic": topic,
+            "timestamp": datetime.utcnow().isoformat()
+        }, client_id)
+
+    async def send_personal_message(self, message: dict, client_id: str):
+        """Send a message to a specific client."""
+        if client_id in self.active_connections:
+            try:
+                await self.active_connections[client_id].send_json(message)
+            except Exception as e:
+                logger.error(f"Error sending to {client_id}: {e}")
+                self.disconnect(client_id)
+
+    async def broadcast_to_topic(self, message: dict, topic: str):
+        """Broadcast a message to all subscribers of a topic."""
+        if topic not in self.subscriptions:
+            return
+
+        message["topic"] = topic
+        message["timestamp"] = datetime.utcnow().isoformat()
+
+        disconnected = []
+        for client_id in self.subscriptions[topic]:
+            if client_id in self.active_connections:
+                try:
+                    await self.active_connections[client_id].send_json(message)
+                except Exception as e:
+                    logger.error(f"Error broadcasting to {client_id}: {e}")
+                    disconnected.append(client_id)
+
+        # Clean up disconnected clients
+        for client_id in disconnected:
+            self.disconnect(client_id)
+
+    async def broadcast_to_all(self, message: dict):
+        """Broadcast a message to all connected clients."""
+        message["timestamp"] = datetime.utcnow().isoformat()
+
+        disconnected = []
+        for client_id, websocket in self.active_connections.items():
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.error(f"Error broadcasting to {client_id}: {e}")
+                disconnected.append(client_id)
+
+        for client_id in disconnected:
+            self.disconnect(client_id)
+
+    def get_topic_subscribers(self, topic: str) -> Set[str]:
+        """Get all subscribers for a topic."""
+        return self.subscriptions.get(topic, set())
+
+    def get_client_subscriptions(self, client_id: str) -> list:
+        """Get all topics a client is subscribed to."""
+        return [topic for topic, subs in self.subscriptions.items() if client_id in subs]
+
+    def get_connection_count(self) -> int:
+        """Get total number of active connections."""
+        return len(self.active_connections)
+
+    def is_rate_limited(self, client_id: str, max_messages: int = 60, window_seconds: int = 60) -> bool:
+        """Check if a client is rate limited."""
+        now = datetime.utcnow().timestamp()
+
+        if client_id not in self.rate_limits:
+            self.rate_limits[client_id] = []
+
+        # Remove old timestamps outside window
+        self.rate_limits[client_id] = [
+            ts for ts in self.rate_limits[client_id]
+            if now - ts < window_seconds
+        ]
+
+        # Check if over limit
+        if len(self.rate_limits[client_id]) >= max_messages:
+            return True
+
+        # Add current timestamp
+        self.rate_limits[client_id].append(now)
+        return False
+
+
+# Global connection manager instance
+manager = ConnectionManager()
+
+
+# ===================== EVENT BROADCASTING FUNCTIONS =====================
+
+async def broadcast_order_status(order_id: int, status: str, details: dict = None):
+    """Broadcast order status update to all interested parties."""
+    message = {
+        "type": "order_status_update",
+        "order_id": order_id,
+        "status": status,
+        "details": details or {}
+    }
+
+    # Broadcast to order-specific topic
+    await manager.broadcast_to_topic(message, f"order:{order_id}")
+
+    # Also broadcast to customer if details include customer_id
+    if details and details.get("customer_id"):
+        await manager.broadcast_to_topic(message, f"customer:{details['customer_id']}")
+
+    # Broadcast to restaurant if details include vendor_id
+    if details and details.get("vendor_id"):
+        await manager.broadcast_to_topic(message, f"restaurant:{details['vendor_id']}")
+
+    # Broadcast to driver if details include driver_id
+    if details and details.get("driver_id"):
+        await manager.broadcast_to_topic(message, f"driver:{details['driver_id']}")
+
+
+async def broadcast_driver_location(driver_id: int, latitude: float, longitude: float,
+                                     heading: float = None, speed: float = None):
+    """Broadcast driver location update."""
+    message = {
+        "type": "driver_location_update",
+        "driver_id": driver_id,
+        "latitude": latitude,
+        "longitude": longitude,
+        "heading": heading,
+        "speed": speed
+    }
+
+    # Broadcast to driver-specific topic (for order tracking)
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+
+async def broadcast_ride_status(ride_id: str, status: str, details: dict = None):
+    """Broadcast ride status update."""
+    message = {
+        "type": "ride_status_update",
+        "ride_id": ride_id,
+        "status": status,
+        "details": details or {}
+    }
+
+    await manager.broadcast_to_topic(message, f"ride:{ride_id}")
+
+    if details and details.get("customer_id"):
+        await manager.broadcast_to_topic(message, f"customer:{details['customer_id']}")
+
+    if details and details.get("driver_id"):
+        await manager.broadcast_to_topic(message, f"driver:{details['driver_id']}")
+
+
+async def broadcast_new_order_to_restaurant(vendor_id: int, order_data: dict):
+    """Notify restaurant of a new order."""
+    message = {
+        "type": "new_order",
+        "order": order_data
+    }
+    await manager.broadcast_to_topic(message, f"restaurant:{vendor_id}")
+
+
+async def broadcast_new_delivery_available(driver_id: int, delivery_data: dict):
+    """Notify driver of a new delivery opportunity."""
+    message = {
+        "type": "new_delivery_available",
+        "delivery": delivery_data
+    }
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+
+async def broadcast_chat_message(conversation_id: str, sender_id: str,
+                                  sender_type: str, message_text: str):
+    """Broadcast a chat message."""
+    message = {
+        "type": "chat_message",
+        "conversation_id": conversation_id,
+        "sender_id": sender_id,
+        "sender_type": sender_type,
+        "message": message_text
+    }
+    await manager.broadcast_to_topic(message, f"chat:{conversation_id}")
+
+
+async def broadcast_eta_update(order_id: int = None, ride_id: str = None,
+                                eta_minutes: int = None, eta_timestamp: str = None):
+    """Broadcast ETA update for an order or ride."""
+    message = {
+        "type": "eta_update",
+        "eta_minutes": eta_minutes,
+        "eta_timestamp": eta_timestamp
+    }
+
+    if order_id:
+        message["order_id"] = order_id
+        await manager.broadcast_to_topic(message, f"order:{order_id}")
+
+    if ride_id:
+        message["ride_id"] = ride_id
+        await manager.broadcast_to_topic(message, f"ride:{ride_id}")
+
+
+# ===================== BID/MATCHMAKING BROADCAST FUNCTIONS =====================
+
+async def broadcast_new_ride_request(ride_request_data: dict, driver_ids: list = None):
+    """
+    Broadcast a new ride request to nearby drivers for bidding.
+    If driver_ids is None, broadcasts to all drivers.
+    """
+    message = {
+        "type": "new_ride_request",
+        "ride_request": ride_request_data
+    }
+
+    if driver_ids:
+        # Send to specific drivers
+        for driver_id in driver_ids:
+            await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+    else:
+        # Broadcast to all drivers (they'll filter by distance on their end)
+        # Create a topic for ride requests
+        await manager.broadcast_to_topic(message, "ride_requests")
+
+
+async def broadcast_new_bid(ride_request_id: int, customer_id: int, bid_data: dict):
+    """Notify customer of a new bid on their ride request."""
+    message = {
+        "type": "new_bid",
+        "ride_request_id": ride_request_id,
+        "bid": bid_data
+    }
+
+    # Send to the customer
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+    # Also broadcast to the ride request topic
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_response(driver_id: int, bid_id: int, action: str, details: dict = None):
+    """
+    Notify driver of customer's response to their bid.
+    Actions: accepted, rejected, countered
+    """
+    message = {
+        "type": "bid_response",
+        "bid_id": bid_id,
+        "action": action,
+        "details": details or {}
+    }
+
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+
+async def broadcast_ride_matched(ride_request_id: int, customer_id: int,
+                                  driver_id: int, match_details: dict):
+    """Notify both parties when a ride is successfully matched."""
+    message = {
+        "type": "ride_matched",
+        "ride_request_id": ride_request_id,
+        "match_details": match_details
+    }
+
+    # Notify customer
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+    # Notify matched driver
+    await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+    # Broadcast to ride request topic (other drivers will know to stop bidding)
+    await manager.broadcast_to_topic({
+        "type": "ride_request_closed",
+        "ride_request_id": ride_request_id,
+        "reason": "matched"
+    }, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_ride_request_cancelled(ride_request_id: int, bidder_driver_ids: list = None):
+    """Notify drivers that a ride request was cancelled."""
+    message = {
+        "type": "ride_request_cancelled",
+        "ride_request_id": ride_request_id
+    }
+
+    # Notify specific drivers who had bids
+    if bidder_driver_ids:
+        for driver_id in bidder_driver_ids:
+            await manager.broadcast_to_topic(message, f"driver:{driver_id}")
+
+    # Also broadcast to the ride request topic
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_update(ride_request_id: int, customer_id: int, bid_data: dict):
+    """Notify customer that a driver updated their bid."""
+    message = {
+        "type": "bid_updated",
+        "ride_request_id": ride_request_id,
+        "bid": bid_data
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_bid_withdrawn(ride_request_id: int, customer_id: int, bid_id: int, driver_id: int):
+    """Notify customer that a driver withdrew their bid."""
+    message = {
+        "type": "bid_withdrawn",
+        "ride_request_id": ride_request_id,
+        "bid_id": bid_id,
+        "driver_id": driver_id
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+    await manager.broadcast_to_topic(message, f"ride_request:{ride_request_id}")
+
+
+async def broadcast_counter_offer_response(customer_id: int, ride_request_id: int,
+                                            bid_id: int, action: str, new_price: float = None):
+    """
+    Notify customer when driver responds to their counter-offer.
+    Actions: accepted, rejected
+    """
+    message = {
+        "type": "counter_offer_response",
+        "ride_request_id": ride_request_id,
+        "bid_id": bid_id,
+        "action": action,
+        "new_price": new_price
+    }
+
+    await manager.broadcast_to_topic(message, f"customer:{customer_id}")
+
+
+# ===================== WEBSOCKET MESSAGE HANDLER =====================
+
+async def handle_websocket_message(websocket: WebSocket, client_id: str, data: dict):
+    """Handle incoming WebSocket messages from clients."""
+
+    message_type = data.get("type")
+
+    if message_type == "subscribe":
+        topic = data.get("topic")
+        if topic:
+            await manager.subscribe(client_id, topic)
+
+    elif message_type == "unsubscribe":
+        topic = data.get("topic")
+        if topic:
+            await manager.unsubscribe(client_id, topic)
+
+    elif message_type == "ping":
+        await manager.send_personal_message({"type": "pong"}, client_id)
+
+    elif message_type == "driver_location":
+        # Driver is updating their location
+        latitude = data.get("latitude")
+        longitude = data.get("longitude")
+        heading = data.get("heading")
+        speed = data.get("speed")
+        driver_id = data.get("driver_id")
+
+        if latitude and longitude and driver_id:
+            await broadcast_driver_location(driver_id, latitude, longitude, heading, speed)
+
+    elif message_type == "chat":
+        # Chat message
+        conversation_id = data.get("conversation_id")
+        message_text = data.get("message")
+        sender_type = data.get("sender_type", "unknown")
+
+        if conversation_id and message_text:
+            await broadcast_chat_message(conversation_id, client_id, sender_type, message_text)
+
+    elif message_type == "typing":
+        # Typing indicator
+        order_id = data.get("order_id")
+        sender_type = data.get("sender_type")
+        is_typing = data.get("is_typing", False)
+        recipient_id = data.get("recipient_id")
+
+        if order_id and sender_type and recipient_id:
+            recipient_type = "customer" if sender_type == "driver" else "driver"
+            await manager.send_personal_message({
+                "type": "typing_indicator",
+                "order_id": order_id,
+                "sender_type": sender_type,
+                "is_typing": is_typing
+            }, f"{recipient_type}_{recipient_id}")
+
+    elif message_type == "mark_read":
+        # Mark messages as read notification
+        order_id = data.get("order_id")
+        reader_type = data.get("reader_type")
+        recipient_id = data.get("recipient_id")
+
+        if order_id and reader_type and recipient_id:
+            sender_type = "driver" if reader_type == "customer" else "customer"
+            await manager.send_personal_message({
+                "type": "read_receipt",
+                "order_id": order_id,
+                "reader_type": reader_type,
+                "read_at": datetime.utcnow().isoformat()
+            }, f"{sender_type}_{recipient_id}")
+
+    elif message_type == "get_subscriptions":
+        subscriptions = manager.get_client_subscriptions(client_id)
+        await manager.send_personal_message({
+            "type": "subscriptions",
+            "topics": subscriptions
+        }, client_id)
+
+    else:
+        await manager.send_personal_message({
+            "type": "error",
+            "message": f"Unknown message type: {message_type}"
+        }, client_id)
+
+
+# ===================== FASTAPI WEBSOCKET ENDPOINT =====================
+
+async def websocket_endpoint(websocket: WebSocket, client_id: str):
+    """
+    Main WebSocket endpoint handler.
+
+    Client ID format:
+    - customer_{id} - Customer app connections
+    - driver_{id} - Driver app connections
+    - restaurant_{id} - Restaurant app connections
+    - admin_{id} - Admin portal connections
+    """
+
+    # Extract client type and ID from client_id
+    parts = client_id.split("_", 1)
+    client_type = parts[0] if len(parts) > 0 else "unknown"
+    entity_id = parts[1] if len(parts) > 1 else None
+
+    metadata = {
+        "client_type": client_type,
+        "entity_id": entity_id,
+        "connected_at": datetime.utcnow().isoformat()
+    }
+
+    await manager.connect(websocket, client_id, metadata)
+
+    # Auto-subscribe to relevant topics based on client type
+    if client_type == "customer" and entity_id:
+        await manager.subscribe(client_id, f"customer:{entity_id}")
+    elif client_type == "driver" and entity_id:
+        await manager.subscribe(client_id, f"driver:{entity_id}")
+    elif client_type == "restaurant" and entity_id:
+        await manager.subscribe(client_id, f"restaurant:{entity_id}")
+
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_json()
+
+            # Rate limiting check
+            if manager.is_rate_limited(client_id):
+                await manager.send_personal_message({
+                    "type": "error",
+                    "message": "Rate limit exceeded. Please slow down."
+                }, client_id)
+                continue
+
+            # Handle the message
+            await handle_websocket_message(websocket, client_id, data)
+
+    except WebSocketDisconnect:
+        manager.disconnect(client_id)
+    except Exception as e:
+        logger.error(f"WebSocket error for {client_id}: {e}")
+        manager.disconnect(client_id)
+
+
+# ===================== HEALTH CHECK =====================
+
+def get_websocket_stats() -> dict:
+    """Get WebSocket server statistics."""
+    return {
+        "active_connections": manager.get_connection_count(),
+        "subscription_topics": len(manager.subscriptions),
+        "subscriptions": {topic: len(subs) for topic, subs in manager.subscriptions.items()}
+    }

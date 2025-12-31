@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: dollor-backend-base
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - configmap.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - serviceaccount.yaml
+
+commonLabels:
+  app: dollor-backend
+  app.kubernetes.io/name: dollor-backend
+  app.kubernetes.io/managed-by: kustomize

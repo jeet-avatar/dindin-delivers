@@ -1,0 +1,76 @@
+# Development environment values
+# Auto-deployed from develop branch
+
+namespace: dev
+
+name: dollor-backend-dev
+
+image:
+  repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  tag: "dev-latest"
+  pullPolicy: Always
+
+replicas: 1
+
+# Development uses simple rolling update (not canary)
+rollout:
+  enabled: true
+  strategy: "canary"
+  canary:
+    steps:
+      - setWeight: 100  # Direct deploy in dev
+    analysis:
+      enabled: false
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: dev-api.dollor.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: dev-dollor-api-tls
+      hosts:
+        - dev-api.dollor.ai
+
+resources:
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+env:
+  - name: ENVIRONMENT
+    value: "development"
+  - name: LOG_LEVEL
+    value: "DEBUG"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: dollor-secrets-dev
+        key: DATABASE_URL
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+# ConfigMap for dev
+configMap:
+  enabled: true
+  data:
+    CORS_ORIGINS: "https://dev.dollor.ai,http://localhost:3000"
+    RATE_LIMIT: "1000"

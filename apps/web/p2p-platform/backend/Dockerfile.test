@@ -1,0 +1,24 @@
+# Dockerfile for Test Runner
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir pytest pytest-asyncio httpx pytest-cov pytest-xdist jsonschema
+
+# Copy test files
+COPY tests/ ./tests/
+COPY *.py ./
+
+# Create results directory
+RUN mkdir -p /app/test-results
+
+# Default command runs all tests
+CMD ["pytest", "tests/", "-v", "--tb=short"]

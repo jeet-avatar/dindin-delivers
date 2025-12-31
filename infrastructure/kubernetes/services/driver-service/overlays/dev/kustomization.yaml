@@ -1,0 +1,40 @@
+# Dollor.ai Driver Service - Dev Overlay
+# =======================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: driver-service
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: driver-service
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 32Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+
+configMapGenerator:
+  - name: driver-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+
+images:
+  - name: dollor/driver-service
+    newTag: dev-latest

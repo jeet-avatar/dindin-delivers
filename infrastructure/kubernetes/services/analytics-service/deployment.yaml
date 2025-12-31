@@ -1,0 +1,180 @@
+# Dollor.ai Analytics Service - Kubernetes Deployment
+# ====================================================
+# Base deployment configuration for analytics-service
+# Uses ClickHouse for time-series analytics and Kafka for event ingestion
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  labels:
+    app: analytics-service
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/component: analytics
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+        app.kubernetes.io/name: analytics-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8016"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: analytics-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: analytics-service
+          image: dollor/analytics-service:dev
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8016
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: ENVIRONMENT
+            - name: CLICKHOUSE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: CLICKHOUSE_HOST
+            - name: CLICKHOUSE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: CLICKHOUSE_PORT
+            - name: CLICKHOUSE_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: CLICKHOUSE_DATABASE
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-service-secrets
+                  key: CLICKHOUSE_USER
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-service-secrets
+                  key: CLICKHOUSE_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+                  optional: true
+            - name: ENABLE_KAFKA
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: ENABLE_KAFKA
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-service-config
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+                  optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - analytics-service
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  labels:
+    app: analytics-service
+    app.kubernetes.io/name: analytics-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8016
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: analytics-service
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-config
+data:
+  ENVIRONMENT: "development"
+  CLICKHOUSE_HOST: "clickhouse"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_DATABASE: "dollor_analytics"
+  ENABLE_KAFKA: "false"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analytics-service-secrets
+type: Opaque
+stringData:
+  CLICKHOUSE_USER: "dollor"
+  CLICKHOUSE_PASSWORD: "dollor_analytics_pass"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: analytics-service
+  labels:
+    app: analytics-service

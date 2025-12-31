@@ -1,0 +1,39 @@
+# Dollor.ai Analytics Service - ArgoCD Application (Dev)
+# ======================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: analytics-service-dev
+  namespace: argocd
+  labels:
+    app: analytics-service
+    environment: dev
+    app.kubernetes.io/part-of: dollor-platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-dev
+  source:
+    repoURL: https://github.com/dollor-ai/dollor-platform.git
+    targetRevision: develop
+    path: infrastructure/kubernetes/services/analytics-service/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5

@@ -1,0 +1,109 @@
+{{- if and .Values.rollout.enabled .Values.rollout.canary.analysis.enabled }}
+# Success Rate Analysis Template
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Values.name }}-success-rate
+  namespace: {{ .Values.namespace }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: {{ .Values.rollout.canary.analysis.interval }}
+      # Success rate must be >= 99%
+      successCondition: {{ .Values.rollout.canary.analysis.successCondition }}
+      failureLimit: {{ .Values.rollout.canary.analysis.failureLimit }}
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local:80
+          query: |
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}",status=~"2.."}[5m])) /
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}"}[5m]))
+---
+# Latency Analysis Template
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Values.name }}-latency-check
+  namespace: {{ .Values.namespace }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: latency-p99
+      interval: 1m
+      # P99 latency must be < 500ms
+      successCondition: result[0] < 0.5
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local:80
+          query: |
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="{{`{{args.service-name}}`}}"}[5m])) by (le))
+---
+# Error Rate Analysis Template
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Values.name }}-error-rate
+  namespace: {{ .Values.namespace }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: error-rate
+      interval: 1m
+      # Error rate must be < 1%
+      successCondition: result[0] < 0.01
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local:80
+          query: |
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}",status=~"5.."}[5m])) /
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}"}[5m]))
+{{- end }}
+---
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "blueGreen") }}
+# Success Rate for Blue-Green
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: {{ .Values.namespace }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: 1m
+      successCondition: result[0] >= 0.99
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local:80
+          query: |
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}",status=~"2.."}[5m])) /
+            sum(rate(http_requests_total{service="{{`{{args.service-name}}`}}"}[5m]))
+---
+# Latency Check for Blue-Green
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency-check
+  namespace: {{ .Values.namespace }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: latency-p99
+      interval: 1m
+      successCondition: result[0] < 0.5
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring.svc.cluster.local:80
+          query: |
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="{{`{{args.service-name}}`}}"}[5m])) by (le))
+{{- end }}

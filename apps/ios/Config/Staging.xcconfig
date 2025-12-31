@@ -1,0 +1,39 @@
+// Staging Environment Configuration
+// Used for QA testing and pre-production validation
+
+// Environment
+ENVIRONMENT = Staging
+API_BASE_URL = https:/$()/d3kuu45w6kl8hr.cloudfront.net
+ENABLE_DEBUG_LOGGING = YES
+ENABLE_MOCK_DATA = NO
+
+// App Settings
+IS_DUMMY_PAYMENT_MODE = NO
+ENABLE_AI_FEATURES = YES
+ENABLE_DYNAMIC_PRICING = YES
+
+// Bundle ID Suffix (for separate installs)
+BUNDLE_ID_SUFFIX = .staging
+APP_DISPLAY_NAME_SUFFIX = (Staging)
+
+// Firebase Project
+FIREBASE_PROJECT = dollor-staging
+
+// Feature Flags
+ENABLE_ANALYTICS = YES
+ENABLE_CRASH_REPORTING = YES
+ENABLE_PERFORMANCE_MONITORING = YES
+
+// Code Signing (Distribution for TestFlight)
+CODE_SIGN_IDENTITY = Apple Distribution
+DEVELOPMENT_TEAM = $(DEVELOPMENT_TEAM)
+
+// Build Settings
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+SWIFT_OPTIMIZATION_LEVEL = -O
+GCC_OPTIMIZATION_LEVEL = s
+ENABLE_TESTABILITY = NO
+
+// Server URLs (Using CloudFront - staging-ws.dollor.ai DNS not configured)
+WEBSOCKET_URL = wss:/$()/d3kuu45w6kl8hr.cloudfront.net
+CDN_URL = https:/$()/d3kuu45w6kl8hr.cloudfront.net

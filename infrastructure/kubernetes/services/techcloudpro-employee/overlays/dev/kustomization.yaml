@@ -1,0 +1,48 @@
+# Dollor.ai TechCloudPro AI Video Service - Dev Overlay
+# =======================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: techcloudpro-employee
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: techcloudpro-employee
+                resources:
+                  requests:
+                    cpu: 500m
+                    memory: 1Gi
+                  limits:
+                    cpu: 2000m
+                    memory: 4Gi
+            affinity:
+              nodeAffinity: null
+            tolerations: []
+
+configMapGenerator:
+  - name: techcloudpro-employee-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - FLASK_ENV=development
+      - CUDA_VISIBLE_DEVICES=-1
+      - MAX_VIDEO_DURATION=30
+      - MAX_CONCURRENT_JOBS=1
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/techcloudpro-employee
+    newTag: dev-latest

@@ -1,0 +1,1047 @@
+# Dollor.ai Microservices CI/CD Pipeline
+# =======================================
+# Builds and deploys microservices to Kubernetes via ArgoCD
+#
+# Pipeline Flow:
+# 1. PR -> Lint, Security Scan (Semgrep), Build & Test
+# 2. main push -> Security Scan, Build & Deploy to Dev (auto)
+# 3. Release tag -> Deploy to Staging (manual gate)
+# 4. Production release -> Deploy to Production (exec approval)
+#
+# Security Tools:
+# - Semgrep: SAST scanning for OWASP Top 10, secrets, security audit
+# - SonarCloud: Code quality, coverage, security hotspots
+# - Trivy: Container image vulnerability scanning
+
+name: Microservices CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - feature/dollar-ai-deployment
+    paths:
+      - 'services/**'
+      - 'infrastructure/kubernetes/services/**'
+      - '.github/workflows/microservices-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'services/**'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - auth-service
+          - user-service
+          - driver-service
+          - restaurant-service
+          - order-service
+          - payment-service
+          - location-service
+          - menu-service
+          - notification-service
+          - rating-service
+          - ride-service
+          - pricing-service
+          - p2p-backend
+          - p2p-frontend
+          - techcloudpro-employee
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      skip_security:
+        description: 'Skip security scans (for hotfix only)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  SERVICES_PATH: services/core
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # =============================================================================
+  # DETECT CHANGED SERVICES
+  # =============================================================================
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+      shared: ${{ steps.changes.outputs.shared }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: changes
+        run: |
+          # All available services
+          ALL_SERVICES=(
+            "auth-service"
+            "user-service"
+            "driver-service"
+            "restaurant-service"
+            "order-service"
+            "payment-service"
+            "location-service"
+            "menu-service"
+            "notification-service"
+            "rating-service"
+            "ride-service"
+            "pricing-service"
+            "p2p-backend"
+            "p2p-frontend"
+            "techcloudpro-employee"
+          )
+
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check if shared library changed
+          SHARED_CHANGED=false
+          if echo "$CHANGED_FILES" | grep -q "services/shared/"; then
+            SHARED_CHANGED=true
+          fi
+
+          # Detect which services changed
+          declare -A SERVICE_CHANGED
+          for svc in "${ALL_SERVICES[@]}"; do
+            SERVICE_CHANGED[$svc]=false
+            if echo "$CHANGED_FILES" | grep -q "services/core/$svc/"; then
+              SERVICE_CHANGED[$svc]=true
+            fi
+            # If shared changed, rebuild all services
+            if [ "$SHARED_CHANGED" == "true" ]; then
+              SERVICE_CHANGED[$svc]=true
+            fi
+          done
+
+          # Special handling for web applications
+          if echo "$CHANGED_FILES" | grep -q "apps/web/p2p-platform/backend/"; then
+            SERVICE_CHANGED["p2p-backend"]=true
+          fi
+          if echo "$CHANGED_FILES" | grep -q "apps/web/p2p-platform/frontend/"; then
+            SERVICE_CHANGED["p2p-frontend"]=true
+          fi
+
+          # Manual trigger overrides
+          INPUT_SERVICE="${{ github.event.inputs.service }}"
+          if [ "$INPUT_SERVICE" == "all" ]; then
+            for svc in "${ALL_SERVICES[@]}"; do
+              SERVICE_CHANGED[$svc]=true
+            done
+          elif [ -n "$INPUT_SERVICE" ] && [ "$INPUT_SERVICE" != "all" ]; then
+            # Reset all to false, enable only selected
+            for svc in "${ALL_SERVICES[@]}"; do
+              SERVICE_CHANGED[$svc]=false
+            done
+            SERVICE_CHANGED[$INPUT_SERVICE]=true
+          fi
+
+          # Build services JSON array
+          SERVICES="["
+          FIRST=true
+          for svc in "${ALL_SERVICES[@]}"; do
+            if [ "${SERVICE_CHANGED[$svc]}" == "true" ]; then
+              if [ "$FIRST" == "true" ]; then
+                FIRST=false
+              else
+                SERVICES="${SERVICES},"
+              fi
+              SERVICES="${SERVICES}\"$svc\""
+            fi
+          done
+          SERVICES="${SERVICES}]"
+
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          echo "shared=$SHARED_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "Services to build: $SERVICES"
+
+  # =============================================================================
+  # LINT & CODE QUALITY
+  # =============================================================================
+  lint:
+    name: Lint ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linters
+        run: |
+          pip install ruff bandit safety
+
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend)
+              # Skip linting for frontend (TypeScript/React)
+              echo "path=apps/web/p2p-platform/frontend" >> $GITHUB_OUTPUT
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            techcloudpro-employee)
+              # Skip - no source code in repo
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Run Ruff linter
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        run: |
+          ruff check . --output-format=github || true
+          ruff format --check . || true
+
+      - name: Run Bandit security linter
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f txt || true
+
+      - name: Upload Bandit report
+        if: steps.service-path.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-${{ matrix.service }}
+          path: ${{ steps.service-path.outputs.path }}/bandit-report.json
+
+  # =============================================================================
+  # SEMGREP SAST SCAN
+  # =============================================================================
+  semgrep:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]' && github.event.inputs.skip_security != 'true'
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep on microservices
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/python
+            p/security-audit
+            p/secrets
+            p/dockerfile
+            p/sql-injection
+            p/xss
+          generateSarif: true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('semgrep.sarif') != ''
+        continue-on-error: true
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Check for critical findings
+        run: |
+          if [ -f semgrep.sarif ] && grep -q '"severity": "ERROR"' semgrep.sarif 2>/dev/null; then
+            echo "::error::Critical security vulnerabilities found by Semgrep!"
+            echo "Review the Security tab for details."
+            exit 1
+          fi
+          echo "No critical security issues found."
+
+  # =============================================================================
+  # SONARCLOUD ANALYSIS
+  # =============================================================================
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.services != '[]' && github.event.inputs.skip_security != 'true'
+    continue-on-error: true  # Don't fail pipeline if SonarCloud not configured
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for blame information
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend|techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Install dependencies and run tests with coverage
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+          # Run tests with coverage if tests exist
+          if [ -d "tests" ]; then
+            pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --cov-report=term || true
+          else
+            echo "No tests directory found, creating empty coverage"
+            echo '<?xml version="1.0" ?><coverage></coverage>' > coverage.xml
+          fi
+
+      - name: SonarCloud Scan
+        if: steps.service-path.outputs.skip != 'true' && env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarcloud-github-action@v3
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ steps.service-path.outputs.path }}
+          args: >
+            -Dsonar.projectKey=jeet-avatar_dollor-${{ matrix.service }}
+            -Dsonar.organization=jeet-avatar
+            -Dsonar.projectName=Dollor.ai ${{ matrix.service }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/venv/**
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.python.version=3.11
+
+      - name: Upload coverage artifact
+        if: steps.service-path.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ steps.service-path.outputs.path }}/coverage.xml
+
+  # =============================================================================
+  # DEPENDENCY VULNERABILITY SCAN
+  # =============================================================================
+  dependency-scan:
+    name: Dependency Scan ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]' && github.event.inputs.skip_security != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install safety
+        run: pip install safety pip-audit
+
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend|techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Run Safety check
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        continue-on-error: true
+        run: |
+          safety check -r requirements.txt --json > safety-report.json || true
+          safety check -r requirements.txt || true
+
+      - name: Run pip-audit
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        continue-on-error: true
+        run: |
+          pip-audit -r requirements.txt --format json > pip-audit-report.json || true
+          pip-audit -r requirements.txt || true
+
+      - name: Upload dependency reports
+        if: steps.service-path.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-reports-${{ matrix.service }}
+          path: |
+            ${{ steps.service-path.outputs.path }}/safety-report.json
+            ${{ steps.service-path.outputs.path }}/pip-audit-report.json
+
+  # =============================================================================
+  # BUILD, TEST & CONTAINER SCAN
+  # =============================================================================
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint, semgrep, dependency-scan]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.services != '[]' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.semgrep.result == 'success' || needs.semgrep.result == 'skipped') &&
+      (needs.dependency-scan.result == 'success' || needs.dependency-scan.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine service path
+        id: service-path
+        run: |
+          case "${{ matrix.service }}" in
+            p2p-backend)
+              echo "path=apps/web/p2p-platform/backend" >> $GITHUB_OUTPUT
+              echo "dockerfile=apps/web/p2p-platform/backend/Dockerfile" >> $GITHUB_OUTPUT
+              ;;
+            p2p-frontend)
+              echo "path=apps/web/p2p-platform/frontend" >> $GITHUB_OUTPUT
+              echo "dockerfile=apps/web/p2p-platform/frontend/Dockerfile" >> $GITHUB_OUTPUT
+              ;;
+            techcloudpro-employee)
+              echo "skip=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "path=${{ env.SERVICES_PATH }}/${{ matrix.service }}" >> $GITHUB_OUTPUT
+              echo "dockerfile=services" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Set up Docker Buildx
+        if: steps.service-path.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        if: steps.service-path.outputs.skip != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: steps.service-path.outputs.skip != 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Docker meta
+        if: steps.service-path.outputs.skip != 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=dev-latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.sha }}
+
+      - name: Build Docker image (core services)
+        if: steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile == 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./${{ steps.service-path.outputs.path }}/Dockerfile
+          push: false
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Build Docker image (app services)
+        if: steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile != 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ steps.service-path.outputs.path }}
+          file: ./${{ steps.service-path.outputs.dockerfile }}
+          push: false
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      # ===========================================
+      # TRIVY CONTAINER VULNERABILITY SCAN
+      # ===========================================
+      - name: Run Trivy vulnerability scanner
+        if: steps.service-path.outputs.skip != 'true'
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: '${{ matrix.service }}:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          vuln-type: 'os,library'
+          ignore-unfixed: true
+          timeout: '10m'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.service-path.outputs.skip != 'true' && hashFiles('trivy-results.sarif') != ''
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy (table output)
+        if: steps.service-path.outputs.skip != 'true'
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: '${{ matrix.service }}:scan'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          vuln-type: 'os,library'
+
+      - name: Check for critical vulnerabilities
+        if: steps.service-path.outputs.skip != 'true'
+        run: |
+          # Fail if critical vulnerabilities exist (optional - can be removed for non-blocking)
+          if [ -f trivy-results.sarif ] && grep -q '"Severity": "CRITICAL"' trivy-results.sarif 2>/dev/null; then
+            echo "::warning::Critical vulnerabilities found in container image!"
+            echo "Review the Security tab for details."
+            # Uncomment to block deployment on critical vulns:
+            # exit 1
+          fi
+
+      # ===========================================
+      # PUSH TO ECR (only on main/feature branch)
+      # ===========================================
+      - name: Push to ECR (core services)
+        if: github.event_name != 'pull_request' && steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile == 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./${{ steps.service-path.outputs.path }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Push to ECR (app services)
+        if: github.event_name != 'pull_request' && steps.service-path.outputs.skip != 'true' && steps.service-path.outputs.dockerfile != 'services'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ steps.service-path.outputs.path }}
+          file: ./${{ steps.service-path.outputs.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Run tests
+        if: steps.service-path.outputs.skip != 'true'
+        working-directory: ${{ steps.service-path.outputs.path }}
+        run: |
+          # Install dependencies
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+          # Run tests if they exist
+          if [ -d "tests" ]; then
+            pytest tests/ -v --tb=short
+          else
+            echo "No tests directory found, skipping tests"
+          fi
+
+  # =============================================================================
+  # SECURITY GATE CHECK
+  # =============================================================================
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs: [lint, semgrep, sonarcloud, dependency-scan, build]
+    if: always()
+
+    steps:
+      - name: Check security scan results
+        run: |
+          echo "==========================================="
+          echo "Security Gate Check"
+          echo "==========================================="
+          echo ""
+          echo "Lint:           ${{ needs.lint.result }}"
+          echo "Semgrep SAST:   ${{ needs.semgrep.result }}"
+          echo "SonarCloud:     ${{ needs.sonarcloud.result }}"
+          echo "Dependency:     ${{ needs.dependency-scan.result }}"
+          echo "Build + Trivy:  ${{ needs.build.result }}"
+          echo ""
+
+          # Check for failures
+          FAILED=false
+          if [ "${{ needs.semgrep.result }}" == "failure" ]; then
+            echo "::error::Semgrep SAST scan failed - critical vulnerabilities found!"
+            FAILED=true
+          fi
+          if [ "${{ needs.build.result }}" == "failure" ]; then
+            echo "::error::Build failed - check logs for details"
+            FAILED=true
+          fi
+
+          if [ "$FAILED" == "true" ]; then
+            echo ""
+            echo "::error::Security gate failed! Fix issues before deployment."
+            exit 1
+          fi
+
+          echo "All security checks passed!"
+
+  # =============================================================================
+  # DEPLOY TO DEV (Auto)
+  # =============================================================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build, security-gate]
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/dollar-ai-deployment') &&
+      needs.security-gate.result == 'success'
+    environment:
+      name: dev
+      url: https://dev.dollor.ai
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Kustomize image tag
+        run: |
+          cd infrastructure/kubernetes/services/${{ matrix.service }}/overlays/dev
+
+          # Update image tag to latest build
+          cat > kustomization.yaml << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+
+          namespace: dev
+
+          resources:
+            - ../../
+
+          patches:
+            - patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: ${{ matrix.service }}
+                spec:
+                  replicas: 1
+                  template:
+                    spec:
+                      containers:
+                        - name: ${{ matrix.service }}
+                          resources:
+                            requests:
+                              cpu: 25m
+                              memory: 32Mi
+                            limits:
+                              cpu: 100m
+                              memory: 128Mi
+
+          configMapGenerator:
+            - name: ${{ matrix.service }}-config
+              behavior: merge
+              literals:
+                - ENVIRONMENT=development
+
+          images:
+            - name: dollor/${{ matrix.service }}
+              newName: ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}
+              newTag: ${{ github.sha }}
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kubernetes/services/${{ matrix.service }}/overlays/dev/kustomization.yaml
+          git diff --staged --quiet || git commit -m "chore: update ${{ matrix.service }} image to ${{ github.sha }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Trigger ArgoCD sync
+        run: |
+          echo "ArgoCD will auto-sync based on the git changes"
+          echo "Service: ${{ matrix.service }}"
+          echo "Image: ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}:${{ github.sha }}"
+          echo ""
+          echo "Dev environment deployed!"
+
+  # =============================================================================
+  # DEPLOY TO STAGING (Manual)
+  # =============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-dev]
+    if: github.event.inputs.environment == 'staging' || (github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch')
+    environment:
+      name: staging
+      url: https://staging.dollor.ai
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Kustomize image tag for staging
+        run: |
+          cd infrastructure/kubernetes/services/${{ matrix.service }}/overlays/staging
+
+          # Update image tag
+          cat > kustomization.yaml << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+
+          namespace: staging
+
+          resources:
+            - ../../
+
+          patches:
+            - patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: ${{ matrix.service }}
+                spec:
+                  replicas: 2
+                  template:
+                    spec:
+                      containers:
+                        - name: ${{ matrix.service }}
+                          resources:
+                            requests:
+                              cpu: 100m
+                              memory: 128Mi
+                            limits:
+                              cpu: 500m
+                              memory: 512Mi
+
+          configMapGenerator:
+            - name: ${{ matrix.service }}-config
+              behavior: merge
+              literals:
+                - ENVIRONMENT=staging
+                - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+          images:
+            - name: dollor/${{ matrix.service }}
+              newName: ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}
+              newTag: ${{ github.sha }}
+          EOF
+
+      - name: Commit and push staging changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kubernetes/services/${{ matrix.service }}/overlays/staging/kustomization.yaml
+          git diff --staged --quiet || git commit -m "chore: promote ${{ matrix.service }} to staging (${{ github.sha }}) [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Deployment summary
+        run: |
+          echo "==========================================="
+          echo "Staging Deployment Complete!"
+          echo "==========================================="
+          echo "Service: ${{ matrix.service }}"
+          echo "Environment: staging"
+          echo "Image Tag: ${{ github.sha }}"
+          echo ""
+          echo "ArgoCD will sync automatically."
+
+  # =============================================================================
+  # DEPLOY TO PRODUCTION (Exec Approval Required)
+  # =============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-staging]
+    if: github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://dollor.ai
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create release tag
+        id: tag
+        run: |
+          VERSION="v$(date +'%Y%m%d.%H%M%S')"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Kustomize image tag for production
+        run: |
+          cd infrastructure/kubernetes/services/${{ matrix.service }}/overlays/production
+
+          # Update image tag
+          cat > kustomization.yaml << EOF
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+
+          namespace: production
+
+          resources:
+            - ../../
+
+          patches:
+            - patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: ${{ matrix.service }}
+                spec:
+                  replicas: 3
+                  template:
+                    spec:
+                      containers:
+                        - name: ${{ matrix.service }}
+                          resources:
+                            requests:
+                              cpu: 200m
+                              memory: 256Mi
+                            limits:
+                              cpu: 1000m
+                              memory: 1Gi
+
+          configMapGenerator:
+            - name: ${{ matrix.service }}-config
+              behavior: merge
+              literals:
+                - ENVIRONMENT=production
+                - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+          images:
+            - name: dollor/${{ matrix.service }}
+              newName: ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}
+              newTag: ${{ steps.tag.outputs.version }}
+          EOF
+
+      - name: Tag Docker image for production
+        run: |
+          # Pull the staging image and retag for production
+          docker pull ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}:${{ github.sha }}
+          docker tag ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}:${{ github.sha }} \
+            ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}:${{ steps.tag.outputs.version }}
+          docker push ${{ env.ECR_REGISTRY }}/dollor/${{ matrix.service }}:${{ steps.tag.outputs.version }}
+
+      - name: Commit and push production changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kubernetes/services/${{ matrix.service }}/overlays/production/kustomization.yaml
+          git diff --staged --quiet || git commit -m "release: ${{ matrix.service }} ${{ steps.tag.outputs.version }} [skip ci]"
+          git tag "${{ matrix.service }}-${{ steps.tag.outputs.version }}"
+          git push origin HEAD:${{ github.ref_name }} --tags
+
+      - name: Production deployment summary
+        run: |
+          echo "==========================================="
+          echo "PRODUCTION DEPLOYMENT COMPLETE!"
+          echo "==========================================="
+          echo ""
+          echo "Service: ${{ matrix.service }}"
+          echo "Version: ${{ steps.tag.outputs.version }}"
+          echo "Environment: PRODUCTION"
+          echo ""
+          echo "Release Tag: ${{ matrix.service }}-${{ steps.tag.outputs.version }}"
+          echo ""
+          echo "ArgoCD will sync automatically."
+          echo ""
+          echo "Monitor at: https://argocd.dollor.ai"
+
+  # =============================================================================
+  # NOTIFICATION
+  # =============================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint, semgrep, sonarcloud, dependency-scan, build, security-gate, deploy-dev]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "==========================================="
+          echo "Microservices CI/CD Summary"
+          echo "==========================================="
+          echo ""
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "Services: ${{ needs.detect-changes.outputs.services }}"
+          echo ""
+          echo "==========================================="
+          echo "SECURITY SCAN RESULTS"
+          echo "==========================================="
+          echo "Lint (Ruff + Bandit):     ${{ needs.lint.result }}"
+          echo "Semgrep SAST:             ${{ needs.semgrep.result }}"
+          echo "SonarCloud Analysis:      ${{ needs.sonarcloud.result }}"
+          echo "Dependency Scan:          ${{ needs.dependency-scan.result }}"
+          echo "Container Scan (Trivy):   ${{ needs.build.result }}"
+          echo "Security Gate:            ${{ needs.security-gate.result }}"
+          echo ""
+          echo "==========================================="
+          echo "BUILD & DEPLOY STATUS"
+          echo "==========================================="
+          echo "Build Status:  ${{ needs.build.result }}"
+          echo "Deploy Status: ${{ needs.deploy-dev.result }}"
+          echo ""
+          echo "==========================================="
+          echo "Service Endpoints (Dev)"
+          echo "==========================================="
+          echo "  - Auth Service:         https://dev.dollor.ai/api/v1/auth         (8001)"
+          echo "  - User Service:         https://dev.dollor.ai/api/v1/users        (8002)"
+          echo "  - Driver Service:       https://dev.dollor.ai/api/v1/drivers      (8003)"
+          echo "  - Restaurant Service:   https://dev.dollor.ai/api/v1/restaurants  (8004)"
+          echo "  - Order Service:        https://dev.dollor.ai/api/v1/orders       (8005)"
+          echo "  - Payment Service:      https://dev.dollor.ai/api/v1/payments     (8006)"
+          echo "  - Location Service:     https://dev.dollor.ai/api/v1/locations    (8007)"
+          echo "  - Menu Service:         https://dev.dollor.ai/api/v1/menus        (8008)"
+          echo "  - Notification Service: https://dev.dollor.ai/api/v1/notifications(8009)"
+          echo "  - Rating Service:       https://dev.dollor.ai/api/v1/ratings      (8013)"
+          echo "  - Ride Service:         https://dev.dollor.ai/api/v1/rides        (8014)"
+          echo "  - Pricing Service:      https://dev.dollor.ai/api/v1/pricing      (8015)"
+          echo ""
+          echo "==========================================="
+          echo "Security Dashboards"
+          echo "==========================================="
+          echo "  - GitHub Security:      https://github.com/${{ github.repository }}/security"
+          echo "  - SonarCloud:           https://sonarcloud.io/organizations/jeet-avatar/projects"
+          echo ""
+
+          # Final status
+          if [ "${{ needs.security-gate.result }}" == "failure" ]; then
+            echo "::error::Pipeline failed security gate!"
+          elif [ "${{ needs.deploy-dev.result }}" == "failure" ]; then
+            echo "::error::Deployment failed!"
+          else
+            echo "Pipeline completed successfully!"
+          fi

@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  labels:
+    app: location-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: location-service
+  template:
+    metadata:
+      labels:
+        app: location-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8007"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dollor-service-account
+      containers:
+        - name: location-service
+          image: ${ECR_REGISTRY}/dollor/location-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 8007
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: "location-service"
+            - name: SERVICE_PORT
+              value: "8007"
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: redis-url
+            - name: GOOGLE_MAPS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: google-maps-api-key
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8007
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8007
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: location-service
+  labels:
+    app: location-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8007
+      targetPort: 8007
+      protocol: TCP
+      name: http
+  selector:
+    app: location-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: location-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: location-service
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60

@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: dollor-backend-production
+
+namespace: production
+
+resources:
+- ../../base
+- namespace.yaml
+- rollout.yaml
+- analysistemplate.yaml
+- networkpolicy.yaml
+
+namePrefix: prod-
+
+commonLabels:
+  environment: production
+
+commonAnnotations:
+  app.kubernetes.io/environment: production
+
+images:
+- name: dollor-api
+  newName: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  newTag: ef90e9a78c442c7e35af1bffe4fb9a3eba2ed830
+
+# Remove base deployment since we use Argo Rollout
+  # Delete the base deployment (replaced by Rollout)
+
+  # Patch ingress for production domain
+
+  # Update HPA for production
+
+  # Update PDB for production (higher availability)
+patches:
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: dollor-backend
+  target:
+    kind: Deployment
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: api.dollor.ai
+    - op: replace
+      path: /spec/tls/0/secretName
+      value: prod-dollor-backend-tls
+  target:
+    kind: Ingress
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 20
+    - op: replace
+      path: /spec/scaleTargetRef/kind
+      value: Rollout
+    - op: replace
+      path: /spec/scaleTargetRef/apiVersion
+      value: argoproj.io/v1alpha1
+    - op: replace
+      path: /spec/metrics/0/resource/target/averageUtilization
+      value: 60
+  target:
+    kind: HorizontalPodAutoscaler
+    name: dollor-backend
+- patch: |-
+    - op: replace
+      path: /spec/minAvailable
+      value: 2
+  target:
+    kind: PodDisruptionBudget
+    name: dollor-backend
+
+configMapGenerator:
+- behavior: merge
+  literals:
+  - ENVIRONMENT=production
+  - LOG_LEVEL=WARNING
+  - CORS_ORIGINS=https://dollor.ai,https://www.dollor.ai
+  - RATE_LIMIT=100
+  - WORKERS=8
+  name: dollor-backend-config

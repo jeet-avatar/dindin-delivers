@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/env: production
+    app.kubernetes.io/part-of: dollor-platform
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: dollor-deployments
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: dollor-alerts
+spec:
+  project: dollor-production
+  source:
+    repoURL: https://github.com/jeet-avatar/dindin-delivers.git
+    targetRevision: main
+    path: infrastructure/kubernetes/services/payment-service
+    kustomize:
+      images:
+        - name: dollor/payment-service
+          newTag: production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-production
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,282 @@
+name: Deploy Microservices
+
+on:
+  push:
+    branches:
+      - main
+      - feature/microservices
+    paths:
+      - 'services/**'
+      - 'infrastructure/kubernetes/services/**'
+      - '.github/workflows/deploy-microservices.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      services:
+        description: 'Services to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 134607809447.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.services }}" == "all" ]; then
+              SERVICES="auth-service,user-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service,negotiation-service,chat-service,call-service"
+            else
+              SERVICES="${{ github.event.inputs.services }}"
+            fi
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            SERVICES=""
+
+            for svc in auth-service user-service driver-service order-service notification-service location-service ride-service menu-service restaurant-service payment-service pricing-service rating-service analytics-service negotiation-service chat-service call-service; do
+              if echo "$CHANGED_FILES" | grep -q "services/core/$svc/\|services/shared/"; then
+                SERVICES="${SERVICES:+$SERVICES,}$svc"
+              fi
+            done
+
+            # If shared library changed, deploy all
+            if echo "$CHANGED_FILES" | grep -q "services/shared/"; then
+              SERVICES="auth-service,user-service,driver-service,order-service,notification-service,location-service,ride-service,menu-service,restaurant-service,payment-service,pricing-service,rating-service,analytics-service,negotiation-service,chat-service,call-service"
+            fi
+          fi
+
+          if [ -z "$SERVICES" ]; then
+            echo "No services to deploy"
+            echo "services=" >> $GITHUB_OUTPUT
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+          else
+            echo "Services to deploy: $SERVICES"
+            echo "services=$SERVICES" >> $GITHUB_OUTPUT
+
+            # Create JSON array for matrix (compact format for GITHUB_OUTPUT)
+            MATRIX_JSON=$(echo $SERVICES | tr ',' '\n' | jq -R . | jq -sc .)
+            echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != ''
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names dollor-${{ matrix.service }} || \
+          aws ecr create-repository \
+            --repository-name dollor-${{ matrix.service }} \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./services/core/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/dollor-${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/dollor-${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            SERVICE_NAME=${{ matrix.service }}
+            BUILD_VERSION=${{ github.sha }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/dollor-${{ matrix.service }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+
+  deploy-to-eks:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push]
+    if: needs.detect-changes.outputs.services != ''
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          EKS_CLUSTER="dollor-${ENVIRONMENT}"
+          echo "Connecting to EKS cluster: ${EKS_CLUSTER}"
+          aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${{ env.AWS_REGION }}
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy services
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          SERVICES="${{ needs.detect-changes.outputs.services }}"
+
+          for service in $(echo $SERVICES | tr ',' ' '); do
+            echo "=========================================="
+            echo "Deploying $service to $ENVIRONMENT..."
+            echo "=========================================="
+
+            SERVICE_DIR="infrastructure/kubernetes/services/${service}"
+            OVERLAY_DIR="${SERVICE_DIR}/overlays/${ENVIRONMENT}"
+
+            if [ -d "$OVERLAY_DIR" ]; then
+              echo "Using overlay: $OVERLAY_DIR"
+
+              # Update the image tag in the overlay kustomization
+              pushd "$OVERLAY_DIR" > /dev/null
+
+              # Update images section to use ECR image
+              kustomize edit set image \
+                dollor-${service}=${{ env.ECR_REGISTRY }}/dollor-${service}:${{ github.sha }} \
+                dollor/${service}=${{ env.ECR_REGISTRY }}/dollor-${service}:${{ github.sha }} \
+                2>/dev/null || true
+
+              popd > /dev/null
+
+              # Build and apply using kubectl with kustomize
+              echo "Applying kustomization from: $OVERLAY_DIR"
+              kubectl apply -k "$OVERLAY_DIR" --namespace=dollor-${ENVIRONMENT} || echo "Warning: kubectl apply failed for $service"
+            else
+              echo "No overlay found, using base: $SERVICE_DIR"
+              kubectl apply -k "$SERVICE_DIR" --namespace=dollor-${ENVIRONMENT} || echo "Warning: kubectl apply failed for $service"
+            fi
+
+            # Wait for rollout (don't fail the pipeline on timeout)
+            echo "Waiting for rollout of $service..."
+            kubectl rollout status deployment/${service} -n dollor-${ENVIRONMENT} --timeout=180s || echo "Rollout check completed for $service"
+            echo ""
+          done
+
+      - name: Verify deployments
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          echo "=== Deployment Status ==="
+          kubectl get deployments -n dollor-$ENVIRONMENT
+          echo ""
+          echo "=== Pod Status ==="
+          kubectl get pods -n dollor-$ENVIRONMENT
+          echo ""
+          echo "=== Services ==="
+          kubectl get services -n dollor-$ENVIRONMENT
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-to-eks
+    if: github.event.inputs.environment != 'production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install requests pytest
+
+      - name: Run integration tests
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+
+          if [ "$ENVIRONMENT" == "staging" ]; then
+            API_URL="https://api-staging.dollor.ai"
+          else
+            API_URL="https://api-dev.dollor.ai"
+          fi
+
+          echo "Testing against $API_URL"
+
+          # Health check tests
+          for service in auth driver order notification; do
+            echo "Testing $service-service health..."
+            curl -sf "$API_URL/api/$service/health" && echo " OK" || echo " FAILED"
+          done
+
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push, deploy-to-eks]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "========================================"
+          echo "Microservices Deployment Summary"
+          echo "========================================"
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "Services: ${{ needs.detect-changes.outputs.services }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "Build Status: ${{ needs.build-and-push.result }}"
+          echo "Deploy Status: ${{ needs.deploy-to-eks.result }}"
+          echo ""
+          echo "========================================"

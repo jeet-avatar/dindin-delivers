@@ -1,22 +1,87 @@
-# Environment files (NEVER commit these)
+# ===================
+# Environment & Secrets (NEVER commit these)
+# ===================
 .env
 .env.local
 .env.*.local
 *.env
 backend/.env
+*.secrets
+GoogleService-Info.plist
+google-services.json
 
-# Local properties (Android - contains signing keys)
-android/local.properties
+# ===================
+# iOS
+# ===================
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+Pods/
+*.ipa
+*.dSYM.zip
+*.dSYM
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+*.xcworkspace
+*.xcuserdata
+
+# Swift Package Manager
+apps/ios/eatfair-ios-shared/.build/
+apps/ios/eatfair-ios-shared/.swiftpm/
+apps/ios/**/Pods/
+apps/ios/**/build/
+apps/ios/**/Build/
+*.xcframework/
+*.pack
+**/SourcePackages/
+
+# ===================
+# Android
+# ===================
+*.iml
+.gradle/
+/local.properties
 local.properties
+android/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/build/
+/captures
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+android/.gradle/
+android/app/build/
+android/build/
+*.jks
+*.keystore
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+# ===================
+# Node.js
+# ===================
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
 
+# ===================
 # Python
+# ===================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -26,54 +91,77 @@ venv/
 env/
 .venv/
 ENV/
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# ===================
+# Firebase
+# ===================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
+# ===================
+# Terraform
+# ===================
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ===================
+# IDE
+# ===================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# ===================
 # Build outputs
+# ===================
 build/
 dist/
-*.egg-info/
+lib/
+out/
+**/build/
+**/Build/
 
-# iOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/Flutter.framework
-ios/Flutter/Flutter.podspec
-*.xcworkspace
-*.xcuserdata
-
-# Android
-android/.gradle/
-android/app/build/
-android/build/
-*.jks
-*.keystore
-
+# ===================
 # Secrets and credentials
+# ===================
 *.pem
 *.key
 *.crt
 secrets/
 credentials/
 
-# Logs
-*.log
-logs/
-
+# ===================
 # OS files
+# ===================
 .DS_Store
 Thumbs.db
 
-# Test coverage
-coverage/
-.coverage
-htmlcov/
-
+# ===================
 # Temporary files
+# ===================
 tmp/
 temp/
 *.tmp
+logs/
+coverage/

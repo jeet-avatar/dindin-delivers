@@ -1,0 +1,44 @@
+# Development Backend Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dollor-backend-dev
+  namespace: argocd
+  labels:
+    environment: dev
+    app: backend
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-dev
+  source:
+    repoURL: https://github.com/your-org/eatfair-ios.git
+    targetRevision: develop
+    path: infrastructure/helm/backend
+    helm:
+      valueFiles:
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    # AUTO-SYNC enabled for dev
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  # Health check customization
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Rollout
+      jsonPointers:
+        - /status

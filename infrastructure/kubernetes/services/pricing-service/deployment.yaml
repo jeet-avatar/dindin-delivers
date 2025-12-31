@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pricing-service
+  labels:
+    app: pricing-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pricing-service
+  template:
+    metadata:
+      labels:
+        app: pricing-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8015"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dollor-service-account
+      containers:
+        - name: pricing-service
+          image: ${ECR_REGISTRY}/dollor/pricing-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 8015
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: "pricing-service"
+            - name: SERVICE_PORT
+              value: "8015"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: redis-url
+            - name: LOCATION_SERVICE_URL
+              value: "http://location-service:8007"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8015
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8015
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pricing-service
+  labels:
+    app: pricing-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8015
+      targetPort: 8015
+      protocol: TCP
+      name: http
+  selector:
+    app: pricing-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pricing-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pricing-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

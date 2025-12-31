@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ORDERS
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        resource.data.restaurantId == request.auth.uid
+      );
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.customerId == request.auth.uid;
+      
+      allow update: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid ||
+        resource.data.restaurantId == request.auth.uid
+      );
+    }
+    
+    // RATINGS
+    match /ratings/{ratingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    
+    // DRIVER SESSIONS
+    match /driver_sessions/{sessionId} {
+      allow read, update: if isAuthenticated() && 
+        resource.data.driverId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.driverId == request.auth.uid;
+      allow delete: if false;
+    }
+    
+    // PROMOTIONS
+    match /promotions/{promotionId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && 
+        resource.data.restaurantId == request.auth.uid;
+    }
+    
+    // TIPS
+    match /tips/{tipId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && 
+        request.resource.data.customerId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+        resource.data.driverId == request.auth.uid;
+      allow delete: if false;
+    }
+    
+    // PROMOTION USAGE
+    match /promotion_usage/{usageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    
+    // DRIVERS
+    match /drivers/{driverId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(driverId);
+      allow update: if isOwner(driverId);
+      allow delete: if false;
+    }
+
+    // DRIVER DOCUMENTS (subcollection for uploaded documents)
+    match /drivers/{driverId}/documents/{documentId} {
+      allow read: if isOwner(driverId);
+      allow create, update: if isOwner(driverId);
+      allow delete: if false;
+    }
+    
+    // CUSTOMERS
+    match /customers/{customerId} {
+      allow read, update: if isOwner(customerId);
+      allow create, delete: if false;
+    }
+    
+    // RESTAURANTS
+    match /restaurants/{restaurantId} {
+      allow read: if isAuthenticated();
+      allow update: if isOwner(restaurantId);
+      allow create, delete: if false;
+    }
+    
+    // MENU ITEMS
+    match /menu_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+        request.resource.data.restaurantId == request.auth.uid;
+    }
+  }
+}

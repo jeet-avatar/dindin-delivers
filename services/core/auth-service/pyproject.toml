@@ -1,0 +1,17 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short -ra"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["."]
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+# Unit tests without DB cover ~50% (helper functions, models, config)
+# Integration tests with DB would cover remaining endpoints
+fail_under = 45
+show_missing = true

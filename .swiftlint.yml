@@ -1,0 +1,82 @@
+# SwiftLint Configuration for Dollor.ai iOS Apps
+
+# Paths to include
+included:
+  - apps/ios/customer
+  - apps/ios/delivery
+  - apps/ios/restaurant
+  - apps/ios/eatfair-ios-shared
+
+# Paths to exclude
+excluded:
+  - apps/ios/*/Pods
+  - apps/ios/*/.build
+  - apps/ios/*/DerivedData
+  - apps/ios/*/*Tests
+  - apps/ios/*/*UITests
+
+# Disabled rules
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - identifier_name
+  - type_body_length
+  - file_length
+  - function_body_length
+  - cyclomatic_complexity
+  - nesting
+  - force_cast
+  - force_try
+
+# Enabled optional rules
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - closure_spacing
+  - contains_over_first_not_nil
+  - first_where
+  - modifier_order
+  - private_action
+  - private_outlet
+  - redundant_nil_coalescing
+  - sorted_first_last
+
+# Rule configurations
+type_name:
+  min_length: 2
+  max_length: 60
+
+function_parameter_count:
+  warning: 8
+  error: 10
+
+large_tuple:
+  warning: 4
+  error: 5
+
+# Severity overrides
+force_unwrapping:
+  severity: warning
+
+implicitly_unwrapped_optional:
+  severity: warning
+
+# Custom rules
+custom_rules:
+  no_print_statements:
+    name: "No Print Statements"
+    regex: "\\bprint\\s*\\("
+    message: "Use proper logging instead of print statements"
+    severity: warning
+    match_kinds:
+      - identifier
+
+  no_hardcoded_urls:
+    name: "No Hardcoded URLs"
+    regex: "\"https?://[^\"]+\""
+    message: "Use AppConfig for API URLs instead of hardcoding"
+    severity: warning
+    excluded: ".*Tests\\.swift$|.*\\.xcconfig$"
+
+# Reporter type
+reporter: "github-actions-logging"

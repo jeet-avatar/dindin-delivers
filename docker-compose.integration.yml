@@ -1,0 +1,137 @@
+# Docker Compose for Local Integration Testing
+# Usage: docker-compose -f docker-compose.integration.yml up -d
+#
+# This starts all services needed for full-stack integration testing:
+# - PostgreSQL database
+# - Redis cache
+# - Backend API
+# - Frontend (with hot reload)
+#
+# After services are up, run tests with:
+# pytest apps/web/p2p-platform/backend/tests/ -v
+
+version: '3.8'
+
+services:
+  # ============================================
+  # DATABASE
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: dollor-postgres-test
+    environment:
+      POSTGRES_USER: dollor
+      POSTGRES_PASSWORD: dollor_test_pass
+      POSTGRES_DB: dollor_test
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with local postgres
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dollor -d dollor_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # CACHE
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: dollor-redis-test
+    ports:
+      - "6380:6379"  # Use 6380 to avoid conflict
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # BACKEND API
+  # ============================================
+  backend:
+    build:
+      context: ./apps/web/p2p-platform/backend
+      dockerfile: Dockerfile
+    container_name: dollor-backend-test
+    environment:
+      - DATABASE_URL=postgresql://dollor:dollor_test_pass@postgres:5432/dollor_test
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=integration-test-secret-key-change-in-prod
+      - TESTING=true
+      - ENVIRONMENT=test
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://frontend:3000
+    ports:
+      - "8001:8000"  # Use 8001 to avoid conflict
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./apps/web/p2p-platform/backend:/app:ro
+    command: >
+      sh -c "
+        python -c 'from database import init_db; init_db()' &&
+        uvicorn main_new:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # ============================================
+  # FRONTEND (For E2E tests)
+  # ============================================
+  frontend:
+    build:
+      context: ./apps/web/p2p-platform/frontend
+      dockerfile: Dockerfile.dev
+    container_name: dollor-frontend-test
+    environment:
+      - VITE_API_URL=http://localhost:8001
+      - VITE_APP_NAME=Dollor.ai (Test)
+      - VITE_ENVIRONMENT=test
+    ports:
+      - "5174:5173"  # Use 5174 to avoid conflict
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./apps/web/p2p-platform/frontend:/app:ro
+      - /app/node_modules
+
+  # ============================================
+  # TEST RUNNER
+  # ============================================
+  test-runner:
+    build:
+      context: ./apps/web/p2p-platform/backend
+      dockerfile: Dockerfile.test
+    container_name: dollor-test-runner
+    environment:
+      - API_BASE_URL=http://backend:8000
+      - DATABASE_URL=postgresql://dollor:dollor_test_pass@postgres:5432/dollor_test
+      - TESTING=true
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./apps/web/p2p-platform/backend/tests:/app/tests:ro
+      - ./test-results:/app/test-results
+    command: >
+      sh -c "
+        pip install pytest pytest-asyncio httpx pytest-cov &&
+        pytest tests/ -v --tb=short --junitxml=/app/test-results/results.xml
+      "
+    profiles:
+      - test
+
+volumes:
+  postgres_test_data:
+
+networks:
+  default:
+    name: dollor-integration-network

@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pricing-service-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: pricing-service
+    app.kubernetes.io/env: staging
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  project: dollor-staging
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/pricing-service/overlays/staging
+    kustomize:
+      images:
+        - name: dollor/pricing-service
+          newTag: staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

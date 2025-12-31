@@ -1,0 +1,20 @@
+# Ruff configuration for Dollor.ai backend
+[lint]
+# Ignore specific rules
+ignore = [
+    "F401",  # Unused imports - will clean up later
+    "F541",  # f-string without placeholders
+    "F841",  # Local variable assigned but never used
+    "E402",  # Module level import not at top
+    "E712",  # Avoid equality comparisons to True
+    "E722",  # Do not use bare except
+]
+
+# Exclude third-party files
+exclude = [
+    "get-pip.py",
+    "__pycache__",
+    ".git",
+    "venv",
+    ".venv",
+]

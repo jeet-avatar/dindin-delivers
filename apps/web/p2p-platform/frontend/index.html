@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Dollor.ai - Food Delivery & Rideshare Matchmaking Platform. Just $1 flat fee!" />
+    <meta name="theme-color" content="#FF5722" />
+    <title>Dollor.ai - Food Delivery & Rides</title>
+    <style>
+      :root {
+        --dollor-orange: #FF5722;
+        --dollor-orange-dark: #E64A19;
+        --dollor-green: #4CAF50;
+        --dollor-blue: #2196F3;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Pre-React security check for admin routes -->
+    <script>
+      (function() {
+        try {
+          var path = window.location.pathname;
+          console.log('[Security] Path:', path);
+
+          // Only check admin routes
+          if (path.startsWith('/admin')) {
+            var token = localStorage.getItem('token');
+            console.log('[Security] Token exists:', !!token);
+
+            // Check for null, undefined, empty string
+            if (!token || token === '' || token === 'null' || token === 'undefined') {
+              // Show redirect message before redirecting
+              document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;color:white;font-family:sans-serif;"><div style="text-align:center;"><h2>🔐 Authentication Required</h2><p>Redirecting to login...</p></div></div>';
+              console.log('[Security] No valid token, redirecting to login');
+              setTimeout(function() {
+                window.location.href = '/login';
+              }, 500);
+              return;
+            }
+            console.log('[Security] Token found, allowing access');
+          }
+        } catch(e) {
+          console.error('[Security] Auth check error:', e);
+          document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;color:white;"><p>Authentication error. Redirecting...</p></div>';
+          setTimeout(function() { window.location.href = '/login'; }, 500);
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

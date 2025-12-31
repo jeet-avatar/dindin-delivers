@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ride-service
+  labels:
+    app: ride-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ride-service
+  template:
+    metadata:
+      labels:
+        app: ride-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8014"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dollor-service-account
+      containers:
+        - name: ride-service
+          image: ${ECR_REGISTRY}/dollor/ride-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 8014
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: "ride-service"
+            - name: SERVICE_PORT
+              value: "8014"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: redis-url
+            - name: LOCATION_SERVICE_URL
+              value: "http://location-service:8007"
+            - name: PRICING_SERVICE_URL
+              value: "http://pricing-service:8015"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8014
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8014
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ride-service
+  labels:
+    app: ride-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8014
+      targetPort: 8014
+      protocol: TCP
+      name: http
+  selector:
+    app: ride-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ride-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ride-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60

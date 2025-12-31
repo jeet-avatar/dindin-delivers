@@ -1,0 +1,244 @@
+# Argo Rollout with Blue-Green Strategy for Production
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: prod-dollor-backend
+  namespace: production
+  annotations:
+    notifications.argoproj.io/subscribe.on-rollout-completed.slack: production-deployments
+    notifications.argoproj.io/subscribe.on-rollout-aborted.slack: production-alerts
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: dollor-backend
+  template:
+    metadata:
+      labels:
+        app: dollor-backend
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: prod-dollor-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      # Pod anti-affinity for HA
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - dollor-backend
+                topologyKey: kubernetes.io/hostname
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - dollor-backend
+                topologyKey: topology.kubernetes.io/zone
+      containers:
+        - name: api
+          image: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api:production-latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: prod-dollor-backend-config
+            - secretRef:
+                name: prod-dollor-backend-secrets
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 30
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/.cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: dollor-backend
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: dollor-backend
+  strategy:
+    blueGreen:
+      # Active service receives production traffic
+      activeService: prod-dollor-backend-active
+      # Preview service for testing new version
+      previewService: prod-dollor-backend-preview
+
+      # Auto-promotion disabled - requires manual approval
+      autoPromotionEnabled: false
+
+      # Optional: Auto-promote after 10 minutes if all analysis passes
+      # autoPromotionSeconds: 600
+
+      # Keep old (blue) ReplicaSet for instant rollback
+      scaleDownDelaySeconds: 1800  # 30 minutes
+
+      # Preview replicas (for testing before promotion)
+      previewReplicaCount: 2
+
+      # Pre-promotion analysis (runs before switching traffic)
+      prePromotionAnalysis:
+        templates:
+          - templateName: prod-success-rate
+          - templateName: prod-latency
+          - templateName: prod-error-rate
+        args:
+          - name: service-name
+            value: prod-dollor-backend-preview
+
+      # Post-promotion analysis (runs after switching traffic)
+      postPromotionAnalysis:
+        templates:
+          - templateName: prod-success-rate
+        args:
+          - name: service-name
+            value: prod-dollor-backend-active
+
+      # Anti-affinity between blue and green pods
+      antiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          weight: 100
+---
+# Active Service (receives production traffic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-dollor-backend-active
+  namespace: production
+  labels:
+    app: dollor-backend
+    role: active
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: dollor-backend
+---
+# Preview Service (for testing new version)
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-dollor-backend-preview
+  namespace: production
+  labels:
+    app: dollor-backend
+    role: preview
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: dollor-backend
+---
+# Preview Ingress (internal testing)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prod-dollor-backend-preview
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Restrict to internal IPs only
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+spec:
+  tls:
+    - hosts:
+        - preview-api.dollor.ai
+      secretName: prod-dollor-backend-preview-tls
+  rules:
+    - host: preview-api.dollor.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-dollor-backend-preview
+                port:
+                  number: 80

@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/env: staging
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  project: dollor-staging
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/payment-service/overlays/staging
+    kustomize:
+      images:
+        - name: dollor/payment-service
+          newTag: staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dollor-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

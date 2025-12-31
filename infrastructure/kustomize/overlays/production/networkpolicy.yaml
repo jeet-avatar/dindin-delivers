@@ -1,0 +1,142 @@
+# Network Policies for Production Security
+---
+# Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Default deny all egress (except DNS)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow ingress from nginx-ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-nginx
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: dollor-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Allow ingress from Prometheus for metrics
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: dollor-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+---
+# Allow egress to RDS database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-rds
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: dollor-backend
+  policyTypes:
+    - Egress
+  egress:
+    # PostgreSQL RDS
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8  # VPC CIDR
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Allow egress to external services (Stripe, Firebase, etc.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-external
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: dollor-backend
+  policyTypes:
+    - Egress
+  egress:
+    # HTTPS to external APIs
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# Allow internal pod-to-pod communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: dollor-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dollor-backend
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dollor-backend
