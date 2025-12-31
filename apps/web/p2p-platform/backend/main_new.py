@@ -764,6 +764,14 @@ def _run_startup_migrations():
         ("rides", "driver_rating", "FLOAT"),
         ("rides", "passenger_rating", "FLOAT"),
         ("rides", "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        # Ride Requests table - payment columns
+        ("ride_requests", "stripe_payment_intent_id", "VARCHAR(255)"),
+        ("ride_requests", "payment_status", "VARCHAR(50) DEFAULT 'pending'"),
+        ("ride_requests", "platform_fee", "FLOAT"),
+        ("ride_requests", "driver_payout", "FLOAT"),
+        ("ride_requests", "payment_completed_at", "TIMESTAMP"),
+        ("ride_requests", "driver_paid_at", "TIMESTAMP"),
+        ("ride_requests", "stripe_transfer_id", "VARCHAR(255)"),
     ]
 
     # Tables to create if they don't exist
