@@ -6261,6 +6261,26 @@ public struct P2PDetailMenuItem: Identifiable, Codable {
         case calories
         case inStock = "in_stock"
     }
+
+    /// Custom decoder with safe defaults to prevent crashes when API omits optional fields
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        price = try container.decode(Double.self, forKey: .price)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        // Safe defaults for boolean fields
+        isVegetarian = try container.decodeIfPresent(Bool.self, forKey: .isVegetarian) ?? false
+        isVegan = try container.decodeIfPresent(Bool.self, forKey: .isVegan) ?? false
+        isGlutenFree = try container.decodeIfPresent(Bool.self, forKey: .isGlutenFree) ?? false
+        isSpicy = try container.decodeIfPresent(Bool.self, forKey: .isSpicy) ?? false
+        spiceLevel = try container.decodeIfPresent(Int.self, forKey: .spiceLevel) ?? 0
+        prepTime = try container.decodeIfPresent(Int.self, forKey: .prepTime)
+        calories = try container.decodeIfPresent(Int.self, forKey: .calories)
+        inStock = try container.decodeIfPresent(Bool.self, forKey: .inStock) ?? true
+        customizations = try container.decodeIfPresent([P2PMenuItemCustomization].self, forKey: .customizations)
+    }
 }
 
 public struct P2PRestaurantDetail {
