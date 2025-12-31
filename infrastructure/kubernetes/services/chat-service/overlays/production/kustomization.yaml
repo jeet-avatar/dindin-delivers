@@ -1,0 +1,43 @@
+# Dollor.ai Chat Service - Production Overlay
+# =============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: chat-service
+      spec:
+        replicas: 3
+        template:
+          spec:
+            containers:
+              - name: chat-service
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi
+
+configMapGenerator:
+  - name: chat-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - WEBSOCKET_ENABLED=true
+      - MAX_MESSAGE_SIZE=10485760
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/chat-service
+    newTag: v1.0.0

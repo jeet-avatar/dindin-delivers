@@ -1,0 +1,65 @@
+{
+  "__collections__": {
+    "config": {
+      "app": {
+        "taxRate": 0.1,
+        "baseDeliveryFee": 5,
+        "extraStopFee": 2,
+        "platformFeePerRestaurant": 1,
+        "maxRestaurantsPerOrder": 3,
+        "serviceFeeRate": 0.05,
+        "smallOrderThreshold": 10,
+        "smallOrderFee": 2,
+        "defaultTipRate": 0.15,
+        "nearbyDistanceMeters": 3218.69,
+        "maxDeliveryDistanceMiles": 10,
+        "restaurantCommissionRate": 0.15,
+        "defaultPrepTimeMinutes": 20,
+        "maxPrepTimeMinutes": 60,
+        "additionalPrepTimePerOrder": 3,
+        "busyLevelThresholds": {
+          "slow": 2,
+          "normal": 5,
+          "busy": 8
+        },
+        "supportUrl": "https://support.eatfair.com",
+        "supportPhone": "+1-800-EATFAIR",
+        "supportEmail": "support@eatfair.com",
+        "isDummyPaymentMode": true,
+        "isAIFeaturesEnabled": true,
+        "isDynamicPricingEnabled": false,
+        "version": "1.0.0"
+      }
+    },
+    "promotions": {
+      "WELCOME10": {
+        "code": "WELCOME10",
+        "type": "percentage",
+        "value": 10,
+        "description": "10% off your first order",
+        "minOrderAmount": 15,
+        "maxDiscount": 20,
+        "usageLimit": 1,
+        "isActive": true
+      },
+      "SAVE5": {
+        "code": "SAVE5",
+        "type": "fixed",
+        "value": 5,
+        "description": "$5 off orders over $25",
+        "minOrderAmount": 25,
+        "maxDiscount": 5,
+        "isActive": true
+      },
+      "FREESHIP": {
+        "code": "FREESHIP",
+        "type": "delivery",
+        "value": 0,
+        "description": "Free delivery on orders over $30",
+        "minOrderAmount": 30,
+        "maxDiscount": 10,
+        "isActive": true
+      }
+    }
+  }
+}

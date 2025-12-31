@@ -1,0 +1,72 @@
+# ArgoCD Projects for EatFair/Dollor
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dollor-dev
+  namespace: argocd
+spec:
+  description: Dollor Development Environment
+  sourceRepos:
+    - 'https://github.com/your-org/eatfair-ios.git'
+  destinations:
+    - namespace: dev
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  orphanedResources:
+    warn: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dollor-staging
+  namespace: argocd
+spec:
+  description: Dollor Staging Environment
+  sourceRepos:
+    - 'https://github.com/your-org/eatfair-ios.git'
+  destinations:
+    - namespace: staging
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  orphanedResources:
+    warn: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dollor-production
+  namespace: argocd
+spec:
+  description: Dollor Production Environment
+  sourceRepos:
+    - 'https://github.com/your-org/eatfair-ios.git'
+  destinations:
+    - namespace: production
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  orphanedResources:
+    warn: true
+  # Production requires sync windows
+  syncWindows:
+    - kind: allow
+      schedule: '* * * * *'
+      duration: 24h
+      applications:
+        - '*'
+      manualSync: true

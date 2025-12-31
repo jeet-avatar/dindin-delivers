@@ -1,0 +1,1696 @@
+import SwiftUI
+import MapKit
+import CoreLocation
+import Combine
+import EatFairShared
+
+/// Uber-style Ride Request View for Customers
+struct RideRequestView: View {
+    @StateObject private var viewModel = RideRequestViewModel()
+    @StateObject private var locationManager = RideLocationManager()
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var showPickupSearch = false
+    @State private var showDropoffSearch = false
+    @State private var mapPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+
+    var body: some View {
+        ZStack {
+            // Map Background
+            RideMapBackground(
+                pickupLocation: viewModel.pickupAddress,
+                dropoffLocation: viewModel.dropoffAddress,
+                mapPosition: $mapPosition
+            )
+            .ignoresSafeArea(edges: .top)
+            .onAppear {
+                // Request location permission on appear
+                locationManager.requestLocationPermission()
+            }
+
+            // Bottom Sheet
+            VStack {
+                Spacer()
+
+                RideBottomSheet(
+                    viewModel: viewModel,
+                    showPickupSearch: $showPickupSearch,
+                    showDropoffSearch: $showDropoffSearch,
+                    onRequestRide: requestRide,
+                    onDismiss: { dismiss() }
+                )
+            }
+
+            // Loading Overlay
+            if viewModel.isLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                ProgressView("Requesting ride...")
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+            }
+        }
+        .navigationBarHidden(true)
+        .sheet(isPresented: $showPickupSearch) {
+            RideLocationSearchView(
+                title: "Pickup Location",
+                onSelect: { address in
+                    viewModel.setPickupLocation(
+                        street: address.street,
+                        city: address.city,
+                        state: address.state,
+                        zip: address.zip,
+                        lat: address.lat,
+                        lng: address.lng
+                    )
+                    showPickupSearch = false
+                }
+            )
+        }
+        .sheet(isPresented: $showDropoffSearch) {
+            RideLocationSearchView(
+                title: "Dropoff Location",
+                onSelect: { address in
+                    viewModel.setDropoffLocation(
+                        street: address.street,
+                        city: address.city,
+                        state: address.state,
+                        zip: address.zip,
+                        lat: address.lat,
+                        lng: address.lng
+                    )
+                    showDropoffSearch = false
+                }
+            )
+        }
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.errorMessage ?? "An error occurred")
+        }
+        .fullScreenCover(isPresented: $viewModel.isRideActive) {
+            RideTrackingView(viewModel: viewModel)
+        }
+    }
+
+    private func requestRide() {
+        let name = authViewModel.customerName.isEmpty ? "Customer" : authViewModel.customerName
+        let email = authViewModel.customerEmail
+
+        viewModel.requestRide(
+            customerName: name,
+            customerEmail: email,
+            customerPhone: ""
+        )
+    }
+}
+
+// MARK: - Ride Map Background
+struct RideMapBackground: View {
+    let pickupLocation: RideAddressInput?
+    let dropoffLocation: RideAddressInput?
+    @Binding var mapPosition: MapCameraPosition
+
+    var body: some View {
+        Map(position: $mapPosition) {
+            // Pickup Marker
+            if let pickup = pickupLocation {
+                Annotation("Pickup", coordinate: CLLocationCoordinate2D(
+                    latitude: pickup.lat,
+                    longitude: pickup.lng
+                )) {
+                    RidePickupMarker()
+                }
+            }
+
+            // Dropoff Marker
+            if let dropoff = dropoffLocation {
+                Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
+                    latitude: dropoff.lat,
+                    longitude: dropoff.lng
+                )) {
+                    RideDropoffMarker()
+                }
+            }
+
+            // User location
+            UserAnnotation()
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .mapControls {
+            MapUserLocationButton()
+        }
+        .onAppear {
+            updateMapRegion()
+        }
+        .onChange(of: pickupLocation?.lat) { _, _ in updateMapRegion() }
+        .onChange(of: dropoffLocation?.lat) { _, _ in updateMapRegion() }
+    }
+
+    private func updateMapRegion() {
+        var coordinates: [CLLocationCoordinate2D] = []
+
+        if let pickup = pickupLocation {
+            coordinates.append(CLLocationCoordinate2D(latitude: pickup.lat, longitude: pickup.lng))
+        }
+
+        if let dropoff = dropoffLocation {
+            coordinates.append(CLLocationCoordinate2D(latitude: dropoff.lat, longitude: dropoff.lng))
+        }
+
+        guard !coordinates.isEmpty else {
+            // Default to user's location or a default region
+            mapPosition = .userLocation(fallback: .automatic)
+            return
+        }
+
+        let latitudes = coordinates.map { $0.latitude }
+        let longitudes = coordinates.map { $0.longitude }
+
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else {
+            return
+        }
+
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let spanLat = (maxLat - minLat) * 1.5 + 0.02
+        let spanLon = (maxLon - minLon) * 1.5 + 0.02
+
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+            span: MKCoordinateSpan(latitudeDelta: max(spanLat, 0.02), longitudeDelta: max(spanLon, 0.02))
+        )
+
+        mapPosition = .region(region)
+    }
+}
+
+// MARK: - Map Markers
+struct RidePickupMarker: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+
+                Image(systemName: "figure.wave")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+            }
+
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundColor(.blue)
+                .rotationEffect(.degrees(180))
+                .offset(y: -4)
+        }
+    }
+}
+
+struct RideDropoffMarker: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+            }
+
+            Image(systemName: "triangle.fill")
+                .font(.system(size: 10))
+                .foregroundColor(.green)
+                .rotationEffect(.degrees(180))
+                .offset(y: -4)
+        }
+    }
+}
+
+// MARK: - Ride Bottom Sheet
+struct RideBottomSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Binding var showPickupSearch: Bool
+    @Binding var showDropoffSearch: Bool
+    let onRequestRide: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var showNegotiateSheet = false
+    @State private var customFareOffer: String = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Handle
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 40, height: 5)
+                .padding(.top, 10)
+
+            // Header
+            HStack {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.title3)
+                        .foregroundColor(.gray)
+                }
+
+                Spacer()
+
+                Text("Find a Driver")
+                    .font(.headline)
+
+                Spacer()
+
+                // Placeholder for balance
+                Image(systemName: "xmark")
+                    .font(.title3)
+                    .foregroundColor(.clear)
+            }
+            .padding()
+
+            Divider()
+
+            // Location Inputs
+            VStack(spacing: 0) {
+                // Pickup
+                Button(action: { showPickupSearch = true }) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 12, height: 12)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("PICKUP")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+
+                            Text(viewModel.pickupAddress?.fullAddress ?? "Select pickup location")
+                                .font(.subheadline)
+                                .foregroundColor(viewModel.pickupAddress != nil ? .primary : .gray)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                    .padding()
+                }
+
+                // Connector
+                HStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 2, height: 24)
+                        .padding(.leading, 29)
+                    Spacer()
+                }
+
+                // Dropoff
+                Button(action: { showDropoffSearch = true }) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "mappin")
+                                .foregroundColor(.green)
+                                .font(.system(size: 14, weight: .bold))
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("DROPOFF")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.green)
+
+                            Text(viewModel.dropoffAddress?.fullAddress ?? "Select dropoff location")
+                                .font(.subheadline)
+                                .foregroundColor(viewModel.dropoffAddress != nil ? .primary : .gray)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                    .padding()
+                }
+            }
+
+            Divider()
+
+            // Notes (optional)
+            if viewModel.canRequestRide {
+                HStack(spacing: 12) {
+                    Image(systemName: "note.text")
+                        .foregroundColor(.gray)
+
+                    TextField("Add notes for driver (optional)", text: $viewModel.notes)
+                        .font(.subheadline)
+                }
+                .padding()
+
+                Divider()
+            }
+
+            // Price Summary - World Class Fare Breakdown
+            if viewModel.canRequestRide {
+                VStack(spacing: 12) {
+                    // Trip Estimate Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("SUGGESTED OFFER")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 12) {
+                                Label(viewModel.estimatedDistanceText, systemImage: "road.lanes")
+                                Label(viewModel.estimatedTimeText, systemImage: "clock")
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        }
+                        Spacer()
+                        if viewModel.surgeMultiplier > 1.0 {
+                            Text("\(String(format: "%.1f", viewModel.surgeMultiplier))x")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange)
+                                .cornerRadius(6)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    Divider()
+
+                    // Suggested Payment Breakdown (Driver sets final price)
+                    VStack(spacing: 6) {
+                        // Base fare breakdown components
+                        FareLineItem(label: "Base Fare", amount: viewModel.baseFare)
+                        FareLineItem(label: "Distance (\(viewModel.estimatedDistanceText))", amount: viewModel.distanceFee)
+                        FareLineItem(label: "Time (\(viewModel.estimatedTimeText))", amount: viewModel.timeFee)
+
+                        Divider()
+
+                        // Tiered Connection Fee with tier description
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Connection Fee")
+                                    .font(.subheadline)
+                                Text(viewModel.platformFeeTierDescription)
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                            Spacer()
+                            Text("$\(String(format: "%.2f", viewModel.platformFee))")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+
+                        if viewModel.taxAmount > 0 {
+                            FareLineItem(
+                                label: "Tax (\(String(format: "%.2f", viewModel.taxRate * 100))%)",
+                                amount: viewModel.taxAmount
+                            )
+                        }
+
+                        Divider()
+
+                        // 96% to driver messaging in green
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.subheadline)
+                            Text("\(AppConfig.shared.driverEarningsPercentage)% goes to your driver")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.green)
+                            Spacer()
+                        }
+                    }
+
+                    Divider()
+
+                    // Additional Amount for Driver
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Add Extra for Driver (Optional)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        HStack(spacing: 8) {
+                            ForEach(AppConfig.shared.rideTipOptions, id: \.self) { amount in
+                                Button(action: { viewModel.tip = amount }) {
+                                    Text(amount == 0 ? "None" : "$\(Int(amount))")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(viewModel.tip == amount ? Color.blue : Color.gray.opacity(0.1))
+                                        .foregroundColor(viewModel.tip == amount ? .white : .primary)
+                                        .cornerRadius(10)
+                                }
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    // Your Offer Summary
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Your Offer")
+                                .font(.headline)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", viewModel.totalAmount))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+
+                        // Driver receives info
+                        HStack {
+                            Image(systemName: "person.fill.checkmark")
+                                .foregroundColor(.green)
+                            Text("Driver receives: $\(String(format: "%.2f", viewModel.driverEarnings))")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                            Text("(You pay driver directly)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Divider()
+
+                    // Legal Disclosures (P2P Rideshare Matchmaking)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("PEER-TO-PEER RIDESHARE")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+
+                        Text("Dollor.ai connects riders with independent drivers. Drivers set their own rates and may accept, decline, or counter your offer. The connection fee is for using our matchmaking service. Transportation is provided directly by the driver, not Dollor.ai. By using this service, you agree to our Terms of Service.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                            Text("Connection fee: $\(String(format: "%.2f", viewModel.platformFee)) (tiered $1-$3) • Driver sets final price")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .padding()
+            }
+
+            // Action Buttons
+            VStack(spacing: 12) {
+                // Find Driver with Suggested Offer
+                Button(action: onRequestRide) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                        Text("Find Driver • Offer $\(String(format: "%.2f", viewModel.estimatedFare))")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(viewModel.canRequestRide ? Theme.brandGreen : Color.gray)
+                    .cornerRadius(12)
+                }
+                .disabled(!viewModel.canRequestRide)
+
+                // Make Custom Offer Button
+                Button(action: { showNegotiateSheet = true }) {
+                    HStack {
+                        Image(systemName: "dollarsign.arrow.circlepath")
+                        Text("Make a Different Offer")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Theme.brandOrange)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.brandOrange.opacity(0.1))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Theme.brandOrange.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .disabled(!viewModel.canRequestRide)
+
+                // Info text - P2P matchmaking disclaimer with tiered pricing
+                HStack(spacing: 4) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.caption2)
+                        .foregroundColor(Theme.brandGreen)
+                    Text("$1-$3 tiered connection fee • Drivers are independent")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+        )
+        .sheet(isPresented: $showNegotiateSheet) {
+            PreRequestNegotiationSheet(
+                viewModel: viewModel,
+                isPresented: $showNegotiateSheet,
+                onRequestWithOffer: { offer in
+                    viewModel.initialFareOffer = offer
+                    showNegotiateSheet = false
+                    onRequestRide()
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+// MARK: - Pre-Request Negotiation Sheet
+struct PreRequestNegotiationSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Binding var isPresented: Bool
+    let onRequestWithOffer: (Double) -> Void
+
+    @State private var customOffer: String = ""
+    @State private var selectedQuickOffer: Double? = nil
+
+    private var estimatedFare: Double { viewModel.estimatedFare }
+    private var platformFee: Double { AppConfig.shared.calculateRidesharePlatformFee(fareAmount: estimatedFare) }
+
+    private var minFare: Double { AppConfig.shared.rideMinFare }
+
+    private var quickOfferOptions: [Double] {
+        let base = estimatedFare
+        return [
+            max(minFare, base * 0.6),  // 40% off
+            max(minFare, base * 0.7),  // 30% off
+            max(minFare, base * 0.8),  // 20% off
+            max(minFare, base * 0.9)   // 10% off
+        ].map { round($0 * 100) / 100 }
+    }
+
+    private var currentOffer: Double? {
+        if let selected = selectedQuickOffer {
+            return selected
+        }
+        if let custom = Double(customOffer), custom >= minFare {
+            return custom
+        }
+        return nil
+    }
+
+    private var driverEarnings: Double {
+        guard let offer = currentOffer else { return 0 }
+        let taxRate = StateTaxRates.rate(for: viewModel.pickupAddress?.state ?? "TX")
+        return offer - platformFee - (offer * taxRate)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.brandOrange.opacity(0.15))
+                                .frame(width: 80, height: 80)
+                            Image(systemName: "dollarsign.arrow.circlepath")
+                                .font(.system(size: 36))
+                                .foregroundColor(Theme.brandOrange)
+                        }
+
+                        Text("Make Your Offer")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("Independent drivers can accept, decline, or counter")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top)
+
+                    // Suggested vs Your Offer
+                    HStack(spacing: 20) {
+                        VStack(spacing: 4) {
+                            Text("Suggested")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", estimatedFare))")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+
+                        VStack(spacing: 4) {
+                            Text("Your Offer")
+                                .font(.caption)
+                                .foregroundColor(Theme.brandOrange)
+                            Text(currentOffer != nil ? "$\(String(format: "%.2f", currentOffer!))" : "--")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(Theme.brandOrange)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandOrange.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+
+                    // Quick Offer Buttons
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Offers")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.horizontal)
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            ForEach(quickOfferOptions, id: \.self) { amount in
+                                Button(action: {
+                                    selectedQuickOffer = amount
+                                    customOffer = ""
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Text("$\(String(format: "%.0f", amount))")
+                                            .font(.headline)
+                                        let savings = estimatedFare - amount
+                                        if savings > 0 {
+                                            Text("Save $\(String(format: "%.0f", savings))")
+                                                .font(.caption2)
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(selectedQuickOffer == amount ? Theme.brandOrange : Color.gray.opacity(0.1))
+                                    .foregroundColor(selectedQuickOffer == amount ? .white : .primary)
+                                    .cornerRadius(12)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Custom Amount
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Or enter custom amount")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        HStack {
+                            Text("$")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            TextField("0.00", text: $customOffer)
+                                .font(.title2)
+                                .keyboardType(.decimalPad)
+                                .onChange(of: customOffer) { _, _ in
+                                    selectedQuickOffer = nil
+                                }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+
+                        Text("Minimum fare: $\(String(format: "%.2f", AppConfig.shared.rideMinFare))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+
+                    // Driver Payment Preview
+                    if currentOffer != nil {
+                        VStack(spacing: 8) {
+                            Divider()
+
+                            HStack {
+                                Image(systemName: "person.fill.checkmark")
+                                    .foregroundColor(Theme.brandGreen)
+                                Text("Driver would receive:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("$\(String(format: "%.2f", driverEarnings))")
+                                    .font(.headline)
+                                    .foregroundColor(Theme.brandGreen)
+                            }
+                            .padding()
+                            .background(Theme.brandGreen.opacity(0.1))
+                            .cornerRadius(12)
+
+                            HStack(spacing: 4) {
+                                Image(systemName: "info.circle")
+                                Text("Connection fee: $\(String(format: "%.0f", platformFee)) • Driver is independent")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 20)
+                }
+            }
+            .navigationTitle("Make an Offer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12) {
+                    Button(action: {
+                        if let offer = currentOffer {
+                            onRequestWithOffer(offer)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "paperplane.fill")
+                            Text(currentOffer != nil ? "Request with $\(String(format: "%.0f", currentOffer!)) Offer" : "Enter an Amount")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(currentOffer != nil ? Theme.brandOrange : Color.gray)
+                        .cornerRadius(12)
+                    }
+                    .disabled(currentOffer == nil)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+            }
+        }
+    }
+}
+
+// MARK: - Location Search View
+struct RideLocationSearchView: View {
+    let title: String
+    let onSelect: (RideAddressInput) -> Void
+    @Environment(\.dismiss) var dismiss
+
+    @State private var searchText = ""
+    @State private var searchResults: [SearchResult] = []
+    @State private var isSearching = false
+    @State private var isGettingLocation = false
+    @StateObject private var locationManager = RideLocationManager()
+
+    struct SearchResult: Identifiable {
+        let id = UUID()
+        let name: String
+        let address: String
+        let lat: Double
+        let lng: Double
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Search Bar
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+
+                    TextField("Search address...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding()
+                .onChange(of: searchText) { _, newValue in
+                    searchAddress(newValue)
+                }
+
+                // Current Location Option
+                Button(action: useCurrentLocation) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.1))
+                                .frame(width: 44, height: 44)
+                            if isGettingLocation {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "location.fill")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+
+                        VStack(alignment: .leading) {
+                            Text("Use Current Location")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(isGettingLocation ? "Getting your location..." : "Based on your GPS")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                    .padding()
+                }
+                .disabled(isGettingLocation)
+
+                Divider()
+                    .padding(.horizontal)
+
+                // Search Results
+                if isSearching {
+                    ProgressView()
+                        .padding()
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(searchResults) { result in
+                                Button(action: {
+                                    selectResult(result)
+                                }) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "mappin.circle.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.gray)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(result.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.primary)
+                                            Text(result.address)
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                                .lineLimit(1)
+                                        }
+
+                                        Spacer()
+                                    }
+                                    .padding()
+                                }
+
+                                Divider()
+                                    .padding(.leading, 56)
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func searchAddress(_ query: String) {
+        guard query.count > 2 else {
+            searchResults = []
+            return
+        }
+
+        isSearching = true
+
+        // Use MKLocalSearch for address lookup
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        request.resultTypes = .address
+
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            DispatchQueue.main.async {
+                isSearching = false
+
+                guard let response = response else { return }
+
+                searchResults = response.mapItems.prefix(10).map { item in
+                    SearchResult(
+                        name: item.name ?? "Unknown",
+                        address: item.placemark.formattedAddress,
+                        lat: item.placemark.coordinate.latitude,
+                        lng: item.placemark.coordinate.longitude
+                    )
+                }
+            }
+        }
+    }
+
+    private func selectResult(_ result: SearchResult) {
+        // Use reverse geocoding to get proper address components
+        let location = CLLocation(latitude: result.lat, longitude: result.lng)
+        let geocoder = CLGeocoder()
+
+        geocoder.reverseGeocodeLocation(location) { placemarks, error in
+            let address: RideAddressInput
+
+            if let placemark = placemarks?.first {
+                // Properly extract address components from placemark
+                let streetNumber = placemark.subThoroughfare ?? ""
+                let streetName = placemark.thoroughfare ?? ""
+                let street = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+
+                address = RideAddressInput(
+                    street: street.isEmpty ? result.name : street,
+                    city: placemark.locality ?? "",
+                    state: placemark.administrativeArea ?? "",
+                    zip: placemark.postalCode ?? "",
+                    lat: result.lat,
+                    lng: result.lng
+                )
+            } else {
+                // Fallback: Parse from formatted string if geocoding fails
+                let components = result.address.components(separatedBy: ", ")
+                let street = components.first ?? result.address
+                let city = components.count > 1 ? components[1] : ""
+                let stateZip = components.count > 2 ? components[2] : ""
+                let stateParts = stateZip.components(separatedBy: " ")
+                let state = stateParts.first ?? ""
+                let zip = stateParts.count > 1 ? stateParts[1] : ""
+
+                address = RideAddressInput(
+                    street: street,
+                    city: city,
+                    state: state,
+                    zip: zip,
+                    lat: result.lat,
+                    lng: result.lng
+                )
+            }
+
+            onSelect(address)
+        }
+    }
+
+    private func useCurrentLocation() {
+        isGettingLocation = true
+
+        // Request location permission if needed
+        locationManager.requestLocationPermission()
+
+        // Get current location
+        locationManager.getCurrentLocation { location in
+            guard let location = location else {
+                isGettingLocation = false
+                return
+            }
+
+            // Reverse geocode to get address
+            let geocoder = CLGeocoder()
+            geocoder.reverseGeocodeLocation(location) { placemarks, error in
+                isGettingLocation = false
+
+                guard let placemark = placemarks?.first else {
+                    // Use coordinates even without address
+                    let address = RideAddressInput(
+                        street: "Current Location",
+                        city: "Unknown",
+                        state: "CA",
+                        zip: "",
+                        lat: location.coordinate.latitude,
+                        lng: location.coordinate.longitude
+                    )
+                    onSelect(address)
+                    return
+                }
+
+                // Show full address with house number (subThoroughfare + thoroughfare)
+                // Example: "123 Main St" not just "Main St"
+                let streetNumber = placemark.subThoroughfare ?? ""
+                let streetName = placemark.thoroughfare ?? ""
+                let fullStreet = [streetNumber, streetName].filter { !$0.isEmpty }.joined(separator: " ")
+
+                let address = RideAddressInput(
+                    street: fullStreet.isEmpty ? (placemark.name ?? "Current Location") : fullStreet,
+                    city: placemark.locality ?? "",
+                    state: placemark.administrativeArea ?? "",
+                    zip: placemark.postalCode ?? "",
+                    lat: location.coordinate.latitude,
+                    lng: location.coordinate.longitude
+                )
+                onSelect(address)
+            }
+        }
+    }
+}
+
+// MARK: - Location Manager for Ride Request
+class RideLocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    private var locationCompletion: ((CLLocation?) -> Void)?
+
+    @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    @Published var currentLocation: CLLocation?
+
+    override init() {
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        authorizationStatus = locationManager.authorizationStatus
+    }
+
+    func requestLocationPermission() {
+        if authorizationStatus == .notDetermined {
+            locationManager.requestWhenInUseAuthorization()
+        }
+    }
+
+    func getCurrentLocation(completion: @escaping (CLLocation?) -> Void) {
+        locationCompletion = completion
+
+        switch authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.requestLocation()
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        default:
+            completion(nil)
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            currentLocation = location
+            locationCompletion?(location)
+            locationCompletion = nil
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location error: \(error.localizedDescription)")
+        locationCompletion?(nil)
+        locationCompletion = nil
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+
+        // If just authorized, try to get location
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            if locationCompletion != nil {
+                locationManager.requestLocation()
+            }
+        }
+    }
+}
+
+// MARK: - Fare Line Item
+struct FareLineItem: View {
+    let label: String
+    let amount: Double
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text("$\(String(format: "%.2f", amount))")
+                .font(.subheadline)
+                .foregroundColor(.primary)
+        }
+    }
+}
+
+// MARK: - MKPlacemark Extension
+extension MKPlacemark {
+    var formattedAddress: String {
+        let components = [
+            thoroughfare,
+            locality,
+            administrativeArea,
+            postalCode
+        ].compactMap { $0 }
+        return components.joined(separator: ", ")
+    }
+}
+
+// MARK: - Ride Tracking View
+struct RideTrackingView: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @State private var mapPosition: MapCameraPosition = .automatic
+
+    var body: some View {
+        ZStack {
+            // Map
+            Map(position: $mapPosition) {
+                // Pickup
+                if let pickup = viewModel.pickupAddress {
+                    Annotation("Pickup", coordinate: CLLocationCoordinate2D(
+                        latitude: pickup.lat,
+                        longitude: pickup.lng
+                    )) {
+                        RidePickupMarker()
+                    }
+                }
+
+                // Dropoff
+                if let dropoff = viewModel.dropoffAddress {
+                    Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
+                        latitude: dropoff.lat,
+                        longitude: dropoff.lng
+                    )) {
+                        RideDropoffMarker()
+                    }
+                }
+
+                // Driver location
+                if let tracking = viewModel.rideTracking,
+                   let lat = tracking.driverLatitude,
+                   let lng = tracking.driverLongitude {
+                    Annotation("Driver", coordinate: CLLocationCoordinate2D(
+                        latitude: lat,
+                        longitude: lng
+                    )) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.black)
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "car.fill")
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+
+                UserAnnotation()
+            }
+            .ignoresSafeArea(edges: .top)
+
+            // Bottom Info Card
+            VStack {
+                Spacer()
+
+                RideStatusCard(viewModel: viewModel)
+            }
+        }
+    }
+}
+
+// MARK: - Ride Status Card
+struct RideStatusCard: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @State private var showCancelConfirm = false
+    @State private var showNegotiateSheet = false
+    @State private var customerOfferAmount: String = ""
+
+    var statusText: String {
+        switch viewModel.currentStep {
+        case .waitingForDriver:
+            return "Finding available drivers..."
+        case .driverEnRoute:
+            return "Driver accepted and is on the way!"
+        case .rideInProgress:
+            return "In transit with driver"
+        case .completed:
+            return "Trip completed!"
+        default:
+            return "Processing..."
+        }
+    }
+
+    var statusIcon: String {
+        switch viewModel.currentStep {
+        case .waitingForDriver:
+            return "magnifyingglass"
+        case .driverEnRoute:
+            return "car.fill"
+        case .rideInProgress:
+            return "arrow.right"
+        case .completed:
+            return "checkmark.circle.fill"
+        default:
+            return "clock"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Handle
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 40, height: 5)
+                .padding(.top, 10)
+
+            // Status
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.1))
+                        .frame(width: 50, height: 50)
+
+                    if viewModel.currentStep == .waitingForDriver {
+                        ProgressView()
+                    } else {
+                        Image(systemName: statusIcon)
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(statusText)
+                        .font(.headline)
+
+                    if let ride = viewModel.activeRide {
+                        Text("Ride #\(ride.rideNumber)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+
+                Spacer()
+
+                // Cancel button (when cancellation is allowed)
+                if viewModel.currentStep != .completed && viewModel.currentStep != .rideInProgress {
+                    Button(action: { showCancelConfirm = true }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.red.opacity(0.7))
+                    }
+                }
+            }
+            .padding(.horizontal)
+
+            // Negotiation Status Section ($1+$1 Platform Fee Model)
+            if viewModel.isNegotiating {
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Show driver counter-offer if available
+                    if let driverOffer = viewModel.driverOfferAmount {
+                        // Driver Counter-Offer Card
+                        VStack(spacing: 12) {
+                            HStack {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.orange.opacity(0.15))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .foregroundColor(.orange)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Driver Counter-Offer")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Text("Platform fee: only $\(String(format: "%.0f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: driverOffer)))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Text("$\(String(format: "%.2f", driverOffer))")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.orange)
+                            }
+
+                            // Driver earnings transparency
+                            HStack {
+                                Image(systemName: "person.fill.checkmark")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                Text("Driver earns: $\(String(format: "%.2f", driverOffer - AppConfig.shared.calculateRidesharePlatformFee(fareAmount: driverOffer)))")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                Spacer()
+                            }
+
+                            HStack(spacing: 12) {
+                                Button(action: { viewModel.acceptDriverOffer() }) {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("Accept")
+                                    }
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.green)
+                                    .cornerRadius(10)
+                                }
+
+                                Button(action: { showNegotiateSheet = true }) {
+                                    HStack {
+                                        Image(systemName: "arrow.left.arrow.right")
+                                        Text("Counter")
+                                    }
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.orange.opacity(0.15))
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
+                        .padding()
+                        .background(Color.orange.opacity(0.05))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+
+                    } else {
+                        // Waiting for driver response
+                        HStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Negotiating...")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("Waiting for driver's response")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button(action: { showNegotiateSheet = true }) {
+                                Text("Change Offer")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+            }
+
+            // Driver Info (when assigned)
+            if let tracking = viewModel.rideTracking,
+               let driverName = tracking.driverName {
+                Divider()
+
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 50, height: 50)
+                        Image(systemName: "person.fill")
+                            .foregroundColor(.gray)
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text(driverName)
+                            .font(.headline)
+                        Text("Your driver")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    if let phone = tracking.driverPhone {
+                        Button(action: { callDriver(phone) }) {
+                            Image(systemName: "phone.fill")
+                                .font(.title3)
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.green)
+                                .clipShape(Circle())
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            // Negotiation Message
+            if let message = viewModel.negotiationMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.green)
+                    .padding(.horizontal)
+            }
+
+            // Complete Button (when ride is done)
+            if viewModel.currentStep == .completed {
+                Button(action: { viewModel.resetRide() }) {
+                    Text("Done")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+            }
+
+            Spacer().frame(height: 20)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+        )
+        // Cancel Confirmation
+        .confirmationDialog("Cancel Ride?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
+            Button("Cancel Ride\(viewModel.estimatedCancellationFee > 0 ? " ($\(String(format: "%.0f", viewModel.estimatedCancellationFee)) fee)" : " (Free)")", role: .destructive) {
+                viewModel.cancelRide(reason: "Customer cancelled")
+            }
+            Button("Keep Ride", role: .cancel) { }
+        } message: {
+            Text(viewModel.estimatedCancellationFee > 0 ?
+                 "A $\(String(format: "%.0f", viewModel.estimatedCancellationFee)) cancellation fee will apply." :
+                 "You can cancel for free right now.")
+        }
+        // Negotiate Sheet
+        .sheet(isPresented: $showNegotiateSheet) {
+            CustomerNegotiationSheet(
+                viewModel: viewModel,
+                customerOfferAmount: $customerOfferAmount,
+                isPresented: $showNegotiateSheet
+            )
+        }
+    }
+
+    private func callDriver(_ phone: String) {
+        let cleanPhone = phone.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        if let url = URL(string: "tel://\(cleanPhone)") {
+            UIApplication.shared.open(url)
+        }
+    }
+}
+
+// MARK: - Customer Negotiation Sheet
+struct CustomerNegotiationSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Binding var customerOfferAmount: String
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    Image(systemName: "dollarsign.arrow.circlepath")
+                        .font(.system(size: 50))
+                        .foregroundColor(.orange)
+
+                    Text("Negotiate Fare")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Only $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) platform fee to you + $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) to driver")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 20)
+
+                // Current offers
+                if let driverOffer = viewModel.driverOfferAmount {
+                    HStack(spacing: 20) {
+                        VStack {
+                            Text("Driver's Offer")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", driverOffer))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(12)
+
+                        VStack {
+                            Text("Your Budget")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$\(String(format: "%.2f", viewModel.totalAmount))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
+
+                // Your offer input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your Counter-Offer")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    HStack {
+                        Text("$")
+                            .font(.title)
+                            .foregroundColor(.secondary)
+
+                        TextField("0.00", text: $customerOfferAmount)
+                            .font(.title)
+                            .keyboardType(.decimalPad)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+
+                    Text("Driver receives your offer minus $\(String(format: "%.2f", AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) platform fee")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+
+                // Quick offer buttons
+                HStack(spacing: 12) {
+                    ForEach([5, 10, 15, 20], id: \.self) { amount in
+                        Button(action: { customerOfferAmount = "\(amount)" }) {
+                            Text("$\(amount)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // Submit button
+                Button(action: submitOffer) {
+                    HStack {
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Submit Offer")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(customerOfferAmount.isEmpty ? Color.gray : Color.blue)
+                    .cornerRadius(12)
+                }
+                .disabled(customerOfferAmount.isEmpty || viewModel.isLoading)
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func submitOffer() {
+        guard let amount = Double(customerOfferAmount) else { return }
+        viewModel.submitFareOffer(proposedFare: amount)
+    }
+}
+
+// MARK: - Preview
+#Preview {
+    RideRequestView()
+        .environmentObject(AuthViewModel())
+}

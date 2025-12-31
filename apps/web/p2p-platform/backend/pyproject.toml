@@ -1,0 +1,75 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short -ra"
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+    "security: Security-related tests",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "setup.py",
+    "conftest.py",
+    # Utility and migration scripts (not production code)
+    "init_*.py",
+    "migrate_*.py",
+    "seed_*.py",
+    "create_*.py",
+    "add_*.py",
+    "check_*.py",
+    "reset_*.py",
+    "scrape_*.py",
+    "update_db_*.py",
+    "run_*.py",
+    "get-pip.py",
+    "main.py",  # Old main file, replaced by main_new.py
+    "*_connector.py",
+    "queries.py",
+    "stock_images.py",
+    "test_*.py",  # Old test files in root
+    # Non-core files (UI routes, background services)
+    "ai_dashboard_routes.py",
+    "ai_employee_reporting.py",
+    "push_notification_service.py",
+    "websocket_server.py",
+    "vibing_routes.py",
+    "image_service.py",
+    "menu_verification.py",
+    "realtime_events.py",
+    # Large files requiring database integration tests (exclude for unit test coverage)
+    "main_new.py",
+    "auto_onboarding.py",
+    "order_flow.py",
+    "stripe_integration.py",
+    "database.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.coverage.html]
+directory = "htmlcov"

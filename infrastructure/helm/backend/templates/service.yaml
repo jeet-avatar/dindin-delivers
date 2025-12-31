@@ -1,0 +1,75 @@
+# Main service (stable/active)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.name }}
+---
+{{- if eq .Values.rollout.strategy "canary" }}
+# Stable service for canary
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-stable
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.name }}
+---
+# Canary service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-canary
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.name }}
+{{- end }}
+---
+{{- if and (eq .Values.rollout.strategy "blueGreen") .Values.previewService.enabled }}
+# Preview service for blue-green
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-preview
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.previewService.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ .Values.name }}
+{{- end }}

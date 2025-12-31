@@ -1,0 +1,189 @@
+# Dollor.ai API Reference
+
+---
+
+## Environments
+
+| Environment | URL |
+|-------------|-----|
+| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Production** | `https://api.dollor.ai` |
+
+## Demo Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Customer | demo@dollor.ai | demo123 |
+| Driver | demodriver@dollor.ai | demo123 |
+| Vendor | demobusiness@dollor.ai | demo123 |
+
+---
+
+## Customer Endpoints
+
+### Authentication
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/auth/customer/login` | POST | No |
+| `/api/customer/login` | POST | No |
+| `/api/auth/customer/register` | POST | No |
+| `/api/auth/customer/google` | POST | No |
+| `/api/auth/customer/apple-auth` | POST | No |
+| `/api/auth/customer/me` | GET | Yes |
+
+### Restaurants
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/vendors/published` | GET | No |
+| `/api/vendors/{id}/menu` | GET | No |
+| `/api/vendors/nearby` | GET | No |
+
+### Orders
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/orders/create` | POST | Yes |
+| `/api/customer/orders` | GET | Yes |
+| `/api/customer/orders/{id}/track` | GET | Yes |
+| `/api/orders/{id}/cancel` | POST | Yes |
+
+### Rideshare
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/rides/estimate` | POST | Yes |
+| `/api/rides/request` | POST | Yes |
+| `/api/rides/{id}/cancel` | POST | Yes |
+| `/api/rides/{id}/track` | GET | Yes |
+
+### Addresses
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/addresses/{customer_id}` | GET | Yes |
+| `/api/addresses` | POST | Yes |
+| `/api/addresses/{id}` | DELETE | Yes |
+
+---
+
+## Driver Endpoints
+
+### Authentication
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/auth/driver/login` | POST | No |
+| `/api/driver/login` | POST | No |
+| `/api/auth/driver/register` | POST | No |
+| `/api/auth/driver/google` | POST | No |
+
+### Profile
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/drivers/{id}` | GET/PUT | Yes |
+| `/api/drivers/{id}/location` | PUT | Yes |
+| `/api/drivers/{id}/documents` | POST | Yes |
+
+### Orders/Rides
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/driver/orders/available` | GET | Yes |
+| `/api/driver/orders/{id}/accept` | POST | Yes |
+| `/api/driver/orders/{id}/delivered` | POST | Yes |
+| `/api/driver/rides/available` | GET | Yes |
+
+---
+
+## Vendor Endpoints
+
+### Authentication
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/auth/vendor/login` | POST | No |
+| `/api/vendor/login` | POST | No |
+| `/api/auth/vendor/register` | POST | No |
+
+### Restaurant
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/restaurants/{id}` | GET/PUT | Yes |
+| `/api/restaurants/{id}/menu` | GET | Yes |
+| `/api/restaurants/{id}/menu/items` | POST | Yes |
+
+### Orders
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/vendor/orders` | GET | Yes |
+| `/api/vendor/orders/{id}/accept` | POST | Yes |
+| `/api/vendor/orders/{id}/ready` | POST | Yes |
+
+---
+
+## Payment Endpoints
+
+| Endpoint | Method | Auth |
+|----------|--------|------|
+| `/api/payments/methods` | GET | Yes |
+| `/api/payments/intent` | POST | Yes |
+| `/api/stripe/setup-intent` | POST | Yes |
+
+---
+
+## WebSocket Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/ws/order/{order_id}` | Order tracking |
+| `/ws/ride/{ride_id}` | Ride tracking |
+| `/ws/chat/{conversation_id}` | Real-time chat |
+| `/ws/negotiation/{id}` | Price negotiation updates |
+
+---
+
+## Communication Services
+
+### Negotiation Service (Port 8017)
+
+Real-time price negotiation between drivers and customers.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/negotiations` | POST | Create new negotiation |
+| `/api/negotiations/{id}/customer-offer` | POST | Customer counter-offer |
+| `/api/negotiations/{id}/driver-offer` | POST | Driver counter-offer |
+| `/api/negotiations/{id}/accept` | POST | Accept current price |
+| `/api/negotiations/{id}` | GET | Get negotiation status |
+
+### Chat Service (Port 8018)
+
+Real-time messaging between drivers and customers.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat/conversations` | POST | Create conversation |
+| `/api/chat/conversations/{id}/messages` | POST | Send message |
+| `/api/chat/conversations/{id}/messages` | GET | Get message history |
+| `/api/chat/conversations/{id}/read` | POST | Mark messages read |
+
+**Quick Replies:**
+- Customer: "I'm at pickup", "Running late", "Can you call me?", "Thank you!"
+- Driver: "On my way!", "I've arrived", "Share your location?", "I'll wait here"
+
+### Call Service (Port 8019)
+
+Privacy-protected phone calls via Twilio number masking.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/call/sessions` | POST | Create call session |
+| `/api/call/sessions/{id}` | PUT | Add driver to session |
+| `/api/call/sessions/{id}` | GET | Get session details |
+| `/api/call/masked-number` | GET | Get masked number to dial |
+| `/api/call/initiate` | POST | Log call initiation |
+| `/api/call/logs/{session_id}` | GET | Get call history |
+| `/api/call/sessions/{id}` | DELETE | End call session |
+
+---
+
+## Legal
+
+| Endpoint | Method |
+|----------|--------|
+| `/api/legal/terms` | GET |
+| `/api/legal/privacy` | GET |

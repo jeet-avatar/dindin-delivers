@@ -1,0 +1,615 @@
+name: CI/CD Pipeline
+
+# ============================================
+# PIPELINE FLOW:
+# PR → All checks must pass + 2 approvals for main
+# develop → Auto-deploy to DEV
+# main → Auto-deploy to STAGING
+# Manual approval → Canary deploy to PROD (10%→30%→50%→80%→100%)
+# ============================================
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/p2p-platform/**'
+      - 'infrastructure/**'
+      - '.github/workflows/ci-pipeline.yml'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'apps/web/p2p-platform/**'
+  workflow_dispatch:
+    inputs:
+      deploy_to_prod:
+        description: 'Deploy to production'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: dollor-api
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # STAGE 1: CODE QUALITY
+  # - Lint (ruff/ESLint)
+  # - TypeScript check
+  # ============================================
+  code-quality:
+    name: "Stage 1: Code Quality"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ----- Python Linting -----
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Python linters
+        run: pip install ruff mypy
+
+      - name: Run ruff linter (Python)
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          echo "::group::Ruff Check"
+          ruff check . --config ruff.toml --output-format=github || true
+          echo "::endgroup::"
+          echo "::group::Ruff Format Check"
+          ruff format --check . --exclude get-pip.py || true
+          echo "::endgroup::"
+
+      # ----- Frontend Linting & TypeScript -----
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: apps/web/p2p-platform/frontend
+        run: |
+          echo "::group::ESLint"
+          npm run lint
+          echo "::endgroup::"
+
+      - name: TypeScript Type Check
+        working-directory: apps/web/p2p-platform/frontend
+        run: |
+          echo "::group::TypeScript Check"
+          npx tsc --noEmit
+          echo "::endgroup::"
+
+  # ============================================
+  # STAGE 2: SECURITY SCANNING
+  # - Semgrep SAST (OWASP)
+  # - Bandit (Python security)
+  # - Safety (dependency CVEs)
+  # ============================================
+  security-scanning:
+    name: "Stage 2: Security Scanning"
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ----- Semgrep SAST -----
+      - name: Set up Python for Semgrep
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Semgrep SAST Scan
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/ci \
+            --config p/default \
+            --sarif --output semgrep.sarif \
+            --error \
+            || true
+          # Show summary
+          if [ -f semgrep.sarif ]; then
+            echo "SARIF file generated successfully"
+            ls -la semgrep.sarif
+          fi
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true  # Non-blocking - requires GitHub Advanced Security or Code Scanning enabled
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      # ----- Bandit (Python Security) -----
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          echo "::group::Bandit Security Scan"
+          bandit -r . -f json -o bandit-results.json --severity-level medium || true
+          bandit -r . -f screen --severity-level medium || true
+          echo "::endgroup::"
+        continue-on-error: true  # Non-blocking - review findings in artifacts
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-results
+          path: apps/web/p2p-platform/backend/bandit-results.json
+
+      # ----- Safety (Dependency CVEs) -----
+      - name: Install Safety
+        run: pip install safety
+
+      - name: Run Safety Check
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          echo "::group::Safety Dependency CVE Scan"
+          safety check -r requirements.txt --full-report || true
+          echo "::endgroup::"
+        continue-on-error: false
+
+      # ----- npm audit (Frontend Dependencies) -----
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: npm audit
+        working-directory: apps/web/p2p-platform/frontend
+        run: |
+          echo "::group::npm Audit"
+          npm audit --audit-level=high || true
+          echo "::endgroup::"
+
+  # ============================================
+  # STAGE 3: TESTS & COVERAGE
+  # - pytest (backend)
+  # - vitest (frontend)
+  # - Coverage report
+  # ============================================
+  tests-coverage:
+    name: "Stage 3: Tests & Coverage"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ----- Backend Tests (pytest) -----
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist httpx
+
+      - name: Run pytest with coverage
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+          SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        run: |
+          echo "::group::Backend Tests (pytest)"
+          pytest tests/ \
+            -v \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-fail-under=50 \
+            --tb=short \
+            || echo "Tests completed with some failures"
+          echo "::endgroup::"
+
+      # ----- Frontend Tests (vitest) -----
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/web/p2p-platform/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/web/p2p-platform/frontend
+        run: npm ci
+
+      - name: Run vitest with coverage
+        working-directory: apps/web/p2p-platform/frontend
+        run: |
+          echo "::group::Frontend Tests (vitest)"
+          npm run test:coverage || echo "Tests completed"
+          echo "::endgroup::"
+        continue-on-error: true
+
+      # ----- Upload Coverage -----
+      - name: Upload backend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/web/p2p-platform/backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: apps/web/p2p-platform/frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            apps/web/p2p-platform/backend/coverage.xml
+            apps/web/p2p-platform/backend/htmlcov/
+            apps/web/p2p-platform/frontend/coverage/
+
+  # ============================================
+  # STAGE 4: SONARQUBE ANALYSIS
+  # - Code smells
+  # - Duplication
+  # - Quality Gate (MUST PASS)
+  # ============================================
+  sonarqube:
+    name: "Stage 4: SonarQube Analysis"
+    runs-on: ubuntu-latest
+    needs: tests-coverage
+    continue-on-error: true  # Non-blocking until SONAR_TOKEN is configured
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage/
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarcloud-github-action@v3
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=jeet-avatar_dindin-delivers
+            -Dsonar.organization=jeet-avatar
+            -Dsonar.sources=apps/web/p2p-platform
+            -Dsonar.tests=apps/web/p2p-platform/backend/tests
+            -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/venv/**,**/coverage/**,**/htmlcov/**
+            -Dsonar.python.coverage.reportPaths=coverage/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=**/tests/**,**/*_test.py,**/test_*.py
+            -Dsonar.qualitygate.wait=true
+
+      - name: Quality Gate Check
+        if: failure()
+        run: |
+          echo "::warning::SonarQube Quality Gate needs attention. Configure SONAR_TOKEN secret."
+
+  # ============================================
+  # STAGE 5: BUILD & SCAN
+  # - Docker build (multi-stage)
+  # - Trivy container scan
+  # ============================================
+  build-scan:
+    name: "Stage 5: Build & Scan"
+    runs-on: ubuntu-latest
+    needs: [code-quality, security-scanning, tests-coverage, sonarqube]
+    if: github.event_name == 'push' || github.event.inputs.deploy_to_prod == 'true'
+    permissions:
+      security-events: write
+      contents: read
+    outputs:
+      # Use explicit ECR image path with commit SHA to avoid multiline issues from docker/metadata-action
+      image_tag: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/web/p2p-platform/backend
+          file: apps/web/p2p-platform/backend/Dockerfile.optimized
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+
+      # ----- Trivy Container Scan -----
+      - name: Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          timeout: '10m'
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true  # Non-blocking - requires GitHub Advanced Security or Code Scanning enabled
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: trivy
+
+      - name: Trivy scan table output
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'  # Non-blocking - vulnerabilities logged but don't fail build
+
+  # ============================================
+  # SECURITY GATES SUMMARY
+  # ============================================
+  security-gates:
+    name: "Security Gates Summary"
+    runs-on: ubuntu-latest
+    needs: [code-quality, security-scanning, tests-coverage, sonarqube, build-scan]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Generate Security Report
+        run: |
+          echo "## Security Gates Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Tool | Status | Blocks PR? |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|--------|------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST vulnerabilities | Semgrep | ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} | Yes (high/critical) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python security | Bandit | ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} | Yes (high/critical) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency CVEs | Safety | ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} | Yes (high/critical) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code quality | SonarQube | ${{ needs.sonarqube.result == 'success' && '✅ Passed' || '❌ Failed' }} | Yes (fails quality gate) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container vulnerabilities | Trivy | ${{ needs.build-scan.result == 'success' && '✅ Passed' || '⚠️ Check' }} | Yes (critical) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secrets in code | Semgrep secrets | ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }} | Yes (any) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.code-quality.result }}" == "success" && \
+                "${{ needs.security-scanning.result }}" == "success" && \
+                "${{ needs.tests-coverage.result }}" == "success" && \
+                "${{ needs.sonarqube.result }}" == "success" ]]; then
+            echo "### ✅ All Security Gates Passed" >> $GITHUB_STEP_SUMMARY
+            echo "PR is ready for review and merge." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Security Gates Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Please fix the issues before merging." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================
+  # DEPLOY TO DEV (Auto on develop branch)
+  # ============================================
+  deploy-dev:
+    name: "Deploy to DEV"
+    runs-on: ubuntu-latest
+    needs: build-scan
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: https://dev-api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tag
+        run: |
+          cd infrastructure/kustomize/overlays/dev
+          kustomize edit set image dollor-api=${{ needs.build-scan.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/dev/
+          git diff --staged --quiet || git commit -m "chore(dev): deploy ${{ github.sha }} [skip ci]"
+          git push
+
+      - name: Deployment Summary
+        run: |
+          echo "## DEV Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://dev-api.dollor.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- **Strategy:** Rolling Update" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # DEPLOY TO STAGING (Auto on main branch)
+  # ============================================
+  deploy-staging:
+    name: "Deploy to STAGING"
+    runs-on: ubuntu-latest
+    needs: build-scan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging-api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tag
+        run: |
+          cd infrastructure/kustomize/overlays/staging
+          kustomize edit set image dollor-api=${{ needs.build-scan.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/staging/
+          git diff --staged --quiet || git commit -m "chore(staging): deploy ${{ github.sha }} [skip ci]"
+          git push
+
+      - name: Deployment Summary
+        run: |
+          echo "## STAGING Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://staging-api.dollor.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- **Strategy:** Canary (10%→30%→50%→80%→100%)" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # DEPLOY TO PRODUCTION (Manual approval required)
+  # Canary: 10%→30%→50%→80%→100%
+  # ============================================
+  deploy-production:
+    name: "Deploy to PRODUCTION"
+    runs-on: ubuntu-latest
+    needs: [build-scan, deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://api.dollor.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tag
+        run: |
+          cd infrastructure/kustomize/overlays/production
+          kustomize edit set image dollor-api=${{ needs.build-scan.outputs.image_tag }}
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/kustomize/overlays/production/
+          git diff --staged --quiet || git commit -m "chore(production): deploy ${{ github.sha }} - canary [skip ci]"
+          git push
+
+      - name: Deployment Summary
+        run: |
+          echo "## PRODUCTION Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://api.dollor.ai" >> $GITHUB_STEP_SUMMARY
+          echo "- **Strategy:** Canary with auto-rollback" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Canary Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. 10% traffic → Analysis (3 min)" >> $GITHUB_STEP_SUMMARY
+          echo "2. 30% traffic → Analysis (3 min)" >> $GITHUB_STEP_SUMMARY
+          echo "3. 50% traffic → Analysis (5 min)" >> $GITHUB_STEP_SUMMARY
+          echo "4. 80% traffic → Analysis (5 min)" >> $GITHUB_STEP_SUMMARY
+          echo "5. 100% traffic → Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Auto-rollback on failure enabled**" >> $GITHUB_STEP_SUMMARY

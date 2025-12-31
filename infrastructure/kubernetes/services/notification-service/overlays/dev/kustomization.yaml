@@ -1,0 +1,40 @@
+# Dollor.ai Notification Service - Dev Overlay
+# =============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: notification-service
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: notification-service
+                resources:
+                  requests:
+                    cpu: 25m
+                    memory: 32Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+
+configMapGenerator:
+  - name: notification-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+
+images:
+  - name: dollor/notification-service
+    newTag: dev-latest

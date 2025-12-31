@@ -1,0 +1,207 @@
+# Dollor.ai TechCloudPro AI Video Service - Kubernetes Deployment
+# =================================================================
+# AI-powered video generation service using PyTorch and diffusers
+# Deploy with: kubectl apply -f deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: techcloudpro-employee
+  labels:
+    app: techcloudpro-employee
+    tier: ai-service
+    domain: video-generation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: techcloudpro-employee
+  template:
+    metadata:
+      labels:
+        app: techcloudpro-employee
+        tier: ai-service
+        domain: video-generation
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: techcloudpro-employee
+      containers:
+        - name: techcloudpro-employee
+          image: dollor/techcloudpro-employee:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: ENVIRONMENT
+            - name: FLASK_APP
+              value: "app.py"
+            - name: FLASK_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: FLASK_ENV
+            - name: MODEL_CACHE_DIR
+              value: "/models/cache"
+            - name: TRANSFORMERS_CACHE
+              value: "/models/transformers"
+            - name: TORCH_HOME
+              value: "/models/torch"
+            - name: HF_HOME
+              value: "/models/huggingface"
+            - name: CUDA_VISIBLE_DEVICES
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: CUDA_VISIBLE_DEVICES
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "max_split_size_mb:512"
+            - name: OMP_NUM_THREADS
+              value: "4"
+            - name: MKL_NUM_THREADS
+              value: "4"
+            - name: VIDEO_OUTPUT_DIR
+              value: "/tmp/videos"
+            - name: MAX_VIDEO_DURATION
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: MAX_VIDEO_DURATION
+            - name: MAX_CONCURRENT_JOBS
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: MAX_CONCURRENT_JOBS
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: techcloudpro-employee-config
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 4Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: 8000m
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: tmp-videos
+              mountPath: /tmp/videos
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: model-cache
+          emptyDir:
+            sizeLimit: 50Gi
+        - name: tmp-videos
+          emptyDir:
+            sizeLimit: 10Gi
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: accelerator
+                    operator: In
+                    values:
+                      - nvidia-gpu
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: techcloudpro-employee
+                topologyKey: kubernetes.io/hostname
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: techcloudpro-employee
+  labels:
+    app: techcloudpro-employee
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+  selector:
+    app: techcloudpro-employee
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: techcloudpro-employee
+  labels:
+    app: techcloudpro-employee
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: techcloudpro-employee-config
+  labels:
+    app: techcloudpro-employee
+data:
+  ENVIRONMENT: "production"
+  FLASK_ENV: "production"
+  CUDA_VISIBLE_DEVICES: "0"
+  MAX_VIDEO_DURATION: "60"
+  MAX_CONCURRENT_JOBS: "2"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability:4317"
+
+---
+# Note: Secrets should be created separately or via sealed-secrets
+# This is a placeholder - DO NOT commit actual secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: techcloudpro-employee-secrets
+  labels:
+    app: techcloudpro-employee
+type: Opaque
+stringData:
+  API_KEY: "CHANGE-THIS-IN-PRODUCTION-use-sealed-secrets"
+  HUGGINGFACE_TOKEN: "CHANGE-THIS-IN-PRODUCTION-use-sealed-secrets"

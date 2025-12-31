@@ -1,0 +1,57 @@
+# Dollor.ai Notification Service - ArgoCD Application (Staging)
+# ==============================================================
+# Deploys notification-service to staging environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: notification-service-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: notification-service
+    app.kubernetes.io/component: notifications
+    app.kubernetes.io/part-of: dollor-platform
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: dollor-staging
+
+  source:
+    repoURL: https://github.com/dollor-ai/eatfair-ios.git
+    targetRevision: HEAD
+    path: infrastructure/kubernetes/services/notification-service/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  info:
+    - name: Description
+      value: "Multi-channel notification service for Dollor.ai platform (Staging)"
+    - name: Port
+      value: "8009"
+    - name: Endpoints
+      value: "/api/notifications/*"

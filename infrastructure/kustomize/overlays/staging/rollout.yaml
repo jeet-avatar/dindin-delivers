@@ -1,0 +1,180 @@
+# Argo Rollout with Canary Strategy for Staging
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: staging-dollor-backend
+  namespace: staging
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: dollor-backend
+  template:
+    metadata:
+      labels:
+        app: dollor-backend
+        environment: staging
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: staging-dollor-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api:staging-latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: staging-dollor-backend-config
+            - secretRef:
+                name: staging-dollor-backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  strategy:
+    canary:
+      # Stable and Canary services
+      stableService: staging-dollor-backend-stable
+      canaryService: staging-dollor-backend-canary
+
+      # Traffic routing via nginx ingress
+      trafficRouting:
+        nginx:
+          stableIngress: staging-dollor-backend
+          annotationPrefix: nginx.ingress.kubernetes.io
+          additionalIngressAnnotations:
+            canary-by-header: X-Canary
+            canary-by-header-value: "true"
+
+      # Canary steps with analysis: 10%→30%→50%→80%→100%
+      steps:
+        # Step 1: 10% traffic
+        - setWeight: 10
+        - pause: { duration: 3m }
+        - analysis:
+            templates:
+              - templateName: staging-success-rate
+              - templateName: staging-latency
+            args:
+              - name: service-name
+                value: staging-dollor-backend-canary
+
+        # Step 2: 30% traffic
+        - setWeight: 30
+        - pause: { duration: 3m }
+        - analysis:
+            templates:
+              - templateName: staging-success-rate
+            args:
+              - name: service-name
+                value: staging-dollor-backend-canary
+
+        # Step 3: 50% traffic
+        - setWeight: 50
+        - pause: { duration: 5m }
+        - analysis:
+            templates:
+              - templateName: staging-success-rate
+              - templateName: staging-error-rate
+            args:
+              - name: service-name
+                value: staging-dollor-backend-canary
+
+        # Step 4: 80% traffic
+        - setWeight: 80
+        - pause: { duration: 5m }
+        - analysis:
+            templates:
+              - templateName: staging-success-rate
+            args:
+              - name: service-name
+                value: staging-dollor-backend-canary
+
+        # Step 5: Full rollout (100%)
+        - setWeight: 100
+
+      # Anti-affinity for canary pods
+      antiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          weight: 100
+
+      # Max surge and unavailable
+      maxSurge: "25%"
+      maxUnavailable: 0
+
+      # Abort if analysis fails
+      abortScaleDownDelaySeconds: 30
+---
+# Stable Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: staging-dollor-backend-stable
+  namespace: staging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: dollor-backend
+---
+# Canary Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: staging-dollor-backend-canary
+  namespace: staging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: dollor-backend

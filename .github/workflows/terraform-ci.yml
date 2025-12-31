@@ -1,0 +1,471 @@
+# Dollor.ai - Terraform CI/CD Pipeline
+# =====================================
+# Infrastructure as Code deployment with security scanning
+#
+# Security Tools:
+# - tfsec: Terraform security scanner
+# - checkov: Infrastructure security scanner
+# - terraform validate: Syntax validation
+# - terraform plan: Change detection
+
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - feature/dollar-ai-deployment
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/terraform/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-east-1'
+  TF_WORKING_DIR: 'infrastructure/terraform'
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  # =============================================================================
+  # TERRAFORM VALIDATION
+  # =============================================================================
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init (modules only)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+  # =============================================================================
+  # TFSEC SECURITY SCAN
+  # =============================================================================
+  tfsec:
+    name: tfsec Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          soft_fail: false
+          format: sarif
+          out: tfsec-results.sarif
+
+      - name: Upload tfsec SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+
+      - name: Run tfsec (console output)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          soft_fail: true
+
+  # =============================================================================
+  # CHECKOV SECURITY SCAN
+  # =============================================================================
+  checkov:
+    name: Checkov Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ env.TF_WORKING_DIR }}
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: true
+          skip_check: CKV_AWS_144,CKV_AWS_145  # Skip cross-region replication checks
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
+  # =============================================================================
+  # TERRAFORM PLAN - DEV
+  # =============================================================================
+  plan-dev:
+    name: Plan Dev
+    runs-on: ubuntu-latest
+    needs: [validate, tfsec, checkov]
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'push') ||
+      (github.event.inputs.environment == 'dev')
+    environment: dev-plan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/dev
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/dev
+        run: |
+          terraform plan -no-color -out=tfplan 2>&1 | tee plan_output.txt
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          cat plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+          TF_VAR_twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_firebase_credentials: ${{ secrets.FIREBASE_CREDENTIALS }}
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-dev
+          path: ${{ env.TF_WORKING_DIR }}/environments/dev/tfplan
+
+      - name: Comment PR with Plan
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const output = `### Terraform Plan - Dev Environment
+
+            \`\`\`
+            ${{ steps.plan.outputs.plan_output }}
+            \`\`\`
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  # =============================================================================
+  # TERRAFORM APPLY - DEV
+  # =============================================================================
+  apply-dev:
+    name: Apply Dev
+    runs-on: ubuntu-latest
+    needs: plan-dev
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event.inputs.action == 'apply' && github.event.inputs.environment == 'dev')
+    environment: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-dev
+          path: ${{ env.TF_WORKING_DIR }}/environments/dev
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/dev
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/dev
+        run: terraform apply -auto-approve tfplan
+
+  # =============================================================================
+  # TERRAFORM PLAN - STAGING
+  # =============================================================================
+  plan-staging:
+    name: Plan Staging
+    runs-on: ubuntu-latest
+    needs: [validate, tfsec, checkov]
+    if: github.event.inputs.environment == 'staging'
+    environment: staging-plan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/staging
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/staging
+        run: terraform plan -no-color -out=tfplan
+        env:
+          TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD }}
+          TF_VAR_twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_firebase_credentials: ${{ secrets.FIREBASE_CREDENTIALS }}
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-staging
+          path: ${{ env.TF_WORKING_DIR }}/environments/staging/tfplan
+
+  # =============================================================================
+  # TERRAFORM APPLY - STAGING
+  # =============================================================================
+  apply-staging:
+    name: Apply Staging
+    runs-on: ubuntu-latest
+    needs: plan-staging
+    if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'staging'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-staging
+          path: ${{ env.TF_WORKING_DIR }}/environments/staging
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/staging
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/staging
+        run: terraform apply -auto-approve tfplan
+
+  # =============================================================================
+  # TERRAFORM PLAN - PRODUCTION
+  # =============================================================================
+  plan-production:
+    name: Plan Production
+    runs-on: ubuntu-latest
+    needs: [validate, tfsec, checkov]
+    if: github.event.inputs.environment == 'production'
+    environment: production-plan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/production
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/production
+        run: terraform plan -no-color -out=tfplan
+        env:
+          TF_VAR_smtp_password: ${{ secrets.SMTP_PASSWORD_PROD }}
+          TF_VAR_twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN_PROD }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+          TF_VAR_firebase_credentials: ${{ secrets.FIREBASE_CREDENTIALS_PROD }}
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-production
+          path: ${{ env.TF_WORKING_DIR }}/environments/production/tfplan
+
+  # =============================================================================
+  # TERRAFORM APPLY - PRODUCTION (Requires Approval)
+  # =============================================================================
+  apply-production:
+    name: Apply Production
+    runs-on: ubuntu-latest
+    needs: plan-production
+    if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'production'
+    environment: production  # Requires manual approval
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-production
+          path: ${{ env.TF_WORKING_DIR }}/environments/production
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/production
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}/environments/production
+        run: terraform apply -auto-approve tfplan
+
+      - name: Notify Success
+        run: |
+          echo "==========================================="
+          echo "PRODUCTION INFRASTRUCTURE DEPLOYED!"
+          echo "==========================================="
+          echo ""
+          echo "Environment: production"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+
+  # =============================================================================
+  # COST ESTIMATION
+  # =============================================================================
+  cost-estimation:
+    name: Cost Estimation
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost breakdown
+        run: |
+          infracost breakdown --path=${{ env.TF_WORKING_DIR }}/environments/dev \
+            --format=json \
+            --out-file=/tmp/infracost.json
+        continue-on-error: true
+
+      - name: Post Infracost comment
+        uses: infracost/actions/comment@v1
+        with:
+          path: /tmp/infracost.json
+          behavior: update
+        continue-on-error: true

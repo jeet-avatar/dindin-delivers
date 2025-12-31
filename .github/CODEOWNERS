@@ -1,0 +1,62 @@
+# CODEOWNERS file
+# These owners will be requested for review when someone opens a pull request
+# that modifies code that they own.
+
+# Default owners for everything in the repo
+*                                           @jeet
+
+# ============================================
+# BACKEND
+# ============================================
+/apps/web/p2p-platform/backend/             @jeet
+/apps/web/p2p-platform/backend/main_new.py  @jeet
+/apps/web/p2p-platform/backend/models.py    @jeet
+
+# ============================================
+# FRONTEND
+# ============================================
+/apps/web/p2p-platform/frontend/            @jeet
+
+# ============================================
+# iOS APPS
+# ============================================
+/apps/ios/                                  @jeet
+/apps/ios/customer/                         @jeet
+/apps/ios/restaurant/                       @jeet
+/apps/ios/delivery/                         @jeet
+/apps/ios/eatfair-ios-shared/               @jeet
+
+# ============================================
+# INFRASTRUCTURE (Requires senior review)
+# ============================================
+/infrastructure/                            @jeet
+/infrastructure/kustomize/                  @jeet
+/infrastructure/helm/                       @jeet
+/infrastructure/argocd/                     @jeet
+/infrastructure/kubernetes/                 @jeet
+
+# Production overlays require additional review
+/infrastructure/kustomize/overlays/production/  @jeet
+
+# ============================================
+# CI/CD
+# ============================================
+/.github/                                   @jeet
+/.github/workflows/                         @jeet
+
+# ============================================
+# SECURITY SENSITIVE FILES
+# ============================================
+*.env*                                      @jeet
+*secret*                                    @jeet
+*credentials*                               @jeet
+*.pem                                       @jeet
+*.key                                       @jeet
+sonar-project.properties                    @jeet
+.semgrep.yml                                @jeet
+
+# ============================================
+# DOCUMENTATION
+# ============================================
+/docs/                                      @jeet
+*.md                                        @jeet

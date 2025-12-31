@@ -1,0 +1,80 @@
+# ============================================
+# Vertical Pod Autoscaler (VPA)
+# Automatically adjusts CPU/Memory requests
+# ============================================
+---
+# VPA for Dev (Auto mode - applies recommendations)
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: dollor-backend-vpa
+  namespace: dev
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dev-dollor-backend
+  updatePolicy:
+    # "Auto" - VPA applies recommendations automatically
+    # "Off" - VPA only provides recommendations (view with kubectl describe vpa)
+    # "Initial" - Only applies at pod creation
+    updateMode: "Off"  # Start with Off, switch to Auto once confident
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api
+        minAllowed:
+          cpu: 50m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 2000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# VPA for Staging
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: dollor-backend-vpa
+  namespace: staging
+spec:
+  targetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: staging-dollor-backend
+  updatePolicy:
+    updateMode: "Off"  # Recommendations only for staging
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api
+        minAllowed:
+          cpu: 100m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 2000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+---
+# VPA for Production (Recommendations only - never auto-apply in prod)
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: dollor-backend-vpa
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: prod-dollor-backend
+  updatePolicy:
+    updateMode: "Off"  # NEVER auto-apply in production
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api
+        minAllowed:
+          cpu: 250m
+          memory: 512Mi
+        maxAllowed:
+          cpu: 4000m
+          memory: 8Gi
+        controlledResources: ["cpu", "memory"]

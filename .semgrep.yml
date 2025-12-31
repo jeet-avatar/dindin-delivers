@@ -1,0 +1,71 @@
+# Semgrep Configuration for Dollor.ai
+# Security scanning rules
+
+rules:
+  # Custom rule: Detect hardcoded secrets
+  - id: hardcoded-secret
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "sk_live_..."
+          - pattern: $VAR = "sk_test_..."
+          - pattern: $VAR = "AKIA..."
+          - pattern: password = "..."
+          - pattern: api_key = "..."
+          - pattern: secret_key = "..."
+    message: "Hardcoded secret detected. Use environment variables or secret management."
+    languages: [python, javascript, typescript]
+    severity: ERROR
+
+  # Custom rule: SQL injection prevention
+  - id: sql-injection-format
+    pattern: |
+      cursor.execute(f"... {$VAR} ...")
+    message: "Potential SQL injection. Use parameterized queries instead."
+    languages: [python]
+    severity: ERROR
+
+  # Custom rule: Insecure JWT
+  - id: insecure-jwt-none
+    pattern: |
+      jwt.encode(..., algorithm="none", ...)
+    message: "JWT with 'none' algorithm is insecure."
+    languages: [python]
+    severity: ERROR
+
+# Rules to include from Semgrep registry
+# https://semgrep.dev/explore
+include:
+  # OWASP Top 10
+  - p/owasp-top-ten
+
+  # Language-specific security
+  - p/python
+  - p/javascript
+  - p/typescript
+
+  # Security audit
+  - p/security-audit
+
+  # Secrets detection
+  - p/secrets
+
+  # CI-specific rules
+  - p/ci
+
+  # Django/FastAPI specific
+  - p/django
+  - p/flask
+
+# Paths to exclude
+exclude:
+  - "**/*_test.py"
+  - "**/tests/**"
+  - "**/test_*.py"
+  - "**/node_modules/**"
+  - "**/__pycache__/**"
+  - "**/venv/**"
+  - "**/.git/**"
+  - "**/migrations/**"
+  - "**/*.min.js"
+  - "**/dist/**"
+  - "**/build/**"

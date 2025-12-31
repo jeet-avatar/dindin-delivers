@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:customer/eatfaircustomer.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:customer/Pods/Pods.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:restaurant/eatffairrestaurant.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:restaurant/Pods/Pods.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:delivery/eatffairdelivery.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:delivery/Pods/Pods.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:eatfair-ios-shared">
+   </FileRef>
+</Workspace>

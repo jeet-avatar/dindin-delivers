@@ -1,0 +1,611 @@
+# Dollor.ai - Microservices Local Development
+# =============================================
+# Start all services: docker-compose up -d
+# Start specific service: docker-compose up auth-service -d
+# View logs: docker-compose logs -f
+# Stop all: docker-compose down
+
+networks:
+  dollor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  zookeeper_data:
+  kafka_data:
+  elasticsearch_data:
+  clickhouse_data:
+  clickhouse_logs:
+  techcloudpro_models:
+  techcloudpro_outputs:
+
+services:
+  # ==========================================================================
+  # INFRASTRUCTURE SERVICES
+  # ==========================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: dollor-postgres
+    environment:
+      POSTGRES_USER: dollor
+      POSTGRES_PASSWORD: dollor_dev_password
+      POSTGRES_DB: dollor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dollor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dollor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # KAFKA EVENT INFRASTRUCTURE (CQRS/Event Sourcing)
+  # --------------------------------------------------------------------------
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: dollor-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: dollor-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9093:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Topic configuration for Dollor.ai event streaming
+      KAFKA_LOG_RETENTION_HOURS: 168  # 7 days default
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824  # 1GB segments
+      KAFKA_NUM_PARTITIONS: 12  # Default partitions
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: dollor-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: dollor-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - dollor-network
+
+  # --------------------------------------------------------------------------
+  # ELASTICSEARCH (CQRS Read Model)
+  # --------------------------------------------------------------------------
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: dollor-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=dollor-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: dollor-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dollor-network
+
+  # ==========================================================================
+  # CLICKHOUSE (Time-Series Analytics - Phase 4)
+  # ==========================================================================
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.11
+    container_name: dollor-clickhouse
+    environment:
+      - CLICKHOUSE_DB=dollor_analytics
+      - CLICKHOUSE_USER=dollor
+      - CLICKHOUSE_PASSWORD=dollor_analytics_pass
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native interface
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      - ./analytics/clickhouse/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # ==========================================================================
+  # MICROSERVICES
+  # ==========================================================================
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./core/auth-service/Dockerfile
+    container_name: dollor-auth-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./core/user-service/Dockerfile
+    container_name: dollor-user-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+    ports:
+      - "8002:8002"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  driver-service:
+    build:
+      context: .
+      dockerfile: ./core/driver-service/Dockerfile
+    container_name: dollor-driver-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - LOCATION_SERVICE_URL=http://location-service:8007
+    ports:
+      - "8003:8003"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  restaurant-service:
+    build:
+      context: .
+      dockerfile: ./core/restaurant-service/Dockerfile
+    container_name: dollor-restaurant-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+    ports:
+      - "8004:8004"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  order-service:
+    build:
+      context: .
+      dockerfile: ./core/order-service/Dockerfile
+    container_name: dollor-order-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8004
+      - DRIVER_SERVICE_URL=http://driver-service:8003
+      - PAYMENT_SERVICE_URL=http://payment-service:8006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8009
+    ports:
+      - "8005:8005"
+    depends_on:
+      - auth-service
+      - restaurant-service
+      - payment-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./core/payment-service/Dockerfile
+    container_name: dollor-payment-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+    ports:
+      - "8006:8006"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  location-service:
+    build:
+      context: .
+      dockerfile: ./core/location-service/Dockerfile
+    container_name: dollor-location-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-placeholder}
+    ports:
+      - "8007:8007"
+    depends_on:
+      - auth-service
+      - redis
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  menu-service:
+    build:
+      context: .
+      dockerfile: ./core/menu-service/Dockerfile
+    container_name: dollor-menu-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:8004
+    ports:
+      - "8008:8008"
+    depends_on:
+      - auth-service
+      - restaurant-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./core/notification-service/Dockerfile
+    container_name: dollor-notification-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - AWS_REGION=us-east-1
+      - FCM_SERVER_KEY=${FCM_SERVER_KEY:-placeholder}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-placeholder}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-placeholder}
+    ports:
+      - "8009:8009"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rating-service:
+    build:
+      context: .
+      dockerfile: ./core/rating-service/Dockerfile
+    container_name: dollor-rating-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+    ports:
+      - "8013:8013"
+    depends_on:
+      - auth-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ride-service:
+    build:
+      context: .
+      dockerfile: ./core/ride-service/Dockerfile
+    container_name: dollor-ride-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - DRIVER_SERVICE_URL=http://driver-service:8003
+      - LOCATION_SERVICE_URL=http://location-service:8007
+      - PAYMENT_SERVICE_URL=http://payment-service:8006
+      - PRICING_SERVICE_URL=http://pricing-service:8015
+    ports:
+      - "8014:8014"
+    depends_on:
+      - auth-service
+      - driver-service
+      - location-service
+      - pricing-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pricing-service:
+    build:
+      context: .
+      dockerfile: ./core/pricing-service/Dockerfile
+    container_name: dollor-pricing-service
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - LOCATION_SERVICE_URL=http://location-service:8007
+    ports:
+      - "8015:8015"
+    depends_on:
+      - auth-service
+      - location-service
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: ./core/analytics-service/Dockerfile
+    container_name: dollor-analytics-service
+    environment:
+      - ENVIRONMENT=development
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=dollor
+      - CLICKHOUSE_PASSWORD=dollor_analytics_pass
+      - CLICKHOUSE_DATABASE=dollor_analytics
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - ENABLE_KAFKA=true
+    ports:
+      - "8016:8016"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # WEB APPLICATIONS
+  # ==========================================================================
+
+  p2p-backend:
+    build:
+      context: ../apps/web/p2p-platform/backend
+      dockerfile: Dockerfile
+    container_name: dollor-p2p-backend
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dollor:dollor_dev_password@postgres:5432/dollor
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8009
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  p2p-frontend:
+    build:
+      context: ../apps/web/p2p-platform/frontend
+      dockerfile: Dockerfile
+    container_name: dollor-p2p-frontend
+    environment:
+      - VITE_API_URL=http://p2p-backend:8080
+      - VITE_AUTH_URL=http://auth-service:8001
+    ports:
+      - "3000:80"
+    depends_on:
+      - p2p-backend
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  techcloudpro-employee:
+    build:
+      context: /Users/jeet/techcloudpro-website/backend
+      dockerfile: Dockerfile
+    container_name: dollor-techcloudpro
+    environment:
+      - ENVIRONMENT=development
+      - FLASK_ENV=development
+      - CUDA_VISIBLE_DEVICES=
+      - MODEL_PATH=/app/models
+      - OUTPUT_PATH=/app/outputs
+    ports:
+      - "5000:5000"
+    volumes:
+      - techcloudpro_models:/app/models
+      - techcloudpro_outputs:/app/outputs
+    networks:
+      - dollor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+

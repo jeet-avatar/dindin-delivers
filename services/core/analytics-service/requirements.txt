@@ -1,0 +1,20 @@
+# Dollor.ai Analytics Service Dependencies
+# =========================================
+
+# FastAPI framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# ClickHouse client
+clickhouse-connect==0.7.0
+
+# Kafka consumer
+aiokafka==0.10.0
+
+# Async support
+httpx==0.26.0
+python-multipart==0.0.6
+
+# Utils
+python-dateutil==2.8.2

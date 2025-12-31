@@ -1,0 +1,152 @@
+# Dollor.ai Negotiation Service - Kubernetes Deployment
+# ======================================================
+# Base deployment configuration for negotiation-service
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: negotiation-service
+  labels:
+    app: negotiation-service
+    platform: dollor-ai
+    app.kubernetes.io/name: negotiation-service
+    app.kubernetes.io/component: negotiation-management
+    app.kubernetes.io/part-of: dollor-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: negotiation-service
+  template:
+    metadata:
+      labels:
+        app: negotiation-service
+        platform: dollor-ai
+        app.kubernetes.io/name: negotiation-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8017"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: negotiation-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: negotiation-service
+          image: dollor/negotiation-service:dev
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8017
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: negotiation-service-config
+                  key: ENVIRONMENT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: negotiation-service-secrets
+                  key: DATABASE_URL
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: negotiation-service-config
+                  key: NOTIFICATION_SERVICE_URL
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: negotiation-service-config
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT
+                  optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - negotiation-service
+                topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: negotiation-service
+  labels:
+    app: negotiation-service
+    platform: dollor-ai
+    app.kubernetes.io/name: negotiation-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8017
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: negotiation-service
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: negotiation-service-config
+data:
+  ENVIRONMENT: "development"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8009"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: negotiation-service-secrets
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/dollor"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: negotiation-service
+  labels:
+    app: negotiation-service
+    platform: dollor-ai

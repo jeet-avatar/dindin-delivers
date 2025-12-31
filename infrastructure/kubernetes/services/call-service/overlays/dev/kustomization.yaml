@@ -1,0 +1,40 @@
+# Dollor.ai Call Service - Dev Overlay
+# ======================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: call-service
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: call-service
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+
+configMapGenerator:
+  - name: call-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+
+images:
+  - name: dollor/call-service
+    newTag: dev-latest

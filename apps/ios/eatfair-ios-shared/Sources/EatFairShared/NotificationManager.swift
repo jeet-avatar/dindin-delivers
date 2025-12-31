@@ -1,0 +1,218 @@
+import Foundation
+import UserNotifications
+import FirebaseMessaging
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// Shared Notification Manager for all EatFair apps
+public class NotificationManager: NSObject, ObservableObject {
+    public static let shared = NotificationManager()
+
+    @Published public var fcmToken: String?
+    @Published public var isAuthorized = false
+    @Published public var pendingNotifications: [UNNotification] = []
+
+    public override init() {
+        super.init()
+    }
+
+    // MARK: - Authorization
+
+    /// Request notification authorization from the user
+    public func requestAuthorization(completion: @escaping (Bool) -> Void = { _ in }) {
+        let options: UNAuthorizationOptions = [.alert, .badge, .sound]
+
+        UNUserNotificationCenter.current().requestAuthorization(options: options) { [weak self] granted, error in
+            DispatchQueue.main.async {
+                self?.isAuthorized = granted
+
+                #if DEBUG
+                if let error = error {
+                    print("[NotificationManager] Authorization error: \(error.localizedDescription)")
+                }
+                #endif
+
+                if granted {
+                    self?.registerForRemoteNotifications()
+                }
+
+                completion(granted)
+            }
+        }
+    }
+
+    /// Register for remote notifications (call after authorization)
+    public func registerForRemoteNotifications() {
+        #if canImport(UIKit)
+        DispatchQueue.main.async {
+            #if !targetEnvironment(simulator)
+            UIApplication.shared.registerForRemoteNotifications()
+            #endif
+        }
+        #endif
+    }
+
+    /// Check current authorization status
+    public func checkAuthorizationStatus(completion: @escaping (UNAuthorizationStatus) -> Void) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                self.isAuthorized = settings.authorizationStatus == .authorized
+                completion(settings.authorizationStatus)
+            }
+        }
+    }
+
+    // MARK: - FCM Token Management
+
+    /// Update FCM token (called by AppDelegate)
+    public func updateFCMToken(_ token: String) {
+        self.fcmToken = token
+        #if DEBUG
+        print("[NotificationManager] FCM Token updated")
+        #endif
+    }
+
+    /// Get current FCM token
+    public func getFCMToken(completion: @escaping (String?) -> Void) {
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                #if DEBUG
+                print("[NotificationManager] Error fetching FCM token: \(error.localizedDescription)")
+                #endif
+                completion(nil)
+            } else {
+                self.fcmToken = token
+                completion(token)
+            }
+        }
+    }
+
+    // MARK: - Badge Management
+
+    /// Clear badge count
+    public func clearBadge() {
+        #if canImport(UIKit)
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
+        #endif
+    }
+
+    /// Set badge count
+    public func setBadge(_ count: Int) {
+        #if canImport(UIKit)
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = count
+        }
+        #endif
+    }
+
+    // MARK: - Local Notifications
+
+    /// Schedule a local notification
+    public func scheduleLocalNotification(
+        title: String,
+        body: String,
+        identifier: String,
+        timeInterval: TimeInterval = 1,
+        userInfo: [String: Any] = [:]
+    ) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = userInfo
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeInterval, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            #if DEBUG
+            if let error = error {
+                print("[NotificationManager] Failed to schedule notification: \(error.localizedDescription)")
+            }
+            #endif
+        }
+    }
+
+    /// Cancel a scheduled notification
+    public func cancelNotification(identifier: String) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
+
+    /// Cancel all pending notifications
+    public func cancelAllNotifications() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+}
+
+// MARK: - Notification Types
+
+public enum NotificationType: String {
+    case newOrder = "new_order"
+    case orderStatusUpdate = "order_status"
+    case orderReady = "order_ready"
+    case driverAssigned = "driver_assigned"
+    case orderPickedUp = "order_picked_up"
+    case orderDelivered = "order_delivered"
+    case orderCancelled = "order_cancelled"
+    case promotion = "promotion"
+    case system = "system"
+
+    public var soundName: String {
+        switch self {
+        case .newOrder:
+            return "new_order.wav"
+        case .orderReady:
+            return "order_ready.wav"
+        default:
+            return "default"
+        }
+    }
+}
+
+// MARK: - Notification Payload
+
+public struct NotificationPayload {
+    public let type: NotificationType
+    public let title: String
+    public let body: String
+    public let orderId: String?
+    public let data: [String: Any]
+
+    public init?(from userInfo: [AnyHashable: Any]) {
+        guard let typeString = userInfo["type"] as? String,
+              let type = NotificationType(rawValue: typeString) else {
+            // Default to system notification if type not specified
+            self.type = .system
+            self.title = userInfo["title"] as? String ?? "EatFair"
+            self.body = userInfo["body"] as? String ?? ""
+            self.orderId = userInfo["orderId"] as? String
+            self.data = userInfo as? [String: Any] ?? [:]
+            return
+        }
+
+        self.type = type
+        self.title = userInfo["title"] as? String ?? ""
+        self.body = userInfo["body"] as? String ?? ""
+        self.orderId = userInfo["orderId"] as? String
+        self.data = userInfo as? [String: Any] ?? [:]
+    }
+}
+
+// MARK: - UIApplication Extension for registration
+#if canImport(UIKit)
+import UIKit
+
+extension UIApplication {
+    /// Check if push notifications are enabled
+    public static func arePushNotificationsEnabled(completion: @escaping (Bool) -> Void) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                completion(settings.authorizationStatus == .authorized)
+            }
+        }
+    }
+}
+#endif

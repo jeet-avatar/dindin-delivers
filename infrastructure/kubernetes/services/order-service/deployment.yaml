@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8005"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dollor-service-account
+      containers:
+        - name: order-service
+          image: ${ECR_REGISTRY}/dollor/order-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 8005
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: "order-service"
+            - name: SERVICE_PORT
+              value: "8005"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: redis-url
+            # CQRS Configuration
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+                  optional: true
+            - name: ELASTICSEARCH_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: ELASTICSEARCH_URL
+                  optional: true
+            - name: ENABLE_EVENT_PROJECTOR
+              valueFrom:
+                configMapKeyRef:
+                  name: order-service-config
+                  key: ENABLE_EVENT_PROJECTOR
+                  optional: true
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dollor-secrets
+                  key: jwt-secret
+                  optional: true
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8005
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8005
+      targetPort: 8005
+      protocol: TCP
+      name: http
+  selector:
+    app: order-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60

@@ -1,0 +1,42 @@
+# Dollor.ai Pricing Service - Production Overlay
+# ===============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: pricing-service
+      spec:
+        replicas: 3
+        template:
+          spec:
+            containers:
+              - name: pricing-service
+                resources:
+                  requests:
+                    cpu: 200m
+                    memory: 256Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 1Gi
+
+configMapGenerator:
+  - name: pricing-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - SERVICE_PORT=8015
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/pricing-service
+    newTag: v1.0.0

@@ -1,0 +1,42 @@
+# Dollor.ai Auth Service - Staging Overlay
+# =========================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: staging
+
+resources:
+  - ../../
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: auth-service
+      spec:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: auth-service
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+
+configMapGenerator:
+  - name: auth-service-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
+
+images:
+  - name: dollor/auth-service
+    newTag: staging-latest
