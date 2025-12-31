@@ -7736,6 +7736,7 @@ def update_vendor_status(
     # If approving, verify all required documents are uploaded to ZIP system
     if status.upper() == "APPROVED" and not skip_document_check:
         missing_docs = []
+        checklist_errors = []
 
         # Check required documents for legal compliance
         if not db_vendor.food_license or not db_vendor.food_license_url:
@@ -7750,6 +7751,32 @@ def update_vendor_status(
         if not db_vendor.insurance or not db_vendor.insurance_url:
             missing_docs.append("Liability Insurance Certificate")
 
+        # Check for menu items - restaurant must have at least one menu item to go live
+        from models import VendorMenuItem
+        menu_item_count = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id).count()
+        if menu_item_count == 0:
+            checklist_errors.append({
+                "item": "Menu Items",
+                "status": "missing",
+                "message": "Restaurant must have at least 1 menu item before going live",
+                "count": 0
+            })
+
+        # Check for basic restaurant info
+        if not db_vendor.restaurant_name:
+            checklist_errors.append({
+                "item": "Restaurant Name",
+                "status": "missing",
+                "message": "Restaurant name is required"
+            })
+
+        if not db_vendor.contact_email:
+            checklist_errors.append({
+                "item": "Contact Email",
+                "status": "missing",
+                "message": "Contact email is required for sending approval notification"
+            })
+
         if missing_docs:
             raise HTTPException(
                 status_code=400,
@@ -7761,7 +7788,19 @@ def update_vendor_status(
                 }
             )
 
+        if checklist_errors:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Cannot approve vendor - pre-publish checklist incomplete",
+                    "checklist_errors": checklist_errors,
+                    "action_required": "Complete all checklist items before publishing restaurant",
+                    "menu_items_count": menu_item_count
+                }
+            )
+
         print(f"✅ All required documents verified for vendor {vendor_id}")
+        print(f"✅ Menu items count: {menu_item_count}")
 
     # Update vendor status
     db_vendor.onboarding_status = VendorStatus[status.upper()]
@@ -7814,6 +7853,108 @@ def update_vendor_status(
     db.commit()
     db.refresh(db_vendor)
     return db_vendor
+
+
+# Pre-publish checklist for ZIP approval dashboard
+@app.get("/api/vendors/{vendor_id}/publish-checklist")
+def get_vendor_publish_checklist(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get pre-publish checklist for a vendor.
+    This is used by the ZIP Dashboard to show what's needed before approving/publishing.
+    Returns checklist items with status (complete/incomplete) and details.
+    """
+    from models import Vendor, VendorMenuItem
+
+    db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not db_vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Get menu item count
+    menu_item_count = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id).count()
+
+    # Build checklist
+    checklist = {
+        "vendor_id": vendor_id,
+        "restaurant_name": db_vendor.restaurant_name or db_vendor.company_name,
+        "ready_to_publish": True,  # Will be set to False if any item fails
+        "items": []
+    }
+
+    # 1. Documents check
+    documents = [
+        {"key": "food_license", "label": "Food Service License", "has_doc": db_vendor.food_license, "url": db_vendor.food_license_url},
+        {"key": "health_permit", "label": "Health Department Permit", "has_doc": db_vendor.health_permit, "url": db_vendor.health_permit_url},
+        {"key": "w9_form", "label": "Business License / W-9 Form", "has_doc": db_vendor.w9_form, "url": db_vendor.w9_form_url},
+        {"key": "insurance", "label": "Liability Insurance", "has_doc": db_vendor.insurance, "url": db_vendor.insurance_url},
+    ]
+
+    docs_complete = 0
+    for doc in documents:
+        is_complete = bool(doc["has_doc"] and doc["url"] and not doc["url"].startswith("file://"))
+        if is_complete:
+            docs_complete += 1
+        checklist["items"].append({
+            "category": "documents",
+            "key": doc["key"],
+            "label": doc["label"],
+            "status": "complete" if is_complete else "incomplete",
+            "url": doc["url"] if is_complete else None,
+            "message": "Document uploaded" if is_complete else "Document missing or invalid"
+        })
+
+    if docs_complete < 4:
+        checklist["ready_to_publish"] = False
+
+    # 2. Menu items check
+    menu_status = "complete" if menu_item_count > 0 else "incomplete"
+    checklist["items"].append({
+        "category": "menu",
+        "key": "menu_items",
+        "label": "Menu Items",
+        "status": menu_status,
+        "count": menu_item_count,
+        "message": f"{menu_item_count} menu items" if menu_item_count > 0 else "No menu items - add at least 1 item"
+    })
+    if menu_item_count == 0:
+        checklist["ready_to_publish"] = False
+
+    # 3. Restaurant info check
+    info_checks = [
+        {"key": "restaurant_name", "label": "Restaurant Name", "value": db_vendor.restaurant_name},
+        {"key": "contact_email", "label": "Contact Email", "value": db_vendor.contact_email},
+        {"key": "contact_phone", "label": "Contact Phone", "value": db_vendor.contact_phone},
+        {"key": "address", "label": "Address", "value": db_vendor.city and db_vendor.state},
+    ]
+
+    for info in info_checks:
+        is_complete = bool(info["value"])
+        checklist["items"].append({
+            "category": "info",
+            "key": info["key"],
+            "label": info["label"],
+            "status": "complete" if is_complete else "incomplete",
+            "message": "Provided" if is_complete else "Missing"
+        })
+        # Only restaurant_name and contact_email are required
+        if info["key"] in ["restaurant_name", "contact_email"] and not is_complete:
+            checklist["ready_to_publish"] = False
+
+    # Summary
+    complete_count = sum(1 for item in checklist["items"] if item["status"] == "complete")
+    total_count = len(checklist["items"])
+    checklist["summary"] = {
+        "complete": complete_count,
+        "total": total_count,
+        "percentage": round((complete_count / total_count) * 100) if total_count > 0 else 0,
+        "menu_items_count": menu_item_count,
+        "documents_complete": docs_complete,
+        "documents_total": 4
+    }
+
+    return checklist
 
 
 # Vendor Online/Offline Status (for Restaurant App)

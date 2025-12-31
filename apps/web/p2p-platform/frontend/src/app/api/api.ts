@@ -318,6 +318,37 @@ export const REQUIRED_VENDOR_DOCUMENTS = [
   { key: 'insurance', label: 'Liability Insurance', description: 'General liability insurance certificate', required: true },
 ];
 
+// Get pre-publish checklist for a vendor (ZIP Dashboard)
+export interface PublishChecklistItem {
+  category: 'documents' | 'menu' | 'info';
+  key: string;
+  label: string;
+  status: 'complete' | 'incomplete';
+  url?: string;
+  count?: number;
+  message: string;
+}
+
+export interface PublishChecklist {
+  vendor_id: number;
+  restaurant_name: string;
+  ready_to_publish: boolean;
+  items: PublishChecklistItem[];
+  summary: {
+    complete: number;
+    total: number;
+    percentage: number;
+    menu_items_count: number;
+    documents_complete: number;
+    documents_total: number;
+  };
+}
+
+export const getVendorPublishChecklist = async (vendorId: number): Promise<PublishChecklist> => {
+  const response = await api.get(`/vendors/${vendorId}/publish-checklist`);
+  return response.data;
+};
+
 // ============================================================================
 // INVOICE API - Connected to Admin Portal
 // ============================================================================
