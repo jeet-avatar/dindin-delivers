@@ -495,29 +495,50 @@ async def get_income_statement(
         }
 
     # Calculate income statement
+    # IMPORTANT: As a MATCHMAKING PLATFORM (Agent, not Principal), we only recognize
+    # our platform fees as revenue - NOT pass-through amounts like food costs, delivery fees, or tips
+    # See ASC 606 Principal vs Agent guidance
+
+    # Food Delivery: $1 from customer + $1 from restaurant = $2 per order
+    CUSTOMER_FEE = 1.00
+    RESTAURANT_FEE = 1.00
+    food_orders = int(food_data.get("total_orders", 0) or 0)
+    food_platform_revenue = food_orders * (CUSTOMER_FEE + RESTAURANT_FEE)  # $2 per order
+
+    # Rideshare: Tiered fees ($1/$2/$3 per side based on distance)
+    rideshare_platform_revenue = float(ride_data.get("rideshare_platform_fees", 0) or 0)
+
     revenue = {
         "platform_fees": {
-            "food_delivery": float(food_data.get("platform_fee_revenue", 0) or 0),
-            "rideshare": float(ride_data.get("rideshare_platform_fees", 0) or 0),
-            "total": float(food_data.get("platform_fee_revenue", 0) or 0) + float(ride_data.get("rideshare_platform_fees", 0) or 0)
+            "food_delivery": {
+                "customer_fees": food_orders * CUSTOMER_FEE,  # $1 per order
+                "restaurant_fees": food_orders * RESTAURANT_FEE,  # $1 per order
+                "total": food_platform_revenue
+            },
+            "rideshare": rideshare_platform_revenue,
+            "total": food_platform_revenue + rideshare_platform_revenue
         },
-        "delivery_fees": float(food_data.get("delivery_fee_revenue", 0) or 0),
-        "total_revenue": 0  # Calculated below
+        # NOTE: Delivery fees and tips are NOT our revenue - they flow directly to drivers via Stripe
+        "pass_through_not_revenue": {
+            "delivery_fees_to_drivers": float(food_data.get("delivery_fee_revenue", 0) or 0),
+            "tips_to_drivers": float(food_data.get("tips_collected", 0) or 0),
+            "food_costs_to_restaurants": float(food_data.get("food_sales", 0) or 0),
+            "note": "These amounts flow directly to drivers/restaurants via Stripe Connect - NOT our revenue"
+        },
+        "total_revenue": food_platform_revenue + rideshare_platform_revenue
     }
-    revenue["total_revenue"] = revenue["platform_fees"]["total"] + revenue["delivery_fees"]
 
-    # Cost of revenue (what we pay out)
-    # Calculate actual Stripe fees from payment logs or estimate using configurable rates
-    gross_revenue = float(food_data.get("gross_revenue", 0) or 0)
-    total_orders = int(food_data.get("total_orders", 0) or 0)
-    stripe_fees = round(gross_revenue * STRIPE_PERCENTAGE_FEE + (total_orders * STRIPE_FIXED_FEE), 2)
+    # Cost of revenue - Only Stripe fees on OUR platform fee portion
+    # We pay ~2.9% + $0.30 on each platform fee transaction, not on the full order amount
+    platform_fee_amount = revenue["total_revenue"]
+    total_transactions = food_orders + int(ride_data.get("total_rides", 0) or 0)
+    stripe_fees = round(platform_fee_amount * STRIPE_PERCENTAGE_FEE + (total_transactions * STRIPE_FIXED_FEE), 2)
 
     cost_of_revenue = {
-        "driver_payments": float(food_data.get("delivery_fee_revenue", 0) or 0) + float(food_data.get("tips_collected", 0) or 0),
-        "payment_processing": stripe_fees,
-        "total_cost_of_revenue": 0  # Calculated below
+        "payment_processing_fees": stripe_fees,
+        "note": "Stripe fees on platform fee collection only",
+        "total_cost_of_revenue": stripe_fees
     }
-    cost_of_revenue["total_cost_of_revenue"] = cost_of_revenue["driver_payments"] + cost_of_revenue["payment_processing"]
 
     # Gross profit
     gross_profit = revenue["total_revenue"] - cost_of_revenue["total_cost_of_revenue"]
