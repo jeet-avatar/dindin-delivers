@@ -332,6 +332,24 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     except Exception as e:
         errors.append(f"vendors.vendor_id trigger: {str(e)}")
 
+    # Migration: Add payment and platform fee columns to ride_requests table
+    ride_request_columns = [
+        ("stripe_payment_intent_id", "VARCHAR(255)"),
+        ("payment_status", "VARCHAR(50) DEFAULT 'pending'"),
+        ("platform_fee", "FLOAT"),
+        ("driver_payout", "FLOAT"),
+        ("payment_completed_at", "TIMESTAMP"),
+        ("driver_paid_at", "TIMESTAMP"),
+        ("stripe_transfer_id", "VARCHAR(255)"),
+    ]
+
+    for col_name, col_type in ride_request_columns:
+        try:
+            db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"ride_requests.{col_name}")
+        except Exception as e:
+            errors.append(f"ride_requests.{col_name}: {str(e)}")
+
     db.commit()
 
     return {
