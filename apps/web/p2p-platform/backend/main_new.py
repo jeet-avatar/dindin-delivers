@@ -5957,6 +5957,78 @@ def get_coupa_system_dashboard(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/dashboard/coupa/filters/suppliers")
+def get_coupa_suppliers_filter(db: Session = Depends(get_db)):
+    """
+    Get list of suppliers for filter dropdown.
+    """
+    from models import CoupaSupplier
+
+    suppliers = db.query(CoupaSupplier).filter(
+        CoupaSupplier.is_active == True
+    ).order_by(CoupaSupplier.name).all()
+
+    return {
+        "suppliers": [
+            {"id": s.id, "name": s.name, "code": s.supplier_code}
+            for s in suppliers
+        ]
+    }
+
+
+@app.get("/api/dashboard/coupa/filters/cost-centers")
+def get_coupa_cost_centers_filter(db: Session = Depends(get_db)):
+    """
+    Get list of cost centers for filter dropdown.
+    """
+    from models import CoupaCostCenter
+
+    cost_centers = db.query(CoupaCostCenter).filter(
+        CoupaCostCenter.is_active == True
+    ).order_by(CoupaCostCenter.name).all()
+
+    return {
+        "costCenters": [
+            {"id": cc.id, "name": cc.name, "code": cc.code}
+            for cc in cost_centers
+        ]
+    }
+
+
+@app.get("/api/dashboard/coupa/filters/departments")
+def get_coupa_departments_filter(db: Session = Depends(get_db)):
+    """
+    Get list of departments for filter dropdown.
+    """
+    from models import CoupaDepartment
+
+    departments = db.query(CoupaDepartment).filter(
+        CoupaDepartment.is_active == True
+    ).order_by(CoupaDepartment.name).all()
+
+    return {
+        "departments": [
+            {"id": d.id, "name": d.name, "code": d.code}
+            for d in departments
+        ]
+    }
+
+
+@app.get("/api/dashboard/coupa/filters/statuses")
+def get_coupa_statuses_filter():
+    """
+    Get list of PO statuses for filter dropdown.
+    """
+    from models import CoupaPOStatus
+
+    return {
+        "statuses": [
+            {"value": status.value, "label": status.value.replace("_", " ").title()}
+            for status in CoupaPOStatus
+        ]
+    }
+
+
 # ============================================================================
 # ORDERS API - Admin Portal Order Management
 # ============================================================================

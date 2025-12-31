@@ -68,6 +68,12 @@ const Apis = {
     },
     commodityDistribution: {
       getChartData: "/dashboard/coupa/commodity-distribution"
+    },
+    filters: {
+      suppliers: "/dashboard/coupa/filters/suppliers",
+      costCenters: "/dashboard/coupa/filters/cost-centers",
+      departments: "/dashboard/coupa/filters/departments",
+      statuses: "/dashboard/coupa/filters/statuses"
     }
   },
 

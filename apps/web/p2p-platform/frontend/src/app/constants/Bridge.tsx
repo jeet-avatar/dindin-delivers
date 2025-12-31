@@ -185,6 +185,28 @@ export default {
           });
         },
       },
+      filters: {
+        getSuppliers: () => {
+          return api.get(URLs.coupaDashboard.filters.suppliers).then((response) => {
+            return response.data;
+          });
+        },
+        getCostCenters: () => {
+          return api.get(URLs.coupaDashboard.filters.costCenters).then((response) => {
+            return response.data;
+          });
+        },
+        getDepartments: () => {
+          return api.get(URLs.coupaDashboard.filters.departments).then((response) => {
+            return response.data;
+          });
+        },
+        getStatuses: () => {
+          return api.get(URLs.coupaDashboard.filters.statuses).then((response) => {
+            return response.data;
+          });
+        },
+      },
     },
 
     netSuiteDashboard: {      
