@@ -56,10 +56,9 @@ public struct NetworkConfig: Codable {
         case debug, info, warning, error, critical
     }
 
-    /// Default configuration - STAGING ONLY
-    /// All environments use staging until production is validated
+    /// Default configuration - PRODUCTION
     public static let production = NetworkConfig(
-        p2pBaseURL: "https://d3kuu45w6kl8hr.cloudfront.net",
+        p2pBaseURL: "https://api.dollor.ai",
         p2pTimeout: 30.0,
         firebaseEnabled: true,
         firebaseProjectId: "eatfair-p2p",

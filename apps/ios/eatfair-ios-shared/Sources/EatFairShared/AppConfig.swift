@@ -8,18 +8,17 @@ public class AppConfig: ObservableObject {
 
     // MARK: - P2P API Configuration
     /// Dollar.ai backend base URL - all data comes from here
-    /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    /// AWS CloudFront Staging API endpoint (HTTPS)
+    /// PRODUCTION ENVIRONMENT - api.dollor.ai
     /// Note: P2PAPIService appends /api to this URL
-    @Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
+    @Published public var p2pAPIBaseURL: String = "https://api.dollor.ai"
 
-    // MARK: - Microservice URLs (all go through CloudFront staging)
+    // MARK: - Microservice URLs (all go through api.dollor.ai)
     /// Negotiation service for real-time price negotiation between drivers and customers
-    @Published public var negotiationServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/negotiation"
+    @Published public var negotiationServiceURL: String = "https://api.dollor.ai/api/negotiation"
     /// Chat service for real-time messaging between drivers and customers
-    @Published public var chatServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/chat"
+    @Published public var chatServiceURL: String = "https://api.dollor.ai/api/chat"
     /// Call service for privacy-protected phone calls (number masking)
-    @Published public var callServiceURL: String = "https://d3kuu45w6kl8hr.cloudfront.net/api/call"
+    @Published public var callServiceURL: String = "https://api.dollor.ai/api/call"
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
@@ -296,8 +295,8 @@ public class AppConfig: ObservableObject {
         return "$\(Int(fee)) (Tier \(tier): \(tierDesc))"
     }
 
-    // Support - Using Staging API
-    @Published public var supportUrl: String = "https://d3kuu45w6kl8hr.cloudfront.net/support"
+    // Support - Using Production API
+    @Published public var supportUrl: String = "https://api.dollor.ai/support"
     @Published public var supportPhone: String = "+1-800-365-5671"
     @Published public var supportEmail: String = "support@dollor.ai"
 
@@ -462,9 +461,8 @@ public struct OrderStatusConstants {
 // All data comes from Dollar.ai P2P backend
 
 public struct APIEndpoints {
-    /// STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    /// AWS CloudFront Staging API endpoint (HTTPS)
-    public static let baseURL = "https://d3kuu45w6kl8hr.cloudfront.net"
+    /// PRODUCTION ENVIRONMENT - api.dollor.ai
+    public static let baseURL = "https://api.dollor.ai"
 
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
@@ -555,9 +553,9 @@ public struct AppConstants {
     public static let termsVersion = "1.1"
 
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
-    // STAGING ENVIRONMENT - NO LOCAL CALLS ALLOWED
-    public static let termsOfServiceURL = "https://d3kuu45w6kl8hr.cloudfront.net/terms"
-    public static let privacyPolicyURL = "https://d3kuu45w6kl8hr.cloudfront.net/privacy"
+    // PRODUCTION ENVIRONMENT - api.dollor.ai
+    public static let termsOfServiceURL = "https://api.dollor.ai/terms"
+    public static let privacyPolicyURL = "https://api.dollor.ai/privacy"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)
