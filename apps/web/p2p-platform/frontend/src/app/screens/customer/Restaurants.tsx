@@ -74,12 +74,29 @@ const Restaurants: React.FC = () => {
   const fetchRestaurants = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/api/erp/restaurants`);
-      if (response.data.success) {
-        setRestaurants(response.data.restaurants || []);
-      } else {
-        setRestaurants([]);
-      }
+      // Use vendors/published endpoint to get real published restaurants
+      const response = await axios.get(`${API_URL}/api/vendors/published`);
+      const data = response.data;
+
+      // Map published vendors to restaurant format
+      const restaurantList = (data.restaurants || data || []).map((r: any) => ({
+        id: r.id,
+        name: r.name || r.restaurant_name,
+        description: r.description || '',
+        cuisine_type: r.cuisine_type || 'Various',
+        address: r.address || `${r.street || ''}, ${r.city || ''}, ${r.state || ''} ${r.zip_code || ''}`.trim(),
+        rating: r.rating || 4.5,
+        review_count: r.reviews_count || 0,
+        delivery_time_min: r.average_prep_time || 25,
+        delivery_time_max: (r.average_prep_time || 25) + 15,
+        delivery_fee: r.delivery_fee || 2.99,
+        minimum_order: r.minimum_order || 0,
+        image_url: r.image_url,
+        is_open: r.is_open !== false,
+        is_favorite: false
+      }));
+
+      setRestaurants(restaurantList);
     } catch (error) {
       console.error('Error fetching restaurants:', error);
       setRestaurants([]);

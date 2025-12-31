@@ -83,20 +83,48 @@ const RestaurantDetail: React.FC = () => {
   const fetchRestaurantDetails = async () => {
     setLoading(true);
     try {
-      const [restaurantRes, menuRes] = await Promise.all([
-        axios.get(`${API_URL}/api/erp/restaurants/${id}`),
-        axios.get(`${API_URL}/api/vendors/${id}/menu`)  // Use vendors menu endpoint
-      ]);
+      // Use public/restaurants endpoint (works for all published vendors)
+      const restaurantRes = await axios.get(`${API_URL}/api/public/restaurants/${id}`);
 
       if (restaurantRes.data.success) {
-        setRestaurant(restaurantRes.data.restaurant);
+        // Map restaurant data to expected format
+        const r = restaurantRes.data.restaurant;
+        setRestaurant({
+          id: r.id,
+          name: r.name,
+          description: r.description || '',
+          cuisine_type: r.cuisine_type,
+          address: r.address?.full_address || `${r.address?.street}, ${r.address?.city}, ${r.address?.state} ${r.address?.zip_code}`,
+          rating: r.rating || 4.5,
+          review_count: r.reviews_count || 0,
+          delivery_time_min: r.average_prep_time || 25,
+          delivery_time_max: (r.average_prep_time || 25) + 15,
+          delivery_fee: 2.99,
+          minimum_order: 0,
+          is_open: true
+        });
+
+        // Menu is included in the response, flatten from categories
+        const menuByCategory = restaurantRes.data.menu || {};
+        const flatMenu: MenuItem[] = [];
+        Object.entries(menuByCategory).forEach(([category, items]: [string, any]) => {
+          items.forEach((item: any) => {
+            flatMenu.push({
+              id: item.id,
+              name: item.name,
+              description: item.description || '',
+              price: item.price,
+              category: category,
+              image_url: item.image_url,
+              is_available: item.in_stock !== false,
+              is_popular: false,
+              dietary_tags: item.dietary_tags || []
+            });
+          });
+        });
+        setMenuItems(flatMenu);
       } else {
         setRestaurant(null);
-      }
-
-      if (menuRes.data.success) {
-        setMenuItems(menuRes.data.menu || []);
-      } else {
         setMenuItems([]);
       }
     } catch (error) {
