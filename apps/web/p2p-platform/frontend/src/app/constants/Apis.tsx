@@ -22,7 +22,7 @@ const Apis = {
 
     zip: {
       getCount: "/dashboard/zip-tab",
-      getChartData: "/dashboard/zip-tab"
+      getChartData: "/dashboard/zip"
     },
 
     jira: {
@@ -98,7 +98,7 @@ const Apis = {
   },
 
   zipDashboard: {
-    getData: "/dashboard/zip/get",
+    getData: "/dashboard/zip",
     getZipMetrics: "/dashboard/zip",
     getOnboardingTrendData: "/dashboard/zip",
     getVendorStatusData: "/dashboard/zip",
