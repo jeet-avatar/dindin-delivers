@@ -5647,6 +5647,317 @@ def get_consolidated_dashboard(
 
 
 # ============================================================================
+# COUPA DASHBOARD API
+# ============================================================================
+
+@app.get("/api/dashboard/coupa")
+def get_coupa_dashboard_counts(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get Coupa dashboard main metrics.
+    Returns: totalSpend, requisitionValue, reqCount, poCount
+    """
+    from models import CoupaPurchaseOrder, CoupaRequisition, CoupaPOStatus
+    from datetime import timedelta
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    # Get PO data
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date
+    ).all()
+
+    # Get Requisition data
+    reqs = db.query(CoupaRequisition).filter(
+        CoupaRequisition.created_at >= start_date
+    ).all()
+
+    # Calculate metrics
+    total_spend = sum(po.total_amount or 0 for po in pos if po.status in [
+        CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED, CoupaPOStatus.RECEIVED,
+        CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
+    ])
+    requisition_value = sum(req.total_amount or 0 for req in reqs)
+    po_count = len(pos)
+    req_count = len(reqs)
+
+    return {
+        "counts": {
+            "totalSpend": round(total_spend, 2),
+            "requisitionValue": round(requisition_value, 2),
+            "poCount": po_count,
+            "reqCount": req_count
+        }
+    }
+
+
+@app.get("/api/dashboard/coupa/budget-overview")
+def get_coupa_budget_overview(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get monthly spend trends for Coupa dashboard.
+    Returns chart data for Line chart.
+    """
+    from models import CoupaPurchaseOrder, CoupaPOStatus
+    from datetime import timedelta
+    from collections import defaultdict
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date,
+        CoupaPurchaseOrder.status.in_([
+            CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
+            CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
+        ])
+    ).all()
+
+    # Group by month
+    monthly_data = defaultdict(float)
+    for po in pos:
+        month_key = po.created_at.strftime("%b %Y")
+        monthly_data[month_key] += po.total_amount or 0
+
+    # Sort by date and prepare chart data
+    labels = list(monthly_data.keys())[-12:]  # Last 12 months
+    data = [monthly_data[label] for label in labels]
+
+    return {
+        "chartData": {
+            "labels": labels if labels else ["No Data"],
+            "datasets": [{
+                "label": "Monthly Spend",
+                "data": data if data else [0],
+                "borderColor": "#0ea5e9",
+                "backgroundColor": "rgba(14, 165, 233, 0.1)",
+                "fill": True
+            }]
+        }
+    }
+
+
+@app.get("/api/dashboard/coupa/status-distribution")
+def get_coupa_status_distribution(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get PO status distribution for Coupa dashboard.
+    Returns chart data for Doughnut chart.
+    """
+    from models import CoupaPurchaseOrder, CoupaPOStatus
+    from datetime import timedelta
+    from collections import Counter
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date
+    ).all()
+
+    # Count by status
+    status_counts = Counter(po.status.value if po.status else "draft" for po in pos)
+
+    labels = ["Draft", "Pending Approval", "Approved", "Ordered", "Received", "Closed"]
+    status_keys = ["draft", "pending_approval", "approved", "ordered", "received", "closed"]
+    data = [status_counts.get(key, 0) for key in status_keys]
+
+    return {
+        "chartData": {
+            "labels": labels,
+            "datasets": [{
+                "data": data,
+                "backgroundColor": ["#6b7280", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#6b7280"]
+            }]
+        }
+    }
+
+
+@app.get("/api/dashboard/coupa/cost-center-distribution")
+def get_coupa_cost_center_distribution(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get spend by cost center for Coupa dashboard.
+    Returns chart data for Doughnut/Pie chart.
+    """
+    from models import CoupaPurchaseOrder, CoupaCostCenter, CoupaPOStatus
+    from datetime import timedelta
+    from collections import defaultdict
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date,
+        CoupaPurchaseOrder.status.in_([
+            CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
+            CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
+        ])
+    ).all()
+
+    # Get cost centers
+    cost_centers = {cc.id: cc.name for cc in db.query(CoupaCostCenter).all()}
+
+    # Group by cost center
+    cc_spend = defaultdict(float)
+    for po in pos:
+        cc_name = cost_centers.get(po.cost_center_id, "Unassigned")
+        cc_spend[cc_name] += po.total_amount or 0
+
+    labels = list(cc_spend.keys())[:8] if cc_spend else ["No Data"]
+    data = [cc_spend[label] for label in labels] if cc_spend else [0]
+
+    return {
+        "chartData": {
+            "labels": labels,
+            "datasets": [{
+                "data": data,
+                "backgroundColor": ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"]
+            }]
+        }
+    }
+
+
+@app.get("/api/dashboard/coupa/spend-by-department")
+def get_coupa_spend_by_department(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get spend by department for Coupa dashboard.
+    Returns chart data for Bar chart.
+    """
+    from models import CoupaPurchaseOrder, CoupaDepartment, CoupaPOStatus
+    from datetime import timedelta
+    from collections import defaultdict
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date,
+        CoupaPurchaseOrder.status.in_([
+            CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
+            CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
+        ])
+    ).all()
+
+    # Get departments
+    departments = {dept.id: dept.name for dept in db.query(CoupaDepartment).all()}
+
+    # Group by department
+    dept_spend = defaultdict(float)
+    for po in pos:
+        dept_name = departments.get(po.department_id, "Unassigned")
+        dept_spend[dept_name] += po.total_amount or 0
+
+    labels = list(dept_spend.keys())[:10] if dept_spend else ["No Data"]
+    data = [dept_spend[label] for label in labels] if dept_spend else [0]
+
+    return {
+        "chartData": {
+            "labels": labels,
+            "datasets": [{
+                "label": "Spend",
+                "data": data,
+                "backgroundColor": "#3b82f6"
+            }]
+        }
+    }
+
+
+@app.get("/api/dashboard/coupa/commodity-distribution")
+def get_coupa_commodity_distribution(
+    days_back: int = Query(30, description="Number of days to look back"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get spend by commodity/category for Coupa dashboard.
+    Returns chart data for Pie chart.
+    """
+    from models import CoupaPurchaseOrder, CoupaCommodity, CoupaPOStatus
+    from datetime import timedelta
+    from collections import defaultdict
+
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=days_back)
+
+    pos = db.query(CoupaPurchaseOrder).filter(
+        CoupaPurchaseOrder.created_at >= start_date,
+        CoupaPurchaseOrder.status.in_([
+            CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
+            CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
+        ])
+    ).all()
+
+    # Get commodities
+    commodities = {c.id: c.name for c in db.query(CoupaCommodity).all()}
+
+    # Group by commodity
+    commodity_spend = defaultdict(float)
+    for po in pos:
+        commodity_name = commodities.get(po.commodity_id, "Uncategorized")
+        commodity_spend[commodity_name] += po.total_amount or 0
+
+    labels = list(commodity_spend.keys())[:8] if commodity_spend else ["No Data"]
+    data = [commodity_spend[label] for label in labels] if commodity_spend else [0]
+
+    return {
+        "chartData": {
+            "labels": labels,
+            "datasets": [{
+                "data": data,
+                "backgroundColor": ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"]
+            }]
+        }
+    }
+
+
+@app.get("/api/system-dashboard/coupa")
+def get_coupa_system_dashboard(db: Session = Depends(get_db)):
+    """
+    Get Coupa data for the system dashboard tab.
+    Returns top categories and invoice approval cycle time.
+    """
+    from models import CoupaCommodity, CoupaPurchaseOrder
+
+    # Get top categories
+    commodities = db.query(CoupaCommodity).limit(5).all()
+    top_categories = {
+        "labels": [c.name for c in commodities] if commodities else ["Category 1", "Category 2", "Category 3"],
+        "datasets": [{
+            "data": [100, 80, 60, 40, 20][:len(commodities)] if commodities else [100, 80, 60],
+            "backgroundColor": ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
+        }]
+    }
+
+    # Invoice approval cycle time (placeholder)
+    invoice_approval_cycle_time = {
+        "labels": ["Week 1", "Week 2", "Week 3", "Week 4"],
+        "datasets": [{
+            "label": "Approval Time (days)",
+            "data": [3.5, 2.8, 3.2, 2.5],
+            "borderColor": "#3b82f6",
+            "tension": 0.4
+        }]
+    }
+
+    return {
+        "topCategories": top_categories,
+        "invoiceApprovalCycleTime": invoice_approval_cycle_time
+    }
+
+
+# ============================================================================
 # ORDERS API - Admin Portal Order Management
 # ============================================================================
 

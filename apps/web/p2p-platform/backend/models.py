@@ -1272,3 +1272,228 @@ class RideBid(Base):
     ride_request = relationship("RideRequest", back_populates="bids", foreign_keys=[ride_request_id])
     driver = relationship("Driver")
     counter_to = relationship("RideBid", remote_side=[id], foreign_keys=[counter_to_bid_id])
+
+
+# ============================================================================
+# COUPA INTEGRATION MODELS
+# ============================================================================
+
+class CoupaPOStatus(enum.Enum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    ORDERED = "ordered"
+    PARTIALLY_RECEIVED = "partially_received"
+    RECEIVED = "received"
+    INVOICED = "invoiced"
+    CLOSED = "closed"
+    CANCELLED = "cancelled"
+
+
+class CoupaRequisitionStatus(enum.Enum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    ORDERED = "ordered"
+    DENIED = "denied"
+    CANCELLED = "cancelled"
+
+
+class CoupaSupplier(Base):
+    """Supplier/Vendor in Coupa system"""
+    __tablename__ = "coupa_suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_number = Column(String(50), unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    display_name = Column(String(255))
+
+    # Contact Info
+    contact_name = Column(String(255))
+    contact_email = Column(String(255))
+    contact_phone = Column(String(50))
+
+    # Address
+    address_line1 = Column(String(255))
+    address_line2 = Column(String(255))
+    city = Column(String(100))
+    state = Column(String(100))
+    postal_code = Column(String(20))
+    country = Column(String(100), default="USA")
+
+    # Status
+    status = Column(String(50), default="active")  # active, inactive, blocked
+    payment_terms = Column(String(50), default="Net 30")
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    purchase_orders = relationship("CoupaPurchaseOrder", back_populates="supplier")
+
+
+class CoupaDepartment(Base):
+    """Department/Business Unit for spend tracking"""
+    __tablename__ = "coupa_departments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    manager_name = Column(String(255))
+    manager_email = Column(String(255))
+    budget_amount = Column(Float, default=0)
+    spent_amount = Column(Float, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CoupaCostCenter(Base):
+    """Cost Center for expense allocation"""
+    __tablename__ = "coupa_cost_centers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    department_id = Column(Integer, ForeignKey("coupa_departments.id"))
+    budget_amount = Column(Float, default=0)
+    spent_amount = Column(Float, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    department = relationship("CoupaDepartment")
+
+
+class CoupaCommodity(Base):
+    """Commodity/Category for spend classification"""
+    __tablename__ = "coupa_commodities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    parent_id = Column(Integer, ForeignKey("coupa_commodities.id"), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CoupaPurchaseOrder(Base):
+    """Purchase Order in Coupa"""
+    __tablename__ = "coupa_purchase_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    po_number = Column(String(50), unique=True, index=True)
+
+    # Supplier
+    supplier_id = Column(Integer, ForeignKey("coupa_suppliers.id"))
+
+    # Classification
+    department_id = Column(Integer, ForeignKey("coupa_departments.id"))
+    cost_center_id = Column(Integer, ForeignKey("coupa_cost_centers.id"))
+    commodity_id = Column(Integer, ForeignKey("coupa_commodities.id"))
+
+    # Order Details
+    description = Column(Text)
+    order_date = Column(DateTime, default=datetime.utcnow)
+    requested_delivery_date = Column(DateTime)
+    actual_delivery_date = Column(DateTime)
+
+    # Amounts
+    subtotal = Column(Float, default=0)
+    tax_amount = Column(Float, default=0)
+    shipping_amount = Column(Float, default=0)
+    total_amount = Column(Float, default=0)
+
+    # Status
+    status = Column(SQLEnum(CoupaPOStatus), default=CoupaPOStatus.DRAFT)
+    approval_status = Column(String(50), default="pending")  # pending, approved, rejected
+    approved_by = Column(String(255))
+    approved_at = Column(DateTime)
+
+    # Tracking
+    created_by = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    supplier = relationship("CoupaSupplier", back_populates="purchase_orders")
+    department = relationship("CoupaDepartment")
+    cost_center = relationship("CoupaCostCenter")
+    commodity = relationship("CoupaCommodity")
+    lines = relationship("CoupaPurchaseOrderLine", back_populates="purchase_order")
+
+
+class CoupaPurchaseOrderLine(Base):
+    """Line item in a Purchase Order"""
+    __tablename__ = "coupa_po_lines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_order_id = Column(Integer, ForeignKey("coupa_purchase_orders.id"))
+    line_number = Column(Integer)
+
+    # Item Details
+    item_description = Column(Text)
+    item_code = Column(String(100))
+    quantity = Column(Float, default=1)
+    unit_of_measure = Column(String(50), default="EA")
+    unit_price = Column(Float, default=0)
+    total_price = Column(Float, default=0)
+
+    # Classification
+    commodity_id = Column(Integer, ForeignKey("coupa_commodities.id"))
+
+    # Status
+    received_quantity = Column(Float, default=0)
+    invoiced_quantity = Column(Float, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    purchase_order = relationship("CoupaPurchaseOrder", back_populates="lines")
+
+
+class CoupaRequisition(Base):
+    """Purchase Requisition in Coupa"""
+    __tablename__ = "coupa_requisitions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    requisition_number = Column(String(50), unique=True, index=True)
+
+    # Requester
+    requester_name = Column(String(255))
+    requester_email = Column(String(255))
+
+    # Classification
+    department_id = Column(Integer, ForeignKey("coupa_departments.id"))
+    cost_center_id = Column(Integer, ForeignKey("coupa_cost_centers.id"))
+
+    # Details
+    description = Column(Text)
+    justification = Column(Text)
+    needed_by_date = Column(DateTime)
+
+    # Amounts
+    total_amount = Column(Float, default=0)
+
+    # Status
+    status = Column(SQLEnum(CoupaRequisitionStatus), default=CoupaRequisitionStatus.DRAFT)
+    approved_by = Column(String(255))
+    approved_at = Column(DateTime)
+
+    # Linked PO (after conversion)
+    purchase_order_id = Column(Integer, ForeignKey("coupa_purchase_orders.id"), nullable=True)
+
+    # Timestamps
+    submitted_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    department = relationship("CoupaDepartment")
+    cost_center = relationship("CoupaCostCenter")
+    purchase_order = relationship("CoupaPurchaseOrder")
