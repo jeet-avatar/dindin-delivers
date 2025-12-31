@@ -14297,82 +14297,91 @@ def get_admin_rideshare_requests(
     Get all ride requests for admin dashboard.
     Shows ride requests with customer/driver info and platform fees.
     """
-    from models import RideRequest, RideRequestStatus
+    try:
+        from models import RideRequest, RideRequestStatus
 
-    query = db.query(RideRequest)
+        query = db.query(RideRequest)
 
-    # Map status string to enum
-    status_enum_map = {
-        'open': RideRequestStatus.OPEN,
-        'bidding': RideRequestStatus.BIDDING,
-        'matched': RideRequestStatus.MATCHED,
-        'in_progress': RideRequestStatus.IN_PROGRESS,
-        'completed': RideRequestStatus.COMPLETED,
-        'cancelled': RideRequestStatus.CANCELLED,
-        'expired': RideRequestStatus.EXPIRED
-    }
-
-    if status and status != 'all':
-        if status in status_enum_map:
-            query = query.filter(RideRequest.status == status_enum_map[status])
-
-    query = query.order_by(RideRequest.created_at.desc())
-
-    total = query.count()
-    rides = query.offset(offset).limit(limit).all()
-
-    # Calculate stats using enum comparisons
-    all_rides = db.query(RideRequest).all()
-    pending_count = len([r for r in all_rides if r.status in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING]])
-    active_count = len([r for r in all_rides if r.status in [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]])
-    completed_count = len([r for r in all_rides if r.status == RideRequestStatus.COMPLETED])
-
-    # Calculate platform revenue from completed rides
-    total_revenue = sum(r.platform_fee or 0 for r in all_rides if r.status == RideRequestStatus.COMPLETED)
-
-    # Convert km to miles for frontend
-    def km_to_miles(km):
-        return (km or 0) * 0.621371
-
-    return {
-        "rides": [
-            {
-                "id": r.id,
-                "customer_id": r.customer_id,
-                "customer_name": r.customer_name or "Customer",
-                "customer_phone": r.customer_phone or "",
-                "pickup_address": r.pickup_address,
-                "dropoff_address": r.dropoff_address,
-                "pickup_lat": r.pickup_latitude,
-                "pickup_lng": r.pickup_longitude,
-                "dropoff_lat": r.dropoff_latitude,
-                "dropoff_lng": r.dropoff_longitude,
-                "distance_miles": km_to_miles(r.estimated_distance_km),
-                "estimated_fare": r.suggested_price,
-                "final_price": r.final_price,
-                "platform_fee": r.platform_fee,
-                "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
-                "driver_id": r.matched_driver_id,
-                "driver_name": None,  # Would join with drivers table
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-                "accepted_at": r.matched_at.isoformat() if r.matched_at else None,
-                "completed_at": r.completed_at.isoformat() if r.completed_at else None
-            }
-            for r in rides
-        ],
-        "stats": {
-            "totalRequests": total,
-            "pendingRequests": pending_count,
-            "activeRides": active_count,
-            "completedRides": completed_count,
-            "totalRevenue": round(total_revenue, 2)
-        },
-        "pagination": {
-            "total": total,
-            "limit": limit,
-            "offset": offset
+        # Map status string to enum
+        status_enum_map = {
+            'open': RideRequestStatus.OPEN,
+            'bidding': RideRequestStatus.BIDDING,
+            'matched': RideRequestStatus.MATCHED,
+            'in_progress': RideRequestStatus.IN_PROGRESS,
+            'completed': RideRequestStatus.COMPLETED,
+            'cancelled': RideRequestStatus.CANCELLED,
+            'expired': RideRequestStatus.EXPIRED
         }
-    }
+
+        if status and status != 'all':
+            if status in status_enum_map:
+                query = query.filter(RideRequest.status == status_enum_map[status])
+
+        query = query.order_by(RideRequest.created_at.desc())
+
+        total = query.count()
+        rides = query.offset(offset).limit(limit).all()
+
+        # Calculate stats using enum comparisons
+        all_rides = db.query(RideRequest).all()
+        pending_count = len([r for r in all_rides if r.status in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING]])
+        active_count = len([r for r in all_rides if r.status in [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]])
+        completed_count = len([r for r in all_rides if r.status == RideRequestStatus.COMPLETED])
+
+        # Calculate platform revenue from completed rides
+        total_revenue = sum(r.platform_fee or 0 for r in all_rides if r.status == RideRequestStatus.COMPLETED)
+
+        # Convert km to miles for frontend
+        def km_to_miles(km):
+            return (km or 0) * 0.621371
+
+        return {
+            "rides": [
+                {
+                    "id": r.id,
+                    "customer_id": r.customer_id,
+                    "customer_name": r.customer_name or "Customer",
+                    "customer_phone": r.customer_phone or "",
+                    "pickup_address": r.pickup_address,
+                    "dropoff_address": r.dropoff_address,
+                    "pickup_lat": r.pickup_latitude,
+                    "pickup_lng": r.pickup_longitude,
+                    "dropoff_lat": r.dropoff_latitude,
+                    "dropoff_lng": r.dropoff_longitude,
+                    "distance_miles": km_to_miles(r.estimated_distance_km),
+                    "estimated_fare": r.suggested_price,
+                    "final_price": r.final_price,
+                    "platform_fee": r.platform_fee,
+                    "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
+                    "driver_id": r.matched_driver_id,
+                    "driver_name": None,  # Would join with drivers table
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "accepted_at": r.matched_at.isoformat() if r.matched_at else None,
+                    "completed_at": r.completed_at.isoformat() if r.completed_at else None
+                }
+                for r in rides
+            ],
+            "stats": {
+                "totalRequests": total,
+                "pendingRequests": pending_count,
+                "activeRides": active_count,
+                "completedRides": completed_count,
+                "totalRevenue": round(total_revenue, 2)
+            },
+            "pagination": {
+                "total": total,
+                "limit": limit,
+                "offset": offset
+            }
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "rides": [],
+            "stats": {"totalRequests": 0, "pendingRequests": 0, "activeRides": 0, "completedRides": 0, "totalRevenue": 0}
+        }
 
 
 @app.get("/api/admin/rideshare/active")
@@ -14380,79 +14389,88 @@ def get_admin_active_rides(db: Session = Depends(get_db)):
     """
     Get currently active rides for real-time monitoring.
     """
-    from models import RideRequest, Driver, RideRequestStatus
+    try:
+        from models import RideRequest, Driver, RideRequestStatus
+        from datetime import datetime
 
-    # Active statuses from the enum
-    active_statuses = [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]
+        # Active statuses from the enum
+        active_statuses = [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]
 
-    rides = db.query(RideRequest).filter(
-        RideRequest.status.in_(active_statuses)
-    ).order_by(RideRequest.created_at.desc()).all()
+        rides = db.query(RideRequest).filter(
+            RideRequest.status.in_(active_statuses)
+        ).order_by(RideRequest.created_at.desc()).all()
 
-    # Get online drivers count
-    online_drivers = db.query(Driver).filter(Driver.is_online == True).count()
+        # Get online drivers count
+        online_drivers = db.query(Driver).filter(Driver.is_online == True).count()
 
-    # Calculate average ride time for completed rides today
-    from datetime import datetime, timedelta
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    completed_today = db.query(RideRequest).filter(
-        RideRequest.status == RideRequestStatus.COMPLETED,
-        RideRequest.completed_at >= today_start
-    ).all()
+        # Calculate average ride time for completed rides today
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        completed_today = db.query(RideRequest).filter(
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= today_start
+        ).all()
 
-    avg_ride_time = 0
-    if completed_today:
-        ride_times = []
-        for r in completed_today:
-            if r.matched_at and r.completed_at:
-                diff = (r.completed_at - r.matched_at).total_seconds() / 60
-                ride_times.append(diff)
-        if ride_times:
-            avg_ride_time = sum(ride_times) / len(ride_times)
+        avg_ride_time = 0
+        if completed_today:
+            ride_times = []
+            for r in completed_today:
+                if r.matched_at and r.completed_at:
+                    diff = (r.completed_at - r.matched_at).total_seconds() / 60
+                    ride_times.append(diff)
+            if ride_times:
+                avg_ride_time = sum(ride_times) / len(ride_times)
 
-    # Convert km to miles
-    def km_to_miles(km):
-        return (km or 0) * 0.621371
+        # Convert km to miles
+        def km_to_miles(km):
+            return (km or 0) * 0.621371
 
-    # Get driver info for matched rides
-    def get_driver_info(driver_id):
-        if not driver_id:
+        # Get driver info for matched rides
+        def get_driver_info(driver_id):
+            if not driver_id:
+                return None, ""
+            driver = db.query(Driver).filter(Driver.id == driver_id).first()
+            if driver:
+                return f"{driver.first_name} {driver.last_name}", driver.phone or ""
             return None, ""
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        if driver:
-            return f"{driver.first_name} {driver.last_name}", driver.phone or ""
-        return None, ""
 
-    return {
-        "rides": [
-            {
-                "id": r.id,
-                "customer_name": r.customer_name or "Customer",
-                "customer_phone": r.customer_phone or "",
-                "driver_name": get_driver_info(r.matched_driver_id)[0],
-                "driver_phone": get_driver_info(r.matched_driver_id)[1],
-                "driver_id": r.matched_driver_id,
-                "pickup_address": r.pickup_address,
-                "dropoff_address": r.dropoff_address,
-                "distance_miles": km_to_miles(r.estimated_distance_km),
-                "final_price": r.final_price,
-                "platform_fee": r.platform_fee,
-                "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
-                "started_at": r.matched_at.isoformat() if r.matched_at else None,
-                "estimated_arrival": None,
-                "progress_percent": 50 if r.status == RideRequestStatus.IN_PROGRESS else 25,
-                "driver_lat": None,
-                "driver_lng": None
+        return {
+            "rides": [
+                {
+                    "id": r.id,
+                    "customer_name": r.customer_name or "Customer",
+                    "customer_phone": r.customer_phone or "",
+                    "driver_name": get_driver_info(r.matched_driver_id)[0],
+                    "driver_phone": get_driver_info(r.matched_driver_id)[1],
+                    "driver_id": r.matched_driver_id,
+                    "pickup_address": r.pickup_address,
+                    "dropoff_address": r.dropoff_address,
+                    "distance_miles": km_to_miles(r.estimated_distance_km),
+                    "final_price": r.final_price,
+                    "platform_fee": r.platform_fee,
+                    "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
+                    "started_at": r.matched_at.isoformat() if r.matched_at else None,
+                    "estimated_arrival": None,
+                    "progress_percent": 50 if r.status == RideRequestStatus.IN_PROGRESS else 25,
+                    "driver_lat": None,
+                    "driver_lng": None
+                }
+                for r in rides
+            ],
+            "stats": {
+                "activeCount": len(rides),
+                "driversOnline": online_drivers,
+                "avgRideTime": round(avg_ride_time, 1),
+                "totalFaresInProgress": sum(r.final_price or 0 for r in rides)
             }
-            for r in rides
-        ],
-        "stats": {
-            "activeCount": len(rides),
-            "driversOnline": online_drivers,
-            "avgRideTime": round(avg_ride_time, 1),
-            "totalFaresInProgress": sum(r.final_price or 0 for r in rides)
         }
-    }
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "rides": [],
+            "stats": {"activeCount": 0, "driversOnline": 0, "avgRideTime": 0, "totalFaresInProgress": 0}
+        }
 
 
 # ============================================================
