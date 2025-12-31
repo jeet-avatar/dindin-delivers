@@ -12406,8 +12406,8 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
         "delivery_available": bool(vendor.delivery_available) if vendor.delivery_available is not None else True,
         "pickup_available": True,
         "average_prep_time": vendor.average_prep_time or 25,
-        "rating": float(vendor.rating) if vendor.rating else 4.5,
-        "reviews_count": int(vendor.total_reviews) if vendor.total_reviews else 0
+        "rating": 4.5,  # Default rating - Vendor model doesn't have rating field yet
+        "reviews_count": 0  # Default - Vendor model doesn't have reviews field yet
     }
 
     # Fetch menu items (only available and in-stock items for customer view)
