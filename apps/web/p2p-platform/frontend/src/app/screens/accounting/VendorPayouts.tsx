@@ -50,19 +50,29 @@ const VendorPayoutsMain: React.FC = () => {
     setLoading(true);
     try {
       const response = await getVendorPayouts();
-      
-      // Merge vendor names
-      const vendorsResponse = await getVendors();
-      const vendorMap = new Map(vendorsResponse.map((v: any) => [v.id, v]));
-      
-      const payoutsWithVendorNames = response.map((payout: VendorPayout) => ({
-        ...payout,
-        vendor_name: vendorMap.get(payout.vendor_id)?.restaurant_name || 
-                    vendorMap.get(payout.vendor_id)?.company_name || 'Unknown'
+
+      // Map API response to expected format
+      const payoutsWithMappedFields = response.map((payout: any, index: number) => ({
+        id: index + 1,
+        payout_number: `PAY-${String(payout.vendor_id).padStart(4, '0')}`,
+        vendor_id: payout.vendor_id,
+        vendor_name: payout.vendor_name || 'Unknown',
+        period_start: payout.orders?.[0]?.date || new Date().toISOString(),
+        period_end: payout.orders?.[payout.orders?.length - 1]?.date || new Date().toISOString(),
+        total_orders: payout.order_count || 0,
+        gross_revenue: payout.total_sales || 0,
+        platform_fee: payout.platform_fees || 0,
+        stripe_fees: (payout.total_sales || 0) * 0.029 + 0.30, // Estimated Stripe fee
+        net_payout: payout.net_payout || 0,
+        status: 'pending',
+        coupa_status: null,
+        coupa_invoice_id: null,
+        created_at: new Date().toISOString(),
+        paid_at: null
       }));
-      
-      setPayouts(payoutsWithVendorNames);
-      calculateStats(payoutsWithVendorNames);
+
+      setPayouts(payoutsWithMappedFields);
+      calculateStats(payoutsWithMappedFields);
     } catch (error) {
       message.error('Failed to fetch vendor payouts');
       console.error(error);
@@ -298,7 +308,7 @@ const VendorPayoutsMain: React.FC = () => {
         <Table
           columns={columns}
           dataSource={payouts}
-          rowKey="id"
+          rowKey="vendor_id"
           loading={loading}
           scroll={{ x: 1500 }}
           pagination={{
