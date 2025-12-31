@@ -151,7 +151,7 @@ public class P2PAPIService: ObservableObject {
         vendorId: Int,
         completion: @escaping (Result<P2PRestaurantDetail, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/restaurants/\(vendorId)") else {
+        guard let url = URL(string: "\(baseURL)/public/restaurants/\(vendorId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -200,7 +200,7 @@ public class P2PAPIService: ObservableObject {
         vendorId: Int,
         completion: @escaping (Result<P2PVendorProfile, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/restaurants/\(vendorId)") else {
+        guard let url = URL(string: "\(baseURL)/public/restaurants/\(vendorId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
