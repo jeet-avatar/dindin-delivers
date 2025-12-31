@@ -71,11 +71,39 @@ const Main: React.FC = () => {
   const [selectedCostCenter, setSelectedCostCenter] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
 
+  // Dynamic filter options
+  const [suppliers, setSuppliers] = useState<Array<{id: number, name: string, code: string}>>([]);
+  const [costCenters, setCostCenters] = useState<Array<{id: number, name: string, code: string}>>([]);
+  const [statuses, setStatuses] = useState<Array<{value: string, label: string}>>([]);
+
   const [coupaData, setCoupaData] = useState({ topCategories: { labels: [], datasets: [] }, invoiceApprovalCycleTime: { labels: [], datasets: [] } });
 
   const getCoupaData = () => {
     Bridge.systemDashboard.getCoupaData().then((response) => {
       setCoupaData(response);
+    });
+  }
+
+  const fetchFilterOptions = () => {
+    // Fetch suppliers
+    Bridge.coupaDashboard.filters.getSuppliers().then((response) => {
+      setSuppliers(response.suppliers || []);
+    }).catch((error) => {
+      console.error('Error fetching suppliers:', error);
+    });
+
+    // Fetch cost centers
+    Bridge.coupaDashboard.filters.getCostCenters().then((response) => {
+      setCostCenters(response.costCenters || []);
+    }).catch((error) => {
+      console.error('Error fetching cost centers:', error);
+    });
+
+    // Fetch statuses
+    Bridge.coupaDashboard.filters.getStatuses().then((response) => {
+      setStatuses(response.statuses || []);
+    }).catch((error) => {
+      console.error('Error fetching statuses:', error);
     });
   }
 
@@ -176,6 +204,7 @@ const Main: React.FC = () => {
 
   useEffect(() => {
     getCoupaData();
+    fetchFilterOptions();
   }, []);
 
   useEffect(() => {
@@ -407,49 +436,57 @@ const Main: React.FC = () => {
               <label htmlFor="supplier" className="block text-sm font-medium text-neutral-700 mb-1">
                 Supplier
               </label>
-              <Select 
-              id="supplier" 
+              <Select
+              id="supplier"
               className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
               value={selectedSupplier}
               onChange={(value)=> setSelectedSupplier(value)}
               >
                 <Option value="">All Suppliers</Option>
-                <Option value="supplier1">Supplier 1</Option>
-                <Option value="supplier2">Supplier 2</Option>
+                {suppliers.map((supplier) => (
+                  <Option key={supplier.id} value={supplier.id.toString()}>
+                    {supplier.name}
+                  </Option>
+                ))}
               </Select>
             </div>
             <div>
-              <label 
-              htmlFor="costCenterSelect" 
+              <label
+              htmlFor="costCenterSelect"
               className="block text-sm font-medium text-neutral-700 mb-1"
               >
                 Cost Center
               </label>
-              <Select 
-                id="costCenterSelect" 
+              <Select
+                id="costCenterSelect"
                 className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                 value={selectedCostCenter}
                 onChange={(value)=> setSelectedCostCenter(value)}
               >
                 <Option value="">All Cost Centers</Option>
-                <Option value="it">IT</Option>
-                <Option value="operations">Operations</Option>
+                {costCenters.map((cc) => (
+                  <Option key={cc.id} value={cc.id.toString()}>
+                    {cc.name}
+                  </Option>
+                ))}
               </Select>
             </div>
             <div>
               <label htmlFor="statusSelect" className="block text-sm font-medium text-neutral-700 mb-1">
                 Status
               </label>
-              <Select 
-                id="statusSelect" 
+              <Select
+                id="statusSelect"
                 className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                 value={selectedStatus}
                 onChange={(value)=> setSelectedStatus(value)}
               >
                 <Option value="">All Statuses</Option>
-                <Option value="Pending Receipt">Pending Receipt</Option>
-                <Option value="Partially Received">Partially Received</Option>
-                <Option value="Complete">Complete</Option>
+                {statuses.map((status) => (
+                  <Option key={status.value} value={status.value}>
+                    {status.label}
+                  </Option>
+                ))}
               </Select>
             </div>
             <div
