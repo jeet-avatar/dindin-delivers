@@ -12403,7 +12403,7 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
         "location": location_obj,
         "contact": contact_obj,
         "operating_hours": vendor.operating_hours,
-        "delivery_available": bool(vendor.delivery_enabled) if vendor.delivery_enabled is not None else True,
+        "delivery_available": bool(vendor.delivery_available) if vendor.delivery_available is not None else True,
         "pickup_available": True,
         "average_prep_time": vendor.average_prep_time or 25,
         "rating": float(vendor.rating) if vendor.rating else 4.5,
