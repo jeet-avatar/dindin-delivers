@@ -831,6 +831,7 @@ def _run_startup_migrations():
     except Exception as e:
         print(f"Migration error: {e}")
 
+
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
@@ -10115,6 +10116,7 @@ def get_vendor_menu(
 ):
     try:
         from models import VendorMenuItem
+        from stock_images import get_stock_image_for_dish
 
         query = db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id)
 
@@ -10129,6 +10131,22 @@ def get_vendor_menu(
         # Manually serialize to avoid Pydantic validation issues
         result = []
         for item in items:
+            # Use stock image if no custom image is provided
+            image_url = item.image_url if item.image_url else get_stock_image_for_dish(
+                item.item_name, item.category, item.is_vegetarian
+            )
+            # Build dietary_tags array for frontend display
+            dietary_tags = []
+            if item.is_vegetarian:
+                dietary_tags.append("Vegetarian")
+            if item.is_vegan:
+                dietary_tags.append("Vegan")
+            if item.is_gluten_free:
+                dietary_tags.append("Gluten-Free")
+            if item.is_spicy:
+                spice_level = item.spice_level or 1
+                dietary_tags.append(f"Spicy {'🌶️' * min(spice_level, 5)}")
+
             result.append({
                 "id": item.id,
                 "vendor_id": item.vendor_id,
@@ -10142,9 +10160,10 @@ def get_vendor_menu(
                 "is_gluten_free": bool(item.is_gluten_free) if item.is_gluten_free is not None else False,
                 "is_spicy": bool(item.is_spicy) if item.is_spicy is not None else False,
                 "spice_level": int(item.spice_level) if item.spice_level is not None else 0,
+                "dietary_tags": dietary_tags,
                 "prep_time": item.prep_time,
                 "calories": item.calories,
-                "image_url": item.image_url,
+                "image_url": image_url,
                 "in_stock": bool(item.in_stock) if item.in_stock is not None else True,
                 "daily_limit": item.daily_limit,
                 "items_sold_today": int(item.items_sold_today) if item.items_sold_today is not None else 0,
@@ -10393,13 +10412,13 @@ def get_public_restaurant_detail(
     if not vendor:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    # Get all available menu items
+    # Get all available menu items, ordered by ID to preserve menu structure
     menu_items = db.query(VendorMenuItem).filter(
         VendorMenuItem.vendor_id == vendor_id,
         VendorMenuItem.is_available == True
-    ).all()
+    ).order_by(VendorMenuItem.id).all()
 
-    # Group by category and add stock images
+    # Group by category and add stock images (preserves category order from seeding)
     menu_by_category = {}
     for item in menu_items:
         category = item.category or "Other"
@@ -10410,6 +10429,18 @@ def get_public_restaurant_detail(
         image_url = item.image_url if item.image_url else get_stock_image_for_dish(
             item.item_name, item.category, item.is_vegetarian
         )
+
+        # Build dietary_tags array for frontend display
+        dietary_tags = []
+        if item.is_vegetarian:
+            dietary_tags.append("Vegetarian")
+        if item.is_vegan:
+            dietary_tags.append("Vegan")
+        if item.is_gluten_free:
+            dietary_tags.append("Gluten-Free")
+        if item.is_spicy:
+            spice_level = item.spice_level or 1
+            dietary_tags.append(f"Spicy {'🌶️' * min(spice_level, 5)}")
 
         menu_by_category[category].append({
             "id": item.id,
@@ -10422,6 +10453,7 @@ def get_public_restaurant_detail(
             "is_gluten_free": item.is_gluten_free,
             "is_spicy": item.is_spicy,
             "spice_level": item.spice_level,
+            "dietary_tags": dietary_tags,
             "prep_time": item.prep_time,
             "calories": item.calories,
             "in_stock": item.in_stock,
@@ -12321,34 +12353,103 @@ async def proxy_nearby_restaurants(
 
 
 @app.get("/api/erp/restaurants/{restaurant_id}")
-async def proxy_get_restaurant(restaurant_id: int):
-    """Proxy to restaurant-service: Get restaurant details"""
-    result = await proxy_request(RESTAURANT_SERVICE_URL, f"/api/restaurants/{restaurant_id}")
-    if result:
-        return result
+def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(get_db)):
+    """
+    Get restaurant details with full menu for iOS/Android customer apps.
+    Returns combined restaurant info and menu grouped by category.
+    This is the format expected by P2PRestaurantDetailResponse in iOS.
+    """
+    from models import Vendor, VendorStatus, VendorMenuItem
+    from stock_images import get_stock_image_for_dish
 
-    # Fallback mock restaurant
+    # Fetch vendor from database
+    vendor = db.query(Vendor).filter(
+        Vendor.id == restaurant_id,
+        Vendor.is_published == True,
+        Vendor.onboarding_status == VendorStatus.APPROVED
+    ).first()
+
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found or not available")
+
+    # Build address object
+    address_obj = {
+        "street": vendor.address or "",
+        "city": vendor.city or "",
+        "state": vendor.state or "",
+        "zip_code": vendor.zip_code or "",
+        "country": vendor.country or "USA"
+    }
+
+    # Build location object
+    location_obj = {
+        "latitude": float(vendor.latitude) if vendor.latitude else 0.0,
+        "longitude": float(vendor.longitude) if vendor.longitude else 0.0
+    }
+
+    # Build contact object
+    contact_obj = {
+        "phone": vendor.contact_phone or "",
+        "email": vendor.contact_email or ""
+    }
+
+    # Build restaurant info matching P2PRestaurantInfo structure
+    restaurant_info = {
+        "id": vendor.id,
+        "vendor_id": vendor.vendor_id,
+        "name": vendor.restaurant_name or vendor.company_name,
+        "cuisine_type": vendor.cuisine_type,
+        "address": address_obj,
+        "location": location_obj,
+        "contact": contact_obj,
+        "operating_hours": vendor.operating_hours,
+        "delivery_available": bool(vendor.delivery_enabled) if vendor.delivery_enabled is not None else True,
+        "pickup_available": True,
+        "average_prep_time": vendor.average_prep_time or 25,
+        "rating": float(vendor.rating) if vendor.rating else 4.5,
+        "reviews_count": int(vendor.total_reviews) if vendor.total_reviews else 0
+    }
+
+    # Fetch menu items (only available and in-stock items for customer view)
+    menu_items = db.query(VendorMenuItem).filter(
+        VendorMenuItem.vendor_id == restaurant_id,
+        VendorMenuItem.is_available == True,
+        VendorMenuItem.in_stock == True
+    ).order_by(VendorMenuItem.id).all()
+
+    # Group menu items by category (matching P2PDetailMenuItem structure)
+    menu_by_category = {}
+    for item in menu_items:
+        category = item.category or "Other"
+        if category not in menu_by_category:
+            menu_by_category[category] = []
+
+        # Use stock image if no custom image
+        image_url = item.image_url if item.image_url else get_stock_image_for_dish(
+            item.item_name, item.category, item.is_vegetarian
+        )
+
+        menu_by_category[category].append({
+            "id": item.id,
+            "name": item.item_name,  # iOS expects 'name' not 'item_name'
+            "description": item.description,
+            "price": float(item.price) if item.price else 0.0,
+            "image_url": image_url,
+            "is_vegetarian": bool(item.is_vegetarian) if item.is_vegetarian is not None else False,
+            "is_vegan": bool(item.is_vegan) if item.is_vegan is not None else False,
+            "is_gluten_free": bool(item.is_gluten_free) if item.is_gluten_free is not None else False,
+            "is_spicy": bool(item.is_spicy) if item.is_spicy is not None else False,
+            "spice_level": int(item.spice_level) if item.spice_level is not None else 0,
+            "prep_time": item.prep_time,
+            "calories": item.calories,
+            "in_stock": True,  # Already filtered above
+            "customizations": item.customizations if hasattr(item, 'customizations') and item.customizations else None
+        })
+
     return {
-        "id": restaurant_id,
-        "name": f"Restaurant {restaurant_id}",
-        "cuisine_type": "American",
-        "rating": 4.5,
-        "total_reviews": 128,
-        "delivery_time": "20-35 min",
-        "delivery_fee": 2.99,
-        "minimum_order": 15.00,
-        "is_open": True,
-        "address": "123 Main St, San Francisco, CA",
-        "phone": "+1 (415) 555-0100",
-        "operating_hours": {
-            "monday": "10:00 AM - 10:00 PM",
-            "tuesday": "10:00 AM - 10:00 PM",
-            "wednesday": "10:00 AM - 10:00 PM",
-            "thursday": "10:00 AM - 10:00 PM",
-            "friday": "10:00 AM - 11:00 PM",
-            "saturday": "10:00 AM - 11:00 PM",
-            "sunday": "11:00 AM - 9:00 PM"
-        }
+        "success": True,
+        "restaurant": restaurant_info,
+        "menu": menu_by_category
     }
 
 
