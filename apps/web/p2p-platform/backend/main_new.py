@@ -19,6 +19,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
+import json
 from dotenv import load_dotenv
 
 from database import get_db, init_db
