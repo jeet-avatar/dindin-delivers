@@ -3354,6 +3354,63 @@ def update_driver_status(
     }
 
 
+# ==================== DRIVER STATUS ENDPOINTS (Android Compatibility) ====================
+# Android app uses GET/POST /api/drivers/{driver_id}/status
+
+@app.get("/api/drivers/{driver_id}/status")
+@app.get("/drivers/{driver_id}/status")
+def get_driver_status(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get driver online/offline status - Used by Android Driver app"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    return {
+        "success": True,
+        "driver_id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "is_online": driver.is_online if hasattr(driver, 'is_online') else False,
+        "status": driver.status.value if driver.status else "pending",
+        "last_location_update": driver.last_location_update.isoformat() if hasattr(driver, 'last_location_update') and driver.last_location_update else None,
+        "current_latitude": driver.current_latitude if hasattr(driver, 'current_latitude') else None,
+        "current_longitude": driver.current_longitude if hasattr(driver, 'current_longitude') else None
+    }
+
+
+@app.post("/api/drivers/{driver_id}/status")
+@app.post("/drivers/{driver_id}/status")
+def post_driver_status(
+    driver_id: int,
+    is_online: bool = Query(..., description="Set driver online/offline status"),
+    db: Session = Depends(get_db)
+):
+    """Update driver online/offline status - Used by Android Driver app"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    driver.is_online = is_online
+    driver.updated_at = datetime.utcnow()
+
+    if is_online:
+        driver.last_online_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": f"Driver is now {'online' if is_online else 'offline'}",
+        "driver_id": driver.id,
+        "is_online": driver.is_online,
+        "status": driver.status.value if driver.status else "pending"
+    }
+
+
 @app.get("/drivers/{driver_id}/documents")
 @app.get("/api/drivers/{driver_id}/documents")
 def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
@@ -4588,6 +4645,123 @@ def get_driver_dashboard(
             "latitude": driver.current_latitude,
             "longitude": driver.current_longitude,
             "last_update": driver.location_updated_at.isoformat() if driver.location_updated_at else None
+        }
+    }
+
+
+# ==================== iOS v5 DRIVER DASHBOARD (Compatibility Alias) ====================
+# iOS app calls /api/v5/driver/{driverId}/dashboard - alias to standard dashboard
+
+@app.get("/api/v5/driver/{driver_id}/dashboard")
+def get_driver_dashboard_v5(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    iOS Driver Dashboard v5 - Returns driver dashboard data by driver ID.
+    This is an alias endpoint for iOS app compatibility.
+    iOS uses: /api/v5/driver/{driverId}/dashboard
+    """
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    driver_name = f"{driver.first_name} {driver.last_name}"
+
+    # Active delivery - query real active orders for this driver
+    active_delivery = None
+    active_order = db.query(Order).filter(
+        Order.driver_id == driver_id,
+        Order.status.in_([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DRIVER_ASSIGNED])
+    ).first()
+
+    if active_order:
+        active_delivery = {
+            "id": active_order.order_number,
+            "order_id": active_order.id,
+            "restaurant": active_order.restaurant_name or "Restaurant",
+            "restaurant_address": active_order.restaurant_address,
+            "customer": active_order.customer_name or "Customer",
+            "address": active_order.delivery_address,
+            "items": len(active_order.items) if active_order.items else 1,
+            "total": float(active_order.total_amount or 0),
+            "distance": f"{active_order.estimated_distance or 2.5} mi",
+            "estimated_time": f"{active_order.estimated_duration or 20} min",
+            "status": active_order.status.value
+        }
+
+    # Pending deliveries for this driver
+    pending_deliveries = []
+    pending_orders = db.query(Order).filter(
+        Order.status == OrderStatus.READY_FOR_PICKUP,
+        Order.driver_id == None
+    ).limit(5).all()
+
+    for order in pending_orders:
+        pending_deliveries.append({
+            "id": order.order_number,
+            "order_id": order.id,
+            "restaurant": order.restaurant_name or "Restaurant",
+            "address": order.delivery_address,
+            "distance": f"{order.estimated_distance or 2.0} mi",
+            "payout": float(order.delivery_fee or 5.0),
+            "eta": f"{order.estimated_duration or 25} min"
+        })
+
+    # Today's stats from actual orders
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_orders = db.query(Order).filter(
+        Order.driver_id == driver_id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.delivered_at >= today_start
+    ).all()
+
+    today_deliveries = len(today_orders)
+    today_earnings = sum(float(o.delivery_fee or 0) + float(o.driver_tip or 0) for o in today_orders)
+
+    hours_online = 0.0
+    if hasattr(driver, 'is_online') and driver.is_online and hasattr(driver, 'went_online_at') and driver.went_online_at:
+        hours_online = round((datetime.utcnow() - driver.went_online_at).total_seconds() / 3600, 1)
+
+    today_stats = {
+        "deliveries": today_deliveries,
+        "earnings": round(today_earnings, 2),
+        "hours_online": hours_online,
+        "acceptance_rate": 95
+    }
+
+    # Weekly stats
+    week_start = today_start - timedelta(days=today_start.weekday())
+    week_orders = db.query(Order).filter(
+        Order.driver_id == driver_id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.delivered_at >= week_start
+    ).all()
+
+    week_deliveries = len(week_orders)
+    week_earnings = sum(float(o.delivery_fee or 0) + float(o.driver_tip or 0) for o in week_orders)
+
+    weekly_stats = {
+        "deliveries": {"current": week_deliveries, "goal": 50},
+        "earnings": {"current": round(week_earnings, 2), "goal": 800},
+        "hours": {"current": round(hours_online * 7, 1), "goal": 40}
+    }
+
+    return {
+        "success": True,
+        "driver_name": driver_name,
+        "driver_id": driver.driver_id,
+        "numeric_id": driver.id,
+        "is_online": driver.is_online if hasattr(driver, 'is_online') else False,
+        "rating": driver.rating or 5.0,
+        "active_delivery": active_delivery,
+        "pending_deliveries": pending_deliveries,
+        "today_stats": today_stats,
+        "weekly_stats": weekly_stats,
+        "location": {
+            "latitude": driver.current_latitude if hasattr(driver, 'current_latitude') else None,
+            "longitude": driver.current_longitude if hasattr(driver, 'current_longitude') else None,
+            "last_update": driver.location_updated_at.isoformat() if hasattr(driver, 'location_updated_at') and driver.location_updated_at else None
         }
     }
 
