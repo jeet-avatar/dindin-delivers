@@ -1786,13 +1786,13 @@ async def get_driver_pending_orders(
             "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
             "dropoff_latitude": delivery_addr.get("latitude"),
             "dropoff_longitude": delivery_addr.get("longitude"),
-            "estimated_distance": order.estimated_distance,
-            "estimated_duration": order.estimated_duration or 30,
+            "estimated_distance": None,  # Not in Order model
+            "estimated_duration": 30,  # Default - not in Order model
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
             "created_at": order.created_at.isoformat(),
             "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": order.picked_up_at.isoformat() if hasattr(order, 'picked_up_at') and order.picked_up_at else None,
+            "picked_up_at": order.dispatched_at.isoformat() if order.dispatched_at else None,  # Use dispatched_at instead
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
