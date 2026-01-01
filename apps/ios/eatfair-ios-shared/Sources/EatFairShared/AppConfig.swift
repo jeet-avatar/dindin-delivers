@@ -497,11 +497,11 @@ public struct MapConfig {
     public static let detailedZoomSpan: Double = 0.01
     public static let overviewZoomSpan: Double = 0.1
 
-    // Default fallback coordinates (San Francisco, CA)
+    // Default fallback coordinates (Irvine, CA - Orange County)
     // These are only used when user location is unavailable
     // In production, always prioritize user's actual location
-    public static let defaultLatitude: Double = 37.7749
-    public static let defaultLongitude: Double = -122.4194
+    public static let defaultLatitude: Double = 33.6846
+    public static let defaultLongitude: Double = -117.8265
 
     /// Returns default coordinates as CLLocationCoordinate2D
     /// Only use this as a fallback when user location is unavailable
