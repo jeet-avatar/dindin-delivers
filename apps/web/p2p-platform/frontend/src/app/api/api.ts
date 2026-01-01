@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Use environment variable for API URL, fallback to staging ELB
-// For production, set VITE_API_URL=https://api.dollor.ai
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://a25a4d0c5877a4a5898ab0352303effe-578011169.us-east-1.elb.amazonaws.com:8080';
+// Use environment variable for API URL
+// VITE_API_URL must be set in .env.production or .env.staging
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,

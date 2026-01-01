@@ -84,7 +84,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12345">JIRA-12345</a>,
+        linkedJiraTicket: <a href="#">JIRA-12345</a>,
         costCenter: 'Warehouse A',
         dateRange: 'Created'
     },
@@ -108,7 +108,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12346">JIRA-12346</a>,
+        linkedJiraTicket: <a href="#">JIRA-12346</a>,
         costCenter: 'Distribution Center',
         dateRange: 'Approved'
     },
@@ -132,7 +132,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12347">JIRA-12347</a>,
+        linkedJiraTicket: <a href="#">JIRA-12347</a>,
         costCenter: 'Warehouse A',
         dateRange: 'Modified'
     },
@@ -156,7 +156,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12348">JIRA-12348</a>,
+        linkedJiraTicket: <a href="#">JIRA-12348</a>,
         costCenter: 'Distribution Center',
         dateRange: 'Approved'
     },
@@ -180,7 +180,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12349">JIRA-12349</a>,
+        linkedJiraTicket: <a href="#">JIRA-12349</a>,
         costCenter: 'Warehouse A',
         dateRange: 'Modified'
     },
@@ -204,7 +204,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12350">JIRA-12350</a>,
+        linkedJiraTicket: <a href="#">JIRA-12350</a>,
         costCenter: 'Distribution Center',
         dateRange: 'Modified'
     },
@@ -228,7 +228,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12351">JIRA-12351</a>,
+        linkedJiraTicket: <a href="#">JIRA-12351</a>,
         costCenter: 'Warehouse A',
         dateRange: 'Approved'
     },
@@ -252,7 +252,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12352">JIRA-12352</a>,
+        linkedJiraTicket: <a href="#">JIRA-12352</a>,
         costCenter: 'Distribution Center',
         dateRange: 'Approved'
     },
@@ -276,7 +276,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12353">JIRA-12353</a>,
+        linkedJiraTicket: <a href="#">JIRA-12353</a>,
         costCenter: 'Warehouse A',
         dateRange: 'Modified'
     },
@@ -300,7 +300,7 @@ export const DUMMY_REQUISITIONS_DATA = [
             currentValue: Math.random() * 1000,
             historicalValue: Math.random() * 1000
         },
-        linkedJiraTicket: <a href="https://jira.acmesupplier.com/browse/JIRA-12354">JIRA-12354</a>,
+        linkedJiraTicket: <a href="#">JIRA-12354</a>,
         costCenter: 'Distribution Center',
         dateRange: 'Approved'
     }
