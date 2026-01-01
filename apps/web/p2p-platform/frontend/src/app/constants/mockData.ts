@@ -1,24 +1,24 @@
-import { 
-  User, 
-  Document, 
-  Transaction, 
-  ActivityItem, 
-  KPI, 
+/**
+ * DEMO/DEVELOPMENT DATA ONLY
+ * This file contains mock data for development and demo purposes.
+ * In production, all data should come from the API.
+ * TODO: Remove this file when API integration is complete.
+ */
+import {
+  User,
+  Document,
+  Transaction,
+  ActivityItem,
+  KPI,
   Notification
 } from './types';
 import { addDays, subDays, format } from 'date-fns';
 
-// Add missing import for addDays function
-import { addDays as addDaysImport } from 'date-fns';
-
-// Use the imported function
-const addDays = addDaysImport;
-
-// Current user
+// Demo user - Replace with actual auth in production
 export const currentUser: User = {
   id: 'user-1',
-  name: 'Jithesh M',
-  email: 'jithesh.m@acmesupplier.com',
+  name: 'Demo User',
+  email: 'demo@dollor.ai',
   role: 'admin',
   avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300'
 };
