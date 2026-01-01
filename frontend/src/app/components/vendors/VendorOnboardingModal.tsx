@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Building, User, FileText, Shield, CreditCard, CheckCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import { ModalOverlay } from '../ui/ModalOverlay';
+import Bridge from '../../constants/Bridge';
 
 interface VendorOnboardingModalProps {
   isOpen: boolean;
@@ -10,6 +11,12 @@ interface VendorOnboardingModalProps {
 
 const VendorOnboardingModal: React.FC<VendorOnboardingModalProps> = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [applicationId, setApplicationId] = useState<number | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
+  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const [formData, setFormData] = useState({
     // Phase 1: Initial Registration
     companyName: '',
@@ -114,10 +121,67 @@ const handleClientReferenceChange = (index: number, e: React.ChangeEvent<HTMLInp
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Vendor Onboarding Data:', formData);
-    onClose();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await Bridge.vendorOnboarding.createApplication(formData);
+      setApplicationId(response.id);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to submit vendor application');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    setError(null);
+
+    try {
+      const response = await Bridge.vendorOnboarding.saveDraft(formData);
+      setApplicationId(response.id);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save draft');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleDocumentUpload = async (docType: string, file: File) => {
+    if (!applicationId) {
+      // Save draft first to get an application ID
+      try {
+        const response = await Bridge.vendorOnboarding.saveDraft(formData);
+        setApplicationId(response.id);
+
+        // Now upload the document
+        setUploadingDoc(docType);
+        await Bridge.vendorOnboarding.uploadDocument(response.id, docType, file);
+        setFormData(prev => ({ ...prev, [docType]: file.name }));
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to upload document');
+      } finally {
+        setUploadingDoc(null);
+      }
+    } else {
+      setUploadingDoc(docType);
+      try {
+        await Bridge.vendorOnboarding.uploadDocument(applicationId, docType, file);
+        setFormData(prev => ({ ...prev, [docType]: file.name }));
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to upload document');
+      } finally {
+        setUploadingDoc(null);
+      }
+    }
+  };
+
+  const triggerFileUpload = (docType: string) => {
+    fileInputRefs.current[docType]?.click();
   };
 
   const renderRegistrationStep = () => (
@@ -587,7 +651,7 @@ const handleClientReferenceChange = (index: number, e: React.ChangeEvent<HTMLInp
   const renderDocumentsStep = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-medium text-neutral-900">Required Documentation</h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {[
           { key: 'financialStatements', label: 'Financial Statements (Last 2 Years)', required: true },
@@ -606,11 +670,28 @@ const handleClientReferenceChange = (index: number, e: React.ChangeEvent<HTMLInp
                   {doc.label} {doc.required && '*'}
                 </h4>
                 <p className="text-sm text-neutral-500 mt-1">
-                  {doc.required ? 'Required document' : 'Optional document'}
+                  {(formData as any)[doc.key] ? (formData as any)[doc.key] : (doc.required ? 'Required document' : 'Optional document')}
                 </p>
               </div>
-              <Button variant="outline" size="sm" leftIcon={<FileText size={16} />}>
-                Upload
+              <input
+                type="file"
+                ref={(el) => { fileInputRefs.current[doc.key] = el; }}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.jpg,.png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDocumentUpload(doc.key, file);
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<FileText size={16} />}
+                onClick={() => triggerFileUpload(doc.key)}
+                isLoading={uploadingDoc === doc.key}
+                disabled={!!uploadingDoc}
+              >
+                {(formData as any)[doc.key] ? 'Replace' : 'Upload'}
               </Button>
             </div>
           </div>
@@ -762,25 +843,37 @@ const handleClientReferenceChange = (index: number, e: React.ChangeEvent<HTMLInp
             {renderStepContent()}
           </form>
 
+          {/* Error Display */}
+          {error && (
+            <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Navigation */}
           <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200 flex justify-between">
             <Button
               variant="outline"
               onClick={handlePrevious}
-              disabled={currentStep === 0}
+              disabled={currentStep === 0 || isSubmitting || isSavingDraft}
             >
               Previous
             </Button>
             <div className="flex space-x-3">
-              <Button variant="outline" onClick={onClose}>
+              <Button
+                variant="outline"
+                onClick={handleSaveDraft}
+                isLoading={isSavingDraft}
+                disabled={isSubmitting || isSavingDraft}
+              >
                 Save Draft
               </Button>
               {currentStep === steps.length - 1 ? (
-                <Button variant="primary" type="submit">
+                <Button variant="primary" type="submit" isLoading={isSubmitting} disabled={isSubmitting || isSavingDraft}>
                   Submit Application
                 </Button>
               ) : (
-                <Button variant="primary" onClick={handleNext}>
+                <Button variant="primary" onClick={handleNext} disabled={isSubmitting || isSavingDraft}>
                   Next
                 </Button>
               )}

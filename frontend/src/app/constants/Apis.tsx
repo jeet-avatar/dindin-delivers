@@ -112,6 +112,25 @@ const Apis = {
     getCoupaTransactions: "/transactions/coupa",
     getNetsuiteTransactions: "/transactions/netsuite",
     getNetsuiteFilters: "/transactions/netsuite/filters",
+    createPurchaseOrder: "/transactions/purchase-orders",
+    createDirectPurchaseOrder: "/transactions/direct-purchase-orders",
+    createEdiOrder: "/transactions/edi-orders",
+    updateTransaction: "/transactions",
+    sendToCoupa: "/integrations/coupa/send",
+    sendToNetsuite: "/integrations/netsuite/send",
+    sendToProcessUnity: "/integrations/process-unity/send",
+    sendToWolt: "/integrations/wolt/send",
+    syncToCoupa: "/integrations/coupa/sync",
+  },
+
+  vendorOnboarding: {
+    createApplication: "/vendor-applications",
+    uploadDocument: "/vendor-applications",
+    saveDraft: "/vendor-applications/draft",
+  },
+
+  exports: {
+    vendorEarnings: "/vendors/earnings/export",
   },
 
 }
