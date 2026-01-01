@@ -4676,17 +4676,31 @@ def get_driver_dashboard_v5(
     ).first()
 
     if active_order:
+        # Get vendor info for restaurant details
+        active_vendor = db.query(Vendor).filter(Vendor.id == active_order.vendor_id).first()
+        restaurant_name = active_vendor.restaurant_name if active_vendor else "Restaurant"
+        restaurant_addr = f"{active_vendor.street}, {active_vendor.city}" if active_vendor else ""
+
+        # Parse items JSON to get count
+        items_count = 1
+        if active_order.items:
+            try:
+                items_list = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
+                items_count = len(items_list) if isinstance(items_list, list) else 1
+            except (json.JSONDecodeError, TypeError):
+                items_count = 1
+
         active_delivery = {
             "id": active_order.order_number,
             "order_id": active_order.id,
-            "restaurant": active_order.restaurant_name or "Restaurant",
-            "restaurant_address": active_order.restaurant_address,
+            "restaurant": restaurant_name,
+            "restaurant_address": restaurant_addr,
             "customer": active_order.customer_name or "Customer",
             "address": active_order.delivery_address,
-            "items": len(active_order.items) if active_order.items else 1,
+            "items": items_count,
             "total": float(active_order.total_amount or 0),
-            "distance": f"{active_order.estimated_distance or 2.5} mi",
-            "estimated_time": f"{active_order.estimated_duration or 20} min",
+            "distance": "2.5 mi",  # Default - no estimated_distance in Order model
+            "estimated_time": "20 min",  # Default - no estimated_duration in Order model
             "status": active_order.status.value
         }
 
@@ -4698,14 +4712,16 @@ def get_driver_dashboard_v5(
     ).limit(5).all()
 
     for order in pending_orders:
+        # Get vendor info for restaurant name
+        pending_vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
         pending_deliveries.append({
             "id": order.order_number,
             "order_id": order.id,
-            "restaurant": order.restaurant_name or "Restaurant",
+            "restaurant": pending_vendor.restaurant_name if pending_vendor else "Restaurant",
             "address": order.delivery_address,
-            "distance": f"{order.estimated_distance or 2.0} mi",
+            "distance": "2.0 mi",  # Default - no estimated_distance in Order model
             "payout": float(order.delivery_fee or 5.0),
-            "eta": f"{order.estimated_duration or 25} min"
+            "eta": "25 min"  # Default - no estimated_duration in Order model
         })
 
     # Today's stats from actual orders
@@ -4717,7 +4733,7 @@ def get_driver_dashboard_v5(
     ).all()
 
     today_deliveries = len(today_orders)
-    today_earnings = sum(float(o.delivery_fee or 0) + float(o.driver_tip or 0) for o in today_orders)
+    today_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in today_orders)
 
     hours_online = 0.0
     if hasattr(driver, 'is_online') and driver.is_online and hasattr(driver, 'went_online_at') and driver.went_online_at:
@@ -4739,7 +4755,7 @@ def get_driver_dashboard_v5(
     ).all()
 
     week_deliveries = len(week_orders)
-    week_earnings = sum(float(o.delivery_fee or 0) + float(o.driver_tip or 0) for o in week_orders)
+    week_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in week_orders)
 
     weekly_stats = {
         "deliveries": {"current": week_deliveries, "goal": 50},
