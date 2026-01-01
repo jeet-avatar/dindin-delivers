@@ -3,6 +3,7 @@ import { X, Save, FileText, User, Building, Clock, CheckCircle, AlertCircle } fr
 import Button from '../ui/Button';
 import EditableField from '../ui/EditableField';
 import { ModalOverlay } from '../ui/ModalOverlay';
+import Bridge from '../../constants/Bridge';
 
 interface CoupaEditModalProps {
   isOpen: boolean;
@@ -61,24 +62,40 @@ const CoupaEditModal: React.FC<CoupaEditModalProps> = ({
     setHasChanges(true);
   };
 
+  const [error, setError] = useState<string | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
   const handleSave = async () => {
     if (!editedTransaction) return;
 
     setIsSaving(true);
-    
+    setError(null);
+
     try {
-      // Simulate API call to update Coupa
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      console.log('Syncing transaction updates to Coupa system');
-      
+      await Bridge.transactions.syncToCoupa(editedTransaction.id, editedTransaction);
       onSave(editedTransaction);
       setHasChanges(false);
       onClose();
-    } catch (error) {
-      console.error('Failed to save transaction:', error);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to sync to Coupa');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!editedTransaction) return;
+
+    setIsSavingDraft(true);
+    setError(null);
+
+    try {
+      await Bridge.transactions.updateTransaction(editedTransaction.id, editedTransaction);
+      setHasChanges(false);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save draft');
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -605,21 +622,29 @@ const CoupaEditModal: React.FC<CoupaEditModalProps> = ({
             {activeTab === 'status' && renderStatusTab()}
           </div>
 
+          {error && (
+            <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200 flex justify-between">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} disabled={isSaving || isSavingDraft}>
               Cancel
             </Button>
             <div className="flex space-x-3">
-              <Button 
+              <Button
                 variant="outline"
-                disabled={!hasChanges}
+                disabled={!hasChanges || isSaving || isSavingDraft}
+                onClick={handleSaveDraft}
+                isLoading={isSavingDraft}
               >
                 Save Draft
               </Button>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={handleSave}
-                disabled={!hasChanges}
+                disabled={!hasChanges || isSaving || isSavingDraft}
                 isLoading={isSaving}
                 leftIcon={<Save size={16} />}
               >

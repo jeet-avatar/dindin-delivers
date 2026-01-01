@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import Button from '../ui/Button';
 import { ModalOverlay } from '../ui/ModalOverlay';
+import Bridge from '../../constants/Bridge';
 
 interface NewTransactionModalProps {
   isOpen: boolean;
@@ -9,6 +10,10 @@ interface NewTransactionModalProps {
 }
 
 const NewTransactionModal: React.FC<NewTransactionModalProps> = ({ isOpen, onClose }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingTo, setIsSendingTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [savedTransactionId, setSavedTransactionId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     vendor: '',
     subsidiary: '',
@@ -34,11 +39,41 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({ isOpen, onClo
     }]
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log(formData);
-    onClose();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await Bridge.transactions.createPurchaseOrder(formData);
+      setSavedTransactionId(response.id);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create purchase order');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendTo = async (system: 'coupa' | 'netsuite' | 'processUnity' | 'wolt') => {
+    setIsSendingTo(system);
+    setError(null);
+
+    try {
+      const sendFunctions = {
+        coupa: Bridge.transactions.sendToCoupa,
+        netsuite: Bridge.transactions.sendToNetsuite,
+        processUnity: Bridge.transactions.sendToProcessUnity,
+        wolt: Bridge.transactions.sendToWolt,
+      };
+
+      await sendFunctions[system]({ ...formData, transactionId: savedTransactionId });
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || `Failed to send to ${system}`);
+    } finally {
+      setIsSendingTo(null);
+    }
   };
 
   const addItem = () => {
@@ -398,23 +433,29 @@ const NewTransactionModal: React.FC<NewTransactionModalProps> = ({ isOpen, onClo
               })}
             </div>
 
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
             <div className="mt-8 flex items-center justify-end space-x-3">
-              <Button variant="outline" type="button" onClick={onClose}>
+              <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting || !!isSendingTo}>
                 Cancel
               </Button>
-              <Button variant="primary" type="submit">
+              <Button variant="primary" type="submit" isLoading={isSubmitting} disabled={isSubmitting || !!isSendingTo}>
                 Save & Submit
               </Button>
-              <Button variant="secondary" type="button">
+              <Button variant="secondary" type="button" onClick={() => handleSendTo('coupa')} isLoading={isSendingTo === 'coupa'} disabled={isSubmitting || !!isSendingTo}>
                 Send to Coupa
               </Button>
-              <Button variant="secondary" type="button">
+              <Button variant="secondary" type="button" onClick={() => handleSendTo('netsuite')} isLoading={isSendingTo === 'netsuite'} disabled={isSubmitting || !!isSendingTo}>
                 Send to NetSuite
               </Button>
-              <Button variant="secondary" type="button">
+              <Button variant="secondary" type="button" onClick={() => handleSendTo('processUnity')} isLoading={isSendingTo === 'processUnity'} disabled={isSubmitting || !!isSendingTo}>
                 Send to Process Unity
               </Button>
-              <Button variant="secondary" type="button">
+              <Button variant="secondary" type="button" onClick={() => handleSendTo('wolt')} isLoading={isSendingTo === 'wolt'} disabled={isSubmitting || !!isSendingTo}>
                 Send to Wolt
               </Button>
             </div>

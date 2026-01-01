@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, DatePicker, Button, Space } from 'antd';
-import { DollarOutlined, ShoppingOutlined, RiseOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Table, DatePicker, Button, Space, message } from 'antd';
+import { DollarOutlined, ShoppingOutlined, RiseOutlined, DownloadOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Line } from 'react-chartjs-2';
 import axios from 'axios';
 import moment from 'moment';
+import Bridge from '../../constants/Bridge';
 
 const { RangePicker } = DatePicker;
 
@@ -17,6 +18,7 @@ interface Earning {
 
 const VendorEarnings: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [dateRange, setDateRange] = useState<any>([
     moment().subtract(30, 'days'),
     moment()
@@ -32,6 +34,32 @@ const VendorEarnings: React.FC = () => {
   });
 
   const vendorId = 1; // Get from auth context
+
+  const handleExportReport = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await Bridge.exports.vendorEarnings(vendorId, {
+        start_date: dateRange[0].format('YYYY-MM-DD'),
+        end_date: dateRange[1].format('YYYY-MM-DD')
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `earnings-report-${dateRange[0].format('YYYYMMDD')}-${dateRange[1].format('YYYYMMDD')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success('Report exported successfully');
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Failed to export report');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetchEarnings();
@@ -180,7 +208,11 @@ const VendorEarnings: React.FC = () => {
             onChange={setDateRange}
             format="YYYY-MM-DD"
           />
-          <Button icon={<DownloadOutlined />}>
+          <Button
+            icon={isExporting ? <LoadingOutlined /> : <DownloadOutlined />}
+            onClick={handleExportReport}
+            loading={isExporting}
+          >
             Export Report
           </Button>
         </Space>

@@ -297,5 +297,72 @@ export default {
         api.get(`${URLs.transactions.getNetsuiteFilters}?days_back=${days_back}`).then((response) => {
           return response.data;
         }),
-    }
+      createPurchaseOrder: (data: any) =>
+        api.post(URLs.transactions.createPurchaseOrder, data).then((response) => {
+          return response.data;
+        }),
+      createDirectPurchaseOrder: (data: any) =>
+        api.post(URLs.transactions.createDirectPurchaseOrder, data).then((response) => {
+          return response.data;
+        }),
+      createEdiOrder: (data: any) =>
+        api.post(URLs.transactions.createEdiOrder, data).then((response) => {
+          return response.data;
+        }),
+      updateTransaction: (transactionId: number, data: any) =>
+        api.put(`${URLs.transactions.updateTransaction}/${transactionId}`, data).then((response) => {
+          return response.data;
+        }),
+      sendToCoupa: (data: any) =>
+        api.post(URLs.transactions.sendToCoupa, data).then((response) => {
+          return response.data;
+        }),
+      sendToNetsuite: (data: any) =>
+        api.post(URLs.transactions.sendToNetsuite, data).then((response) => {
+          return response.data;
+        }),
+      sendToProcessUnity: (data: any) =>
+        api.post(URLs.transactions.sendToProcessUnity, data).then((response) => {
+          return response.data;
+        }),
+      sendToWolt: (data: any) =>
+        api.post(URLs.transactions.sendToWolt, data).then((response) => {
+          return response.data;
+        }),
+      syncToCoupa: (transactionId: number, data: any) =>
+        api.put(`${URLs.transactions.syncToCoupa}/${transactionId}`, data).then((response) => {
+          return response.data;
+        }),
+    },
+
+    vendorOnboarding: {
+      createApplication: (data: any) =>
+        api.post(URLs.vendorOnboarding.createApplication, data).then((response) => {
+          return response.data;
+        }),
+      uploadDocument: (applicationId: number, docType: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('document_type', docType);
+        return api.post(`${URLs.vendorOnboarding.uploadDocument}/${applicationId}/documents`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }).then((response) => {
+          return response.data;
+        });
+      },
+      saveDraft: (data: any) =>
+        api.post(URLs.vendorOnboarding.saveDraft, data).then((response) => {
+          return response.data;
+        }),
+    },
+
+    exports: {
+      vendorEarnings: (vendorId: number, params: any) =>
+        api.get(`${URLs.exports.vendorEarnings}?vendor_id=${vendorId}`, {
+          params,
+          responseType: 'blob'
+        }).then((response) => {
+          return response.data;
+        }),
+    },
 }
