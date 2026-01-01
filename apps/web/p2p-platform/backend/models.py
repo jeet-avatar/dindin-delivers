@@ -443,7 +443,7 @@ class VendorPayout(Base):
     # Financial Details
     total_orders = Column(Integer, default=0)
     gross_revenue = Column(Float, default=0.0)  # Total order amounts
-    platform_fee = Column(Float, default=0.0)  # Your commission (e.g., 15%)
+    platform_fee = Column(Float, default=0.0)  # Platform fee ($1 flat per order)
     stripe_fees = Column(Float, default=0.0)  # Stripe processing fees
     net_payout = Column(Float, default=0.0)  # What vendor receives
     

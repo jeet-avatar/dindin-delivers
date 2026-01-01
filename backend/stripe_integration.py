@@ -126,12 +126,13 @@ async def create_order(
         })
     
     # Calculate fees and taxes
+    # IMPORTANT: Platform fee is $1 FLAT - NOT a percentage (see PRICING_MODEL.md)
     TAX_RATE = 0.08  # 8% tax (configure per location)
     DELIVERY_FEE = 5.99 if order_data.delivery_address else 0.0
-    PLATFORM_FEE_RATE = 0.15  # 15% platform commission
-    
+    PLATFORM_FEE = 1.00  # $1 flat matchmaking fee from customer
+
     tax_amount = subtotal * TAX_RATE
-    platform_fee = subtotal * PLATFORM_FEE_RATE
+    platform_fee = PLATFORM_FEE  # $1 flat, NOT percentage
     total_amount = subtotal + tax_amount + DELIVERY_FEE + platform_fee
     
     # Generate order number
