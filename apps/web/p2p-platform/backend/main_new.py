@@ -4674,7 +4674,7 @@ def get_driver_dashboard_v5(
         active_delivery = None
         active_order = db.query(Order).filter(
             Order.driver_id == driver_id,
-            Order.status.in_([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DRIVER_ASSIGNED])
+            Order.status.in_([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.READY_FOR_PICKUP])
         ).first()
 
         if active_order:

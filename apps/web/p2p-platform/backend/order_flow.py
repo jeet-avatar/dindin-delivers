@@ -1756,9 +1756,8 @@ async def get_driver_pending_orders(
         orders = db.query(Order).filter(
             Order.driver_id == driver_id,
             Order.status.in_([
-                OrderStatus.DRIVER_ASSIGNED,
-                OrderStatus.OUT_FOR_DELIVERY,
-                OrderStatus.READY_FOR_PICKUP
+                OrderStatus.READY_FOR_PICKUP,
+                OrderStatus.OUT_FOR_DELIVERY
             ])
         ).order_by(Order.created_at.desc()).limit(50).all()
 
