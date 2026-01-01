@@ -1751,52 +1751,55 @@ async def get_driver_pending_orders(
     This endpoint is an alias for /orders/driver/{driver_id}/active.
     Android uses: /api/erp/orders/driver/{driverId}/pending
     """
-    # Query orders that are assigned to this driver or ready for pickup
-    orders = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status.in_([
-            OrderStatus.DRIVER_ASSIGNED,
-            OrderStatus.OUT_FOR_DELIVERY,
-            OrderStatus.READY_FOR_PICKUP
-        ])
-    ).order_by(Order.created_at.desc()).limit(50).all()
+    try:
+        # Query orders that are assigned to this driver or ready for pickup
+        orders = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status.in_([
+                OrderStatus.DRIVER_ASSIGNED,
+                OrderStatus.OUT_FOR_DELIVERY,
+                OrderStatus.READY_FOR_PICKUP
+            ])
+        ).order_by(Order.created_at.desc()).limit(50).all()
 
-    result = []
-    for order in orders:
-        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-        # Safely parse delivery address
-        delivery_addr = {}
-        if order.delivery_address:
-            try:
-                delivery_addr = json.loads(order.delivery_address)
-            except (json.JSONDecodeError, TypeError):
-                delivery_addr = {"address": str(order.delivery_address)}
+        result = []
+        for order in orders:
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            # Safely parse delivery address
+            delivery_addr = {}
+            if order.delivery_address:
+                try:
+                    delivery_addr = json.loads(order.delivery_address)
+                except (json.JSONDecodeError, TypeError):
+                    delivery_addr = {"address": str(order.delivery_address)}
 
-        result.append({
-            "id": order.id,
-            "order_id": order.id,
-            "order_number": order.order_number,
-            "status": order.status.value,
-            "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
-            "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
-            "customer_name": order.customer_name,
-            "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
-            "customer_phone": order.customer_phone,
-            "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
-            "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-            "dropoff_latitude": delivery_addr.get("latitude"),
-            "dropoff_longitude": delivery_addr.get("longitude"),
-            "estimated_distance": None,  # Not in Order model
-            "estimated_duration": 30,  # Default - not in Order model
-            "delivery_fee": order.delivery_fee,
-            "tip": order.tip,
-            "created_at": order.created_at.isoformat(),
-            "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": order.dispatched_at.isoformat() if order.dispatched_at else None,  # Use dispatched_at instead
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
-        })
+            result.append({
+                "id": order.id,
+                "order_id": order.id,
+                "order_number": order.order_number,
+                "status": order.status.value,
+                "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
+                "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+                "customer_name": order.customer_name,
+                "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
+                "customer_phone": order.customer_phone,
+                "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
+                "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
+                "dropoff_latitude": delivery_addr.get("latitude"),
+                "dropoff_longitude": delivery_addr.get("longitude"),
+                "estimated_distance": None,
+                "estimated_duration": 30,
+                "delivery_fee": order.delivery_fee,
+                "tip": order.tip,
+                "created_at": order.created_at.isoformat(),
+                "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
+                "picked_up_at": order.dispatched_at.isoformat() if order.dispatched_at else None,
+                "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+            })
 
-    return {"success": True, "orders": result, "count": len(result)}
+        return {"success": True, "orders": result, "count": len(result)}
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
 @router.put("/orders/{order_id}/complete-delivery")
