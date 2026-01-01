@@ -4663,124 +4663,128 @@ def get_driver_dashboard_v5(
     This is an alias endpoint for iOS app compatibility.
     iOS uses: /api/v5/driver/{driverId}/dashboard
     """
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    try:
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
 
-    driver_name = f"{driver.first_name} {driver.last_name}"
+        driver_name = f"{driver.first_name} {driver.last_name}"
 
-    # Active delivery - query real active orders for this driver
-    active_delivery = None
-    active_order = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status.in_([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DRIVER_ASSIGNED])
-    ).first()
+        # Active delivery - query real active orders for this driver
+        active_delivery = None
+        active_order = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status.in_([OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DRIVER_ASSIGNED])
+        ).first()
 
-    if active_order:
-        # Get vendor info for restaurant details
-        active_vendor = db.query(Vendor).filter(Vendor.id == active_order.vendor_id).first()
-        restaurant_name = active_vendor.restaurant_name if active_vendor else "Restaurant"
-        restaurant_addr = f"{active_vendor.street}, {active_vendor.city}" if active_vendor else ""
+        if active_order:
+            # Get vendor info for restaurant details
+            active_vendor = db.query(Vendor).filter(Vendor.id == active_order.vendor_id).first()
+            restaurant_name = active_vendor.restaurant_name if active_vendor else "Restaurant"
+            restaurant_addr = f"{active_vendor.street}, {active_vendor.city}" if active_vendor else ""
 
-        # Parse items JSON to get count
-        items_count = 1
-        if active_order.items:
-            try:
-                items_list = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
-                items_count = len(items_list) if isinstance(items_list, list) else 1
-            except (json.JSONDecodeError, TypeError):
-                items_count = 1
+            # Parse items JSON to get count
+            items_count = 1
+            if active_order.items:
+                try:
+                    items_list = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
+                    items_count = len(items_list) if isinstance(items_list, list) else 1
+                except (json.JSONDecodeError, TypeError):
+                    items_count = 1
 
-        active_delivery = {
-            "id": active_order.order_number,
-            "order_id": active_order.id,
-            "restaurant": restaurant_name,
-            "restaurant_address": restaurant_addr,
-            "customer": active_order.customer_name or "Customer",
-            "address": active_order.delivery_address,
-            "items": items_count,
-            "total": float(active_order.total_amount or 0),
-            "distance": "2.5 mi",  # Default - no estimated_distance in Order model
-            "estimated_time": "20 min",  # Default - no estimated_duration in Order model
-            "status": active_order.status.value
+            active_delivery = {
+                "id": active_order.order_number,
+                "order_id": active_order.id,
+                "restaurant": restaurant_name,
+                "restaurant_address": restaurant_addr,
+                "customer": active_order.customer_name or "Customer",
+                "address": active_order.delivery_address,
+                "items": items_count,
+                "total": float(active_order.total_amount or 0),
+                "distance": "2.5 mi",
+                "estimated_time": "20 min",
+                "status": active_order.status.value
+            }
+
+        # Pending deliveries for this driver
+        pending_deliveries = []
+        pending_orders = db.query(Order).filter(
+            Order.status == OrderStatus.READY_FOR_PICKUP,
+            Order.driver_id == None
+        ).limit(5).all()
+
+        for order in pending_orders:
+            pending_vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            pending_deliveries.append({
+                "id": order.order_number,
+                "order_id": order.id,
+                "restaurant": pending_vendor.restaurant_name if pending_vendor else "Restaurant",
+                "address": order.delivery_address,
+                "distance": "2.0 mi",
+                "payout": float(order.delivery_fee or 5.0),
+                "eta": "25 min"
+            })
+
+        # Today's stats from actual orders
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_orders = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= today_start
+        ).all()
+
+        today_deliveries = len(today_orders)
+        today_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in today_orders)
+
+        hours_online = 0.0
+        if hasattr(driver, 'is_online') and driver.is_online and hasattr(driver, 'went_online_at') and driver.went_online_at:
+            hours_online = round((datetime.utcnow() - driver.went_online_at).total_seconds() / 3600, 1)
+
+        today_stats = {
+            "deliveries": today_deliveries,
+            "earnings": round(today_earnings, 2),
+            "hours_online": hours_online,
+            "acceptance_rate": 95
         }
 
-    # Pending deliveries for this driver
-    pending_deliveries = []
-    pending_orders = db.query(Order).filter(
-        Order.status == OrderStatus.READY_FOR_PICKUP,
-        Order.driver_id == None
-    ).limit(5).all()
+        # Weekly stats
+        week_start = today_start - timedelta(days=today_start.weekday())
+        week_orders = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= week_start
+        ).all()
 
-    for order in pending_orders:
-        # Get vendor info for restaurant name
-        pending_vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-        pending_deliveries.append({
-            "id": order.order_number,
-            "order_id": order.id,
-            "restaurant": pending_vendor.restaurant_name if pending_vendor else "Restaurant",
-            "address": order.delivery_address,
-            "distance": "2.0 mi",  # Default - no estimated_distance in Order model
-            "payout": float(order.delivery_fee or 5.0),
-            "eta": "25 min"  # Default - no estimated_duration in Order model
-        })
+        week_deliveries = len(week_orders)
+        week_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in week_orders)
 
-    # Today's stats from actual orders
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_orders = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.delivered_at >= today_start
-    ).all()
-
-    today_deliveries = len(today_orders)
-    today_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in today_orders)
-
-    hours_online = 0.0
-    if hasattr(driver, 'is_online') and driver.is_online and hasattr(driver, 'went_online_at') and driver.went_online_at:
-        hours_online = round((datetime.utcnow() - driver.went_online_at).total_seconds() / 3600, 1)
-
-    today_stats = {
-        "deliveries": today_deliveries,
-        "earnings": round(today_earnings, 2),
-        "hours_online": hours_online,
-        "acceptance_rate": 95
-    }
-
-    # Weekly stats
-    week_start = today_start - timedelta(days=today_start.weekday())
-    week_orders = db.query(Order).filter(
-        Order.driver_id == driver_id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.delivered_at >= week_start
-    ).all()
-
-    week_deliveries = len(week_orders)
-    week_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in week_orders)
-
-    weekly_stats = {
-        "deliveries": {"current": week_deliveries, "goal": 50},
-        "earnings": {"current": round(week_earnings, 2), "goal": 800},
-        "hours": {"current": round(hours_online * 7, 1), "goal": 40}
-    }
-
-    return {
-        "success": True,
-        "driver_name": driver_name,
-        "driver_id": driver.driver_id,
-        "numeric_id": driver.id,
-        "is_online": driver.is_online if hasattr(driver, 'is_online') else False,
-        "rating": driver.rating or 5.0,
-        "active_delivery": active_delivery,
-        "pending_deliveries": pending_deliveries,
-        "today_stats": today_stats,
-        "weekly_stats": weekly_stats,
-        "location": {
-            "latitude": driver.current_latitude if hasattr(driver, 'current_latitude') else None,
-            "longitude": driver.current_longitude if hasattr(driver, 'current_longitude') else None,
-            "last_update": driver.location_updated_at.isoformat() if hasattr(driver, 'location_updated_at') and driver.location_updated_at else None
+        weekly_stats = {
+            "deliveries": {"current": week_deliveries, "goal": 50},
+            "earnings": {"current": round(week_earnings, 2), "goal": 800},
+            "hours": {"current": round(hours_online * 7, 1), "goal": 40}
         }
-    }
+
+        return {
+            "success": True,
+            "driver_name": driver_name,
+            "driver_id": driver.driver_id,
+            "numeric_id": driver.id,
+            "is_online": driver.is_online if hasattr(driver, 'is_online') else False,
+            "rating": driver.rating or 5.0,
+            "active_delivery": active_delivery,
+            "pending_deliveries": pending_deliveries,
+            "today_stats": today_stats,
+            "weekly_stats": weekly_stats,
+            "location": {
+                "latitude": driver.current_latitude if hasattr(driver, 'current_latitude') else None,
+                "longitude": driver.current_longitude if hasattr(driver, 'current_longitude') else None,
+                "last_update": driver.location_updated_at.isoformat() if hasattr(driver, 'location_updated_at') and driver.location_updated_at else None
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"success": False, "error": str(e), "error_type": type(e).__name__}
 
 
 @app.get("/api/driver/earnings")
