@@ -197,9 +197,198 @@ private const val PRODUCTION_BASE = "https://api.dollor.ai"
 
 ---
 
-## 3. WEB APP / ADMIN PORTAL
+## 3. WEB APPS (React + Vite)
 
-### 3.1 Admin Dashboard
+### 3.1 P2P Platform Web App
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/` |
+| **Framework** | React + Vite + TypeScript |
+| **API Base** | `https://api.dollor.ai` |
+| **Status** | ✅ Production Ready |
+
+**.env.production:**
+```typescript
+VITE_API_URL=https://api.dollor.ai
+VITE_APP_NAME=Dollor.ai
+VITE_ENVIRONMENT=production
+```
+
+---
+
+### 3.2 Customer Web Portal
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/src/app/screens/customer/` |
+| **Routes** | `/customer/*` |
+| **API Base** | `https://api.dollor.ai` |
+| **Status** | ✅ Production Ready |
+
+**Routes:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/customer` | CustomerHome | Homepage with restaurants |
+| `/customer/restaurants` | Restaurants | Browse restaurants |
+| `/customer/restaurant/:id` | RestaurantDetail | Restaurant menu |
+| `/customer/cart` | Cart | Shopping cart |
+| `/customer/checkout` | Checkout | Payment flow |
+| `/customer/order/:orderId` | OrderTracking | Track order status |
+| `/customer/rides` | RideBooking | Request P2P ride |
+| `/customer/ride-bids` | RideBids | View driver bids |
+| `/customer/deals` | DealsPage | Promotions |
+| `/customer/profile` | CustomerProfile | Account settings |
+| `/customer/login` | CustomerLogin | Auth (Google/Apple/Email) |
+
+**API Endpoints Used:**
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/api/vendors/published` | GET | ✅ Working |
+| `/api/erp/restaurants` | GET | ✅ Working |
+| `/api/public/restaurants/{id}` | GET | ✅ Working |
+| `/api/cart` | GET/POST | ✅ Working |
+| `/api/orders` | POST | ✅ Working |
+| `/api/erp/orders/{id}/full-tracking` | GET | ✅ Working |
+| `/api/rides/request` | POST | ✅ Working |
+| `/api/erp/rides/estimate` | POST | ✅ Working |
+| `/api/auth/customer/login` | POST | ✅ Working |
+| `/api/auth/customer/register` | POST | ✅ Working |
+| `/api/auth/customer/google` | POST | ✅ Working |
+
+---
+
+### 3.3 Driver Web Portal
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/src/app/screens/driver/` |
+| **Routes** | `/driver/*` |
+| **API Base** | `https://api.dollor.ai` |
+| **Status** | ✅ Production Ready |
+
+**Routes:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/driver` | AvailableOrders | Available delivery orders |
+| `/driver/orders` | AvailableOrders | Order list |
+| `/driver/bidding` | RideBidding | Bid on ride requests |
+| `/driver/active` | ActiveDelivery | Current delivery |
+| `/driver/history` | Deliveries | Past deliveries |
+| `/driver/messages` | Messages | Customer chat |
+| `/driver/profile` | Profile | Account settings |
+| `/driver/dashboard` | Dashboard | Stats overview |
+| `/driver/earnings` | Earnings | Earnings tracking |
+| `/driver/login` | DriverLogin | Driver authentication |
+
+**API Endpoints Used:**
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/api/driver/dashboard` | GET | ✅ Working |
+| `/api/orders/pending-restaurant` | GET | ✅ Working |
+| `/api/orders/{id}/driver/pickup` | POST | ✅ Working |
+| `/api/orders/{id}/deliver` | POST | ✅ Working |
+| `/api/rides/available` | GET | ✅ Working |
+| `/api/rides/request/{id}/bid` | POST | ✅ Working |
+| `/api/auth/driver/login` | POST | ✅ Working |
+| `/api/auth/driver/register` | POST | ✅ Working |
+
+---
+
+### 3.4 Restaurant (Vendor) Web Portal
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/src/app/screens/vendor/` |
+| **Routes** | `/vendor/*` |
+| **API Base** | `https://api.dollor.ai` |
+| **Status** | ✅ Production Ready |
+
+**Routes:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/vendor/login` | VendorLogin | Restaurant authentication |
+| `/vendor/profile` | Profile | Restaurant profile/settings |
+| `/vendor/dashboard` | Dashboard | Orders & stats |
+| `/vendor/settings` | Settings | Configuration |
+
+**Features:**
+- View incoming orders
+- Accept/decline orders (3-min window)
+- Menu management
+- Earnings dashboard
+- Document upload portal
+- Settings management
+
+**API Endpoints Used:**
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/api/auth/vendor/login` | POST | ✅ Working |
+| `/api/vendors/{id}` | GET/PATCH | ✅ Working |
+| `/api/vendors/{id}/menu` | GET/POST/PUT/DELETE | ✅ Working |
+| `/api/orders?vendor_id={id}` | GET | ✅ Working |
+| `/api/orders/{id}/restaurant/accept` | POST | ✅ Working |
+| `/api/orders/{id}/restaurant/decline` | POST | ✅ Working |
+| `/api/orders/{id}/ready-for-pickup` | POST | ✅ Working |
+| `/api/vendor/my-documents` | GET/POST | ✅ Working |
+
+---
+
+### 3.5 Admin Portal
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/src/app/screens/` |
+| **Routes** | `/admin/*` |
+| **API Base** | `https://api.dollor.ai` |
+| **Status** | ✅ Production Ready |
+
+**Routes:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/admin` | Dashboard | Main dashboard |
+| `/admin/vendor-management` | VendorManagement | Manage restaurants |
+| `/admin/orders` | Orders | All orders |
+| `/admin/rideshare/requests` | RideRequests | Ride requests |
+| `/admin/rideshare/active` | ActiveRides | Active rides |
+| `/admin/drivers` | DriversAdmin | Driver management |
+| `/admin/accounting/*` | Accounting | Financial reports |
+| `/admin/invoices` | Invoices | Invoice management |
+| `/admin/coupa-dashboard` | CoupaDashboard | Coupa integration |
+| `/admin/netsuite-dashboard` | NetsuiteDashboard | NetSuite integration |
+
+**Features:**
+- Vendor onboarding & management
+- Order monitoring
+- Rideshare oversight
+- Driver management
+- Financial dashboards (NetSuite, Coupa)
+- Invoice management
+- Platform analytics
+
+---
+
+### 3.6 Public Pages
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/apps/web/p2p-platform/frontend/src/app/screens/public/` |
+| **Status** | ✅ Production Ready |
+
+**Routes:**
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/` | LandingPage | Homepage |
+| `/terms` | TermsOfService | Terms of service |
+| `/privacy` | PrivacyPolicy | Privacy policy |
+| `/help` | HelpSupport | Help & support |
+| `/refer` | ReferAndEarn | Referral program |
+| `/restaurant/apply` | RestaurantApplication | Restaurant signup |
+| `/driver/apply` | DriverApplication | Driver signup |
+
+---
+
+### 3.7 Legacy Admin Dashboard
 
 | Property | Value |
 |----------|-------|
@@ -208,18 +397,16 @@ private const val PRODUCTION_BASE = "https://api.dollor.ai"
 | **API Base** | `https://api.dollor.ai` |
 | **Status** | ✅ Production Ready |
 
-**API Configuration:**
+**.env:**
 ```typescript
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+VITE_API_URL=https://api.dollor.ai
 ```
 
 **Features:**
 - Vendor management
 - Order monitoring
 - Financial dashboards (NetSuite, Coupa)
-- User management
 - Invoice management
-- Platform analytics
 
 ---
 
