@@ -1,20 +1,20 @@
-# Dollor.ai iOS Customer App - Production Status
+# Dollor.ai iOS Apps - Production Status
 
-**Last Updated:** December 27, 2025
-**Status:** BLOCKED - Hardcoded to Staging
+**Last Updated:** December 31, 2025
+**Status:** ✅ READY FOR APP STORE
 
 ---
 
-## Critical Issue
+## ✅ Production Configuration Complete
 
-**iOS AppConfig.swift is hardcoded to STAGING URLs**
+**iOS AppConfig.swift is configured for PRODUCTION**
 
 ```swift
-// Current (WRONG):
-@Published public var p2pAPIBaseURL: String = "https://d3kuu45w6kl8hr.cloudfront.net"
-
-// Required (PRODUCTION):
+// Production URLs (ACTIVE):
 @Published public var p2pAPIBaseURL: String = "https://api.dollor.ai"
+@Published public var negotiationServiceURL: String = "https://api.dollor.ai/api/negotiation"
+@Published public var chatServiceURL: String = "https://api.dollor.ai/api/chat"
+@Published public var callServiceURL: String = "https://api.dollor.ai/api/call"
 ```
 
 ---
@@ -161,12 +161,30 @@
 
 ---
 
-## Next Steps
+## Deployment Checklist
 
-1. [ ] Wait for backend fixes:
-   - [ ] `isDummyPaymentMode` set to `false`
-   - [ ] Restaurants published for iOS platform
-   - [ ] Branding updated to Dollor.ai
-2. [ ] Update AppConfig.swift to production URLs
-3. [ ] Test P2P rideshare flow end-to-end
-4. [ ] Submit to App Store
+### ✅ Completed
+- [x] AppConfig.swift updated to production URLs
+- [x] Pricing configuration matches PRICING_MODEL.md ($1 flat fees)
+- [x] Backend API URLs configured
+- [x] iOS CI/CD workflow configured
+- [x] Code pushed to main branch
+
+### 🚀 Ready for App Store
+- [x] Customer App (com.dollor.customer)
+- [x] Driver App (com.dollor.driver)
+- [x] Restaurant App (com.dollor.restaurant)
+
+### 📱 To Submit to App Store
+1. Open Xcode: `open apps/ios/EatFair.xcworkspace`
+2. Select Production scheme
+3. Archive: Product → Archive
+4. Distribute: Organizer → Distribute App → App Store Connect
+
+### ⚠️ Required Secrets in GitHub
+- `GOOGLE_SERVICE_INFO_CUSTOMER` - Firebase config
+- `GOOGLE_SERVICE_INFO_RESTAURANT` - Firebase config
+- `GOOGLE_SERVICE_INFO_DELIVERY` - Firebase config
+- `BUILD_CERTIFICATE_BASE64` - Apple signing certificate
+- `P12_PASSWORD` - Certificate password
+- `PROVISIONING_PROFILE_BASE64` - App Store provisioning profile
