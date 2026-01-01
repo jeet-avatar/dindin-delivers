@@ -12645,7 +12645,7 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
 
     # Build address object
     address_obj = {
-        "street": vendor.address or "",
+        "street": vendor.street or "",
         "city": vendor.city or "",
         "state": vendor.state or "",
         "zip_code": vendor.zip_code or "",
