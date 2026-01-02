@@ -4,9 +4,7 @@ import { Form, Input, Button, message, Spin } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useUser } from '../../context/UserContext';
 import axios from 'axios';
-
-// Production API only
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+import { getApiUrl } from '../../api/api';
 
 const Login: React.FC = () => {
   const { user, login, loading: authLoading } = useUser();
@@ -23,7 +21,7 @@ const Login: React.FC = () => {
   const handleSubmit = async (values: { email: string; password: string }) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/api/admin/login`, {
+      const response = await axios.post(`${getApiUrl()}/api/admin/login`, {
         email: values.email,
         password: values.password
       }, {
