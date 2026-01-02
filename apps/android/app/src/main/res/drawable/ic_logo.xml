@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background Circle - Orange -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+    <!-- Left Eye Circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,42m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0" />
+
+    <!-- Right Eye Circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,42m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0" />
+
+    <!-- Left $ sign in eye -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M34,36v2c-2,0.3 -4,1.5 -4,3.5c0,2.3 2,3.2 4,3.8v4.5c-1.5,-0.3 -2.5,-1.2 -3,-2.3l-2,1.2c0.8,1.7 2.5,2.8 5,3.2v2h1.5v-2c2.5,-0.3 4.5,-1.7 4.5,-4c0,-2.6 -2,-3.5 -4.5,-4v-4c1.2,0.3 2,0.9 2.5,1.7l2,-1.2c-0.8,-1.4 -2.2,-2.3 -4.5,-2.6v-1.8h-1.5z" />
+
+    <!-- Right $ sign in eye -->
+    <path
+        android:fillColor="#FF6B00"
+        android:pathData="M70,36v2c-2,0.3 -4,1.5 -4,3.5c0,2.3 2,3.2 4,3.8v4.5c-1.5,-0.3 -2.5,-1.2 -3,-2.3l-2,1.2c0.8,1.7 2.5,2.8 5,3.2v2h1.5v-2c2.5,-0.3 4.5,-1.7 4.5,-4c0,-2.6 -2,-3.5 -4.5,-4v-4c1.2,0.3 2,0.9 2.5,1.7l2,-1.2c-0.8,-1.4 -2.2,-2.3 -4.5,-2.6v-1.8h-1.5z" />
+
+    <!-- Smile Arc -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M30,62 Q54,85 78,62" />
+
+</vector>

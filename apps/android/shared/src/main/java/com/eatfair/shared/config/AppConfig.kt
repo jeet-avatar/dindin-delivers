@@ -1,0 +1,584 @@
+package com.eatfair.shared.config
+
+/**
+ * Dollor.AI App Configuration
+ * Matches iOS AppConfig.swift for cross-platform consistency
+ *
+ * BUSINESS MODEL: MATCHMAKING SERVICE (Not delivery/TNC company)
+ *
+ * =============================================================================
+ * FOOD DELIVERY - FLAT $1 PRICING (No tiered pricing)
+ * =============================================================================
+ * - Customer: $1 flat per order (regardless of order value)
+ * - Restaurant: $1 flat per restaurant in order
+ * - Driver: $0 (keeps 100% of delivery fees)
+ * - Tips: 100% go to driver
+ * - Pickup: $1 per restaurant + $1 per customer
+ *
+ * =============================================================================
+ * RIDESHARE - TIERED PRICING (Based on fare value)
+ * =============================================================================
+ * - Up to $35 fare:     $1 rider + $1 driver
+ * - $35.01 - $70 fare:  $2 rider + $2 driver
+ * - Above $70 fare:     $3 rider + $3 driver
+ * - Tips: 100% go to driver
+ *
+ * Total transparency - no hidden fees!
+ */
+object AppConfig {
+
+    // MARK: - Session Properties (for logged-in user)
+    // These are set after successful login and used throughout the app
+    var currentVendorId: Int? = null
+    var vendorToken: String? = null
+    var currentDriverId: Int? = null
+    var driverToken: String? = null
+    var currentCustomerId: Int? = null
+    var customerToken: String? = null
+
+    // MARK: - API Configuration
+    // PRODUCTION BUILD - Default to production API
+    private const val PRODUCTION_API_URL = "https://api.dollor.ai/api"
+
+    // Runtime API URL - production by default
+    private var _apiBaseUrl: String = PRODUCTION_API_URL
+    private var _isProduction: Boolean = true
+
+    val apiBaseUrl: String
+        get() = _apiBaseUrl
+
+    val isProduction: Boolean
+        get() = _isProduction
+
+    // Legacy constant for backward compatibility (prefer apiBaseUrl property)
+    @Deprecated("Use apiBaseUrl property instead", ReplaceWith("apiBaseUrl"))
+    val API_BASE_URL: String
+        get() = _apiBaseUrl
+
+    const val API_TIMEOUT_SECONDS = 30L
+
+    /**
+     * Initialize AppConfig with environment-specific settings.
+     * PRODUCTION BUILD - Uses production API by default.
+     *
+     * @param apiBaseUrl The base URL for API calls (from BuildConfig.API_BASE_URL)
+     * @param isProduction Whether this is production environment (default: true)
+     */
+    fun initialize(apiBaseUrl: String = PRODUCTION_API_URL, isProduction: Boolean = true) {
+        _apiBaseUrl = apiBaseUrl
+        _isProduction = isProduction
+        Microservices.initialize(apiBaseUrl)
+    }
+
+    // =============================================================================
+    // MICROSERVICE URLS
+    // =============================================================================
+    // Each mobile app connects to its dedicated microservice
+    // Partner App -> restaurant-service (port 8004)
+    // Customer App -> Multiple services via API Gateway
+    // Driver App -> driver-service (port 8003)
+    // =============================================================================
+    object Microservices {
+        // PRODUCTION BUILD - API Gateway pattern
+        private const val PRODUCTION_BASE = "https://api.dollor.ai"
+
+        private var _baseUrl: String = PRODUCTION_BASE
+
+        // All microservices use the same base URL (API Gateway pattern)
+        val authServiceUrl: String get() = _baseUrl
+        val restaurantServiceUrl: String get() = _baseUrl
+        val driverServiceUrl: String get() = _baseUrl
+        val orderServiceUrl: String get() = _baseUrl
+        val menuServiceUrl: String get() = _baseUrl
+        val notificationServiceUrl: String get() = _baseUrl
+
+        fun initialize(baseUrl: String = PRODUCTION_BASE) {
+            _baseUrl = baseUrl.removeSuffix("/api")
+        }
+    }
+
+    // MARK: - App Bundle IDs (Production)
+    const val CUSTOMER_BUNDLE_ID = "ai.dollor.customer"
+    const val DRIVER_BUNDLE_ID = "ai.dollor.driver"
+    const val RESTAURANT_BUNDLE_ID = "ai.dollor.partner"
+
+    // MARK: - Demo Credentials
+    object DemoCredentials {
+        const val CUSTOMER_EMAIL_HINT = "demo@dollor.ai"
+        const val DRIVER_EMAIL_HINT = "demodriver@dollor.ai"
+        const val VENDOR_EMAIL_HINT = "demobusiness@dollor.ai"
+        const val DEMO_PASSWORD_PLACEHOLDER = "********"
+    }
+
+    // =============================================================================
+    // FOOD DELIVERY PRICING - FLAT $1 (No tiered pricing)
+    // =============================================================================
+    object FoodDelivery {
+        // FLAT fees - same regardless of order value
+        const val CUSTOMER_FEE = 1.00           // $1 flat per order
+        const val RESTAURANT_FEE = 1.00         // $1 flat per restaurant
+        const val DRIVER_FEE = 0.00             // FREE - drivers keep 100%
+        const val TIP_PLATFORM_FEE = 0.00       // 100% of tips go to driver
+
+        /**
+         * Get customer fee for food delivery.
+         * Always $1 flat - no tiered pricing for food.
+         */
+        fun getCustomerFee(orderSubtotal: Double): Double = CUSTOMER_FEE
+
+        /**
+         * Get restaurant platform fee.
+         * Always $1 flat per restaurant.
+         */
+        fun getRestaurantFee(orderSubtotal: Double): Double = RESTAURANT_FEE
+
+        /**
+         * Calculate total fees for a food order.
+         * Multi-restaurant orders: Customer pays $1 total, each restaurant pays $1.
+         */
+        fun calculateOrderFees(orderSubtotal: Double, restaurantCount: Int = 1): FoodOrderFees {
+            return FoodOrderFees(
+                customerFee = CUSTOMER_FEE,  // Always $1 regardless of order value or restaurant count
+                restaurantFees = RESTAURANT_FEE * restaurantCount,  // $1 per restaurant
+                driverFee = DRIVER_FEE,  // Always $0
+                totalPlatformRevenue = CUSTOMER_FEE + (RESTAURANT_FEE * restaurantCount)
+            )
+        }
+
+        /**
+         * Get fee description for UI display.
+         */
+        fun getFeeDescription(): String = "$1 Matchmaking Fee"
+    }
+
+    data class FoodOrderFees(
+        val customerFee: Double,
+        val restaurantFees: Double,
+        val driverFee: Double,
+        val totalPlatformRevenue: Double
+    )
+
+    // =============================================================================
+    // RIDESHARE PRICING - COMPETITIVE MARKET RATES
+    // =============================================================================
+    // Our advantage: Low platform fee ($1-3) means riders pay LESS and drivers earn MORE
+    // Compared to industry-standard 25-30% commission, we only take $1-3 flat!
+    // =============================================================================
+    object Rideshare {
+        // Tier thresholds (platform fee tiers)
+        const val TIER_1_MAX_FARE = 35.00       // Fares up to $35
+        const val TIER_2_MAX_FARE = 70.00       // Fares $35.01 to $70
+        // Tier 3: Fares above $70
+
+        // Platform fees per tier - MUCH LOWER than industry (25-30%)
+        const val TIER_1_FEE = 1.00             // $1 for fares <= $35
+        const val TIER_2_FEE = 2.00             // $2 for fares $35.01-$70
+        const val TIER_3_FEE = 3.00             // $3 for fares > $70
+
+        // =============================================================================
+        // COMPETITIVE BASE RATES (Market-aligned pricing)
+        // =============================================================================
+        const val BASE_FARE = 2.50              // Competitive base fare
+        const val PER_MILE_RATE = 1.15          // Market-rate per mile
+        const val PER_MINUTE_RATE = 0.18        // Market-rate per minute
+        const val MINIMUM_FARE = 5.00           // Minimum fare for short trips (matches iOS)
+
+        // Time-of-day multipliers (transparent, not surge pricing)
+        const val PEAK_MORNING_MULTIPLIER = 1.15    // 7-9 AM (+15%)
+        const val PEAK_EVENING_MULTIPLIER = 1.20    // 5-7 PM (+20%)
+        const val LATE_NIGHT_MULTIPLIER = 1.10      // 10 PM-5 AM (+10%)
+        const val OFF_PEAK_MULTIPLIER = 0.95        // 10 AM-4 PM (-5% discount)
+
+        // Long-distance discounts (drivers prefer highway miles)
+        const val DISTANCE_DISCOUNT_TIER1_MILES = 10.0   // No discount under 10 mi
+        const val DISTANCE_DISCOUNT_TIER2_MILES = 25.0   // 5% off miles 11-25
+        const val DISTANCE_DISCOUNT_TIER3_MILES = 50.0   // 10% off miles 26-50
+        // 15% off miles 50+
+
+        // Demand caps (never exceed 1.5x, unlike competitors)
+        const val MAX_DEMAND_MULTIPLIER = 1.50
+        const val MIN_DEMAND_MULTIPLIER = 0.90
+
+        // Tips
+        const val TIP_PLATFORM_FEE = 0.00       // 100% of tips go to driver
+
+        /**
+         * Calculate tiered platform fee for rideshare based on fare value.
+         * Returns the fee amount for BOTH rider AND driver (same amount each).
+         */
+        fun calculatePlatformFee(fareAmount: Double): Double {
+            return when {
+                fareAmount <= TIER_1_MAX_FARE -> TIER_1_FEE
+                fareAmount <= TIER_2_MAX_FARE -> TIER_2_FEE
+                else -> TIER_3_FEE
+            }
+        }
+
+        /**
+         * Get rider platform fee based on fare amount.
+         */
+        fun getRiderFee(fareAmount: Double): Double = calculatePlatformFee(fareAmount)
+
+        /**
+         * Get driver platform access fee based on fare amount.
+         */
+        fun getDriverFee(fareAmount: Double): Double = calculatePlatformFee(fareAmount)
+
+        /**
+         * Get tier number for display (1, 2, or 3).
+         */
+        fun getTier(fareAmount: Double): Int {
+            return when {
+                fareAmount <= TIER_1_MAX_FARE -> 1
+                fareAmount <= TIER_2_MAX_FARE -> 2
+                else -> 3
+            }
+        }
+
+        /**
+         * Get tier name for display.
+         */
+        fun getTierName(fareAmount: Double): String {
+            return when {
+                fareAmount <= TIER_1_MAX_FARE -> "Tier 1 (up to $35)"
+                fareAmount <= TIER_2_MAX_FARE -> "Tier 2 ($35-$70)"
+                else -> "Tier 3 (above $70)"
+            }
+        }
+
+        /**
+         * Get fee description for UI display.
+         */
+        fun getFeeDescription(fareAmount: Double): String {
+            val fee = calculatePlatformFee(fareAmount).toInt()
+            return "$$fee Platform Fee"
+        }
+
+        /**
+         * Calculate rideshare fare (before platform fees).
+         * Uses competitive market-rate pricing.
+         */
+        fun calculateFare(distanceMiles: Double, durationMinutes: Double = 0.0): Double {
+            val distanceFare = distanceMiles * PER_MILE_RATE
+            val timeFare = durationMinutes * PER_MINUTE_RATE
+            val baseFare = BASE_FARE + distanceFare + timeFare
+
+            // Apply long-distance discount
+            val discount = calculateDistanceDiscount(distanceMiles)
+
+            return maxOf(MINIMUM_FARE, baseFare - discount)
+        }
+
+        /**
+         * Calculate fare with time-of-day adjustment.
+         * @param hour Hour of day (0-23)
+         */
+        fun calculateFareWithTimeAdjustment(
+            distanceMiles: Double,
+            durationMinutes: Double,
+            hour: Int
+        ): Pair<Double, String> {
+            val baseFare = calculateFare(distanceMiles, durationMinutes)
+            val (multiplier, label) = getTimeMultiplier(hour)
+            return Pair(baseFare * multiplier, label)
+        }
+
+        /**
+         * Get time-of-day multiplier and label.
+         */
+        fun getTimeMultiplier(hour: Int): Pair<Double, String> {
+            return when {
+                hour in 7..8 -> Pair(PEAK_MORNING_MULTIPLIER, "Morning peak (+15%)")
+                hour in 17..18 -> Pair(PEAK_EVENING_MULTIPLIER, "Evening peak (+20%)")
+                hour >= 22 || hour < 5 -> Pair(LATE_NIGHT_MULTIPLIER, "Late night (+10%)")
+                hour in 10..15 -> Pair(OFF_PEAK_MULTIPLIER, "Off-peak (-5%)")
+                else -> Pair(1.0, "Standard")
+            }
+        }
+
+        /**
+         * Calculate long-distance discount.
+         * Drivers prefer highway miles - reward longer trips with discounts.
+         */
+        fun calculateDistanceDiscount(distanceMiles: Double): Double {
+            if (distanceMiles <= DISTANCE_DISCOUNT_TIER1_MILES) return 0.0
+
+            var discount = 0.0
+
+            // 5% discount on miles 11-25
+            if (distanceMiles > DISTANCE_DISCOUNT_TIER1_MILES) {
+                val tier1Miles = minOf(distanceMiles - DISTANCE_DISCOUNT_TIER1_MILES, 15.0)
+                discount += tier1Miles * PER_MILE_RATE * 0.05
+            }
+
+            // 10% discount on miles 26-50
+            if (distanceMiles > DISTANCE_DISCOUNT_TIER2_MILES) {
+                val tier2Miles = minOf(distanceMiles - DISTANCE_DISCOUNT_TIER2_MILES, 25.0)
+                discount += tier2Miles * PER_MILE_RATE * 0.10
+            }
+
+            // 15% discount on miles 50+
+            if (distanceMiles > DISTANCE_DISCOUNT_TIER3_MILES) {
+                val tier3Miles = distanceMiles - DISTANCE_DISCOUNT_TIER3_MILES
+                discount += tier3Miles * PER_MILE_RATE * 0.15
+            }
+
+            return discount
+        }
+
+        /**
+         * Generate suggested bid prices for drivers.
+         * Returns three options: Quick Accept (92%), Fair Price (100%), Premium (108%)
+         *
+         * New competitive pricing with transparent platform fees ($1-3 flat).
+         * Drivers keep 96%+ of every fare compared to industry standard 25-30% commission.
+         */
+        fun generateSuggestedBids(fareEstimate: Double, distanceMiles: Double, durationMinutes: Double = 0.0): List<SuggestedBid> {
+            val quickAcceptPrice = fareEstimate * 0.92  // 92% of estimate for fast pickup
+            val fairPrice = fareEstimate                // 100% of estimate (recommended)
+            val premiumPrice = fareEstimate * 1.08      // 108% of estimate for premium
+
+            return listOf(
+                SuggestedBid(
+                    label = "Quick Accept",
+                    price = quickAcceptPrice,
+                    driverEarnings = quickAcceptPrice - calculatePlatformFee(quickAcceptPrice),
+                    acceptanceHint = "Higher acceptance",
+                    perMile = if (distanceMiles > 0) (quickAcceptPrice - calculatePlatformFee(quickAcceptPrice)) / distanceMiles else 0.0,
+                    isRecommended = false
+                ),
+                SuggestedBid(
+                    label = "Fair Price",
+                    price = fairPrice,
+                    driverEarnings = fairPrice - calculatePlatformFee(fairPrice),
+                    acceptanceHint = "Recommended",
+                    perMile = if (distanceMiles > 0) (fairPrice - calculatePlatformFee(fairPrice)) / distanceMiles else 0.0,
+                    isRecommended = true
+                ),
+                SuggestedBid(
+                    label = "Premium",
+                    price = premiumPrice,
+                    driverEarnings = premiumPrice - calculatePlatformFee(premiumPrice),
+                    acceptanceHint = "Maximum earnings",
+                    perMile = if (distanceMiles > 0) (premiumPrice - calculatePlatformFee(premiumPrice)) / distanceMiles else 0.0,
+                    isRecommended = false
+                )
+            )
+        }
+
+        /**
+         * Calculate earnings per hour for a ride.
+         * Helps drivers understand hourly earnings potential.
+         */
+        fun calculateEarningsPerHour(fareAmount: Double, durationMinutes: Double): Double {
+            if (durationMinutes <= 0) return 0.0
+            val earnings = fareAmount - calculatePlatformFee(fareAmount)
+            return (earnings / durationMinutes) * 60.0  // Convert to per hour
+        }
+
+        /**
+         * Get platform fee percentage for display.
+         * Shows how much of the fare the platform takes (typically 3-4% vs industry 25-30%).
+         */
+        fun getPlatformFeePercentage(fareAmount: Double): Double {
+            val fee = calculatePlatformFee(fareAmount)
+            return if (fareAmount > 0) (fee / fareAmount) * 100.0 else 0.0
+        }
+
+        /**
+         * Get driver earnings percentage for display.
+         * Drivers keep 96%+ of every fare with our low flat fees.
+         */
+        fun getDriverEarningsPercentage(fareAmount: Double): Double {
+            return 100.0 - getPlatformFeePercentage(fareAmount)
+        }
+
+        /**
+         * Get bid comparison label for customers.
+         * Helps customers understand if a bid is good value.
+         */
+        fun getBidComparisonLabel(bidPrice: Double, fareEstimate: Double): Triple<String, String, String> {
+            val differencePercent = ((bidPrice - fareEstimate) / fareEstimate) * 100
+
+            return when {
+                differencePercent <= -10 -> Triple("Great Deal", "10%+ below market rate", "green")
+                differencePercent <= -5 -> Triple("Good Value", "Below market rate", "green")
+                differencePercent <= 5 -> Triple("Fair Price", "At market rate", "blue")
+                differencePercent <= 15 -> Triple("Above Average", "Slightly above market", "orange")
+                else -> Triple("Premium", "Above market rate", "gray")
+            }
+        }
+
+        /**
+         * Calculate driver earnings after platform fee.
+         */
+        fun calculateDriverEarnings(fare: Double, tip: Double = 0.0): Double {
+            val platformFee = calculatePlatformFee(fare)
+            return fare - platformFee + tip
+        }
+
+        /**
+         * Calculate total rider payment.
+         */
+        fun calculateRiderTotal(fare: Double, tip: Double = 0.0): Double {
+            val platformFee = calculatePlatformFee(fare)
+            return fare + platformFee + tip
+        }
+
+        /**
+         * Calculate all ride fees.
+         */
+        fun calculateRideFees(fareAmount: Double): RideFees {
+            val platformFee = calculatePlatformFee(fareAmount)
+            return RideFees(
+                riderFee = platformFee,
+                driverFee = platformFee,
+                totalPlatformRevenue = platformFee * 2
+            )
+        }
+    }
+
+    data class RideFees(
+        val riderFee: Double,
+        val driverFee: Double,
+        val totalPlatformRevenue: Double
+    )
+
+    /**
+     * Suggested bid option for drivers.
+     */
+    data class SuggestedBid(
+        val label: String,
+        val price: Double,
+        val driverEarnings: Double,
+        val acceptanceHint: String,
+        val perMile: Double,
+        val isRecommended: Boolean
+    )
+
+    // MARK: - Driver Pay Configuration (Food Delivery)
+    object DriverPay {
+        const val BASE_PAY = 3.00              // Base pay per delivery
+        const val PER_MILE_RATE = 0.50         // Per mile rate
+
+        // Tiered base pay (for larger orders)
+        const val BASE_PAY_TIER_1 = 3.00       // Orders <= $35
+        const val BASE_PAY_TIER_2 = 4.00       // Orders $35-$70
+        const val BASE_PAY_TIER_3 = 5.00       // Orders > $70
+
+        // Tiered per-mile rates
+        const val PER_MILE_TIER_1 = 0.50       // Orders <= $35
+        const val PER_MILE_TIER_2 = 0.60       // Orders $35-$70
+        const val PER_MILE_TIER_3 = 0.75       // Orders > $70
+
+        /**
+         * Calculate driver earnings for a delivery.
+         * Drivers keep 100% of base pay + per mile + tips (no platform fee).
+         */
+        fun calculateDriverEarnings(distanceMiles: Double, tip: Double): Double {
+            return BASE_PAY + (distanceMiles * PER_MILE_RATE) + tip
+        }
+
+        /**
+         * Calculate tiered driver earnings based on order value.
+         */
+        fun calculateTieredDriverEarnings(orderSubtotal: Double, distanceMiles: Double, tip: Double): Double {
+            val basePay = when {
+                orderSubtotal <= TieredPricing.TIER_1_MAX_ORDER -> BASE_PAY_TIER_1
+                orderSubtotal <= TieredPricing.TIER_2_MAX_ORDER -> BASE_PAY_TIER_2
+                else -> BASE_PAY_TIER_3
+            }
+            val perMile = when {
+                orderSubtotal <= TieredPricing.TIER_1_MAX_ORDER -> PER_MILE_TIER_1
+                orderSubtotal <= TieredPricing.TIER_2_MAX_ORDER -> PER_MILE_TIER_2
+                else -> PER_MILE_TIER_3
+            }
+            return basePay + (distanceMiles * perMile) + tip
+        }
+    }
+
+    // =============================================================================
+    // TIERED PRICING HELPER (for food delivery driver pay calculation)
+    // Note: Customer always pays $1 flat, but driver pay scales with order size
+    // =============================================================================
+    object TieredPricing {
+        // Order value tiers (for driver pay calculation)
+        const val TIER_1_MAX_ORDER = 35.00     // Orders up to $35
+        const val TIER_2_MAX_ORDER = 70.00     // Orders $35-$70
+        // Tier 3: Orders above $70
+
+        // Customer fee is always $1 flat (no tiered pricing for customers)
+        const val CUSTOMER_FEE = 1.00
+
+        /**
+         * Calculate customer fee for food delivery.
+         * Always returns $1 flat - no tiered pricing for customers.
+         */
+        fun calculateCustomerFee(orderSubtotal: Double): Double = CUSTOMER_FEE
+
+        /**
+         * Get tier number for driver pay calculation (1, 2, or 3).
+         */
+        fun getTier(orderSubtotal: Double): Int {
+            return when {
+                orderSubtotal <= TIER_1_MAX_ORDER -> 1
+                orderSubtotal <= TIER_2_MAX_ORDER -> 2
+                else -> 3
+            }
+        }
+    }
+
+    // MARK: - Tax Configuration
+    object Tax {
+        val STATE_TAX_RATES = mapOf(
+            "CA" to 0.0725,  // California
+            "TX" to 0.0625,  // Texas
+            "NY" to 0.08,    // New York
+            "FL" to 0.06,    // Florida
+            "WA" to 0.065,   // Washington
+            "IL" to 0.0625,  // Illinois
+            "PA" to 0.06,    // Pennsylvania
+            "OH" to 0.0575,  // Ohio
+            "GA" to 0.04,    // Georgia
+            "NC" to 0.0475   // North Carolina
+        )
+
+        const val DEFAULT_TAX_RATE = 0.0825  // 8.25% default
+
+        fun getTaxRate(state: String): Double {
+            return STATE_TAX_RATES[state.uppercase()] ?: DEFAULT_TAX_RATE
+        }
+    }
+
+    // MARK: - Location Configuration
+    object Location {
+        const val DRIVER_LOCATION_UPDATE_INTERVAL_MS = 10_000L  // 10 seconds
+        const val MAX_DELIVERY_RADIUS_MILES = 10.0
+        const val MAX_RIDESHARE_RADIUS_MILES = 5.0
+    }
+
+    // MARK: - Legal URLs
+    // Production URLs for Dollor.ai by Vibing World Inc
+    object Legal {
+        // Production legal pages
+        const val TERMS_OF_SERVICE_URL = "https://dollor.ai/terms"
+        const val PRIVACY_POLICY_URL = "https://dollor.ai/privacy"
+        const val DRIVER_TERMS_URL = "https://dollor.ai/driver-terms"
+        const val RESTAURANT_TERMS_URL = "https://dollor.ai/restaurant-terms"
+        const val SUPPORT_URL = "https://dollor.ai/support"
+        const val CONTACT_EMAIL = "support@dollor.ai"
+        const val COMPANY_NAME = "Vibing World Inc"
+    }
+
+    // MARK: - Stripe Configuration
+    object Stripe {
+        const val PUBLISHABLE_KEY_PLACEHOLDER = "LOADED_FROM_BUILD_CONFIG"
+
+        fun getPublishableKey(buildConfigKey: String): String {
+            require(buildConfigKey.isNotBlank()) {
+                "Stripe publishable key not configured. Add STRIPE_PUBLISHABLE_KEY to local.properties"
+            }
+            return buildConfigKey
+        }
+    }
+}

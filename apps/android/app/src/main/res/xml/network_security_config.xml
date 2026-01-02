@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- PRODUCTION BUILD - HTTPS only, no cleartext traffic allowed -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Production API: api.dollor.ai (HTTPS only) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">dollor.ai</domain>
+        <domain includeSubdomains="true">api.dollor.ai</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
