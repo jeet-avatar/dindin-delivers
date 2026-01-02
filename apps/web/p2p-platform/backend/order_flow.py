@@ -1255,7 +1255,7 @@ async def get_pending_restaurant_orders(
             "order_number": order.order_number,
             "vendor_id": order.vendor_id,
             "customer_name": order.customer_name,
-            "items": json.loads(order.items_json) if order.items_json else [],
+            "items": json.loads(order.items) if order.items else [],
             "subtotal": float(order.subtotal) if order.subtotal else 0,
             "sent_at": order.sent_to_restaurant_at.isoformat() if order.sent_to_restaurant_at else None,
             "elapsed_seconds": int(elapsed),
