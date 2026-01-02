@@ -321,9 +321,10 @@ public enum V3Error: Error, LocalizedError {
 
 /// Client-side pricing calculator (mirrors backend logic)
 public struct V3PricingCalculator {
-    // Platform config
-    public static let restaurantCommission = 0.15  // 15%
-    public static let customerServiceFee = 0.99    // $0.99
+    // Platform config - DOLLOR.AI FLAT FEE MODEL
+    public static let restaurantCommission = 0.00  // $0 - use flat $1 fee instead
+    public static let restaurantFlatFee = 1.00     // $1 flat per order
+    public static let customerServiceFee = 1.00    // $1 flat fee
     public static let driverPlatformFee = 0.00     // $0 (competitive advantage!)
 
     // Delivery pricing

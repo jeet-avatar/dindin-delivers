@@ -8273,8 +8273,13 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
     private var clientType: String = "customer"
     private var clientId: String = ""
 
-    // PRODUCTION BUILD - Dollar.ai WebSocket URL
-    private let wsBaseURL = "wss://api.dollor.ai/api/realtime/ws"
+    // WebSocket URL from AppConfig (environment-aware)
+    private var wsBaseURL: String {
+        let apiURL = AppConfig.shared.p2pAPIBaseURL
+        // Convert https:// to wss:// for WebSocket
+        let wsURL = apiURL.replacingOccurrences(of: "https://", with: "wss://")
+        return "\(wsURL)/api/realtime/ws"
+    }
 
     private override init() {
         super.init()

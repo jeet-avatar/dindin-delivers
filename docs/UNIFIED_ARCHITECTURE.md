@@ -218,7 +218,7 @@ restaurants/{restaurantId}
 │
 ├── # Partner Info
 ├── partnerId: String
-├── commissionRate: Double (e.g., 0.15 for 15%)
+├── platformFee: Double (Dollor.ai: $1.00 flat per order)
 ├── stripeConnectId: String?
 │
 ├── # Stats
@@ -510,11 +510,11 @@ Total: Subtotal + Fees + Tax + Tip - Discount
 
 ## Revenue Split
 
-| Party | Percentage |
-|-------|------------|
-| Restaurant | 85% of subtotal |
-| Platform (EatFair) | 15% commission + service fee |
-| Driver | Delivery fee + tips + priority bonus |
+| Party | Amount |
+|-------|--------|
+| Restaurant | Subtotal + Tax - $1 flat fee |
+| Platform (Dollor.ai) | $1 flat per restaurant + $1 service fee from customer |
+| Driver | Delivery fee + 100% of tips (no platform deduction!) |
 
 ---
 

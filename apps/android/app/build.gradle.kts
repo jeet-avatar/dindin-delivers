@@ -47,9 +47,9 @@ android {
         }
     }
 
-    // PRODUCTION ONLY - Dollor.ai by Vibing World Inc
+    // Dollor.ai by Vibing World Inc - Customer App
     defaultConfig {
-        applicationId = "ai.dollor.customer"  // Production app ID for Play Store
+        applicationId = "ai.dollor.customer"
         minSdk = 24
         targetSdk = 35
         versionCode = 2
@@ -57,21 +57,35 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Production API
-        buildConfigField("Boolean", "IS_PRODUCTION", "true")
-        buildConfigField("String", "API_BASE_URL", "\"https://api.dollor.ai/api\"")
-
         // API Keys from local.properties
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"${localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")}\"")
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("STRIPE_PUBLISHABLE_KEY", "")}\"")
-        // Production Google Sign-In Web Client ID (from Firebase dollorai-production)
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"65740760476-31o2a074qeh2nsc6hlbt8peqpmivmq32.apps.googleusercontent.com\"")
 
         // Manifest placeholders
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
 
         // App name
         resValue("string", "app_name", "Dollor.ai")
+    }
+
+    // Environment-specific configurations
+    flavorDimensions += "environment"
+    productFlavors {
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            buildConfigField("Boolean", "IS_PRODUCTION", "false")
+            buildConfigField("String", "API_BASE_URL", "\"https://d3kuu45w6kl8hr.cloudfront.net/api\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"107524350806-5kauv5lbp58hvsob7tsuuvrin99ql2bj.apps.googleusercontent.com\"")
+            resValue("string", "app_name", "Dollor.ai Staging")
+        }
+        create("production") {
+            dimension = "environment"
+            buildConfigField("Boolean", "IS_PRODUCTION", "true")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.dollor.ai/api\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"65740760476-31o2a074qeh2nsc6hlbt8peqpmivmq32.apps.googleusercontent.com\"")
+        }
     }
 
     buildTypes {

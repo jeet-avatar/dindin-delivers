@@ -185,7 +185,7 @@ const VendorEarnings: React.FC = () => {
       render: (amount: number) => `$${amount.toFixed(2)}`
     },
     {
-      title: 'Platform Fee (15%)',
+      title: 'Platform Fee ($1 flat)',
       dataIndex: 'commission',
       key: 'commission',
       render: (amount: number) => <span className="fee-amount">-${amount.toFixed(2)}</span>
@@ -268,7 +268,7 @@ const VendorEarnings: React.FC = () => {
         <Row gutter={16}>
           <Col span={8}>
             <div className="fee-item">
-              <span className="fee-label">Platform Fee (15%)</span>
+              <span className="fee-label">Platform Fee ($1 flat)</span>
               <span className="fee-value">-${stats.platformFees.toFixed(2)}</span>
             </div>
           </Col>

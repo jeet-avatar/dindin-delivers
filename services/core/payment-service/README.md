@@ -24,8 +24,9 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dollor
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# Platform Fees
-PLATFORM_FEE_PERCENTAGE=15.0  # Platform commission (default: 15%)
+# Platform Fees - Dollor.ai uses FLAT FEE model
+PLATFORM_FEE_RATE=0.0         # No percentage commission
+PLATFORM_FLAT_FEE=1.00        # $1 flat fee per order
 STRIPE_FEE_PERCENTAGE=2.9     # Stripe fee percentage (default: 2.9%)
 STRIPE_FEE_FIXED=0.30         # Stripe fixed fee (default: $0.30)
 ```
@@ -400,17 +401,19 @@ stripe listen --forward-to localhost:8006/api/webhooks/stripe
 
 ## Fee Calculation
 
-### Platform Fees
+### Platform Fees - Dollor.ai Flat Fee Model
 
-- **Vendor Commission**: 15% of order total (configurable)
+- **Restaurant Platform Fee**: $1.00 flat per order (no percentage commission!)
+- **Customer Service Fee**: $1.00 flat per order
+- **Driver Platform Fee**: $0 (drivers keep 100% of delivery + tips)
 - **Stripe Processing Fee**: 2.9% + $0.30 per transaction
 
 ### Example Calculation
 
 Order total: $100.00
 - Stripe fee: ($100 × 2.9%) + $0.30 = $3.20
-- Platform fee: $100 × 15% = $15.00
-- Vendor payout: $100 - $3.20 - $15.00 = $81.80
+- Platform fee: $1.00 (flat)
+- Vendor payout: $100 - $3.20 - $1.00 = $95.80
 
 ### Driver Payouts
 

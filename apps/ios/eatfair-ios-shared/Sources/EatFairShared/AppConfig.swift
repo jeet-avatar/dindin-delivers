@@ -3,22 +3,42 @@ import Foundation
 /// Centralized configuration for all EatFair apps
 /// Configuration is fetched from Dollar.ai (P2P) backend API
 /// Firebase/Google is ONLY used for authentication
+///
+/// Environment URLs are loaded from Info.plist (set via xcconfig files):
+/// - Development.xcconfig: https://dev-api.dollor.ai
+/// - Staging.xcconfig: https://d3kuu45w6kl8hr.cloudfront.net
+/// - Production.xcconfig: https://api.dollor.ai
 public class AppConfig: ObservableObject {
     public static let shared = AppConfig()
 
     // MARK: - P2P API Configuration
     /// Dollar.ai backend base URL - all data comes from here
-    /// PRODUCTION ENVIRONMENT - api.dollor.ai
-    /// Note: P2PAPIService appends /api to this URL
-    @Published public var p2pAPIBaseURL: String = "https://api.dollor.ai"
+    /// Loaded from Info.plist API_BASE_URL (set via xcconfig)
+    /// Fallback: production URL
+    @Published public var p2pAPIBaseURL: String = {
+        if let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !url.isEmpty {
+            return url
+        }
+        // Fallback to production if xcconfig not applied
+        #if DEBUG
+        print("[AppConfig] Warning: API_BASE_URL not found in Info.plist, using production default")
+        #endif
+        return "https://api.dollor.ai"
+    }()
 
-    // MARK: - Microservice URLs (all go through api.dollor.ai)
+    // MARK: - Microservice URLs (derived from base URL)
     /// Negotiation service for real-time price negotiation between drivers and customers
-    @Published public var negotiationServiceURL: String = "https://api.dollor.ai/api/negotiation"
+    public var negotiationServiceURL: String {
+        return "\(p2pAPIBaseURL)/api/negotiation"
+    }
     /// Chat service for real-time messaging between drivers and customers
-    @Published public var chatServiceURL: String = "https://api.dollor.ai/api/chat"
+    public var chatServiceURL: String {
+        return "\(p2pAPIBaseURL)/api/chat"
+    }
     /// Call service for privacy-protected phone calls (number masking)
-    @Published public var callServiceURL: String = "https://api.dollor.ai/api/call"
+    public var callServiceURL: String {
+        return "\(p2pAPIBaseURL)/api/call"
+    }
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend

@@ -231,8 +231,8 @@ fun DeliveryDecisionScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Platform Fee (15%)", color = Color.Gray)
-                            Text("-$${String.format("%.2f", order.subtotal * 0.15)}")
+                            Text("Platform Fee ($1 flat)", color = Color.Gray)
+                            Text("-$1.00")
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

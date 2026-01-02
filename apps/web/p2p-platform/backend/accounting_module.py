@@ -41,8 +41,10 @@ ADMIN_ROLES = ["admin", "super_admin", "finance", "accountant"]
 STRIPE_PERCENTAGE_FEE = float(os.getenv("STRIPE_PERCENTAGE_FEE", "0.029"))  # 2.9%
 STRIPE_FIXED_FEE = float(os.getenv("STRIPE_FIXED_FEE", "0.30"))  # $0.30 per transaction
 
-# Platform Commission Structure
-PLATFORM_COMMISSION_RATE = float(os.getenv("PLATFORM_COMMISSION_RATE", "0.15"))  # 15% default
+# Platform Commission Structure - DOLLOR.AI uses flat $1 fees, NOT percentage
+# This rate is DEPRECATED - use PLATFORM_FLAT_FEE instead
+PLATFORM_COMMISSION_RATE = float(os.getenv("PLATFORM_COMMISSION_RATE", "0"))  # 0% - use flat fee
+PLATFORM_FLAT_FEE = float(os.getenv("PLATFORM_FLAT_FEE", "1.00"))  # $1 flat per order
 
 # Operating Expense Estimates (as percentage of revenue) - for P&L projections
 TECH_INFRASTRUCTURE_RATE = float(os.getenv("TECH_INFRASTRUCTURE_RATE", "0.10"))  # 10%
