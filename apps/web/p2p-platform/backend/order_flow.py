@@ -619,7 +619,8 @@ async def request_ride(
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
     # Generate ride/order number
-    import random, string
+    import random
+    import string
     order_number = f"RIDE-{datetime.now().strftime('%Y%m%d')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=5))}"
 
     # Get coordinates for distance/time estimation
