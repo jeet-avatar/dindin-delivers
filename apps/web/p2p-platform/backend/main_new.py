@@ -351,6 +351,37 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         except Exception as e:
             errors.append(f"ride_requests.{col_name}: {str(e)}")
 
+    # Migration: Add restaurant acceptance flow columns to orders table
+    order_acceptance_columns = [
+        ("sent_to_restaurant_at", "TIMESTAMP"),
+        ("restaurant_accepted_at", "TIMESTAMP"),
+        ("restaurant_declined_at", "TIMESTAMP"),
+        ("restaurant_timeout_at", "TIMESTAMP"),
+        ("decline_reason", "TEXT"),
+    ]
+
+    for col_name, col_type in order_acceptance_columns:
+        try:
+            db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"orders.{col_name}")
+        except Exception as e:
+            errors.append(f"orders.{col_name}: {str(e)}")
+
+    # Migration: Add delivery decision window columns to orders table
+    delivery_decision_columns = [
+        ("delivery_decision_sent_at", "TIMESTAMP"),
+        ("restaurant_will_deliver", "BOOLEAN"),
+        ("delivery_decision_at", "TIMESTAMP"),
+        ("delivery_decision_timeout_at", "TIMESTAMP"),
+    ]
+
+    for col_name, col_type in delivery_decision_columns:
+        try:
+            db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"orders.{col_name}")
+        except Exception as e:
+            errors.append(f"orders.{col_name}: {str(e)}")
+
     db.commit()
 
     return {
