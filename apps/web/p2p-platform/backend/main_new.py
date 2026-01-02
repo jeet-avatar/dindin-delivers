@@ -3523,6 +3523,8 @@ async def upload_driver_document_by_id(
                 driver.insurance_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
             except:
                 pass
+    elif document_type == 'profile_photo':
+        driver.photo_url = url_path
 
     db.commit()
 
