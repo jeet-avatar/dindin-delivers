@@ -58,24 +58,39 @@ const VendorDashboard: React.FC = () => {
   const calculateStats = (ordersData: Order[]) => {
     const today = moment().startOf('day');
     const todayOrders = ordersData.filter(o => moment(o.created_at).isAfter(today));
-    
+
+    // Count pending orders: all active statuses
+    const pendingStatuses = [
+      'pending_restaurant',
+      'confirmed',
+      'preparing',
+      'pending_delivery_decision',
+      'restaurant_will_deliver',
+      'ready_for_pickup',
+      'out_for_delivery'
+    ];
+
     setStats({
       todayOrders: todayOrders.length,
       todayRevenue: todayOrders
         .filter(o => o.payment_status === 'succeeded')
         .reduce((sum, o) => sum + o.total_amount, 0),
-      pendingOrders: ordersData.filter(o => 
-        o.status === 'confirmed' || o.status === 'preparing'
-      ).length,
+      pendingOrders: ordersData.filter(o => pendingStatuses.includes(o.status)).length,
       completedToday: todayOrders.filter(o => o.status === 'delivered').length
     });
   };
 
   const handleUpdateStatus = async (orderId: number, newStatus: string) => {
     try {
-      await axios.patch(`${API_URL}/api/orders/${orderId}/status`, {
-        status: newStatus
-      });
+      // Use specific endpoints for flow-triggering statuses
+      if (newStatus === 'ready_for_pickup') {
+        // This triggers the 3-min delivery decision window
+        await axios.post(`${API_URL}/api/erp/orders/${orderId}/ready-for-pickup`);
+      } else {
+        await axios.patch(`${API_URL}/api/orders/${orderId}/status`, {
+          status: newStatus
+        });
+      }
       message.success('Order status updated');
       fetchOrders();
     } catch (error) {
@@ -86,15 +101,72 @@ const VendorDashboard: React.FC = () => {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       'confirmed': 'blue',
+      'pending_restaurant': 'gold',
+      'declined_by_restaurant': 'red',
+      'restaurant_timeout': 'volcano',
       'preparing': 'orange',
+      'ready_for_pickup': 'geekblue',
+      'pending_delivery_decision': 'magenta',
+      'restaurant_will_deliver': 'lime',
       'out_for_delivery': 'purple',
       'delivered': 'green'
     };
     return colors[status] || 'default';
   };
 
-  const pendingOrders = orders.filter(o => 
-    o.status === 'confirmed' || o.status === 'preparing' || o.status === 'out_for_delivery'
+  // Handle restaurant accepting an order
+  const handleAcceptOrder = async (orderId: number) => {
+    try {
+      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-accept`);
+      message.success('Order accepted! Starting preparation.');
+      fetchOrders();
+    } catch (error) {
+      message.error('Failed to accept order');
+    }
+  };
+
+  // Handle restaurant declining an order
+  const handleDeclineOrder = async (orderId: number, reason?: string) => {
+    try {
+      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-decline`, {
+        reason: reason || 'Restaurant unavailable'
+      });
+      message.success('Order declined. Customer will be refunded.');
+      fetchOrders();
+    } catch (error) {
+      message.error('Failed to decline order');
+    }
+  };
+
+  // Handle restaurant accepting delivery (self-deliver)
+  const handleAcceptDelivery = async (orderId: number) => {
+    try {
+      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-accept-delivery`);
+      message.success('You will deliver this order.');
+      fetchOrders();
+    } catch (error) {
+      message.error('Failed to accept delivery');
+    }
+  };
+
+  // Handle restaurant declining delivery (send to drivers)
+  const handleDeclineDelivery = async (orderId: number) => {
+    try {
+      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-decline-delivery`);
+      message.success('Order sent to driver pool.');
+      fetchOrders();
+    } catch (error) {
+      message.error('Failed to decline delivery');
+    }
+  };
+
+  const pendingOrders = orders.filter(o =>
+    o.status === 'pending_restaurant' ||
+    o.status === 'confirmed' ||
+    o.status === 'preparing' ||
+    o.status === 'pending_delivery_decision' ||
+    o.status === 'restaurant_will_deliver' ||
+    o.status === 'out_for_delivery'
   );
 
   const recentOrders = orders.slice(0, 10);
@@ -142,11 +214,34 @@ const VendorDashboard: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
+      width: 250,
       render: (_: any, record: Order) => {
+        // New order waiting for restaurant acceptance (3 min window)
+        if (record.status === 'pending_restaurant') {
+          return (
+            <Space>
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => handleAcceptOrder(record.id)}
+              >
+                Accept Order
+              </Button>
+              <Button
+                danger
+                size="small"
+                onClick={() => handleDeclineOrder(record.id)}
+              >
+                Decline
+              </Button>
+            </Space>
+          );
+        }
+        // Order confirmed, start preparing
         if (record.status === 'confirmed') {
           return (
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               size="small"
               onClick={() => handleUpdateStatus(record.id, 'preparing')}
             >
@@ -154,14 +249,60 @@ const VendorDashboard: React.FC = () => {
             </Button>
           );
         }
+        // Preparing, mark as ready (triggers delivery decision)
         if (record.status === 'preparing') {
           return (
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => handleUpdateStatus(record.id, 'ready_for_pickup')}
+            >
+              Mark Ready
+            </Button>
+          );
+        }
+        // Delivery decision window (3 min) - self-deliver or send to drivers
+        if (record.status === 'pending_delivery_decision') {
+          return (
+            <Space>
+              <Button
+                type="primary"
+                size="small"
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                onClick={() => handleAcceptDelivery(record.id)}
+              >
+                Self-Deliver
+              </Button>
+              <Button
+                size="small"
+                onClick={() => handleDeclineDelivery(record.id)}
+              >
+                Send to Driver
+              </Button>
+            </Space>
+          );
+        }
+        // Restaurant is self-delivering
+        if (record.status === 'restaurant_will_deliver') {
+          return (
+            <Button
+              type="primary"
               size="small"
               onClick={() => handleUpdateStatus(record.id, 'out_for_delivery')}
             >
-              Ready for Pickup
+              Start Delivery
+            </Button>
+          );
+        }
+        // Out for delivery - mark as delivered
+        if (record.status === 'out_for_delivery') {
+          return (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => handleUpdateStatus(record.id, 'delivered')}
+            >
+              Mark Delivered
             </Button>
           );
         }

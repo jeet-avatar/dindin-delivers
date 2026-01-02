@@ -23,8 +23,15 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 import json
+import logging
 
-from database import get_db
+from database import get_db, SessionLocal
+
+# Background scheduler for automatic timeout checks
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+logger = logging.getLogger(__name__)
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus
@@ -94,6 +101,14 @@ DELIVERY_DEFAULT_FEE = 4.99      # Default when distance unknown
 # Legacy variables for backward compatibility
 PLATFORM_FEE = RESTAURANT_PLATFORM_FEE
 DELIVERY_FEE = DELIVERY_DEFAULT_FEE
+
+# Restaurant Acceptance Window Configuration
+RESTAURANT_ACCEPTANCE_WINDOW_SECONDS = 180  # 3 minutes to accept/decline
+RESTAURANT_URGENT_THRESHOLD_SECONDS = 60    # Mark as urgent when < 1 min remaining
+
+# Delivery Decision Window Configuration
+DELIVERY_DECISION_WINDOW_SECONDS = 180  # 3 minutes for restaurant to decide on delivery
+DELIVERY_DECISION_URGENT_THRESHOLD_SECONDS = 60  # Mark as urgent when < 1 min remaining
 
 
 def calculate_delivery_fee(distance_miles: float = None, surge_multiplier: float = 1.0) -> float:
@@ -969,6 +984,7 @@ async def confirm_payment(
 ):
     """
     Confirm payment received - Called after Stripe webhook
+    Automatically sends order to restaurant for acceptance (3-min window)
     AI Employee: OrderBot Alpha
     """
     ai_employee = AI_EMPLOYEES["ORDER_PROCESSOR"]
@@ -981,16 +997,588 @@ async def confirm_payment(
     order.status = OrderStatus.CONFIRMED
     order.confirmed_at = datetime.now()
 
+    # Automatically send to restaurant for acceptance
+    order.status = OrderStatus.PENDING_RESTAURANT
+    order.sent_to_restaurant_at = datetime.now()
+
+    db.commit()
+
+    timeout_at = order.sent_to_restaurant_at + timedelta(seconds=RESTAURANT_ACCEPTANCE_WINDOW_SECONDS)
+    window_minutes = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS // 60
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "pending_restaurant",
+        "sent_to_restaurant_at": order.sent_to_restaurant_at.isoformat(),
+        "timeout_at": timeout_at.isoformat(),
+        "window_seconds": RESTAURANT_ACCEPTANCE_WINDOW_SECONDS,
+        "processed_by": ai_employee["name"],
+        "message": f"Payment confirmed. Order sent to restaurant. They have {window_minutes} minutes to accept."
+    }
+
+
+# ==================== RESTAURANT ACCEPTANCE WINDOW ====================
+
+
+class RestaurantDeclineRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/orders/{order_id}/send-to-restaurant")
+async def send_to_restaurant(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Send confirmed order to restaurant for acceptance.
+    Restaurant has configurable window to accept or decline.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.CONFIRMED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be CONFIRMED to send to restaurant. Current: {order.status.value}"
+        )
+
+    order.status = OrderStatus.PENDING_RESTAURANT
+    order.sent_to_restaurant_at = datetime.now()
+
+    db.commit()
+
+    timeout_at = order.sent_to_restaurant_at + timedelta(seconds=RESTAURANT_ACCEPTANCE_WINDOW_SECONDS)
+    window_minutes = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS // 60
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "pending_restaurant",
+        "sent_at": order.sent_to_restaurant_at.isoformat(),
+        "timeout_at": timeout_at.isoformat(),
+        "window_seconds": RESTAURANT_ACCEPTANCE_WINDOW_SECONDS,
+        "processed_by": ai_employee["name"],
+        "message": f"Order sent to restaurant. They have {window_minutes} minutes to accept."
+    }
+
+
+@router.post("/orders/{order_id}/restaurant-accept")
+async def restaurant_accept(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant accepts the order within acceptance window.
+    Moves order to PREPARING status.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_RESTAURANT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PENDING_RESTAURANT to accept. Current: {order.status.value}"
+        )
+
+    # Check if within acceptance window
+    if order.sent_to_restaurant_at:
+        elapsed = (datetime.now() - order.sent_to_restaurant_at).total_seconds()
+        if elapsed > RESTAURANT_ACCEPTANCE_WINDOW_SECONDS:
+            order.status = OrderStatus.RESTAURANT_TIMEOUT
+            order.restaurant_timeout_at = datetime.now()
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Acceptance window expired. Order timed out."
+            )
+
+    order.status = OrderStatus.PREPARING
+    order.restaurant_accepted_at = datetime.now()
+    order.preparing_at = datetime.now()
+
     db.commit()
 
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
-        "status": "Confirmed",
+        "status": "preparing",
+        "accepted_at": order.restaurant_accepted_at.isoformat(),
         "processed_by": ai_employee["name"],
-        "message": "Payment confirmed, order sent to restaurant"
+        "message": "Restaurant accepted order. Now preparing."
     }
+
+
+@router.post("/orders/{order_id}/restaurant-decline")
+async def restaurant_decline(
+    order_id: int,
+    request: RestaurantDeclineRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant declines the order within acceptance window.
+    Customer will receive full refund.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_RESTAURANT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PENDING_RESTAURANT to decline. Current: {order.status.value}"
+        )
+
+    order.status = OrderStatus.DECLINED_BY_RESTAURANT
+    order.restaurant_declined_at = datetime.now()
+    order.decline_reason = request.reason or "No reason provided"
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "declined_by_restaurant",
+        "declined_at": order.restaurant_declined_at.isoformat(),
+        "reason": order.decline_reason,
+        "refund_required": True,
+        "processed_by": ai_employee["name"],
+        "message": "Restaurant declined order. Customer refund initiated."
+    }
+
+
+@router.post("/orders/{order_id}/check-restaurant-timeout")
+async def check_restaurant_timeout(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if restaurant acceptance window has expired.
+    Called by background job or when checking order status.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_RESTAURANT:
+        return {
+            "success": True,
+            "order_id": order.id,
+            "timed_out": False,
+            "message": f"Order not pending restaurant. Status: {order.status.value}"
+        }
+
+    if not order.sent_to_restaurant_at:
+        return {
+            "success": True,
+            "order_id": order.id,
+            "timed_out": False,
+            "message": "Order sent_to_restaurant_at not set"
+        }
+
+    elapsed = (datetime.now() - order.sent_to_restaurant_at).total_seconds()
+
+    if elapsed > RESTAURANT_ACCEPTANCE_WINDOW_SECONDS:
+        order.status = OrderStatus.RESTAURANT_TIMEOUT
+        order.restaurant_timeout_at = datetime.now()
+        db.commit()
+
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "timed_out": True,
+            "elapsed_seconds": elapsed,
+            "status": "restaurant_timeout",
+            "refund_required": True,
+            "processed_by": ai_employee["name"],
+            "message": "Restaurant did not respond. Order timed out. Customer refund initiated."
+        }
+
+    remaining = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS - elapsed
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "timed_out": False,
+        "elapsed_seconds": elapsed,
+        "remaining_seconds": remaining,
+        "message": f"Restaurant has {int(remaining)} seconds remaining to respond."
+    }
+
+
+@router.get("/orders/pending-restaurant")
+async def get_pending_restaurant_orders(
+    vendor_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders pending restaurant acceptance.
+    Used by restaurant app to show incoming orders.
+    AI Employee: KitchenBot Beta
+    """
+    query = db.query(Order).filter(Order.status == OrderStatus.PENDING_RESTAURANT)
+
+    if vendor_id:
+        query = query.filter(Order.vendor_id == vendor_id)
+
+    orders = query.order_by(Order.sent_to_restaurant_at.desc()).all()
+
+    result = []
+    for order in orders:
+        elapsed = 0
+        remaining = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS
+        if order.sent_to_restaurant_at:
+            elapsed = (datetime.now() - order.sent_to_restaurant_at).total_seconds()
+            remaining = max(0, RESTAURANT_ACCEPTANCE_WINDOW_SECONDS - elapsed)
+
+        result.append({
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "vendor_id": order.vendor_id,
+            "customer_name": order.customer_name,
+            "items": json.loads(order.items_json) if order.items_json else [],
+            "subtotal": float(order.subtotal) if order.subtotal else 0,
+            "sent_at": order.sent_to_restaurant_at.isoformat() if order.sent_to_restaurant_at else None,
+            "elapsed_seconds": int(elapsed),
+            "remaining_seconds": int(remaining),
+            "is_urgent": remaining < RESTAURANT_URGENT_THRESHOLD_SECONDS
+        })
+
+    return {
+        "success": True,
+        "count": len(result),
+        "orders": result
+    }
+
+
+# ==================== DELIVERY DECISION WINDOW (3 minutes) ====================
+
+@router.post("/orders/{order_id}/request-delivery-decision")
+async def request_delivery_decision(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Called when order is READY_FOR_PICKUP to ask restaurant if they want to self-deliver.
+    Starts the 3-minute delivery decision window.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.READY_FOR_PICKUP:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be READY_FOR_PICKUP to request delivery decision. Current: {order.status.value}"
+        )
+
+    order.status = OrderStatus.PENDING_DELIVERY_DECISION
+    order.delivery_decision_sent_at = datetime.now()
+
+    db.commit()
+
+    timeout_at = order.delivery_decision_sent_at + timedelta(seconds=DELIVERY_DECISION_WINDOW_SECONDS)
+    window_minutes = DELIVERY_DECISION_WINDOW_SECONDS // 60
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "pending_delivery_decision",
+        "sent_at": order.delivery_decision_sent_at.isoformat(),
+        "timeout_at": timeout_at.isoformat(),
+        "window_seconds": DELIVERY_DECISION_WINDOW_SECONDS,
+        "processed_by": ai_employee["name"],
+        "message": f"Restaurant has {window_minutes} minutes to decide on delivery. If no response, order goes to drivers."
+    }
+
+
+@router.post("/orders/{order_id}/restaurant-accept-delivery")
+async def restaurant_accept_delivery(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant accepts to self-deliver the order.
+    Order will be delivered by the restaurant, not a driver.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PENDING_DELIVERY_DECISION to accept delivery. Current: {order.status.value}"
+        )
+
+    # Check if within decision window
+    if order.delivery_decision_sent_at:
+        elapsed = (datetime.now() - order.delivery_decision_sent_at).total_seconds()
+        if elapsed > DELIVERY_DECISION_WINDOW_SECONDS:
+            order.status = OrderStatus.DELIVERY_DECISION_TIMEOUT
+            order.delivery_decision_timeout_at = datetime.now()
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Delivery decision window expired. Order sent to drivers."
+            )
+
+    order.status = OrderStatus.RESTAURANT_WILL_DELIVER
+    order.restaurant_will_deliver = True
+    order.delivery_decision_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "restaurant_will_deliver",
+        "decided_at": order.delivery_decision_at.isoformat(),
+        "self_delivery": True,
+        "processed_by": ai_employee["name"],
+        "message": "Restaurant will self-deliver this order."
+    }
+
+
+@router.post("/orders/{order_id}/restaurant-decline-delivery")
+async def restaurant_decline_delivery(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant declines to self-deliver. Order goes to driver pool.
+    AI Employee: KitchenBot Beta
+    """
+    ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PENDING_DELIVERY_DECISION to decline delivery. Current: {order.status.value}"
+        )
+
+    # Restaurant declined - order goes back to READY_FOR_PICKUP for drivers
+    order.status = OrderStatus.READY_FOR_PICKUP
+    order.restaurant_will_deliver = False
+    order.delivery_decision_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "ready_for_pickup",
+        "decided_at": order.delivery_decision_at.isoformat(),
+        "self_delivery": False,
+        "available_for_drivers": True,
+        "processed_by": ai_employee["name"],
+        "message": "Restaurant declined delivery. Order is now available for drivers."
+    }
+
+
+@router.get("/orders/pending-delivery-decision")
+async def get_pending_delivery_decision_orders(
+    vendor_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all orders pending delivery decision from restaurant.
+    Used by restaurant app to show orders waiting for delivery decision.
+    AI Employee: KitchenBot Beta
+    """
+    query = db.query(Order).filter(Order.status == OrderStatus.PENDING_DELIVERY_DECISION)
+
+    if vendor_id:
+        query = query.filter(Order.vendor_id == vendor_id)
+
+    orders = query.order_by(Order.delivery_decision_sent_at.desc()).all()
+
+    result = []
+    for order in orders:
+        elapsed = 0
+        remaining = DELIVERY_DECISION_WINDOW_SECONDS
+        if order.delivery_decision_sent_at:
+            elapsed = (datetime.now() - order.delivery_decision_sent_at).total_seconds()
+            remaining = max(0, DELIVERY_DECISION_WINDOW_SECONDS - elapsed)
+
+        result.append({
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "vendor_id": order.vendor_id,
+            "customer_name": order.customer_name,
+            "delivery_address": json.loads(order.delivery_address) if order.delivery_address else None,
+            "sent_at": order.delivery_decision_sent_at.isoformat() if order.delivery_decision_sent_at else None,
+            "elapsed_seconds": int(elapsed),
+            "remaining_seconds": int(remaining),
+            "is_urgent": remaining < DELIVERY_DECISION_URGENT_THRESHOLD_SECONDS
+        })
+
+    return {
+        "success": True,
+        "count": len(result),
+        "orders": result
+    }
+
+
+# ==================== BACKGROUND SCHEDULER FOR TIMEOUTS ====================
+
+# Scheduler check interval (seconds)
+TIMEOUT_CHECK_INTERVAL_SECONDS = 30
+
+
+def check_restaurant_timeouts_job():
+    """
+    Background job to automatically detect and handle restaurant timeouts.
+    Runs every 30 seconds to check for orders that have exceeded the 3-minute window.
+    """
+    db = SessionLocal()
+    try:
+        # Find all orders pending restaurant response
+        pending_orders = db.query(Order).filter(
+            Order.status == OrderStatus.PENDING_RESTAURANT,
+            Order.sent_to_restaurant_at.isnot(None)
+        ).all()
+
+        timed_out_count = 0
+        for order in pending_orders:
+            elapsed = (datetime.now() - order.sent_to_restaurant_at).total_seconds()
+
+            if elapsed > RESTAURANT_ACCEPTANCE_WINDOW_SECONDS:
+                # Timeout - update order status
+                order.status = OrderStatus.RESTAURANT_TIMEOUT
+                order.restaurant_timeout_at = datetime.now()
+                timed_out_count += 1
+
+                logger.info(
+                    f"Order {order.order_number} timed out after {int(elapsed)}s. "
+                    f"Refund required."
+                )
+
+                # TODO: Trigger refund via Stripe
+                # TODO: Send push notification to customer
+
+        if timed_out_count > 0:
+            db.commit()
+            logger.info(f"Restaurant timeout check: {timed_out_count} orders timed out")
+
+    except Exception as e:
+        logger.error(f"Error in restaurant timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def check_delivery_decision_timeouts_job():
+    """
+    Background job to check for delivery decision timeouts.
+    If restaurant doesn't decide in 3 minutes, order goes to driver pool.
+    Runs every 30 seconds.
+    """
+    db = SessionLocal()
+    try:
+        # Find all orders pending delivery decision
+        pending_orders = db.query(Order).filter(
+            Order.status == OrderStatus.PENDING_DELIVERY_DECISION,
+            Order.delivery_decision_sent_at.isnot(None)
+        ).all()
+
+        timed_out_count = 0
+        for order in pending_orders:
+            elapsed = (datetime.now() - order.delivery_decision_sent_at).total_seconds()
+
+            if elapsed > DELIVERY_DECISION_WINDOW_SECONDS:
+                # Timeout - send to driver pool
+                order.status = OrderStatus.READY_FOR_PICKUP
+                order.delivery_decision_timeout_at = datetime.now()
+                order.restaurant_will_deliver = False
+                timed_out_count += 1
+
+                logger.info(
+                    f"Order {order.order_number} delivery decision timed out after {int(elapsed)}s. "
+                    f"Sending to driver pool."
+                )
+
+                # TODO: Send push notification to nearby drivers
+                # TODO: Send push notification to restaurant
+
+        if timed_out_count > 0:
+            db.commit()
+            logger.info(f"Delivery decision timeout check: {timed_out_count} orders sent to drivers")
+
+    except Exception as e:
+        logger.error(f"Error in delivery decision timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+# Initialize the background scheduler
+restaurant_timeout_scheduler = BackgroundScheduler()
+restaurant_timeout_scheduler.add_job(
+    check_restaurant_timeouts_job,
+    IntervalTrigger(seconds=TIMEOUT_CHECK_INTERVAL_SECONDS),
+    id="restaurant_timeout_checker",
+    name="Check for restaurant acceptance timeouts",
+    replace_existing=True
+)
+restaurant_timeout_scheduler.add_job(
+    check_delivery_decision_timeouts_job,
+    IntervalTrigger(seconds=TIMEOUT_CHECK_INTERVAL_SECONDS),
+    id="delivery_decision_timeout_checker",
+    name="Check for delivery decision timeouts",
+    replace_existing=True
+)
+
+
+def start_timeout_scheduler():
+    """Start the background scheduler for timeout checks"""
+    if not restaurant_timeout_scheduler.running:
+        restaurant_timeout_scheduler.start()
+        logger.info(
+            f"Timeout scheduler started. "
+            f"Checking every {TIMEOUT_CHECK_INTERVAL_SECONDS}s for: "
+            f"restaurant acceptance ({RESTAURANT_ACCEPTANCE_WINDOW_SECONDS}s window), "
+            f"delivery decision ({DELIVERY_DECISION_WINDOW_SECONDS}s window)."
+        )
+
+
+def stop_timeout_scheduler():
+    """Stop the background scheduler"""
+    if restaurant_timeout_scheduler.running:
+        restaurant_timeout_scheduler.shutdown()
+        logger.info("Restaurant timeout scheduler stopped.")
 
 
 # ==================== RESTAURANT FLOW ====================
@@ -1030,7 +1618,9 @@ async def ready_for_pickup(
     db: Session = Depends(get_db)
 ):
     """
-    Order ready for driver pickup - Called from iOS Restaurant App
+    Order ready for driver pickup - Called from iOS Restaurant App.
+    This starts the 3-minute delivery decision window for restaurant to decide
+    if they want to self-deliver or let drivers handle it.
     AI Employee: KitchenBot Beta
     """
     ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
@@ -1039,18 +1629,31 @@ async def ready_for_pickup(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Keep as PREPARING until driver picks up
-    # Just mark as ready internally
+    if order.status not in [OrderStatus.PREPARING]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PREPARING to mark as ready. Current: {order.status.value}"
+        )
+
+    # Start the delivery decision window - restaurant has 3 min to decide
+    order.status = OrderStatus.PENDING_DELIVERY_DECISION
+    order.delivery_decision_sent_at = datetime.now()
 
     db.commit()
+
+    timeout_at = order.delivery_decision_sent_at + timedelta(seconds=DELIVERY_DECISION_WINDOW_SECONDS)
+    window_minutes = DELIVERY_DECISION_WINDOW_SECONDS // 60
 
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
-        "status": "Ready for Pickup",
+        "status": "pending_delivery_decision",
+        "delivery_decision_sent_at": order.delivery_decision_sent_at.isoformat(),
+        "timeout_at": timeout_at.isoformat(),
+        "window_seconds": DELIVERY_DECISION_WINDOW_SECONDS,
         "processed_by": ai_employee["name"],
-        "message": "Notifying available drivers"
+        "message": f"Order ready! You have {window_minutes} minutes to decide: self-deliver or send to drivers."
     }
 
 
