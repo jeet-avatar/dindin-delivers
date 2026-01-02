@@ -60,25 +60,64 @@ class OrdersViewModel: ObservableObject {
 
     // MARK: - Computed Properties
 
-    var newOrders: [Order] {
-        // "Placed" = new order, "Confirmed" = confirmed but not yet accepted by restaurant
-        allOrders.filter { $0.status == "Placed" || $0.status == "Confirmed" }
+    /// Orders waiting for restaurant acceptance (3-minute window)
+    var pendingRestaurantOrders: [Order] {
+        allOrders.filter { $0.status.lowercased() == "pending_restaurant" }
             .sorted { $0.placedAt > $1.placedAt }
     }
 
+    /// Orders pending delivery decision (3-minute window after ready)
+    var pendingDeliveryDecisionOrders: [Order] {
+        allOrders.filter { $0.status.lowercased() == "pending_delivery_decision" }
+            .sorted { $0.placedAt > $1.placedAt }
+    }
+
+    /// New orders - includes pending_restaurant and confirmed
+    var newOrders: [Order] {
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "pending_restaurant" || status == "confirmed" || status == "placed"
+        }
+        .sorted { $0.placedAt > $1.placedAt }
+    }
+
     var preparingOrders: [Order] {
-        allOrders.filter { $0.status == "Preparing" || $0.status == "Accepted" }
-            .sorted { $0.placedAt < $1.placedAt } // Oldest first
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "preparing" || status == "accepted"
+        }
+        .sorted { $0.placedAt < $1.placedAt } // Oldest first
     }
 
     var readyOrders: [Order] {
-        allOrders.filter { $0.status == "Ready" }
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "ready_for_pickup" || status == "ready" || status == "pending_delivery_decision"
+        }
+        .sorted { $0.placedAt < $1.placedAt }
+    }
+
+    /// Orders restaurant is self-delivering
+    var selfDeliveryOrders: [Order] {
+        allOrders.filter { $0.status.lowercased() == "restaurant_will_deliver" }
             .sorted { $0.placedAt < $1.placedAt }
     }
 
     var completedOrders: [Order] {
-        allOrders.filter { $0.status == "Delivered" || $0.status == "Picked Up" || $0.status == "Out for Delivery" }
-            .sorted { $0.placedAt > $1.placedAt }
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "delivered" || status == "picked_up" || status == "out_for_delivery"
+        }
+        .sorted { $0.placedAt > $1.placedAt }
+    }
+
+    /// Orders that require restaurant action (accept order or delivery decision)
+    var actionRequiredOrders: [Order] {
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "pending_restaurant" || status == "pending_delivery_decision"
+        }
+        .sorted { $0.placedAt > $1.placedAt }
     }
 
     var todayRevenue: Double {
@@ -215,6 +254,94 @@ class OrdersViewModel: ObservableObject {
 
         // API expects uppercase status: CANCELLED
         p2pAPI.updateOrderStatus(orderId: orderIdInt, status: "CANCELLED") { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Restaurant Acceptance Flow (3-minute window)
+
+    /// Restaurant accepts an order within the 3-minute window
+    func acceptRestaurantOrder(_ order: Order) {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantAcceptOrder(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
+    /// Restaurant declines an order within the 3-minute window
+    func declineRestaurantOrder(_ order: Order, reason: String = "Restaurant unavailable") {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantDeclineOrder(orderId: orderIdInt, reason: reason) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Delivery Decision Flow (3-minute window)
+
+    /// Restaurant accepts delivery (will self-deliver)
+    func acceptDelivery(_ order: Order) {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantAcceptDelivery(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
+    /// Restaurant declines delivery (send to driver pool)
+    func declineDelivery(_ order: Order) {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantDeclineDelivery(orderId: orderIdInt) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:

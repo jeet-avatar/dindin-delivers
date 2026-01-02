@@ -2,13 +2,16 @@ import SwiftUI
 import EatFairShared
 
 /// View shown to restaurant when a new order comes in for delivery decision
-/// Restaurant has 60 seconds to decide: "I'll deliver" or "Pass to driver"
+/// Restaurant has 3 minutes (180 seconds) to decide: "I'll deliver" or "Pass to driver"
 struct DeliveryDecisionView: View {
     let order: Order
     let onDecision: (Bool, String?) -> Void  // (willDeliver, delivererName)
     let onDismiss: () -> Void
 
-    @State private var remainingSeconds: Int = 60
+    /// 3-minute delivery decision window (180 seconds)
+    static let deliveryDecisionWindowSeconds: Int = 180
+
+    @State private var remainingSeconds: Int = 180
     @State private var delivererName: String = ""
     @State private var isSubmitting = false
     @State private var showDelivererNameField = false
@@ -93,7 +96,7 @@ struct DeliveryDecisionView: View {
 
                     Rectangle()
                         .fill(Color.white)
-                        .frame(width: geo.size.width * CGFloat(remainingSeconds) / 60.0, height: 6)
+                        .frame(width: geo.size.width * CGFloat(remainingSeconds) / CGFloat(Self.deliveryDecisionWindowSeconds), height: 6)
                         .cornerRadius(3)
                         .animation(.linear(duration: 1), value: remainingSeconds)
                 }
@@ -108,7 +111,7 @@ struct DeliveryDecisionView: View {
         .padding()
         .background(
             LinearGradient(
-                colors: remainingSeconds > 30 ? [.orange, .red] : [.red, .pink],
+                colors: remainingSeconds > 60 ? [.orange, .red] : [.red, .pink],  // Urgent at < 1 minute
                 startPoint: .leading,
                 endPoint: .trailing
             )
@@ -388,7 +391,7 @@ struct DeliveryDecisionBanner: View {
             .padding(.vertical, 8)
             .background(
                 LinearGradient(
-                    colors: remainingSeconds > 30 ? [.orange, .red] : [.red, .pink],
+                    colors: remainingSeconds > 60 ? [.orange, .red] : [.red, .pink],  // Urgent at < 1 minute
                     startPoint: .leading,
                     endPoint: .trailing
                 )

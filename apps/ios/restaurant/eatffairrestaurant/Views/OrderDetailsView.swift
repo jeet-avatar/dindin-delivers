@@ -240,10 +240,29 @@ struct OrderDetailsView: View {
     }
 }
 
-/// Order Status Card Component - Matches Android OrderStatusCard
+/// Order Status Card Component - Updated for new order workflow
+/// Supports: pending_restaurant, preparing, pending_delivery_decision, restaurant_will_deliver, etc.
 struct OrderStatusCard: View {
     let status: String
     let onStatusUpdate: (String) -> Void
+    let onAcceptOrder: (() -> Void)?
+    let onDeclineOrder: (() -> Void)?
+    let onAcceptDelivery: (() -> Void)?
+    let onDeclineDelivery: (() -> Void)?
+
+    init(status: String,
+         onStatusUpdate: @escaping (String) -> Void,
+         onAcceptOrder: (() -> Void)? = nil,
+         onDeclineOrder: (() -> Void)? = nil,
+         onAcceptDelivery: (() -> Void)? = nil,
+         onDeclineDelivery: (() -> Void)? = nil) {
+        self.status = status
+        self.onStatusUpdate = onStatusUpdate
+        self.onAcceptOrder = onAcceptOrder
+        self.onDeclineOrder = onDeclineOrder
+        self.onAcceptDelivery = onAcceptDelivery
+        self.onDeclineDelivery = onDeclineDelivery
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -260,7 +279,7 @@ struct OrderStatusCard: View {
 
                 Spacer()
 
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: statusIcon(status))
                     .font(.system(size: 40))
                     .foregroundColor(statusColor(status))
             }
@@ -277,18 +296,32 @@ struct OrderStatusCard: View {
     @ViewBuilder
     private var statusActionButtons: some View {
         switch status.lowercased() {
-        case "placed":
-            Button(action: { onStatusUpdate("accepted") }) {
-                Text("Accept Order")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color(red: 76/255, green: 175/255, blue: 80/255)) // #4CAF50
-                    .cornerRadius(8)
+        // New order waiting for restaurant acceptance (3-min window)
+        case "pending_restaurant":
+            VStack(spacing: 8) {
+                Button(action: { onAcceptOrder?() }) {
+                    Text("Accept Order")
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(red: 76/255, green: 175/255, blue: 80/255)) // Green
+                        .cornerRadius(8)
+                }
+
+                Button(action: { onDeclineOrder?() }) {
+                    Text("Decline Order")
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(red: 244/255, green: 67/255, blue: 54/255)) // Red
+                        .cornerRadius(8)
+                }
             }
 
-        case "accepted":
+        // Order confirmed, ready to start preparing
+        case "confirmed":
             Button(action: { onStatusUpdate("preparing") }) {
                 Text("Start Preparing")
                     .fontWeight(.semibold)
@@ -299,51 +332,138 @@ struct OrderStatusCard: View {
                     .cornerRadius(8)
             }
 
+        // Preparing - mark as ready (triggers delivery decision window)
         case "preparing":
-            Button(action: { onStatusUpdate("ready") }) {
-                Text("Mark as Ready")
+            Button(action: { onStatusUpdate("ready_for_pickup") }) {
+                Text("Mark Ready for Pickup")
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color(red: 255/255, green: 152/255, blue: 0/255)) // #FF9800
+                    .background(Color(red: 255/255, green: 152/255, blue: 0/255)) // Orange
                     .cornerRadius(8)
             }
 
-        case "ready":
+        // Delivery decision window (3-min) - self-deliver or pass to drivers
+        case "pending_delivery_decision":
+            VStack(spacing: 8) {
+                Button(action: { onAcceptDelivery?() }) {
+                    HStack {
+                        Image(systemName: "storefront.fill")
+                        Text("I'll Deliver (Self-Deliver)")
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 76/255, green: 175/255, blue: 80/255)) // Green
+                    .cornerRadius(8)
+                }
+
+                Button(action: { onDeclineDelivery?() }) {
+                    HStack {
+                        Image(systemName: "car.fill")
+                        Text("Send to Driver Pool")
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 33/255, green: 150/255, blue: 243/255)) // Blue
+                    .cornerRadius(8)
+                }
+            }
+
+        // Restaurant is self-delivering
+        case "restaurant_will_deliver":
+            Button(action: { onStatusUpdate("out_for_delivery") }) {
+                Text("Start Delivery")
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 156/255, green: 39/255, blue: 176/255)) // Purple
+                    .cornerRadius(8)
+            }
+
+        // Out for delivery - mark as delivered
+        case "out_for_delivery":
+            Button(action: { onStatusUpdate("delivered") }) {
+                Text("Mark as Delivered")
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 76/255, green: 175/255, blue: 80/255)) // Green
+                    .cornerRadius(8)
+            }
+
+        // Ready for pickup - waiting for driver
+        case "ready_for_pickup", "ready":
             Text("Waiting for driver pickup")
                 .font(.system(size: 14))
                 .foregroundColor(.gray)
+
+        // Terminal states
+        case "delivered":
+            Text("Order completed!")
+                .font(.system(size: 14))
+                .foregroundColor(.green)
+
+        case "cancelled", "declined_by_restaurant", "restaurant_timeout":
+            Text("Order cancelled/declined")
+                .font(.system(size: 14))
+                .foregroundColor(.red)
 
         default:
             EmptyView()
         }
     }
 
+    private func statusIcon(_ status: String) -> String {
+        switch status.lowercased() {
+        case "pending_restaurant": return "bell.badge.fill"
+        case "confirmed": return "checkmark.circle.fill"
+        case "preparing": return "flame.fill"
+        case "ready_for_pickup", "ready": return "bag.fill"
+        case "pending_delivery_decision": return "clock.badge.questionmark.fill"
+        case "restaurant_will_deliver": return "storefront.fill"
+        case "out_for_delivery": return "car.fill"
+        case "delivered": return "checkmark.seal.fill"
+        case "cancelled", "declined_by_restaurant", "restaurant_timeout": return "xmark.circle.fill"
+        default: return "circle.fill"
+        }
+    }
+
     private func statusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "placed": return Color(red: 33/255, green: 150/255, blue: 243/255)    // #2196F3 Blue
-        case "accepted": return Color(red: 76/255, green: 175/255, blue: 80/255)   // #4CAF50 Green
-        case "preparing": return Color(red: 255/255, green: 152/255, blue: 0/255)  // #FF9800 Orange
-        case "ready": return Color(red: 156/255, green: 39/255, blue: 176/255)     // #9C27B0 Purple
-        case "picked_up", "out_for_delivery": return Color(red: 0/255, green: 188/255, blue: 212/255) // #00BCD4 Cyan
-        case "delivered": return Color(red: 76/255, green: 175/255, blue: 80/255)  // #4CAF50 Green
-        case "cancelled": return Color(red: 244/255, green: 67/255, blue: 54/255)  // #F44336 Red
+        case "pending_restaurant": return Color(red: 255/255, green: 193/255, blue: 7/255)  // Gold/Amber
+        case "confirmed": return Color(red: 33/255, green: 150/255, blue: 243/255)    // Blue
+        case "preparing": return Color(red: 255/255, green: 152/255, blue: 0/255)  // Orange
+        case "ready_for_pickup", "ready": return Color(red: 103/255, green: 58/255, blue: 183/255) // Deep Purple
+        case "pending_delivery_decision": return Color(red: 233/255, green: 30/255, blue: 99/255) // Pink/Magenta
+        case "restaurant_will_deliver": return Color(red: 139/255, green: 195/255, blue: 74/255) // Light Green
+        case "out_for_delivery": return Color(red: 156/255, green: 39/255, blue: 176/255) // Purple
+        case "delivered": return Color(red: 76/255, green: 175/255, blue: 80/255)  // Green
+        case "cancelled", "declined_by_restaurant", "restaurant_timeout": return Color(red: 244/255, green: 67/255, blue: 54/255)  // Red
         default: return .gray
         }
     }
 
     private func formatStatus(_ status: String) -> String {
         switch status.lowercased() {
-        case "placed": return "Order Placed"
-        case "accepted": return "Accepted"
+        case "pending_restaurant": return "New Order - Accept?"
+        case "confirmed": return "Order Confirmed"
         case "preparing": return "Preparing"
-        case "ready": return "Ready for Pickup"
-        case "picked_up": return "Picked Up"
+        case "ready_for_pickup", "ready": return "Ready for Pickup"
+        case "pending_delivery_decision": return "Delivery Decision"
+        case "restaurant_will_deliver": return "You're Delivering"
         case "out_for_delivery": return "Out for Delivery"
         case "delivered": return "Delivered"
         case "cancelled": return "Cancelled"
-        default: return status.capitalized
+        case "declined_by_restaurant": return "Declined"
+        case "restaurant_timeout": return "Timed Out"
+        default: return status.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 }
