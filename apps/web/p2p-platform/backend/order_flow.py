@@ -24,14 +24,159 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 import json
 import logging
+import os
+import requests
 
 from database import get_db, SessionLocal
+
+# Service URLs
+PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8008")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")
 
 # Background scheduler for automatic timeout checks
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== SERVICE HELPER FUNCTIONS ====================
+
+def trigger_refund(order: "Order", reason: str = "Restaurant timeout") -> bool:
+    """
+    Trigger a refund via payment service.
+    Returns True if successful, False otherwise.
+    """
+    if not order.stripe_payment_intent_id:
+        logger.warning(f"Cannot refund order {order.order_number}: No payment intent ID")
+        return False
+
+    try:
+        response = requests.post(
+            f"{PAYMENT_SERVICE_URL}/api/payments/refund",
+            json={
+                "payment_intent_id": order.stripe_payment_intent_id,
+                "amount": float(order.total),
+                "reason": reason,
+                "order_id": order.id
+            },
+            timeout=10
+        )
+        if response.status_code == 200:
+            logger.info(f"Refund triggered for order {order.order_number}")
+            return True
+        else:
+            logger.error(f"Failed to trigger refund for order {order.order_number}: {response.text}")
+            return False
+    except requests.RequestException as e:
+        logger.error(f"Payment service unavailable for refund: {e}")
+        return False
+
+
+def send_push_notification(user_type: str, user_id: int, title: str, body: str, data: dict = None) -> bool:
+    """
+    Send push notification via notification service.
+    user_type: 'customer', 'driver', or 'vendor'
+    Returns True if successful, False otherwise.
+    """
+    try:
+        response = requests.post(
+            f"{NOTIFICATION_SERVICE_URL}/api/notifications/push/send",
+            json={
+                "user_type": user_type,
+                "user_id": user_id,
+                "title": title,
+                "body": body,
+                "data": data or {}
+            },
+            timeout=5
+        )
+        if response.status_code == 200:
+            logger.info(f"Push notification sent to {user_type} {user_id}")
+            return True
+        else:
+            logger.warning(f"Failed to send push notification: {response.text}")
+            return False
+    except requests.RequestException as e:
+        logger.warning(f"Notification service unavailable: {e}")
+        return False
+
+
+def send_driver_pool_notification(order: "Order", db: Session) -> int:
+    """
+    Send push notifications to nearby available drivers.
+    Returns number of drivers notified.
+    """
+    from models import Driver, DriverStatus
+
+    # Get available drivers
+    available_drivers = db.query(Driver).filter(
+        Driver.status == DriverStatus.ONLINE,
+        Driver.is_active == True
+    ).limit(10).all()
+
+    notified = 0
+    for driver in available_drivers:
+        success = send_push_notification(
+            user_type="driver",
+            user_id=driver.id,
+            title="New Delivery Available",
+            body=f"Order #{order.order_number} is ready for pickup",
+            data={
+                "order_id": order.id,
+                "order_number": order.order_number,
+                "type": "new_delivery"
+            }
+        )
+        if success:
+            notified += 1
+
+    logger.info(f"Notified {notified} drivers about order {order.order_number}")
+    return notified
+
+
+def calculate_delivery_time_minutes(order: "Order") -> Optional[float]:
+    """
+    Calculate delivery time in minutes from when driver picked up to delivered.
+    Returns None if not yet delivered or missing data.
+    """
+    if not order.delivered_at or not order.picked_up_at:
+        return None
+
+    delta = order.delivered_at - order.picked_up_at
+    return round(delta.total_seconds() / 60, 1)
+
+
+def estimate_delivery_eta(order: "Order") -> Optional[str]:
+    """
+    Estimate delivery time based on distance and current status.
+    Returns ISO format datetime string or None.
+    """
+    if order.status == OrderStatus.DELIVERED:
+        return order.delivered_at.isoformat() if order.delivered_at else None
+
+    # Base estimates in minutes
+    PREP_TIME = 15  # Average restaurant prep time
+    PICKUP_TIME = 10  # Driver travel to restaurant
+    DELIVERY_TIME = 20  # Driver travel to customer
+
+    now = datetime.now()
+
+    if order.status == OrderStatus.OUT_FOR_DELIVERY:
+        # Driver has picked up, estimate based on typical delivery time
+        eta = now + timedelta(minutes=DELIVERY_TIME)
+    elif order.status in [OrderStatus.READY_FOR_PICKUP]:
+        # Food ready, waiting for driver
+        eta = now + timedelta(minutes=PICKUP_TIME + DELIVERY_TIME)
+    elif order.status in [OrderStatus.PREPARING, OrderStatus.CONFIRMED]:
+        # Still preparing
+        eta = now + timedelta(minutes=PREP_TIME + PICKUP_TIME + DELIVERY_TIME)
+    else:
+        return None
+
+    return eta.isoformat()
+
+
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus
