@@ -126,17 +126,31 @@ class TestEnums:
         assert len(ratings) == 4
 
     def test_order_status_enum_values(self):
-        """Test OrderStatus enum has all expected values"""
+        """Test OrderStatus enum has all expected values including restaurant acceptance window"""
+        # Payment flow
         assert OrderStatus.PENDING_PAYMENT.value == "pending_payment"
         assert OrderStatus.CONFIRMED.value == "confirmed"
+
+        # Restaurant acceptance window (3 minutes)
+        assert OrderStatus.PENDING_RESTAURANT.value == "pending_restaurant"
+        assert OrderStatus.DECLINED_BY_RESTAURANT.value == "declined_by_restaurant"
+        assert OrderStatus.RESTAURANT_TIMEOUT.value == "restaurant_timeout"
+
+        # Preparation and delivery flow
         assert OrderStatus.PREPARING.value == "preparing"
         assert OrderStatus.READY_FOR_PICKUP.value == "ready_for_pickup"
+
+        # Delivery decision window (3 minutes)
+        assert OrderStatus.PENDING_DELIVERY_DECISION.value == "pending_delivery_decision"
+        assert OrderStatus.RESTAURANT_WILL_DELIVER.value == "restaurant_will_deliver"
+        assert OrderStatus.DELIVERY_DECISION_TIMEOUT.value == "delivery_decision_timeout"
+
         assert OrderStatus.OUT_FOR_DELIVERY.value == "out_for_delivery"
         assert OrderStatus.DELIVERED.value == "delivered"
         assert OrderStatus.CANCELLED.value == "cancelled"
 
         statuses = [e.value for e in OrderStatus]
-        assert len(statuses) == 7
+        assert len(statuses) == 13
 
     def test_customer_status_enum_values(self):
         """Test CustomerStatus enum has all expected values"""
