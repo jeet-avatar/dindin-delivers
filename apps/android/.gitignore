@@ -1,0 +1,39 @@
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Android Studio
+.idea/
+*.iml
+local.properties
+.DS_Store
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# Google Services (contains API keys)
+google-services.json
+GoogleService-Info.plist
+
+# Local configuration
+local.properties
+secrets.properties
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+
+# Distribution folder (built binaries)
+distribution/
+
+# Logs
+*.log
+
+# Test outputs
+/test-results/
+/coverage/
+__pycache__

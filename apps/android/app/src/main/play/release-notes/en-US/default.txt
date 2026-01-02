@@ -1,0 +1,12 @@
+Initial release of Dollor.ai
+
+• Food delivery with $1 flat fee
+• Rideshare with $1-3 platform fee
+• Real-time order and ride tracking
+• Secure payments via Stripe
+• In-app driver chat
+• Google Sign-In support
+• Address management with map picker
+• Order history and favorites
+
+No commission. Just $1. Drivers keep 100%.

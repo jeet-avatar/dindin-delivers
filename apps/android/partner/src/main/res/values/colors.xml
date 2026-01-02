@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dollor.ai Brand Colors - MUST MATCH iOS Theme.swift EXACTLY -->
+    <!-- Source of Truth: eatfair-ios-shared/Sources/EatFairShared/Theme.swift -->
+
+    <!-- iOS: Theme.brandOrange = #F2994A -->
+    <color name="primary">#F2994A</color>
+    <color name="primaryVariant">#D97706</color>
+    <color name="brand_orange">#F2994A</color>
+    <color name="brand_orange_light">#FFB876</color>
+
+    <!-- iOS: Theme.brandGreen = #06C167 -->
+    <color name="brand_green">#06C167</color>
+    <color name="brand_green_light">#4ADE80</color>
+
+    <!-- iOS: Theme.brandGrey = #F5F5F5 -->
+    <color name="brand_grey">#F5F5F5</color>
+    <color name="background">#F5F5F5</color>
+
+    <!-- iOS: Theme.textGrey = #757575 -->
+    <color name="text_grey">#757575</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- iOS: Theme.brandBlack = #101010 -->
+    <color name="brand_black">#101010</color>
+    <color name="text_primary">#101010</color>
+
+    <!-- iOS: Theme.brandWhite = #FFFFFF -->
+    <color name="brand_white">#FFFFFF</color>
+    <color name="surface">#FFFFFF</color>
+
+    <!-- Standard colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Status colors -->
+    <color name="success">#06C167</color>
+    <color name="error">#F44336</color>
+    <color name="warning">#FFC107</color>
+    <color name="info">#2196F3</color>
+
+    <!-- On colors (for contrast) -->
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_background">#101010</color>
+    <color name="on_surface">#101010</color>
+</resources>

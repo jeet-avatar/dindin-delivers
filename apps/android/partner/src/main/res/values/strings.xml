@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Dollor Partner</string>
+    <string name="app_display_name">Dollor.ai Partner</string>
+    <string name="greeting">Hello %1$s!</string>
+</resources>

@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+    <!-- Gold Dollar Sign -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,20v8c-8,1 -14,5 -14,12c0,8 7,11 14,13v16c-5,-1 -9,-4 -11,-8l-7,4c3,6 9,10 18,11v8h4v-8c9,-1 16,-6 16,-14c0,-9 -7,-12 -16,-14v-14c4,1 7,3 9,6l7,-4c-3,-5 -8,-8 -16,-9v-7h-4z" />
+
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M50,40c0,-4 3,-6 8,-7v13c-5,-2 -8,-4 -8,-6z" />
+
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M58,69v-15c6,2 10,4 10,8c0,4 -4,6 -10,7z" />
+
+    <!-- Subtle gold gradient overlay ring -->
+    <path
+        android:fillColor="#FFA500"
+        android:fillAlpha="0.3"
+        android:pathData="M54,54m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0"
+        android:strokeWidth="2"
+        android:strokeColor="#FFD700" />
+
+</vector>
