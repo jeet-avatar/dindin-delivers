@@ -1,22 +1,71 @@
 import Foundation
 import FirebaseFirestore
 
-// MARK: - Delivery Order Status
-public enum DeliveryOrderStatus: String, CaseIterable {
-    case ready = "Ready"
+// MARK: - Order Status (Unified across iOS, Android, Backend)
+/// Status flow:
+/// pending_payment -> confirmed -> pending_restaurant -> preparing -> ready_for_pickup
+/// -> pending_delivery_decision -> restaurant_will_deliver/ready_for_pickup -> out_for_delivery -> delivered
+///
+/// Restaurant acceptance flow (3-minute window):
+/// pending_restaurant -> (accept) -> preparing
+/// pending_restaurant -> (decline) -> declined_by_restaurant
+/// pending_restaurant -> (timeout) -> restaurant_timeout
+///
+/// Delivery decision flow (3-minute window after ready_for_pickup):
+/// ready_for_pickup -> pending_delivery_decision
+/// pending_delivery_decision -> (self-deliver) -> restaurant_will_deliver -> out_for_delivery
+/// pending_delivery_decision -> (pass to driver) -> ready_for_pickup (driver pool)
+/// pending_delivery_decision -> (timeout) -> delivery_decision_timeout -> ready_for_pickup (driver pool)
+public enum OrderStatus: String, CaseIterable {
+    // Payment flow
+    case pendingPayment = "pending_payment"
+    case confirmed = "confirmed"
+
+    // Restaurant acceptance window (3 minutes)
+    case pendingRestaurant = "pending_restaurant"
+    case declinedByRestaurant = "declined_by_restaurant"
+    case restaurantTimeout = "restaurant_timeout"
+
+    // Preparation and delivery flow
+    case preparing = "preparing"
     case readyForPickup = "ready_for_pickup"
-    case pickedUp = "picked_up"
-    case outForDelivery = "Out for Delivery"
-    case delivered = "Delivered"
-    case cancelled = "Cancelled"
-    case pendingModification = "pending_modification"  // Restaurant marked items unavailable, awaiting customer
+
+    // Delivery decision window (3 minutes)
+    case pendingDeliveryDecision = "pending_delivery_decision"
+    case restaurantWillDeliver = "restaurant_will_deliver"
+    case deliveryDecisionTimeout = "delivery_decision_timeout"
+
+    case outForDelivery = "out_for_delivery"
+    case delivered = "delivered"
+    case cancelled = "cancelled"
+
+    // Modification flow
+    case pendingModification = "pending_modification"
 
     /// Display name for UI
     public var displayName: String {
         switch self {
-        case .ready, .readyForPickup:
-            return "Ready"
-        case .pickedUp, .outForDelivery:
+        case .pendingPayment:
+            return "Pending Payment"
+        case .confirmed:
+            return "Order Confirmed"
+        case .pendingRestaurant:
+            return "Waiting for Restaurant"
+        case .declinedByRestaurant:
+            return "Restaurant Declined"
+        case .restaurantTimeout:
+            return "Restaurant Timeout"
+        case .preparing:
+            return "Being Prepared"
+        case .readyForPickup:
+            return "Ready for Pickup"
+        case .pendingDeliveryDecision:
+            return "Delivery Decision Pending"
+        case .restaurantWillDeliver:
+            return "Restaurant Delivering"
+        case .deliveryDecisionTimeout:
+            return "Sent to Drivers"
+        case .outForDelivery:
             return "Out for Delivery"
         case .delivered:
             return "Delivered"
@@ -27,25 +76,90 @@ public enum DeliveryOrderStatus: String, CaseIterable {
         }
     }
 
-    /// Create from any string status (case-insensitive)
-    public static func from(_ status: String?) -> DeliveryOrderStatus {
-        guard let status = status?.lowercased() else { return .ready }
-        switch status {
-        case "ready", "ready_for_pickup":
-            return .ready
-        case "picked_up", "out_for_delivery", "out for delivery":
-            return .outForDelivery
-        case "delivered":
-            return .delivered
-        case "cancelled", "canceled":
-            return .cancelled
-        case "pending_modification", "pendingmodification":
-            return .pendingModification
+    /// Check if order is active (not completed, cancelled, or failed)
+    public var isActive: Bool {
+        switch self {
+        case .delivered, .cancelled, .declinedByRestaurant, .restaurantTimeout, .deliveryDecisionTimeout:
+            return false
         default:
-            return .ready
+            return true
+        }
+    }
+
+    /// Check if order requires restaurant action (accept/decline or delivery decision)
+    public var requiresRestaurantAction: Bool {
+        switch self {
+        case .pendingRestaurant, .pendingDeliveryDecision:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Check if order can be cancelled by customer
+    public var canCancel: Bool {
+        switch self {
+        case .pendingPayment, .confirmed, .pendingRestaurant, .pendingModification:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Check if order is in a terminal/final state
+    public var isTerminal: Bool {
+        switch self {
+        case .delivered, .cancelled, .declinedByRestaurant, .restaurantTimeout:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Check if customer should receive refund for this status
+    public var shouldRefund: Bool {
+        switch self {
+        case .cancelled, .declinedByRestaurant, .restaurantTimeout:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Create from any string status (case-insensitive)
+    public static func from(_ status: String?) -> OrderStatus {
+        guard let status = status?.lowercased() else { return .confirmed }
+
+        // Direct matches
+        if let match = OrderStatus.allCases.first(where: { $0.rawValue == status }) {
+            return match
+        }
+
+        // Legacy/alternate mappings
+        switch status {
+        case "order_placed", "placed":
+            return .confirmed
+        case "accepted":
+            return .preparing
+        case "ready":
+            return .readyForPickup
+        case "picked_up":
+            return .outForDelivery
+        case "out for delivery":
+            return .outForDelivery
+        case "pending_restaurant_delivery", "pending restaurant delivery":
+            return .pendingDeliveryDecision
+        case "restaurant_delivering", "self_delivering":
+            return .restaurantWillDeliver
+        default:
+            return .confirmed
         }
     }
 }
+
+// MARK: - Legacy Delivery Order Status (Deprecated)
+@available(*, deprecated, renamed: "OrderStatus")
+public typealias DeliveryOrderStatus = OrderStatus
 
 // MARK: - Order Modification (Partial Order Support)
 public struct OrderModification: Codable, Identifiable {

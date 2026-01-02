@@ -2788,6 +2788,152 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Restaurant Acceptance Flow APIs (3-minute window)
+
+    /// Restaurant accepts an order (within 3-minute window)
+    /// POST /api/erp/orders/{orderId}/restaurant-accept
+    public func restaurantAcceptOrder(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/restaurant-accept") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to accept order")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Restaurant declines an order (within 3-minute window)
+    /// POST /api/erp/orders/{orderId}/restaurant-decline
+    public func restaurantDeclineOrder(
+        orderId: Int,
+        reason: String? = nil,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/restaurant-decline") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Send reason in body
+        let body: [String: Any] = ["reason": reason ?? "Restaurant unavailable"]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to decline order")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Delivery Decision Flow APIs (3-minute window)
+
+    /// Restaurant accepts delivery (will self-deliver)
+    /// POST /api/erp/orders/{orderId}/restaurant-accept-delivery
+    public func restaurantAcceptDelivery(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/restaurant-accept-delivery") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to accept delivery")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Restaurant declines delivery (send to driver pool)
+    /// POST /api/erp/orders/{orderId}/restaurant-decline-delivery
+    public func restaurantDeclineDelivery(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/restaurant-decline-delivery") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to send to driver pool")))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Authentication APIs
 
     /// Login as a driver
