@@ -838,6 +838,15 @@ def _run_startup_migrations():
 async def startup_event():
     init_db()
     _run_startup_migrations()
+    # Start background scheduler for restaurant timeout checks
+    start_timeout_scheduler()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Stop background scheduler
+    stop_timeout_scheduler()
+
 
 # Routes
 @app.get("/")
@@ -11032,7 +11041,7 @@ from stripe_integration import router as stripe_router
 app.include_router(stripe_router)
 
 # Include ERP/Order Flow routes
-from order_flow import router as order_flow_router
+from order_flow import router as order_flow_router, start_timeout_scheduler, stop_timeout_scheduler
 app.include_router(order_flow_router)
 
 # Include Auto-Onboarding routes (Nova AI Employee)
@@ -12904,9 +12913,9 @@ async def proxy_create_order(request: dict):
     return {"error": "Order service unavailable", "fallback": True}
 
 
-@app.get("/api/erp/orders/{order_id}")
+@app.get("/api/erp/orders/by-id/{order_id}")
 async def proxy_get_order(order_id: int):
-    """Proxy to order-service: Get order details"""
+    """Proxy to order-service: Get order details (use /by-id/ to avoid route conflicts)"""
     result = await proxy_request(ORDER_SERVICE_URL, f"/api/orders/{order_id}")
     if result:
         return result
