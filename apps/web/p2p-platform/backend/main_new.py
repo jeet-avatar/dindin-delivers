@@ -384,13 +384,14 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
 
     # Migration: Add new OrderStatus enum values for restaurant acceptance and delivery decision
     # PostgreSQL requires ALTER TYPE to add new enum values
+    # SQLAlchemy stores enum NAMES (uppercase) not values, so we need uppercase values
     new_order_statuses = [
-        "pending_restaurant",
-        "declined_by_restaurant",
-        "restaurant_timeout",
-        "pending_delivery_decision",
-        "restaurant_will_deliver",
-        "delivery_decision_timeout",
+        "PENDING_RESTAURANT",
+        "DECLINED_BY_RESTAURANT",
+        "RESTAURANT_TIMEOUT",
+        "PENDING_DELIVERY_DECISION",
+        "RESTAURANT_WILL_DELIVER",
+        "DELIVERY_DECISION_TIMEOUT",
     ]
 
     for status_value in new_order_statuses:
