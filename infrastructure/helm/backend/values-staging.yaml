@@ -4,7 +4,7 @@
 namespace: staging
 name: dollor-backend-staging
 image:
-  repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  repository: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
   tag: "847998d13773bdaa17ad1f01664b470ef2e96dd5"
   pullPolicy: Always
 replicas: 2

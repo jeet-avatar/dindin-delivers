@@ -6,7 +6,7 @@ namespace: dev
 name: dollor-backend-dev
 
 image:
-  repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api
+  repository: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
   tag: "dev-latest"
   pullPolicy: Always
 
