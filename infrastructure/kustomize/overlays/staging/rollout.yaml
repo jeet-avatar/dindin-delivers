@@ -27,7 +27,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: api
-          image: 123456789.dkr.ecr.us-east-1.amazonaws.com/dollor-api:staging-latest
+          image: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api:staging-latest
           imagePullPolicy: Always
           ports:
             - name: http
