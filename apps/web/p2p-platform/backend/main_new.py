@@ -12667,7 +12667,7 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
     # Build restaurant info matching P2PRestaurantInfo structure
     restaurant_info = {
         "id": vendor.id,
-        "vendor_id": vendor.vendor_id,
+        "vendor_id": str(vendor.id),  # Use id - consistent with /api/vendors/published
         "name": vendor.restaurant_name or vendor.company_name,
         "cuisine_type": vendor.cuisine_type,
         "address": address_obj,
