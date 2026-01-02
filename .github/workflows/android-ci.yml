@@ -48,27 +48,33 @@ jobs:
 
       - name: Create google-services.json files
         run: |
-          mkdir -p app/src/debug app/src/release
-          mkdir -p driver/src/debug driver/src/release
-          mkdir -p partner/src/debug partner/src/release
+          mkdir -p app/src/debug app/src/release app/src/staging app/src/production
+          mkdir -p driver/src/debug driver/src/release driver/src/staging driver/src/production
+          mkdir -p partner/src/debug partner/src/release partner/src/staging partner/src/production
 
-          # Customer app config
-          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Customer app config (includes both production and staging package names)
+          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$CUSTOMER_CONFIG" > app/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/debug/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/release/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/staging/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/production/google-services.json
 
-          # Driver app config
-          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Driver app config (includes both production and staging package names)
+          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$DRIVER_CONFIG" > driver/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/debug/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/release/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/staging/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/production/google-services.json
 
-          # Partner app config
-          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Partner app config (includes both production and staging package names)
+          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$PARTNER_CONFIG" > partner/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/debug/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/staging/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/production/google-services.json
 
       - name: Run Lint
         run: ./gradlew :app:lintStagingDebug :driver:lintStagingDebug :partner:lintStagingDebug :shared:lint --continue || true
@@ -102,24 +108,33 @@ jobs:
 
       - name: Create google-services.json files
         run: |
-          mkdir -p app/src/debug app/src/release
-          mkdir -p driver/src/debug driver/src/release
-          mkdir -p partner/src/debug partner/src/release
+          mkdir -p app/src/debug app/src/release app/src/staging app/src/production
+          mkdir -p driver/src/debug driver/src/release driver/src/staging driver/src/production
+          mkdir -p partner/src/debug partner/src/release partner/src/staging partner/src/production
 
-          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Customer app config (includes both production and staging package names)
+          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$CUSTOMER_CONFIG" > app/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/debug/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/release/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/staging/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/production/google-services.json
 
-          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Driver app config (includes both production and staging package names)
+          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$DRIVER_CONFIG" > driver/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/debug/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/release/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/staging/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/production/google-services.json
 
-          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Partner app config (includes both production and staging package names)
+          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$PARTNER_CONFIG" > partner/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/debug/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/staging/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/production/google-services.json
 
       - name: Run Unit Tests
         run: ./gradlew :app:testStagingDebugUnitTest :driver:testStagingDebugUnitTest :partner:testStagingDebugUnitTest :shared:testDebugUnitTest --continue
@@ -156,24 +171,33 @@ jobs:
 
       - name: Create google-services.json files
         run: |
-          mkdir -p app/src/debug app/src/release
-          mkdir -p driver/src/debug driver/src/release
-          mkdir -p partner/src/debug partner/src/release
+          mkdir -p app/src/debug app/src/release app/src/staging app/src/production
+          mkdir -p driver/src/debug driver/src/release driver/src/staging driver/src/production
+          mkdir -p partner/src/debug partner/src/release partner/src/staging partner/src/production
 
-          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Customer app config (includes both production and staging package names)
+          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$CUSTOMER_CONFIG" > app/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/debug/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/release/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/staging/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/production/google-services.json
 
-          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Driver app config (includes both production and staging package names)
+          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$DRIVER_CONFIG" > driver/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/debug/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/release/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/staging/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/production/google-services.json
 
-          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Partner app config (includes both production and staging package names)
+          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$PARTNER_CONFIG" > partner/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/debug/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/staging/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/production/google-services.json
 
       - name: Build Debug APK
         run: ./gradlew :${{ matrix.module }}:assembleStagingDebug
@@ -207,24 +231,33 @@ jobs:
 
       - name: Create google-services.json files
         run: |
-          mkdir -p app/src/debug app/src/release
-          mkdir -p driver/src/debug driver/src/release
-          mkdir -p partner/src/debug partner/src/release
+          mkdir -p app/src/debug app/src/release app/src/staging app/src/production
+          mkdir -p driver/src/debug driver/src/release driver/src/staging driver/src/production
+          mkdir -p partner/src/debug partner/src/release partner/src/staging partner/src/production
 
-          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Customer app config (includes both production and staging package names)
+          CUSTOMER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.customer.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$CUSTOMER_CONFIG" > app/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/debug/google-services.json
           echo "$CUSTOMER_CONFIG" > app/src/release/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/staging/google-services.json
+          echo "$CUSTOMER_CONFIG" > app/src/production/google-services.json
 
-          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Driver app config (includes both production and staging package names)
+          DRIVER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"ai.dollor.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$DRIVER_CONFIG" > driver/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/debug/google-services.json
           echo "$DRIVER_CONFIG" > driver/src/release/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/staging/google-services.json
+          echo "$DRIVER_CONFIG" > driver/src/production/google-services.json
 
-          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          # Partner app config (includes both production and staging package names)
+          PARTNER_CONFIG='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]},{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"ai.dollor.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
           echo "$PARTNER_CONFIG" > partner/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/debug/google-services.json
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/staging/google-services.json
+          echo "$PARTNER_CONFIG" > partner/src/production/google-services.json
 
       - name: Build Release APKs
         run: |
