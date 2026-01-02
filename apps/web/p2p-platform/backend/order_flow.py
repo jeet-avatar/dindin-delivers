@@ -940,8 +940,8 @@ async def create_order(
         "order_number": order_number,
         "subtotal": subtotal,
         "tax": tax_amount,
-        "service_fee": CUSTOMER_SERVICE_FEE,  # Customer service fee ($2.99)
-        "delivery_fee": DELIVERY_FEE,          # Delivery fee to driver ($4.99)
+        "service_fee": CUSTOMER_SERVICE_FEE,  # Customer service fee ($1.00)
+        "delivery_fee": DELIVERY_FEE,          # Delivery fee to driver
         "tip": order_data.tip,
         "platform_fee": CUSTOMER_SERVICE_FEE,  # Legacy field (same as service_fee)
         "total": total_amount,
@@ -1919,13 +1919,13 @@ async def order_delivered(
     db.add(journal_entry)
     db.flush()  # Get the ID
 
-    # Calculate payouts (Uber-style fee structure)
+    # Calculate payouts (Dollor.ai $1 flat fee model)
     # Restaurant receives: subtotal minus $1 platform fee (RESTAURANT_PLATFORM_FEE)
-    # Driver receives: delivery fee ($4.99) + tip (100% to driver)
-    # Platform receives: service fee from customer ($2.99) + platform fee from restaurant ($1)
+    # Driver receives: delivery fee + tip (100% to driver)
+    # Platform receives: $1 from customer + $1 from restaurant = $2 total
     restaurant_payout = order.subtotal - RESTAURANT_PLATFORM_FEE
     driver_payout = order.delivery_fee + order.tip
-    platform_revenue = CUSTOMER_SERVICE_FEE + RESTAURANT_PLATFORM_FEE  # $2.99 + $1.00 = $3.99
+    platform_revenue = CUSTOMER_SERVICE_FEE + RESTAURANT_PLATFORM_FEE  # $1.00 + $1.00 = $2.00
 
     # Create journal entry lines (double-entry accounting)
     lines = [

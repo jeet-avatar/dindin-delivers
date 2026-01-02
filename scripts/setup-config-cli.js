@@ -15,13 +15,13 @@ const appConfig = {
     extraStopFee: 2,
     platformFeePerRestaurant: 1,
     maxRestaurantsPerOrder: 3,
-    serviceFeeRate: 0.05,
+    serviceFeeRate: 0.0,              // DEPRECATED: Dollor.ai uses flat $1 fees
     smallOrderThreshold: 10,
     smallOrderFee: 2,
     defaultTipRate: 0.15,
     nearbyDistanceMeters: 3218.69,
     maxDeliveryDistanceMiles: 10,
-    restaurantCommissionRate: 0.15,
+    restaurantCommissionRate: 0.0,    // DEPRECATED: Dollor.ai uses flat $1 fees
     defaultPrepTimeMinutes: 20,
     maxPrepTimeMinutes: 60,
     additionalPrepTimePerOrder: 3,

@@ -26,7 +26,7 @@ const appConfig = {
     extraStopFee: 2.0,                  // Fee per additional restaurant
     platformFeePerRestaurant: 1.0,      // Platform fee per restaurant
     maxRestaurantsPerOrder: 3,          // Max restaurants in one order
-    serviceFeeRate: 0.05,               // 5% service fee
+    serviceFeeRate: 0.0,                // DEPRECATED: Dollor.ai uses flat $1 fees (not percentage)
     smallOrderThreshold: 10.0,          // Orders under this get small order fee
     smallOrderFee: 2.0,                 // Small order fee
 
@@ -35,8 +35,8 @@ const appConfig = {
     nearbyDistanceMeters: 3218.69,      // 2 miles in meters
     maxDeliveryDistanceMiles: 10.0,     // Max delivery distance
 
-    // Restaurant Configuration
-    restaurantCommissionRate: 0.15,     // 15% commission
+    // Restaurant Configuration - DOLLOR.AI FLAT FEE MODEL
+    restaurantCommissionRate: 0.0,      // DEPRECATED: Dollor.ai uses flat $1 fee (not percentage)
 
     // Prep Time Configuration
     defaultPrepTimeMinutes: 20,

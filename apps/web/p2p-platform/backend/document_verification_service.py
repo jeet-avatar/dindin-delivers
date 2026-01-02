@@ -23,6 +23,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Environment detection for API URL defaults
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
+_IS_PRODUCTION = _ENVIRONMENT in ("production", "prod")
+
+# Verification API URLs - Use sandbox in non-production
+PERSONA_SANDBOX_URL = "https://withpersona.com/api/v1"  # Persona sandbox uses same URL with test API key
+PERSONA_PRODUCTION_URL = "https://withpersona.com/api/v1"
+ONFIDO_SANDBOX_URL = "https://api.eu.onfido.com/v3.6"  # Onfido sandbox
+ONFIDO_PRODUCTION_URL = "https://api.onfido.com/v3.6"
+VERIFF_SANDBOX_URL = "https://stationapi.veriff.com/v1"  # Veriff uses same URL with test keys
+VERIFF_PRODUCTION_URL = "https://stationapi.veriff.com/v1"
+
 
 class VerificationProvider(str, Enum):
     PERSONA = "persona"
@@ -84,21 +96,29 @@ class DocumentVerificationService:
         self._load_credentials()
 
     def _load_credentials(self):
-        """Load API credentials from environment variables"""
+        """Load API credentials from environment variables.
+
+        Uses environment-aware defaults:
+        - Production: Uses production API URLs
+        - Staging/Dev: Uses sandbox API URLs (same URLs but expects test API keys)
+        """
         if self.provider == VerificationProvider.PERSONA:
             self.api_key = os.getenv("PERSONA_API_KEY")
-            self.api_url = os.getenv("PERSONA_API_URL", "https://withpersona.com/api/v1")
+            default_url = PERSONA_PRODUCTION_URL if _IS_PRODUCTION else PERSONA_SANDBOX_URL
+            self.api_url = os.getenv("PERSONA_API_URL", default_url)
             self.template_id = os.getenv("PERSONA_TEMPLATE_ID")
             self.webhook_secret = os.getenv("PERSONA_WEBHOOK_SECRET")
 
         elif self.provider == VerificationProvider.ONFIDO:
             self.api_key = os.getenv("ONFIDO_API_KEY")
-            self.api_url = os.getenv("ONFIDO_API_URL", "https://api.onfido.com/v3.6")
+            default_url = ONFIDO_PRODUCTION_URL if _IS_PRODUCTION else ONFIDO_SANDBOX_URL
+            self.api_url = os.getenv("ONFIDO_API_URL", default_url)
             self.webhook_secret = os.getenv("ONFIDO_WEBHOOK_SECRET")
 
         elif self.provider == VerificationProvider.VERIFF:
             self.api_key = os.getenv("VERIFF_API_KEY")
-            self.api_url = os.getenv("VERIFF_API_URL", "https://stationapi.veriff.com/v1")
+            default_url = VERIFF_PRODUCTION_URL if _IS_PRODUCTION else VERIFF_SANDBOX_URL
+            self.api_url = os.getenv("VERIFF_API_URL", default_url)
             self.webhook_secret = os.getenv("VERIFF_WEBHOOK_SECRET")
 
     # =========================================================================
