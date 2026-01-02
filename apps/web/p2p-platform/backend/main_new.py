@@ -20,7 +20,12 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
 import json
+import logging
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
@@ -3649,16 +3654,16 @@ async def upload_driver_document_by_id(
         if expiry_date:
             try:
                 driver.drivers_license_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
-            except:
-                pass
+            except ValueError as e:
+                logger.warning(f"Invalid drivers license expiry date format: {expiry_date} - {e}")
     elif document_type in ['insurance', 'insurance_card']:
         driver.insurance = True
         driver.insurance_url = url_path
         if expiry_date:
             try:
                 driver.insurance_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
-            except:
-                pass
+            except ValueError as e:
+                logger.warning(f"Invalid insurance expiry date format: {expiry_date} - {e}")
     elif document_type == 'profile_photo':
         driver.photo_url = url_path
 
@@ -6457,7 +6462,8 @@ def get_orders(
         if order.items:
             try:
                 items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except:
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
                 items = []
 
         result.append({
@@ -6537,7 +6543,8 @@ def get_order(
     if order.items:
         try:
             items = json.loads(order.items) if isinstance(order.items, str) else order.items
-        except:
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
             items = []
 
     return {
@@ -11250,7 +11257,8 @@ def get_customer_orders(
         if order.items:
             try:
                 items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except:
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
                 items = []
 
         result.append({
@@ -15053,11 +15061,10 @@ def get_driver_deliveries_history(
         items_count = 0
         if order.items:
             try:
-                import json
                 items_data = json.loads(order.items) if isinstance(order.items, str) else order.items
                 items_count = len(items_data) if isinstance(items_data, list) else 0
-            except:
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse order items for delivery {order.id}: {e}")
 
         deliveries.append({
             "id": order.id,
@@ -15128,8 +15135,8 @@ def get_driver_active_delivery(
             import json
             items_data = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
             items_count = len(items_data) if isinstance(items_data, list) else 0
-        except:
-            pass
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse items for order {active_order.id}: {e}")
 
     # Map order status to delivery status
     status_map = {
@@ -15505,94 +15512,11 @@ def complete_delivery(
         "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
     }
 
-
-# ============================================================
-# WEB FRONTEND DELIVERY ENDPOINTS (Aliases for frontend compatibility)
-# Frontend calls: /api/erp/orders/{id}/picked-up and /api/erp/orders/{id}/delivered
-# ============================================================
-
-@app.post("/api/erp/orders/{order_id}/picked-up")
-def web_mark_delivery_picked_up(
-    order_id: int,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Mark delivery as picked up - Web Frontend compatible endpoint
-    Alias for /api/v2/driver/deliveries/{id}/pickup
-    """
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
-
-    order = db.query(Order).filter(Order.id == order_id, Order.driver_id == driver.id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
-
-    order.status = OrderStatus.OUT_FOR_DELIVERY
-    db.commit()
-
-    return {"success": True, "message": "Marked as picked up", "order_id": order_id}
-
-
-@app.post("/api/erp/orders/{order_id}/delivered")
-def web_complete_delivery(
-    order_id: int,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Mark delivery as completed - Web Frontend compatible endpoint
-    Alias for /api/v2/driver/deliveries/{id}/complete
-    """
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
-
-    order = db.query(Order).filter(Order.id == order_id, Order.driver_id == driver.id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found or not assigned to you")
-
-    order.status = OrderStatus.DELIVERED
-    order.delivered_at = datetime.utcnow()
-
-    # Increment driver's delivery count
-    driver.total_deliveries = (driver.total_deliveries or 0) + 1
-    driver.updated_at = datetime.utcnow()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "Delivery completed!",
-        "order_id": order_id,
-        "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
-    }
-
-
 # ============================================================
 # ADMIN - RIDESHARE MANAGEMENT
 # ============================================================
+# NOTE: /api/erp/orders/{order_id}/picked-up and /api/erp/orders/{order_id}/delivered
+# are now handled by order_flow.py router (included above) to avoid route collision
 
 @app.get("/api/admin/rideshare/requests")
 def get_admin_rideshare_requests(
