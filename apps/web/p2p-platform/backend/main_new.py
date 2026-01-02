@@ -15100,6 +15100,52 @@ def get_admin_drivers(
     }
 
 
+@app.post("/api/admin/drivers/{driver_id}/set-documents")
+def admin_set_driver_documents(
+    driver_id: int,
+    drivers_license: bool = Query(True, description="Set driver's license as verified"),
+    insurance: bool = Query(True, description="Set insurance as verified"),
+    photo: bool = Query(True, description="Set photo as uploaded"),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to directly set driver document verification status.
+    Used for testing and manual verification bypass.
+    """
+    from models import Driver
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Set document flags
+    if drivers_license:
+        driver.drivers_license = True
+        driver.drivers_license_url = f"/uploads/driver_documents/{driver_id}/license_verified.png"
+    if insurance:
+        driver.insurance = True
+        driver.insurance_url = f"/uploads/driver_documents/{driver_id}/insurance_verified.png"
+    if photo:
+        driver.photo_url = f"/uploads/driver_documents/{driver_id}/photo_verified.png"
+
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": "Driver documents set successfully",
+        "driver_id": driver.id,
+        "documents": {
+            "drivers_license": driver.drivers_license,
+            "drivers_license_url": driver.drivers_license_url,
+            "insurance": driver.insurance,
+            "insurance_url": driver.insurance_url,
+            "photo_url": driver.photo_url
+        }
+    }
+
+
 # ============================================================
 # ADMIN INSPECTION ENDPOINTS
 # ============================================================

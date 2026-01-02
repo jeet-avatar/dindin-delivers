@@ -1160,7 +1160,7 @@ async def assign_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    if driver.status != DriverStatus.ACTIVE:
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
         raise HTTPException(status_code=400, detail="Driver is not active")
 
     order.driver_id = driver.id
@@ -1934,9 +1934,9 @@ async def auto_dispatch_driver(
         a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
         return 2 * R * asin(sqrt(a))
 
-    # Find available drivers
+    # Find available drivers (accept both ACTIVE and APPROVED status)
     available_drivers = db.query(Driver).filter(
-        Driver.status == DriverStatus.ACTIVE,
+        Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED]),
         Driver.is_online == True,
         Driver.current_latitude.isnot(None),
         Driver.current_longitude.isnot(None)
@@ -2068,7 +2068,7 @@ async def broadcast_order_to_drivers(
         return 2 * R * asin(sqrt(a))
 
     drivers = db.query(Driver).filter(
-        Driver.status == DriverStatus.ACTIVE,
+        Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED]),
         Driver.is_online == True,
         Driver.current_latitude.isnot(None)
     ).all()
@@ -2331,10 +2331,10 @@ async def get_realtime_analytics(
         ).count()
         orders_by_status[status.value] = count
 
-    # Driver stats
-    total_drivers = db.query(Driver).filter(Driver.status == DriverStatus.ACTIVE).count()
+    # Driver stats (include both ACTIVE and APPROVED)
+    total_drivers = db.query(Driver).filter(Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED])).count()
     online_drivers = db.query(Driver).filter(
-        Driver.status == DriverStatus.ACTIVE,
+        Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED]),
         Driver.is_online == True
     ).count()
 
