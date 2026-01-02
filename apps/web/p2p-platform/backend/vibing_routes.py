@@ -182,8 +182,7 @@ async def vibing_get_stock_image(dish_name: str):
     Get a stock image for a dish name.
     Uses keyword matching to find best category.
     """
-    from stock_images import get_stock_image_for_dish
-
+    # get_stock_image_for_dish is imported at module level
     image_url = get_stock_image_for_dish(dish_name)
 
     return {
@@ -238,7 +237,7 @@ async def vibing_assign_images_to_vendor(
     # Get menu items without images
     menu_items = db.query(VendorMenuItem).filter(
         VendorMenuItem.vendor_id == vendor_id,
-        (VendorMenuItem.image_url == None) | (VendorMenuItem.image_url == "")
+        (VendorMenuItem.image_url.is_(None)) | (VendorMenuItem.image_url == "")
     ).all()
 
     if not menu_items:
