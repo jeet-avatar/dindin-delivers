@@ -61,24 +61,66 @@ AI_EMPLOYEES = {
     }
 }
 
-# Fee Structure ($1 Dollar Store Model)
 # ===========================================
-# EatFair Food Delivery - World's First $1 General Store!
+# EatFair Platform Fee Structure
+# ===========================================
 #
-# Customer pays: Food + Tax + Delivery Fee + $1 Service Fee + Tip
-# Restaurant pays: $1 flat platform fee (deducted from their payout)
-# Driver gets: Delivery Fee + 100% of Tip
-# Platform gets: $1 from restaurant + $1 from customer = $2 per order
+# PLATFORM REVENUE: $2 per order
+#   - $1 from Customer (service fee added at checkout)
+#   - $1 from Restaurant (deducted from their payout)
 #
-# Simple, transparent pricing - customers and restaurants both pay $1 per order
+# DRIVER EARNINGS: 100% of delivery fee + 100% of tips
+#   - Platform makes $0 on delivery or tips
+#   - Delivery fee is distance-based (market rate)
+#
+# CUSTOMER PAYS: Food + Tax + Delivery Fee + $1 Service Fee + Tip
+# RESTAURANT RECEIVES: Food Amount - $1 Platform Fee
+# DRIVER RECEIVES: Delivery Fee + Tips
+#
 # ===========================================
 
-RESTAURANT_PLATFORM_FEE = 1.00  # $1 flat fee per order from restaurant (platform revenue)
-CUSTOMER_SERVICE_FEE = 1.00     # $1 service fee from customer per order (platform revenue)
-DELIVERY_FEE = 4.99             # $4.99 delivery fee from customer (goes to driver)
+# Platform Fees ($2 total per order)
+CUSTOMER_SERVICE_FEE = 1.00      # $1 service fee charged to customer
+RESTAURANT_PLATFORM_FEE = 1.00   # $1 platform fee deducted from restaurant payout
 
-# Legacy variable for backward compatibility
-PLATFORM_FEE = RESTAURANT_PLATFORM_FEE  # Platform only charges restaurant $1
+# Delivery Fee Structure (100% goes to driver)
+# Based on current market rates - competitive with DoorDash, UberEats
+DELIVERY_BASE_FEE = 2.49         # Base fee for any delivery
+DELIVERY_PER_MILE = 0.50         # $0.50 per mile
+DELIVERY_MIN_FEE = 2.99          # Minimum delivery fee
+DELIVERY_MAX_FEE = 12.99         # Maximum delivery fee (cap for long distances)
+DELIVERY_DEFAULT_FEE = 4.99      # Default when distance unknown
+
+# Legacy variables for backward compatibility
+PLATFORM_FEE = RESTAURANT_PLATFORM_FEE
+DELIVERY_FEE = DELIVERY_DEFAULT_FEE
+
+
+def calculate_delivery_fee(distance_miles: float = None, surge_multiplier: float = 1.0) -> float:
+    """
+    Calculate delivery fee based on distance and current demand.
+    100% goes to driver - platform makes $0 on delivery.
+
+    Args:
+        distance_miles: Distance from restaurant to customer (None = use default)
+        surge_multiplier: Demand multiplier (1.0 = normal, max 2.0 = high demand)
+
+    Returns:
+        Delivery fee amount (capped between min and max)
+    """
+    if distance_miles is None:
+        base_fee = DELIVERY_DEFAULT_FEE
+    else:
+        base_fee = DELIVERY_BASE_FEE + (distance_miles * DELIVERY_PER_MILE)
+
+    # Apply surge (capped at 2x)
+    surge_multiplier = min(surge_multiplier, 2.0)
+    total_fee = base_fee * surge_multiplier
+
+    # Apply min/max caps
+    total_fee = max(DELIVERY_MIN_FEE, min(total_fee, DELIVERY_MAX_FEE))
+
+    return round(total_fee, 2)
 
 
 # ==================== REQUEST MODELS ====================
@@ -817,13 +859,34 @@ async def create_order(
                 "total_price": item_total
             })
 
-    # Calculate fees
-    TAX_RATE = 0.09  # 9% tax
+    # Calculate fees with state-specific tax rate
+    # Extract state from delivery address for tax calculation
+    state_code = order_data.delivery_address.get("state", "").upper()
+    tax_rate = get_tax_rate(state_code) if state_code else DEFAULT_TAX_RATE
+    tax_amount = round(subtotal * tax_rate, 2)
 
-    tax_amount = subtotal * TAX_RATE
+    # Calculate distance-based delivery fee (100% goes to driver)
+    delivery_distance = None
+    customer_lat = order_data.delivery_address.get("latitude") or order_data.delivery_address.get("lat")
+    customer_lng = order_data.delivery_address.get("longitude") or order_data.delivery_address.get("lng")
+
+    if vendor.latitude and vendor.longitude and customer_lat and customer_lng:
+        # Calculate distance using haversine formula
+        from math import radians, sin, cos, sqrt, asin
+        R = 3959  # Earth's radius in miles
+
+        lat1, lon1 = radians(float(vendor.latitude)), radians(float(vendor.longitude))
+        lat2, lon2 = radians(float(customer_lat)), radians(float(customer_lng))
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        delivery_distance = 2 * R * asin(sqrt(a))
+
+    delivery_fee = calculate_delivery_fee(delivery_distance)
+
     # Customer pays: Subtotal + Tax + Service Fee + Delivery Fee + Tip
-    # Note: Restaurant platform fee is NOT charged to customer - it's deducted from restaurant payout
-    total_amount = subtotal + tax_amount + CUSTOMER_SERVICE_FEE + DELIVERY_FEE + order_data.tip
+    total_amount = subtotal + tax_amount + CUSTOMER_SERVICE_FEE + delivery_fee + order_data.tip
 
     # Generate order number
     order_count = db.query(Order).count()
@@ -840,11 +903,11 @@ async def create_order(
         vendor_id=order_data.vendor_id,
         items=json.dumps(items_data),
         subtotal=subtotal,
-        tax_rate=TAX_RATE,
+        tax_rate=tax_rate,
         tax_amount=tax_amount,
-        delivery_fee=DELIVERY_FEE,
+        delivery_fee=delivery_fee,  # Distance-based fee (100% to driver)
         tip=order_data.tip,
-        platform_fee=CUSTOMER_SERVICE_FEE,  # Customer service fee
+        platform_fee=CUSTOMER_SERVICE_FEE,  # $1 customer service fee
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address),
         delivery_instructions=order_data.delivery_instructions,
