@@ -71,7 +71,7 @@ jobs:
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
 
       - name: Run Lint
-        run: ./gradlew :app:lintDebug :driver:lintDebug :partner:lintDebug :shared:lint --continue || true
+        run: ./gradlew :app:lintStagingDebug :driver:lintStagingDebug :partner:lintStagingDebug :shared:lint --continue || true
         # Note: Using || true because Android Lint has known bugs with Kotlin test analysis
 
       - name: Upload Lint Results
@@ -122,7 +122,7 @@ jobs:
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
 
       - name: Run Unit Tests
-        run: ./gradlew :app:testDebugUnitTest :driver:testDebugUnitTest :partner:testDebugUnitTest :shared:testDebugUnitTest --continue
+        run: ./gradlew :app:testStagingDebugUnitTest :driver:testStagingDebugUnitTest :partner:testStagingDebugUnitTest :shared:testDebugUnitTest --continue
 
       - name: Upload Test Results
         if: always()
@@ -176,13 +176,13 @@ jobs:
           echo "$PARTNER_CONFIG" > partner/src/release/google-services.json
 
       - name: Build Debug APK
-        run: ./gradlew :${{ matrix.module }}:assembleDebug
+        run: ./gradlew :${{ matrix.module }}:assembleStagingDebug
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.module }}-debug-apk
-          path: apps/android/${{ matrix.module }}/build/outputs/apk/debug/*.apk
+          path: apps/android/${{ matrix.module }}/build/outputs/apk/staging/debug/*.apk
 
   release:
     name: Build Release APKs
@@ -228,13 +228,13 @@ jobs:
 
       - name: Build Release APKs
         run: |
-          ./gradlew :app:assembleRelease :driver:assembleRelease :partner:assembleRelease
+          ./gradlew :app:assembleProductionRelease :driver:assembleProductionRelease :partner:assembleProductionRelease
 
       - name: Upload Release APKs
         uses: actions/upload-artifact@v4
         with:
           name: release-apks
           path: |
-            apps/android/app/build/outputs/apk/release/*.apk
-            apps/android/driver/build/outputs/apk/release/*.apk
-            apps/android/partner/build/outputs/apk/release/*.apk
+            apps/android/app/build/outputs/apk/production/release/*.apk
+            apps/android/driver/build/outputs/apk/production/release/*.apk
+            apps/android/partner/build/outputs/apk/production/release/*.apk
