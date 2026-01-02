@@ -131,7 +131,7 @@ class CreateOrderRequest(BaseModel):
     customer_phone: str
     vendor_id: int
     items: List[Dict[str, Any]]
-    delivery_address: Dict[str, str]
+    delivery_address: Dict[str, Any]  # Includes street, city, state, zip, latitude, longitude
     delivery_instructions: Optional[str] = None
     tip: float = 0.0
 
