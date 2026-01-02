@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+import { getApiUrl } from '../../api/api';
 import {
   Users,
   Plus,
@@ -96,7 +95,7 @@ const Main: React.FC = () => {
 
   const fetchVendors = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/vendors`);
+      const response = await fetch(`${getApiUrl()}/api/vendors`);
       const data = await response.json();
       
       // Map backend data to frontend format
@@ -451,7 +450,7 @@ const Main: React.FC = () => {
     setPublishingVendorId(vendor.id);
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/api/admin/vendors/${vendor.id}/publish`, {
+      const response = await fetch(`${getApiUrl()}/api/admin/vendors/${vendor.id}/publish`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -485,7 +484,7 @@ const Main: React.FC = () => {
     setShowChecklistModal(true);
     try {
       const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/admin/vendors/${vendor.id}/publish-checklist`, {
+      const response = await fetch(`${getApiUrl()}/api/admin/vendors/${vendor.id}/publish-checklist`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {

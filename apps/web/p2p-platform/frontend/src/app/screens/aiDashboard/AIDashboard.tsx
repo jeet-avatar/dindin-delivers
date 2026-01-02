@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Table, Tag, Button, message, Spin, Progress, Avatar, Space, Modal, Popconfirm } from 'antd';
 import { RobotOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+import { getApiUrl } from '../../api/api';
 
 interface AIEmployee {
   id: string;
@@ -64,8 +63,8 @@ const AIDashboard: React.FC = () => {
     setLoading(true);
     try {
       const [dashboardRes, pendingRes] = await Promise.all([
-        axios.get(`${API_URL}/api/ai/dashboard`),
-        axios.get(`${API_URL}/api/ai/pending-reviews`)
+        axios.get(`${getApiUrl()}/api/ai/dashboard`),
+        axios.get(`${getApiUrl()}/api/ai/pending-reviews`)
       ]);
       setDashboardData(dashboardRes.data);
       setPendingItems(pendingRes.data.menu_items || []);
@@ -80,7 +79,7 @@ const AIDashboard: React.FC = () => {
   const handleReviewAllItems = async (vendorId: number) => {
     setProcessing(`vendor-${vendorId}`);
     try {
-      const res = await axios.post(`${API_URL}/api/ai/menu/review-all/${vendorId}`);
+      const res = await axios.post(`${getApiUrl()}/api/ai/menu/review-all/${vendorId}`);
       message.success(`MenuBot reviewed ${res.data.total_reviewed} items: ${res.data.summary.auto_approved} approved, ${res.data.summary.queued_for_review} queued`);
       fetchDashboardData();
     } catch (error) {
@@ -93,7 +92,7 @@ const AIDashboard: React.FC = () => {
   const handleReviewSingleItem = async (itemId: number) => {
     setProcessing(`item-${itemId}`);
     try {
-      const res = await axios.post(`${API_URL}/api/ai/menu/review-item/${itemId}`);
+      const res = await axios.post(`${getApiUrl()}/api/ai/menu/review-item/${itemId}`);
       message.success(`${res.data.item_name}: ${res.data.action} (${(res.data.confidence * 100).toFixed(0)}% confidence)`);
       fetchDashboardData();
     } catch (error) {
@@ -106,7 +105,7 @@ const AIDashboard: React.FC = () => {
   const handleProcessVendor = async (vendorId: number) => {
     setProcessing(`process-${vendorId}`);
     try {
-      const res = await axios.post(`${API_URL}/api/ai/process-new-vendor/${vendorId}`);
+      const res = await axios.post(`${getApiUrl()}/api/ai/process-new-vendor/${vendorId}`);
       Modal.success({
         title: `AI Processing Complete - ${res.data.vendor_name}`,
         content: (
