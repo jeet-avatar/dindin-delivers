@@ -4188,19 +4188,31 @@ def get_or_create_cart(customer_id: int, db: Session) -> Cart:
 
 
 def calculate_cart_summary(cart: Cart, db: Session) -> dict:
-    """Calculate cart summary with fees and totals"""
+    """
+    Calculate cart summary with fees and totals.
+    Note: Tax and delivery fee are estimates until checkout when delivery address is known.
+    """
+    from order_flow import calculate_delivery_fee, DEFAULT_TAX_RATE, CUSTOMER_SERVICE_FEE
+
     items = cart.items
 
     # Calculate subtotal
     subtotal = sum(item.item_price * item.quantity for item in items)
 
-    # Get unique restaurants for delivery fee calculation
+    # Get unique restaurants
     unique_vendors = set(item.vendor_id for item in items)
-    delivery_fee = len(unique_vendors) * 2.99  # $2.99 per restaurant
 
-    platform_fee = 1.00  # $1 flat matchmaking fee
-    tax_rate = 0.0875  # 8.75%
-    tax = subtotal * tax_rate
+    # Estimated delivery fee (actual fee calculated at checkout based on distance)
+    # Using default fee since we don't have delivery address yet
+    delivery_fee = calculate_delivery_fee(distance_miles=None)
+
+    # Platform service fee: $1 per order
+    platform_fee = CUSTOMER_SERVICE_FEE
+
+    # Estimated tax (actual tax calculated at checkout based on delivery state)
+    # Using default rate since we don't have delivery address yet
+    tax_rate = DEFAULT_TAX_RATE
+    tax = round(subtotal * tax_rate, 2)
 
     # Apply promo discount
     discount = 0.0
@@ -4218,8 +4230,10 @@ def calculate_cart_summary(cart: Cart, db: Session) -> dict:
     return {
         "subtotal": round(subtotal, 2),
         "delivery_fee": round(delivery_fee, 2),
+        "delivery_fee_note": "Estimated - final fee based on distance",
         "platform_fee": round(platform_fee, 2),
         "tax": round(tax, 2),
+        "tax_note": "Estimated - final tax based on delivery location",
         "discount": round(discount, 2),
         "promo_code": cart.promo_code,
         "total": round(total, 2),

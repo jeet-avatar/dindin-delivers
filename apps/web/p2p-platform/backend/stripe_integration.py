@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from database import get_db
 from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout
+from order_flow import get_tax_rate, DEFAULT_TAX_RATE, calculate_delivery_fee, CUSTOMER_SERVICE_FEE
 
 load_dotenv()
 
@@ -146,13 +147,36 @@ async def create_order(
     # - Restaurant pays: $1 platform listing fee (deducted from payout)
     # - Driver receives: Delivery Fee + 100% of Tip (no platform fee)
     # - Platform revenue: $2 per order ($1 from customer + $1 from restaurant)
-    TAX_RATE = 0.08  # 8% tax (configure per location)
-    DELIVERY_FEE = 5.99 if order_data.delivery_address else 0.0
-    PLATFORM_FEE = 1.00  # $1 flat matchmaking fee from customer
 
-    tax_amount = subtotal * TAX_RATE
-    platform_fee = PLATFORM_FEE  # $1 flat fee, not percentage
-    total_amount = subtotal + tax_amount + DELIVERY_FEE + platform_fee
+    # Get state-specific tax rate from delivery address
+    state_code = ""
+    if order_data.delivery_address:
+        state_code = order_data.delivery_address.get("state", "").upper()
+    tax_rate = get_tax_rate(state_code) if state_code else DEFAULT_TAX_RATE
+    tax_amount = round(subtotal * tax_rate, 2)
+
+    # Calculate distance-based delivery fee (100% goes to driver)
+    delivery_distance = None
+    if order_data.delivery_address and vendor.latitude and vendor.longitude:
+        customer_lat = order_data.delivery_latitude or order_data.delivery_address.get("latitude")
+        customer_lng = order_data.delivery_longitude or order_data.delivery_address.get("longitude")
+
+        if customer_lat and customer_lng:
+            from math import radians, sin, cos, sqrt, asin
+            R = 3959  # Earth's radius in miles
+
+            lat1, lon1 = radians(float(vendor.latitude)), radians(float(vendor.longitude))
+            lat2, lon2 = radians(float(customer_lat)), radians(float(customer_lng))
+
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            delivery_distance = 2 * R * asin(sqrt(a))
+
+    delivery_fee = calculate_delivery_fee(delivery_distance) if order_data.delivery_address else 0.0
+    platform_fee = CUSTOMER_SERVICE_FEE  # $1 service fee
+
+    total_amount = subtotal + tax_amount + delivery_fee + platform_fee
     
     # Generate order number
     order_count = db.query(Order).count()
@@ -167,10 +191,10 @@ async def create_order(
         vendor_id=order_data.vendor_id,
         items=json.dumps(items_data),
         subtotal=subtotal,
-        tax_rate=TAX_RATE,
+        tax_rate=tax_rate,
         tax_amount=tax_amount,
-        delivery_fee=DELIVERY_FEE,
-        platform_fee=platform_fee,
+        delivery_fee=delivery_fee,  # Distance-based (100% to driver)
+        platform_fee=platform_fee,  # $1 customer service fee
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address) if order_data.delivery_address else None,
         delivery_instructions=order_data.delivery_instructions,
