@@ -183,7 +183,7 @@ const AccountingDashboard: React.FC = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       switch (tab) {
-        case 'balance-sheet':
+        case 'balance-sheet': {
           const bsRes = await api.get('/admin/accounting/balance-sheet', {
             params: { as_of_date: asOfDate.format('YYYY-MM-DD') },
             headers
@@ -191,8 +191,9 @@ const AccountingDashboard: React.FC = () => {
           console.log('Balance Sheet Response:', bsRes.data);
           setBalanceSheet(bsRes.data.balance_sheet);
           break;
+        }
 
-        case 'income-statement':
+        case 'income-statement': {
           const isRes = await api.get('/admin/accounting/income-statement', {
             params: { period },
             headers
@@ -200,8 +201,9 @@ const AccountingDashboard: React.FC = () => {
           console.log('Income Statement Response:', isRes.data);
           setIncomeStatement(isRes.data.income_statement);
           break;
+        }
 
-        case 'trial-balance':
+        case 'trial-balance': {
           const tbRes = await api.get('/admin/accounting/trial-balance', {
             params: { as_of_date: asOfDate.format('YYYY-MM-DD') },
             headers
@@ -209,18 +211,21 @@ const AccountingDashboard: React.FC = () => {
           console.log('Trial Balance Response:', tbRes.data);
           setTrialBalance(tbRes.data.trial_balance);
           break;
+        }
 
-        case 'cash-flow':
+        case 'cash-flow': {
           const cfRes = await api.get('/admin/accounting/cash-flow', { headers });
           console.log('Cash Flow Response:', cfRes.data);
           setCashFlow(cfRes.data.cash_flow_statement);
           break;
+        }
 
-        case 'chart-of-accounts':
+        case 'chart-of-accounts': {
           const coaRes = await api.get('/admin/accounting/chart-of-accounts', { headers });
           console.log('Chart of Accounts Response:', coaRes.data);
           setChartOfAccounts(coaRes.data.grouped);
           break;
+        }
       }
     } catch (err: any) {
       console.error('Error fetching accounting data:', err);

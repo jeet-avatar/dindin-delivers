@@ -8,9 +8,7 @@ import {
   Menu,
   X,
   ChevronDown,
-  BarChart,
   GitPullRequest,
-  GitBranch,
   FileSpreadsheet,
   Wallet,
   Building2,
@@ -23,7 +21,6 @@ import {
   DollarSign,
   ShoppingBag,
   Truck,
-  Settings,
   PieChart
 } from 'lucide-react';
 import Bridge from '../../constants/Bridge';
