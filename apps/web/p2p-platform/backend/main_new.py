@@ -382,6 +382,26 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         except Exception as e:
             errors.append(f"orders.{col_name}: {str(e)}")
 
+    # Migration: Add new OrderStatus enum values for restaurant acceptance and delivery decision
+    # PostgreSQL requires ALTER TYPE to add new enum values
+    new_order_statuses = [
+        "pending_restaurant",
+        "declined_by_restaurant",
+        "restaurant_timeout",
+        "pending_delivery_decision",
+        "restaurant_will_deliver",
+        "delivery_decision_timeout",
+    ]
+
+    for status_value in new_order_statuses:
+        try:
+            # Check if value already exists before adding
+            db.execute(text(f"ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS '{status_value}'"))  # nosemgrep: avoid-sqlalchemy-text
+            migrations_run.append(f"orderstatus.{status_value}")
+        except Exception as e:
+            # Value might already exist
+            errors.append(f"orderstatus.{status_value}: {str(e)}")
+
     db.commit()
 
     return {
