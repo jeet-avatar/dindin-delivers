@@ -19,11 +19,17 @@ logger = logging.getLogger(__name__)
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-S3_BUCKET = os.environ.get("S3_BUCKET", "eatfair-uploads")
-CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "https://cdn.dollor.ai")
+S3_BUCKET = os.environ.get("S3_BUCKET", "dollor-ai-uploads")
 
-# Local storage path (fallback when S3 not configured)
-LOCAL_UPLOAD_DIR = Path("/tmp/eatfair_uploads")
+# Environment detection for CDN URL defaults
+_ENVIRONMENT = os.environ.get("ENVIRONMENT", "production").lower()
+_IS_PRODUCTION = _ENVIRONMENT in ("production", "prod")
+
+# CDN URL - defaults to production in production, empty in development (uses local)
+CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "https://cdn.dollor.ai" if _IS_PRODUCTION else "")
+
+# Local storage path (fallback when S3 not configured) - configurable via environment
+LOCAL_UPLOAD_DIR = Path(os.environ.get("LOCAL_UPLOAD_DIR", "/tmp/dollor_uploads"))
 
 
 class S3Service:

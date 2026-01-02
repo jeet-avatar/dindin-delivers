@@ -27,7 +27,7 @@ public class AppConfig: ObservableObject {
     @Published public var extraStopFee: Double = 2.0
     @Published public var platformFeePerRestaurant: Double = 1.0  // $1 platform fee (matches PLATFORM_FEE_CONFIG.flat_fee)
     @Published public var maxRestaurantsPerOrder: Int = 3
-    @Published public var serviceFeeRate: Double = 0.05  // Legacy - use serviceFee instead
+    @Published public var serviceFeeRate: Double = 0.0  // DEPRECATED: Dollor.ai uses flat $1 fees, NOT percentage
     @Published public var smallOrderThreshold: Double = 10.0
     @Published public var smallOrderFee: Double = 2.0
 

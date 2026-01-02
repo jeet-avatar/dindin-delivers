@@ -75,10 +75,13 @@ export const brand = {
   },
 
   // Platform Commission & Fees (legacy - use pricing object below)
+  // DOLLOR.AI FLAT $1 FEE MODEL - No percentage fees!
   commission: {
     restaurantFlatFee: 1.00,  // $1 flat fee per order (not percentage!)
-    deliveryFee: 4.99,
-    serviceFee: 0,
+    customerFlatFee: 1.00,    // $1 flat fee from customer (not percentage!)
+    deliveryFee: 2.99,        // Base delivery fee (goes to driver)
+    serviceFee: 1.00,         // $1 flat service fee from customer
+    serviceFeeRate: 0.0,      // DEPRECATED: No percentage fees - use flat fees
     stripePercent: 2.9,
     stripeFixed: 0.30,
   },

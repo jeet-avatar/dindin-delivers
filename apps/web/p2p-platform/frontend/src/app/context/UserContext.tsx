@@ -1,8 +1,9 @@
 import { createContext, useState, useContext, ReactNode, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { getApiUrl } from '../api/api';
 
-// Production API - NO localhost or staging fallback
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+// Use centralized API config - supports local, staging, and production
+const API_URL = getApiUrl();
 
 // Session timeout in milliseconds (8 hours)
 const SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;

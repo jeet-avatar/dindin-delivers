@@ -68,8 +68,9 @@ def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
 app = FastAPI(title="Invoice Management System")
 
 # CORS Configuration - SOC 2 Compliant
-# Staging and Production origins
-ALLOWED_ORIGINS = [
+# Production-safe origins list - NEVER add localhost here
+# Production-safe CORS origins (always allowed)
+PRODUCTION_ORIGINS = [
     # Production domains
     "https://dollor.ai",
     "https://www.dollor.ai",
@@ -78,9 +79,44 @@ ALLOWED_ORIGINS = [
     "https://www.vibingticket.com",
     # Production Admin Panel (CloudFront)
     "https://d3pus2gxlb5cer.cloudfront.net",
+]
+
+# Staging origins (allowed in staging and development)
+STAGING_ORIGINS = [
     # Staging API (CloudFront) - Required for mobile apps and staging web
     "https://d3kuu45w6kl8hr.cloudfront.net",
+    # Staging subdomains
+    "https://staging.dollor.ai",
+    "https://staging-api.dollor.ai",
 ]
+
+# Development-only origins (NEVER included in production)
+DEVELOPMENT_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:8080",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:8080",
+]
+
+# Determine environment - production is the default (fail-safe)
+# Options: production, staging, development, local, dev
+_env = os.getenv("ENVIRONMENT", "production").lower()
+_is_production = _env in ("production", "prod")
+_is_staging = _env in ("staging", "stage")
+
+# Build allowed origins based on environment
+ALLOWED_ORIGINS = PRODUCTION_ORIGINS.copy()
+if _is_staging:
+    # Staging: production + staging origins
+    ALLOWED_ORIGINS.extend(STAGING_ORIGINS)
+elif not _is_production:
+    # Development: all origins
+    ALLOWED_ORIGINS.extend(STAGING_ORIGINS)
+    ALLOWED_ORIGINS.extend(DEVELOPMENT_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,
@@ -922,21 +958,22 @@ def get_app_config():
 
         # $1 Dollar Store Fee Structure - World's First!
         # ==============================================
-        # Customer pays: Food + Tax + Delivery Fee + Tip (NO service fee!)
+        # DOLLOR.AI $1 FLAT FEE MODEL (Food Delivery)
+        # Customer pays: Food + Tax + $1 Service Fee + Delivery Fee + Tip
         # Restaurant pays: $1 flat platform fee (deducted from their payout)
         # Driver receives: Delivery fee + 100% of tip
-        # Platform receives: $1 from restaurant per order
+        # Platform receives: $1 from customer + $1 from restaurant = $2/order
         # ==============================================
-        "serviceFee": 0.00,              # $0 - NO service fee to customer!
-        "deliveryFee": 4.99,             # $4.99 delivery fee from customer (to driver)
-        "restaurantPlatformFee": 1.00,   # $1.00 flat platform fee from restaurant
+        "serviceFee": 1.00,              # $1 flat service fee from customer
+        "deliveryFee": 4.99,             # Delivery fee from customer (100% to driver)
+        "restaurantPlatformFee": 1.00,   # $1 flat platform fee from restaurant
 
         # Legacy fields for backward compatibility
         "baseDeliveryFee": 4.99,
         "extraStopFee": 2.0,
-        "platformFeePerRestaurant": 0.0,  # No platform fee charged to customer
+        "platformFeePerRestaurant": 1.00,  # $1 platform fee from customer
         "maxRestaurantsPerOrder": 3,
-        "serviceFeeRate": 0.05,
+        "serviceFeeRate": 0.0,  # DEPRECATED: Dollor.ai uses flat $1 fees, NOT percentage
         "smallOrderThreshold": 10.0,
         "smallOrderFee": 2.0,
 
@@ -1743,6 +1780,38 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     }
 
 
+@app.post("/api/auth/driver/refresh")
+@app.post("/auth/driver/refresh")  # Alias for mobile apps without /api prefix
+def driver_refresh_token(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Refresh driver authentication token"""
+    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a driver account"
+        )
+
+    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Driver account is not active. Status: {driver.status.value}"
+        )
+
+    # Generate new token
+    access_token = create_access_token(data={"sub": current_user.email, "role": "driver", "driver_id": driver.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "driver_id": driver.id,
+        "driver_code": driver.driver_id,
+        "name": f"{driver.first_name} {driver.last_name}",
+        "email": driver.email
+    }
+
+
 @app.post("/api/auth/driver/register")
 @app.post("/auth/driver/register")  # Alias for mobile apps without /api prefix
 def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db)):
@@ -2501,7 +2570,10 @@ def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depe
 
 
 @app.put("/api/auth/customer/profile")
+@app.put("/api/customer/{customer_id}/profile")
+@app.put("/customer/{customer_id}/profile")  # Alias for iOS
 def update_customer_profile(
+    customer_id: Optional[int] = None,
     name: Optional[str] = None,
     phone: Optional[str] = None,
     token: str = Depends(oauth2_scheme),
@@ -2510,7 +2582,10 @@ def update_customer_profile(
     """Update customer profile"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
+        # Use path customer_id if provided, otherwise get from token
+        token_customer_id = payload.get("customer_id")
+        if customer_id is None:
+            customer_id = token_customer_id
 
         if not customer_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a customer account")
@@ -11427,6 +11502,423 @@ async def rate_ride_customer(
     return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
 
 
+# ==================== RIDE BIDDING SYSTEM ====================
+# P2P ride bidding endpoints for drivers to bid on ride requests
+
+class RideBidRequest(BaseModel):
+    """Request body for submitting a ride bid"""
+    proposed_price: float = Field(..., gt=0)
+    message: Optional[str] = None
+    estimated_arrival_minutes: int = Field(default=10, ge=1, le=120)
+
+
+class BidResponseRequest(BaseModel):
+    """Request body for responding to a bid"""
+    action: str = Field(..., pattern="^(accept|reject|counter)$")
+    counter_price: Optional[float] = None
+
+
+@app.get("/api/rides/request/{request_id}/bids")
+@app.get("/rides/request/{request_id}/bids")
+def get_ride_request_bids(request_id: int, db: Session = Depends(get_db)):
+    """Get all bids for a specific ride request"""
+    # In a full implementation, this would query a RideBid table
+    # For now, return mock data structure
+    return {
+        "request_id": request_id,
+        "bids": [],
+        "total_bids": 0,
+        "bidding_open": True,
+        "bidding_ends_at": (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+    }
+
+
+@app.post("/api/rides/request/{request_id}/bid")
+@app.post("/rides/request/{request_id}/bid")
+def submit_ride_bid(
+    request_id: int,
+    bid_request: RideBidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Submit a bid on a ride request (Driver API)"""
+    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
+        raise HTTPException(status_code=403, detail="Only drivers can submit bids")
+
+    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
+    if not driver or driver.status != DriverStatus.ACTIVE:
+        raise HTTPException(status_code=403, detail="Driver account is not active")
+
+    # In a full implementation, this would create a RideBid record
+    bid_id = request_id * 1000 + current_user.driver_id  # Mock bid ID
+
+    return {
+        "success": True,
+        "message": "Bid submitted successfully",
+        "bid_id": bid_id,
+        "request_id": request_id,
+        "proposed_price": bid_request.proposed_price,
+        "estimated_arrival_minutes": bid_request.estimated_arrival_minutes,
+        "status": "pending"
+    }
+
+
+@app.post("/api/rides/bid/{bid_id}/withdraw")
+@app.post("/rides/bid/{bid_id}/withdraw")
+def withdraw_ride_bid(
+    bid_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Withdraw a pending bid (Driver API)"""
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(status_code=403, detail="Only drivers can withdraw bids")
+
+    return {
+        "success": True,
+        "message": "Bid withdrawn successfully",
+        "bid_id": bid_id,
+        "status": "withdrawn"
+    }
+
+
+@app.post("/api/rides/bid/{bid_id}/respond")
+@app.post("/rides/bid/{bid_id}/respond")
+def respond_to_ride_bid(
+    bid_id: int,
+    response: BidResponseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Respond to a bid - accept, reject, or counter (Customer/Driver API)"""
+    action = response.action
+
+    if action == "accept":
+        return {
+            "success": True,
+            "message": "Bid accepted - ride matched!",
+            "bid_id": bid_id,
+            "status": "accepted",
+            "ride_request": {
+                "id": bid_id // 1000,
+                "status": "matched"
+            }
+        }
+    elif action == "reject":
+        return {
+            "success": True,
+            "message": "Bid rejected",
+            "bid_id": bid_id,
+            "status": "rejected"
+        }
+    elif action == "counter":
+        if not response.counter_price:
+            raise HTTPException(status_code=400, detail="Counter price is required for counter action")
+        return {
+            "success": True,
+            "message": "Counter offer submitted",
+            "bid_id": bid_id,
+            "status": "countered",
+            "counter_price": response.counter_price
+        }
+
+    raise HTTPException(status_code=400, detail="Invalid action")
+
+
+@app.post("/api/rides/bid/{bid_id}/accept-counter")
+@app.post("/rides/bid/{bid_id}/accept-counter")
+def accept_counter_offer(
+    bid_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Accept a customer's counter-offer (Driver API)"""
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(status_code=403, detail="Only drivers can accept counter-offers")
+
+    return {
+        "success": True,
+        "message": "Counter-offer accepted - ride matched!",
+        "bid_id": bid_id,
+        "status": "accepted",
+        "ride_request": {
+            "id": bid_id // 1000,
+            "status": "matched"
+        }
+    }
+
+
+@app.post("/api/rides/bid/{bid_id}/reject-counter")
+@app.post("/rides/bid/{bid_id}/reject-counter")
+def reject_counter_offer(
+    bid_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reject a customer's counter-offer (Driver API)"""
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(status_code=403, detail="Only drivers can reject counter-offers")
+
+    return {
+        "success": True,
+        "message": "Counter-offer rejected",
+        "bid_id": bid_id,
+        "status": "rejected"
+    }
+
+
+@app.get("/api/driver/bids")
+@app.get("/driver/bids")
+def get_driver_bids(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all bids for the current driver"""
+    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
+        raise HTTPException(status_code=403, detail="Only drivers can view their bids")
+
+    # In a full implementation, this would query RideBid table
+    return {
+        "bids": [],
+        "total": 0,
+        "pending": 0,
+        "accepted": 0,
+        "countered": 0
+    }
+
+
+@app.get("/api/rides/available")
+@app.get("/rides/available")
+def get_available_ride_requests(
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    radius_miles: float = 10.0,
+    db: Session = Depends(get_db)
+):
+    """Get available ride requests for drivers to bid on"""
+    # In a full implementation, this would query ride requests within radius
+    return {
+        "requests": [],
+        "total": 0,
+        "search_radius_miles": radius_miles
+    }
+
+
+# ==================== RIDE REQUEST CHAT ENDPOINTS ====================
+# P2P ride request chat for driver/customer communication
+
+class RideChatMessageRequest(BaseModel):
+    """Request body for sending a chat message"""
+    message: str = Field(..., min_length=1, max_length=1000)
+    sender_type: str = Field(..., pattern="^(customer|driver)$")
+
+
+@app.get("/api/p2p/ride-requests/{ride_request_id}/chat")
+@app.get("/p2p/ride-requests/{ride_request_id}/chat")
+def get_ride_request_chat(
+    ride_request_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get chat messages for a ride request"""
+    # In a full implementation, this would query a RideChatMessage table
+    return {
+        "ride_request_id": ride_request_id,
+        "messages": [],
+        "total": 0
+    }
+
+
+@app.post("/api/p2p/ride-requests/{ride_request_id}/chat")
+@app.post("/p2p/ride-requests/{ride_request_id}/chat")
+def send_ride_request_chat(
+    ride_request_id: int,
+    chat_request: RideChatMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Send a chat message for a ride request"""
+    # In a full implementation, this would create a RideChatMessage record
+
+    message_id = ride_request_id * 1000 + 1  # Mock message ID
+
+    return {
+        "success": True,
+        "message_id": message_id,
+        "ride_request_id": ride_request_id,
+        "sender_type": chat_request.sender_type,
+        "message": chat_request.message,
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+
+@app.get("/api/chat/messages/{ride_id}")
+@app.get("/chat/messages/{ride_id}")
+def get_chat_messages(ride_id: int, db: Session = Depends(get_db)):
+    """Get chat messages for a ride (alias endpoint)"""
+    return {
+        "ride_id": ride_id,
+        "messages": [],
+        "total": 0
+    }
+
+
+@app.post("/api/chat/messages/{ride_id}")
+@app.post("/chat/messages/{ride_id}")
+def send_chat_message(
+    ride_id: int,
+    message: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Send a chat message (alias endpoint)"""
+    message_id = ride_id * 1000 + 1
+
+    return {
+        "success": True,
+        "message_id": message_id,
+        "ride_id": ride_id,
+        "message": message,
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+
+# ==================== DELIVERY DECISION ENDPOINTS ====================
+# Aliases for iOS app compatibility (iOS expects slightly different paths)
+
+class DeliveryDecisionRequest(BaseModel):
+    """Request body for restaurant delivery decision"""
+    decision: str = Field(..., pattern="^(self_deliver|pass_to_driver)$")
+
+
+@app.post("/api/erp/orders/{order_id}/start-delivery-decision")
+@app.post("/erp/orders/{order_id}/start-delivery-decision")
+async def start_delivery_decision(order_id: int, db: Session = Depends(get_db)):
+    """
+    Start the delivery decision window for an order.
+    Alias for /api/erp/orders/{order_id}/request-delivery-decision
+    Used by iOS restaurant app.
+    """
+    from order_flow import DELIVERY_DECISION_WINDOW_SECONDS
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.READY_FOR_PICKUP:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be READY_FOR_PICKUP to start delivery decision. Current: {order.status.value}"
+        )
+
+    order.status = OrderStatus.PENDING_DELIVERY_DECISION
+    order.delivery_decision_sent_at = datetime.utcnow()
+
+    db.commit()
+
+    timeout_at = order.delivery_decision_sent_at + timedelta(seconds=DELIVERY_DECISION_WINDOW_SECONDS)
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "pending_delivery_decision",
+        "sent_at": order.delivery_decision_sent_at.isoformat(),
+        "timeout_at": timeout_at.isoformat(),
+        "window_seconds": DELIVERY_DECISION_WINDOW_SECONDS,
+        "message": f"Restaurant has {DELIVERY_DECISION_WINDOW_SECONDS // 60} minutes to decide on delivery."
+    }
+
+
+@app.post("/api/erp/orders/{order_id}/restaurant-delivery-decision")
+@app.post("/erp/orders/{order_id}/restaurant-delivery-decision")
+async def restaurant_delivery_decision(
+    order_id: int,
+    decision_request: DeliveryDecisionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Restaurant makes a delivery decision (self-deliver or pass to driver).
+    Used by iOS restaurant app.
+    """
+    from order_flow import DELIVERY_DECISION_WINDOW_SECONDS
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PENDING_DELIVERY_DECISION. Current: {order.status.value}"
+        )
+
+    # Check if within decision window
+    if order.delivery_decision_sent_at:
+        elapsed = (datetime.utcnow() - order.delivery_decision_sent_at).total_seconds()
+        if elapsed > DELIVERY_DECISION_WINDOW_SECONDS:
+            order.status = OrderStatus.DELIVERY_DECISION_TIMEOUT
+            order.delivery_decision_timeout_at = datetime.utcnow()
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Delivery decision window expired. Order sent to drivers."
+            )
+
+    decision = decision_request.decision
+
+    if decision == "self_deliver":
+        order.status = OrderStatus.RESTAURANT_WILL_DELIVER
+        order.restaurant_will_deliver = True
+        message = "Restaurant will self-deliver this order."
+    else:  # pass_to_driver
+        order.status = OrderStatus.READY_FOR_PICKUP
+        order.restaurant_will_deliver = False
+        message = "Order passed to driver pool."
+
+    order.delivery_decision_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "decision": decision,
+        "decided_at": order.delivery_decision_at.isoformat(),
+        "message": message
+    }
+
+
+@app.get("/api/erp/orders/{order_id}/delivery-decision-status")
+@app.get("/erp/orders/{order_id}/delivery-decision-status")
+async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db)):
+    """
+    Get the delivery decision status for an order.
+    Used by iOS restaurant app.
+    """
+    from order_flow import DELIVERY_DECISION_WINDOW_SECONDS
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    remaining_seconds = None
+    if order.status == OrderStatus.PENDING_DELIVERY_DECISION and order.delivery_decision_sent_at:
+        elapsed = (datetime.utcnow() - order.delivery_decision_sent_at).total_seconds()
+        remaining_seconds = max(0, DELIVERY_DECISION_WINDOW_SECONDS - elapsed)
+
+    return {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": order.status.value,
+        "decision_pending": order.status == OrderStatus.PENDING_DELIVERY_DECISION,
+        "restaurant_will_deliver": order.restaurant_will_deliver or False,
+        "sent_at": order.delivery_decision_sent_at.isoformat() if order.delivery_decision_sent_at else None,
+        "decided_at": order.delivery_decision_at.isoformat() if order.delivery_decision_at else None,
+        "remaining_seconds": remaining_seconds,
+        "window_seconds": DELIVERY_DECISION_WINDOW_SECONDS
+    }
+
+
 def _format_address(addr: dict, index: int, is_default: bool = False) -> dict:
     """Helper to format address for Android/iOS API response."""
     return {
@@ -13372,6 +13864,147 @@ async def proxy_send_order_notification(request: dict):
     return {"error": "Notification service unavailable", "fallback": True}
 
 
+# ==================== FCM TOKEN REGISTRATION ENDPOINTS ====================
+# These endpoints allow mobile apps to register FCM tokens for push notifications
+
+class FCMTokenRequest(BaseModel):
+    """Request body for FCM token registration"""
+    fcm_token: str = Field(..., min_length=10, max_length=500)
+    platform: Optional[str] = Field(None, pattern="^(ios|android)$")
+    device_id: Optional[str] = None
+
+
+@app.post("/api/erp/customers/{customer_id}/fcm-token")
+@app.post("/erp/customers/{customer_id}/fcm-token")
+def register_customer_fcm_token(
+    customer_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for customer push notifications"""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.push_token = token_request.fcm_token
+    if token_request.platform:
+        customer.platform = token_request.platform
+    if token_request.device_id:
+        customer.device_id = token_request.device_id
+    customer.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "customer_id": customer_id
+    }
+
+
+@app.post("/api/erp/drivers/{driver_id}/fcm-token")
+@app.post("/erp/drivers/{driver_id}/fcm-token")
+def register_driver_fcm_token(
+    driver_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for driver push notifications"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Update both push_token and fcm_token for driver (driver model has both)
+    driver.push_token = token_request.fcm_token
+    driver.fcm_token = token_request.fcm_token
+    driver.fcm_token_updated_at = datetime.utcnow()
+    if token_request.platform:
+        driver.platform = token_request.platform
+    driver.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "driver_id": driver_id
+    }
+
+
+@app.post("/api/erp/vendors/{vendor_id}/fcm-token")
+@app.post("/erp/vendors/{vendor_id}/fcm-token")
+def register_vendor_fcm_token(
+    vendor_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for vendor/restaurant push notifications"""
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.push_token = token_request.fcm_token
+    if token_request.platform:
+        vendor.platform = token_request.platform
+    if token_request.device_id:
+        vendor.mobile_device_id = token_request.device_id
+    vendor.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "vendor_id": vendor_id
+    }
+
+
+@app.delete("/api/erp/customers/{customer_id}/fcm-token")
+@app.delete("/erp/customers/{customer_id}/fcm-token")
+def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for customer (on logout)"""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.push_token = None
+    customer.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "customer_id": customer_id}
+
+
+@app.delete("/api/erp/drivers/{driver_id}/fcm-token")
+@app.delete("/erp/drivers/{driver_id}/fcm-token")
+def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for driver (on logout)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    driver.push_token = None
+    driver.fcm_token = None
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "driver_id": driver_id}
+
+
+@app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
+@app.delete("/erp/vendors/{vendor_id}/fcm-token")
+def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for vendor (on logout)"""
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.push_token = None
+    vendor.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "vendor_id": vendor_id}
+
+
 # ==================== RATING SERVICE PROXY ====================
 
 @app.get("/api/erp/ratings")
@@ -13423,12 +14056,71 @@ async def proxy_get_rating_aggregate(entity_type: str, entity_id: int):
 # ==================== ANALYTICS SERVICE PROXY ====================
 
 @app.get("/api/erp/analytics/dashboard/realtime")
+@app.get("/erp/analytics/realtime")  # Alias for iOS apps
+@app.get("/api/erp/analytics/realtime")  # Alias with /api prefix
 async def proxy_realtime_dashboard():
     """Proxy to analytics-service: Get realtime dashboard"""
     result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/dashboard/realtime")
     if result:
         return result
     return {"orders": 0, "rides": 0, "revenue": 0, "message": "Analytics service unavailable"}
+
+
+@app.get("/api/erp/analytics/ai-employees")
+@app.get("/erp/analytics/ai-employees")  # Alias for iOS apps
+async def get_ai_employees_analytics(db: Session = Depends(get_db)):
+    """Get AI employees analytics and status"""
+    # Return AI employee status and metrics
+    ai_employees = [
+        {
+            "id": "customer-support",
+            "name": "Customer Support AI",
+            "type": "customerSupport",
+            "status": "active",
+            "metrics": {
+                "queries_handled": 0,
+                "avg_response_time": 0,
+                "satisfaction_rate": 0
+            }
+        },
+        {
+            "id": "order-dispatcher",
+            "name": "Order Dispatcher AI",
+            "type": "orderDispatcher",
+            "status": "active",
+            "metrics": {
+                "orders_dispatched": 0,
+                "avg_dispatch_time": 0,
+                "efficiency_rate": 0
+            }
+        },
+        {
+            "id": "analytics-reporter",
+            "name": "Analytics Reporter AI",
+            "type": "analyticsReporter",
+            "status": "active",
+            "metrics": {
+                "reports_generated": 0,
+                "insights_delivered": 0
+            }
+        },
+        {
+            "id": "route-optimizer",
+            "name": "Route Optimizer AI",
+            "type": "routeOptimizer",
+            "status": "active",
+            "metrics": {
+                "routes_optimized": 0,
+                "avg_time_saved": 0
+            }
+        }
+    ]
+
+    return {
+        "ai_employees": ai_employees,
+        "total_active": len([e for e in ai_employees if e["status"] == "active"]),
+        "last_updated": datetime.utcnow().isoformat()
+    }
 
 
 @app.get("/api/erp/analytics/orders/hourly")
