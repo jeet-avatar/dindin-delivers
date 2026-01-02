@@ -107,6 +107,48 @@ const VendorEarnings: React.FC = () => {
     }
   };
 
+  const handleExportReport = () => {
+    if (earnings.length === 0) {
+      message.warning('No earnings data to export');
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['Date', 'Orders', 'Revenue', 'Platform Fee', 'Stripe Fee (est)', 'Net Earnings'];
+    const csvRows = [headers.join(',')];
+
+    earnings.forEach(e => {
+      const stripeFee = e.revenue * 0.029 + (e.orders * 0.30);
+      const row = [
+        moment(e.date).format('YYYY-MM-DD'),
+        e.orders,
+        e.revenue.toFixed(2),
+        e.commission.toFixed(2),
+        stripeFee.toFixed(2),
+        e.net_earnings.toFixed(2)
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    // Add summary row
+    csvRows.push('');
+    csvRows.push(`Summary,${stats.totalOrders},${stats.totalRevenue.toFixed(2)},${stats.platformFees.toFixed(2)},${stats.stripeFees.toFixed(2)},${stats.netEarnings.toFixed(2)}`);
+
+    // Create and download file
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `earnings_${dateRange[0].format('YYYY-MM-DD')}_to_${dateRange[1].format('YYYY-MM-DD')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    message.success('Report exported successfully!');
+  };
+
   const chartData = {
     labels: earnings.map(e => moment(e.date).format('MMM DD')),
     datasets: [
@@ -189,7 +231,7 @@ const VendorEarnings: React.FC = () => {
             onChange={setDateRange}
             format="YYYY-MM-DD"
           />
-          <Button icon={<DownloadOutlined />}>
+          <Button icon={<DownloadOutlined />} onClick={handleExportReport}>
             Export Report
           </Button>
         </Space>
