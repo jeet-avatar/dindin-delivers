@@ -373,6 +373,189 @@ class DocumentVerificationService:
                 }
 
     # =========================================================================
+    # VERIFF INTEGRATION
+    # =========================================================================
+
+    async def create_veriff_session(
+        self,
+        reference_id: str,
+        entity_type: str,
+        first_name: str,
+        last_name: str,
+        document_type: DocumentType = DocumentType.DRIVERS_LICENSE
+    ) -> Dict[str, Any]:
+        """
+        Create a Veriff verification session.
+        Returns a session URL for the user to complete verification.
+        """
+        if not self.api_key:
+            raise ValueError("VERIFF_API_KEY not configured")
+
+        # Map document types to Veriff document categories
+        veriff_doc_type = self._map_to_veriff_type(document_type)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.api_url}/sessions",
+                headers={
+                    "X-AUTH-CLIENT": self.api_key,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "verification": {
+                        "callback": f"https://api.dollor.ai/api/verification/webhook/veriff",
+                        "person": {
+                            "firstName": first_name,
+                            "lastName": last_name
+                        },
+                        "document": {
+                            "type": veriff_doc_type
+                        },
+                        "vendorData": f"{entity_type}_{reference_id}"
+                    }
+                }
+            )
+
+            if response.status_code == 201:
+                data = response.json()
+                return {
+                    "success": True,
+                    "session_id": data["verification"]["id"],
+                    "session_url": data["verification"]["url"],
+                    "status": data["verification"]["status"]
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.text
+                }
+
+    async def get_veriff_session_status(self, session_id: str) -> VerificationResult:
+        """Get the status of a Veriff verification session"""
+        if not self.api_key:
+            raise ValueError("VERIFF_API_KEY not configured")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.api_url}/sessions/{session_id}",
+                headers={
+                    "X-AUTH-CLIENT": self.api_key
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                verification = data.get("verification", {})
+                status = self._map_veriff_status(verification.get("status"))
+
+                return VerificationResult(
+                    status=status,
+                    provider=VerificationProvider.VERIFF,
+                    verification_id=session_id,
+                    document_type=DocumentType.DRIVERS_LICENSE,
+                    confidence_score=verification.get("riskScore"),
+                    extracted_data=verification.get("person", {}),
+                    issues=self._extract_veriff_issues(data),
+                    verified_at=datetime.now() if status == VerificationStatus.VERIFIED else None,
+                    raw_response=data
+                )
+            else:
+                return VerificationResult(
+                    status=VerificationStatus.PENDING,
+                    provider=VerificationProvider.VERIFF,
+                    document_type=DocumentType.DRIVERS_LICENSE,
+                    issues=[f"Failed to get session status: {response.text}"]
+                )
+
+    async def get_veriff_decision(self, session_id: str) -> Dict[str, Any]:
+        """Get the verification decision for a completed Veriff session"""
+        if not self.api_key:
+            raise ValueError("VERIFF_API_KEY not configured")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.api_url}/sessions/{session_id}/decision",
+                headers={
+                    "X-AUTH-CLIENT": self.api_key
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "decision": data.get("verification", {}).get("decision"),
+                    "reason": data.get("verification", {}).get("reason"),
+                    "risk_labels": data.get("verification", {}).get("riskLabels", []),
+                    "person": data.get("verification", {}).get("person", {}),
+                    "document": data.get("verification", {}).get("document", {})
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.text
+                }
+
+    def verify_veriff_webhook(self, payload: bytes, signature: str) -> bool:
+        """Verify Veriff webhook signature using X-HMAC-SIGNATURE header"""
+        if not self.webhook_secret:
+            return False
+
+        expected_sig = hmac.new(
+            self.webhook_secret.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+
+        return hmac.compare_digest(expected_sig.lower(), signature.lower())
+
+    def _map_veriff_status(self, status: str) -> VerificationStatus:
+        """Map Veriff status to our status"""
+        mapping = {
+            "created": VerificationStatus.PENDING,
+            "started": VerificationStatus.IN_REVIEW,
+            "submitted": VerificationStatus.IN_REVIEW,
+            "approved": VerificationStatus.VERIFIED,
+            "resubmission_requested": VerificationStatus.NEEDS_REVIEW,
+            "declined": VerificationStatus.REJECTED,
+            "expired": VerificationStatus.EXPIRED,
+            "abandoned": VerificationStatus.EXPIRED
+        }
+        return mapping.get(status, VerificationStatus.PENDING)
+
+    def _map_to_veriff_type(self, doc_type: DocumentType) -> str:
+        """Map our document types to Veriff document types"""
+        mapping = {
+            DocumentType.DRIVERS_LICENSE: "DRIVERS_LICENSE",
+            DocumentType.BUSINESS_LICENSE: "OTHER",
+            DocumentType.FOOD_LICENSE: "OTHER",
+            DocumentType.HEALTH_PERMIT: "OTHER",
+            DocumentType.LIABILITY_INSURANCE: "OTHER",
+            DocumentType.W9_FORM: "OTHER",
+            DocumentType.VEHICLE_INSURANCE: "OTHER",
+            DocumentType.VEHICLE_REGISTRATION: "OTHER",
+            DocumentType.PROFILE_PHOTO: "SELFIE"
+        }
+        return mapping.get(doc_type, "OTHER")
+
+    def _extract_veriff_issues(self, data: Dict) -> List[str]:
+        """Extract issues/warnings from Veriff response"""
+        issues = []
+        verification = data.get("verification", {})
+
+        # Check for risk labels
+        risk_labels = verification.get("riskLabels", [])
+        for label in risk_labels:
+            issues.append(f"Risk: {label}")
+
+        # Check for decline reasons
+        reason = verification.get("reason")
+        if reason:
+            issues.append(f"Reason: {reason}")
+
+        return issues
+
+    # =========================================================================
     # MANUAL REVIEW WORKFLOW
     # =========================================================================
 

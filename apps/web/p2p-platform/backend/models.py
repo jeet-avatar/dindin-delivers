@@ -231,6 +231,12 @@ class Vendor(Base):
     verification_notes = Column(Text)
     verification_reviewer_id = Column(Integer)  # Admin who manually reviewed
 
+    # Provider-Specific Verification IDs
+    persona_inquiry_id = Column(String(255))  # Persona inquiry ID
+    onfido_applicant_id = Column(String(255))  # Onfido applicant ID
+    veriff_session_id = Column(String(255))  # Veriff session ID
+    verification_provider = Column(String(50))  # persona, onfido, veriff
+
     # Publishing Status (for mobile apps - iOS, Android, Web)
     is_published = Column(Boolean, default=False)  # True when available on all platforms
     published_at = Column(DateTime)  # When vendor was published to platforms
@@ -698,6 +704,12 @@ class Driver(Base):
     documents_verified_at = Column(DateTime)
     verification_notes = Column(Text)
     verification_reviewer_id = Column(Integer)  # Admin who manually reviewed
+
+    # Provider-Specific Verification IDs
+    persona_inquiry_id = Column(String(255))  # Persona inquiry ID
+    onfido_applicant_id = Column(String(255))  # Onfido applicant ID
+    veriff_session_id = Column(String(255))  # Veriff session ID
+    verification_provider = Column(String(50))  # persona, onfido, veriff
 
     # Relationships
     payouts = relationship("DriverPayout", back_populates="driver")

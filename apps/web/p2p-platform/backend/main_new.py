@@ -10308,12 +10308,80 @@ async def onfido_webhook(
         applicant_id = payload.get("object", {}).get("applicant_id")
         result = payload.get("object", {}).get("result")
 
-        # Find vendor/driver by applicant_id and update status
-        # Implementation depends on how you store Onfido applicant IDs
+        # Update driver/vendor verification status based on result
+        if result == "clear":
+            # Find and update entity verification status
+            driver = db.query(Driver).filter(
+                Driver.onfido_applicant_id == applicant_id
+            ).first()
+            if driver:
+                driver.verification_status = VerificationStatus.VERIFIED.value
+                driver.documents_verified = True
+                driver.updated_at = datetime.now()
+                db.commit()
+                print(f"Driver {driver.id} verified via Onfido")
 
         return {"status": "processed", "check_id": check_id, "result": result}
 
     return {"status": "ignored", "reason": f"Unhandled event: {action}"}
+
+
+@app.post("/api/verification/webhook/veriff")
+async def veriff_webhook(
+    request_body: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Webhook endpoint for Veriff verification events.
+    Processes verification decisions and updates entity status.
+    """
+    verification = request_body.get("verification", {})
+    session_id = verification.get("id")
+    status = verification.get("status")
+    decision = verification.get("decision")
+    vendor_data = verification.get("vendorData", "")
+
+    print(f"Veriff webhook received: session={session_id}, status={status}, decision={decision}")
+
+    # Parse entity info from vendor data (format: "driver_123" or "vendor_456")
+    entity_parts = vendor_data.split("_") if vendor_data else []
+    entity_type = entity_parts[0] if len(entity_parts) > 0 else None
+    entity_id = int(entity_parts[1]) if len(entity_parts) > 1 and entity_parts[1].isdigit() else None
+
+    if status == "approved" and entity_type and entity_id:
+        if entity_type == "driver":
+            driver = db.query(Driver).filter(Driver.id == entity_id).first()
+            if driver:
+                driver.verification_status = VerificationStatus.VERIFIED.value
+                driver.documents_verified = True
+                driver.veriff_session_id = session_id
+                driver.updated_at = datetime.now()
+                db.commit()
+                print(f"Driver {entity_id} verified via Veriff")
+
+        elif entity_type == "vendor":
+            vendor = db.query(Vendor).filter(Vendor.id == entity_id).first()
+            if vendor:
+                vendor.verification_status = VerificationStatus.VERIFIED.value
+                vendor.veriff_session_id = session_id
+                vendor.updated_at = datetime.now()
+                db.commit()
+                print(f"Vendor {entity_id} verified via Veriff")
+
+        return {"status": "processed", "session_id": session_id, "decision": decision}
+
+    elif status in ["declined", "resubmission_requested"]:
+        if entity_type == "driver" and entity_id:
+            driver = db.query(Driver).filter(Driver.id == entity_id).first()
+            if driver:
+                driver.verification_status = VerificationStatus.REJECTED.value if status == "declined" else VerificationStatus.NEEDS_REVIEW.value
+                driver.updated_at = datetime.now()
+                db.commit()
+                print(f"Driver {entity_id} verification {status} via Veriff")
+
+        return {"status": "processed", "session_id": session_id, "decision": decision}
+
+    return {"status": "ignored", "reason": f"Unhandled status: {status}"}
 
 
 @app.get("/api/verification/required-documents/{entity_type}")
@@ -11217,6 +11285,10 @@ app.include_router(matchmaking_router)
 # Include Admin Accounting Module (Protected - Admin JWT required)
 from accounting_module import router as accounting_router
 app.include_router(accounting_router)
+
+# Include Document Verification Routes (Persona, Onfido, Veriff)
+from verification_routes import router as doc_verification_router
+app.include_router(doc_verification_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
