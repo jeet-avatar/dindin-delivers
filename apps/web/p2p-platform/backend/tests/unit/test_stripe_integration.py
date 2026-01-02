@@ -1049,7 +1049,7 @@ class TestSyncVendorPayouts:
                 subtotal=10.0,
                 tax_amount=0.8,
                 delivery_fee=5.0,
-                platform_fee=1.5,  # 15% of 10.0
+                platform_fee=1.0,  # $1 flat platform fee
                 total_amount=17.3,
                 status=OrderStatus.DELIVERED,
                 payment_status="succeeded",

@@ -389,7 +389,7 @@ const RestaurantApplicationForm: React.FC = () => {
               <div className="terms">
                 <h3>Terms & Conditions</h3>
                 <ul>
-                  <li>Platform commission: 15% per order</li>
+                  <li>Platform fee: $1 flat per order (no percentage commission!)</li>
                   <li>Stripe processing fees: 2.9% + $0.30 per transaction</li>
                   <li>Weekly payout schedule</li>
                   <li>Minimum order value: $10</li>

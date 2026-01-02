@@ -44,9 +44,9 @@ android {
         }
     }
 
-    // PRODUCTION ONLY - Dollor.ai by Vibing World Inc
+    // Dollor.ai by Vibing World Inc - Driver App
     defaultConfig {
-        applicationId = "ai.dollor.driver"  // Production app ID for Play Store
+        applicationId = "ai.dollor.driver"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -54,13 +54,29 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Production API
-        buildConfigField("Boolean", "IS_PRODUCTION", "true")
-        buildConfigField("String", "API_BASE_URL", "\"https://api.dollor.ai/api\"")
+        // API Keys from local.properties
         buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"${localProperties.getProperty("STRIPE_PUBLISHABLE_KEY", "")}\"")
 
         // App name
         resValue("string", "app_name", "Dollor Driver")
+    }
+
+    // Environment-specific configurations
+    flavorDimensions += "environment"
+    productFlavors {
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            buildConfigField("Boolean", "IS_PRODUCTION", "false")
+            buildConfigField("String", "API_BASE_URL", "\"https://d3kuu45w6kl8hr.cloudfront.net/api\"")
+            resValue("string", "app_name", "Dollor Driver Staging")
+        }
+        create("production") {
+            dimension = "environment"
+            buildConfigField("Boolean", "IS_PRODUCTION", "true")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.dollor.ai/api\"")
+        }
     }
 
     buildTypes {

@@ -57,8 +57,10 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
-# Platform fees
-PLATFORM_FEE_PERCENTAGE = float(os.getenv("PLATFORM_FEE_PERCENTAGE", "15"))  # 15% platform fee
+# Platform fees - DOLLOR.AI uses flat $1 fees, NOT percentage
+# This value is DEPRECATED - use flat fee calculation instead
+PLATFORM_FEE_PERCENTAGE = float(os.getenv("PLATFORM_FEE_PERCENTAGE", "0"))  # 0% - use flat $1 fee
+PLATFORM_FLAT_FEE = float(os.getenv("PLATFORM_FLAT_FEE", "1.00"))  # $1 flat fee per order
 STRIPE_FEE_PERCENTAGE = float(os.getenv("STRIPE_FEE_PERCENTAGE", "2.9"))  # 2.9% + $0.30
 STRIPE_FEE_PERCENT = STRIPE_FEE_PERCENTAGE  # Alias for backward compatibility
 STRIPE_FEE_FIXED = float(os.getenv("STRIPE_FEE_FIXED", "0.30"))  # $0.30
@@ -172,7 +174,7 @@ class VendorPayout(Base):
     # Financial Details
     total_orders = Column(Integer, default=0)
     gross_revenue = Column(Float, default=0.0)  # Total order amounts
-    platform_fee = Column(Float, default=0.0)  # Your commission (e.g., 15%)
+    platform_fee = Column(Float, default=0.0)  # Flat $1 platform fee
     stripe_fees = Column(Float, default=0.0)  # Stripe processing fees
     net_payout = Column(Float, default=0.0)  # What vendor receives
 
@@ -381,8 +383,15 @@ def calculate_stripe_fee(amount: float) -> float:
 
 
 def calculate_platform_fee(amount: float) -> float:
-    """Calculate platform commission fee"""
-    return amount * PLATFORM_FEE_PERCENTAGE / 100
+    """
+    Calculate platform fee - DOLLOR.AI FLAT FEE MODEL
+    Returns $1 flat fee per order (not percentage-based)
+    """
+    # DEPRECATED: percentage-based calculation
+    # return amount * PLATFORM_FEE_PERCENTAGE / 100
+
+    # Dollor.ai uses flat $1 fee model
+    return PLATFORM_FLAT_FEE
 
 
 # =============================================================================
