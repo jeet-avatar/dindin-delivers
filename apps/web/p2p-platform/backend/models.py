@@ -325,10 +325,23 @@ class VendorMenuItem(Base):
 
 
 class OrderStatus(enum.Enum):
+    # Payment flow
     PENDING_PAYMENT = "pending_payment"
     CONFIRMED = "confirmed"
+
+    # Restaurant acceptance window (3 minutes)
+    PENDING_RESTAURANT = "pending_restaurant"      # Waiting for restaurant to accept
+    DECLINED_BY_RESTAURANT = "declined_by_restaurant"  # Restaurant declined
+    RESTAURANT_TIMEOUT = "restaurant_timeout"      # No response in 3 minutes
+
+    # Preparation and delivery flow
     PREPARING = "preparing"
     READY_FOR_PICKUP = "ready_for_pickup"
+
+    # Delivery decision window (3 minutes) - Restaurant decides to self-deliver or send to drivers
+    PENDING_DELIVERY_DECISION = "pending_delivery_decision"  # Waiting for restaurant delivery decision
+    RESTAURANT_WILL_DELIVER = "restaurant_will_deliver"      # Restaurant chose to self-deliver
+    DELIVERY_DECISION_TIMEOUT = "delivery_decision_timeout"  # No response - goes to drivers
     OUT_FOR_DELIVERY = "out_for_delivery"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
@@ -391,6 +404,20 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     confirmed_at = Column(DateTime)
+
+    # Restaurant Acceptance Window (3-minute window)
+    sent_to_restaurant_at = Column(DateTime)       # When order was sent to restaurant
+    restaurant_accepted_at = Column(DateTime)      # When restaurant accepted
+    restaurant_declined_at = Column(DateTime)      # When restaurant declined
+    restaurant_timeout_at = Column(DateTime)       # When 3-min timeout occurred
+    decline_reason = Column(Text)                  # Reason for declining
+
+    # Delivery Decision Window (3-minute window) - Restaurant decides to self-deliver or send to drivers
+    delivery_decision_sent_at = Column(DateTime)   # When delivery decision was requested
+    restaurant_will_deliver = Column(Boolean)      # True = self-deliver, False = use driver
+    delivery_decision_at = Column(DateTime)        # When restaurant made the decision
+    delivery_decision_timeout_at = Column(DateTime)  # When 3-min timeout occurred
+
     preparing_at = Column(DateTime)
     delivered_at = Column(DateTime)
     dispatched_at = Column(DateTime)  # When driver was assigned

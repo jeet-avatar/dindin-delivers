@@ -94,7 +94,14 @@ const OrdersMain: React.FC = () => {
     const statusColors: Record<string, string> = {
       'pending_payment': 'orange',
       'confirmed': 'blue',
+      'pending_restaurant': 'gold',
+      'declined_by_restaurant': 'red',
+      'restaurant_timeout': 'volcano',
       'preparing': 'cyan',
+      'ready_for_pickup': 'geekblue',
+      'pending_delivery_decision': 'magenta',
+      'restaurant_will_deliver': 'lime',
+      'delivery_decision_timeout': 'orange',
       'out_for_delivery': 'purple',
       'delivered': 'green',
       'cancelled': 'red'
@@ -293,7 +300,7 @@ const OrdersMain: React.FC = () => {
           />
 
           <Select
-            style={{ width: 180 }}
+            style={{ width: 220 }}
             placeholder="Order Status"
             value={statusFilter}
             onChange={setStatusFilter}
@@ -301,7 +308,13 @@ const OrdersMain: React.FC = () => {
             <Option value="all">All Statuses</Option>
             <Option value="pending_payment">Pending Payment</Option>
             <Option value="confirmed">Confirmed</Option>
+            <Option value="pending_restaurant">Pending Restaurant</Option>
+            <Option value="declined_by_restaurant">Declined by Restaurant</Option>
+            <Option value="restaurant_timeout">Restaurant Timeout</Option>
             <Option value="preparing">Preparing</Option>
+            <Option value="ready_for_pickup">Ready for Pickup</Option>
+            <Option value="pending_delivery_decision">Pending Delivery Decision</Option>
+            <Option value="restaurant_will_deliver">Restaurant Self-Delivers</Option>
             <Option value="out_for_delivery">Out for Delivery</Option>
             <Option value="delivered">Delivered</Option>
             <Option value="cancelled">Cancelled</Option>
