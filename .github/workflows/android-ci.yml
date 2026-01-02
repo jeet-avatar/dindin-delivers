@@ -1,1 +1,236 @@
-/Users/jeet/doordash-p2p/.github/workflows/android-ci.yml
+name: Android CI/CD
+
+on:
+  push:
+    branches: [ main, develop, staging, feature/* ]
+    paths:
+      - 'apps/android/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'apps/android/**'
+      - '.github/workflows/android-ci.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - release
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create google-services.json files for STAGING
+        run: |
+          mkdir -p app/src/staging app/src/production
+          mkdir -p driver/src/staging driver/src/production
+          mkdir -p partner/src/staging partner/src/production
+
+          CUSTOMER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.app.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$CUSTOMER_STAGING" > app/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/staging/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/production/google-services.json
+
+          DRIVER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$DRIVER_STAGING" > driver/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/staging/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/production/google-services.json
+
+          PARTNER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"com.eatfair.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$PARTNER_STAGING" > partner/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/staging/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/production/google-services.json
+
+      - name: Run Lint for STAGING only
+        run: ./gradlew :app:lintStagingDebug :driver:lintStagingDebug :partner:lintStagingDebug :shared:lintDebug --continue
+
+      - name: Upload Lint Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results
+          path: 'apps/android/**/build/reports/lint-results*.html'
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create google-services.json files for STAGING
+        run: |
+          mkdir -p app/src/staging app/src/production
+          mkdir -p driver/src/staging driver/src/production
+          mkdir -p partner/src/staging partner/src/production
+
+          CUSTOMER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.app.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$CUSTOMER_STAGING" > app/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/staging/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/production/google-services.json
+
+          DRIVER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$DRIVER_STAGING" > driver/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/staging/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/production/google-services.json
+
+          PARTNER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"com.eatfair.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$PARTNER_STAGING" > partner/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/staging/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/production/google-services.json
+
+      - name: Run Unit Tests for STAGING only
+        run: ./gradlew :app:testStagingDebugUnitTest :driver:testStagingDebugUnitTest :partner:testStagingDebugUnitTest :shared:testDebugUnitTest --continue
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: 'apps/android/**/build/test-results/**/*.xml'
+
+  build:
+    name: Build APKs
+    runs-on: ubuntu-latest
+    needs: [lint, unit-test]
+    defaults:
+      run:
+        working-directory: apps/android
+    strategy:
+      matrix:
+        module: [app, partner, driver]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create google-services.json files for STAGING
+        run: |
+          mkdir -p app/src/staging app/src/production
+          mkdir -p driver/src/staging driver/src/production
+          mkdir -p partner/src/staging partner/src/production
+
+          CUSTOMER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.app.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$CUSTOMER_STAGING" > app/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/staging/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/production/google-services.json
+
+          DRIVER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$DRIVER_STAGING" > driver/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/staging/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/production/google-services.json
+
+          PARTNER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"com.eatfair.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$PARTNER_STAGING" > partner/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/staging/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/production/google-services.json
+
+      - name: Build STAGING Debug APK
+        run: ./gradlew :${{ matrix.module }}:assembleStagingDebug
+
+      - name: Upload Staging APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.module }}-staging-apk
+          path: apps/android/${{ matrix.module }}/build/outputs/apk/staging/debug/*.apk
+
+  release:
+    name: Build STAGING Release
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create google-services.json files for STAGING
+        run: |
+          mkdir -p app/src/staging app/src/production
+          mkdir -p driver/src/staging driver/src/production
+          mkdir -p partner/src/staging partner/src/production
+
+          CUSTOMER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.app.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$CUSTOMER_STAGING" > app/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/staging/google-services.json
+          echo "$CUSTOMER_STAGING" > app/src/production/google-services.json
+
+          DRIVER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:0bd156d8e81170ac83ecf7","android_client_info":{"package_name":"com.eatfair.driver.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$DRIVER_STAGING" > driver/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/staging/google-services.json
+          echo "$DRIVER_STAGING" > driver/src/production/google-services.json
+
+          PARTNER_STAGING='{"project_info":{"project_number":"107524350806","project_id":"eatfair-app","storage_bucket":"eatfair-app.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:107524350806:android:848e20410a71543283ecf7","android_client_info":{"package_name":"com.eatfair.partner.staging"}},"api_key":[{"current_key":"AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M"}]}],"configuration_version":"1"}'
+          echo "$PARTNER_STAGING" > partner/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/staging/google-services.json
+          echo "$PARTNER_STAGING" > partner/src/production/google-services.json
+
+      - name: Build STAGING Release APKs
+        run: |
+          ./gradlew :app:assembleStagingRelease :driver:assembleStagingRelease :partner:assembleStagingRelease
+
+      - name: Upload Staging Release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-release-apks
+          path: |
+            apps/android/app/build/outputs/apk/staging/release/*.apk
+            apps/android/driver/build/outputs/apk/staging/release/*.apk
+            apps/android/partner/build/outputs/apk/staging/release/*.apk
