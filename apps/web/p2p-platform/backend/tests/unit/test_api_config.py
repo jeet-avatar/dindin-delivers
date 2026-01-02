@@ -74,10 +74,10 @@ class TestAppConfig:
         assert config["taxRate"] == 0.09, "Tax rate should be 9%"
 
     def test_config_service_fee(self):
-        """Test service fee (should be 0 for Dollar Store model)"""
+        """Test service fee ($1 flat fee for Dollor.ai matchmaking model)"""
         config = get_app_config()
         assert isinstance(config["serviceFee"], (int, float))
-        assert config["serviceFee"] == 0.00, "Service fee should be $0"
+        assert config["serviceFee"] == 1.00, "Service fee should be $1 (Dollor.ai flat fee)"
 
     def test_config_delivery_fee(self):
         """Test delivery fee is valid"""
@@ -107,9 +107,9 @@ class TestAppConfig:
         assert isinstance(config["isDynamicPricingEnabled"], bool)
 
     def test_config_feature_flags_values(self):
-        """Test feature flag values"""
+        """Test feature flag values (Production mode)"""
         config = get_app_config()
-        assert config["isDummyPaymentMode"] is True, "Dummy payment should be enabled"
+        assert config["isDummyPaymentMode"] is False, "Production: Real payments enabled"
         assert config["isAIFeaturesEnabled"] is True, "AI features should be enabled"
         assert config["isDynamicPricingEnabled"] is False, "Dynamic pricing should be disabled"
 

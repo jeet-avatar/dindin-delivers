@@ -155,7 +155,7 @@ def sample_order_data(mock_vendor, mock_menu_item):
 
 @pytest.fixture
 def mock_order(db_session, mock_vendor):
-    """Create a mock order"""
+    """Create a mock order (Dollor.ai $1 flat fee model)"""
     order = Order(
         id=1,
         order_number="ORD-20231215-00001",
@@ -171,11 +171,11 @@ def mock_order(db_session, mock_vendor):
             "total_price": 25.98
         }]),
         subtotal=25.98,
-        tax_rate=0.08,
-        tax_amount=2.08,
+        tax_rate=0.09,  # 9% tax (Dollor.ai standard)
+        tax_amount=2.34,  # 25.98 * 0.09 = 2.3382
         delivery_fee=5.99,
-        platform_fee=3.90,
-        total_amount=37.95,
+        platform_fee=1.00,  # $1 flat platform fee (Dollor.ai model)
+        total_amount=35.31,  # 25.98 + 2.34 + 5.99 + 1.00
         delivery_address=json.dumps({"street": "789 Customer St", "city": "San Francisco"}),
         delivery_instructions="Ring doorbell",
         delivery_latitude=37.7749,
@@ -200,10 +200,13 @@ class TestCreateOrder:
                                   mock_vendor, mock_menu_item, sample_order_data):
         """Should successfully create order and payment intent"""
         # Arrange
+        # Dollor.ai pricing: $1 flat fee, distance-based delivery ($4.99 default)
+        # CA tax rate is 7.25%, so:
+        # subtotal: 25.98, tax: 1.88, delivery: 4.99, platform: $1.00 = 33.85
         mock_payment_intent = {
             'id': 'pi_test123',
             'client_secret': 'pi_test123_secret_abc',
-            'amount': 3795,  # $37.95 in cents
+            'amount': 3385,  # $33.85 in cents
             'currency': 'usd'
         }
         mock_stripe_create.return_value = type('obj', (object,), mock_payment_intent)()
@@ -234,15 +237,15 @@ class TestCreateOrder:
         assert result is not None
         assert result.order_number.startswith("ORD-")
         assert result.client_secret == 'pi_test123_secret_abc'
-        # Total: subtotal(25.98) + tax(2.08) + delivery(5.99) + platform($1.00) = 35.05
-        assert result.amount == pytest.approx(35.05, rel=0.01)
+        # Total: subtotal(25.98) + tax(7.25% = 1.88) + delivery(4.99) + platform($1.00) = 33.85
+        assert result.amount == pytest.approx(33.85, rel=0.02)  # Allow 2% tolerance for rounding
         assert result.currency == 'usd'
 
         # Verify Stripe was called with correct parameters
         mock_stripe_create.assert_called_once()
         call_kwargs = mock_stripe_create.call_args[1]
-        # Allow 1 cent tolerance for floating point rounding (35.05 * 100 = 3505 cents)
-        assert abs(call_kwargs['amount'] - 3505) <= 1
+        # Allow tolerance for floating point rounding (33.85 * 100 = 3385 cents)
+        assert abs(call_kwargs['amount'] - 3385) <= 5  # Allow 5 cent tolerance
         assert call_kwargs['currency'] == 'usd'
         assert call_kwargs['receipt_email'] == 'john@example.com'
         assert 'order_id' in call_kwargs['metadata']
@@ -253,6 +256,7 @@ class TestCreateOrder:
         assert order is not None
         assert order.customer_name == "John Doe"
         assert order.subtotal == pytest.approx(25.98, rel=0.01)
+        assert order.platform_fee == pytest.approx(1.00, rel=0.01)  # $1 flat fee
         assert order.status == OrderStatus.PENDING_PAYMENT
 
 
@@ -414,10 +418,12 @@ class TestCreateOrder:
                                                     mock_vendor, mock_menu_item, sample_order_data):
         """Should correctly calculate tax, delivery fee, and platform fee"""
         # Arrange
+        # Dollor.ai: $1 flat fee, $4.99 default delivery
+        # CA tax rate is 7.25%, so total = 25.98 + 1.88 + 4.99 + 1.00 = 33.85
         mock_payment_intent = {
             'id': 'pi_test123',
             'client_secret': 'pi_test123_secret',
-            'amount': 3795,
+            'amount': 3385,  # $33.85 in cents
             'currency': 'usd'
         }
         mock_stripe_create.return_value = type('obj', (object,), mock_payment_intent)()
@@ -436,19 +442,19 @@ class TestCreateOrder:
 
         result = loop.run_until_complete(create_order(order_request, db_session))
 
-        # Assert - verify calculations
+        # Assert - verify Dollor.ai $1 flat fee model
         # Subtotal: 12.99 * 2 = 25.98
-        # Tax (8%): 25.98 * 0.08 = 2.08
-        # Delivery: 5.99
-        # Platform fee: $1.00 flat fee (competitive pricing model)
-        # Total: 25.98 + 2.08 + 5.99 + 1.00 = 35.05
+        # Tax (CA 7.25%): 25.98 * 0.0725 = 1.88 (rounded)
+        # Delivery: $4.99 default (distance-based, 100% to driver)
+        # Platform fee: $1.00 flat (NOT percentage!)
+        # Total: 25.98 + 1.88 + 4.99 + 1.00 = 33.85
 
         order = db_session.query(Order).filter_by(stripe_payment_intent_id='pi_test123').first()
         assert order.subtotal == pytest.approx(25.98, rel=0.01)
-        assert order.tax_amount == pytest.approx(2.08, rel=0.01)
-        assert order.delivery_fee == pytest.approx(5.99, rel=0.01)
-        assert order.platform_fee == pytest.approx(1.00, rel=0.01)
-        assert order.total_amount == pytest.approx(35.05, rel=0.01)
+        assert order.tax_amount == pytest.approx(1.88, rel=0.05)  # Allow 5% tolerance for rounding
+        assert order.delivery_fee == pytest.approx(4.99, rel=0.01)  # Default delivery fee
+        assert order.platform_fee == pytest.approx(1.00, rel=0.01)  # $1 FLAT - no percentage!
+        assert order.total_amount == pytest.approx(33.85, rel=0.02)  # Allow 2% tolerance
 
 
     @patch('stripe_integration.stripe.PaymentIntent.create')

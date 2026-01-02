@@ -502,7 +502,7 @@ class TestPaymentConfirmation:
 
     @pytest.mark.asyncio
     async def test_confirm_payment_success(self, mock_db_session, mock_order):
-        """Test successful payment confirmation"""
+        """Test successful payment confirmation - auto sends to restaurant"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import confirm_payment
@@ -510,10 +510,13 @@ class TestPaymentConfirmation:
 
         assert result["success"] is True
         assert result["order_id"] == 1
-        assert result["status"] == "Confirmed"
+        # After payment confirmation, order automatically goes to pending_restaurant status
+        assert result["status"] == "pending_restaurant"
         assert mock_order.payment_status == "succeeded"
-        assert mock_order.status == OrderStatus.CONFIRMED
+        # Final status is PENDING_RESTAURANT (auto-sent to restaurant)
+        assert mock_order.status == OrderStatus.PENDING_RESTAURANT
         assert mock_order.confirmed_at is not None
+        assert mock_order.sent_to_restaurant_at is not None
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -547,14 +550,17 @@ class TestRestaurantFlow:
 
     @pytest.mark.asyncio
     async def test_ready_for_pickup(self, mock_db_session, mock_order):
-        """Test marking order ready for pickup"""
+        """Test marking order ready for pickup - starts delivery decision window"""
+        mock_order.status = OrderStatus.PREPARING  # Required prerequisite status
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import ready_for_pickup
         result = await ready_for_pickup(1, mock_db_session)
 
         assert result["success"] is True
-        assert result["status"] == "Ready for Pickup"
+        assert result["status"] == "pending_delivery_decision"
+        assert mock_order.status == OrderStatus.PENDING_DELIVERY_DECISION
+        assert mock_order.delivery_decision_sent_at is not None
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1394,13 +1400,13 @@ class TestAnalytics:
         call_count = [0]
         def query_side_effect(*args):
             call_count[0] += 1
-            if call_count[0] <= 7:  # Status counts
+            if call_count[0] <= 13:  # Status counts (13 order statuses now)
                 return status_query
-            elif call_count[0] <= 9:  # Driver counts
+            elif call_count[0] <= 15:  # Driver counts
                 return driver_query
-            elif call_count[0] == 10:  # Completed orders
+            elif call_count[0] == 16:  # Completed orders
                 return order_query
-            elif call_count[0] == 11:  # Vendor count
+            elif call_count[0] == 17:  # Vendor count
                 return vendor_query
             else:  # Prep time orders
                 return prep_query
