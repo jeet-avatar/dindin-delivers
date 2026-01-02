@@ -4867,7 +4867,7 @@ def get_driver_dashboard_v5(
         pending_deliveries = []
         pending_orders = db.query(Order).filter(
             Order.status == OrderStatus.READY_FOR_PICKUP,
-            Order.driver_id == None
+            Order.driver_id.is_(None)
         ).limit(5).all()
 
         for order in pending_orders:
@@ -8854,7 +8854,7 @@ def admin_set_document_status(
 # ============================================================================
 
 @app.get("/api/vendor/my-documents")
-def get_vendor_documents(
+def get_my_vendor_documents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -9250,7 +9250,7 @@ def ai_review_all_menu_items(
         VendorMenuItem.vendor_id == vendor_id,
         or_(
             VendorMenuItem.review_status == 'pending',
-            VendorMenuItem.review_status == None,
+            VendorMenuItem.review_status.is_(None),
             VendorMenuItem.needs_review == True
         )
     ).all()
@@ -9372,7 +9372,7 @@ def ai_auto_publish_vendor(vendor_id: int, db: Session) -> dict:
     AI Employee: ComplianceBot Eta
     Auto-publishes a vendor to all platforms when ready.
     """
-    from models import Vendor
+    from models import Vendor, VendorStatus
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -9529,7 +9529,7 @@ def ai_dashboard(db: Session = Depends(get_db)):
     total_menu_items = db.query(VendorMenuItem).count()
     approved_items = db.query(VendorMenuItem).filter(VendorMenuItem.review_status == 'approved').count()
     pending_items = db.query(VendorMenuItem).filter(
-        or_(VendorMenuItem.review_status == 'pending', VendorMenuItem.review_status == None)
+        or_(VendorMenuItem.review_status == 'pending', VendorMenuItem.review_status.is_(None))
     ).count()
     flagged_items = db.query(VendorMenuItem).filter(VendorMenuItem.review_status == 'flagged').count()
 
@@ -9582,14 +9582,14 @@ def ai_get_pending_reviews(db: Session = Depends(get_db)):
     """
     Get all items pending AI or manual review.
     """
-    from models import VendorMenuItem, Vendor
+    from models import VendorMenuItem, Vendor, VendorStatus
 
     try:
         # Menu items pending review
         pending_menu_items = db.query(VendorMenuItem).filter(
             or_(
                 VendorMenuItem.review_status == 'pending',
-                VendorMenuItem.review_status == None,
+                VendorMenuItem.review_status.is_(None),
                 VendorMenuItem.needs_review == True
             )
         ).limit(50).all()
@@ -10230,7 +10230,7 @@ async def persona_webhook(
                         VendorMenuItem.vendor_id == vendor_id,
                         or_(
                             VendorMenuItem.review_status == 'pending',
-                            VendorMenuItem.review_status == None,
+                            VendorMenuItem.review_status.is_(None),
                             VendorMenuItem.needs_review == True
                         )
                     ).all()

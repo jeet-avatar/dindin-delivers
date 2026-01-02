@@ -114,7 +114,7 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
 
   const deliveryAddress = order.delivery_address ? JSON.parse(order.delivery_address) : null;
 
-  const getStatusColor = (status: string) => {
+  const _getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       'pending_payment': 'orange',
       'confirmed': 'blue',

@@ -515,7 +515,7 @@ async def get_available_ride_requests(
             RideRequest.status == RideRequestStatus.OPEN,
             or_(
                 RideRequest.bidding_expires_at > now,
-                RideRequest.bidding_expires_at == None
+                RideRequest.bidding_expires_at.is_(None)
             )
         )
     ).all()

@@ -3,11 +3,22 @@ import { X, Check, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import { ModalOverlay } from '../ui/ModalOverlay';
 
+interface TransactionLineItem {
+  totalPrice?: number;
+  [key: string]: unknown;
+}
+
+interface Transaction {
+  amount?: number;
+  lineItems?: TransactionLineItem[];
+  [key: string]: unknown;
+}
+
 interface CoupaApprovalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  transaction: any;
-  onApprove: (transaction: any, comments: string) => void;
+  transaction: Transaction | null;
+  onApprove: (transaction: Transaction, comments: string) => void;
 }
 
 const CoupaApprovalModal: React.FC<CoupaApprovalModalProps> = ({ 
@@ -37,7 +48,7 @@ const CoupaApprovalModal: React.FC<CoupaApprovalModalProps> = ({
 
   if (!isOpen || !transaction) return null;
 
-  const totalAmount = transaction.lineItems?.reduce((sum: any, item: any) => sum + (item.totalPrice || 0), 0) || transaction.amount;
+  const totalAmount = transaction.lineItems?.reduce((sum: number, item: TransactionLineItem) => sum + (item.totalPrice || 0), 0) || transaction.amount;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">

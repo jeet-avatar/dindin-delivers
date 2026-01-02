@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input, Button, Avatar, Spin, Badge, Typography } from 'antd';
+import type { InputRef } from 'antd';
 import {
   SendOutlined,
   UserOutlined,
@@ -53,7 +54,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [wsConnected, setWsConnected] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<InputRef>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -329,7 +330,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Input */}
       <div className="chat-input">
         <Input
-          ref={inputRef as any}
+          ref={inputRef}
           placeholder="Type a message..."
           value={inputValue}
           onChange={(e) => {
