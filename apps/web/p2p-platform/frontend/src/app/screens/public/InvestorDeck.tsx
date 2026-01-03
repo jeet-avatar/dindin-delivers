@@ -2716,6 +2716,369 @@ export default function InvestorDeck() {
           </div>
         </section>
 
+        {/* RIDESHARE ECONOMICS - THE PROFIT ACCELERATOR */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              RIDESHARE ECONOMICS
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>The Profit Accelerator</h2>
+          <p style={styles.sectionSubtitle}>Food delivery gets us to break-even. <span style={{ color: '#9b59b6' }}>Rideshare makes us massively profitable.</span></p>
+
+          {/* Food vs Rideshare Comparison */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              🍔 Food Delivery vs 🚗 Rideshare: Unit Economics
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '30px' }}>
+              {/* Food Delivery */}
+              <div style={{ padding: '25px', background: 'rgba(0,255,136,0.1)', borderRadius: '16px', border: '2px solid rgba(0,255,136,0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                  <span style={{ fontSize: '2.5rem' }}>🍔</span>
+                  <div>
+                    <h4 style={{ color: '#00ff88', fontSize: '1.3rem' }}>Food Delivery</h4>
+                    <p style={{ color: '#888', fontSize: '0.85rem' }}>Phase 1: Month 1-12</p>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Avg Order Value</span>
+                    <span style={{ fontWeight: 600 }}>$30</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Customer Fee</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Restaurant Fee</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(0,255,136,0.2)', borderRadius: '8px', border: '1px solid #00ff88' }}>
+                    <span style={{ fontWeight: 700 }}>Platform Revenue</span>
+                    <span style={{ fontWeight: 700, color: '#00ff88', fontSize: '1.2rem' }}>$2.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Variable Costs</span>
+                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>$0.97</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(0,136,255,0.2)', borderRadius: '8px', border: '1px solid #0088ff' }}>
+                    <span style={{ fontWeight: 700 }}>Contribution Margin</span>
+                    <span style={{ fontWeight: 700, color: '#0088ff', fontSize: '1.2rem' }}>$1.03 (51.5%)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rideshare */}
+              <div style={{ padding: '25px', background: 'rgba(155,89,182,0.1)', borderRadius: '16px', border: '2px solid rgba(155,89,182,0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                  <span style={{ fontSize: '2.5rem' }}>🚗</span>
+                  <div>
+                    <h4 style={{ color: '#9b59b6', fontSize: '1.3rem' }}>Rideshare</h4>
+                    <p style={{ color: '#888', fontSize: '0.85rem' }}>Phase 2: Month 10+</p>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Avg Fare</span>
+                    <span style={{ fontWeight: 600 }}>$25</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Customer Fee (Tier 1: &lt;$35)</span>
+                    <span style={{ fontWeight: 600, color: '#9b59b6' }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <span>Driver Fee (from fare)</span>
+                    <span style={{ fontWeight: 600, color: '#9b59b6' }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(155,89,182,0.2)', borderRadius: '8px', border: '1px solid #9b59b6' }}>
+                    <span style={{ fontWeight: 700 }}>Platform Revenue</span>
+                    <span style={{ fontWeight: 700, color: '#9b59b6', fontSize: '1.2rem' }}>$2.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Variable Costs</span>
+                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>$0.65</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(0,136,255,0.2)', borderRadius: '8px', border: '1px solid #0088ff' }}>
+                    <span style={{ fontWeight: 700 }}>Contribution Margin</span>
+                    <span style={{ fontWeight: 700, color: '#0088ff', fontSize: '1.2rem' }}>$1.35 (67.5%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '25px', padding: '20px', background: 'linear-gradient(135deg, rgba(155,89,182,0.2), rgba(0,136,255,0.2))', borderRadius: '12px', textAlign: 'center' }}>
+              <span style={{ fontSize: '1.1rem' }}>Rideshare has </span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#9b59b6' }}>31% higher margins</span>
+              <span style={{ fontSize: '1.1rem' }}> than food delivery ($1.35 vs $1.03)</span>
+            </div>
+          </div>
+
+          {/* Rideshare Tier Breakdown */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              🚗 Rideshare Pricing Tiers
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Tier</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Fare Range</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Customer Fee</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Driver Fee</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Platform Revenue</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Variable Cost</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Contribution</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Expected %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { tier: 'Tier 1', range: '< $35', custFee: '$1', driverFee: '$1', revenue: '$2', cost: '$0.65', contrib: '$1.35', pct: '60%', color: '#0088ff' },
+                  { tier: 'Tier 2', range: '$35 - $70', custFee: '$2', driverFee: '$2', revenue: '$4', cost: '$1.05', contrib: '$2.95', pct: '30%', color: '#9b59b6' },
+                  { tier: 'Tier 3', range: '> $70', custFee: '$3', driverFee: '$3', revenue: '$6', cost: '$1.45', contrib: '$4.55', pct: '10%', color: '#00ff88' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <td style={{ ...styles.tableCell, fontWeight: 600, color: row.color }}>{row.tier}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center' }}>{row.range}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: row.color }}>{row.custFee}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: row.color }}>{row.driverFee}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700, color: row.color }}>{row.revenue}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: '#ff4d4d' }}>{row.cost}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700, color: '#00ff88' }}>{row.contrib}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: '#888' }}>{row.pct}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: 'rgba(155,89,182,0.1)' }}>
+                  <td colSpan={4} style={{ ...styles.tableCell, fontWeight: 700 }}>Weighted Average (based on expected distribution)</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700, color: '#9b59b6' }}>$2.80</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center', color: '#ff4d4d' }}>$0.85</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700, color: '#00ff88' }}>$1.95</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center', color: '#888' }}>100%</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ marginTop: '20px', fontSize: '0.85rem', color: '#888', textAlign: 'center' }}>
+              Variable costs include: Stripe fees (2.9% of fare), AWS compute, support allocation. Lower than food delivery due to simpler transaction (no restaurant).
+            </div>
+          </div>
+
+          {/* Combined Financial Model */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              📊 Combined Revenue Model: Food + Rideshare
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Metric</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 1</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 2</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 3</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 4</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 5</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { metric: '🍔 Food Delivery', header: true },
+                  { metric: 'Daily Orders', y1: '5,000', y2: '20,000', y3: '60,000', y4: '150,000', y5: '250,000', color: '#888' },
+                  { metric: 'Revenue/Order', y1: '$2.00', y2: '$2.00', y3: '$2.00', y4: '$2.00', y5: '$2.00', color: '#888' },
+                  { metric: 'Annual Food Revenue', y1: '$1.61M', y2: '$14.6M', y3: '$43.8M', y4: '$109.5M', y5: '$182.5M', color: '#00ff88', bold: true },
+                  { metric: '🚗 Rideshare', header: true },
+                  { metric: 'Daily Rides', y1: '0', y2: '2,000', y3: '10,000', y4: '40,000', y5: '100,000', color: '#888' },
+                  { metric: 'Revenue/Ride (avg)', y1: '-', y2: '$2.80', y3: '$2.80', y4: '$2.80', y5: '$2.80', color: '#888' },
+                  { metric: 'Annual Rideshare Revenue', y1: '$0', y2: '$2.0M', y3: '$10.2M', y4: '$40.9M', y5: '$102.2M', color: '#9b59b6', bold: true },
+                  { metric: '📊 Combined', header: true },
+                  { metric: 'Total Annual Revenue', y1: '$1.61M', y2: '$16.6M', y3: '$54.0M', y4: '$150.4M', y5: '$284.7M', color: '#00ff88', bold: true, highlight: true },
+                  { metric: 'Blended Contribution Margin', y1: '$1.03', y2: '$1.14', y3: '$1.21', y4: '$1.28', y5: '$1.32', color: '#0088ff' },
+                  { metric: 'Total Contribution', y1: '$0.83M', y2: '$9.5M', y3: '$32.7M', y4: '$96.3M', y5: '$188.5M', color: '#0088ff', bold: true },
+                ].map((row, i) => (
+                  row.header ? (
+                    <tr key={i} style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <td colSpan={6} style={{ ...styles.tableCell, fontWeight: 700, fontSize: '1rem', color: row.metric.includes('🍔') ? '#00ff88' : row.metric.includes('🚗') ? '#9b59b6' : '#0088ff' }}>{row.metric}</td>
+                    </tr>
+                  ) : (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: row.highlight ? 'rgba(0,255,136,0.1)' : 'transparent' }}>
+                      <td style={{ ...styles.tableCell, fontWeight: row.bold ? 600 : 400, paddingLeft: '20px' }}>{row.metric}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: row.bold ? 700 : 400 }}>{row.y1}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: row.bold ? 700 : 400 }}>{row.y2}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: row.bold ? 700 : 400 }}>{row.y3}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: row.bold ? 700 : 400 }}>{row.y4}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: row.bold ? 700 : 400 }}>{row.y5}</td>
+                    </tr>
+                  )
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Rideshare Burn & Profitability Impact */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              🔥 How Rideshare Accelerates Profitability
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
+              <div style={{ padding: '25px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px', borderTop: '4px solid #00ff88' }}>
+                <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>Food Delivery Only</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Break-even</span>
+                    <span style={{ fontWeight: 600 }}>Month 8</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 1 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>-$207K</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 2 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$5.1M</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 5 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$145M</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: '25px', background: 'rgba(155,89,182,0.1)', borderRadius: '12px', borderTop: '4px solid #9b59b6' }}>
+                <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>Food + Rideshare Combined</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Break-even</span>
+                    <span style={{ fontWeight: 600 }}>Month 8</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 1 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>-$207K</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 2 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$6.9M (+35%)</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 5 EBITDA</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$242M (+67%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: '25px', background: 'rgba(0,136,255,0.1)', borderRadius: '12px', borderTop: '4px solid #0088ff' }}>
+                <h4 style={{ color: '#0088ff', marginBottom: '15px' }}>Rideshare Incremental Value</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 2 Uplift</span>
+                    <span style={{ fontWeight: 600, color: '#0088ff' }}>+$1.8M</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 3 Uplift</span>
+                    <span style={{ fontWeight: 600, color: '#0088ff' }}>+$8.5M</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Year 5 Uplift</span>
+                    <span style={{ fontWeight: 600, color: '#0088ff' }}>+$97M</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <span style={{ color: '#888' }}>5-Year Extra EBITDA</span>
+                    <span style={{ fontWeight: 700, color: '#00ff88' }}>+$120M</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rideshare Cost Structure */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            <div className="glass-card">
+              <h4 style={{ color: '#ff9500', marginBottom: '15px' }}>💰 Rideshare Variable Costs</h4>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {[
+                  { item: 'Stripe (2.9% of $25 fare)', cost: '$0.73', pct: '45%' },
+                  { item: 'Stripe Fixed', cost: '$0.30', pct: '18%' },
+                  { item: 'AWS Compute', cost: '$0.02', pct: '1%' },
+                  { item: 'Maps API (Google)', cost: '$0.05', pct: '3%' },
+                  { item: 'SMS/Push Notifications', cost: '$0.03', pct: '2%' },
+                  { item: 'Support Allocation', cost: '$0.05', pct: '3%' },
+                ].map((row) => (
+                  <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>{row.item}</span>
+                    <span style={{ color: '#ff9500', fontWeight: 600 }}>{row.cost}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,149,0,0.2)', borderRadius: '8px', borderTop: '2px solid #ff9500' }}>
+                  <span style={{ fontWeight: 700 }}>Total Variable/Ride</span>
+                  <span style={{ fontWeight: 700, color: '#ff9500' }}>~$1.18</span>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', fontSize: '0.8rem', color: '#888', textAlign: 'center' }}>
+                *Weighted avg across tiers. Tier 1 = $0.65, Tier 3 = $1.45
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>🎯 Why Rideshare Margins Are Higher</h4>
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {[
+                  { reason: 'No restaurant in transaction', impact: 'Simpler payment flow, fewer parties', icon: '🍔❌' },
+                  { reason: 'Higher avg transaction', impact: '$25 ride vs $30 order, but we get 2× fee on rides', icon: '💰' },
+                  { reason: 'Longer trips = higher tiers', impact: 'Airport rides at $6 rev vs short hops at $2', icon: '✈️' },
+                  { reason: 'No food-related costs', impact: 'No order accuracy issues, no refunds for cold food', icon: '🔥' },
+                ].map((row) => (
+                  <div key={row.reason} style={{ padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{row.icon}</span>
+                      <span style={{ fontWeight: 600, color: '#00ff88' }}>{row.reason}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', paddingLeft: '30px' }}>{row.impact}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>📈 Rideshare Growth Drivers</h4>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {[
+                  { driver: 'Cross-sell to food customers', metric: '15% conversion', color: '#00ff88' },
+                  { driver: 'Campus party nights', metric: 'Fri-Sat 3x demand', color: '#0088ff' },
+                  { driver: 'Airport runs', metric: 'High-value Tier 3', color: '#9b59b6' },
+                  { driver: 'Same driver network', metric: '$0 incremental CAC', color: '#ff9500' },
+                  { driver: 'TNC license (Y2+)', metric: 'Unlocks corporate', color: '#00ff88' },
+                ].map((row) => (
+                  <div key={row.driver} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>{row.driver}</span>
+                    <span style={{ color: row.color, fontWeight: 600, fontSize: '0.85rem' }}>{row.metric}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '15px', padding: '12px', background: 'rgba(155,89,182,0.2)', borderRadius: '8px', textAlign: 'center' }}>
+                <strong style={{ color: '#9b59b6' }}>Same app, same users, same drivers</strong>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>Zero marginal acquisition cost for rideshare launch</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '40px' }}>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#9b59b6' }}>$1.95</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Avg Contribution/Ride</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#00ff88' }}>67.5%</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Rideshare Margin</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0088ff' }}>+$97M</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Y5 EBITDA Uplift</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ff9500' }}>36%</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Y5 Revenue from Rideshare</div>
+            </div>
+          </div>
+        </section>
+
         {/* 15. The Ask */}
         <section className="container" style={{ paddingBottom: '150px' }}>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '60px 40px', background: 'linear-gradient(180deg, #1a1a2e 0%, rgba(0, 255, 136, 0.08) 100%)' }}>
