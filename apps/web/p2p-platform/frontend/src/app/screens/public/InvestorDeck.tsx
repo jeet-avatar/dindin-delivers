@@ -106,6 +106,177 @@ export default function InvestorDeck() {
           </div>
         </section>
 
+        {/* 1.5 MISSION - THE WHY */}
+        <section className="container" style={{ background: 'linear-gradient(180deg, rgba(155,89,182,0.05) 0%, transparent 100%)', borderRadius: '30px', padding: '60px 20px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              OUR MISSION
+            </span>
+          </div>
+          <h2 style={{ ...styles.sectionTitle, fontSize: '2.8rem' }}>We're Not Building Another App.<br/><span style={{ color: '#00ff88' }}>We're Starting a Movement.</span></h2>
+
+          <div style={{ maxWidth: '900px', margin: '0 auto 50px', textAlign: 'center' }}>
+            <p style={{ fontSize: '1.3rem', color: '#888', lineHeight: '1.8', marginBottom: '30px' }}>
+              Every day, <span style={{ color: '#ff4d4d', fontWeight: 600 }}>gig workers are exploited</span> while corporations take 30-40% of every dollar.
+              Restaurants close because they can't survive the fees. Drivers can't pay rent working 60-hour weeks.
+              <span style={{ color: 'white', fontWeight: 600 }}> This isn't just unfair. It's unsustainable.</span>
+            </p>
+            <p style={{ fontSize: '1.5rem', color: '#00ff88', fontWeight: 600 }}>
+              "What if the people who do the work... kept the money?"
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginBottom: '40px' }}>
+            {[
+              {
+                icon: '✊',
+                title: 'Driver Liberation',
+                stat: '95-100%',
+                desc: 'Drivers keep almost everything. No algorithmic manipulation. No hidden deductions. They set their prices. They choose their rides.',
+                color: '#00ff88'
+              },
+              {
+                icon: '🏪',
+                title: 'Restaurant Survival',
+                stat: '$1 Flat',
+                desc: "Mom-and-pop shops pay $1, not 30%. That's the difference between closing and thriving. We're keeping Main Street alive.",
+                color: '#0088ff'
+              },
+              {
+                icon: '🌍',
+                title: 'Community Wealth',
+                stat: '100%',
+                desc: 'Money stays local. No VC-subsidized race-to-bottom. When you order, your neighbor delivers, your local restaurant earns.',
+                color: '#ff9500'
+              },
+              {
+                icon: '🤝',
+                title: 'P2P Connection',
+                stat: 'Human',
+                desc: "This isn't faceless gig economy. It's your classmate delivering your food. Your neighbor driving you home. Real connections.",
+                color: '#9b59b6'
+              },
+            ].map((item) => (
+              <div key={item.title} className="glass-card" style={{ textAlign: 'center', borderTop: `3px solid ${item.color}` }}>
+                <div style={{ fontSize: '3rem', marginBottom: '10px' }}>{item.icon}</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: item.color }}>{item.stat}</div>
+                <h3 style={{ fontSize: '1.2rem', margin: '10px 0' }}>{item.title}</h3>
+                <p style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6' }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', background: 'linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,136,255,0.1))', border: '1px solid rgba(0,255,136,0.3)' }}>
+            <p style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: '15px' }}>
+              <span style={{ color: '#ff4d4d' }}>"The gig economy promised freedom.</span> It delivered exploitation."
+            </p>
+            <p style={{ fontSize: '1.1rem', color: '#888', marginBottom: '20px' }}>
+              — Every driver who's ever done the math on their "earnings"
+            </p>
+            <p style={{ fontSize: '1.2rem', color: '#00ff88', fontWeight: 600 }}>
+              We're fixing it. Not with promises. With code. With ownership. With $1 fees.
+            </p>
+          </div>
+        </section>
+
+        {/* 1.6 AI-POWERED ONBOARDING */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              AI-POWERED OPERATIONS
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>AI That Works <span style={{ color: '#9b59b6' }}>For</span> People, Not Against Them</h2>
+          <p style={styles.sectionSubtitle}>Our AI doesn't exploit. It <span style={{ color: '#00ff88' }}>empowers</span>. Restaurant signup in 5 minutes. Driver onboarding in 10.</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px', marginBottom: '40px' }}>
+            <div className="glass-card" style={{ border: '1px solid #00ff88' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '2.5rem' }}>🏪</div>
+                <div>
+                  <h3 style={{ fontSize: '1.4rem', marginBottom: '5px' }}>Restaurant Onboarding</h3>
+                  <span style={{ color: '#00ff88', fontSize: '0.9rem' }}>AI-Assisted • 5 Minutes • Zero Paperwork</span>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {[
+                  { step: '1', title: 'Snap Menu Photo', desc: 'AI reads your menu, extracts items, prices, descriptions automatically', icon: '📸' },
+                  { step: '2', title: 'Verify & Adjust', desc: 'Review AI suggestions, make any tweaks. Most restaurants approve as-is.', icon: '✅' },
+                  { step: '3', title: 'Connect Payment', desc: 'Stripe Connect setup. Money flows directly to you. Same day payouts.', icon: '💳' },
+                  { step: '4', title: 'Go Live', desc: "You're on the platform. Orders start coming. $1 per order. That's it.", icon: '🚀' },
+                ].map((item) => (
+                  <div key={item.step} style={{ display: 'flex', gap: '15px', padding: '12px', background: 'rgba(0,255,136,0.05)', borderRadius: '10px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,255,136,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>{item.icon}</div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: '3px' }}>{item.title}</div>
+                      <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '10px', textAlign: 'center' }}>
+                <span style={{ color: '#888' }}>DoorDash onboarding: </span>
+                <span style={{ color: '#ff4d4d', textDecoration: 'line-through' }}>2-4 weeks</span>
+                <span style={{ color: '#00ff88', fontWeight: 700, marginLeft: '10px' }}>→ Dollor.ai: 5 minutes</span>
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ border: '1px solid #0088ff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '2.5rem' }}>🚗</div>
+                <div>
+                  <h3 style={{ fontSize: '1.4rem', marginBottom: '5px' }}>Driver Onboarding</h3>
+                  <span style={{ color: '#0088ff', fontSize: '0.9rem' }}>AI-Verified • 10 Minutes • Start Earning Today</span>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {[
+                  { step: '1', title: 'Snap License & Insurance', desc: 'AI reads documents instantly. No manual data entry. OCR extracts everything.', icon: '📄' },
+                  { step: '2', title: 'AI Background Check', desc: 'Instant verification via Checkr API. No waiting days for approval.', icon: '🔍' },
+                  { step: '3', title: 'Set Your Preferences', desc: 'Choose delivery zones, hours, vehicle type. You control everything.', icon: '⚙️' },
+                  { step: '4', title: 'Accept First Order', desc: 'See requests. Set your price. Keep 95-100% of what you earn.', icon: '💰' },
+                ].map((item) => (
+                  <div key={item.step} style={{ display: 'flex', gap: '15px', padding: '12px', background: 'rgba(0,136,255,0.05)', borderRadius: '10px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,136,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>{item.icon}</div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: '3px' }}>{item.title}</div>
+                      <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,136,255,0.1)', borderRadius: '10px', textAlign: 'center' }}>
+                <span style={{ color: '#888' }}>Uber driver approval: </span>
+                <span style={{ color: '#ff4d4d', textDecoration: 'line-through' }}>3-7 days</span>
+                <span style={{ color: '#0088ff', fontWeight: 700, marginLeft: '10px' }}>→ Dollor.ai: 10 minutes</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(155,89,182,0.1), rgba(0,0,0,0))', border: '1px solid rgba(155,89,182,0.3)' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px', color: '#9b59b6' }}>🧠 AI That Helps, Not Exploits</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+              {[
+                { title: 'Menu OCR', desc: 'Snap a photo, AI builds your menu. No typing.', color: '#00ff88' },
+                { title: 'Smart Pricing', desc: 'AI suggests fair delivery prices. Drivers approve.', color: '#0088ff' },
+                { title: 'Document Verification', desc: 'Instant license/insurance reading. No forms.', color: '#ff9500' },
+                { title: '24/7 AI Support', desc: 'Bangalore team + AI chatbot. Always available.', color: '#9b59b6' },
+                { title: 'Route Optimization', desc: 'Best routes for drivers. More money, less miles.', color: '#00ff88' },
+                { title: 'Fraud Detection', desc: 'AI spots fake orders, protects restaurants.', color: '#ff4d4d' },
+              ].map((item) => (
+                <div key={item.title} style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: `3px solid ${item.color}` }}>
+                  <div style={{ fontWeight: 600, marginBottom: '5px', color: item.color }}>{item.title}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: '25px', textAlign: 'center', padding: '15px', background: 'rgba(155,89,182,0.15)', borderRadius: '10px' }}>
+              <p style={{ color: '#9b59b6', fontWeight: 600, marginBottom: '5px' }}>Unlike Uber/DoorDash AI that optimizes against workers...</p>
+              <p style={{ color: 'white', fontSize: '1.1rem' }}>Our AI optimizes <span style={{ color: '#00ff88' }}>for</span> workers. More earnings. Less friction. Real empowerment.</p>
+            </div>
+          </div>
+        </section>
+
         {/* 2. Traction - What's Already Built */}
         <section className="container">
           <h2 style={styles.sectionTitle}>100% Built. Zero Software Costs.</h2>
