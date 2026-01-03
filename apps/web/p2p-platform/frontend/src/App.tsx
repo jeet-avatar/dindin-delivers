@@ -34,6 +34,7 @@ import RestaurantApplication from './app/screens/public/RestaurantApplication';
 import DriverApplication from './app/screens/public/DriverApplication';
 import HelpSupport from './app/screens/public/HelpSupport';
 import ReferAndEarn from './app/screens/public/ReferAndEarn';
+import InvestorDeck from './app/screens/public/InvestorDeck';
 
 // Customer Pages
 import CustomerLogin from './app/screens/auth/CustomerLogin';
@@ -124,6 +125,10 @@ function App() {
         <Route path="/support" element={<HelpSupport />} />
         <Route path="/refer" element={<ReferAndEarn />} />
         <Route path="/referral" element={<ReferAndEarn />} />
+
+        {/* Investor Deck (Token-protected) */}
+        <Route path="/investors" element={<InvestorDeck />} />
+        <Route path="/deck" element={<InvestorDeck />} />
 
         {/* Restaurant & Driver Applications */}
         <Route path="/restaurant/apply" element={<RestaurantApplication />} />
