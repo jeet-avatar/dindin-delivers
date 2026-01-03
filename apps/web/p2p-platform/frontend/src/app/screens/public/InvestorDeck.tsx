@@ -1113,8 +1113,361 @@ export default function InvestorDeck() {
           </div>
         </section>
 
-        {/* 14. ROI Projections */}
+        {/* 14. UNIT ECONOMICS DEEP DIVE */}
         <section id="roi" className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              UNIT ECONOMICS
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>The Numbers That Matter</h2>
+          <p style={styles.sectionSubtitle}>Investors ask for unit economics. <span style={{ color: '#00ff88' }}>Here's our breakdown per order.</span></p>
+
+          <div className="glass-card" style={{ marginBottom: '30px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px', fontSize: '1.3rem' }}>💰 Per-Order Economics (Food Delivery)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+              <div>
+                <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>Revenue Per Order</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
+                    <span>Customer Platform Fee</span><span style={{ color: '#00ff88', fontWeight: 600 }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
+                    <span>Restaurant Platform Fee</span><span style={{ color: '#00ff88', fontWeight: 600 }}>$1.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(0,255,136,0.2)', borderRadius: '8px', border: '1px solid #00ff88' }}>
+                    <span style={{ fontWeight: 600 }}>Total Revenue/Order</span><span style={{ color: '#00ff88', fontWeight: 700, fontSize: '1.2rem' }}>$2.00</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 style={{ color: '#ff4d4d', marginBottom: '15px' }}>Cost Per Order (at 10K/day)</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Payment Processing (2.9%)</span><span style={{ color: '#ff4d4d' }}>$0.87</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>AWS Infrastructure</span><span style={{ color: '#ff4d4d' }}>$0.02</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>AI/Support (Bangalore)</span><span style={{ color: '#ff4d4d' }}>$0.08</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(255,77,77,0.2)', borderRadius: '8px', border: '1px solid #ff4d4d' }}>
+                    <span style={{ fontWeight: 600 }}>Total Cost/Order</span><span style={{ color: '#ff4d4d', fontWeight: 700, fontSize: '1.2rem' }}>$0.97</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '25px', textAlign: 'center', padding: '20px', background: 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,136,255,0.15))', borderRadius: '12px', border: '1px solid #00ff88' }}>
+              <span style={{ fontSize: '1.2rem' }}>Contribution Margin Per Order: </span>
+              <span style={{ fontSize: '2rem', fontWeight: 800, color: '#00ff88' }}>$1.03</span>
+              <span style={{ color: '#888', marginLeft: '10px' }}>(51.5% margin)</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginBottom: '30px' }}>
+            <div className="glass-card" style={{ textAlign: 'center', borderTop: '3px solid #00ff88' }}>
+              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '10px' }}>Customer Lifetime Value (LTV)</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>$156</div>
+              <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                78 orders × $2 revenue<br/>
+                <span style={{ color: '#00ff88' }}>2 orders/week × 9 months retention</span>
+              </div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center', borderTop: '3px solid #0088ff' }}>
+              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '10px' }}>Customer Acquisition Cost (CAC)</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0088ff' }}>$4</div>
+              <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                Campus viral loops + referrals<br/>
+                <span style={{ color: '#0088ff' }}>DoorDash CAC: $30-50</span>
+              </div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center', borderTop: '3px solid #9b59b6' }}>
+              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '10px' }}>LTV:CAC Ratio</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#9b59b6' }}>39:1</div>
+              <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                Industry benchmark: 3:1<br/>
+                <span style={{ color: '#9b59b6' }}>We're 13x better than benchmark</span>
+              </div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center', borderTop: '3px solid #ff9500' }}>
+              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '10px' }}>CAC Payback Period</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ff9500' }}>4 Days</div>
+              <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                $4 CAC ÷ $1.03 margin/order<br/>
+                <span style={{ color: '#ff9500' }}>DoorDash: 18+ months</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,0,0,0))', border: '1px solid #00ff88' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.2rem' }}>📈 Cohort Economics - Customer Retention</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', textAlign: 'center' }}>
+              {[
+                { month: 'M1', retention: '100%', orders: '8' },
+                { month: 'M2', retention: '85%', orders: '7' },
+                { month: 'M3', retention: '72%', orders: '6' },
+                { month: 'M6', retention: '58%', orders: '5' },
+                { month: 'M9', retention: '45%', orders: '4' },
+                { month: 'M12', retention: '35%', orders: '3' },
+              ].map((item) => (
+                <div key={item.month} style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#888' }}>{item.month}</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#00ff88' }}>{item.retention}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>{item.orders} orders</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ textAlign: 'center', marginTop: '15px', color: '#888', fontSize: '0.85rem' }}>
+              Industry avg 12-mo retention: 15-20%. <span style={{ color: '#00ff88', fontWeight: 600 }}>Ours: 35%</span> (lower fees = higher retention)
+            </p>
+          </div>
+        </section>
+
+        {/* 14.5 EXIT STRATEGY & COMPARABLES */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #ffd93d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              EXIT STRATEGY
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>How Investors Make Money</h2>
+          <p style={styles.sectionSubtitle}>Clear path to 150x returns. <span style={{ color: '#00ff88' }}>Multiple exit options.</span></p>
+
+          <div className="glass-card" style={{ marginBottom: '30px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px', fontSize: '1.3rem' }}>🏆 Comparable Exits & Valuations</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Company</th>
+                    <th style={styles.tableHeader}>IPO/Exit</th>
+                    <th style={styles.tableHeader}>Valuation</th>
+                    <th style={styles.tableHeader}>Revenue Multiple</th>
+                    <th style={styles.tableHeader}>GMV Multiple</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { company: 'DoorDash', event: 'IPO 2020', valuation: '$72B', revMult: '15x', gmvMult: '2.5x' },
+                    { company: 'Uber', event: 'IPO 2019', valuation: '$82B', revMult: '6x', gmvMult: '1.3x' },
+                    { company: 'Instacart', event: 'IPO 2023', valuation: '$10B', revMult: '4x', gmvMult: '0.3x' },
+                    { company: 'Grubhub', event: 'Acquired 2021', valuation: '$7.3B', revMult: '4x', gmvMult: '0.8x' },
+                    { company: 'Postmates', event: 'Acquired 2020', valuation: '$2.65B', revMult: '5x', gmvMult: '0.5x' },
+                  ].map((row, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <td style={{ ...styles.tableCell, fontWeight: 600 }}>{row.company}</td>
+                      <td style={{ ...styles.tableCell, color: '#888' }}>{row.event}</td>
+                      <td style={{ ...styles.tableCell, color: '#00ff88', fontWeight: 600 }}>{row.valuation}</td>
+                      <td style={styles.tableCell}>{row.revMult}</td>
+                      <td style={styles.tableCell}>{row.gmvMult}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
+            <div className="glass-card" style={{ borderTop: '3px solid #00ff88' }}>
+              <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>🎯 Exit Scenario 1: Acquisition</h4>
+              <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '15px' }}>Strategic acquirer (Uber, DoorDash, Amazon) buys to eliminate competition or acquire our AI/tech.</p>
+              <div style={{ padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>Year 3 Revenue</span><span style={{ color: '#00ff88' }}>$18M</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>5x Revenue Multiple</span><span style={{ color: '#00ff88' }}>$90M</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                  <span>Investor Return (15%)</span><span style={{ color: '#00ff88' }}>$13.5M = 6.75x</span>
+                </div>
+              </div>
+            </div>
+            <div className="glass-card" style={{ borderTop: '3px solid #9b59b6' }}>
+              <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>🚀 Exit Scenario 2: Series B+ & IPO</h4>
+              <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '15px' }}>Raise Series A/B, scale to 50 cities, IPO at $1B+ valuation in Year 5.</p>
+              <div style={{ padding: '15px', background: 'rgba(155,89,182,0.1)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>Year 5 Revenue</span><span style={{ color: '#9b59b6' }}>$206M</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>8x Revenue Multiple</span><span style={{ color: '#9b59b6' }}>$1.65B</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                  <span>Investor Return (diluted to 8%)</span><span style={{ color: '#9b59b6' }}>$132M = 66x</span>
+                </div>
+              </div>
+            </div>
+            <div className="glass-card" style={{ borderTop: '3px solid #ff9500' }}>
+              <h4 style={{ color: '#ff9500', marginBottom: '15px' }}>💎 Exit Scenario 3: Category Leader</h4>
+              <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '15px' }}>Become the "fair" alternative. DoorDash-level scale with profitable unit economics.</p>
+              <div style={{ padding: '15px', background: 'rgba(255,149,0,0.1)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>Year 7 Revenue</span><span style={{ color: '#ff9500' }}>$500M+</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>10x Revenue Multiple</span><span style={{ color: '#ff9500' }}>$5B+</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                  <span>Investor Return (diluted to 5%)</span><span style={{ color: '#ff9500' }}>$250M = 125x+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ textAlign: 'center', background: 'linear-gradient(135deg, rgba(0,255,136,0.1), rgba(255,149,0,0.1))', border: '1px solid #00ff88' }}>
+            <h3 style={{ marginBottom: '15px' }}>Why We're Acquirable</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+              {[
+                { icon: '🧠', text: 'Proprietary LLM trained on delivery data' },
+                { icon: '👥', text: 'Loyal driver/restaurant network' },
+                { icon: '🎓', text: 'Campus market dominance' },
+                { icon: '💰', text: 'Profitable unit economics (they aren\'t)' },
+              ].map((item) => (
+                <div key={item.text} style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>{item.icon}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 14.6 WHY INVEST NOW */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              MARKET TIMING
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Why Invest NOW</h2>
+          <p style={styles.sectionSubtitle}>The window is open. <span style={{ color: '#ff9500' }}>It won't stay open forever.</span></p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
+            {[
+              { icon: '😤', title: 'Driver Frustration at Peak', desc: 'Uber/DoorDash cut pay 25% in 2024. Drivers actively seeking alternatives. 2M+ gig workers ready to switch.', color: '#ff4d4d' },
+              { icon: '🏪', title: 'Restaurants Desperate', desc: 'Post-COVID margins crushed. 62% say delivery fees unsustainable. They\'ll promote any alternative.', color: '#ff9500' },
+              { icon: '🤖', title: 'AI Finally Ready', desc: 'Agentic AI (2024-2025) enables 95% automation. 2 years ago this wasn\'t possible. Competitors haven\'t adapted.', color: '#9b59b6' },
+              { icon: '⚖️', title: 'Regulatory Pressure', desc: 'FTC investigations, NYC fee caps, CA AB5. Incumbents distracted. Perfect time to enter.', color: '#0088ff' },
+              { icon: '🎓', title: 'Gen-Z Wants Fairness', desc: 'Students prefer "ethical" brands. Anti-corporate sentiment strong. We\'re the underdog they\'ll root for.', color: '#00ff88' },
+              { icon: '💸', title: 'Seed Valuations Normalized', desc: '2021 froth is gone. $2M at $11M pre-money is reasonable. In 12 months, with traction, Series A at $50M+.', color: '#ffd93d' },
+            ].map((item) => (
+              <div key={item.title} className="glass-card" style={{ borderLeft: `4px solid ${item.color}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '1.8rem' }}>{item.icon}</span>
+                  <h4 style={{ color: item.color, fontSize: '1.1rem' }}>{item.title}</h4>
+                </div>
+                <p style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.5' }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="glass-card" style={{ textAlign: 'center', background: 'linear-gradient(135deg, rgba(255,77,77,0.1), rgba(255,149,0,0.1))', border: '1px solid #ff9500' }}>
+            <h3 style={{ color: '#ff9500', marginBottom: '15px' }}>⏰ The Window Closes When...</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+              {[
+                'DoorDash/Uber fix their driver pay (unlikely)',
+                'A well-funded competitor copies our model',
+                'Regulations force incumbents to lower fees',
+                'AI costs drop and they automate too',
+              ].map((item, i) => (
+                <div key={i} style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', color: '#888', fontSize: '0.85rem' }}>
+                  {item}
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: '20px', color: '#ff9500', fontWeight: 600 }}>First-mover advantage is EVERYTHING in marketplaces. We need to move NOW.</p>
+          </div>
+        </section>
+
+        {/* 14.7 RISKS & MITIGATION */}
+        <section className="container">
+          <h2 style={styles.sectionTitle}>Risks & How We Mitigate Them</h2>
+          <p style={styles.sectionSubtitle}>We've thought through the challenges. <span style={{ color: '#00ff88' }}>Here's our playbook.</span></p>
+
+          <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <th style={{ ...styles.tableHeader, textAlign: 'left', width: '25%' }}>Risk</th>
+                  <th style={{ ...styles.tableHeader, textAlign: 'left', width: '35%' }}>Impact</th>
+                  <th style={{ ...styles.tableHeader, textAlign: 'left', width: '40%', color: '#00ff88' }}>Mitigation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { risk: 'DoorDash lowers fees', impact: 'Reduces our competitive advantage', mitigation: 'Our costs are 90% lower. They can\'t match $1 flat and stay profitable. Their shareholders won\'t allow it.' },
+                  { risk: 'Can\'t get enough drivers', impact: 'Long wait times, bad experience', mitigation: '100% driver earnings is compelling. Campus-first = students need flexible income. $100 referral bonuses.' },
+                  { risk: 'Restaurants won\'t switch', impact: 'No supply = no customers', mitigation: 'Free onboarding, no lock-in. Start with frustrated restaurants already vocal about DoorDash.' },
+                  { risk: 'Tech doesn\'t scale', impact: 'Service outages at growth', mitigation: 'AWS auto-scaling, 18 microservices, Kubernetes. Built to handle 500K orders/day from day 1.' },
+                  { risk: 'Regulatory issues', impact: 'Fines, operational limits', mitigation: 'Matchmaking model (not TNC). Drivers are true independents. Legal review completed.' },
+                  { risk: 'Team execution', impact: 'Miss milestones', mitigation: 'Bangalore talent is deep. 23+ months runway. Can course-correct multiple times.' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <td style={{ ...styles.tableCell, color: '#ff4d4d', fontWeight: 600 }}>{row.risk}</td>
+                    <td style={{ ...styles.tableCell, color: '#888', fontSize: '0.9rem' }}>{row.impact}</td>
+                    <td style={{ ...styles.tableCell, color: '#00ff88', fontSize: '0.9rem' }}>{row.mitigation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* 14.8 MILESTONES & TRANCHES */}
+        <section className="container">
+          <h2 style={styles.sectionTitle}>What $2M Unlocks</h2>
+          <p style={styles.sectionSubtitle}>Clear milestones. Measurable progress. <span style={{ color: '#00ff88' }}>Accountability built in.</span></p>
+
+          <div className="glass-card" style={{ marginBottom: '30px' }}>
+            <div style={{ display: 'grid', gap: '0' }}>
+              {[
+                { phase: 'Month 1-3', title: 'Launch Ready', amount: '$400K', milestones: ['App Store + Play Store approval', 'First campus launch (UT Austin)', '50 restaurants onboarded', '100 drivers active', '1,000 orders completed'], color: '#0088ff' },
+                { phase: 'Month 4-6', title: 'Campus Expansion', amount: '$500K', milestones: ['3 campuses live (add ASU, A&M)', '150 restaurants total', '400 drivers', '5,000 orders/month', 'Positive unit economics proven'], color: '#00ff88' },
+                { phase: 'Month 7-9', title: 'Growth Mode', amount: '$600K', milestones: ['6 campuses live', '350 restaurants', '1,000 drivers', '25,000 orders/month', 'Break-even achieved'], color: '#9b59b6' },
+                { phase: 'Month 10-12', title: 'Series A Ready', amount: '$500K', milestones: ['Rideshare feature launch', '10+ campuses', '50,000 orders/month', 'Series A materials prepared', '$3M+ ARR run-rate'], color: '#ff9500' },
+              ].map((item, i) => (
+                <div key={item.phase} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+                  <div style={{ padding: '25px 20px', background: `rgba(${item.color === '#0088ff' ? '0,136,255' : item.color === '#00ff88' ? '0,255,136' : item.color === '#9b59b6' ? '155,89,182' : '255,149,0'},0.1)`, borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#888' }}>{item.phase}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: item.color }}>{item.amount}</div>
+                  </div>
+                  <div style={{ padding: '20px' }}>
+                    <h4 style={{ color: item.color, marginBottom: '10px' }}>{item.title}</h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {item.milestones.map((m) => (
+                        <span key={m} style={{ fontSize: '0.8rem', padding: '5px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', color: '#888' }}>✓ {m}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#00ff88' }}>12 Months</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>From funded to Series A ready</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800 }}>10+</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Campuses conquered</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800 }}>50,000</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>Monthly orders</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#00ff88' }}>$3M+</div>
+              <div style={{ color: '#888', fontSize: '0.9rem' }}>ARR at month 12</div>
+            </div>
+          </div>
+        </section>
+
+        {/* 15. 5-Year Financial Projections */}
+        <section className="container">
           <h2 style={styles.sectionTitle}>5-Year Financial Projections</h2>
           <p style={styles.sectionSubtitle}>From seed to $200M+ revenue. 91% margins at scale.</p>
 
