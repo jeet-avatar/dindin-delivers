@@ -105,6 +105,38 @@ interface DollorApiService {
     ): GenericResponse
 
     // ==========================================
+    // EMAIL VERIFICATION
+    // ==========================================
+
+    /**
+     * Send email verification code to customer
+     * POST /customer/email/send-verification
+     */
+    @POST("customer/email/send-verification")
+    suspend fun sendEmailVerification(
+        @Header("Authorization") token: String
+    ): EmailVerificationSendResponse
+
+    /**
+     * Verify customer email with 6-digit code
+     * POST /customer/email/verify
+     */
+    @POST("customer/email/verify")
+    suspend fun verifyEmail(
+        @Body request: VerifyEmailRequest,
+        @Header("Authorization") token: String
+    ): EmailVerificationResponse
+
+    /**
+     * Get email verification status
+     * GET /customer/email/status
+     */
+    @GET("customer/email/status")
+    suspend fun getEmailVerificationStatus(
+        @Header("Authorization") token: String
+    ): EmailVerificationStatusResponse
+
+    // ==========================================
     // CUSTOMER ORDERS
     // ==========================================
 

@@ -22,6 +22,16 @@ sealed class AuthState {
     data class Error(val message: String) : AuthState()
 }
 
+sealed class EmailVerificationState {
+    object Initial : EmailVerificationState()
+    object SendingCode : EmailVerificationState()
+    data class CodeSent(val maskedEmail: String, val message: String) : EmailVerificationState()
+    object Verifying : EmailVerificationState()
+    object Verified : EmailVerificationState()
+    object AlreadyVerified : EmailVerificationState()
+    data class Error(val message: String) : EmailVerificationState()
+}
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val sessionManager: SessionManager,
@@ -268,6 +278,88 @@ class AuthViewModel @Inject constructor(
      */
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    // ==========================================
+    // EMAIL VERIFICATION
+    // ==========================================
+
+    private val _emailVerificationState = MutableStateFlow<EmailVerificationState>(EmailVerificationState.Initial)
+    val emailVerificationState: StateFlow<EmailVerificationState> = _emailVerificationState.asStateFlow()
+
+    /**
+     * Send email verification code to customer
+     */
+    fun sendEmailVerificationCode(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _emailVerificationState.value = EmailVerificationState.SendingCode
+
+            val result = dollorRepository.sendEmailVerification()
+            result.onSuccess { response ->
+                if (response.alreadyVerified == true) {
+                    _emailVerificationState.value = EmailVerificationState.AlreadyVerified
+                } else {
+                    _emailVerificationState.value = EmailVerificationState.CodeSent(
+                        maskedEmail = response.email ?: "",
+                        message = response.message ?: "Code sent"
+                    )
+                }
+                onResult(true)
+            }.onFailure { e ->
+                _emailVerificationState.value = EmailVerificationState.Error(
+                    e.message ?: "Failed to send verification code"
+                )
+                onResult(false)
+            }
+        }
+    }
+
+    /**
+     * Verify email with the 6-digit code
+     */
+    fun verifyEmail(code: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _emailVerificationState.value = EmailVerificationState.Verifying
+
+            val result = dollorRepository.verifyEmail(code)
+            result.onSuccess { response ->
+                if (response.verified) {
+                    _emailVerificationState.value = EmailVerificationState.Verified
+                    onResult(true)
+                } else {
+                    _emailVerificationState.value = EmailVerificationState.Error(
+                        response.message ?: "Verification failed"
+                    )
+                    onResult(false)
+                }
+            }.onFailure { e ->
+                _emailVerificationState.value = EmailVerificationState.Error(
+                    e.message ?: "Verification failed"
+                )
+                onResult(false)
+            }
+        }
+    }
+
+    /**
+     * Get email verification status
+     */
+    fun getEmailVerificationStatus(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val result = dollorRepository.getEmailVerificationStatus()
+            result.onSuccess { response ->
+                if (response.verified) {
+                    _emailVerificationState.value = EmailVerificationState.AlreadyVerified
+                }
+                onResult(response.verified, response.email)
+            }.onFailure { e ->
+                onResult(false, "")
+            }
+        }
+    }
+
+    fun resetEmailVerificationState() {
+        _emailVerificationState.value = EmailVerificationState.Initial
     }
 
     override fun onCleared() {

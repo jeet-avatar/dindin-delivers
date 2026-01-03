@@ -560,6 +560,12 @@ class Customer(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
 
+    # Email Verification
+    email_verified = Column(Boolean, default=False)
+    email_verification_code = Column(String(10))  # 6-digit code
+    email_verification_expires = Column(DateTime)  # Code expiry time
+    email_verified_at = Column(DateTime)  # When email was verified
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

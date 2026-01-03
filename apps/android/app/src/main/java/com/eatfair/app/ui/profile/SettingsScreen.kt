@@ -69,6 +69,8 @@ fun SettingsScreen(
     onPrivacyPolicyClick: () -> Unit,
     onTermsClick: () -> Unit,
     onCaliforniaPrivacyClick: () -> Unit = {},
+    onEmailVerificationClick: () -> Unit = {},
+    isEmailVerified: Boolean = false,
     onDeleteAccount: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onAccountDeleted: () -> Unit
 ) {
@@ -155,6 +157,27 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Account Security Section
+            Text(
+                text = "Account Security",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Email Verification
+            SettingsMenuItem(
+                icon = Icons.Default.Email,
+                title = "Email Verification",
+                subtitle = if (isEmailVerified) "Verified" else "Not verified - Tap to verify",
+                onClick = onEmailVerificationClick,
+                showBadge = !isEmailVerified
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Legal Section
             Text(
                 text = "Legal",
@@ -231,7 +254,8 @@ fun SettingsMenuItem(
     icon: ImageVector,
     title: String,
     subtitle: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showBadge: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -250,12 +274,22 @@ fun SettingsMenuItem(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    modifier = Modifier.size(24.dp),
-                    tint = Color(0xFF666666)
-                )
+                Box {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF666666)
+                    )
+                    if (showBadge) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .align(Alignment.TopEnd)
+                                .background(Color(0xFFFF9800), RoundedCornerShape(4.dp))
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
@@ -267,7 +301,7 @@ fun SettingsMenuItem(
                         Text(
                             text = subtitle,
                             fontSize = 13.sp,
-                            color = Color(0xFF999999)
+                            color = if (showBadge) Color(0xFFFF9800) else Color(0xFF999999)
                         )
                     }
                 }

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
-from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation, send_customer_welcome_email
+from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation, send_customer_welcome_email, send_email_verification_code
 from document_verification_service import (
     DocumentVerificationService,
     get_verification_service,
@@ -2689,6 +2689,194 @@ def admin_delete_customer_by_email(
     db.commit()
 
     return {"success": True, "message": f"Customer {email} deleted successfully"}
+
+
+# ==================== EMAIL VERIFICATION ====================
+# Required by App Store / Play Store for account security
+
+import random
+import string
+
+class SendVerificationRequest(BaseModel):
+    """Request to send email verification code"""
+    pass  # No body needed - uses auth token
+
+class VerifyEmailRequest(BaseModel):
+    """Request to verify email with code"""
+    code: str = Field(..., min_length=6, max_length=6)
+
+@app.post("/api/customer/email/send-verification")
+@app.post("/customer/email/send-verification")  # Alias for mobile apps
+def send_verification_email(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Send email verification code to customer's email"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+
+        if not customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid customer token"
+            )
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Check if already verified
+        if customer.email_verified:
+            return {
+                "success": True,
+                "message": "Email already verified",
+                "already_verified": True
+            }
+
+        # Generate 6-digit verification code
+        verification_code = ''.join(random.choices(string.digits, k=6))
+
+        # Set expiry to 15 minutes from now
+        expiry_time = datetime.utcnow() + timedelta(minutes=15)
+
+        # Save code to database
+        customer.email_verification_code = verification_code
+        customer.email_verification_expires = expiry_time
+        db.commit()
+
+        # Send verification email
+        email_sent = send_email_verification_code(
+            to_email=customer.email,
+            customer_name=customer.name or "Customer",
+            verification_code=verification_code
+        )
+
+        if not email_sent:
+            logger.warning(f"Failed to send verification email to {customer.email}")
+            # Don't fail the request - code is saved, can try again
+
+        return {
+            "success": True,
+            "message": "Verification code sent to your email",
+            "email": customer.email[:3] + "***@" + customer.email.split("@")[1] if "@" in customer.email else "***",
+            "expires_in_minutes": 15
+        }
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+@app.post("/api/customer/email/verify")
+@app.post("/customer/email/verify")  # Alias for mobile apps
+def verify_customer_email(
+    request: VerifyEmailRequest,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Verify customer email with the 6-digit code"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+
+        if not customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid customer token"
+            )
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Check if already verified
+        if customer.email_verified:
+            return {
+                "success": True,
+                "message": "Email already verified",
+                "verified": True
+            }
+
+        # Check if code exists and hasn't expired
+        if not customer.email_verification_code:
+            raise HTTPException(
+                status_code=400,
+                detail="No verification code found. Please request a new code."
+            )
+
+        if customer.email_verification_expires and customer.email_verification_expires < datetime.utcnow():
+            # Clear expired code
+            customer.email_verification_code = None
+            customer.email_verification_expires = None
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Verification code has expired. Please request a new code."
+            )
+
+        # Verify the code
+        if customer.email_verification_code != request.code:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid verification code. Please try again."
+            )
+
+        # Mark email as verified
+        customer.email_verified = True
+        customer.email_verified_at = datetime.utcnow()
+        customer.email_verification_code = None  # Clear the code
+        customer.email_verification_expires = None
+        db.commit()
+
+        logger.info(f"Customer {customer.email} verified their email successfully")
+
+        return {
+            "success": True,
+            "message": "Email verified successfully!",
+            "verified": True,
+            "verified_at": customer.email_verified_at.isoformat()
+        }
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+@app.get("/api/customer/email/status")
+@app.get("/customer/email/status")  # Alias for mobile apps
+def get_email_verification_status(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get customer's email verification status"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+
+        if not customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid customer token"
+            )
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        return {
+            "email": customer.email,
+            "verified": customer.email_verified or False,
+            "verified_at": customer.email_verified_at.isoformat() if customer.email_verified_at else None
+        }
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
 
 
 # ==================== RIDESHARE ENDPOINTS ====================
