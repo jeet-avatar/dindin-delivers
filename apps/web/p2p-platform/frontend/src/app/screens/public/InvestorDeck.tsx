@@ -1466,6 +1466,252 @@ export default function InvestorDeck() {
           </div>
         </section>
 
+        {/* 14.9 PHASE 2: TNC EVOLUTION */}
+        <section className="container">
+          <h2 style={styles.sectionTitle}>Phase 2: TNC Evolution</h2>
+          <p style={styles.sectionSubtitle}>When scale justifies compliance. <span style={{ color: '#00ff88' }}>Advanced Uber-like service at half the cost.</span></p>
+
+          {/* Phase Comparison */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '30px', marginBottom: '40px' }}>
+            <div className="glass-card" style={{ borderLeft: '4px solid #0088ff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                <span style={{ fontSize: '2rem' }}>🚀</span>
+                <div>
+                  <h3 style={{ color: '#0088ff' }}>Phase 1: Matchmaking</h3>
+                  <p style={{ color: '#888', fontSize: '0.85rem' }}>NOW - Month 18</p>
+                </div>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '10px' }}>
+                {[
+                  'P2P matchmaking model',
+                  'Drivers are true independents',
+                  'No TNC license required',
+                  'Minimal regulatory burden',
+                  '$1-$3 flat platform fee',
+                  'University campus focus',
+                  'Food delivery + rideshare',
+                ].map((item, i) => (
+                  <li key={i} style={{ display: 'flex', gap: '10px', color: '#ccc' }}>
+                    <span style={{ color: '#0088ff' }}>✓</span> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="glass-card" style={{ borderLeft: '4px solid #00ff88' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+                <span style={{ fontSize: '2rem' }}>⚡</span>
+                <div>
+                  <h3 style={{ color: '#00ff88' }}>Phase 2: TNC Licensed</h3>
+                  <p style={{ color: '#888', fontSize: '0.85rem' }}>Month 18+</p>
+                </div>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '10px' }}>
+                {[
+                  'Full Transportation Network Company',
+                  'Uber/Lyft-level service capabilities',
+                  'Airport pickups & commercial zones',
+                  'Corporate accounts & scheduled rides',
+                  'Dynamic surge pricing (when needed)',
+                  'Nationwide expansion ready',
+                  'Premium tiers & subscription models',
+                ].map((item, i) => (
+                  <li key={i} style={{ display: 'flex', gap: '10px', color: '#ccc' }}>
+                    <span style={{ color: '#00ff88' }}>✓</span> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Why We Still Win as TNC */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '30px' }}>
+              Why We <span style={{ color: '#00ff88' }}>Still Beat Uber/DoorDash</span> Even as Full TNC
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Cost Category</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center', color: '#ff4d4d' }}>Uber/DoorDash</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center', color: '#00ff88' }}>Dollor.ai (TNC Phase)</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>Our Advantage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { category: 'AI/ML Development', uber: '$500M+/year R&D', dollor: '$0 (owned in-house)', advantage: '100% savings' },
+                  { category: 'Engineering Team', uber: '$2.5M/mo (50 SF engineers)', dollor: '$77K/mo (60 Bangalore)', advantage: '97% lower' },
+                  { category: 'Cloud Infrastructure', uber: '$100M+/year', dollor: 'AWS optimized ~$15K/mo', advantage: '99% lower' },
+                  { category: 'Customer Acquisition', uber: '$25-40/user', dollor: '$4/user (campus viral)', advantage: '90% lower' },
+                  { category: 'TNC Compliance', uber: '$50M+/year legal', dollor: '$200K/year (lean)', advantage: '99% lower' },
+                  { category: 'Driver Take Rate', uber: '25-35% of fare', dollor: '10-15% of fare', advantage: 'Drivers earn more' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <td style={{ ...styles.tableCell, fontWeight: 600 }}>{row.category}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: '#ff4d4d' }}>{row.uber}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', color: '#00ff88' }}>{row.dollor}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700, color: '#00ff88' }}>{row.advantage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: '25px', textAlign: 'center', padding: '20px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px' }}>
+              <span style={{ fontSize: '1.2rem', color: '#00ff88', fontWeight: 600 }}>
+                Bottom Line: Even with full TNC compliance costs, our operating expenses are 85% lower than Uber/DoorDash
+              </span>
+            </div>
+          </div>
+
+          {/* TNC License Requirements */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '30px' }}>
+              TNC License: <span style={{ color: '#9b59b6' }}>When & How</span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+              {[
+                {
+                  title: 'When to Get TNC',
+                  color: '#0088ff',
+                  icon: '📅',
+                  items: [
+                    '10,000+ active riders in state',
+                    '$500K+ monthly GMV per state',
+                    'Airport/commercial demand proven',
+                    'Corporate accounts requesting service'
+                  ]
+                },
+                {
+                  title: 'TNC Requirements',
+                  color: '#ff9500',
+                  icon: '📋',
+                  items: [
+                    'State PUC/DMV application ($5K-25K)',
+                    '$1M commercial liability insurance',
+                    'Driver background check system',
+                    'Vehicle inspection protocols'
+                  ]
+                },
+                {
+                  title: 'Timeline',
+                  color: '#00ff88',
+                  icon: '⏱️',
+                  items: [
+                    'Application: 2-4 weeks prep',
+                    'Review: 30-90 days (varies by state)',
+                    'Texas: 60 days avg approval',
+                    'California: 90 days (strictest)'
+                  ]
+                },
+              ].map((card) => (
+                <div key={card.title} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '25px', border: `1px solid ${card.color}33` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>{card.icon}</span>
+                    <h4 style={{ color: card.color }}>{card.title}</h4>
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '8px' }}>
+                    {card.items.map((item, i) => (
+                      <li key={i} style={{ color: '#888', fontSize: '0.9rem', display: 'flex', gap: '8px' }}>
+                        <span style={{ color: card.color }}>•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Phase 2 Features Unlocked */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '30px' }}>
+              <span style={{ color: '#00ff88' }}>Premium Features</span> Unlocked with TNC Status
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              {[
+                { icon: '✈️', title: 'Airport Rides', desc: 'Direct pickup/dropoff at all major airports', color: '#0088ff' },
+                { icon: '🏢', title: 'Corporate Accounts', desc: 'B2B contracts with expense integration', color: '#9b59b6' },
+                { icon: '📅', title: 'Scheduled Rides', desc: 'Book rides hours/days in advance', color: '#ff9500' },
+                { icon: '💎', title: 'Premium Tiers', desc: 'Black car, SUV, luxury options', color: '#00d4ff' },
+                { icon: '🔄', title: 'Subscriptions', desc: '$29/mo unlimited delivery, $99/mo rides', color: '#00ff88' },
+                { icon: '📍', title: 'Commercial Zones', desc: 'Hotels, convention centers, stadiums', color: '#e74c3c' },
+              ].map((feature) => (
+                <div key={feature.title} style={{ textAlign: 'center', padding: '25px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>{feature.icon}</div>
+                  <h4 style={{ color: feature.color, marginBottom: '8px' }}>{feature.title}</h4>
+                  <p style={{ color: '#888', fontSize: '0.85rem' }}>{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Revenue Impact */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>Phase 1 Revenue (Matchmaking)</div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 700 }}>$3M ARR</div>
+              <div style={{ color: '#0088ff', fontSize: '0.85rem' }}>By Month 12</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center', border: '1px solid rgba(0,255,136,0.3)' }}>
+              <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>Phase 2 Revenue (TNC)</div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 700, color: '#00ff88' }}>$25M+ ARR</div>
+              <div style={{ color: '#00ff88', fontSize: '0.85rem' }}>By Month 24</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>TNC License Cost</div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 700 }}>~$200K</div>
+              <div style={{ color: '#ff9500', fontSize: '0.85rem' }}>First 5 states</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '10px' }}>ROI on TNC Investment</div>
+              <div style={{ fontSize: '2.2rem', fontWeight: 700, color: '#00ff88' }}>110x</div>
+              <div style={{ color: '#888', fontSize: '0.85rem' }}>$200K → $22M incremental</div>
+            </div>
+          </div>
+
+          {/* Strategic Timeline */}
+          <div className="glass-card" style={{ marginTop: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '30px' }}>Strategic Evolution Timeline</h3>
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '50%', top: '40px', bottom: '40px', width: '2px', background: 'linear-gradient(to bottom, #0088ff, #00ff88)', transform: 'translateX(-50%)' }}></div>
+              {[
+                { month: 'Month 1-6', title: 'Campus Dominance', desc: 'Launch matchmaking model at 6 universities. Prove demand, refine operations.', color: '#0088ff', side: 'left' },
+                { month: 'Month 7-12', title: 'Regional Proof', desc: '10+ campuses, $3M ARR, break-even. Validate unit economics at scale.', color: '#0088ff', side: 'right' },
+                { month: 'Month 13-18', title: 'TNC Prep', desc: 'Apply for TNC in Texas & Arizona. Build commercial partnerships.', color: '#9b59b6', side: 'left' },
+                { month: 'Month 18-24', title: 'TNC Launch', desc: 'Full Uber-like service in licensed states. Airport, corporate, premium tiers.', color: '#00ff88', side: 'right' },
+                { month: 'Month 24+', title: 'National Scale', desc: 'TNC in 10+ states. $25M+ ARR. Series A/B for aggressive expansion.', color: '#00ff88', side: 'left' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: item.side === 'left' ? '1fr 60px 1fr' : '1fr 60px 1fr', marginBottom: '30px' }}>
+                  {item.side === 'left' ? (
+                    <>
+                      <div style={{ textAlign: 'right', paddingRight: '30px' }}>
+                        <span style={{ color: item.color, fontWeight: 600 }}>{item.month}</span>
+                        <h4 style={{ margin: '5px 0' }}>{item.title}</h4>
+                        <p style={{ color: '#888', fontSize: '0.85rem' }}>{item.desc}</p>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: item.color, border: '3px solid #1a1a2e' }}></div>
+                      </div>
+                      <div></div>
+                    </>
+                  ) : (
+                    <>
+                      <div></div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: item.color, border: '3px solid #1a1a2e' }}></div>
+                      </div>
+                      <div style={{ paddingLeft: '30px' }}>
+                        <span style={{ color: item.color, fontWeight: 600 }}>{item.month}</span>
+                        <h4 style={{ margin: '5px 0' }}>{item.title}</h4>
+                        <p style={{ color: '#888', fontSize: '0.85rem' }}>{item.desc}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* 15. 5-Year Financial Projections */}
         <section className="container">
           <h2 style={styles.sectionTitle}>5-Year Financial Projections</h2>
