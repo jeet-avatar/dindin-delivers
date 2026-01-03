@@ -225,7 +225,8 @@ export default function InvestorDeck() {
                   {[
                     { metric: 'Restaurant Fee', dd: '25-30%', ue: '15-30%', gh: '20-30%', ic: '15-25%', us: '$1 FLAT', usColor: '#00ff88' },
                     { metric: 'Driver Take Rate', dd: '60-70%', ue: '55-65%', gh: '60-70%', ic: '70-80%', us: '100%', usColor: '#00ff88' },
-                    { metric: 'Customer Delivery Fee', dd: '$3-8', ue: '$3-10', gh: '$2-7', ic: '$4-10', us: '$1 FLAT', usColor: '#00ff88' },
+                    { metric: 'Customer Platform Fee', dd: '$3-8', ue: '$3-10', gh: '$2-7', ic: '$4-10', us: '$1 FLAT', usColor: '#00ff88' },
+                    { metric: 'Delivery Fee', dd: 'Included above', ue: 'Included above', gh: 'Included above', ic: 'Included above', us: 'Market rate → Driver', usColor: '#00ff88' },
                     { metric: 'Hidden Fees', dd: 'Yes (Service, Small Order)', ue: 'Yes (Service, Busy)', gh: 'Yes (Service)', ic: 'Yes (Service, Tip)', us: 'NONE', usColor: '#00ff88' },
                     { metric: 'Profitable?', dd: 'NO (-$1.4B)', ue: 'NO (-$2.1B)', gh: 'NO (-$400M)', ic: 'Barely', us: 'YES (Month 5-6)', usColor: '#00ff88' },
                     { metric: 'Driver Satisfaction', dd: '2.1/5 ⭐', ue: '1.9/5 ⭐', gh: '2.3/5 ⭐', ic: '2.8/5 ⭐', us: 'N/A (New)', usColor: '#888' },
@@ -307,14 +308,14 @@ export default function InvestorDeck() {
               <div style={{ fontSize: '2rem', marginBottom: '15px' }}>🍔</div>
               <h3 style={{ fontSize: '1.8rem', marginBottom: '15px' }}>Food Delivery</h3>
               <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-                <div style={styles.feeRow}><span>Customer Fee</span><span style={{ color: '#00ff88', fontWeight: 700 }}>$1.00</span></div>
-                <div style={styles.feeRow}><span>Restaurant Fee</span><span style={{ color: '#00ff88', fontWeight: 700 }}>$1.00</span></div>
+                <div style={styles.feeRow}><span>Customer Platform Fee</span><span style={{ color: '#00ff88', fontWeight: 700 }}>$1.00</span></div>
+                <div style={styles.feeRow}><span>Restaurant Platform Fee</span><span style={{ color: '#00ff88', fontWeight: 700 }}>$1.00</span></div>
                 <div style={{ ...styles.feeRow, background: 'rgba(0,255,136,0.1)', border: '1px solid #00ff88' }}>
-                  <span style={{ fontWeight: 600 }}>Revenue/Order</span>
+                  <span style={{ fontWeight: 600 }}>Platform Revenue/Order</span>
                   <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '1.2rem' }}>$2.00</span>
                 </div>
               </div>
-              <p style={{ color: '#888', fontSize: '0.9rem' }}>Drivers keep 100% of delivery fee + tips</p>
+              <p style={{ color: '#888', fontSize: '0.9rem' }}>Delivery fee is market-rate (competitive pricing) → 100% to driver + tips</p>
             </div>
 
             <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(0,136,255,0.1) 0%, rgba(0,0,0,0) 100%)', border: '1px solid #0088ff' }}>
@@ -963,8 +964,8 @@ export default function InvestorDeck() {
                 <div style={{ fontSize: '3rem', marginBottom: '15px' }}>👥</div>
                 <h4 style={{ color: '#0088ff', marginBottom: '10px' }}>Customer Viral Loop</h4>
                 <p style={{ color: '#888', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                  Customers pay <span style={{ color: '#0088ff', fontWeight: 600 }}>$1 flat</span> vs $5-8 fees → They share on social →
-                  <span style={{ color: 'white' }}> "Why am I still paying $7 delivery fees?"</span> → Friends download app
+                  Platform fee: <span style={{ color: '#0088ff', fontWeight: 600 }}>$1 flat</span> vs $5-8 elsewhere → They share on social →
+                  <span style={{ color: 'white' }}> "Why am I still paying $7 in platform fees?"</span> → Friends download app
                 </p>
                 <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(0,136,255,0.1)', borderRadius: '8px' }}>
                   <span style={{ fontSize: '0.85rem', color: '#0088ff' }}>Expected: 1.5x customer referrals</span>
