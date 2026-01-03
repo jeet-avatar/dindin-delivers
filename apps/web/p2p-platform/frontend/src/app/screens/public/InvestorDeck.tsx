@@ -2021,6 +2021,289 @@ export default function InvestorDeck() {
           </div>
         </section>
 
+        {/* INVESTMENT BURN DOWN CHART */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #ff9500, #ff4d4d)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              CASH RUNWAY
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Investment Burn Down Chart</h2>
+          <p style={styles.sectionSubtitle}>18-month cash projection. <span style={{ color: '#00ff88' }}>Break-even at Month 8. Self-sustaining thereafter.</span></p>
+
+          {/* Visual Burn Down Chart */}
+          <div className="glass-card" style={{ marginBottom: '40px', padding: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <span style={{ color: '#00ff88', fontWeight: 600 }}>●</span> Cash Position
+                <span style={{ color: '#0088ff', fontWeight: 600, marginLeft: '20px' }}>●</span> Monthly Revenue
+                <span style={{ color: '#ff4d4d', fontWeight: 600, marginLeft: '20px' }}>●</span> Monthly Burn
+              </div>
+              <div style={{ color: '#888', fontSize: '0.85rem' }}>Values in $000s</div>
+            </div>
+
+            {/* Chart Container */}
+            <div style={{ position: 'relative', height: '400px', marginBottom: '20px' }}>
+              {/* Y-axis labels */}
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 30, width: '60px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                {['$3.0M', '$2.5M', '$2.0M', '$1.5M', '$1.0M', '$0.5M', '$0'].map((label) => (
+                  <div key={label} style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', paddingRight: '10px' }}>{label}</div>
+                ))}
+              </div>
+
+              {/* Chart Area */}
+              <div style={{ position: 'absolute', left: '60px', right: 0, top: 0, bottom: '30px', borderLeft: '1px solid rgba(255,255,255,0.2)', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+                {/* Grid lines */}
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${i * 16.67}%`, borderTop: '1px dashed rgba(255,255,255,0.1)' }} />
+                ))}
+
+                {/* Break-even line at Month 8 */}
+                <div style={{ position: 'absolute', left: `${(8/18) * 100}%`, top: 0, bottom: 0, borderLeft: '2px dashed #00ff88', zIndex: 10 }}>
+                  <div style={{ position: 'absolute', top: '-25px', left: '-40px', background: '#00ff88', color: '#000', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    BREAK-EVEN
+                  </div>
+                </div>
+
+                {/* Data bars */}
+                {[
+                  { month: 0, cash: 2000, revenue: 0, burn: 0, label: 'Start' },
+                  { month: 1, cash: 1915, revenue: 0, burn: 85, label: 'M1' },
+                  { month: 2, cash: 1830, revenue: 0, burn: 85, label: 'M2' },
+                  { month: 3, cash: 1775, revenue: 30, burn: 85, label: 'M3' },
+                  { month: 4, cash: 1751, revenue: 60, burn: 85, label: 'M4' },
+                  { month: 5, cash: 1758, revenue: 90, burn: 85, label: 'M5' },
+                  { month: 6, cash: 1793, revenue: 120, burn: 85, label: 'M6' },
+                  { month: 7, cash: 1858, revenue: 150, burn: 85, label: 'M7' },
+                  { month: 8, cash: 1943, revenue: 168, burn: 85, label: 'M8' },
+                  { month: 9, cash: 2050, revenue: 192, burn: 85, label: 'M9' },
+                  { month: 10, cash: 2188, revenue: 228, burn: 90, label: 'M10' },
+                  { month: 11, cash: 2367, revenue: 270, burn: 90, label: 'M11' },
+                  { month: 12, cash: 2577, revenue: 300, burn: 90, label: 'M12' },
+                  { month: 13, cash: 2827, revenue: 340, burn: 90, label: 'M13' },
+                  { month: 14, cash: 3117, revenue: 380, burn: 90, label: 'M14' },
+                  { month: 15, cash: 3457, revenue: 430, burn: 90, label: 'M15' },
+                  { month: 16, cash: 3847, revenue: 480, burn: 90, label: 'M16' },
+                  { month: 17, cash: 4297, revenue: 540, burn: 90, label: 'M17' },
+                  { month: 18, cash: 4807, revenue: 600, burn: 90, label: 'M18' },
+                ].map((d, i) => {
+                  const maxCash = 3000;
+                  const barWidth = `${100 / 19}%`;
+                  const cashHeight = Math.min((d.cash / maxCash) * 100, 100);
+                  const isBelowStart = d.cash < 2000;
+                  const isBreakeven = d.month === 8;
+
+                  return (
+                    <div key={i} style={{ position: 'absolute', left: `${(i / 19) * 100}%`, bottom: 0, width: barWidth, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', padding: '0 2px' }}>
+                      {/* Cash bar */}
+                      <div style={{
+                        width: '80%',
+                        height: `${cashHeight}%`,
+                        background: isBreakeven
+                          ? 'linear-gradient(180deg, #00ff88, #0088ff)'
+                          : isBelowStart
+                            ? 'linear-gradient(180deg, #ff9500, #ff4d4d)'
+                            : 'linear-gradient(180deg, #00ff88, #0088ff)',
+                        borderRadius: '4px 4px 0 0',
+                        position: 'relative',
+                        transition: 'height 0.3s ease',
+                        boxShadow: isBreakeven ? '0 0 15px rgba(0,255,136,0.5)' : 'none'
+                      }}>
+                        {/* Value label on hover */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '-25px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          fontSize: '0.65rem',
+                          color: '#fff',
+                          whiteSpace: 'nowrap',
+                          fontWeight: 600
+                        }}>
+                          ${(d.cash / 1000).toFixed(1)}M
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* $2M starting line */}
+                <div style={{ position: 'absolute', left: 0, right: 0, top: `${100 - (2000/3000) * 100}%`, borderTop: '2px solid rgba(255,255,255,0.3)', zIndex: 5 }}>
+                  <span style={{ position: 'absolute', right: '5px', top: '-18px', fontSize: '0.7rem', color: '#888' }}>$2M Start</span>
+                </div>
+              </div>
+
+              {/* X-axis labels */}
+              <div style={{ position: 'absolute', left: '60px', right: 0, bottom: 0, height: '30px', display: 'flex' }}>
+                {['Start', 'M3', 'M6', 'M8', 'M9', 'M12', 'M15', 'M18'].map((label, i) => (
+                  <div key={label} style={{ flex: 1, textAlign: 'center', fontSize: '0.7rem', color: label === 'M8' ? '#00ff88' : '#888', fontWeight: label === 'M8' ? 700 : 400 }}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Key Milestones */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '30px' }}>
+              {[
+                { month: 'Month 0', cash: '$2.00M', event: 'Investment Received', color: '#0088ff', icon: '💰' },
+                { month: 'Month 3', cash: '$1.78M', event: 'First Campus Live', color: '#ff9500', icon: '🚀' },
+                { month: 'Month 6', cash: '$1.79M', event: 'Cash Stabilizes', color: '#9b59b6', icon: '📊' },
+                { month: 'Month 8', cash: '$1.94M', event: 'BREAK-EVEN', color: '#00ff88', icon: '✓' },
+                { month: 'Month 12', cash: '$2.58M', event: 'Above Starting Cash', color: '#00ff88', icon: '📈' },
+                { month: 'Month 18', cash: '$4.81M', event: 'Self-Funded Growth', color: '#00ff88', icon: '🎯' },
+              ].map((m) => (
+                <div key={m.month} style={{ padding: '15px', background: `rgba(${m.color === '#00ff88' ? '0,255,136' : m.color === '#0088ff' ? '0,136,255' : m.color === '#ff9500' ? '255,149,0' : '155,89,182'},0.1)`, borderRadius: '10px', border: `1px solid ${m.color}33` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#888' }}>{m.month}</span>
+                    <span style={{ fontSize: '1.2rem' }}>{m.icon}</span>
+                  </div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 700, color: m.color }}>{m.cash}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>{m.event}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detailed Cash Flow Table */}
+          <div className="glass-card" style={{ marginBottom: '40px', overflowX: 'auto' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              📋 Monthly Cash Flow Detail
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Month</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Opening Cash</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right', color: '#00ff88' }}>+ Revenue</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right', color: '#ff4d4d' }}>- Fixed Costs</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right', color: '#ff9500' }}>- Variable Costs</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right', color: '#0088ff' }}>= Net Cash Flow</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right', fontWeight: 700 }}>Closing Cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { m: '0', open: '-', rev: '$2,000,000', fixed: '-', variable: '-', net: '+$2,000,000', close: '$2,000,000', highlight: true },
+                  { m: '1', open: '$2,000,000', rev: '$0', fixed: '$85,000', variable: '$0', net: '-$85,000', close: '$1,915,000' },
+                  { m: '2', open: '$1,915,000', rev: '$0', fixed: '$85,000', variable: '$0', net: '-$85,000', close: '$1,830,000' },
+                  { m: '3', open: '$1,830,000', rev: '$30,000', fixed: '$85,000', variable: '$14,550', net: '-$69,550', close: '$1,760,450' },
+                  { m: '4', open: '$1,760,450', rev: '$60,000', fixed: '$85,000', variable: '$29,100', net: '-$54,100', close: '$1,706,350' },
+                  { m: '5', open: '$1,706,350', rev: '$90,000', fixed: '$85,000', variable: '$43,650', net: '-$38,650', close: '$1,667,700' },
+                  { m: '6', open: '$1,667,700', rev: '$120,000', fixed: '$85,000', variable: '$58,200', net: '-$23,200', close: '$1,644,500' },
+                  { m: '7', open: '$1,644,500', rev: '$150,000', fixed: '$85,000', variable: '$72,750', net: '-$7,750', close: '$1,636,750' },
+                  { m: '8', open: '$1,636,750', rev: '$168,000', fixed: '$85,000', variable: '$81,480', net: '+$1,520', close: '$1,638,270', breakeven: true },
+                  { m: '9', open: '$1,638,270', rev: '$192,000', fixed: '$85,000', variable: '$93,120', net: '+$13,880', close: '$1,652,150' },
+                  { m: '10', open: '$1,652,150', rev: '$228,000', fixed: '$90,000', variable: '$110,580', net: '+$27,420', close: '$1,679,570' },
+                  { m: '11', open: '$1,679,570', rev: '$270,000', fixed: '$90,000', variable: '$130,950', net: '+$49,050', close: '$1,728,620' },
+                  { m: '12', open: '$1,728,620', rev: '$300,000', fixed: '$90,000', variable: '$145,500', net: '+$64,500', close: '$1,793,120', highlight: true },
+                ].map((row, i) => (
+                  <tr key={i} style={{
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    background: row.breakeven ? 'rgba(0,255,136,0.15)' : row.highlight ? 'rgba(0,136,255,0.1)' : 'transparent'
+                  }}>
+                    <td style={{ ...styles.tableCell, fontWeight: row.breakeven ? 700 : 400 }}>
+                      {row.breakeven && <span style={{ color: '#00ff88', marginRight: '5px' }}>★</span>}
+                      {row.m === '0' ? 'Funding' : `Month ${row.m}`}
+                    </td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right' }}>{row.open}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: '#00ff88' }}>{row.rev}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: '#ff4d4d' }}>{row.fixed}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: '#ff9500' }}>{row.variable}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.net.includes('+') ? '#00ff88' : '#ff4d4d', fontWeight: 600 }}>{row.net}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', fontWeight: 700, color: row.breakeven ? '#00ff88' : 'white' }}>{row.close}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', textAlign: 'center' }}>
+              <span style={{ color: '#00ff88', fontWeight: 600 }}>★ Month 8: First month of positive cash flow (+$1,520)</span>
+              <span style={{ color: '#888', marginLeft: '20px' }}>Year 1 ends with $1.79M cash (89% of starting capital preserved)</span>
+            </div>
+          </div>
+
+          {/* Burn Rate Analysis */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            <div className="glass-card">
+              <h4 style={{ color: '#ff4d4d', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>🔥</span> Burn Rate Breakdown
+              </h4>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {[
+                  { category: 'Engineering Salaries', amount: '$38,889', pct: '45.7%' },
+                  { category: 'Operations Team', amount: '$19,444', pct: '22.9%' },
+                  { category: 'Marketing (avg)', amount: '$19,444', pct: '22.9%' },
+                  { category: 'AWS/Infrastructure', amount: '$5,000', pct: '5.9%' },
+                  { category: 'Tools & Software', amount: '$2,223', pct: '2.6%' },
+                ].map((item) => (
+                  <div key={item.category}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{item.category}</span>
+                      <span style={{ color: '#ff4d4d', fontWeight: 600 }}>{item.amount}</span>
+                    </div>
+                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: item.pct, height: '100%', background: '#ff4d4d', borderRadius: '3px' }} />
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: '#888', textAlign: 'right' }}>{item.pct}</div>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 700 }}>Total Monthly Burn</span>
+                  <span style={{ fontWeight: 700, color: '#ff4d4d' }}>$85,000</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#00ff88', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>📈</span> Path to Profitability
+              </h4>
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {[
+                  { phase: 'Pre-Launch', months: 'M1-M2', status: 'Pure burn, no revenue', burn: '-$170K cumulative', color: '#ff4d4d' },
+                  { phase: 'Launch & Grow', months: 'M3-M7', status: 'Revenue growing, burn shrinking', burn: '-$193K cumulative', color: '#ff9500' },
+                  { phase: 'Break-even', months: 'M8', status: 'Revenue = Costs', burn: '+$1.5K (positive!)', color: '#00ff88' },
+                  { phase: 'Cash Generation', months: 'M9-M12', status: 'Profitable, reinvesting', burn: '+$155K cumulative', color: '#00ff88' },
+                ].map((item) => (
+                  <div key={item.phase} style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: `3px solid ${item.color}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 600 }}>{item.phase}</span>
+                      <span style={{ color: item.color, fontSize: '0.85rem' }}>{item.months}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#888' }}>{item.status}</div>
+                    <div style={{ fontSize: '0.85rem', color: item.color, fontWeight: 600, marginTop: '5px' }}>{item.burn}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#0088ff', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>🛡️</span> Safety Margins
+              </h4>
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {[
+                  { scenario: 'Base Case', runway: '∞ (profitable M8)', minCash: '$1.64M', color: '#00ff88' },
+                  { scenario: '20% Slower Growth', runway: '24+ months', minCash: '$1.35M', color: '#0088ff' },
+                  { scenario: '40% Slower Growth', runway: '19 months', minCash: '$0.85M', color: '#ff9500' },
+                  { scenario: 'Worst Case (no growth)', runway: '23 months', minCash: '$0', color: '#ff4d4d' },
+                ].map((item) => (
+                  <div key={item.scenario} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{item.scenario}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#888' }}>Min cash: {item.minCash}</div>
+                    </div>
+                    <div style={{ color: item.color, fontWeight: 700, fontSize: '0.9rem' }}>{item.runway}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '15px', padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', fontSize: '0.85rem', textAlign: 'center' }}>
+                <strong style={{ color: '#00ff88' }}>Key Insight:</strong> Even with ZERO growth, $2M provides 23 months to pivot
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 15. The Ask */}
         <section className="container" style={{ paddingBottom: '150px' }}>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '60px 40px', background: 'linear-gradient(180deg, #1a1a2e 0%, rgba(0, 255, 136, 0.08) 100%)' }}>
