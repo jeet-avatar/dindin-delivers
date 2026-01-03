@@ -101,7 +101,7 @@ export default function InvestorDeck() {
           <div className="container">
             <div style={styles.badge}>Seed Round: $2M for 15%</div>
             <h1 className="text-gradient" style={{ fontSize: 'clamp(3rem, 8vw, 5.5rem)', lineHeight: '1.1', marginBottom: '24px' }}>
-              AI-Powered P2P<br/>Delivery & Rideshare
+              AI-Powered<br/>Delivery & Rideshare
             </h1>
             <p style={{ fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', color: '#888', maxWidth: '800px', margin: '0 auto 40px', lineHeight: '1.6' }}>
               <span style={{ color: '#00ff88', fontWeight: 600 }}>We own everything.</span> Backend built. AI agents owned. Zero software costs. <br/>
