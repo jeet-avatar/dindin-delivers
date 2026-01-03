@@ -284,17 +284,17 @@ export default function InvestorDeck() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
             {[
-              { icon: '📱', title: 'iOS Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'App Store Ready' },
-              { icon: '🤖', title: 'Android Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Play Store Ready' },
-              { icon: '🌐', title: 'Web Platform', items: ['Customer Portal', 'Admin Dashboard', 'Analytics'], status: 'Production' },
-              { icon: '⚙️', title: 'Backend', items: ['18 Microservices', 'FastAPI + Python', 'PostgreSQL + Redis'], status: '100% Complete' },
-              { icon: '🧠', title: 'AI Agents (Owned)', items: ['Qwen 2.5 Fine-tuned', 'Ollama Self-hosted', 'Zero API Costs'], status: 'We Own It' },
-              { icon: '☁️', title: 'Infrastructure', items: ['AWS EKS', 'Kubernetes', 'CI/CD Pipeline'], status: 'Live' },
+              { icon: '📱', title: 'iOS Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Coming Jan 15', statusColor: '#ff9500' },
+              { icon: '🤖', title: 'Android Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Coming Jan 15', statusColor: '#ff9500' },
+              { icon: '🌐', title: 'Web Platform', items: ['Customer Portal', 'Admin Dashboard', 'Analytics'], status: 'LIVE', statusColor: '#00ff88' },
+              { icon: '⚙️', title: 'Backend', items: ['18 Microservices', 'FastAPI + Python', 'PostgreSQL + Redis'], status: '100% Complete', statusColor: '#00ff88' },
+              { icon: '🧠', title: 'AI Agents (Owned)', items: ['Qwen 2.5 Fine-tuned', 'Ollama Self-hosted', 'Zero API Costs'], status: 'We Own It', statusColor: '#9b59b6' },
+              { icon: '☁️', title: 'Infrastructure', items: ['AWS EKS', 'Kubernetes', 'CI/CD Pipeline'], status: 'LIVE', statusColor: '#00ff88' },
             ].map((item) => (
               <div key={item.title} className="glass-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <span style={{ fontSize: '2rem' }}>{item.icon}</span>
-                  <span style={{ fontSize: '0.7rem', padding: '4px 10px', background: 'rgba(0,255,136,0.2)', borderRadius: '12px', color: '#00ff88' }}>{item.status}</span>
+                  <span style={{ fontSize: '0.7rem', padding: '4px 10px', background: `${item.statusColor}20`, borderRadius: '12px', color: item.statusColor, fontWeight: 600 }}>{item.status}</span>
                 </div>
                 <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>{item.title}</h3>
                 <ul style={{ listStyle: 'none', padding: 0, color: '#888', fontSize: '0.9rem' }}>
@@ -302,6 +302,17 @@ export default function InvestorDeck() {
                 </ul>
               </div>
             ))}
+          </div>
+
+          {/* Launch Date Banner */}
+          <div style={{ marginTop: '30px', textAlign: 'center', padding: '25px', background: 'linear-gradient(135deg, rgba(255,149,0,0.15), rgba(255,77,77,0.1))', borderRadius: '16px', border: '1px solid rgba(255,149,0,0.4)' }}>
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '10px' }}>
+              <span style={{ color: '#ff9500' }}>App Store & Play Store Launch:</span> <span style={{ color: 'white' }}>January 15, 2025</span>
+            </p>
+            <p style={{ color: '#888', marginBottom: '15px' }}>Web platform is live now. Try it today.</p>
+            <a href="https://dollor.ai" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '12px 30px', background: 'linear-gradient(135deg, #00ff88, #00cc6a)', color: '#000', fontWeight: 700, borderRadius: '30px', textDecoration: 'none', fontSize: '1rem' }}>
+              Visit dollor.ai
+            </a>
           </div>
 
           <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
@@ -3392,9 +3403,10 @@ export default function InvestorDeck() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <a href="mailto:invest@dollor.ai" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none' }}>invest@dollor.ai</a>
-              <a href="https://api.dollor.ai" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #00ff88', color: '#00ff88' }}>View Live API</a>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+              <a href="mailto:invest@dollor.ai" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', minWidth: '200px', textAlign: 'center' }}>invest@dollor.ai</a>
+              <a href="https://dollor.ai" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #00ff88', color: '#00ff88', minWidth: '200px', textAlign: 'center' }}>Visit dollor.ai</a>
+              <a href="https://api.dollor.ai/docs" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #9b59b6', color: '#9b59b6', minWidth: '200px', textAlign: 'center' }}>View Live API</a>
             </div>
           </div>
         </section>
@@ -3403,7 +3415,7 @@ export default function InvestorDeck() {
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '40px 0', textAlign: 'center', color: '#888' }}>
         <div className="container">
           <p style={{ marginBottom: '15px', fontSize: '1.1rem' }}>"We own our AI. We own our margins. We own the future."</p>
-          <p style={{ marginBottom: '20px' }}>&copy; 2025 Dollor.ai - Confidential Investor Deck</p>
+          <p style={{ marginBottom: '20px' }}>&copy; 2025-2026 Dollor.ai - Confidential Investor Deck</p>
           <div style={{ fontSize: '0.75rem', color: '#555', maxWidth: '800px', margin: '0 auto', lineHeight: '1.6', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
             <p style={{ fontWeight: 600, marginBottom: '10px' }}>FORWARD-LOOKING STATEMENTS DISCLAIMER</p>
             <p>
