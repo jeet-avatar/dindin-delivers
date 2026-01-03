@@ -9,6 +9,7 @@ sealed class Screen(val route: String) {
         fun createRoute(email: String) = "reset_code_entry?email=$email"
     }
     object LegalAcceptance : Screen("legal_acceptance")
+    object EmailVerification : Screen("email_verification") // Email verification screen
     object Main: Screen("main") // Main screen with bottom navigation
     object Home: Screen("home")
     object Search: Screen("search")

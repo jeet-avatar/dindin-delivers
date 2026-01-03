@@ -32,6 +32,8 @@ import com.eatfair.app.ui.address.LocationViewModel
 import com.eatfair.app.ui.address.SavedAddressesScreen
 import com.eatfair.app.ui.auth.AuthState
 import com.eatfair.app.ui.auth.AuthViewModel
+import com.eatfair.app.ui.auth.EmailVerificationScreen
+import com.eatfair.app.ui.auth.EmailVerificationState
 import com.eatfair.app.ui.auth.ForgotPasswordScreen
 import com.eatfair.app.ui.auth.LoginScreen
 import com.eatfair.app.ui.auth.RegisterScreen
@@ -523,6 +525,61 @@ fun NavGraphBuilder.authGraph(navController: NavHostController, authViewModel: A
             )
         }
 
+        // Email Verification Screen
+        composable(route = Screen.EmailVerification.route) {
+            val context = LocalContext.current
+            val emailVerificationState by authViewModel.emailVerificationState.collectAsState()
+            var customerEmail by remember { mutableStateOf("") }
+            var isEmailVerified by remember { mutableStateOf(false) }
+
+            // Get email verification status on load
+            LaunchedEffect(Unit) {
+                authViewModel.getEmailVerificationStatus { verified, email ->
+                    isEmailVerified = verified
+                    customerEmail = email
+                }
+            }
+
+            EmailVerificationScreen(
+                email = customerEmail,
+                isVerified = isEmailVerified || emailVerificationState is EmailVerificationState.Verified || emailVerificationState is EmailVerificationState.AlreadyVerified,
+                onSendCodeClick = {
+                    authViewModel.sendEmailVerificationCode { success ->
+                        if (success) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Verification code sent!",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                onVerifyCodeClick = { code ->
+                    authViewModel.verifyEmail(code) { success ->
+                        if (success) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Email verified successfully!",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                },
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onSkipClick = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                isSendingCode = emailVerificationState is EmailVerificationState.SendingCode,
+                isVerifying = emailVerificationState is EmailVerificationState.Verifying,
+                errorMessage = (emailVerificationState as? EmailVerificationState.Error)?.message,
+                successMessage = (emailVerificationState as? EmailVerificationState.CodeSent)?.message
+            )
+        }
+
         // Forgot Password Screen - Matches iOS ForgotPasswordView
         composable(route = Screen.ForgotPassword.route) {
             val isLoading by authViewModel.isLoadingState.collectAsState()
@@ -762,10 +819,30 @@ fun NavGraphBuilder.profileGraph(
 
         // Settings Screen - Required for Google Play Store compliance
         composable(Screen.Settings.route) {
+            val emailVerificationState by authViewModel.emailVerificationState.collectAsState()
+            var isEmailVerified by remember { mutableStateOf(false) }
+
+            // Check email verification status on load
+            LaunchedEffect(Unit) {
+                authViewModel.getEmailVerificationStatus { verified, _ ->
+                    isEmailVerified = verified
+                }
+            }
+
+            // Update when verification state changes
+            LaunchedEffect(emailVerificationState) {
+                if (emailVerificationState is EmailVerificationState.Verified ||
+                    emailVerificationState is EmailVerificationState.AlreadyVerified) {
+                    isEmailVerified = true
+                }
+            }
+
             SettingsScreen(
                 onBackClick = { navController.navigateUp() },
                 onPrivacyPolicyClick = { navController.navigate(Screen.PrivacyPolicy.route) },
                 onTermsClick = { navController.navigate(Screen.TermsConditions.route) },
+                onEmailVerificationClick = { navController.navigate(Screen.EmailVerification.route) },
+                isEmailVerified = isEmailVerified,
                 onDeleteAccount = { onSuccess, onError ->
                     authViewModel.deleteAccount(onSuccess, onError)
                 },

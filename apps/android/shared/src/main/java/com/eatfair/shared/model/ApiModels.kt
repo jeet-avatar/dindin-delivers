@@ -1159,6 +1159,35 @@ data class MenuVerificationStatusResponse(
 // GENERIC RESPONSE
 // ==========================================
 
+// ==========================================
+// EMAIL VERIFICATION MODELS
+// ==========================================
+
+data class VerifyEmailRequest(
+    val code: String
+)
+
+data class EmailVerificationSendResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val email: String? = null,
+    @SerializedName("already_verified") val alreadyVerified: Boolean? = null,
+    @SerializedName("expires_in_minutes") val expiresInMinutes: Int? = null
+)
+
+data class EmailVerificationResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val verified: Boolean = false,
+    @SerializedName("verified_at") val verifiedAt: String? = null
+)
+
+data class EmailVerificationStatusResponse(
+    val email: String,
+    val verified: Boolean = false,
+    @SerializedName("verified_at") val verifiedAt: String? = null
+)
+
 data class GenericResponse(
     val success: Boolean = true,
     val message: String? = null,

@@ -199,6 +199,34 @@ class DollorRepository @Inject constructor(
     }
 
     // ==========================================
+    // EMAIL VERIFICATION
+    // ==========================================
+
+    suspend fun sendEmailVerification(): Result<EmailVerificationSendResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall {
+            apiService.sendEmailVerification(token)
+        }
+    }
+
+    suspend fun verifyEmail(code: String): Result<EmailVerificationResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall {
+            apiService.verifyEmail(VerifyEmailRequest(code), token)
+        }
+    }
+
+    suspend fun getEmailVerificationStatus(): Result<EmailVerificationStatusResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall {
+            apiService.getEmailVerificationStatus(token)
+        }
+    }
+
+    // ==========================================
     // DRIVER AUTHENTICATION
     // ==========================================
 
