@@ -1398,7 +1398,7 @@ export default function InvestorDeck() {
               <tbody>
                 {[
                   { risk: 'DoorDash lowers fees', impact: 'Reduces our competitive advantage', mitigation: 'Our costs are 90% lower. They can\'t match $1 flat and stay profitable. Their shareholders won\'t allow it.' },
-                  { risk: 'Can\'t get enough drivers', impact: 'Long wait times, bad experience', mitigation: '100% driver earnings is compelling. Campus-first = students need flexible income. $100 referral bonuses.' },
+                  { risk: 'Can\'t get enough drivers', impact: 'Long wait times, bad experience', mitigation: 'Drivers keep 95%+ (just $1-3 flat fee). Food delivery: 100% of tips. Campus-first = students need flexible income. $100 referral bonuses.' },
                   { risk: 'Restaurants won\'t switch', impact: 'No supply = no customers', mitigation: 'Free onboarding, no lock-in. Start with frustrated restaurants already vocal about DoorDash.' },
                   { risk: 'Tech doesn\'t scale', impact: 'Service outages at growth', mitigation: 'AWS auto-scaling, 18 microservices, Kubernetes. Built to handle 500K orders/day from day 1.' },
                   { risk: 'Regulatory issues', impact: 'Fines, operational limits', mitigation: 'Matchmaking model (not TNC). Drivers are true independents. Legal review completed.' },
@@ -1545,7 +1545,7 @@ export default function InvestorDeck() {
                   { category: 'Cloud Infrastructure', uber: '$100M+/year', dollor: 'AWS optimized ~$15K/mo', advantage: '99% lower' },
                   { category: 'Customer Acquisition', uber: '$25-40/user', dollor: '$4/user (campus viral)', advantage: '90% lower' },
                   { category: 'TNC Compliance', uber: '$50M+/year legal', dollor: '$200K/year (lean)', advantage: '99% lower' },
-                  { category: 'Driver Take Rate', uber: '25-35% of fare', dollor: '10-15% of fare', advantage: 'Drivers earn more' },
+                  { category: 'Driver Take Rate', uber: '25-35% of fare', dollor: '$1-3 FLAT (5-10%)', advantage: 'Drivers earn more' },
                 ].map((row, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                     <td style={{ ...styles.tableCell, fontWeight: 600 }}>{row.category}</td>
