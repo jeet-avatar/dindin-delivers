@@ -4,6 +4,24 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 // Token-based access control
 const VALID_TOKENS = ['invest2025', 'seed500k', 'dollor-ai'];
 
+// External link warning component
+const ExternalLink: React.FC<{ href: string; children: React.ReactNode; style?: React.CSSProperties }> = ({ href, children, style }) => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const confirmed = window.confirm(
+      `You are about to leave the Dollor.ai investor deck and visit:\n\n${href}\n\nThis external site will open in a new tab. Continue?`
+    );
+    if (confirmed) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  };
+  return (
+    <a href={href} onClick={handleClick} style={{ ...style, cursor: 'pointer' }}>
+      {children}
+    </a>
+  );
+};
+
 export default function InvestorDeck() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -339,24 +357,29 @@ export default function InvestorDeck() {
           </p>
 
           <div className="glass-card" style={{ marginBottom: '30px', background: 'linear-gradient(135deg, rgba(255,77,77,0.1) 0%, rgba(0,0,0,0) 100%)', border: '1px solid rgba(255,77,77,0.3)' }}>
-            <h3 style={{ color: '#ff4d4d', marginBottom: '20px', fontSize: '1.2rem', textAlign: 'center' }}>📰 Real Headlines. Real Problems.</h3>
+            <h3 style={{ color: '#ff4d4d', marginBottom: '20px', fontSize: '1.2rem', textAlign: 'center' }}>📰 Real Headlines. Real Problems. <span style={{ fontSize: '0.8rem', color: '#888' }}>(Click to read)</span></h3>
             <div style={{ display: 'grid', gap: '15px' }}>
               {[
-                { outlet: 'New York Times', headline: '"DoorDash and Uber Eats Are Hungry for Your Kitchen"', quote: 'Restaurants report losing money on every delivery order due to 30% commission fees.', year: '2024' },
-                { outlet: 'Wall Street Journal', headline: '"Uber Drivers Say They\'re Earning Less Than Minimum Wage"', quote: 'After expenses, many gig workers earn $4-6/hour. The platform takes 40%+ of fares.', year: '2024' },
-                { outlet: 'Bloomberg', headline: '"DoorDash Has Never Been Profitable"', quote: 'Despite $8B revenue, DoorDash lost $1.4B. Their unit economics don\'t work.', year: '2024' },
-                { outlet: 'Reuters', headline: '"FTC Investigates DoorDash, Uber for Monopolistic Practices"', quote: 'Regulators probe anti-competitive behavior and predatory pricing against restaurants.', year: '2024' },
-                { outlet: 'Washington Post', headline: '"Small Restaurants Say Delivery Apps Are Killing Them"', quote: '62% of restaurant owners say delivery app fees are unsustainable.', year: '2024' },
-                { outlet: 'CNBC', headline: '"Uber, Lyft Drivers Strike Over Pay Cuts"', quote: 'Thousands of drivers protest as platforms reduce per-mile rates by 25%.', year: '2024' },
+                { outlet: 'FTC', headline: '"Instacart to Pay $60 Million for Deceptive Tactics"', quote: 'Hidden fees add up to 15% to orders. False "free delivery" claims. Forced subscriptions without consent.', year: 'Dec 2025', url: 'https://www.ftc.gov/news-events/news/press-releases/2025/12/instacart-pay-60-million-consumer-refunds-settle-ftc-lawsuit-over-allegations-it-engaged-deceptive' },
+                { outlet: 'NY Attorney General', headline: '"$16.75 Million from DoorDash for Cheating Workers"', quote: 'DoorDash used customer tips to subsidize base pay instead of giving workers their full tips.', year: 'Sep 2025', url: 'https://ag.ny.gov/press-release/2025/attorney-general-james-secures-1675-million-doordash-cheating-delivery-workers' },
+                { outlet: 'Human Rights Watch', headline: '"The Gig Trap: Wage & Labor Exploitation"', quote: 'Platform workers in Texas earn just $5.12/hr after expenses—70% below living wage. Some make nothing.', year: 'May 2025', url: 'https://www.hrw.org/report/2025/05/12/gig-trap/algorithmic-wage-and-labor-exploitation-platform-work-us' },
+                { outlet: 'Seattle OLS', headline: '"Uber Eats Settles $15M Over Worker Violations"', quote: 'Misled 16,000 workers about earnings. Underpaid for canceled orders. Systematic exploitation.', year: 'Aug 2025', url: 'https://komonews.com/news/local/seattle-reaches-15m-settlement-with-uber-eats-over-worker-rights-violations-delivery-fast-food-prices-economy-investigation-expensive-damages-penalities-drivers-ols-claim-lawsuit' },
+                { outlet: 'FTC', headline: '"FTC Takes Action Against Uber for Deceptive Billing"', quote: 'Uber trapped customers in costly subscriptions that were exceedingly difficult to cancel.', year: 'Apr 2025', url: 'https://www.ftc.gov/news-events/news/press-releases/2025/04/ftc-takes-action-against-uber-deceptive-billing-cancellation-practices' },
+                { outlet: 'CNBC', headline: '"FTC Probes Instacart AI Pricing Tool"', quote: 'Same groceries priced 23% higher for some shoppers. Different prices for same items at same time.', year: 'Dec 2025', url: 'https://www.cnbc.com/2025/12/17/instacart-sec-probe-pricing-tool.html' },
               ].map((item, i) => (
-                <div key={i} style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '3px solid #ff4d4d' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: '#ff4d4d', fontWeight: 600, fontSize: '0.85rem' }}>{item.outlet}</span>
-                    <span style={{ color: '#666', fontSize: '0.75rem' }}>{item.year}</span>
+                <ExternalLink key={i} href={item.url} style={{ textDecoration: 'none', display: 'block' }}>
+                  <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', borderLeft: '3px solid #ff4d4d', transition: 'all 0.2s', cursor: 'pointer' }} onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,77,77,0.15)'} onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ color: '#ff4d4d', fontWeight: 600, fontSize: '0.85rem' }}>{item.outlet}</span>
+                      <span style={{ color: '#00ff88', fontSize: '0.75rem', background: 'rgba(0,255,136,0.1)', padding: '2px 8px', borderRadius: '10px' }}>{item.year}</span>
+                    </div>
+                    <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '6px', fontStyle: 'italic', color: 'white' }}>{item.headline}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.quote}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#00ff88', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span>🔗</span> Click to read full article
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '6px', fontStyle: 'italic' }}>{item.headline}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.quote}</div>
-                </div>
+                </ExternalLink>
               ))}
             </div>
           </div>
