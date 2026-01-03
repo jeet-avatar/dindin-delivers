@@ -1550,6 +1550,137 @@ export default function InvestorDeck() {
                 <strong>Self-hosted AI (Qwen + Ollama):</strong> Zero OpenAI/Claude API fees. <strong>Stripe Connect Direct:</strong> We don't process payments. <strong>Firebase Free Tier:</strong> 100K push/month free. <strong>Bangalore DevOps:</strong> 24/7 monitoring at $8/hr.
               </p>
             </div>
+
+            {/* Stripe Cost Clarification */}
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(155,89,182,0.1)', borderRadius: '10px', border: '1px solid rgba(155,89,182,0.3)' }}>
+              <p style={{ textAlign: 'center', color: '#9b59b6', fontWeight: 600, marginBottom: '8px' }}>💳 Stripe Payment Flow (Who Pays What)</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '10px' }}>
+                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#ff9500', fontWeight: 600, marginBottom: '5px' }}>Restaurant Pays</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>2.9% + $0.30 on order</div>
+                  <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>$30 order = $1.17</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#0088ff', fontWeight: 600, marginBottom: '5px' }}>Customer Pays</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>$1 flat platform fee</div>
+                  <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>No hidden fees</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(0,255,136,0.3)' }}>
+                  <div style={{ color: '#00ff88', fontWeight: 600, marginBottom: '5px' }}>Platform Pays</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>Only on $2 app fee</div>
+                  <div style={{ fontSize: '0.75rem', color: '#00ff88', marginTop: '5px' }}>= $0.09/order ✓</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ONE-TIME STARTUP COSTS */}
+          <div className="glass-card" style={{ marginTop: '30px', background: 'linear-gradient(135deg, rgba(255,149,0,0.1), rgba(0,0,0,0))' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px', fontSize: '1.3rem' }}>
+              🚀 One-Time Startup Costs <span style={{ color: '#888', fontSize: '0.9rem' }}>(Already Invested)</span>
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+              <div>
+                <h4 style={{ color: '#ff9500', marginBottom: '15px' }}>🧠 AI/LLM Infrastructure</h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {[
+                    { item: 'GPU Server (RTX 4090 x2)', cost: '$4,000', note: 'Runs Qwen 7B locally' },
+                    { item: 'Qwen Fine-tuning (QLoRA)', cost: '$500', note: '~10 hrs compute' },
+                    { item: 'Training Data Prep', cost: '$2,000', note: '5K labeled examples' },
+                    { item: 'Ollama Setup', cost: '$0', note: 'Open source' },
+                  ].map((row) => (
+                    <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <div><span>{row.item}</span><div style={{ fontSize: '0.7rem', color: '#666' }}>{row.note}</div></div>
+                      <span style={{ color: '#ff9500' }}>{row.cost}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,149,0,0.2)', borderRadius: '8px', fontWeight: 600 }}>
+                    <span>AI Subtotal</span><span style={{ color: '#ff9500' }}>$6,500</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 style={{ color: '#0088ff', marginBottom: '15px' }}>⚙️ Platform Development</h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {[
+                    { item: 'iOS Apps (3 apps)', cost: '$45,000', note: 'Customer, Driver, Restaurant' },
+                    { item: 'Android Apps (3 apps)', cost: '$35,000', note: 'Customer, Driver, Restaurant' },
+                    { item: 'Backend (18 services)', cost: '$60,000', note: 'FastAPI + PostgreSQL' },
+                    { item: 'Admin Portal', cost: '$15,000', note: 'React dashboard' },
+                  ].map((row) => (
+                    <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <div><span>{row.item}</span><div style={{ fontSize: '0.7rem', color: '#666' }}>{row.note}</div></div>
+                      <span style={{ color: '#0088ff' }}>{row.cost}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(0,136,255,0.2)', borderRadius: '8px', fontWeight: 600 }}>
+                    <span>Dev Subtotal</span><span style={{ color: '#0088ff' }}>$155,000</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '25px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+              <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                <h5 style={{ color: '#9b59b6', marginBottom: '10px', fontSize: '0.9rem' }}>📋 Legal</h5>
+                {[{ item: 'LLC + ToS + Privacy', cost: '$5,000' }, { item: 'Insurance', cost: '$3,000' }].map((row) => (
+                  <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '4px 0' }}>
+                    <span style={{ color: '#888' }}>{row.item}</span><span style={{ color: '#9b59b6' }}>{row.cost}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '0.85rem' }}>
+                  <span>Total</span><span style={{ color: '#9b59b6' }}>$8,000</span>
+                </div>
+              </div>
+              <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                <h5 style={{ color: '#00ff88', marginBottom: '10px', fontSize: '0.9rem' }}>🔧 Infrastructure</h5>
+                {[{ item: 'AWS + CI/CD Setup', cost: '$2,500' }, { item: 'Security Audit', cost: '$5,000' }].map((row) => (
+                  <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '4px 0' }}>
+                    <span style={{ color: '#888' }}>{row.item}</span><span style={{ color: '#00ff88' }}>{row.cost}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '0.85rem' }}>
+                  <span>Total</span><span style={{ color: '#00ff88' }}>$7,500</span>
+                </div>
+              </div>
+              <div style={{ padding: '15px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                <h5 style={{ color: '#ff4d4d', marginBottom: '10px', fontSize: '0.9rem' }}>📦 Misc + Buffer</h5>
+                {[{ item: 'Devices + Tools', cost: '$2,500' }, { item: 'Contingency (10%)', cost: '$18,000' }].map((row) => (
+                  <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '4px 0' }}>
+                    <span style={{ color: '#888' }}>{row.item}</span><span style={{ color: '#ff4d4d' }}>{row.cost}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '0.85rem' }}>
+                  <span>Total</span><span style={{ color: '#ff4d4d' }}>$20,500</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '25px', padding: '20px', background: 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,136,255,0.15))', borderRadius: '12px', border: '2px solid #00ff88', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '5px' }}>Total Startup Investment (Already Completed)</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>$197,500</div>
+              <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>
+                Platform is <strong style={{ color: '#00ff88' }}>100% built</strong>. This cost is sunk. <span style={{ color: '#ff9500' }}>Your $2M goes to growth, not development.</span>
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255,149,0,0.1)', borderRadius: '10px', border: '1px solid rgba(255,149,0,0.3)' }}>
+              <p style={{ textAlign: 'center', color: '#ff9500', fontWeight: 600, marginBottom: '8px' }}>🖥️ Ongoing GPU Costs for Self-Hosted LLM</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '10px' }}>
+                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#888', fontSize: '0.8rem' }}>Power Cost</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ff9500' }}>$50/mo</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>350W x 24/7</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#888', fontSize: '0.8rem' }}>Colocation</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ff9500' }}>$100/mo</div>
+                  <div style={{ fontSize: '0.7rem', color: '#666' }}>Data center</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(0,255,136,0.3)' }}>
+                  <div style={{ color: '#888', fontSize: '0.8rem' }}>vs OpenAI</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#00ff88' }}>Save $2,850/mo</div>
+                  <div style={{ fontSize: '0.7rem', color: '#00ff88' }}>$150 vs $3K+</div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
