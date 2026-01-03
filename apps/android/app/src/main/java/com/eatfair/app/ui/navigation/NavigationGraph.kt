@@ -462,6 +462,21 @@ fun NavGraphBuilder.authGraph(navController: NavHostController, authViewModel: A
             val isLoading = currentAuthState is AuthState.Loading
             val errorMessage = (currentAuthState as? AuthState.Error)?.message
 
+            // Track if signup was just completed to show success toast
+            var justSignedUp by remember { mutableStateOf(false) }
+
+            // Show success toast when signup completes
+            LaunchedEffect(currentAuthState) {
+                if (justSignedUp && currentAuthState is AuthState.NeedsLegalAcceptance) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Account created successfully! Welcome to Dollor.ai",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    justSignedUp = false
+                }
+            }
+
             LoginScreen(
                 onLoginClick = { email, password ->
                     // Handle login logic
@@ -471,6 +486,7 @@ fun NavGraphBuilder.authGraph(navController: NavHostController, authViewModel: A
                 onSignUpClick = { email, password, fullName, phone ->
                     // Handle sign up logic
                     Log.d("NavigationGraph", "SignUp: $email, $fullName")
+                    justSignedUp = true
                     authViewModel.signUp(email, password, fullName, phone, "")
                 },
                 isLoading = isLoading,

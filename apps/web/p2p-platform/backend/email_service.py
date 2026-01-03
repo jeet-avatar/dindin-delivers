@@ -513,3 +513,103 @@ def send_driver_registration_confirmation(
     """
 
     return send_email(to_email, subject, html_body, text_body)
+
+
+def send_customer_welcome_email(
+    to_email: str,
+    customer_name: str,
+    customer_code: str = None
+) -> bool:
+    """
+    Send welcome email to a new customer after registration.
+    """
+    subject = "Welcome to Dollor.ai!"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .header h1 {{ color: white; margin: 0; font-size: 28px; }}
+            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
+            .welcome-box {{ background: #FFF7ED; padding: 20px; border-radius: 10px; margin: 20px 0; }}
+            .feature {{ margin: 15px 0; padding: 10px; }}
+            .cta-button {{ display: inline-block; background: #FF6B35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Welcome to Dollor.ai!</h1>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+
+                <p>Thank you for joining Dollor.ai! We're excited to have you as part of our community.</p>
+
+                <div class="welcome-box">
+                    <h3 style="margin-top: 0;">Our Mission</h3>
+                    <p>Fair pricing for everyone in the food delivery ecosystem. No hidden fees, no surge pricing.</p>
+                </div>
+
+                <h3>What makes us different:</h3>
+
+                <div class="feature">
+                    <strong>Only $1 Platform Fee</strong> - No hidden charges or surge pricing
+                </div>
+
+                <div class="feature">
+                    <strong>100% Menu Prices</strong> - Restaurants set their own prices
+                </div>
+
+                <div class="feature">
+                    <strong>100% Tips to Drivers</strong> - Your tips go directly to drivers
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai" class="cta-button">Start Ordering Now</a>
+                </p>
+
+                <p>Questions? Reply to this email or contact us at support@dollor.ai</p>
+
+                <p>Welcome aboard!<br>The Dollor.ai Team</p>
+            </div>
+            <div class="footer">
+                <p>2024 Dollor.ai by Vibing World Inc.</p>
+                <p>You received this email because you created an account on Dollor.ai</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Welcome to Dollor.ai!
+
+    Hi {customer_name},
+
+    Thank you for joining Dollor.ai! We're excited to have you as part of our community.
+
+    OUR MISSION
+    Fair pricing for everyone in the food delivery ecosystem. No hidden fees, no surge pricing.
+
+    WHAT MAKES US DIFFERENT:
+    - Only $1 Platform Fee - No hidden charges or surge pricing
+    - 100% Menu Prices - Restaurants set their own prices
+    - 100% Tips to Drivers - Your tips go directly to drivers
+
+    Start ordering now at https://dollor.ai
+
+    Questions? Contact us at support@dollor.ai
+
+    Welcome aboard!
+    The Dollor.ai Team
+
+    2024 Dollor.ai by Vibing World Inc.
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
