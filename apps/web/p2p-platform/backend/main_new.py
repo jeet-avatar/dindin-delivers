@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
-from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation
+from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation, send_customer_welcome_email
 from document_verification_service import (
     DocumentVerificationService,
     get_verification_service,
@@ -2425,6 +2425,17 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
         print(f"Customer registration successful for: {new_customer.email}, customer_id: {new_customer.id}")
         access_token = create_access_token(data={"sub": new_customer.email, "role": "customer", "customer_id": new_customer.id})
 
+        # Send welcome email (non-blocking, don't fail registration if email fails)
+        try:
+            send_customer_welcome_email(
+                to_email=new_customer.email,
+                customer_name=full_name,
+                customer_code=customer_code
+            )
+            print(f"Welcome email sent to: {new_customer.email}")
+        except Exception as e:
+            print(f"Failed to send customer welcome email: {str(e)}")
+
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -2623,6 +2634,61 @@ def update_customer_profile(
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+# ==================== CUSTOMER ACCOUNT DELETION ====================
+# Required by Google Play Store policy for account deletion
+
+@app.delete("/api/customers/{customer_id}/delete")
+@app.delete("/customers/{customer_id}/delete")  # Alias for mobile apps
+def delete_customer_account(
+    customer_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Delete customer account - required by Play Store policy"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_customer_id = payload.get("customer_id")
+
+        # Verify the token belongs to the customer being deleted
+        if token_customer_id != customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete another user's account"
+            )
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Delete the customer
+        db.delete(customer)
+        db.commit()
+
+        return {"success": True, "message": "Account deleted successfully"}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+
+# Admin endpoint to delete customer by email (for testing only)
+@app.delete("/api/admin/customers/by-email/{email}")
+def admin_delete_customer_by_email(
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to delete customer by email - for testing purposes"""
+    customer = db.query(Customer).filter(Customer.email == email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail=f"Customer with email {email} not found")
+
+    db.delete(customer)
+    db.commit()
+
+    return {"success": True, "message": f"Customer {email} deleted successfully"}
 
 
 # ==================== RIDESHARE ENDPOINTS ====================
