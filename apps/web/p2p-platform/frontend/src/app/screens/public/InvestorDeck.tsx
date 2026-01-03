@@ -2304,6 +2304,418 @@ export default function InvestorDeck() {
           </div>
         </section>
 
+        {/* REVENUE VS BURN RATE CHART */}
+        <section className="container">
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              BREAK-EVEN ANALYSIS
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Revenue vs Total Costs</h2>
+          <p style={styles.sectionSubtitle}>Watch the lines cross at Month 8. <span style={{ color: '#00ff88' }}>That's when we become self-sustaining.</span></p>
+
+          <div className="glass-card" style={{ padding: '40px', marginBottom: '40px' }}>
+            {/* Legend */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', marginBottom: '30px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '30px', height: '4px', background: 'linear-gradient(90deg, #00ff88, #00d4ff)', borderRadius: '2px' }}></div>
+                <span style={{ color: '#00ff88', fontWeight: 600 }}>Gross Revenue</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '30px', height: '4px', background: 'linear-gradient(90deg, #ff4d4d, #ff9500)', borderRadius: '2px' }}></div>
+                <span style={{ color: '#ff4d4d', fontWeight: 600 }}>Total Costs (Fixed + Variable)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '20px', height: '20px', background: 'rgba(0,255,136,0.3)', borderRadius: '4px' }}></div>
+                <span style={{ color: '#888' }}>Profit Zone</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '20px', height: '20px', background: 'rgba(255,77,77,0.3)', borderRadius: '4px' }}></div>
+                <span style={{ color: '#888' }}>Loss Zone</span>
+              </div>
+            </div>
+
+            {/* Chart */}
+            <div style={{ position: 'relative', height: '350px' }}>
+              {/* Y-axis */}
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 40, width: '70px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                {['$300K', '$250K', '$200K', '$150K', '$100K', '$50K', '$0'].map((label) => (
+                  <div key={label} style={{ fontSize: '0.75rem', color: '#888', textAlign: 'right', paddingRight: '10px' }}>{label}</div>
+                ))}
+              </div>
+
+              {/* Chart Area */}
+              <div style={{ position: 'absolute', left: '70px', right: '20px', top: 0, bottom: '40px', borderLeft: '2px solid rgba(255,255,255,0.2)', borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                {/* Grid lines */}
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${i * 16.67}%`, borderTop: '1px dashed rgba(255,255,255,0.1)' }} />
+                ))}
+
+                {/* Data points and lines */}
+                {(() => {
+                  const data = [
+                    { month: 1, revenue: 0, costs: 85, label: 'M1' },
+                    { month: 2, revenue: 0, costs: 85, label: 'M2' },
+                    { month: 3, revenue: 30, costs: 100, label: 'M3' },
+                    { month: 4, revenue: 60, costs: 114, label: 'M4' },
+                    { month: 5, revenue: 90, costs: 129, label: 'M5' },
+                    { month: 6, revenue: 120, costs: 143, label: 'M6' },
+                    { month: 7, revenue: 150, costs: 158, label: 'M7' },
+                    { month: 8, revenue: 168, costs: 166, label: 'M8' },
+                    { month: 9, revenue: 192, costs: 178, label: 'M9' },
+                    { month: 10, revenue: 228, costs: 201, label: 'M10' },
+                    { month: 11, revenue: 270, costs: 221, label: 'M11' },
+                    { month: 12, revenue: 300, costs: 236, label: 'M12' },
+                  ];
+                  const maxValue = 300;
+                  const chartWidth = 100;
+                  const chartHeight = 100;
+
+                  return (
+                    <>
+                      {/* Loss zone (before break-even) */}
+                      <svg style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: '100%', height: '100%' }}>
+                        <defs>
+                          <linearGradient id="lossGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#ff4d4d" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#ff4d4d" stopOpacity="0.05" />
+                          </linearGradient>
+                          <linearGradient id="profitGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#00ff88" stopOpacity="0.05" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Loss area polygon (M1-M8) */}
+                        <polygon
+                          points={data.slice(0, 8).map((d, i) => {
+                            const x = (i / 11) * 100;
+                            const yRev = 100 - (d.revenue / maxValue) * 100;
+                            const yCost = 100 - (d.costs / maxValue) * 100;
+                            return `${x}%,${yCost}%`;
+                          }).join(' ') + ' ' + data.slice(0, 8).reverse().map((d, i) => {
+                            const x = ((7 - i) / 11) * 100;
+                            const yRev = 100 - (d.revenue / maxValue) * 100;
+                            return `${x}%,${yRev}%`;
+                          }).join(' ')}
+                          fill="url(#lossGradient)"
+                        />
+
+                        {/* Profit area polygon (M8-M12) */}
+                        <polygon
+                          points={data.slice(7).map((d, i) => {
+                            const x = ((i + 7) / 11) * 100;
+                            const yRev = 100 - (d.revenue / maxValue) * 100;
+                            return `${x}%,${yRev}%`;
+                          }).join(' ') + ' ' + data.slice(7).reverse().map((d, i) => {
+                            const x = ((11 - i) / 11) * 100;
+                            const yCost = 100 - (d.costs / maxValue) * 100;
+                            return `${x}%,${yCost}%`;
+                          }).join(' ')}
+                          fill="url(#profitGradient)"
+                        />
+
+                        {/* Revenue line */}
+                        <polyline
+                          points={data.map((d, i) => `${(i / 11) * 100}%,${100 - (d.revenue / maxValue) * 100}%`).join(' ')}
+                          fill="none"
+                          stroke="url(#revenueLineGradient)"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <defs>
+                          <linearGradient id="revenueLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#00ff88" />
+                            <stop offset="100%" stopColor="#00d4ff" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Costs line */}
+                        <polyline
+                          points={data.map((d, i) => `${(i / 11) * 100}%,${100 - (d.costs / maxValue) * 100}%`).join(' ')}
+                          fill="none"
+                          stroke="url(#costLineGradient)"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <defs>
+                          <linearGradient id="costLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#ff4d4d" />
+                            <stop offset="100%" stopColor="#ff9500" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+
+                      {/* Data points */}
+                      {data.map((d, i) => {
+                        const x = (i / 11) * 100;
+                        const yRev = 100 - (d.revenue / maxValue) * 100;
+                        const yCost = 100 - (d.costs / maxValue) * 100;
+                        const isBreakeven = d.month === 8;
+
+                        return (
+                          <div key={i}>
+                            {/* Revenue point */}
+                            <div style={{
+                              position: 'absolute',
+                              left: `${x}%`,
+                              top: `${yRev}%`,
+                              width: isBreakeven ? '16px' : '10px',
+                              height: isBreakeven ? '16px' : '10px',
+                              background: '#00ff88',
+                              borderRadius: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              boxShadow: isBreakeven ? '0 0 20px rgba(0,255,136,0.8)' : '0 0 10px rgba(0,255,136,0.5)',
+                              zIndex: 10
+                            }} />
+
+                            {/* Cost point */}
+                            <div style={{
+                              position: 'absolute',
+                              left: `${x}%`,
+                              top: `${yCost}%`,
+                              width: isBreakeven ? '16px' : '10px',
+                              height: isBreakeven ? '16px' : '10px',
+                              background: '#ff4d4d',
+                              borderRadius: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              boxShadow: isBreakeven ? '0 0 20px rgba(255,77,77,0.8)' : '0 0 10px rgba(255,77,77,0.5)',
+                              zIndex: 10
+                            }} />
+
+                            {/* Break-even indicator */}
+                            {isBreakeven && (
+                              <div style={{
+                                position: 'absolute',
+                                left: `${x}%`,
+                                top: '-30px',
+                                transform: 'translateX(-50%)',
+                                background: 'linear-gradient(135deg, #00ff88, #0088ff)',
+                                color: '#000',
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                boxShadow: '0 4px 15px rgba(0,255,136,0.4)',
+                                zIndex: 20
+                              }}>
+                                ✓ BREAK-EVEN
+                              </div>
+                            )}
+
+                            {/* Value labels for key months */}
+                            {(d.month === 1 || d.month === 8 || d.month === 12) && (
+                              <>
+                                <div style={{
+                                  position: 'absolute',
+                                  left: `${x}%`,
+                                  top: `${yRev - 8}%`,
+                                  transform: 'translateX(-50%)',
+                                  fontSize: '0.7rem',
+                                  color: '#00ff88',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ${d.revenue}K
+                                </div>
+                                <div style={{
+                                  position: 'absolute',
+                                  left: `${x}%`,
+                                  top: `${yCost + 5}%`,
+                                  transform: 'translateX(-50%)',
+                                  fontSize: '0.7rem',
+                                  color: '#ff4d4d',
+                                  fontWeight: 600,
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  ${d.costs}K
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Break-even vertical line */}
+                      <div style={{
+                        position: 'absolute',
+                        left: `${(7 / 11) * 100}%`,
+                        top: 0,
+                        bottom: 0,
+                        borderLeft: '2px dashed rgba(0,255,136,0.5)',
+                        zIndex: 5
+                      }} />
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* X-axis labels */}
+              <div style={{ position: 'absolute', left: '70px', right: '20px', bottom: 0, height: '40px', display: 'flex', justifyContent: 'space-between' }}>
+                {['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12'].map((label) => (
+                  <div key={label} style={{
+                    fontSize: '0.75rem',
+                    color: label === 'M8' ? '#00ff88' : '#888',
+                    fontWeight: label === 'M8' ? 700 : 400,
+                    textAlign: 'center',
+                    width: `${100/12}%`
+                  }}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Key Insights */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginTop: '30px' }}>
+              <div style={{ padding: '20px', background: 'rgba(255,77,77,0.1)', borderRadius: '12px', borderLeft: '4px solid #ff4d4d' }}>
+                <div style={{ fontSize: '0.85rem', color: '#ff4d4d', fontWeight: 600, marginBottom: '10px' }}>📉 Loss Phase (M1-M7)</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ff4d4d' }}>-$363K</div>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>Cumulative operating loss</div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '10px' }}>Costs exceed revenue as we build customer base</div>
+              </div>
+              <div style={{ padding: '20px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px', borderLeft: '4px solid #00ff88' }}>
+                <div style={{ fontSize: '0.85rem', color: '#00ff88', fontWeight: 600, marginBottom: '10px' }}>✓ Break-even (M8)</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>$168K = $166K</div>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>Revenue meets costs</div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '10px' }}>2,800 orders/day across 6 campuses</div>
+              </div>
+              <div style={{ padding: '20px', background: 'rgba(0,136,255,0.1)', borderRadius: '12px', borderLeft: '4px solid #0088ff' }}>
+                <div style={{ fontSize: '0.85rem', color: '#0088ff', fontWeight: 600, marginBottom: '10px' }}>📈 Profit Phase (M9-M12)</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0088ff' }}>+$156K</div>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>Cumulative operating profit</div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '10px' }}>Revenue grows faster than costs</div>
+              </div>
+            </div>
+          </div>
+
+          {/* The Math Behind Break-even */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              🧮 The Math Behind Month 8 Break-even
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+              <div>
+                <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>Revenue Side</h4>
+                <div style={{ fontFamily: 'monospace', padding: '20px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px' }}>
+                  <div style={{ marginBottom: '8px' }}>Orders/day: <span style={{ color: '#00ff88' }}>2,800</span></div>
+                  <div style={{ marginBottom: '8px' }}>× Revenue/order: <span style={{ color: '#00ff88' }}>$2.00</span></div>
+                  <div style={{ marginBottom: '8px' }}>= Daily revenue: <span style={{ color: '#00ff88' }}>$5,600</span></div>
+                  <div style={{ marginBottom: '8px' }}>× 30 days: </div>
+                  <div style={{ borderTop: '1px solid rgba(0,255,136,0.3)', paddingTop: '8px', fontWeight: 700, color: '#00ff88' }}>
+                    = $168,000/month
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 style={{ color: '#ff4d4d', marginBottom: '15px' }}>Cost Side</h4>
+                <div style={{ fontFamily: 'monospace', padding: '20px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                  <div style={{ marginBottom: '8px' }}>Fixed costs: <span style={{ color: '#ff4d4d' }}>$85,000</span></div>
+                  <div style={{ marginBottom: '8px' }}>+ Variable (84K orders × $0.97):</div>
+                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>Payment processing: <span style={{ color: '#ff9500' }}>$73,000</span></div>
+                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>AWS + Support: <span style={{ color: '#ff9500' }}>$8,400</span></div>
+                  <div style={{ borderTop: '1px solid rgba(255,77,77,0.3)', paddingTop: '8px', fontWeight: 700, color: '#ff4d4d' }}>
+                    = $166,400/month
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '25px', padding: '20px', background: 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,136,255,0.15))', borderRadius: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.3rem', marginBottom: '10px' }}>
+                <span style={{ color: '#00ff88', fontWeight: 700 }}>$168,000</span>
+                <span style={{ color: '#888' }}> revenue </span>
+                <span style={{ fontSize: '1.5rem' }}>−</span>
+                <span style={{ color: '#ff4d4d', fontWeight: 700 }}> $166,400</span>
+                <span style={{ color: '#888' }}> costs </span>
+                <span style={{ fontSize: '1.5rem' }}>=</span>
+                <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '1.5rem' }}> +$1,600</span>
+              </div>
+              <div style={{ color: '#00ff88', fontWeight: 600 }}>First profitable month! The flywheel begins.</div>
+            </div>
+          </div>
+
+          {/* Why Costs Don't Scale Linearly */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            <div className="glass-card">
+              <h4 style={{ color: '#ff9500', marginBottom: '15px' }}>📊 Cost Structure Advantage</h4>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Fixed Costs</span>
+                    <span style={{ color: '#ff9500', fontWeight: 600 }}>$85K/mo</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Team, infrastructure - doesn't change with volume</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Variable Costs</span>
+                    <span style={{ color: '#0088ff', fontWeight: 600 }}>$0.97/order</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Stripe fees, AWS compute - scales with orders</div>
+                </div>
+                <div style={{ padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', borderLeft: '3px solid #00ff88' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Contribution Margin</span>
+                    <span style={{ color: '#00ff88', fontWeight: 700 }}>$1.03/order</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Each order covers costs + contributes to fixed</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>🚀 Operating Leverage</h4>
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {[
+                  { orders: '50K/mo', revenue: '$100K', costs: '$134K', profit: '-$34K', color: '#ff4d4d' },
+                  { orders: '84K/mo', revenue: '$168K', costs: '$166K', profit: '+$2K', color: '#00ff88' },
+                  { orders: '150K/mo', revenue: '$300K', costs: '$236K', profit: '+$64K', color: '#00ff88' },
+                  { orders: '300K/mo', revenue: '$600K', costs: '$376K', profit: '+$224K', color: '#00ff88' },
+                ].map((row) => (
+                  <div key={row.orders} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.8rem' }}>{row.orders}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#00ff88' }}>{row.revenue}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#ff4d4d' }}>{row.costs}</div>
+                    <div style={{ fontSize: '0.8rem', color: row.color, fontWeight: 700 }}>{row.profit}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '10px', textAlign: 'center' }}>
+                Fixed costs get spread across more orders → margins expand
+              </div>
+            </div>
+
+            <div className="glass-card">
+              <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>💎 Margin Expansion</h4>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {[
+                  { period: 'Month 8', margin: '1%', bar: '5%', color: '#ff9500' },
+                  { period: 'Month 12', margin: '21%', bar: '21%', color: '#0088ff' },
+                  { period: 'Year 2', margin: '34%', bar: '34%', color: '#00ff88' },
+                  { period: 'Year 3', margin: '41%', bar: '41%', color: '#00ff88' },
+                  { period: 'Year 5', margin: '45%', bar: '45%', color: '#00ff88' },
+                ].map((row) => (
+                  <div key={row.period}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{row.period}</span>
+                      <span style={{ color: row.color, fontWeight: 600 }}>{row.margin}</span>
+                    </div>
+                    <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: row.bar, height: '100%', background: row.color, borderRadius: '4px' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(155,89,182,0.1)', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center' }}>
+                <strong style={{ color: '#9b59b6' }}>From 1% → 45% EBITDA margin</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 15. The Ask */}
         <section className="container" style={{ paddingBottom: '150px' }}>
           <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '60px 40px', background: 'linear-gradient(180deg, #1a1a2e 0%, rgba(0, 255, 136, 0.08) 100%)' }}>
