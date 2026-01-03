@@ -12,7 +12,7 @@ export default function InvestorDeck() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    const token = searchParams.get('token')?.toLowerCase().trim();
     if (token && VALID_TOKENS.includes(token)) {
       setIsAuthorized(true);
     }
