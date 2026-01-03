@@ -392,15 +392,23 @@ export default function InvestorDeck() {
 
           <div className="glass-card" style={{ padding: '0', overflow: 'hidden', marginBottom: '30px' }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '24%' }} />
+                </colgroup>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Metric</th>
+                    <th style={{ ...styles.tableHeader, textAlign: 'left', paddingLeft: '20px' }}>Metric</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>DoorDash</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>Uber Eats</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>Grubhub</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>Instacart</th>
-                    <th style={{ ...styles.tableHeader, color: '#00ff88', fontSize: '1.1rem' }}>Dollor.ai</th>
+                    <th style={{ ...styles.tableHeader, color: '#00ff88', fontSize: '1.1rem', background: 'rgba(0,255,136,0.1)' }}>Dollor.ai</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -409,18 +417,18 @@ export default function InvestorDeck() {
                     { metric: 'Driver Take Rate', dd: '60-70%', ue: '55-65%', gh: '60-70%', ic: '70-80%', us: '100%', usColor: '#00ff88' },
                     { metric: 'Customer Platform Fee', dd: '$3-8', ue: '$3-10', gh: '$2-7', ic: '$4-10', us: '$1 FLAT', usColor: '#00ff88' },
                     { metric: 'Delivery Fee', dd: 'Included above', ue: 'Included above', gh: 'Included above', ic: 'Included above', us: 'Market rate → Driver', usColor: '#00ff88' },
-                    { metric: 'Hidden Fees', dd: 'Yes (Service, Small Order)', ue: 'Yes (Service, Busy)', gh: 'Yes (Service)', ic: 'Yes (Service, Tip)', us: 'NONE', usColor: '#00ff88' },
+                    { metric: 'Hidden Fees', dd: 'Yes (Service)', ue: 'Yes (Service)', gh: 'Yes (Service)', ic: 'Yes (Tip)', us: 'NONE', usColor: '#00ff88' },
                     { metric: 'Profitable?', dd: 'NO (-$1.4B)', ue: 'NO (-$2.1B)', gh: 'NO (-$400M)', ic: 'Barely', us: 'YES (Month 5-6)', usColor: '#00ff88' },
                     { metric: 'Driver Satisfaction', dd: '2.1/5 ⭐', ue: '1.9/5 ⭐', gh: '2.3/5 ⭐', ic: '2.8/5 ⭐', us: 'N/A (New)', usColor: '#888' },
                     { metric: 'FTC Investigation', dd: 'YES', ue: 'YES', gh: 'YES', ic: 'No', us: 'NO', usColor: '#00ff88' },
                   ].map((row, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                      <td style={{ ...styles.tableCell, fontWeight: 600 }}>{row.metric}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'left', paddingLeft: '20px', fontWeight: 600 }}>{row.metric}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.85rem' }}>{row.dd}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.85rem' }}>{row.ue}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.85rem' }}>{row.gh}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.85rem' }}>{row.ic}</td>
-                      <td style={{ ...styles.tableCell, color: row.usColor, fontWeight: 700 }}>{row.us}</td>
+                      <td style={{ ...styles.tableCell, color: row.usColor, fontWeight: 700, background: 'rgba(0,255,136,0.05)' }}>{row.us}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -433,13 +441,19 @@ export default function InvestorDeck() {
               <h3 style={{ color: '#0088ff', fontSize: '1.2rem', marginBottom: '0' }}>🚗 Rideshare Comparison</h3>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '28%' }} />
+                  <col style={{ width: '24%' }} />
+                  <col style={{ width: '24%' }} />
+                  <col style={{ width: '24%' }} />
+                </colgroup>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                    <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Metric</th>
+                    <th style={{ ...styles.tableHeader, textAlign: 'left', paddingLeft: '20px' }}>Metric</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>Uber</th>
                     <th style={{ ...styles.tableHeader, color: '#ff4d4d' }}>Lyft</th>
-                    <th style={{ ...styles.tableHeader, color: '#00ff88', fontSize: '1.1rem' }}>Dollor.ai</th>
+                    <th style={{ ...styles.tableHeader, color: '#00ff88', fontSize: '1.1rem', background: 'rgba(0,255,136,0.1)' }}>Dollor.ai</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -447,15 +461,15 @@ export default function InvestorDeck() {
                     { metric: 'Platform Take Rate', uber: '25-40%', lyft: '20-35%', us: '$1-3 FLAT' },
                     { metric: 'Driver Earnings', uber: '60-75% of fare', lyft: '65-80% of fare', us: '95-97% of fare' },
                     { metric: 'Surge Pricing', uber: '2x-5x multiplier', lyft: '2x-4x multiplier', us: 'Driver sets price' },
-                    { metric: 'Driver Flexibility', uber: 'Algorithm assigns rides', lyft: 'Algorithm assigns rides', us: 'Drivers choose rides' },
+                    { metric: 'Driver Flexibility', uber: 'Algorithm assigns', lyft: 'Algorithm assigns', us: 'Drivers choose rides' },
                     { metric: 'Booking Fees', uber: '$2-5 per ride', lyft: '$2-4 per ride', us: 'NONE' },
                     { metric: 'Profitability', uber: 'Break-even 2024', lyft: '-$350M (2024)', us: 'Profitable Month 5-6' },
                   ].map((row, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                      <td style={{ ...styles.tableCell, fontWeight: 600 }}>{row.metric}</td>
+                      <td style={{ ...styles.tableCell, textAlign: 'left', paddingLeft: '20px', fontWeight: 600 }}>{row.metric}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.9rem' }}>{row.uber}</td>
                       <td style={{ ...styles.tableCell, color: '#ff4d4d', fontSize: '0.9rem' }}>{row.lyft}</td>
-                      <td style={{ ...styles.tableCell, color: '#00ff88', fontWeight: 700 }}>{row.us}</td>
+                      <td style={{ ...styles.tableCell, color: '#00ff88', fontWeight: 700, background: 'rgba(0,255,136,0.05)' }}>{row.us}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3403,10 +3417,10 @@ export default function InvestorDeck() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-              <a href="mailto:invest@dollor.ai" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', minWidth: '200px', textAlign: 'center' }}>invest@dollor.ai</a>
-              <a href="https://dollor.ai" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #00ff88', color: '#00ff88', minWidth: '200px', textAlign: 'center' }}>Visit dollor.ai</a>
-              <a href="https://api.dollor.ai/docs" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '15px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #9b59b6', color: '#9b59b6', minWidth: '200px', textAlign: 'center' }}>View Live API</a>
+            <div className="btn-group" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'stretch' }}>
+              <a href="mailto:invest@dollor.ai" style={{ ...styles.ctaButton, padding: '18px 40px', fontSize: '1.1rem', textDecoration: 'none', minWidth: '220px', textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>invest@dollor.ai</a>
+              <a href="https://dollor.ai" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '18px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #00ff88', color: '#00ff88', minWidth: '220px', textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>Visit dollor.ai</a>
+              <a href="https://api.dollor.ai/docs" target="_blank" rel="noopener noreferrer" style={{ ...styles.ctaButton, padding: '18px 40px', fontSize: '1.1rem', textDecoration: 'none', background: 'transparent', border: '2px solid #9b59b6', color: '#9b59b6', minWidth: '220px', textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>View Live API</a>
             </div>
           </div>
         </section>
@@ -3444,6 +3458,7 @@ const cssStyles = `
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     padding: 30px;
+    height: 100%;
   }
   .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
   .text-gradient {
@@ -3454,7 +3469,28 @@ const cssStyles = `
   }
   a { color: #00ff88; }
   a:hover { opacity: 0.8; }
-  @media (max-width: 768px) { .grid-3 { grid-template-columns: 1fr; } }
+
+  /* Table alignment fixes */
+  table { table-layout: fixed; }
+  table th, table td { vertical-align: middle; }
+
+  /* Grid alignment */
+  .align-grid > * { display: flex; flex-direction: column; }
+
+  /* Button alignment */
+  .btn-group { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; align-items: stretch; }
+  .btn-group a, .btn-group button { min-width: 180px; text-align: center; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* List alignment */
+  ul { padding-left: 0; }
+  li { list-style-position: inside; }
+
+  @media (max-width: 768px) {
+    .grid-3 { grid-template-columns: 1fr; }
+    table { font-size: 0.8rem; }
+    .btn-group { flex-direction: column; }
+    .btn-group a, .btn-group button { width: 100%; }
+  }
 `;
 
 const styles: { [key: string]: React.CSSProperties } = {
@@ -3473,8 +3509,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   agentList: { listStyle: 'none', padding: 0, display: 'grid', gap: '8px' },
   agentItem: { padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '0.9rem' },
   highlightBox: { textAlign: 'center' as const, padding: '20px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px', border: '1px solid #00ff88' },
-  tableHeader: { padding: '20px', color: '#888' },
-  tableCell: { padding: '20px' },
+  tableHeader: { padding: '15px 12px', color: '#888', textAlign: 'center' as const, verticalAlign: 'middle' as const, whiteSpace: 'nowrap' as const },
+  tableCell: { padding: '15px 12px', textAlign: 'center' as const, verticalAlign: 'middle' as const },
   teamList: { listStyle: 'none', padding: 0, color: '#888', display: 'grid', gap: '8px' },
   costBadge: { marginTop: '15px', padding: '10px', borderRadius: '8px', textAlign: 'center' as const },
   scaleRow: { display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' },
