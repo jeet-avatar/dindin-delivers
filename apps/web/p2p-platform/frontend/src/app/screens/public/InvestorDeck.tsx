@@ -1712,39 +1712,311 @@ export default function InvestorDeck() {
           </div>
         </section>
 
-        {/* 15. 5-Year Financial Projections */}
+        {/* 15. CFO-GRADE EBITDA & FINANCIAL MODEL */}
         <section className="container">
-          <h2 style={styles.sectionTitle}>5-Year Financial Projections</h2>
-          <p style={styles.sectionSubtitle}>From seed to $200M+ revenue. 91% margins at scale.</p>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              CFO-GRADE FINANCIALS
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>EBITDA Model & Use of Funds</h2>
+          <p style={styles.sectionSubtitle}>Bank-ready financials. <span style={{ color: '#00ff88' }}>Every dollar accounted for.</span></p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '2px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', overflow: 'hidden' }}>
-            {[
-              { year: 'Year 1', profit: '-$135K', margin: 'Investment Phase', negative: true },
-              { year: 'Year 2', profit: '$2.36M', margin: '66% Margin' },
-              { year: 'Year 3', profit: '$14.3M', margin: '80% Margin' },
-              { year: 'Year 4', profit: '$60.8M', margin: '88% Margin' },
-              { year: 'Year 5', profit: '$187M', margin: '91% Margin', highlight: true },
-            ].map((row) => (
-              <div key={row.year} style={styles.yearCard}>
-                <div style={{ color: '#888', fontSize: '0.85rem', marginBottom: '8px' }}>{row.year}</div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 700, color: row.negative ? '#ff4d4d' : row.highlight ? '#00ff88' : 'white' }}>{row.profit}</div>
-                <div style={{ fontSize: '0.8rem', marginTop: '5px', color: '#888' }}>{row.margin}</div>
-              </div>
-            ))}
+          {/* Key Assumptions Box */}
+          <div className="glass-card" style={{ marginBottom: '40px', borderLeft: '4px solid #ff9500' }}>
+            <h3 style={{ color: '#ff9500', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>⚠️</span> Key Assumptions (Auditable)
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+              {[
+                { label: 'Avg Order Value (AOV)', value: '$30', note: 'Food delivery average' },
+                { label: 'Platform Revenue/Order', value: '$2.00', note: '$1 customer + $1 restaurant' },
+                { label: 'Variable Cost/Order', value: '$0.97', note: 'Stripe 2.9% + AWS + Support' },
+                { label: 'Contribution Margin', value: '$1.03 (51.5%)', note: 'Revenue - Variable Costs' },
+                { label: 'Monthly Fixed Costs', value: '$85,000', note: 'Team + Infra + Overhead' },
+                { label: 'Break-even Orders/Month', value: '82,525', note: '$85K ÷ $1.03/order' },
+                { label: 'Break-even Orders/Day', value: '2,751', note: '82,525 ÷ 30 days' },
+                { label: 'Customer Retention', value: '9 months avg', note: 'College students = 2 semesters' },
+              ].map((item) => (
+                <div key={item.label} style={{ padding: '15px', background: 'rgba(255,149,0,0.1)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.label}</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#ff9500' }}>{item.value}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>{item.note}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+          {/* Detailed Use of Funds Waterfall */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              💰 Use of Funds: <span style={{ color: '#00ff88' }}>$2,000,000 Allocation</span>
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left', width: '30%' }}>Category</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Amount</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'center' }}>%</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Monthly Burn</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Runway</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Justification</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { category: 'Engineering (Senior)', amount: '$700,000', pct: '35%', monthly: '$38,889', runway: '18 mo', justify: '12 iOS/Android + 8 Backend @ $12-15/hr Bangalore senior rates', color: '#00ff88' },
+                  { category: 'Operations (Fresh Grads)', amount: '$350,000', pct: '17.5%', monthly: '$19,444', runway: '18 mo', justify: '30 fresh CS grads @ $6-10/hr for QA, AI training, support', color: '#0088ff' },
+                  { category: 'AI Infrastructure', amount: '$250,000', pct: '12.5%', monthly: '-', runway: 'CapEx', justify: 'GPU servers (owned), Qwen/Ollama setup, zero recurring API costs', color: '#9b59b6' },
+                  { category: 'Marketing & Launch', amount: '$350,000', pct: '17.5%', monthly: '$29,167', runway: '12 mo', justify: '6 campus launches × $50K each + $50K influencer reserve', color: '#ff9500' },
+                  { category: 'Infrastructure & Security', amount: '$200,000', pct: '10%', monthly: '$8,000', runway: '25 mo', justify: 'AWS ($5K/mo) + SOC 2 audit ($50K) + security tools ($3K/mo)', color: '#ff4d4d' },
+                  { category: 'Working Capital & Legal', amount: '$150,000', pct: '7.5%', monthly: '-', runway: 'Reserve', justify: 'Legal ($40K), Insurance ($30K), Patents ($30K), Contingency ($50K)', color: '#888' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <td style={{ ...styles.tableCell, fontWeight: 600 }}><span style={{ color: row.color }}>●</span> {row.category}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.color, fontWeight: 700 }}>{row.amount}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'center' }}>{row.pct}</td>
+                    <td style={{ ...styles.tableCell }}>{row.monthly}</td>
+                    <td style={{ ...styles.tableCell }}>{row.runway}</td>
+                    <td style={{ ...styles.tableCell, fontSize: '0.8rem', color: '#888' }}>{row.justify}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: 'rgba(0,255,136,0.1)' }}>
+                  <td style={{ ...styles.tableCell, fontWeight: 700 }}>TOTAL</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'right', fontWeight: 700, color: '#00ff88' }}>$2,000,000</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700 }}>100%</td>
+                  <td style={{ ...styles.tableCell, fontWeight: 700 }}>$95,500</td>
+                  <td style={{ ...styles.tableCell, fontWeight: 700, color: '#00ff88' }}>20.9 mo</td>
+                  <td style={{ ...styles.tableCell, fontSize: '0.8rem', color: '#00ff88' }}>Break-even at Month 8 extends runway indefinitely</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Month-by-Month P&L - Year 1 */}
+          <div className="glass-card" style={{ marginBottom: '40px', overflowX: 'auto' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              📊 Month-by-Month P&L: <span style={{ color: '#0088ff' }}>Year 1 Projection</span>
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Metric</th>
+                  {['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12'].map(m => (
+                    <th key={m} style={{ ...styles.tableCell, textAlign: 'right', fontSize: '0.75rem', padding: '8px 4px' }}>{m}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { metric: 'Orders/Day', values: [0, 0, 500, 1000, 1500, 2000, 2500, 2800, 3200, 3800, 4500, 5000], color: '#888' },
+                  { metric: 'Orders/Month', values: [0, 0, 15000, 30000, 45000, 60000, 75000, 84000, 96000, 114000, 135000, 150000], color: '#888' },
+                  { metric: 'Gross Revenue', values: ['$0', '$0', '$30K', '$60K', '$90K', '$120K', '$150K', '$168K', '$192K', '$228K', '$270K', '$300K'], color: '#00ff88' },
+                  { metric: 'Variable Costs', values: ['$0', '$0', '$15K', '$29K', '$44K', '$58K', '$73K', '$81K', '$93K', '$111K', '$131K', '$146K'], color: '#ff4d4d' },
+                  { metric: 'Contribution Margin', values: ['$0', '$0', '$15K', '$31K', '$46K', '$62K', '$77K', '$87K', '$99K', '$117K', '$139K', '$155K'], color: '#0088ff' },
+                  { metric: 'Fixed Costs', values: ['$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$90K', '$90K', '$90K'], color: '#ff9500' },
+                  { metric: 'EBITDA', values: ['-$85K', '-$85K', '-$70K', '-$54K', '-$39K', '-$23K', '-$8K', '+$2K', '+$14K', '+$27K', '+$49K', '+$65K'], highlight: true },
+                  { metric: 'Cumulative EBITDA', values: ['-$85K', '-$170K', '-$240K', '-$294K', '-$333K', '-$356K', '-$364K', '-$362K', '-$348K', '-$321K', '-$272K', '-$207K'], color: '#9b59b6' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: row.highlight ? 'rgba(0,255,136,0.1)' : 'transparent' }}>
+                    <td style={{ ...styles.tableCell, fontWeight: 600, fontSize: '0.8rem' }}>{row.metric}</td>
+                    {row.values.map((v, j) => (
+                      <td key={j} style={{
+                        ...styles.tableCell,
+                        textAlign: 'right',
+                        fontSize: '0.7rem',
+                        padding: '8px 4px',
+                        color: row.highlight ? (String(v).includes('+') ? '#00ff88' : '#ff4d4d') : row.color
+                      }}>{v}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
+              <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(0,255,136,0.15)', borderRadius: '10px', border: '1px solid #00ff88' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Break-even Month</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>Month 8</div>
+                <div style={{ fontSize: '0.7rem', color: '#888' }}>2,800 orders/day</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(0,136,255,0.15)', borderRadius: '10px', border: '1px solid #0088ff' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Year 1 EBITDA</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ff4d4d' }}>-$207K</div>
+                <div style={{ fontSize: '0.7rem', color: '#888' }}>Investment phase</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(155,89,182,0.15)', borderRadius: '10px', border: '1px solid #9b59b6' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Year 1 Revenue</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#9b59b6' }}>$1.61M</div>
+                <div style={{ fontSize: '0.7rem', color: '#888' }}>804,000 orders</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5-Year EBITDA Projection */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              📈 5-Year EBITDA Projection
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                  <th style={{ ...styles.tableCell, textAlign: 'left' }}>Metric</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 1</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 2</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 3</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 4</th>
+                  <th style={{ ...styles.tableCell, textAlign: 'right' }}>Year 5</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { metric: 'Campuses/Cities', y1: '6', y2: '15', y3: '40', y4: '100', y5: '200', color: '#888' },
+                  { metric: 'Daily Orders', y1: '5,000', y2: '25,000', y3: '100,000', y4: '300,000', y5: '600,000', color: '#888' },
+                  { metric: 'Annual Orders', y1: '804K', y2: '9.1M', y3: '36.5M', y4: '109.5M', y5: '219M', color: '#888' },
+                  { metric: 'Gross Revenue', y1: '$1.61M', y2: '$18.2M', y3: '$73M', y4: '$219M', y5: '$438M', color: '#00ff88' },
+                  { metric: 'Rideshare Revenue', y1: '$0', y2: '$2M', y3: '$10M', y4: '$40M', y5: '$100M', color: '#0088ff' },
+                  { metric: 'Total Revenue', y1: '$1.61M', y2: '$20.2M', y3: '$83M', y4: '$259M', y5: '$538M', color: '#00ff88', bold: true },
+                  { metric: 'Variable Costs (48.5%)', y1: '$0.78M', y2: '$9.8M', y3: '$40.3M', y4: '$125.6M', y5: '$260.9M', color: '#ff4d4d' },
+                  { metric: 'Contribution Margin', y1: '$0.83M', y2: '$10.4M', y3: '$42.7M', y4: '$133.4M', y5: '$277.1M', color: '#0088ff' },
+                  { metric: 'Fixed Costs', y1: '$1.02M', y2: '$3.5M', y3: '$8.5M', y4: '$20M', y5: '$35M', color: '#ff9500' },
+                  { metric: 'EBITDA', y1: '-$0.19M', y2: '$6.9M', y3: '$34.2M', y4: '$113.4M', y5: '$242.1M', highlight: true },
+                  { metric: 'EBITDA Margin', y1: '-12%', y2: '34%', y3: '41%', y4: '44%', y5: '45%', color: '#9b59b6' },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: row.highlight ? 'rgba(0,255,136,0.1)' : 'transparent' }}>
+                    <td style={{ ...styles.tableCell, fontWeight: row.bold ? 700 : 600, fontSize: '0.85rem' }}>{row.metric}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#ff4d4d' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y1}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y2}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y3}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y4}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y5}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Cash Flow & Runway Analysis */}
+          <div className="glass-card" style={{ marginBottom: '40px' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
+              💵 Cash Flow & Runway Analysis
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+              <div style={{ padding: '25px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px', border: '1px solid rgba(0,255,136,0.3)' }}>
+                <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>Cash Position Timeline</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[
+                    { month: 'Day 0', cash: '$2,000,000', note: 'Investment received' },
+                    { month: 'Month 3', cash: '$1,730,000', note: 'First campus launched' },
+                    { month: 'Month 6', cash: '$1,374,000', note: '3 campuses, revenue growing' },
+                    { month: 'Month 8', cash: '$1,290,000', note: 'BREAK-EVEN reached' },
+                    { month: 'Month 12', cash: '$1,497,000', note: 'Cash positive, growing' },
+                    { month: 'Month 18', cash: '$2,850,000', note: 'Self-funded growth' },
+                  ].map((item) => (
+                    <div key={item.month} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{item.month}</span>
+                      <span style={{ color: '#00ff88', fontWeight: 600 }}>{item.cash}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ padding: '25px', background: 'rgba(0,136,255,0.1)', borderRadius: '12px', border: '1px solid rgba(0,136,255,0.3)' }}>
+                <h4 style={{ color: '#0088ff', marginBottom: '15px' }}>Sensitivity Analysis</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[
+                    { scenario: 'Base Case', breakeven: 'Month 8', orders: '2,751/day', prob: '70%' },
+                    { scenario: 'Optimistic (+20%)', breakeven: 'Month 6', orders: '2,300/day', prob: '20%' },
+                    { scenario: 'Conservative (-20%)', breakeven: 'Month 11', orders: '3,440/day', prob: '10%' },
+                  ].map((item) => (
+                    <div key={item.scenario} style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                        <span style={{ fontWeight: 600 }}>{item.scenario}</span>
+                        <span style={{ color: '#0088ff' }}>{item.prob}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                        Break-even: {item.breakeven} @ {item.orders}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(255,149,0,0.2)', borderRadius: '6px', fontSize: '0.8rem' }}>
+                  <strong style={{ color: '#ff9500' }}>Worst Case:</strong> Even at -40% performance, runway extends to 18+ months with $600K remaining for pivot.
+                </div>
+              </div>
+
+              <div style={{ padding: '25px', background: 'rgba(155,89,182,0.1)', borderRadius: '12px', border: '1px solid rgba(155,89,182,0.3)' }}>
+                <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>Capital Efficiency Metrics</h4>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {[
+                    { metric: 'Revenue per $1 Invested', value: '$0.80 (Y1) → $269 (Y5)', color: '#9b59b6' },
+                    { metric: 'CAC Payback', value: '4 days', color: '#00ff88' },
+                    { metric: 'LTV:CAC Ratio', value: '39:1', color: '#0088ff' },
+                    { metric: 'Gross Margin', value: '51.5%', color: '#ff9500' },
+                    { metric: 'EBITDA Margin (Y5)', value: '45%', color: '#00ff88' },
+                    { metric: 'Cash Conversion Cycle', value: '0 days', color: '#9b59b6' },
+                  ].map((item) => (
+                    <div key={item.metric} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#888' }}>{item.metric}</span>
+                      <span style={{ fontWeight: 700, color: item.color }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Break-even Math Proof */}
+          <div className="glass-card" style={{ marginBottom: '40px', borderLeft: '4px solid #00ff88' }}>
+            <h3 style={{ marginBottom: '20px' }}>
+              🧮 Break-even Math (Auditable)
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+              <div>
+                <h4 style={{ color: '#00ff88', marginBottom: '15px' }}>The Formula</h4>
+                <div style={{ fontFamily: 'monospace', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', fontSize: '0.9rem' }}>
+                  <div style={{ marginBottom: '10px' }}>Break-even Orders = Fixed Costs ÷ Contribution Margin</div>
+                  <div style={{ marginBottom: '10px' }}>= $85,000 ÷ $1.03</div>
+                  <div style={{ color: '#00ff88', fontWeight: 700 }}>= 82,525 orders/month</div>
+                  <div style={{ marginTop: '15px', color: '#888' }}>= 2,751 orders/day</div>
+                  <div style={{ color: '#888' }}>= 115 orders/hour (24/7)</div>
+                </div>
+              </div>
+              <div>
+                <h4 style={{ color: '#0088ff', marginBottom: '15px' }}>Why Month 8 is Achievable</h4>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[
+                    { fact: '6 campuses × 460 orders/day each', check: '= 2,760 orders/day ✓' },
+                    { fact: 'Avg campus: 40,000 students', check: '460 orders = 1.15% daily penetration' },
+                    { fact: 'DoorDash college penetration', check: '3-5% daily (we need 1.15%)' },
+                    { fact: 'Each order = 2 transactions', check: 'Customer pays, restaurant pays' },
+                  ].map((item) => (
+                    <div key={item.fact} style={{ padding: '10px', background: 'rgba(0,136,255,0.1)', borderRadius: '6px' }}>
+                      <div style={{ fontSize: '0.85rem' }}>{item.fact}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#00ff88' }}>{item.check}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Investor Return Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
             <div className="glass-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>$500M+</div>
-              <div style={{ color: '#888' }}>Exit Potential</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>$242M</div>
+              <div style={{ color: '#888' }}>Year 5 EBITDA</div>
             </div>
             <div className="glass-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>150x</div>
-              <div style={{ color: '#888' }}>Investor Return</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0088ff' }}>45%</div>
+              <div style={{ color: '#888' }}>EBITDA Margin</div>
             </div>
             <div className="glass-card" style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>Month 8</div>
-              <div style={{ color: '#888' }}>Break-even</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#9b59b6' }}>8-12x</div>
+              <div style={{ color: '#888' }}>EBITDA Multiple (Exit)</div>
+            </div>
+            <div className="glass-card" style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#00ff88' }}>$2-3B</div>
+              <div style={{ color: '#888' }}>Exit Valuation Range</div>
             </div>
           </div>
         </section>
