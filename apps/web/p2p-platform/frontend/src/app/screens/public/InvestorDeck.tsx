@@ -1362,25 +1362,37 @@ export default function InvestorDeck() {
                 </div>
               </div>
               <div>
-                <h4 style={{ color: '#ff4d4d', marginBottom: '15px' }}>Platform Cost Per Order</h4>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', border: '1px dashed rgba(0,255,136,0.3)' }}>
-                    <span>Stripe on full order</span><span style={{ color: '#00ff88', fontWeight: 600 }}>$0.00 ✓</span>
+                <h4 style={{ color: '#ff4d4d', marginBottom: '15px' }}>Platform Cost Per Order (All-In)</h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', border: '1px dashed rgba(0,255,136,0.3)' }}>
+                    <span>Stripe on $30 order</span><span style={{ color: '#00ff88', fontWeight: 600 }}>$0.00 ✓</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#888', padding: '0 12px', fontStyle: 'italic' }}>
-                    ↳ Stripe Connect: Money goes direct to restaurant/driver. Platform never touches it.
+                  <div style={{ fontSize: '0.7rem', color: '#888', padding: '0 12px', fontStyle: 'italic' }}>
+                    ↳ Stripe Connect Direct: Restaurant pays 2.9%+$0.30, not us
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
                     <span>Stripe on $2 platform fee</span><span style={{ color: '#ff4d4d' }}>$0.09</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
-                    <span>AWS Infrastructure</span><span style={{ color: '#ff4d4d' }}>$0.02</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Google Maps (2 geocode + directions)</span><span style={{ color: '#ff4d4d' }}>$0.015</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
-                    <span>AI/Support (Bangalore)</span><span style={{ color: '#ff4d4d' }}>$0.08</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Twilio SMS (2 notifications)</span><span style={{ color: '#ff4d4d' }}>$0.016</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(255,77,77,0.2)', borderRadius: '8px', border: '1px solid #ff4d4d' }}>
-                    <span style={{ fontWeight: 600 }}>Total Cost/Order</span><span style={{ color: '#ff4d4d', fontWeight: 700, fontSize: '1.2rem' }}>$0.19</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>AWS (EC2, RDS, S3, CloudFront)</span><span style={{ color: '#ff4d4d' }}>$0.01</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Firebase Push (free tier)</span><span style={{ color: '#00ff88' }}>$0.00</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Email (transactional)</span><span style={{ color: '#ff4d4d' }}>$0.002</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
+                    <span>Support allocation</span><span style={{ color: '#ff4d4d' }}>$0.05</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.2)', borderRadius: '8px', border: '1px solid #ff4d4d' }}>
+                    <span style={{ fontWeight: 600 }}>Total Variable Cost/Order</span><span style={{ color: '#ff4d4d', fontWeight: 700, fontSize: '1.1rem' }}>$0.183</span>
                   </div>
                 </div>
               </div>
@@ -1454,6 +1466,90 @@ export default function InvestorDeck() {
             <p style={{ textAlign: 'center', marginTop: '15px', color: '#888', fontSize: '0.85rem' }}>
               Industry avg 12-mo retention: 15-20%. <span style={{ color: '#00ff88', fontWeight: 600 }}>Ours: 35%</span> (lower fees = higher retention)
             </p>
+          </div>
+
+          {/* Monthly Infrastructure Costs - Full Breakdown */}
+          <div className="glass-card" style={{ marginTop: '30px', background: 'linear-gradient(135deg, rgba(155,89,182,0.1), rgba(0,0,0,0))' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '25px', fontSize: '1.3rem' }}>
+              🏗️ Monthly Infrastructure & Service Costs <span style={{ color: '#888', fontSize: '0.9rem' }}>(All-In)</span>
+            </h3>
+            <p style={{ textAlign: 'center', color: '#888', marginBottom: '25px', fontSize: '0.9rem' }}>
+              Comprehensive breakdown at 1,000 orders/day (30,000/month) scale
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+              <div>
+                <h4 style={{ color: '#9b59b6', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>☁️</span> AWS Infrastructure
+                </h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {[
+                    { service: 'EC2 (t3.medium x2)', cost: '$60' },
+                    { service: 'RDS PostgreSQL', cost: '$70' },
+                    { service: 'ElastiCache Redis', cost: '$15' },
+                    { service: 'S3 Storage (100GB)', cost: '$3' },
+                    { service: 'CloudFront CDN', cost: '$10' },
+                    { service: 'EKS Cluster', cost: '$73' },
+                    { service: 'Load Balancer', cost: '$20' },
+                    { service: 'NAT Gateway', cost: '$45' },
+                  ].map((item) => (
+                    <div key={item.service} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <span>{item.service}</span><span style={{ color: '#9b59b6' }}>{item.cost}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(155,89,182,0.2)', borderRadius: '8px', fontWeight: 600 }}>
+                    <span>AWS Subtotal</span><span style={{ color: '#9b59b6' }}>$296/mo</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 style={{ color: '#0088ff', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🗺️</span> Third-Party APIs
+                </h4>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {[
+                    { service: 'Google Maps ($5/1K req)', cost: '$450', note: '90K requests' },
+                    { service: 'Twilio SMS ($0.0079/msg)', cost: '$474', note: '60K messages' },
+                    { service: 'Persona ID Verification', cost: '$500', note: '~500 new drivers' },
+                    { service: 'SendGrid Email', cost: '$45', note: '90K emails' },
+                    { service: 'Firebase Push', cost: '$0', note: 'Free tier' },
+                  ].map((item) => (
+                    <div key={item.service} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <div>
+                        <span>{item.service}</span>
+                        <div style={{ fontSize: '0.7rem', color: '#666' }}>{item.note}</div>
+                      </div>
+                      <span style={{ color: '#0088ff' }}>{item.cost}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(0,136,255,0.2)', borderRadius: '8px', fontWeight: 600 }}>
+                    <span>APIs Subtotal</span><span style={{ color: '#0088ff' }}>$1,469/mo</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '25px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', textAlign: 'center' }}>
+              <div style={{ padding: '20px', background: 'rgba(255,77,77,0.1)', borderRadius: '12px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Total Monthly Infra</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ff4d4d' }}>$1,765</div>
+                <div style={{ fontSize: '0.75rem', color: '#888' }}>@1K orders/day</div>
+              </div>
+              <div style={{ padding: '20px', background: 'rgba(0,255,136,0.1)', borderRadius: '12px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>Cost Per Order</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00ff88' }}>$0.059</div>
+                <div style={{ fontSize: '0.75rem', color: '#888' }}>Extremely lean</div>
+              </div>
+              <div style={{ padding: '20px', background: 'rgba(155,89,182,0.1)', borderRadius: '12px' }}>
+                <div style={{ fontSize: '0.8rem', color: '#888' }}>At Scale (5K/day)</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#9b59b6' }}>$0.042</div>
+                <div style={{ fontSize: '0.75rem', color: '#888' }}>Economies of scale</div>
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '10px', border: '1px solid rgba(0,255,136,0.3)' }}>
+              <p style={{ textAlign: 'center', color: '#00ff88', fontWeight: 600, marginBottom: '5px' }}>💡 Why Our Infra Costs Are So Low</p>
+              <p style={{ textAlign: 'center', color: '#888', fontSize: '0.85rem', margin: 0 }}>
+                <strong>Self-hosted AI (Qwen + Ollama):</strong> Zero OpenAI/Claude API fees. <strong>Stripe Connect Direct:</strong> We don't process payments. <strong>Firebase Free Tier:</strong> 100K push/month free. <strong>Bangalore DevOps:</strong> 24/7 monitoring at $8/hr.
+              </p>
+            </div>
           </div>
         </section>
 
