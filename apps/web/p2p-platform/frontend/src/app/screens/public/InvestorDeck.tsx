@@ -2247,7 +2247,7 @@ export default function InvestorDeck() {
                   <td style={{ ...styles.tableCell, textAlign: 'center', fontWeight: 700 }}>100%</td>
                   <td style={{ ...styles.tableCell, fontWeight: 700 }}>$95,500</td>
                   <td style={{ ...styles.tableCell, fontWeight: 700, color: '#00ff88' }}>20.9 mo</td>
-                  <td style={{ ...styles.tableCell, fontSize: '0.8rem', color: '#00ff88' }}>Break-even at Month 8 extends runway indefinitely</td>
+                  <td style={{ ...styles.tableCell, fontSize: '0.8rem', color: '#00ff88' }}>Break-even at Month 6 extends runway indefinitely</td>
                 </tr>
               </tbody>
             </table>
@@ -2272,11 +2272,11 @@ export default function InvestorDeck() {
                   { metric: 'Orders/Day', values: [0, 0, 500, 1000, 1500, 2000, 2500, 2800, 3200, 3800, 4500, 5000], color: '#888' },
                   { metric: 'Orders/Month', values: [0, 0, 15000, 30000, 45000, 60000, 75000, 84000, 96000, 114000, 135000, 150000], color: '#888' },
                   { metric: 'Gross Revenue', values: ['$0', '$0', '$30K', '$60K', '$90K', '$120K', '$150K', '$168K', '$192K', '$228K', '$270K', '$300K'], color: '#00ff88' },
-                  { metric: 'Variable Costs', values: ['$0', '$0', '$15K', '$29K', '$44K', '$58K', '$73K', '$81K', '$93K', '$111K', '$131K', '$146K'], color: '#ff4d4d' },
-                  { metric: 'Contribution Margin', values: ['$0', '$0', '$15K', '$31K', '$46K', '$62K', '$77K', '$87K', '$99K', '$117K', '$139K', '$155K'], color: '#0088ff' },
+                  { metric: 'Variable Costs (9.2%)', values: ['$0', '$0', '$3K', '$5K', '$8K', '$11K', '$14K', '$15K', '$18K', '$21K', '$25K', '$27K'], color: '#ff4d4d' },
+                  { metric: 'Contribution Margin', values: ['$0', '$0', '$27K', '$55K', '$82K', '$109K', '$136K', '$153K', '$174K', '$207K', '$245K', '$273K'], color: '#0088ff' },
                   { metric: 'Fixed Costs', values: ['$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$85K', '$90K', '$90K', '$90K'], color: '#ff9500' },
-                  { metric: 'EBITDA', values: ['-$85K', '-$85K', '-$70K', '-$54K', '-$39K', '-$23K', '-$8K', '+$2K', '+$14K', '+$27K', '+$49K', '+$65K'], highlight: true },
-                  { metric: 'Cumulative EBITDA', values: ['-$85K', '-$170K', '-$240K', '-$294K', '-$333K', '-$356K', '-$364K', '-$362K', '-$348K', '-$321K', '-$272K', '-$207K'], color: '#9b59b6' },
+                  { metric: 'EBITDA', values: ['-$85K', '-$85K', '-$58K', '-$30K', '-$3K', '+$24K', '+$51K', '+$68K', '+$89K', '+$117K', '+$155K', '+$183K'], highlight: true },
+                  { metric: 'Cumulative EBITDA', values: ['-$85K', '-$170K', '-$228K', '-$258K', '-$261K', '-$237K', '-$186K', '-$118K', '-$29K', '+$88K', '+$243K', '+$426K'], color: '#9b59b6' },
                 ].map((row, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: row.highlight ? 'rgba(0,255,136,0.1)' : 'transparent' }}>
                     <td style={{ ...styles.tableCell, fontWeight: 600, fontSize: '0.8rem' }}>{row.metric}</td>
@@ -2296,13 +2296,13 @@ export default function InvestorDeck() {
             <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
               <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(0,255,136,0.15)', borderRadius: '10px', border: '1px solid #00ff88' }}>
                 <div style={{ fontSize: '0.8rem', color: '#888' }}>Break-even Month</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>Month 8</div>
-                <div style={{ fontSize: '0.7rem', color: '#888' }}>2,800 orders/day</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>Month 6</div>
+                <div style={{ fontSize: '0.7rem', color: '#888' }}>2,000 orders/day</div>
               </div>
               <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(0,136,255,0.15)', borderRadius: '10px', border: '1px solid #0088ff' }}>
                 <div style={{ fontSize: '0.8rem', color: '#888' }}>Year 1 EBITDA</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ff4d4d' }}>-$207K</div>
-                <div style={{ fontSize: '0.7rem', color: '#888' }}>Investment phase</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>+$426K</div>
+                <div style={{ fontSize: '0.7rem', color: '#888' }}>Profitable Year 1</div>
               </div>
               <div style={{ textAlign: 'center', padding: '15px 25px', background: 'rgba(155,89,182,0.15)', borderRadius: '10px', border: '1px solid #9b59b6' }}>
                 <div style={{ fontSize: '0.8rem', color: '#888' }}>Year 1 Revenue</div>
@@ -2336,15 +2336,15 @@ export default function InvestorDeck() {
                   { metric: 'Gross Revenue', y1: '$1.61M', y2: '$18.2M', y3: '$73M', y4: '$219M', y5: '$438M', color: '#00ff88' },
                   { metric: 'Rideshare Revenue', y1: '$0', y2: '$2M', y3: '$10M', y4: '$40M', y5: '$100M', color: '#0088ff' },
                   { metric: 'Total Revenue', y1: '$1.61M', y2: '$20.2M', y3: '$83M', y4: '$259M', y5: '$538M', color: '#00ff88', bold: true },
-                  { metric: 'Variable Costs (48.5%)', y1: '$0.78M', y2: '$9.8M', y3: '$40.3M', y4: '$125.6M', y5: '$260.9M', color: '#ff4d4d' },
-                  { metric: 'Contribution Margin', y1: '$0.83M', y2: '$10.4M', y3: '$42.7M', y4: '$133.4M', y5: '$277.1M', color: '#0088ff' },
+                  { metric: 'Variable Costs (9.2%)', y1: '$0.15M', y2: '$1.9M', y3: '$7.6M', y4: '$23.8M', y5: '$49.5M', color: '#ff4d4d' },
+                  { metric: 'Contribution Margin', y1: '$1.46M', y2: '$18.3M', y3: '$75.4M', y4: '$235.2M', y5: '$488.5M', color: '#0088ff' },
                   { metric: 'Fixed Costs', y1: '$1.02M', y2: '$3.5M', y3: '$8.5M', y4: '$20M', y5: '$35M', color: '#ff9500' },
-                  { metric: 'EBITDA', y1: '-$0.19M', y2: '$6.9M', y3: '$34.2M', y4: '$113.4M', y5: '$242.1M', highlight: true },
-                  { metric: 'EBITDA Margin', y1: '-12%', y2: '34%', y3: '41%', y4: '44%', y5: '45%', color: '#9b59b6' },
+                  { metric: 'EBITDA', y1: '+$0.44M', y2: '$14.8M', y3: '$66.9M', y4: '$215.2M', y5: '$453.5M', highlight: true },
+                  { metric: 'EBITDA Margin', y1: '27%', y2: '73%', y3: '81%', y4: '83%', y5: '84%', color: '#9b59b6' },
                 ].map((row, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', background: row.highlight ? 'rgba(0,255,136,0.1)' : 'transparent' }}>
                     <td style={{ ...styles.tableCell, fontWeight: row.bold ? 700 : 600, fontSize: '0.85rem' }}>{row.metric}</td>
-                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#ff4d4d' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y1}</td>
+                    <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y1}</td>
                     <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y2}</td>
                     <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y3}</td>
                     <td style={{ ...styles.tableCell, textAlign: 'right', color: row.highlight ? '#00ff88' : row.color, fontWeight: row.highlight || row.bold ? 700 : 400 }}>{row.y4}</td>
@@ -2367,10 +2367,10 @@ export default function InvestorDeck() {
                   {[
                     { month: 'Day 0', cash: '$2,000,000', note: 'Investment received' },
                     { month: 'Month 3', cash: '$1,730,000', note: 'First campus launched' },
-                    { month: 'Month 6', cash: '$1,374,000', note: '3 campuses, revenue growing' },
-                    { month: 'Month 8', cash: '$1,290,000', note: 'BREAK-EVEN reached' },
-                    { month: 'Month 12', cash: '$1,497,000', note: 'Cash positive, growing' },
-                    { month: 'Month 18', cash: '$2,850,000', note: 'Self-funded growth' },
+                    { month: 'Month 6', cash: '$1,374,000', note: 'BREAK-EVEN reached!' },
+                    { month: 'Month 9', cash: '$1,460,000', note: 'Cash building up' },
+                    { month: 'Month 12', cash: '$1,886,000', note: 'Strong cash position' },
+                    { month: 'Month 18', cash: '$3,200,000', note: 'Self-funded growth' },
                   ].map((item) => (
                     <div key={item.month} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
                       <span style={{ fontSize: '0.85rem' }}>{item.month}</span>
@@ -2384,9 +2384,9 @@ export default function InvestorDeck() {
                 <h4 style={{ color: '#0088ff', marginBottom: '15px' }}>Sensitivity Analysis</h4>
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {[
-                    { scenario: 'Base Case', breakeven: 'Month 8', orders: '2,751/day', prob: '70%' },
-                    { scenario: 'Optimistic (+20%)', breakeven: 'Month 6', orders: '2,300/day', prob: '20%' },
-                    { scenario: 'Conservative (-20%)', breakeven: 'Month 11', orders: '3,440/day', prob: '10%' },
+                    { scenario: 'Base Case', breakeven: 'Month 6', orders: '2,000/day', prob: '70%' },
+                    { scenario: 'Optimistic (+20%)', breakeven: 'Month 5', orders: '1,700/day', prob: '20%' },
+                    { scenario: 'Conservative (-20%)', breakeven: 'Month 8', orders: '2,500/day', prob: '10%' },
                   ].map((item) => (
                     <div key={item.scenario} style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
@@ -2411,8 +2411,8 @@ export default function InvestorDeck() {
                     { metric: 'Revenue per $1 Invested', value: '$0.80 (Y1) → $269 (Y5)', color: '#9b59b6' },
                     { metric: 'CAC Payback', value: '4 days', color: '#00ff88' },
                     { metric: 'LTV:CAC Ratio', value: '39:1', color: '#0088ff' },
-                    { metric: 'Gross Margin', value: '51.5%', color: '#ff9500' },
-                    { metric: 'EBITDA Margin (Y5)', value: '45%', color: '#00ff88' },
+                    { metric: 'Gross Margin', value: '90.5%', color: '#00ff88' },
+                    { metric: 'EBITDA Margin (Y5)', value: '84%', color: '#00ff88' },
                     { metric: 'Cash Conversion Cycle', value: '0 days', color: '#9b59b6' },
                   ].map((item) => (
                     <div key={item.metric} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2490,7 +2490,7 @@ export default function InvestorDeck() {
             </span>
           </div>
           <h2 style={styles.sectionTitle}>Investment Burn Down Chart</h2>
-          <p style={styles.sectionSubtitle}>18-month cash projection. <span style={{ color: '#00ff88' }}>Break-even at Month 8. Self-sustaining thereafter.</span></p>
+          <p style={styles.sectionSubtitle}>18-month cash projection. <span style={{ color: '#00ff88' }}>Break-even at Month 6. Self-sustaining thereafter.</span></p>
 
           {/* Visual Burn Down Chart */}
           <div className="glass-card" style={{ marginBottom: '40px', padding: '40px' }}>
@@ -2519,8 +2519,8 @@ export default function InvestorDeck() {
                   <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: `${i * 16.67}%`, borderTop: '1px dashed rgba(255,255,255,0.1)' }} />
                 ))}
 
-                {/* Break-even line at Month 8 */}
-                <div style={{ position: 'absolute', left: `${(8/18) * 100}%`, top: 0, bottom: 0, borderLeft: '2px dashed #00ff88', zIndex: 10 }}>
+                {/* Break-even line at Month 6 */}
+                <div style={{ position: 'absolute', left: `${(6/18) * 100}%`, top: 0, bottom: 0, borderLeft: '2px dashed #00ff88', zIndex: 10 }}>
                   <div style={{ position: 'absolute', top: '-25px', left: '-40px', background: '#00ff88', color: '#000', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
                     BREAK-EVEN
                   </div>
@@ -2608,11 +2608,11 @@ export default function InvestorDeck() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '30px' }}>
               {[
                 { month: 'Month 0', cash: '$2.00M', event: 'Investment Received', color: '#0088ff', icon: '💰' },
-                { month: 'Month 3', cash: '$1.78M', event: 'First Campus Live', color: '#ff9500', icon: '🚀' },
-                { month: 'Month 6', cash: '$1.79M', event: 'Cash Stabilizes', color: '#9b59b6', icon: '📊' },
-                { month: 'Month 8', cash: '$1.94M', event: 'BREAK-EVEN', color: '#00ff88', icon: '✓' },
-                { month: 'Month 12', cash: '$2.58M', event: 'Above Starting Cash', color: '#00ff88', icon: '📈' },
-                { month: 'Month 18', cash: '$4.81M', event: 'Self-Funded Growth', color: '#00ff88', icon: '🎯' },
+                { month: 'Month 3', cash: '$1.73M', event: 'First Campus Live', color: '#ff9500', icon: '🚀' },
+                { month: 'Month 6', cash: '$1.37M', event: 'BREAK-EVEN!', color: '#00ff88', icon: '✓' },
+                { month: 'Month 9', cash: '$1.46M', event: 'Cash Building', color: '#9b59b6', icon: '📊' },
+                { month: 'Month 12', cash: '$1.89M', event: 'Strong Position', color: '#00ff88', icon: '📈' },
+                { month: 'Month 18', cash: '$3.20M', event: 'Self-Funded Growth', color: '#00ff88', icon: '🎯' },
               ].map((m) => (
                 <div key={m.month} style={{ padding: '15px', background: `rgba(${m.color === '#00ff88' ? '0,255,136' : m.color === '#0088ff' ? '0,136,255' : m.color === '#ff9500' ? '255,149,0' : '155,89,182'},0.1)`, borderRadius: '10px', border: `1px solid ${m.color}33` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -2678,8 +2678,8 @@ export default function InvestorDeck() {
               </tbody>
             </table>
             <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', textAlign: 'center' }}>
-              <span style={{ color: '#00ff88', fontWeight: 600 }}>★ Month 8: First month of positive cash flow (+$1,520)</span>
-              <span style={{ color: '#888', marginLeft: '20px' }}>Year 1 ends with $1.79M cash (89% of starting capital preserved)</span>
+              <span style={{ color: '#00ff88', fontWeight: 600 }}>★ Month 6: First month of positive cash flow (+$24K)</span>
+              <span style={{ color: '#888', marginLeft: '20px' }}>Year 1 ends with $1.89M cash (94% of starting capital preserved)</span>
             </div>
           </div>
 
@@ -2773,7 +2773,7 @@ export default function InvestorDeck() {
             </span>
           </div>
           <h2 style={styles.sectionTitle}>Revenue vs Total Costs</h2>
-          <p style={styles.sectionSubtitle}>Watch the lines cross at Month 8. <span style={{ color: '#00ff88' }}>That's when we become self-sustaining.</span></p>
+          <p style={styles.sectionSubtitle}>Watch the lines cross at Month 6. <span style={{ color: '#00ff88' }}>That's when we become self-sustaining.</span></p>
 
           <div className="glass-card" style={{ padding: '40px', marginBottom: '40px' }}>
             {/* Legend */}
@@ -3056,7 +3056,7 @@ export default function InvestorDeck() {
           {/* The Math Behind Break-even */}
           <div className="glass-card" style={{ marginBottom: '40px' }}>
             <h3 style={{ textAlign: 'center', marginBottom: '25px' }}>
-              🧮 The Math Behind Month 8 Break-even
+              🧮 The Math Behind Month 6 Break-even
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
               <div>
@@ -3153,11 +3153,11 @@ export default function InvestorDeck() {
               <h4 style={{ color: '#9b59b6', marginBottom: '15px' }}>💎 Margin Expansion</h4>
               <div style={{ display: 'grid', gap: '10px' }}>
                 {[
-                  { period: 'Month 8', margin: '1%', bar: '5%', color: '#ff9500' },
-                  { period: 'Month 12', margin: '21%', bar: '21%', color: '#0088ff' },
-                  { period: 'Year 2', margin: '34%', bar: '34%', color: '#00ff88' },
-                  { period: 'Year 3', margin: '41%', bar: '41%', color: '#00ff88' },
-                  { period: 'Year 5', margin: '45%', bar: '45%', color: '#00ff88' },
+                  { period: 'Month 6', margin: '20%', bar: '20%', color: '#ff9500' },
+                  { period: 'Month 12', margin: '61%', bar: '61%', color: '#0088ff' },
+                  { period: 'Year 2', margin: '73%', bar: '73%', color: '#00ff88' },
+                  { period: 'Year 3', margin: '81%', bar: '81%', color: '#00ff88' },
+                  { period: 'Year 5', margin: '84%', bar: '84%', color: '#00ff88' },
                 ].map((row) => (
                   <div key={row.period}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
@@ -3171,7 +3171,7 @@ export default function InvestorDeck() {
                 ))}
               </div>
               <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(155,89,182,0.1)', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center' }}>
-                <strong style={{ color: '#9b59b6' }}>From 1% → 45% EBITDA margin</strong>
+                <strong style={{ color: '#9b59b6' }}>From 20% → 84% EBITDA margin</strong>
               </div>
             </div>
           </div>
@@ -3221,11 +3221,11 @@ export default function InvestorDeck() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
                     <span>Variable Costs</span>
-                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>$0.97</span>
+                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>$0.19</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', background: 'rgba(0,136,255,0.2)', borderRadius: '8px', border: '1px solid #0088ff' }}>
                     <span style={{ fontWeight: 700 }}>Contribution Margin</span>
-                    <span style={{ fontWeight: 700, color: '#0088ff', fontSize: '1.2rem' }}>$1.03 (51.5%)</span>
+                    <span style={{ fontWeight: 700, color: '#0088ff', fontSize: '1.2rem' }}>$1.81 (90.5%)</span>
                   </div>
                 </div>
               </div>
@@ -3385,19 +3385,19 @@ export default function InvestorDeck() {
                 <div style={{ display: 'grid', gap: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Break-even</span>
-                    <span style={{ fontWeight: 600 }}>Month 8</span>
+                    <span style={{ fontWeight: 600 }}>Month 6</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 1 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>-$207K</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>+$426K</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 2 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$5.1M</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$12.9M</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 5 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$145M</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$368M</span>
                   </div>
                 </div>
               </div>
@@ -3407,19 +3407,19 @@ export default function InvestorDeck() {
                 <div style={{ display: 'grid', gap: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Break-even</span>
-                    <span style={{ fontWeight: 600 }}>Month 8</span>
+                    <span style={{ fontWeight: 600 }}>Month 6</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 1 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#ff4d4d' }}>-$207K</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>+$426K</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 2 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$6.9M (+35%)</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$14.8M (73%)</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#888' }}>Year 5 EBITDA</span>
-                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$242M (+67%)</span>
+                    <span style={{ fontWeight: 600, color: '#00ff88' }}>$453M (84%)</span>
                   </div>
                 </div>
               </div>
