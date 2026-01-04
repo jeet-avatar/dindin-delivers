@@ -26,10 +26,10 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: p2p-backend
+      # Removed serviceAccountName to use default - p2p-backend SA may not exist
       containers:
         - name: p2p-backend
-          image: dollor/p2p-backend:latest
+          image: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api:latest
           imagePullPolicy: Always
           ports:
             - name: http

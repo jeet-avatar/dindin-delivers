@@ -205,8 +205,8 @@ jobs:
           if [ -z "$NAMESPACE" ] || [ "$NAMESPACE" == "null" ]; then
             echo "Deployment not found, creating in default namespace..."
             NAMESPACE="default"
-            # Apply the K8s manifest with updated image
-            sed "s|dollor/p2p-backend:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" \
+            # Apply the K8s manifest with updated image tag
+            sed "s|134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" \
               infrastructure/kubernetes/services/p2p-backend/deployment.yaml | kubectl apply -f -
           else
             echo "Found deployment in namespace: $NAMESPACE"

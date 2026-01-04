@@ -142,7 +142,8 @@ class Vendor(Base):
     __tablename__ = "vendors"
 
     id = Column(Integer, primary_key=True, index=True)
-    vendor_id = Column(Integer, Computed('id'), index=True)
+    # vendor_id kept as nullable column for legacy compatibility (previously was Computed)
+    vendor_id = Column(Integer, nullable=True, index=True)
     
     # Company Information
     company_name = Column(String(255), nullable=False)
