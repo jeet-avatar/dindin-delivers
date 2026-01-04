@@ -4,21 +4,13 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Eye,
-  Filter,
   Search,
   Building,
   RefreshCw,
   ChevronDown,
   ChevronUp,
-  DollarSign,
-  Tag,
   Image,
-  AlertTriangle,
-  ThumbsUp,
-  ThumbsDown,
-  Edit,
-  Trash2
+  AlertTriangle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { getApiUrl } from '../../api/api';
@@ -46,6 +38,28 @@ interface MenuItem {
   admin_notes?: string;
   reviewed_at?: string;
   needs_review: boolean;
+  confidence_score?: number;
+}
+
+interface BackendMenuItem {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  image_url?: string;
+  is_available: boolean;
+  is_vegetarian: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  is_spicy: boolean;
+  spice_level: number;
+  prep_time: number;
+  calories?: number;
+  status?: string;
+  admin_notes?: string;
+  reviewed_at?: string;
+  needs_review?: boolean;
   confidence_score?: number;
 }
 
@@ -94,7 +108,7 @@ const MenuReview: React.FC = () => {
             const menuItems = await menuResponse.json();
 
             if (menuItems && menuItems.length > 0) {
-              const items = menuItems.map((item: any) => ({
+              const items = menuItems.map((item: BackendMenuItem) => ({
                 ...item,
                 vendor_id: vendor.id || vendor.vendor_id,
                 vendor_name: vendor.restaurant_name || vendor.company_name || 'Unknown',

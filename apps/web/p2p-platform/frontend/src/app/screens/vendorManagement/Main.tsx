@@ -3,19 +3,13 @@ import { getApiUrl } from '../../api/api';
 import {
   Users,
   Plus,
-  Filter,
   Search,
   Upload,
   FileText,
   CheckCircle,
   Clock,
   AlertCircle,
-  XCircle,
   Building,
-  Globe,
-  Phone,
-  Mail,
-  ExternalLink,
   Edit,
   Eye,
   Brain,
@@ -32,6 +26,36 @@ import VendorAnalyticsPanel from '../../components/vendors/VendorAnalyticsPanel'
 import VendorInsightCard from '../../components/vendors/VendorInsightCard';
 import { useVendorAnalytics } from '../../hooks/useVendorAnalytics';
 import AIOnboardingAssistant from '../../components/vendors/AIOnboardingAssistant';
+
+interface BackendVendor {
+  vendor_id: string;
+  restaurant_name?: string;
+  company_name?: string;
+  tax_id?: string;
+  business_type?: string;
+  industry?: string;
+  cuisine_type?: string;
+  website?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_title?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
+  onboarding_status?: string;
+  last_activity?: string;
+  created_at?: string;
+  approved_date?: string;
+  zip_status?: string;
+  w9_form?: boolean;
+  insurance?: boolean;
+  financial_statements?: boolean;
+  compliance_certs?: boolean;
+  security_policy?: boolean;
+}
 
 interface Vendor {
   id: string;
@@ -79,12 +103,12 @@ const Main: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(true);
-  const { insights, analyzeVendorOnboarding } = useVendorAnalytics();
+  const { insights } = useVendorAnalytics();
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [publishingVendorId, setPublishingVendorId] = useState<string | null>(null);
-  const [showChecklistModal, setShowChecklistModal] = useState(false);
-  const [selectedChecklist, setSelectedChecklist] = useState<any>(null);
-  const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [_showChecklistModal, setShowChecklistModal] = useState(false);
+  const [_selectedChecklist, setSelectedChecklist] = useState<{error?: string} | null>(null);
+  const [_loadingChecklist, setLoadingChecklist] = useState(false);
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   
@@ -99,7 +123,7 @@ const Main: React.FC = () => {
       const data = await response.json();
       
       // Map backend data to frontend format
-      const mappedVendors = data.map((v: any) => ({
+      const mappedVendors = data.map((v: BackendVendor) => ({
         id: v.vendor_id,
         companyName: v.restaurant_name || v.company_name,
         taxId: v.tax_id || '',
@@ -144,7 +168,7 @@ const Main: React.FC = () => {
     }
   };
 
-  const [mockVendors] = useState<Vendor[]>([
+  const [_mockVendors] = useState<Vendor[]>([
     {
       id: 'vendor-001',
       companyName: 'Tech Solutions Inc.',
@@ -493,7 +517,7 @@ const Main: React.FC = () => {
       } else {
         setSelectedChecklist({ error: 'Failed to load checklist' });
       }
-    } catch (error) {
+    } catch (_error) {
       setSelectedChecklist({ error: 'Failed to load checklist' });
     } finally {
       setLoadingChecklist(false);
@@ -546,7 +570,7 @@ const Main: React.FC = () => {
           <h2 className="text-lg font-medium text-neutral-900">Vendor-Specific Insights</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Object.entries(insights)
-              .filter(([vendorId, vendorInsights]) => vendorInsights.length > 0)
+              .filter(([_vendorId, vendorInsights]) => vendorInsights.length > 0)
               .slice(0, 4)
               .map(([vendorId, vendorInsights]) => {
                 const vendor = vendors.find(v => v.id === vendorId);

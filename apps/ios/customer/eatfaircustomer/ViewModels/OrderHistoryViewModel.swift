@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os.log
+
+private let orderLogger = Logger(subsystem: "com.dollor.customer", category: "OrderHistoryViewModel")
 
 /// Order History ViewModel - Uses P2P API as primary source
 class OrderHistoryViewModel: ObservableObject {
@@ -37,15 +40,11 @@ class OrderHistoryViewModel: ObservableObject {
                     self.orders = p2pOrders
                         .map { $0.toOrder() }
                         .sorted(by: { $0.placedAt > $1.placedAt })
-                    #if DEBUG
-                    print("Fetched \(self.orders.count) orders from P2P backend")
-                    #endif
+                    orderLogger.info("Fetched \(self.orders.count) orders from P2P backend")
 
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
-                    #if DEBUG
-                    print("Error fetching orders: \(error.localizedDescription)")
-                    #endif
+                    orderLogger.error("Error fetching orders: \(error.localizedDescription)")
                 }
             }
         }
@@ -132,9 +131,7 @@ class OrderHistoryViewModel: ObservableObject {
                     self.refundStatuses[orderIdString] = status
 
                 case .failure(let error):
-                    #if DEBUG
-                    print("Failed to fetch refund status: \(error.localizedDescription)")
-                    #endif
+                    orderLogger.error("Failed to fetch refund status: \(error.localizedDescription)")
                 }
             }
         }

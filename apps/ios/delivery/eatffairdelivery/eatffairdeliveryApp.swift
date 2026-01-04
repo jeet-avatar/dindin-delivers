@@ -13,6 +13,9 @@ import UserNotifications
 import EatFairShared
 import GoogleMaps
 import GooglePlaces
+import os.log
+
+private let deliveryLogger = Logger(subsystem: "com.dollor.delivery", category: "DeliveryApp")
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
@@ -38,26 +41,20 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     private func configureFirebase() {
         // Check if Firebase is already configured (prevents double configuration crash)
         guard FirebaseApp.app() == nil else {
-            #if DEBUG
-            print("DeliveryApp: Firebase already configured, skipping")
-            #endif
+            deliveryLogger.info("Firebase already configured, skipping")
             return
         }
 
         // Verify GoogleService-Info.plist exists
         guard Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
-            #if DEBUG
-            print("DeliveryApp: ERROR - GoogleService-Info.plist not found!")
-            #endif
+            deliveryLogger.error("GoogleService-Info.plist not found!")
             // App can still function without Firebase (no push notifications)
             return
         }
 
         // Configure Firebase (doesn't throw - checked via FirebaseApp.app() above)
         FirebaseApp.configure()
-        #if DEBUG
-        print("DeliveryApp: Firebase configured successfully")
-        #endif
+        deliveryLogger.info("Firebase configured successfully")
     }
 
     // MARK: - Push Notification Setup
@@ -69,11 +66,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         // Request authorization
         NotificationManager.shared.requestAuthorization { granted in
-            #if DEBUG
             if granted {
-                print("DeliveryApp: Push notification authorization granted")
+                deliveryLogger.info("Push notification authorization granted")
             }
-            #endif
         }
     }
 
@@ -82,17 +77,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
-        #if DEBUG
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("DeliveryApp: APNs token received: \(tokenString.prefix(20))...")
-        #endif
+        deliveryLogger.info("APNs token received: \(tokenString.prefix(20))...")
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        #if DEBUG
-        print("DeliveryApp: Failed to register for remote notifications: \(error.localizedDescription)")
-        #endif
+        deliveryLogger.error("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 
     // MARK: - UNUserNotificationCenterDelegate
@@ -101,10 +92,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        #if DEBUG
         let userInfo = notification.request.content.userInfo
-        print("DeliveryApp: Received notification in foreground: \(userInfo)")
-        #endif
+        deliveryLogger.info("Received notification in foreground: \(userInfo)")
 
         // Show banner and play sound even when app is in foreground
         // Delivery app should always show new order notifications prominently
@@ -116,9 +105,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        #if DEBUG
-        print("DeliveryApp: User tapped notification: \(userInfo)")
-        #endif
+        deliveryLogger.info("User tapped notification: \(userInfo)")
 
         // Handle notification action based on type
         if let payload = NotificationPayload(from: userInfo) {
@@ -132,9 +119,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
-        #if DEBUG
-        print("DeliveryApp: FCM registration token: \(token.prefix(20))...")
-        #endif
+        deliveryLogger.info("FCM registration token: \(token.prefix(20))...")
         NotificationManager.shared.updateFCMToken(token)
 
         // Save token to P2P backend
@@ -178,20 +163,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else { return }
 
         P2PAPIService.shared.saveDriverFCMToken(driverId: driverId, fcmToken: token) { result in
-            #if DEBUG
             switch result {
             case .success:
-                print("DeliveryApp: FCM token saved for driver \(driverId)")
+                deliveryLogger.info("FCM token saved for driver \(driverId)")
             case .failure(let error):
-                print("DeliveryApp: Failed to save FCM token: \(error.localizedDescription)")
+                deliveryLogger.error("Failed to save FCM token: \(error.localizedDescription)")
             }
-            #endif
         }
     }
 }
 
 @main
-struct eatffairdeliveryApp: App {
+struct EatffairdeliveryApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var authManager = AuthManager()
 

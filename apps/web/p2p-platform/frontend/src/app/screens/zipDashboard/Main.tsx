@@ -75,7 +75,7 @@ const PHASE_LABELS: Record<string, string> = {
 const Main: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [stats, setStats] = useState<any>({});
+  const [stats, setStats] = useState<Record<string, number>>({});
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('pending');
@@ -203,8 +203,8 @@ const Main: React.FC = () => {
 
       fetchData();
       setIsModalVisible(false);
-    } catch (error: any) {
-      const detail = error.response?.data?.detail;
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: { missing_documents?: string[]; checklist_errors?: Array<{item: string; message: string}>; menu_items_count?: number; message?: string } } } })?.response?.data?.detail;
       if (detail?.missing_documents) {
         Modal.confirm({
           title: '📄 Missing Documents',
@@ -234,7 +234,7 @@ const Main: React.FC = () => {
             <div className="mt-4">
               <p className="mb-3 text-gray-600">Cannot publish restaurant - the following items need attention:</p>
               <div className="space-y-2">
-                {detail.checklist_errors.map((err: any, idx: number) => (
+                {detail.checklist_errors.map((err: {item: string; message: string}, idx: number) => (
                   <div key={idx} className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center gap-2">
                       <XCircle size={16} className="text-red-500" />
@@ -273,7 +273,7 @@ const Main: React.FC = () => {
       message.success('Vendor application rejected and unpublished from all platforms');
       fetchData();
       setIsModalVisible(false);
-    } catch (error) {
+    } catch (_error) {
       message.error('Failed to reject vendor');
     } finally {
       setActionLoading(null);
@@ -287,7 +287,7 @@ const Main: React.FC = () => {
       await api.updateVendorStatus(vendorId, 'in_review');
       message.success('Vendor moved to review');
       fetchData();
-    } catch (error) {
+    } catch (_error) {
       message.error('Failed to update vendor status');
     } finally {
       setActionLoading(null);

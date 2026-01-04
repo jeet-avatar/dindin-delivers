@@ -159,7 +159,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 }
 
 @main
-struct eatfaircustomerApp: App {
+struct EatfaircustomerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @StateObject var addressViewModel = AddressViewModel()

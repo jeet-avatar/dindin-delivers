@@ -4,6 +4,9 @@ import GoogleSignIn
 import EatFairShared
 import AuthenticationServices
 import CryptoKit
+import os.log
+
+private let logger = Logger(subsystem: "com.dollor.customer", category: "AuthViewModel")
 
 /// Customer Authentication ViewModel
 /// Uses Google Sign-In SDK directly + P2P backend (no Firebase)
@@ -30,9 +33,7 @@ class AuthViewModel: NSObject, ObservableObject {
         guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let plist = NSDictionary(contentsOfFile: path),
               let clientID = plist["CLIENT_ID"] as? String else {
-            #if DEBUG
-            print("[AuthViewModel] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
-            #endif
+            logger.error("[AuthViewModel] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
             return ""
         }
         return clientID
