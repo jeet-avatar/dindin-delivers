@@ -15209,6 +15209,59 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/demo/force-reset-passwords")
+def force_reset_demo_passwords(db: Session = Depends(get_db)):
+    """Force reset all demo account passwords and verify they work."""
+    results = {"reset": [], "verified": [], "failed": []}
+
+    demo_accounts = [
+        {"type": "customer", "email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!", "table": "customers"},
+        {"type": "driver", "email": "demo.driver@dollor.ai", "password": "DemoDriver2025!", "table": "users"},
+        {"type": "vendor", "email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!", "table": "users"},
+        {"type": "admin", "email": "support@dollor.ai", "password": "DollorAdmin2026!", "table": "users"},
+    ]
+
+    for account in demo_accounts:
+        try:
+            # Generate fresh password hash
+            new_hash = get_password_hash(account["password"])
+
+            # Update using raw SQL
+            db.execute(
+                text(f"UPDATE {account['table']} SET password_hash = :hash WHERE email = :email"),
+                {"hash": new_hash, "email": account["email"]}
+            )
+            db.commit()
+            results["reset"].append(account["type"])
+
+            # Verify password works
+            if account["table"] == "customers":
+                record = db.query(Customer).filter(Customer.email == account["email"]).first()
+            else:
+                record = db.query(User).filter(User.email == account["email"]).first()
+
+            if record and verify_password(account["password"], record.password_hash):
+                results["verified"].append(account["type"])
+            else:
+                results["failed"].append(f"{account['type']}: verification failed")
+
+        except Exception as e:
+            db.rollback()
+            results["failed"].append(f"{account['type']}: {str(e)}")
+
+    return {
+        "success": len(results["failed"]) == 0,
+        "results": results,
+        "message": "All demo passwords reset and verified" if len(results["failed"]) == 0 else "Some accounts failed",
+        "credentials": {
+            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
+            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
+        }
+    }
+
+
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
 # These endpoints provide aliases for Android app compatibility
 
