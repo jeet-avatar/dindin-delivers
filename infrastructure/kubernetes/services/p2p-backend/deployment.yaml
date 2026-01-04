@@ -144,6 +144,11 @@ spec:
                 configMapKeyRef:
                   name: p2p-backend-config
                   key: OTEL_EXPORTER_OTLP_ENDPOINT
+            - name: ADMIN_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: p2p-backend-secrets
+                  key: ADMIN_SECRET_KEY
           resources:
             requests:
               cpu: 200m
@@ -249,3 +254,4 @@ stringData:
   AWS_SECRET_ACCESS_KEY: "CHANGE-THIS-IN-PRODUCTION"
   SMTP_USER: "your-email@gmail.com"
   SMTP_PASSWORD: "your-app-password"
+  ADMIN_SECRET_KEY: "dollor-admin-migrate-2026"
