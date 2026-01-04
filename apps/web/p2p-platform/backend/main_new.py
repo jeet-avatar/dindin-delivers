@@ -246,6 +246,7 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     """
     Run database migrations to add missing columns.
     Protected with ADMIN_SECRET_KEY environment variable.
+    Each migration step commits independently to prevent cascade failures.
     """
     expected_key = os.getenv("ADMIN_SECRET_KEY")
     if not expected_key:
@@ -258,17 +259,28 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     migrations_run = []
     errors = []
 
+    def run_migration(sql: str, name: str):
+        """Execute a migration with isolated transaction"""
+        try:
+            db.execute(text(sql))
+            db.commit()
+            migrations_run.append(name)
+            return True
+        except Exception as e:
+            db.rollback()
+            errors.append(f"{name}: {str(e)}")
+            return False
+
     # Migration: Add customer_id to customers table
     customer_columns = [
         ("customer_id", "VARCHAR(50)"),
     ]
 
     for col_name, col_type in customer_columns:
-        try:
-            db.execute(text(f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
-            migrations_run.append(f"customers.{col_name}")
-        except Exception as e:
-            errors.append(f"customers.{col_name}: {str(e)}")
+        run_migration(
+            f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"customers.{col_name}"
+        )
 
     # Migration: Add vendor_id and driver_id to users table
     user_columns = [
@@ -277,11 +289,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     ]
 
     for col_name, col_type in user_columns:
-        try:
-            db.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
-            migrations_run.append(f"users.{col_name}")
-        except Exception as e:
-            errors.append(f"users.{col_name}: {str(e)}")
+        run_migration(
+            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"users.{col_name}"
+        )
 
     # Migration: Add verification columns to drivers table
     driver_columns = [
@@ -294,12 +305,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     ]
 
     for col_name, col_type in driver_columns:
-        try:
-            # Safe: col_name/col_type from hardcoded list above, not user input
-            db.execute(text(f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
-            migrations_run.append(f"drivers.{col_name}")
-        except Exception as e:
-            errors.append(f"drivers.{col_name}: {str(e)}")
+        run_migration(
+            f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"drivers.{col_name}"
+        )
 
     # Migration: Add verification and online status columns to vendors table
     vendor_columns = [
@@ -329,50 +338,19 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     ]
 
     for col_name, col_type in vendor_columns:
-        try:
-            # Safe: col_name/col_type from hardcoded list above, not user input
-            db.execute(text(f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
-            migrations_run.append(f"vendors.{col_name}")
-        except Exception as e:
-            errors.append(f"vendors.{col_name}: {str(e)}")
+        run_migration(
+            f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"vendors.{col_name}"
+        )
 
     # Migration: Fix vendor_id NOT NULL constraint issue
-    # The vendor_id column is defined as Computed('id') but has NOT NULL constraint
-    # This causes INSERT to fail. We need to either:
-    # 1. Drop the NOT NULL constraint, or
-    # 2. Set a default value, or
-    # 3. Make it nullable
-    try:
-        db.execute(text("ALTER TABLE vendors ALTER COLUMN vendor_id DROP NOT NULL"))
-        migrations_run.append("vendors.vendor_id: dropped NOT NULL constraint")
-    except Exception as e:
-        # Column might already be nullable or doesn't exist
-        errors.append(f"vendors.vendor_id NOT NULL drop: {str(e)}")
+    run_migration(
+        "ALTER TABLE vendors ALTER COLUMN vendor_id DROP NOT NULL",
+        "vendors.vendor_id: dropped NOT NULL constraint"
+    )
 
-    # Also add a trigger to set vendor_id = id after insert
-    try:
-        db.execute(text("""
-            CREATE OR REPLACE FUNCTION set_vendor_id()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.vendor_id := NEW.id;
-                RETURN NEW;
-            END;
-            $$ LANGUAGE plpgsql;
-        """))
-        db.execute(text("""
-            DROP TRIGGER IF EXISTS set_vendor_id_trigger ON vendors;
-        """))
-        db.execute(text("""
-            CREATE TRIGGER set_vendor_id_trigger
-            BEFORE INSERT ON vendors
-            FOR EACH ROW
-            WHEN (NEW.vendor_id IS NULL)
-            EXECUTE FUNCTION set_vendor_id();
-        """))
-        migrations_run.append("vendors.vendor_id: created trigger to auto-set")
-    except Exception as e:
-        errors.append(f"vendors.vendor_id trigger: {str(e)}")
+    # Trigger for vendor_id removed - vendor_id is now a regular nullable column
+    # that gets set during INSERT in application code
 
     # Migration: Add payment and platform fee columns to ride_requests table
     ride_request_columns = [
@@ -388,8 +366,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     for col_name, col_type in ride_request_columns:
         try:
             db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
             migrations_run.append(f"ride_requests.{col_name}")
         except Exception as e:
+            db.rollback()
             errors.append(f"ride_requests.{col_name}: {str(e)}")
 
     # Migration: Add restaurant acceptance flow columns to orders table
@@ -404,8 +384,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     for col_name, col_type in order_acceptance_columns:
         try:
             db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
             migrations_run.append(f"orders.{col_name}")
         except Exception as e:
+            db.rollback()
             errors.append(f"orders.{col_name}: {str(e)}")
 
     # Migration: Add delivery decision window columns to orders table
@@ -419,8 +401,10 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
     for col_name, col_type in delivery_decision_columns:
         try:
             db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
             migrations_run.append(f"orders.{col_name}")
         except Exception as e:
+            db.rollback()
             errors.append(f"orders.{col_name}: {str(e)}")
 
     # Migration: Add new OrderStatus enum values for restaurant acceptance and delivery decision
@@ -439,12 +423,12 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         try:
             # Check if value already exists before adding
             db.execute(text(f"ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS '{status_value}'"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
             migrations_run.append(f"orderstatus.{status_value}")
         except Exception as e:
+            db.rollback()
             # Value might already exist
             errors.append(f"orderstatus.{status_value}: {str(e)}")
-
-    db.commit()
 
     return {
         "status": "completed",
