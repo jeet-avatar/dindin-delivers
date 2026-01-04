@@ -15052,11 +15052,11 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
         db.rollback()
         results["errors"].append(f"customer: {str(e)}")
 
-    # --- Demo Driver ---
+    # --- Demo Driver (Driver + User) ---
     try:
         driver_email = "demo.driver@dollor.ai"
-        existing = db.query(Driver).filter(Driver.email == driver_email).first()
-        if not existing:
+        existing_driver = db.query(Driver).filter(Driver.email == driver_email).first()
+        if not existing_driver:
             demo_driver = Driver(
                 driver_id="DEMO-DRV-001",
                 first_name="Demo",
@@ -15082,9 +15082,40 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
                 created_at=datetime.utcnow()
             )
             db.add(demo_driver)
+            db.flush()  # Get driver.id before creating User
+            # Create User record for driver login (required for /api/auth/driver/login)
+            driver_user = User(
+                email=driver_email,
+                password_hash=get_password_hash("DemoDriver2025!"),
+                full_name="Demo Driver",
+                role=UserRole.DRIVER,
+                driver_id=demo_driver.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(driver_user)
             db.commit()
             results["created"].append("driver")
         else:
+            # Ensure User record exists for existing driver
+            existing_user = db.query(User).filter(User.email == driver_email).first()
+            if not existing_user:
+                driver_user = User(
+                    email=driver_email,
+                    password_hash=get_password_hash("DemoDriver2025!"),
+                    full_name="Demo Driver",
+                    role=UserRole.DRIVER,
+                    driver_id=existing_driver.id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(driver_user)
+                db.commit()
+                results["created"].append("driver_user")
+            else:
+                # Update password to ensure it matches
+                existing_user.password_hash = get_password_hash("DemoDriver2025!")
+                existing_user.driver_id = existing_driver.id
+                existing_user.role = UserRole.DRIVER
+                db.commit()
             results["existing"].append("driver")
     except Exception as e:
         db.rollback()
