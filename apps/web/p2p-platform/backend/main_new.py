@@ -29,7 +29,15 @@ logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
-from email_service import send_vendor_approval_email, send_vendor_registration_confirmation, send_driver_approval_email, send_driver_registration_confirmation, send_customer_welcome_email, send_email_verification_code
+from email_service import (
+    send_vendor_approval_email, send_vendor_registration_confirmation,
+    send_driver_approval_email, send_driver_registration_confirmation,
+    send_customer_welcome_email, send_email_verification_code,
+    # Order lifecycle emails
+    send_order_confirmation_email, send_order_ready_email,
+    send_driver_assigned_email, send_order_delivered_email,
+    send_order_cancelled_email, send_new_order_vendor_email
+)
 from document_verification_service import (
     DocumentVerificationService,
     get_verification_service,
@@ -6862,6 +6870,38 @@ def update_order_status(
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
     db.commit()
+
+    # Send status notification emails
+    try:
+        customer_email = order.customer_email
+        customer_name = order.customer_name or "Customer"
+        order_number = order.order_number or str(order.id)
+
+        if customer_email:
+            status_upper = status.upper()
+            if status_upper == "CONFIRMED":
+                # Get vendor info for confirmed order
+                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+                restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
+                send_order_confirmation_email(
+                    to_email=customer_email,
+                    customer_name=customer_name,
+                    order_number=order_number,
+                    restaurant_name=restaurant_name,
+                    order_total=float(order.total_amount or 0)
+                )
+            elif status_upper == "READY_FOR_PICKUP":
+                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+                restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
+                send_order_ready_email(
+                    to_email=customer_email,
+                    customer_name=customer_name,
+                    order_number=order_number,
+                    restaurant_name=restaurant_name
+                )
+    except Exception as e:
+        print(f"Failed to send order status email: {e}")
+
     return {"message": "Order status updated", "status": order.status.value}
 
 
@@ -11699,6 +11739,21 @@ async def cancel_order(
     order.cancelled_at = datetime.utcnow()
     db.commit()
 
+    # Send cancellation email to customer
+    try:
+        customer_email = order.customer_email
+        customer_name = order.customer_name or "Customer"
+        if customer_email:
+            send_order_cancelled_email(
+                to_email=customer_email,
+                customer_name=customer_name,
+                order_number=order.order_number or str(order.id),
+                reason=reason,
+                refund_amount=float(order.total_amount or 0)
+            )
+    except Exception as e:
+        print(f"Failed to send cancellation email: {e}")
+
     return {"success": True, "message": "Order cancelled", "refund_eligible": True}
 
 
@@ -15853,6 +15908,22 @@ def accept_delivery(
 
     db.commit()
 
+    # Send driver assigned email to customer
+    try:
+        customer_email = order.customer_email
+        customer_name = order.customer_name or "Customer"
+        driver_name = f"{driver.first_name} {driver.last_name}"
+        if customer_email:
+            send_driver_assigned_email(
+                to_email=customer_email,
+                customer_name=customer_name,
+                order_number=order.order_number or str(order.id),
+                driver_name=driver_name,
+                eta_minutes=20
+            )
+    except Exception as e:
+        print(f"Failed to send driver assigned email: {e}")
+
     return {
         "success": True,
         "message": "Delivery accepted",
@@ -15927,6 +15998,22 @@ def complete_delivery(
     driver.updated_at = datetime.utcnow()
 
     db.commit()
+
+    # Send delivery confirmation email to customer
+    try:
+        customer_email = order.customer_email
+        customer_name = order.customer_name or "Customer"
+        driver_name = f"{driver.first_name} {driver.last_name}" if driver else "Your driver"
+        if customer_email:
+            send_order_delivered_email(
+                to_email=customer_email,
+                customer_name=customer_name,
+                order_number=order.order_number or str(order.id),
+                order_total=float(order.total_amount or 0),
+                driver_name=driver_name
+            )
+    except Exception as e:
+        print(f"Failed to send delivery email: {e}")
 
     return {
         "success": True,

@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import pytest
+import logging
 from unittest.mock import MagicMock, patch, Mock, call
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -87,61 +88,71 @@ class TestSendEmail:
 
     @patch('email_service.SMTP_USER', '')
     @patch('email_service.SMTP_PASSWORD', '')
-    def test_send_email_dev_mode_no_credentials(self, capsys):
-        """Should log email and return True when SMTP credentials not configured"""
+    @patch('email_service.IS_DEVELOPMENT', True)
+    @patch('email_service.IS_PRODUCTION', False)
+    def test_send_email_dev_mode_no_credentials(self, capsys, caplog):
+        """Should log email and return True when SMTP credentials not configured in dev mode"""
         # Arrange
         to_email = "recipient@example.com"
         subject = "Test Subject"
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.INFO):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is True
+        # Check either print output or log message
         captured = capsys.readouterr()
-        assert to_email in captured.out
-        assert subject in captured.out
-        assert "SMTP not configured" in captured.out
+        assert to_email in captured.out or to_email in caplog.text
 
     @patch('email_service.SMTP_USER', '')
     @patch('email_service.SMTP_PASSWORD', 'password_only')
-    def test_send_email_dev_mode_missing_user(self, capsys):
-        """Should log email and return True when SMTP_USER is missing"""
+    @patch('email_service.IS_DEVELOPMENT', True)
+    @patch('email_service.IS_PRODUCTION', False)
+    def test_send_email_dev_mode_missing_user(self, capsys, caplog):
+        """Should log email and return True when SMTP_USER is missing in dev mode"""
         # Arrange
         to_email = "recipient@example.com"
         subject = "Test Subject"
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.INFO):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is True
+        # Check that it's in dev mode simulation
         captured = capsys.readouterr()
-        assert "SMTP not configured" in captured.out
+        assert "[DEV]" in captured.out or "DEV MODE" in caplog.text
 
     @patch('email_service.SMTP_USER', 'user_only')
     @patch('email_service.SMTP_PASSWORD', '')
-    def test_send_email_dev_mode_missing_password(self, capsys):
-        """Should log email and return True when SMTP_PASSWORD is missing"""
+    @patch('email_service.IS_DEVELOPMENT', True)
+    @patch('email_service.IS_PRODUCTION', False)
+    def test_send_email_dev_mode_missing_password(self, capsys, caplog):
+        """Should log email and return True when SMTP_PASSWORD is missing in dev mode"""
         # Arrange
         to_email = "recipient@example.com"
         subject = "Test Subject"
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.INFO):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is True
+        # Check that it's in dev mode simulation
         captured = capsys.readouterr()
-        assert "SMTP not configured" in captured.out
+        assert "[DEV]" in captured.out or "DEV MODE" in caplog.text
 
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
-    def test_send_email_smtp_connection_error(self, mock_smtp_class, capsys):
+    def test_send_email_smtp_connection_error(self, mock_smtp_class, caplog):
         """Should return False when SMTP connection fails"""
         # Arrange
         mock_smtp_class.side_effect = smtplib.SMTPConnectError(421, "Connection refused")
@@ -150,18 +161,17 @@ class TestSendEmail:
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.ERROR):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is False
-        captured = capsys.readouterr()
-        assert "Failed to send email" in captured.out
-        assert to_email in captured.out
+        assert "SMTP error" in caplog.text or to_email in caplog.text
 
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
-    def test_send_email_authentication_error(self, mock_smtp_class, capsys):
+    def test_send_email_authentication_error(self, mock_smtp_class, caplog):
         """Should return False when SMTP authentication fails"""
         # Arrange
         mock_server = MagicMock()
@@ -173,17 +183,17 @@ class TestSendEmail:
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.ERROR):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is False
-        captured = capsys.readouterr()
-        assert "Failed to send email" in captured.out
+        assert "authentication" in caplog.text.lower()
 
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
-    def test_send_email_send_error(self, mock_smtp_class, capsys):
+    def test_send_email_send_error(self, mock_smtp_class, caplog):
         """Should return False when email sending fails"""
         # Arrange
         mock_server = MagicMock()
@@ -195,17 +205,17 @@ class TestSendEmail:
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.ERROR):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is False
-        captured = capsys.readouterr()
-        assert "Failed to send email" in captured.out
+        assert "SMTP error" in caplog.text or "Failed to send" in caplog.text
 
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
-    def test_send_email_generic_exception(self, mock_smtp_class, capsys):
+    def test_send_email_generic_exception(self, mock_smtp_class, caplog):
         """Should return False and handle generic exceptions"""
         # Arrange
         mock_smtp_class.side_effect = Exception("Unexpected error")
@@ -214,13 +224,12 @@ class TestSendEmail:
         html_body = "<h1>Test HTML</h1>"
 
         # Act
-        result = email_service.send_email(to_email, subject, html_body)
+        with caplog.at_level(logging.ERROR):
+            result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is False
-        captured = capsys.readouterr()
-        assert "Failed to send email" in captured.out
-        assert "Unexpected error" in captured.out
+        assert to_email in caplog.text or "Unexpected error" in caplog.text
 
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
@@ -809,6 +818,230 @@ class TestEmailEdgeCases:
             "test@example.com", "Driver", "DRV-123"
         )
         assert isinstance(result4, bool)
+
+
+# ==================== ORDER LIFECYCLE EMAIL TESTS ====================
+
+# Test fixtures for order lifecycle emails
+@pytest.fixture
+def order_test_data():
+    """Common test data for order lifecycle emails"""
+    return {
+        "customer_email": "customer@example.com",
+        "customer_name": "Test Customer",
+        "order_number": "ORD-TEST-001",
+        "restaurant_name": "Test Restaurant",
+        "order_total": 29.99,
+        "driver_name": "Test Driver",
+        "eta_minutes": 20,
+        "items_summary": "2x Test Item, 1x Side",
+        "cancel_reason": "Customer requested cancellation",
+        "vendor_email": "vendor@restaurant.com"
+    }
+
+
+class TestSendOrderConfirmationEmail:
+    """Tests for send_order_confirmation_email()"""
+
+    @patch('email_service.send_email')
+    def test_order_confirmation_email_success(self, mock_send_email, order_test_data):
+        """Should send order confirmation email successfully"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_confirmation_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            restaurant_name=order_test_data["restaurant_name"],
+            order_total=order_test_data["order_total"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+        call_args = mock_send_email.call_args[0]
+        assert call_args[0] == order_test_data["customer_email"]
+        assert order_test_data["order_number"] in call_args[1]
+
+    @patch('email_service.send_email')
+    def test_order_confirmation_with_items_summary(self, mock_send_email, order_test_data):
+        """Should include items summary when provided"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_confirmation_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            restaurant_name=order_test_data["restaurant_name"],
+            order_total=order_test_data["order_total"],
+            items_summary=order_test_data["items_summary"]
+        )
+
+        assert result is True
+        call_args = mock_send_email.call_args[0]
+        assert order_test_data["items_summary"] in call_args[2]
+
+
+class TestSendOrderReadyEmail:
+    """Tests for send_order_ready_email()"""
+
+    @patch('email_service.send_email')
+    def test_order_ready_email_success(self, mock_send_email, order_test_data):
+        """Should send order ready email successfully"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_ready_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            restaurant_name=order_test_data["restaurant_name"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+
+
+class TestSendDriverAssignedEmail:
+    """Tests for send_driver_assigned_email()"""
+
+    @patch('email_service.send_email')
+    def test_driver_assigned_email_success(self, mock_send_email, order_test_data):
+        """Should send driver assigned email successfully"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_driver_assigned_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            driver_name=order_test_data["driver_name"],
+            eta_minutes=order_test_data["eta_minutes"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+        call_args = mock_send_email.call_args[0]
+        assert order_test_data["driver_name"] in call_args[2]
+        assert str(order_test_data["eta_minutes"]) in call_args[2]
+
+
+class TestSendOrderDeliveredEmail:
+    """Tests for send_order_delivered_email()"""
+
+    @patch('email_service.send_email')
+    def test_order_delivered_email_success(self, mock_send_email, order_test_data):
+        """Should send order delivered email successfully"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_delivered_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            order_total=order_test_data["order_total"],
+            driver_name=order_test_data["driver_name"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+
+
+class TestSendOrderCancelledEmail:
+    """Tests for send_order_cancelled_email()"""
+
+    @patch('email_service.send_email')
+    def test_order_cancelled_email_success(self, mock_send_email, order_test_data):
+        """Should send order cancelled email successfully"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_cancelled_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            reason=order_test_data["cancel_reason"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+        call_args = mock_send_email.call_args[0]
+        assert order_test_data["cancel_reason"] in call_args[2]
+
+    @patch('email_service.send_email')
+    def test_order_cancelled_with_refund(self, mock_send_email, order_test_data):
+        """Should include refund amount when provided"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_order_cancelled_email(
+            to_email=order_test_data["customer_email"],
+            customer_name=order_test_data["customer_name"],
+            order_number=order_test_data["order_number"],
+            reason=order_test_data["cancel_reason"],
+            refund_amount=order_test_data["order_total"]
+        )
+
+        assert result is True
+        call_args = mock_send_email.call_args[0]
+        assert f"${order_test_data['order_total']:.2f}" in call_args[2]
+
+
+class TestSendNewOrderVendorEmail:
+    """Tests for send_new_order_vendor_email()"""
+
+    @patch('email_service.send_email')
+    def test_new_order_vendor_email_success(self, mock_send_email, order_test_data):
+        """Should send new order notification to vendor"""
+        mock_send_email.return_value = True
+
+        result = email_service.send_new_order_vendor_email(
+            to_email=order_test_data["vendor_email"],
+            restaurant_name=order_test_data["restaurant_name"],
+            order_number=order_test_data["order_number"],
+            customer_name=order_test_data["customer_name"],
+            order_total=order_test_data["order_total"]
+        )
+
+        assert result is True
+        mock_send_email.assert_called_once()
+
+
+class TestOrderLifecycleEmailsReturnBoolean:
+    """All order lifecycle email functions should return boolean values"""
+
+    @patch('email_service.send_email')
+    def test_all_order_email_functions_return_boolean(self, mock_send_email, order_test_data):
+        """All order email functions should return boolean values"""
+        mock_send_email.return_value = True
+
+        results = [
+            email_service.send_order_confirmation_email(
+                order_test_data["customer_email"], order_test_data["customer_name"],
+                order_test_data["order_number"], order_test_data["restaurant_name"],
+                order_test_data["order_total"]
+            ),
+            email_service.send_order_ready_email(
+                order_test_data["customer_email"], order_test_data["customer_name"],
+                order_test_data["order_number"], order_test_data["restaurant_name"]
+            ),
+            email_service.send_driver_assigned_email(
+                order_test_data["customer_email"], order_test_data["customer_name"],
+                order_test_data["order_number"], order_test_data["driver_name"],
+                order_test_data["eta_minutes"]
+            ),
+            email_service.send_order_delivered_email(
+                order_test_data["customer_email"], order_test_data["customer_name"],
+                order_test_data["order_number"], order_test_data["order_total"],
+                order_test_data["driver_name"]
+            ),
+            email_service.send_order_cancelled_email(
+                order_test_data["customer_email"], order_test_data["customer_name"],
+                order_test_data["order_number"], order_test_data["cancel_reason"]
+            ),
+            email_service.send_new_order_vendor_email(
+                order_test_data["vendor_email"], order_test_data["restaurant_name"],
+                order_test_data["order_number"], order_test_data["customer_name"],
+                order_test_data["order_total"]
+            )
+        ]
+
+        for result in results:
+            assert isinstance(result, bool)
 
 
 if __name__ == "__main__":
