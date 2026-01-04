@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 from database import get_db
 from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout
 from order_flow import get_tax_rate, DEFAULT_TAX_RATE, calculate_delivery_fee, CUSTOMER_SERVICE_FEE
+from email_service import (
+    send_order_confirmation_email,
+    send_new_order_vendor_email
+)
 
 load_dotenv()
 
@@ -315,11 +319,34 @@ async def stripe_webhook(
                 generate_customer_invoice(order, db)
             except Exception as e:
                 print(f"Invoice generation error: {e}")
-            
-            # Send confirmation notifications (implement later)
-            # send_order_confirmation_email(order)
-            # send_vendor_notification(order)
-            # send_push_notification(order)
+
+            # Send confirmation notifications to customer and vendor
+            try:
+                # Get vendor info
+                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+                restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
+
+                # Email to customer - order confirmed
+                if order.customer_email:
+                    send_order_confirmation_email(
+                        to_email=order.customer_email,
+                        customer_name=order.customer_name or "Customer",
+                        order_number=order.order_number or str(order.id),
+                        restaurant_name=restaurant_name,
+                        order_total=float(order.total_amount or 0)
+                    )
+
+                # Email to vendor - new order received
+                if vendor and vendor.contact_email:
+                    send_new_order_vendor_email(
+                        to_email=vendor.contact_email,
+                        restaurant_name=restaurant_name,
+                        order_number=order.order_number or str(order.id),
+                        customer_name=order.customer_name or "Customer",
+                        order_total=float(order.total_amount or 0)
+                    )
+            except Exception as e:
+                print(f"Order notification error: {e}")
     
     elif event_type == 'payment_intent.payment_failed':
         payment_intent = event_data

@@ -1,14 +1,26 @@
 """
 Email Service for Dollor.ai
 Sends transactional emails for vendor approvals, order notifications, etc.
+
+Production vs Development:
+- Production: Requires SMTP credentials. Fails if not configured.
+- Development: Logs emails to console but doesn't actually send.
 """
 import smtplib
 import os
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Environment detection
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
+IS_PRODUCTION = ENVIRONMENT in ("production", "prod")
+IS_DEVELOPMENT = ENVIRONMENT in ("development", "dev", "local", "staging")
 
 # Email configuration from environment
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -18,17 +30,46 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@dollor.ai")
 FROM_NAME = os.getenv("FROM_NAME", "Dollor.ai")
 
+# Validate production configuration
+def _validate_smtp_config() -> bool:
+    """Check if SMTP is properly configured for sending emails."""
+    return bool(SMTP_USER and SMTP_PASSWORD)
+
 
 def send_email(to_email: str, subject: str, html_body: str, text_body: str = None) -> bool:
     """
-    Send an email using SMTP.
+    Send an email using SMTP with authenticated credentials.
+
+    Production Mode:
+    - Requires SMTP_USER and SMTP_PASSWORD to be set
+    - Actually sends emails via SMTP
+    - Returns False if credentials are missing
+
+    Development Mode:
+    - Logs email details to console
+    - Does not actually send emails
+    - Returns True (simulates success)
+
     Returns True if successful, False otherwise.
     """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print(f"📧 Email would be sent to {to_email}: {subject}")
-        print(f"   (SMTP not configured - email logged only)")
-        return True  # Return True in dev mode
+    # Validate email address format (basic check)
+    if not to_email or "@" not in to_email:
+        logger.error(f"Invalid email address: {to_email}")
+        return False
 
+    # Check SMTP configuration
+    if not _validate_smtp_config():
+        if IS_PRODUCTION:
+            # In production, missing credentials is an error
+            logger.error(f"SMTP not configured in production! Email NOT sent to {to_email}: {subject}")
+            return False
+        else:
+            # In development, log and simulate success
+            logger.info(f"[DEV MODE] Email simulated to {to_email}: {subject}")
+            print(f"📧 [DEV] Email would be sent to {to_email}: {subject}")
+            return True
+
+    # Send actual email with authenticated SMTP
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
@@ -40,17 +81,23 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = Non
             msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
-        # Send email
+        # Send email with TLS
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(FROM_EMAIL, to_email, msg.as_string())
 
-        print(f"✅ Email sent to {to_email}: {subject}")
+        logger.info(f"Email sent to {to_email}: {subject}")
         return True
 
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"SMTP authentication failed: {e}")
+        return False
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP error sending to {to_email}: {e}")
+        return False
     except Exception as e:
-        print(f"❌ Failed to send email to {to_email}: {str(e)}")
+        logger.error(f"Failed to send email to {to_email}: {e}")
         return False
 
 
@@ -690,6 +737,415 @@ def send_email_verification_code(
     The Dollor.ai Team
 
     2024 Dollor.ai by Vibing World Inc.
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+# ==================== ORDER LIFECYCLE EMAILS ====================
+
+def send_order_confirmation_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    restaurant_name: str,
+    order_total: float,
+    items_summary: str = ""
+) -> bool:
+    """
+    Send order confirmation email to customer when order is placed.
+    """
+    subject = f"Order Confirmed! #{order_number} from {restaurant_name}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px 20px; text-align: center; }}
+            .logo {{ font-size: 28px; color: #ffd700; font-weight: bold; }}
+            .content {{ padding: 30px; }}
+            .order-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
+            .order-number {{ font-size: 24px; color: #1e293b; font-weight: bold; }}
+            .status {{ display: inline-block; background: #22c55e; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; margin: 10px 0; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">Dollor.ai</div>
+            </div>
+            <div class="content">
+                <h2>Hi {customer_name}!</h2>
+                <p>Your order has been confirmed and is being prepared!</p>
+
+                <div class="order-box">
+                    <div class="order-number">Order #{order_number}</div>
+                    <span class="status">Confirmed</span>
+                    <p><strong>Restaurant:</strong> {restaurant_name}</p>
+                    {f'<p><strong>Items:</strong> {items_summary}</p>' if items_summary else ''}
+                    <p><strong>Total:</strong> ${order_total:.2f}</p>
+                </div>
+
+                <p>We'll notify you when your order is ready for pickup and when the driver is on the way!</p>
+                <p>Track your order in the Dollor.ai app.</p>
+            </div>
+            <div class="footer">
+                <p>Questions? Contact support@dollor.ai</p>
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Hi {customer_name}!
+
+    Your order #{order_number} from {restaurant_name} has been confirmed!
+    Total: ${order_total:.2f}
+
+    We'll notify you when your order is ready and when the driver is on the way.
+    Track your order in the Dollor.ai app.
+
+    - The Dollor.ai Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_order_ready_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    restaurant_name: str
+) -> bool:
+    """
+    Send email when order is ready for pickup.
+    """
+    subject = f"Your order is ready! #{order_number}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px 20px; text-align: center; }}
+            .logo {{ font-size: 28px; color: white; font-weight: bold; }}
+            .content {{ padding: 30px; }}
+            .status-icon {{ font-size: 48px; text-align: center; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">Order Ready!</div>
+            </div>
+            <div class="content">
+                <h2 style="text-align: center;">Your Food is Ready!</h2>
+                <p>Hi {customer_name},</p>
+                <p>Great news! Your order <strong>#{order_number}</strong> from <strong>{restaurant_name}</strong> is ready and waiting for a driver to pick it up.</p>
+                <p>A driver will be assigned shortly and your food will be on its way soon!</p>
+            </div>
+            <div class="footer">
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Your Food is Ready!
+
+    Hi {customer_name},
+
+    Your order #{order_number} from {restaurant_name} is ready!
+    A driver will pick it up shortly.
+
+    - The Dollor.ai Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_driver_assigned_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    driver_name: str,
+    eta_minutes: int = 20
+) -> bool:
+    """
+    Send email when driver is assigned and on the way.
+    """
+    subject = f"Driver on the way! #{order_number}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .driver-box {{ background: #eff6ff; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
+            .eta {{ font-size: 32px; font-weight: bold; color: #1d4ed8; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Driver On The Way!</h2>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Your driver <strong>{driver_name}</strong> has picked up your order and is heading your way!</p>
+
+                <div class="driver-box">
+                    <p>Estimated Arrival</p>
+                    <div class="eta">{eta_minutes} min</div>
+                </div>
+
+                <p>Track your driver in real-time in the Dollor.ai app!</p>
+            </div>
+            <div class="footer">
+                <p>Order #{order_number}</p>
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Driver On The Way!
+
+    Hi {customer_name},
+
+    Your driver {driver_name} has picked up order #{order_number} and is heading your way!
+    Estimated arrival: {eta_minutes} minutes
+
+    Track your driver in the Dollor.ai app.
+
+    - The Dollor.ai Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_order_delivered_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    order_total: float,
+    driver_name: str
+) -> bool:
+    """
+    Send email when order is delivered.
+    """
+    subject = f"Order Delivered! #{order_number}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; text-align: center; }}
+            .tip-box {{ background: #fef3c7; border-radius: 12px; padding: 20px; margin: 20px 0; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Order Delivered!</h2>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Your order <strong>#{order_number}</strong> has been delivered!</p>
+                <p>Total: <strong>${order_total:.2f}</strong></p>
+
+                <div class="tip-box">
+                    <p>Enjoyed your delivery?</p>
+                    <p>Leave a tip for <strong>{driver_name}</strong> in the app!</p>
+                    <p style="font-size: 12px; color: #92400e;">Drivers keep 100% of tips on Dollor.ai</p>
+                </div>
+
+                <p>Thank you for choosing Dollor.ai!</p>
+            </div>
+            <div class="footer">
+                <p>Rate your experience in the app</p>
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Order Delivered!
+
+    Hi {customer_name},
+
+    Your order #{order_number} has been delivered!
+    Total: ${order_total:.2f}
+
+    Enjoyed your delivery? Leave a tip for {driver_name} in the app!
+    Drivers keep 100% of tips on Dollor.ai.
+
+    Thank you for choosing Dollor.ai!
+
+    - The Dollor.ai Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_order_cancelled_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    reason: str = "Order was cancelled",
+    refund_amount: float = None
+) -> bool:
+    """
+    Send email when order is cancelled.
+    """
+    subject = f"Order Cancelled - #{order_number}"
+
+    refund_text = f"<p>A refund of <strong>${refund_amount:.2f}</strong> will be processed within 5-10 business days.</p>" if refund_amount else ""
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .reason-box {{ background: #fef2f2; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #ef4444; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Order Cancelled</h2>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>We're sorry, but your order <strong>#{order_number}</strong> has been cancelled.</p>
+
+                <div class="reason-box">
+                    <p><strong>Reason:</strong> {reason}</p>
+                    {refund_text}
+                </div>
+
+                <p>We apologize for any inconvenience. Please try ordering again or contact support if you have questions.</p>
+            </div>
+            <div class="footer">
+                <p>Need help? support@dollor.ai</p>
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Order Cancelled
+
+    Hi {customer_name},
+
+    Your order #{order_number} has been cancelled.
+    Reason: {reason}
+    {f'Refund: ${refund_amount:.2f} will be processed within 5-10 business days.' if refund_amount else ''}
+
+    We apologize for any inconvenience.
+
+    - The Dollor.ai Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_new_order_vendor_email(
+    to_email: str,
+    restaurant_name: str,
+    order_number: str,
+    customer_name: str,
+    order_total: float,
+    items_summary: str = ""
+) -> bool:
+    """
+    Send email to vendor when new order is received.
+    """
+    subject = f"New Order #{order_number} - ${order_total:.2f}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .order-box {{ background: #fffbeb; border-radius: 12px; padding: 20px; margin: 20px 0; border: 2px solid #f59e0b; }}
+            .urgent {{ font-size: 18px; color: #d97706; font-weight: bold; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>New Order!</h2>
+            </div>
+            <div class="content">
+                <p class="urgent">Please confirm within 3 minutes</p>
+
+                <div class="order-box">
+                    <h3>Order #{order_number}</h3>
+                    <p><strong>Customer:</strong> {customer_name}</p>
+                    {f'<p><strong>Items:</strong> {items_summary}</p>' if items_summary else ''}
+                    <p><strong>Total:</strong> ${order_total:.2f}</p>
+                </div>
+
+                <p>Open the Dollor.ai Partner app to accept this order!</p>
+            </div>
+            <div class="footer">
+                <p>{restaurant_name}</p>
+                <p>2025 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    NEW ORDER for {restaurant_name}!
+
+    Order #{order_number}
+    Customer: {customer_name}
+    Total: ${order_total:.2f}
+
+    Please confirm within 3 minutes!
+    Open the Dollor.ai Partner app to accept.
+
+    - Dollor.ai
     """
 
     return send_email(to_email, subject, html_body, text_body)
