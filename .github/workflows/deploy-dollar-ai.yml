@@ -191,7 +191,7 @@ jobs:
 
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name dollor-production
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name dollor-staging
 
       - name: Deploy to EKS
         env:
