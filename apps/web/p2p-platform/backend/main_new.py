@@ -302,6 +302,11 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         ("documents_verified_at", "TIMESTAMP"),
         ("verification_notes", "TEXT"),
         ("verification_reviewer_id", "INTEGER"),
+        # Third-party verification provider columns
+        ("persona_inquiry_id", "VARCHAR(255)"),
+        ("onfido_applicant_id", "VARCHAR(255)"),
+        ("veriff_session_id", "VARCHAR(255)"),
+        ("verification_provider", "VARCHAR(50)"),
     ]
 
     for col_name, col_type in driver_columns:
