@@ -2139,6 +2139,10 @@ def get_driver_profile(current_user: User = Depends(get_current_user), db: Sessi
 
 @app.put("/api/auth/driver/online")
 @app.post("/api/auth/driver/online")
+@app.put("/api/auth/driver/toggle-online")  # Alias for mobile apps
+@app.post("/api/auth/driver/toggle-online")  # Alias for mobile apps
+@app.put("/api/driver/online/toggle")  # Alias for mobile apps
+@app.post("/api/driver/online/toggle")  # Alias for mobile apps
 def set_driver_online(
     is_online: Optional[bool] = None,
     request_body: Optional[dict] = Body(None),
