@@ -15047,6 +15047,11 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             db.commit()
             results["created"].append("customer")
         else:
+            # Update password to ensure it matches (for existing accounts)
+            existing.password_hash = get_password_hash("DemoCustomer2025!")
+            existing.is_active = True
+            existing.is_verified = True
+            db.commit()
             results["existing"].append("customer")
     except Exception as e:
         db.rollback()
