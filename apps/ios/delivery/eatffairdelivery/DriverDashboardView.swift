@@ -26,7 +26,7 @@ struct DriverDashboardView: View {
                         Label("Rideshare", systemImage: "car.fill")
                     }
                     .tag(1)
-                    .badge(rideBiddingViewModel.counteredBids.count > 0 ? rideBiddingViewModel.counteredBids.count : 0)
+                    .badge(rideBiddingViewModel.counteredBids.isEmpty ? 0 : rideBiddingViewModel.counteredBids.count)
 
                 // Active Delivery Tab
                 NavigationView {

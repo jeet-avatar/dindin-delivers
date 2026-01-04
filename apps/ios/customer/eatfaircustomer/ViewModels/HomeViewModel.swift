@@ -76,10 +76,8 @@ class HomeViewModel: ObservableObject {
             }
         }
         // Also add from Firebase restaurants
-        for restaurant in restaurants {
-            if !restaurant.cuisine.isEmpty {
-                cuisineSet.insert(restaurant.cuisine)
-            }
+        for restaurant in restaurants where !restaurant.cuisine.isEmpty {
+            cuisineSet.insert(restaurant.cuisine)
         }
 
         // Convert to array with emojis
@@ -133,7 +131,7 @@ class HomeViewModel: ObservableObject {
             .limit(to: 1)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
-                    if let _ = error {
+                    if error != nil {
                         self?.hasActiveOrder = false
                         return
                     }

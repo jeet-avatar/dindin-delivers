@@ -292,7 +292,7 @@ struct FilterTab: View {
                 Text(title)
                     .fontWeight(isSelected ? .semibold : .regular)
 
-                if count > 0 {
+                if count != 0 {
                     Text("\(count)")
                         .font(.caption2)
                         .fontWeight(.bold)

@@ -6,14 +6,11 @@ import {
   Clock,
   Eye,
   Download,
-  Filter,
   Search,
-  AlertCircle,
   Building,
   RefreshCw,
   ChevronDown,
-  ChevronUp,
-  ExternalLink
+  ChevronUp
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { getApiUrl } from '../../api/api';
@@ -62,8 +59,25 @@ const DOCUMENT_TYPES = [
   { type: 'insurance', label: 'Liability Insurance', description: 'General liability insurance certificate' },
 ];
 
+interface BackendVendorDoc {
+  id?: number;
+  vendor_id?: number;
+  restaurant_name?: string;
+  company_name?: string;
+  contact_email?: string;
+  onboarding_status?: string;
+  w9_form?: boolean;
+  health_permit?: boolean;
+  food_license?: boolean;
+  insurance?: boolean;
+  w9_form_url?: string;
+  health_permit_url?: string;
+  food_license_url?: string;
+  insurance_url?: string;
+}
+
 const DocumentReview: React.FC = () => {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [_vendors, setVendors] = useState<Vendor[]>([]);
   const [documents, setDocuments] = useState<VendorDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,7 +101,7 @@ const DocumentReview: React.FC = () => {
       const vendorData = await response.json();
 
       // Map vendor data and extract document information
-      const mappedVendors = vendorData.map((v: any) => ({
+      const mappedVendors = vendorData.map((v: BackendVendorDoc) => ({
         id: v.id || v.vendor_id,
         restaurant_name: v.restaurant_name || v.company_name || 'Unknown Restaurant',
         contact_email: v.contact_email || '',
