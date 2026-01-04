@@ -271,9 +271,14 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
             errors.append(f"{name}: {str(e)}")
             return False
 
-    # Migration: Add customer_id to customers table
+    # Migration: Add customer columns
     customer_columns = [
         ("customer_id", "VARCHAR(50)"),
+        # Email verification columns
+        ("email_verified", "BOOLEAN DEFAULT FALSE"),
+        ("email_verification_code", "VARCHAR(10)"),
+        ("email_verification_expires", "TIMESTAMP"),
+        ("email_verified_at", "TIMESTAMP"),
     ]
 
     for col_name, col_type in customer_columns:
