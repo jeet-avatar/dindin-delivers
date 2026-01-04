@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, and_, or_
+from sqlalchemy import func, extract, and_, or_, text
 from datetime import datetime, timedelta, date
 from typing import Optional, List, Any
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -15048,9 +15048,12 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             results["created"].append("customer")
         else:
             # Update password to ensure it matches (for existing accounts)
-            existing.password_hash = get_password_hash("DemoCustomer2025!")
-            existing.is_active = True
-            existing.is_verified = True
+            # Use explicit SQL UPDATE to ensure the change is applied
+            new_hash = get_password_hash("DemoCustomer2025!")
+            db.execute(
+                text("UPDATE customers SET password_hash = :hash, is_active = true WHERE email = :email"),
+                {"hash": new_hash, "email": customer_email}
+            )
             db.commit()
             results["existing"].append("customer")
     except Exception as e:
