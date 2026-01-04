@@ -8075,8 +8075,9 @@ def get_published_vendors(
     # Optional platform filter
     if platform != "all":
         # Check if vendor is published on specific platform
+        # Match both formats: "ios,android,web" and '["ios", "android", "web"]'
         query = query.filter(
-            Vendor.published_platforms.like(f'%"{platform}"%')
+            Vendor.published_platforms.like(f'%{platform}%')
         )
 
     total = query.count()
