@@ -824,6 +824,11 @@ def _run_startup_migrations():
         ("vendors", "documents_verified_at", "TIMESTAMP"),
         ("vendors", "verification_notes", "TEXT"),
         ("vendors", "verification_reviewer_id", "INTEGER"),
+        # Verification provider integrations (Persona, Onfido, Veriff)
+        ("vendors", "persona_inquiry_id", "VARCHAR(255)"),
+        ("vendors", "onfido_applicant_id", "VARCHAR(255)"),
+        ("vendors", "veriff_session_id", "VARCHAR(255)"),
+        ("vendors", "verification_provider", "VARCHAR(50)"),
         # Vendor menu items - admin review fields
         ("vendor_menu_items", "review_status", "VARCHAR(50) DEFAULT 'pending'"),
         ("vendor_menu_items", "needs_review", "BOOLEAN DEFAULT TRUE"),
