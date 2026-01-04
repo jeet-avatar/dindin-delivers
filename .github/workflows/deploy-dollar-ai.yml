@@ -198,13 +198,26 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Update the p2p-backend deployment with new image
-          kubectl set image deployment/p2p-backend \
-            p2p-backend=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -n dollor-staging
+          # Find the namespace where p2p-backend deployment exists
+          echo "Looking for p2p-backend deployment..."
+          NAMESPACE=$(kubectl get deployments --all-namespaces -o json | jq -r '.items[] | select(.metadata.name=="p2p-backend") | .metadata.namespace' | head -1)
+
+          if [ -z "$NAMESPACE" ] || [ "$NAMESPACE" == "null" ]; then
+            echo "Deployment not found, creating in default namespace..."
+            NAMESPACE="default"
+            # Apply the K8s manifest with updated image
+            sed "s|dollor/p2p-backend:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" \
+              infrastructure/kubernetes/services/p2p-backend/deployment.yaml | kubectl apply -f -
+          else
+            echo "Found deployment in namespace: $NAMESPACE"
+            # Update existing deployment
+            kubectl set image deployment/p2p-backend \
+              p2p-backend=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+              -n $NAMESPACE
+          fi
 
           # Wait for rollout to complete
-          kubectl rollout status deployment/p2p-backend -n dollor-staging --timeout=300s
+          kubectl rollout status deployment/p2p-backend -n $NAMESPACE --timeout=300s
 
           echo "EKS deployment complete!"
 
