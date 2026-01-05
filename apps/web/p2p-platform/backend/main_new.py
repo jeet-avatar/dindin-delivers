@@ -11597,6 +11597,10 @@ app.include_router(accounting_router)
 from verification_routes import router as doc_verification_router
 app.include_router(doc_verification_router)
 
+# Include Investor Deck Tracking (Email-gated access + view logging)
+from investor_tracking import router as investor_router
+app.include_router(investor_router)
+
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
 # Android uses /api/customer/orders while ERP uses /api/erp/orders/vendor/{id}
