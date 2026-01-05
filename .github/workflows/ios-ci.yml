@@ -374,3 +374,75 @@ jobs:
         with:
           name: ${{ matrix.app }}-ipa
           path: $RUNNER_TEMP/export/*.ipa
+
+  # Fastlane-based TestFlight deployment
+  deploy-testflight:
+    name: Deploy to TestFlight
+    runs-on: macos-14
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event.inputs.build_type == 'release'
+    strategy:
+      matrix:
+        include:
+          - app: customer
+            lane: customer_testflight
+            dir: customer
+          - app: restaurant
+            lane: restaurant_testflight
+            dir: restaurant
+          - app: driver
+            lane: driver_testflight
+            dir: delivery
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: apps/ios
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          APP_DIR=$(ls -d */ | head -1 | tr -d '/')
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > ${APP_DIR}/GoogleService-Info.plist
+
+      - name: Setup Fastlane Match
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          cd apps/ios
+          # Create API key JSON file
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_KEY_ID}.p8
+
+      - name: Deploy to TestFlight
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          cd apps/ios
+          bundle exec fastlane ${{ matrix.lane }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-testflight-ipa
+          path: apps/ios/build/*.ipa
