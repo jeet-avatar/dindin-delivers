@@ -127,6 +127,7 @@ function App() {
         <Route path="/referral" element={<ReferAndEarn />} />
 
         {/* Investor Deck (Token-protected) */}
+        <Route path="/investor" element={<InvestorDeck />} />
         <Route path="/investors" element={<InvestorDeck />} />
         <Route path="/deck" element={<InvestorDeck />} />
 
