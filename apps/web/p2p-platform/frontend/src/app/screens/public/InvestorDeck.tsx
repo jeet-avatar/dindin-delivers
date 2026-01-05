@@ -105,7 +105,7 @@ export default function InvestorDeck() {
             </h1>
             <p style={{ fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', color: '#888', maxWidth: '800px', margin: '0 auto 40px', lineHeight: '1.6' }}>
               <span style={{ color: '#00ff88', fontWeight: 600 }}>We own everything.</span> Backend built. AI agents owned. Zero software costs. <br/>
-              <span style={{ color: 'white', fontWeight: 600 }}>$1-3 Flat Fee. Zero API Costs. 90%+ Contribution Margins.</span>
+              <span style={{ color: 'white', fontWeight: 600 }}>$1-3 Flat Fee. Zero LLM API Costs. 90%+ Contribution Margins.</span>
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', flexWrap: 'wrap', marginTop: '50px' }}>
@@ -302,11 +302,11 @@ export default function InvestorDeck() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
             {[
-              { icon: '📱', title: 'iOS Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Coming Jan 15', statusColor: '#ff9500' },
-              { icon: '🤖', title: 'Android Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Coming Jan 15', statusColor: '#ff9500' },
+              { icon: '📱', title: 'iOS Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Beta in 15 days', statusColor: '#ff9500' },
+              { icon: '🤖', title: 'Android Apps', items: ['Customer App', 'Driver App', 'Restaurant App'], status: 'Beta in 15 days', statusColor: '#ff9500' },
               { icon: '🌐', title: 'Web Platform', items: ['Customer Portal', 'Admin Dashboard', 'Analytics'], status: 'LIVE', statusColor: '#00ff88' },
-              { icon: '⚙️', title: 'Backend', items: ['18 Microservices', 'FastAPI + Python', 'PostgreSQL + Redis'], status: '100% Complete', statusColor: '#00ff88' },
-              { icon: '🧠', title: 'AI Agents (Owned)', items: ['Qwen 2.5 Fine-tuned', 'Ollama Self-hosted', 'Zero API Costs'], status: 'We Own It', statusColor: '#9b59b6' },
+              { icon: '⚙️', title: 'Backend', items: ['17 Microservices', 'FastAPI + Python', 'PostgreSQL + Redis'], status: '100% Complete', statusColor: '#00ff88' },
+              { icon: '🧠', title: 'AI Agents (Owned)', items: ['Qwen 2.5 Fine-tuned', 'Ollama Self-hosted', 'Zero LLM API Costs'], status: 'We Own It', statusColor: '#9b59b6' },
               { icon: '☁️', title: 'Infrastructure', items: ['AWS EKS', 'Kubernetes', 'CI/CD Pipeline'], status: 'LIVE', statusColor: '#00ff88' },
             ].map((item) => (
               <div key={item.title} className="glass-card">
@@ -325,9 +325,9 @@ export default function InvestorDeck() {
           {/* Launch Date Banner */}
           <div style={{ marginTop: '30px', textAlign: 'center', padding: '25px', background: 'linear-gradient(135deg, rgba(255,149,0,0.15), rgba(255,77,77,0.1))', borderRadius: '16px', border: '1px solid rgba(255,149,0,0.4)' }}>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '10px' }}>
-              <span style={{ color: '#ff9500' }}>App Store & Play Store Launch:</span> <span style={{ color: 'white' }}>January 15, 2025</span>
+              <span style={{ color: '#ff9500' }}>App Store & Play Store Launch:</span> <span style={{ color: 'white' }}>15 days from funding</span>
             </p>
-            <p style={{ color: '#888', marginBottom: '15px' }}>Web platform is live now. Try it today.</p>
+            <p style={{ color: '#888', marginBottom: '15px' }}>Web platform is live now. Mobile apps production-ready.</p>
             <a href="https://dollor.ai" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '12px 30px', background: 'linear-gradient(135deg, #00ff88, #00cc6a)', color: '#000', fontWeight: 700, borderRadius: '30px', textDecoration: 'none', fontSize: '1rem' }}>
               Visit dollor.ai
             </a>
@@ -336,7 +336,7 @@ export default function InvestorDeck() {
           <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
             <div style={{ textAlign: 'center', padding: '25px', background: 'linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,136,255,0.1))', borderRadius: '16px', border: '1px solid rgba(0,255,136,0.3)' }}>
               <span style={{ fontSize: '1.3rem', fontWeight: 600 }}>Lines of Code: </span>
-              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00ff88' }}>150,000+</span>
+              <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00ff88' }}>700,000+</span>
             </div>
             <div style={{ textAlign: 'center', padding: '25px', background: 'linear-gradient(135deg, rgba(155,89,182,0.1), rgba(0,136,255,0.1))', borderRadius: '16px', border: '1px solid rgba(155,89,182,0.3)' }}>
               <span style={{ fontSize: '1.3rem', fontWeight: 600 }}>Software License Costs: </span>
@@ -570,7 +570,7 @@ export default function InvestorDeck() {
                 <h3 style={{ color: '#9b59b6', marginBottom: '20px', fontSize: '1.3rem' }}>🧠 Dollor LLM Stack</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   {[
-                    { label: 'Base Model', value: 'Qwen 2.5 (72B)', desc: 'State-of-the-art open source' },
+                    { label: 'Base Model', value: 'Qwen 2.5 (32B)', desc: 'State-of-the-art open source' },
                     { label: 'Runtime', value: 'Ollama', desc: 'Self-hosted, GPU optimized' },
                     { label: 'Fine-tuning', value: 'Domain Specific', desc: 'Trained on delivery/rideshare' },
                     { label: 'Hosting', value: 'On-Premise', desc: 'Our servers, our data' },
@@ -658,9 +658,9 @@ export default function InvestorDeck() {
           </div>
         </section>
 
-        {/* 7. 18 Microservices with Training Coverage */}
+        {/* 7. 17 Microservices with Training Coverage */}
         <section className="container">
-          <h2 style={styles.sectionTitle}>18 Production Microservices</h2>
+          <h2 style={styles.sectionTitle}>17 Production Microservices</h2>
           <p style={styles.sectionSubtitle}>Enterprise architecture. Each service has dedicated AI trainers ensuring 24/7 coverage.</p>
 
           <div className="glass-card" style={{ padding: '30px' }}>
@@ -862,7 +862,7 @@ export default function InvestorDeck() {
         {/* 9. Use of Funds */}
         <section id="funds" className="container">
           <h2 style={styles.sectionTitle}>Use of $2M Investment</h2>
-          <p style={styles.sectionSubtitle}>18+ months runway. Quality engineers + Fresh grad AI monitors. <span style={{ color: '#00ff88' }}>Zero software costs - it's all built.</span></p>
+          <p style={styles.sectionSubtitle}>Team assembly: 20-30 days from funding. Then 18+ months runway. <span style={{ color: '#00ff88' }}>Zero software costs - it's all built.</span></p>
 
           <div className="glass-card" style={{ padding: '40px' }}>
             <div style={{ display: 'grid', gap: '20px' }}>
@@ -919,7 +919,7 @@ export default function InvestorDeck() {
             {[
               { icon: '💳', title: 'Zero Payment Liability', desc: 'Stripe Connect: money flows directly to restaurants/drivers instantly. Platform never touches order funds = no escrow, no money transmission license, no payment liability. 90%+ margins.', color: '#00d4ff' },
               { icon: '🧠', title: 'AI Fully Owned', desc: 'Qwen + Ollama = zero API costs forever. No OpenAI dependency. No per-request pricing. We own it completely.', color: '#9b59b6' },
-              { icon: '🔧', title: 'Backend 100% Built', desc: 'No software to buy. No licenses. No SaaS fees. 150K+ lines of production code ready to scale.', color: '#00ff88' },
+              { icon: '🔧', title: 'Backend 100% Built', desc: 'No software to buy. No licenses. No SaaS fees. 700K+ lines of production code ready to scale.', color: '#00ff88' },
               { icon: '🎓', title: 'Fresh Grad Advantage', desc: 'Bangalore CS grads at $6/hr vs US $50/hr. Eager, trainable, 24/7 coverage. This gap is permanent.', color: '#0088ff' },
               { icon: '🤝', title: 'Network Effects', desc: 'More drivers → faster delivery → more customers → more restaurants. Flywheel accelerates daily.', color: '#ff9500' },
               { icon: '⚖️', title: 'Matchmaking Model', desc: 'Legally a matchmaker (not TNC). Lower regulatory burden. Drivers are true independents.', color: '#ff4d4d' },
@@ -1584,7 +1584,7 @@ export default function InvestorDeck() {
                 <h4 style={{ color: '#ff9500', marginBottom: '15px' }}>🧠 AI/LLM Infrastructure</h4>
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {[
-                    { item: 'GPU Server (RTX 4090 x2)', cost: '$4,000', note: 'Runs Qwen 7B locally' },
+                    { item: 'GPU Server (RTX 4090 x2)', cost: '$4,000', note: 'Runs Qwen 2.5 32B locally' },
                     { item: 'Qwen Fine-tuning (QLoRA)', cost: '$500', note: '~10 hrs compute' },
                     { item: 'Training Data Prep', cost: '$2,000', note: '5K labeled examples' },
                     { item: 'Ollama Setup', cost: '$0', note: 'Open source' },
@@ -1605,7 +1605,7 @@ export default function InvestorDeck() {
                   {[
                     { item: 'iOS Apps (3 apps)', cost: '$45,000', note: 'Customer, Driver, Restaurant' },
                     { item: 'Android Apps (3 apps)', cost: '$35,000', note: 'Customer, Driver, Restaurant' },
-                    { item: 'Backend (18 services)', cost: '$60,000', note: 'FastAPI + PostgreSQL' },
+                    { item: 'Backend (17 services)', cost: '$60,000', note: 'FastAPI + PostgreSQL' },
                     { item: 'Admin Portal', cost: '$15,000', note: 'React dashboard' },
                   ].map((row) => (
                     <div key={row.item} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.85rem' }}>
@@ -1860,7 +1860,7 @@ export default function InvestorDeck() {
                   { risk: 'DoorDash lowers fees', impact: 'Reduces our competitive advantage', mitigation: 'Our costs are 90% lower. They can\'t match $1 flat and stay profitable. Their shareholders won\'t allow it.' },
                   { risk: 'Can\'t get enough drivers', impact: 'Long wait times, bad experience', mitigation: 'Drivers keep 95%+ (just $1-3 flat fee). Food delivery: 100% of tips. Campus-first = students need flexible income. $100 referral bonuses.' },
                   { risk: 'Restaurants won\'t switch', impact: 'No supply = no customers', mitigation: 'Free onboarding, no lock-in. Start with frustrated restaurants already vocal about DoorDash.' },
-                  { risk: 'Tech doesn\'t scale', impact: 'Service outages at growth', mitigation: 'AWS auto-scaling, 18 microservices, Kubernetes. Built to handle 500K orders/day from day 1.' },
+                  { risk: 'Tech doesn\'t scale', impact: 'Service outages at growth', mitigation: 'AWS auto-scaling, 17 microservices, Kubernetes. Built to handle 500K orders/day from day 1.' },
                   { risk: 'Regulatory issues', impact: 'Fines, operational limits', mitigation: 'Matchmaking model (not TNC). Drivers are true independents. Legal review completed.' },
                   { risk: 'Team execution', impact: 'Miss milestones', mitigation: 'Bangalore talent is deep. 23+ months runway. Can course-correct multiple times.' },
                 ].map((row, i) => (
@@ -3075,11 +3075,11 @@ export default function InvestorDeck() {
                 <h4 style={{ color: '#ff4d4d', marginBottom: '15px' }}>Cost Side</h4>
                 <div style={{ fontFamily: 'monospace', padding: '20px', background: 'rgba(255,77,77,0.1)', borderRadius: '8px' }}>
                   <div style={{ marginBottom: '8px' }}>Fixed costs: <span style={{ color: '#ff4d4d' }}>$85,000</span></div>
-                  <div style={{ marginBottom: '8px' }}>+ Variable (84K orders × $0.97):</div>
-                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>Payment processing: <span style={{ color: '#ff9500' }}>$73,000</span></div>
-                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>AWS + Support: <span style={{ color: '#ff9500' }}>$8,400</span></div>
+                  <div style={{ marginBottom: '8px' }}>+ Variable (84K orders × $0.19):</div>
+                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>Stripe fee on $2 platform fee: <span style={{ color: '#ff9500' }}>~$7,560</span></div>
+                  <div style={{ marginBottom: '8px', paddingLeft: '15px' }}>Maps/SMS/Support allocation: <span style={{ color: '#ff9500' }}>~$8,400</span></div>
                   <div style={{ borderTop: '1px solid rgba(255,77,77,0.3)', paddingTop: '8px', fontWeight: 700, color: '#ff4d4d' }}>
-                    = $166,400/month
+                    = $100,960/month
                   </div>
                 </div>
               </div>
@@ -3089,12 +3089,12 @@ export default function InvestorDeck() {
                 <span style={{ color: '#00ff88', fontWeight: 700 }}>$168,000</span>
                 <span style={{ color: '#888' }}> revenue </span>
                 <span style={{ fontSize: '1.5rem' }}>−</span>
-                <span style={{ color: '#ff4d4d', fontWeight: 700 }}> $166,400</span>
+                <span style={{ color: '#ff4d4d', fontWeight: 700 }}> $100,960</span>
                 <span style={{ color: '#888' }}> costs </span>
                 <span style={{ fontSize: '1.5rem' }}>=</span>
-                <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '1.5rem' }}> +$1,600</span>
+                <span style={{ color: '#00ff88', fontWeight: 700, fontSize: '1.5rem' }}> +$67,040</span>
               </div>
-              <div style={{ color: '#00ff88', fontWeight: 600 }}>First profitable month! The flywheel begins.</div>
+              <div style={{ color: '#00ff88', fontWeight: 600 }}>Strongly profitable - economies of scale accelerating!</div>
             </div>
           </div>
 
@@ -3113,16 +3113,16 @@ export default function InvestorDeck() {
                 <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                     <span style={{ fontSize: '0.85rem' }}>Variable Costs</span>
-                    <span style={{ color: '#0088ff', fontWeight: 600 }}>$0.97/order</span>
+                    <span style={{ color: '#0088ff', fontWeight: 600 }}>$0.19/order</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Stripe fees, AWS compute - scales with orders</div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Stripe fees, maps/SMS, support - scales with orders</div>
                 </div>
                 <div style={{ padding: '12px', background: 'rgba(0,255,136,0.1)', borderRadius: '8px', borderLeft: '3px solid #00ff88' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Contribution Margin</span>
-                    <span style={{ color: '#00ff88', fontWeight: 700 }}>$1.03/order</span>
+                    <span style={{ color: '#00ff88', fontWeight: 700 }}>$1.81/order</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Each order covers costs + contributes to fixed</div>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Each order covers costs + contributes to fixed (90.5%)</div>
                 </div>
               </div>
             </div>
@@ -3269,9 +3269,9 @@ export default function InvestorDeck() {
             </div>
 
             <div style={{ marginTop: '25px', padding: '20px', background: 'linear-gradient(135deg, rgba(155,89,182,0.2), rgba(0,136,255,0.2))', borderRadius: '12px', textAlign: 'center' }}>
-              <span style={{ fontSize: '1.1rem' }}>Rideshare has </span>
-              <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#9b59b6' }}>31% higher margins</span>
-              <span style={{ fontSize: '1.1rem' }}> than food delivery ($1.35 vs $1.03)</span>
+              <span style={{ fontSize: '1.1rem' }}>Both models deliver </span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#00ff88' }}>strong margins</span>
+              <span style={{ fontSize: '1.1rem' }}> (Food: $1.81 / Ride: $1.35)</span>
             </div>
           </div>
 
