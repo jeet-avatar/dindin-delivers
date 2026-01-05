@@ -35,6 +35,7 @@ import DriverApplication from './app/screens/public/DriverApplication';
 import HelpSupport from './app/screens/public/HelpSupport';
 import ReferAndEarn from './app/screens/public/ReferAndEarn';
 import InvestorDeck from './app/screens/public/InvestorDeck';
+import InvestorDeck2026 from './app/screens/public/InvestorDeck2026';
 
 // Customer Pages
 import CustomerLogin from './app/screens/auth/CustomerLogin';
@@ -130,6 +131,9 @@ function App() {
         <Route path="/investor" element={<InvestorDeck />} />
         <Route path="/investors" element={<InvestorDeck />} />
         <Route path="/deck" element={<InvestorDeck />} />
+
+        {/* Investor Deck 2026 (Password-protected) */}
+        <Route path="/investor2026" element={<InvestorDeck2026 />} />
 
         {/* Restaurant & Driver Applications */}
         <Route path="/restaurant/apply" element={<RestaurantApplication />} />
