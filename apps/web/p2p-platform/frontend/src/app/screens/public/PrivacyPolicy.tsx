@@ -79,7 +79,9 @@ const PrivacyPolicy: React.FC = () => {
               <Paragraph>
                 At Dollor.ai, your privacy is our priority. This Privacy Policy explains
                 how we collect, use, protect, and share your personal information when
-                you use our platform and services.
+                you use our peer-to-peer (P2P) matchmaking platform. <strong>Dollor.ai is a technology platform
+                that connects independent parties</strong>—customers, restaurants, and drivers—who transact
+                with each other. We do not provide delivery or transportation services directly.
               </Paragraph>
             </div>
 
@@ -126,12 +128,12 @@ const PrivacyPolicy: React.FC = () => {
             <div className="section">
               <Title level={2}>2. How We Use Your Information</Title>
               <Paragraph>
-                We use the information we collect to:
+                As a P2P matchmaking platform, we use the information we collect to:
               </Paragraph>
               <div className="use-cases">
                 <div className="use-case">
-                  <strong>Provide Services</strong>
-                  <p>Process orders, facilitate deliveries, and handle payments</p>
+                  <strong>Facilitate P2P Connections</strong>
+                  <p>Connect customers with restaurants and independent drivers, facilitate payments between parties</p>
                 </div>
                 <div className="use-case">
                   <strong>Improve Experience</strong>
@@ -159,19 +161,28 @@ const PrivacyPolicy: React.FC = () => {
             <div className="section">
               <Title level={2}>3. Information Sharing</Title>
               <Paragraph>
-                We do not sell your personal information. We may share your information with:
+                <strong>Important: As a P2P matchmaking platform, your transactions occur with independent third parties,
+                not with Dollor.ai.</strong> We do not sell your personal information. We share your information as necessary
+                to facilitate P2P transactions between users:
               </Paragraph>
               <ul>
-                <li><strong>Restaurant Partners:</strong> To fulfill your orders (name, contact info, order details)</li>
-                <li><strong>Delivery Partners:</strong> To complete deliveries (delivery address, order details)</li>
-                <li><strong>Payment Processors:</strong> To process transactions securely</li>
-                <li><strong>Service Providers:</strong> Who help us operate our platform (hosting, analytics, support)</li>
+                <li><strong>Restaurant Partners (Independent Businesses):</strong> When you place an order, your information
+                (name, contact info, order details) is shared with the restaurant because you are transacting directly with them,
+                not with Dollor.ai</li>
+                <li><strong>Delivery Partners (Independent Contractors):</strong> When a delivery is arranged, your information
+                (delivery address, order details) is shared with the driver because they are providing services directly to you and
+                the restaurant, not to Dollor.ai</li>
+                <li><strong>Payment Processors:</strong> To facilitate secure payments between you and service providers (we act
+                as a marketplace facilitator processing payments on behalf of independent parties)</li>
+                <li><strong>Service Providers:</strong> Who help us operate our P2P platform (hosting, analytics, support)</li>
                 <li><strong>Legal Authorities:</strong> When required by law or to protect our rights</li>
                 <li><strong>Business Transfers:</strong> In connection with mergers, acquisitions, or asset sales</li>
               </ul>
               <Paragraph>
-                All third parties are bound by contractual obligations to protect your
-                information and use it only for specified purposes.
+                <strong>P2P Platform Disclosure:</strong> Because Dollor.ai is a matchmaking platform connecting independent parties,
+                the restaurants and drivers you transact with are independent businesses—not our employees or agents. They have their
+                own privacy practices and are responsible for how they handle your information in connection with the services they
+                provide to you. All platform service providers are bound by contractual obligations to protect your information.
               </Paragraph>
             </div>
 
