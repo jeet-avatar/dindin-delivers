@@ -15285,8 +15285,9 @@ def recreate_demo_customer(db: Session = Depends(get_db)):
         db.execute(text("DELETE FROM customers WHERE email = 'demo.customer@dollor.ai'"))
         db.commit()
 
-        # Create fresh demo customer
-        new_hash = get_password_hash("DemoCustomer2025!")
+        # Create fresh demo customer (password without special chars for compatibility)
+        demo_password = "DemoCustomer2025"
+        new_hash = get_password_hash(demo_password)
         demo_customer = Customer(
             customer_id="DEMO-CUST-001",
             first_name="Demo",
@@ -15307,12 +15308,12 @@ def recreate_demo_customer(db: Session = Depends(get_db)):
         db.refresh(demo_customer)
 
         # Verify password works
-        if verify_password("DemoCustomer2025!", demo_customer.password_hash):
+        if verify_password(demo_password, demo_customer.password_hash):
             return {
                 "success": True,
                 "customer_id": demo_customer.id,
                 "email": "demo.customer@dollor.ai",
-                "password": "DemoCustomer2025!",
+                "password": demo_password,
                 "message": "Demo customer recreated and verified"
             }
         else:
