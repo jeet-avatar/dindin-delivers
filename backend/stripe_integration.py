@@ -170,12 +170,14 @@ async def create_order(
         payment_intent = stripe.PaymentIntent.create(
             amount=int(total_amount * 100),  # Stripe uses cents
             currency="usd",
-            customer_email=order_data.customer_email,
+            receipt_email=order_data.customer_email,
+            automatic_payment_methods={"enabled": True},
             metadata={
                 "order_id": new_order.id,
                 "order_number": order_number,
                 "vendor_id": order_data.vendor_id,
-                "customer_name": order_data.customer_name
+                "customer_name": order_data.customer_name,
+                "customer_email": order_data.customer_email
             },
             description=f"Order {order_number} from {vendor.restaurant_name or vendor.company_name}"
         )

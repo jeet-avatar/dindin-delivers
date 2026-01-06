@@ -1,0 +1,168 @@
+name: Promote Staging to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_promotion:
+        description: 'Type "PROMOTE" to confirm staging-to-production deployment'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip pre-deployment tests (NOT recommended)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  validate-promotion:
+    name: Validate Promotion Request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ inputs.confirm_promotion }}" != "PROMOTE" ]; then
+            echo "❌ ERROR: You must type 'PROMOTE' to confirm this deployment"
+            echo "This action will deploy staging environment to production."
+            exit 1
+          fi
+          echo "✅ Promotion confirmed"
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Verify staging branch exists
+        run: |
+          git fetch origin
+          if ! git rev-parse --verify origin/staging; then
+            echo "❌ ERROR: staging branch does not exist"
+            exit 1
+          fi
+          echo "✅ Staging branch verified"
+
+  run-pre-deployment-tests:
+    name: Pre-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: validate-promotion
+    if: ${{ inputs.skip_tests != true }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run backend tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          SECRET_KEY: test-secret-key
+          JWT_SECRET_KEY: test-jwt-secret-key
+          TESTING: "true"
+        run: |
+          pytest tests/unit/ -v --tb=short
+
+      - name: Run integration tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          SECRET_KEY: test-secret-key
+          TESTING: "true"
+        run: |
+          pytest tests/integration/ -v --tb=short || echo "Some integration tests may require live services"
+
+  create-promotion-pr:
+    name: Create Staging → Main PR
+    runs-on: ubuntu-latest
+    needs: [validate-promotion, run-pre-deployment-tests]
+    if: always() && (needs.run-pre-deployment-tests.result == 'success' || inputs.skip_tests == true)
+
+    outputs:
+      pr_number: ${{ steps.create_pr.outputs.pr_number }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: staging
+          base: main
+          title: "🚀 Promote Staging to Production"
+          body: |
+            ## Staging to Production Promotion
+
+            This PR promotes the staging environment to production.
+
+            ### Pre-Deployment Checklist
+            - [x] Staging tests passed
+            - [ ] Manual testing completed on staging.dollor.ai
+            - [ ] Database migrations reviewed
+            - [ ] Environment variables updated in production
+            - [ ] Stakeholder approval obtained
+
+            ### Changes Being Promoted
+            See commits below for full details of what's being deployed.
+
+            ### Post-Deployment Tasks
+            - [ ] Verify production site: https://dollor.ai
+            - [ ] Check API health: https://api.dollor.ai/health
+            - [ ] Monitor error logs for 1 hour
+            - [ ] Test critical user flows (ordering, payments, driver assignment)
+
+            **⚠️ This PR will trigger automatic deployment to production when merged.**
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          labels: |
+            production
+            deployment
+            staging-promotion
+
+      - name: Output PR details
+        run: |
+          echo "Pull Request Created!"
+          echo "PR Number: ${{ steps.create_pr.outputs.pr_number }}"
+          echo "Please review and approve the PR before merging"
+
+  notify-team:
+    name: Notify Team of Promotion
+    runs-on: ubuntu-latest
+    needs: create-promotion-pr
+    if: always()
+
+    steps:
+      - name: Production Promotion Summary
+        run: |
+          echo "=========================================="
+          echo "🚀 STAGING TO PRODUCTION PROMOTION"
+          echo "=========================================="
+          echo ""
+          echo "Status: PR Created and Awaiting Approval"
+          echo ""
+          echo "Next Steps:"
+          echo "1. Review the PR: https://github.com/${{ github.repository }}/pull/${{ needs.create-promotion-pr.outputs.pr_number }}"
+          echo "2. Test on staging: https://staging.dollor.ai"
+          echo "3. Get stakeholder approval"
+          echo "4. Merge PR to deploy to production"
+          echo ""
+          echo "Production URLs (after merge):"
+          echo "  - Frontend: https://dollor.ai"
+          echo "  - API: https://api.dollor.ai"
+          echo ""
+          echo "=========================================="

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
-// Token-based access control
+// Token-based access control (for backward compatibility)
 const VALID_TOKENS = ['invest2025', 'seed500k', 'dollor-ai'];
 
 // External link warning component
@@ -22,38 +22,254 @@ const ExternalLink: React.FC<{ href: string; children: React.ReactNode; style?: 
   );
 };
 
+// Watermark component - multi-position with email
+const Watermark: React.FC<{ email: string; timestamp: string }> = ({ email, timestamp }) => {
+  return (
+    <>
+      {/* Top-left watermark */}
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        left: '20px',
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.15)',
+        pointerEvents: 'none',
+        zIndex: 9998,
+        fontFamily: 'monospace',
+        userSelect: 'none'
+      }}>
+        {email}
+      </div>
+
+      {/* Top-right watermark */}
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        right: '20px',
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.15)',
+        pointerEvents: 'none',
+        zIndex: 9998,
+        fontFamily: 'monospace',
+        userSelect: 'none',
+        textAlign: 'right'
+      }}>
+        {timestamp}
+      </div>
+
+      {/* Bottom-left watermark */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '20px',
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.15)',
+        pointerEvents: 'none',
+        zIndex: 9998,
+        fontFamily: 'monospace',
+        userSelect: 'none'
+      }}>
+        {timestamp}
+      </div>
+
+      {/* Bottom-right watermark */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.15)',
+        pointerEvents: 'none',
+        zIndex: 9998,
+        fontFamily: 'monospace',
+        userSelect: 'none',
+        textAlign: 'right'
+      }}>
+        {email}
+      </div>
+
+      {/* Center watermark (very subtle) */}
+      <div style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        fontSize: '10px',
+        color: 'rgba(255,255,255,0.08)',
+        pointerEvents: 'none',
+        zIndex: 9997,
+        fontFamily: 'monospace',
+        userSelect: 'none',
+        textAlign: 'center'
+      }}>
+        {email} • {timestamp}
+      </div>
+    </>
+  );
+};
+
 export default function InvestorDeck() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
   const [tokenInput, setTokenInput] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [viewerEmail, setViewerEmail] = useState('');
+  const [viewTimestamp, setViewTimestamp] = useState('');
 
   useEffect(() => {
+    // Check for token (backward compatibility)
     const token = searchParams.get('token')?.toLowerCase().trim();
     if (token && VALID_TOKENS.includes(token)) {
       setIsAuthorized(true);
+      setViewerEmail('legacy-token-user@dollor.ai');
+      setViewTimestamp(new Date().toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+      return;
+    }
+
+    // Check for email (new method)
+    const email = searchParams.get('email');
+    const accessToken = searchParams.get('access');
+    if (email && accessToken) {
+      // Validate access token matches email
+      logViewAccess(email, accessToken);
     }
   }, [searchParams]);
+
+  const logViewAccess = async (email: string, accessToken: string) => {
+    try {
+      const response = await fetch('https://api.dollor.ai/api/investor/verify-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          access_token: accessToken,
+          user_agent: navigator.userAgent,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsAuthorized(true);
+        setViewerEmail(email);
+        setViewTimestamp(new Date().toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      } else {
+        setError('Invalid or expired access link. Please request a new one.');
+      }
+    } catch (err) {
+      console.error('Access verification failed:', err);
+      setError('Could not verify access. Please try again.');
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Request access token from backend
+      const response = await fetch('https://api.dollor.ai/api/investor/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Redirect to deck with access token
+        navigate(`/investor?email=${encodeURIComponent(emailInput)}&access=${data.access_token}`);
+        setIsAuthorized(true);
+        setViewerEmail(emailInput);
+        setViewTimestamp(new Date().toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Access request failed. Please contact invest@dollor.ai');
+      }
+    } catch (err) {
+      console.error('Access request failed:', err);
+      setError('Could not request access. Please try again or contact invest@dollor.ai');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (VALID_TOKENS.includes(tokenInput.toLowerCase().trim())) {
-      navigate(`/investors?token=${tokenInput.toLowerCase().trim()}`);
+      navigate(`/investor?token=${tokenInput.toLowerCase().trim()}`);
       setIsAuthorized(true);
+      setViewerEmail('legacy-token-user@dollor.ai');
+      setViewTimestamp(new Date().toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
     } else {
       setError('Invalid access token. Please contact invest@dollor.ai');
     }
   };
 
-  // Token gate
+  // Email/Token gate
   if (!isAuthorized) {
     return (
       <div style={styles.tokenGate}>
         <div style={styles.tokenCard}>
           <img src="/logo-dollar-ai.svg" alt="Dollor.ai" style={{ height: '48px', marginBottom: '20px' }} />
           <h2 style={{ color: 'white', marginBottom: '10px' }}>Investor Deck</h2>
-          <p style={{ color: '#888', marginBottom: '30px' }}>Enter your access token to view</p>
+          <p style={{ color: '#888', marginBottom: '30px' }}>Enter your email to request access</p>
+
+          <form onSubmit={handleEmailSubmit}>
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="investor@example.com"
+              style={styles.tokenInput}
+              disabled={loading}
+            />
+            <button type="submit" style={styles.tokenButton} disabled={loading}>
+              {loading ? 'Requesting Access...' : 'Request Access'}
+            </button>
+          </form>
+
+          {error && <p style={{ color: '#ff4d4d', marginTop: '15px', fontSize: '0.9rem' }}>{error}</p>}
+
+          <div style={{ margin: '30px 0', color: '#555', fontSize: '0.85rem' }}>
+            OR
+          </div>
+
           <form onSubmit={handleTokenSubmit}>
             <input
               type="text"
@@ -62,11 +278,13 @@ export default function InvestorDeck() {
               placeholder="Enter access token"
               style={styles.tokenInput}
             />
-            <button type="submit" style={styles.tokenButton}>Access Deck</button>
+            <button type="submit" style={{ ...styles.tokenButton, background: 'rgba(255,255,255,0.1)' }}>
+              Use Token
+            </button>
           </form>
-          {error && <p style={{ color: '#ff4d4d', marginTop: '15px', fontSize: '0.9rem' }}>{error}</p>}
+
           <p style={{ color: '#666', marginTop: '30px', fontSize: '0.85rem' }}>
-            Request access: <a href="mailto:invest@dollor.ai" style={{ color: '#00ff88' }}>invest@dollor.ai</a>
+            Questions? <a href="mailto:invest@dollor.ai" style={{ color: '#00ff88' }}>invest@dollor.ai</a>
           </p>
         </div>
       </div>
@@ -77,6 +295,9 @@ export default function InvestorDeck() {
   return (
     <div style={styles.app}>
       <style>{cssStyles}</style>
+
+      {/* Watermark overlay */}
+      <Watermark email={viewerEmail} timestamp={viewTimestamp} />
 
       {/* Navigation */}
       <nav style={styles.nav}>
