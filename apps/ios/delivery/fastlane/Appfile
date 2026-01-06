@@ -1,0 +1,14 @@
+app_identifier("com.dollor.delivery")
+apple_id(ENV["APPLE_ID"] || "jeetnair.in@gmail.com")
+team_id("YRHVAY595K")
+
+# App Store Connect API Key (for CI/CD)
+if ENV["APP_STORE_CONNECT_API_KEY_PATH"]
+  app_store_connect_api_key(
+    key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"] || "JFVA7628SX",
+    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    key_filepath: ENV["APP_STORE_CONNECT_API_KEY_PATH"],
+    duration: 1200,
+    in_house: false
+  )
+end
