@@ -355,6 +355,8 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         # Stripe integration columns
         ("stripe_account_id", "VARCHAR(255)"),
         ("stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
+        # Restaurant image/logo
+        ("image_url", "VARCHAR(500)"),
     ]
 
     for col_name, col_type in vendor_columns:
@@ -8131,6 +8133,7 @@ def get_published_vendors(
     This endpoint is PUBLIC - no authentication required.
     """
     from models import Vendor, VendorStatus
+    from stock_images import get_stock_image_for_restaurant
 
     query = db.query(Vendor).filter(
         Vendor.is_published == True,
@@ -8181,7 +8184,9 @@ def get_published_vendors(
             "delivery_fee": 2.99,
             "performance_score": v.performance_score,
             "published_at": v.published_at.isoformat() if v.published_at else None,
-            "published_platforms": v.published_platforms
+            "published_platforms": v.published_platforms,
+            # Restaurant image - stock image based on cuisine type
+            "image_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or "")
         }
         for v in vendors
     ]
@@ -11509,6 +11514,96 @@ def apply_promotion_code(
         "discount": round(discount, 2),
         "message": f"Promo code applied! You saved ${discount:.2f}",
         "new_total": round(order_total - discount, 2)
+    }
+
+
+@app.post("/api/vendors/{vendor_id}/upload-image")
+async def upload_vendor_image(
+    vendor_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a cover image for a restaurant/vendor.
+    Stores in S3 (or local fallback) and updates vendor.image_url.
+    """
+    from models import Vendor
+    from s3_service import S3Service
+
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+        )
+
+    # Validate file size (5MB max)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB")
+
+    # Get vendor
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Upload to S3
+    s3_service = S3Service()
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    if file_extension not in ['jpg', 'jpeg', 'png', 'webp']:
+        file_extension = 'jpg'
+
+    success, url, message = await s3_service.upload_file(
+        file_content=contents,
+        filename=f"vendor_{vendor_id}_cover.{file_extension}",
+        folder="restaurant_images",
+        content_type=file.content_type
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {message}")
+
+    # Update vendor image_url
+    vendor.image_url = url
+    db.commit()
+
+    return {
+        "success": True,
+        "image_url": url,
+        "message": f"Cover image uploaded for {vendor.restaurant_name or vendor.company_name}"
+    }
+
+
+@app.post("/api/vendors/{vendor_id}/assign-stock-image")
+def assign_stock_image_to_vendor(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Assign a stock image to a vendor based on cuisine type.
+    Used when vendor doesn't have a custom image.
+    """
+    from models import Vendor
+    from stock_images import get_stock_image_for_restaurant
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Generate stock image URL
+    image_url = get_stock_image_for_restaurant(
+        vendor.cuisine_type or "",
+        vendor.restaurant_name or vendor.company_name or ""
+    )
+
+    vendor.image_url = image_url
+    db.commit()
+
+    return {
+        "success": True,
+        "image_url": image_url,
+        "message": f"Stock image assigned to {vendor.restaurant_name or vendor.company_name}"
     }
 
 
