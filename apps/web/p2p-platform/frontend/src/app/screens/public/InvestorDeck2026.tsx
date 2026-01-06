@@ -1675,6 +1675,36 @@ export default function InvestorDeck2026() {
               <span style={{ color: '#0088ff' }}>This architectural choice reduces regulatory risk compared to traditional delivery platforms.</span>
             </p>
           </div>
+
+          <div className="glass-card" style={{ padding: '25px', marginTop: '30px', background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)' }}>
+            <h4 style={{ fontSize: '1.1rem', marginBottom: '15px', color: '#ff9500', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.3rem' }}>📍</span> Texas-Specific Requirement
+            </h4>
+            <p style={{ fontSize: '0.95rem', color: '#aaa', lineHeight: '1.6', marginBottom: '12px' }}>
+              Texas HB 4215 (effective Sept 2025) requires delivery network company permits for platforms that "arrange for" delivery.
+              This may apply to P2P matchmaking platforms like Dollor.ai.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '15px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.5rem', color: '#ff9500', marginBottom: '5px', fontWeight: 700 }}>$10,500</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>One-time permit fee</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.5rem', color: '#0088ff', marginBottom: '5px', fontWeight: 700 }}>90 days</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>Application timeline</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.5rem', color: '#00ff88', marginBottom: '5px', fontWeight: 700 }}>~$0.42</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>Per-order impact at 25K/mo</p>
+              </div>
+            </div>
+            <div style={{ marginTop: '15px', padding: '12px', background: 'rgba(0,136,255,0.1)', borderRadius: '8px', borderLeft: '3px solid #0088ff' }}>
+              <p style={{ fontSize: '0.9rem', color: '#aaa', lineHeight: '1.5' }}>
+                <strong style={{ color: '#0088ff' }}>Action Plan:</strong> Legal counsel opinion in progress to confirm P2P applicability.
+                If required, permit will be obtained 90 days pre-launch. <strong style={{ color: 'white' }}>Minimal impact on unit economics</strong> (~$420/mo at scale).
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Slide 17: The Team */}
