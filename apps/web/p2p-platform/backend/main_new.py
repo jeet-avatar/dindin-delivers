@@ -15277,6 +15277,51 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/demo/recreate-customer")
+def recreate_demo_customer(db: Session = Depends(get_db)):
+    """Delete and recreate demo customer account to fix corrupted data."""
+    try:
+        # Delete existing demo customer
+        db.execute(text("DELETE FROM customers WHERE email = 'demo.customer@dollor.ai'"))
+        db.commit()
+
+        # Create fresh demo customer
+        new_hash = get_password_hash("DemoCustomer2025!")
+        demo_customer = Customer(
+            customer_id="DEMO-CUST-001",
+            first_name="Demo",
+            last_name="Customer",
+            email="demo.customer@dollor.ai",
+            phone="+14155551001",
+            password_hash=new_hash,
+            default_address={"street": "123 Market St", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+            is_active=True,
+            is_verified=True,
+            loyalty_points=500,
+            loyalty_tier="gold",
+            total_orders=25,
+            created_at=datetime.utcnow()
+        )
+        db.add(demo_customer)
+        db.commit()
+        db.refresh(demo_customer)
+
+        # Verify password works
+        if verify_password("DemoCustomer2025!", demo_customer.password_hash):
+            return {
+                "success": True,
+                "customer_id": demo_customer.id,
+                "email": "demo.customer@dollor.ai",
+                "password": "DemoCustomer2025!",
+                "message": "Demo customer recreated and verified"
+            }
+        else:
+            return {"success": False, "error": "Password verification failed after creation"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/demo/force-reset-passwords")
 def force_reset_demo_passwords(db: Session = Depends(get_db)):
     """Force reset all demo account passwords and verify they work."""
