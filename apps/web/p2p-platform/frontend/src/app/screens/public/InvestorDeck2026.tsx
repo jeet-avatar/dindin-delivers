@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 const VALID_PASSWORD = 'investor2026';
 
 // Watermark component - multi-position with viewer info
-const Watermark: React.FC<{ timestamp: string }> = ({ timestamp }) => {
+const Watermark: React.FC<{ timestamp: string; email?: string }> = ({ timestamp, email }) => {
   return (
     <>
       {/* Top-left watermark */}
@@ -51,7 +51,7 @@ const Watermark: React.FC<{ timestamp: string }> = ({ timestamp }) => {
         fontFamily: 'monospace',
         userSelect: 'none'
       }}>
-        {timestamp}
+        {email || timestamp}
       </div>
 
       {/* Bottom-right watermark */}
@@ -70,7 +70,7 @@ const Watermark: React.FC<{ timestamp: string }> = ({ timestamp }) => {
         Confidential
       </div>
 
-      {/* Center watermark (very subtle) */}
+      {/* Center watermark (very subtle) with email */}
       <div style={{
         position: 'fixed',
         top: '50%',
@@ -84,7 +84,8 @@ const Watermark: React.FC<{ timestamp: string }> = ({ timestamp }) => {
         userSelect: 'none',
         textAlign: 'center'
       }}>
-        Dollor.ai Confidential • {timestamp}
+        Dollor.ai Confidential • {timestamp}<br/>
+        {email && <span style={{ fontSize: '9px' }}>{email}</span>}
       </div>
     </>
   );
@@ -93,7 +94,9 @@ const Watermark: React.FC<{ timestamp: string }> = ({ timestamp }) => {
 export default function InvestorDeck2026() {
   const [searchParams] = useSearchParams();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [emailCollected, setEmailCollected] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [error, setError] = useState('');
   const [viewTimestamp] = useState(new Date().toLocaleString('en-US', {
     month: 'short',
@@ -114,8 +117,47 @@ export default function InvestorDeck2026() {
     e.preventDefault();
     if (passwordInput === VALID_PASSWORD) {
       setIsAuthorized(true);
+      setError('');
     } else {
       setError('Invalid password. Please contact invest@dollor.ai');
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      // Log view to backend
+      const response = await fetch('https://api.dollor.ai/api/investor/log-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailInput,
+          timestamp: new Date().toISOString(),
+          user_agent: navigator.userAgent,
+          deck_version: '2026'
+        })
+      });
+
+      if (response.ok) {
+        setEmailCollected(true);
+        setError('');
+      } else {
+        // Even if logging fails, allow access (don't block user)
+        console.error('Failed to log view, but allowing access');
+        setEmailCollected(true);
+      }
+    } catch (err) {
+      // Network error - allow access anyway
+      console.error('Error logging view:', err);
+      setEmailCollected(true);
     }
   };
 
@@ -146,13 +188,41 @@ export default function InvestorDeck2026() {
     );
   }
 
+  // Email collection gate (after password)
+  if (!emailCollected) {
+    return (
+      <div style={styles.tokenGate}>
+        <div style={styles.tokenCard}>
+          <img src="/logo-dollar-ai.svg" alt="Dollor.ai" style={{ height: '48px', marginBottom: '20px' }} />
+          <h2 style={{ color: 'white', marginBottom: '10px' }}>One More Step</h2>
+          <p style={{ color: '#888', marginBottom: '30px' }}>Please enter your email to view the deck</p>
+          <form onSubmit={handleEmailSubmit}>
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              placeholder="your@email.com"
+              style={styles.tokenInput}
+              required
+            />
+            <button type="submit" style={styles.tokenButton}>View Deck</button>
+          </form>
+          {error && <p style={{ color: '#ff4d4d', marginTop: '15px', fontSize: '0.9rem' }}>{error}</p>}
+          <p style={{ color: '#666', marginTop: '30px', fontSize: '0.85rem' }}>
+            We track deck views for analytics. Your email will not be shared.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Main Investor Deck
   return (
     <div style={styles.app}>
       <style>{cssStyles}</style>
 
-      {/* Watermark overlay */}
-      <Watermark timestamp={viewTimestamp} />
+      {/* Watermark overlay with email */}
+      <Watermark timestamp={viewTimestamp} email={emailInput} />
 
       {/* Navigation */}
       <nav style={styles.nav}>

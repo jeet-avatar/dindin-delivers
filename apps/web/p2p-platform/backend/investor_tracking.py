@@ -140,6 +140,47 @@ async def verify_access(verification: AccessVerification, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/log-view")
+async def log_view(request: Request):
+    """
+    Simple view logging for investor deck 2026
+    Logs email, timestamp, user agent without complex token flow
+    """
+    try:
+        data = await request.json()
+        email = data.get('email')
+        timestamp = data.get('timestamp')
+        user_agent = data.get('user_agent')
+        deck_version = data.get('deck_version', '2026')
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+
+        # Load existing views
+        views = load_json_file(TRACKING_FILE)
+        view_id = f"view_{datetime.utcnow().timestamp()}"
+
+        # Log the view
+        views[view_id] = {
+            "email": email,
+            "timestamp": timestamp,
+            "ip_address": request.client.host if request.client else "unknown",
+            "user_agent": user_agent,
+            "deck_version": deck_version
+        }
+
+        save_json_file(TRACKING_FILE, views)
+
+        return {
+            "success": True,
+            "message": "View logged successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/views")
 async def get_views():
     """
