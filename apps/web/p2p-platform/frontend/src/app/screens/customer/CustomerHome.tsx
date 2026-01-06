@@ -290,7 +290,19 @@ const CustomerHome: React.FC = () => {
               onClick={() => navigate(`/customer/restaurant/${restaurant.id}`)}
             >
               <div className="featured-image">
-                <div className="image-placeholder">
+                {restaurant.image_url ? (
+                  <img
+                    src={restaurant.image_url}
+                    alt={restaurant.name}
+                    className="restaurant-img"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`image-placeholder ${restaurant.image_url ? 'hidden' : ''}`}>
                   {categories.find(c => c.id === restaurant.cuisine_type)?.emoji || '🍽️'}
                 </div>
                 {restaurant.rating >= 4.5 && (
@@ -305,7 +317,7 @@ const CustomerHome: React.FC = () => {
                   <Text type="secondary">•</Text>
                   <Text type="secondary">{restaurant.delivery_time}</Text>
                 </div>
-                <Text className="delivery-fee">$1 delivery</Text>
+                <Text className="delivery-fee">${pricing.foodDelivery.customerFee} platform fee</Text>
               </div>
             </div>
           ))}
@@ -337,7 +349,19 @@ const CustomerHome: React.FC = () => {
               onClick={() => navigate(`/customer/restaurant/${restaurant.id}`)}
             >
               <div className="restaurant-image">
-                <div className="image-placeholder">
+                {restaurant.image_url ? (
+                  <img
+                    src={restaurant.image_url}
+                    alt={restaurant.name}
+                    className="restaurant-img"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`image-placeholder ${restaurant.image_url ? 'hidden' : ''}`}>
                   {categories.find(c => c.id === restaurant.cuisine_type)?.emoji || '🍽️'}
                 </div>
               </div>
@@ -353,7 +377,7 @@ const CustomerHome: React.FC = () => {
                     <ClockCircleOutlined />
                     {restaurant.delivery_time}
                   </span>
-                  <span className="fee">$1 fee</span>
+                  <span className="fee">${pricing.foodDelivery.customerFee} fee</span>
                 </div>
               </div>
               <RightOutlined className="chevron" />
@@ -363,8 +387,13 @@ const CustomerHome: React.FC = () => {
       </div>
 
       <style>{`
+        /* ============================================
+           CUSTOMER HOME - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .customer-home {
-          max-width: 800px;
+          max-width: 1200px;
           margin: 0 auto;
           padding-bottom: 100px;
           background: #f7f7f8;
@@ -385,6 +414,9 @@ const CustomerHome: React.FC = () => {
           background: white;
           padding: 16px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          position: sticky;
+          top: 0;
+          z-index: 100;
         }
 
         .header-top {
@@ -396,6 +428,11 @@ const CustomerHome: React.FC = () => {
 
         .address-picker {
           cursor: pointer;
+          transition: opacity 0.2s;
+        }
+
+        .address-picker:hover {
+          opacity: 0.8;
         }
 
         .deliver-to {
@@ -422,18 +459,23 @@ const CustomerHome: React.FC = () => {
           background: #10B981;
           color: white;
           border-radius: 50%;
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
         }
 
         .search-bar {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 14px 18px;
           background: #f5f5f5;
           border-radius: 12px;
           cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .search-bar:hover {
+          background: #eeeeee;
         }
 
         .search-icon {
@@ -442,26 +484,27 @@ const CustomerHome: React.FC = () => {
 
         /* Service Selection - matches iOS */
         .service-selection {
-          display: flex;
-          gap: 12px;
-          padding: 16px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          padding: 20px 16px;
         }
 
         .service-card {
-          flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 16px;
+          padding: 20px 16px;
           background: white;
           border-radius: 16px;
           cursor: pointer;
           box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-          transition: transform 0.2s;
+          transition: all 0.2s ease;
         }
 
         .service-card:hover {
-          transform: translateY(-2px);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.1);
         }
 
         .service-icon {
@@ -472,7 +515,7 @@ const CustomerHome: React.FC = () => {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          margin-bottom: 8px;
+          margin-bottom: 12px;
         }
 
         .food-icon {
@@ -492,19 +535,26 @@ const CustomerHome: React.FC = () => {
         .service-subtitle {
           font-size: 12px;
           display: block;
+          margin-top: 2px;
         }
 
         /* Categories - matches iOS */
         .categories-section {
-          padding: 0 16px 16px;
+          padding: 0 16px 20px;
         }
 
         .categories-scroll {
           display: flex;
           gap: 16px;
           overflow-x: auto;
-          padding: 8px 0;
+          padding: 8px 4px;
           -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .categories-scroll::-webkit-scrollbar {
+          display: none;
         }
 
         .category-item {
@@ -514,22 +564,31 @@ const CustomerHome: React.FC = () => {
           gap: 8px;
           cursor: pointer;
           min-width: 70px;
+          flex-shrink: 0;
         }
 
         .category-emoji {
-          width: 60px;
-          height: 60px;
+          width: 64px;
+          height: 64px;
           border-radius: 50%;
-          background: #f5f5f5;
+          background: white;
+          border: 2px solid #f0f0f0;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 28px;
-          transition: all 0.2s;
+          transition: all 0.2s ease;
+        }
+
+        .category-item:hover .category-emoji {
+          border-color: #10B981;
+          transform: scale(1.05);
         }
 
         .category-item.active .category-emoji {
           background: #10B981;
+          border-color: #10B981;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .category-item.active .category-name {
@@ -539,24 +598,31 @@ const CustomerHome: React.FC = () => {
 
         .category-name {
           font-size: 12px;
+          text-align: center;
         }
 
         /* AI Banner - matches iOS */
         .ai-banner {
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin: 0 16px 16px;
-          padding: 16px;
+          gap: 14px;
+          margin: 0 16px 20px;
+          padding: 18px;
           background: white;
           border-radius: 16px;
           cursor: pointer;
           box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          transition: all 0.2s ease;
+        }
+
+        .ai-banner:hover {
+          box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+          transform: translateY(-2px);
         }
 
         .ai-icon {
-          width: 50px;
-          height: 50px;
+          width: 52px;
+          height: 52px;
           border-radius: 50%;
           background: linear-gradient(135deg, #a855f7, #ec4899);
           display: flex;
@@ -564,10 +630,12 @@ const CustomerHome: React.FC = () => {
           justify-content: center;
           color: white;
           font-size: 24px;
+          flex-shrink: 0;
         }
 
         .ai-text {
           flex: 1;
+          min-width: 0;
         }
 
         .ai-text span {
@@ -579,11 +647,12 @@ const CustomerHome: React.FC = () => {
           font-weight: 600;
           background: rgba(168, 85, 247, 0.1);
           border-radius: 8px;
+          flex-shrink: 0;
         }
 
         /* Deals Section - matches iOS */
         .deals-section {
-          padding: 0 16px 16px;
+          padding: 0 16px 20px;
         }
 
         .section-header {
@@ -591,21 +660,35 @@ const CustomerHome: React.FC = () => {
           align-items: center;
           justify-content: space-between;
           gap: 8px;
-          margin-bottom: 12px;
+          margin-bottom: 14px;
         }
 
         .deals-scroll {
           display: flex;
-          gap: 12px;
+          gap: 14px;
           overflow-x: auto;
+          padding-bottom: 4px;
           -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .deals-scroll::-webkit-scrollbar {
+          display: none;
         }
 
         .deal-card {
-          min-width: 200px;
-          padding: 16px;
+          min-width: 220px;
+          max-width: 280px;
+          padding: 18px;
           border-radius: 16px;
           color: white;
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
+        }
+
+        .deal-card:hover {
+          transform: scale(1.02);
         }
 
         .deal-card.percentage {
@@ -620,8 +703,13 @@ const CustomerHome: React.FC = () => {
           background: linear-gradient(135deg, #3b82f6, #a855f7);
         }
 
+        .deal-card.flat_amount {
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        }
+
         .deal-headline {
-          font-size: 20px;
+          font-size: 22px;
+          font-weight: 700;
           display: block;
           color: white;
         }
@@ -630,6 +718,7 @@ const CustomerHome: React.FC = () => {
           display: block;
           opacity: 0.9;
           color: white;
+          margin-top: 4px;
         }
 
         .deal-desc {
@@ -644,7 +733,7 @@ const CustomerHome: React.FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-top: 12px;
+          margin-top: 14px;
         }
 
         .promo-tag {
@@ -662,11 +751,16 @@ const CustomerHome: React.FC = () => {
 
         /* Multi-Restaurant Promo - matches iOS */
         .multi-restaurant-promo {
-          margin: 0 16px 16px;
-          padding: 16px;
+          margin: 0 16px 20px;
+          padding: 18px;
           background: linear-gradient(135deg, #f97316, #ef4444);
           border-radius: 16px;
           cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+
+        .multi-restaurant-promo:hover {
+          transform: scale(1.01);
         }
 
         .promo-header {
@@ -683,41 +777,57 @@ const CustomerHome: React.FC = () => {
         .promo-desc {
           display: block;
           color: rgba(255,255,255,0.9);
-          font-size: 13px;
-          margin-bottom: 8px;
+          font-size: 14px;
+          margin-bottom: 10px;
+          line-height: 1.4;
         }
 
         .learn-more {
           display: block;
           color: white;
           font-weight: 600;
-          font-size: 13px;
+          font-size: 14px;
           text-align: right;
         }
 
         /* Featured Section - matches iOS */
         .featured-section {
-          padding: 0 16px 16px;
+          padding: 0 16px 20px;
         }
 
         .featured-scroll {
           display: flex;
           gap: 16px;
           overflow-x: auto;
+          padding-bottom: 4px;
           -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .featured-scroll::-webkit-scrollbar {
+          display: none;
         }
 
         .featured-card {
-          min-width: 180px;
+          min-width: 200px;
+          max-width: 240px;
           background: white;
-          border-radius: 12px;
+          border-radius: 14px;
           overflow: hidden;
           cursor: pointer;
           box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+        }
+
+        .featured-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
         }
 
         .featured-image {
-          height: 110px;
+          height: 120px;
           background: #f5f5f5;
           position: relative;
         }
@@ -730,21 +840,32 @@ const CustomerHome: React.FC = () => {
           font-size: 48px;
         }
 
+        .image-placeholder.hidden {
+          display: none;
+        }
+
+        .featured-image img.restaurant-img,
+        .restaurant-image img.restaurant-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
         .top-pick-tag {
           position: absolute;
-          top: 8px;
-          right: 8px;
-          font-size: 9px;
+          top: 10px;
+          right: 10px;
+          font-size: 10px;
           font-weight: bold;
         }
 
         .featured-info {
-          padding: 10px;
+          padding: 12px;
         }
 
         .restaurant-name {
           display: block;
-          font-size: 14px;
+          font-size: 15px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -755,18 +876,18 @@ const CustomerHome: React.FC = () => {
           align-items: center;
           gap: 4px;
           font-size: 12px;
-          margin: 4px 0;
+          margin: 6px 0;
         }
 
         .delivery-fee {
           color: #10B981;
-          font-size: 11px;
-          font-weight: 500;
+          font-size: 12px;
+          font-weight: 600;
         }
 
         /* All Restaurants - matches iOS */
         .all-restaurants-section {
-          padding: 0 16px;
+          padding: 0 16px 24px;
         }
 
         .sort-select {
@@ -776,71 +897,92 @@ const CustomerHome: React.FC = () => {
         .restaurants-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
 
         .restaurant-card {
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 12px;
+          gap: 16px;
+          padding: 14px;
           background: white;
-          border-radius: 14px;
+          border-radius: 16px;
           cursor: pointer;
           box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+          transition: all 0.2s ease;
+        }
+
+        .restaurant-card:hover {
+          box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+          transform: translateX(4px);
         }
 
         .restaurant-card .restaurant-image {
-          width: 90px;
-          height: 90px;
-          border-radius: 12px;
+          width: 100px;
+          height: 100px;
+          border-radius: 14px;
           overflow: hidden;
           background: #f5f5f5;
           flex-shrink: 0;
         }
 
         .restaurant-card .image-placeholder {
-          font-size: 36px;
+          font-size: 40px;
         }
 
         .restaurant-card .restaurant-info {
           flex: 1;
+          min-width: 0;
         }
 
         .restaurant-card .cuisine {
           font-size: 14px;
           display: block;
+          color: #6b7280;
         }
 
         .restaurant-stats {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-top: 8px;
-          font-size: 12px;
+          gap: 12px;
+          margin-top: 10px;
+          font-size: 13px;
           color: #6b7280;
         }
 
         .stat {
           display: flex;
           align-items: center;
-          gap: 3px;
+          gap: 4px;
         }
 
         .fee {
           color: #10B981;
-          font-weight: 500;
+          font-weight: 600;
         }
 
         .chevron {
           color: #d1d5db;
-          font-size: 14px;
+          font-size: 16px;
         }
 
-        /* Responsive */
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
         @media (max-width: 480px) {
-          .service-card {
+          .header-section {
             padding: 12px;
+          }
+
+          .service-selection {
+            padding: 16px 12px;
+            gap: 12px;
+          }
+
+          .service-card {
+            padding: 16px 12px;
           }
 
           .service-icon {
@@ -850,17 +992,161 @@ const CustomerHome: React.FC = () => {
           }
 
           .category-emoji {
-            width: 50px;
-            height: 50px;
+            width: 52px;
+            height: 52px;
             font-size: 24px;
           }
 
+          .categories-section,
+          .deals-section,
+          .featured-section,
+          .all-restaurants-section {
+            padding-left: 12px;
+            padding-right: 12px;
+          }
+
+          .ai-banner,
+          .multi-restaurant-promo {
+            margin-left: 12px;
+            margin-right: 12px;
+          }
+
           .featured-card {
-            min-width: 160px;
+            min-width: 170px;
           }
 
           .deal-card {
-            min-width: 180px;
+            min-width: 190px;
+            padding: 14px;
+          }
+
+          .deal-headline {
+            font-size: 18px;
+          }
+
+          .restaurant-card {
+            padding: 12px;
+            gap: 12px;
+          }
+
+          .restaurant-card .restaurant-image {
+            width: 80px;
+            height: 80px;
+          }
+
+          .restaurant-card .image-placeholder {
+            font-size: 32px;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .service-selection {
+            gap: 14px;
+          }
+
+          .featured-card {
+            min-width: 190px;
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .service-selection {
+            padding: 20px;
+          }
+
+          .featured-card {
+            min-width: 210px;
+          }
+
+          .categories-section,
+          .deals-section,
+          .featured-section,
+          .all-restaurants-section {
+            padding-left: 20px;
+            padding-right: 20px;
+          }
+
+          .ai-banner,
+          .multi-restaurant-promo {
+            margin-left: 20px;
+            margin-right: 20px;
+          }
+        }
+
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) {
+          .service-selection {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 24px;
+          }
+
+          .categories-section,
+          .deals-section,
+          .featured-section,
+          .all-restaurants-section {
+            padding-left: 24px;
+            padding-right: 24px;
+          }
+
+          .ai-banner,
+          .multi-restaurant-promo {
+            margin-left: 24px;
+            margin-right: 24px;
+          }
+
+          .restaurants-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+
+          .restaurant-card:hover {
+            transform: translateY(-4px);
+          }
+        }
+
+        /* Extra large devices (1025px and up) */
+        @media (min-width: 1025px) {
+          .customer-home {
+            padding: 0 24px 100px;
+          }
+
+          .header-section {
+            border-radius: 0 0 24px 24px;
+          }
+
+          .categories-section,
+          .deals-section,
+          .featured-section,
+          .all-restaurants-section {
+            padding-left: 32px;
+            padding-right: 32px;
+          }
+
+          .ai-banner,
+          .multi-restaurant-promo {
+            margin-left: 32px;
+            margin-right: 32px;
+          }
+
+          .featured-scroll {
+            gap: 20px;
+          }
+
+          .featured-card {
+            min-width: 240px;
+          }
+
+          .featured-image {
+            height: 140px;
+          }
+
+          .restaurants-list {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
           }
         }
       `}</style>
