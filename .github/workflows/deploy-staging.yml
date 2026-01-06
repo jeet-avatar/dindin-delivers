@@ -126,7 +126,7 @@ jobs:
         working-directory: apps/web/p2p-platform/frontend
         run: npm run build
         env:
-          VITE_API_URL: https://staging-api.dollor.ai
+          VITE_API_URL: https://d3kuu45w6kl8hr.cloudfront.net
           VITE_APP_NAME: Dollor.ai (Staging)
           VITE_ENVIRONMENT: staging
 
