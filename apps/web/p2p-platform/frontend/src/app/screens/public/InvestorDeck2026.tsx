@@ -1310,7 +1310,176 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 15: The Team */}
+        {/* Slide 15: Path to Breakeven */}
+        <section className="container" style={{ marginTop: '100px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #0088ff, #00ff88)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              PATH TO BREAKEVEN
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>When Does the Math Start Working?</h2>
+          <p style={{ ...styles.sectionSubtitle, fontSize: '1.2rem', fontStyle: 'italic' }}>
+            <span style={{ color: '#ff9500' }}>IF hypothesis validates,</span> here's the path to sustainability.
+          </p>
+
+          {/* Breakeven Math */}
+          <div className="glass-card" style={{ padding: '50px', marginTop: '40px', maxWidth: '800px', margin: '40px auto 0', background: 'linear-gradient(135deg, rgba(0,136,255,0.1), rgba(0,255,136,0.1))', border: '2px solid rgba(0,136,255,0.4)' }}>
+            <h3 style={{ fontSize: '1.6rem', marginBottom: '30px', textAlign: 'center', color: '#0088ff' }}>Simple Breakeven Calculation</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '30px', alignItems: 'center', padding: '30px', background: 'rgba(0,0,0,0.3)', borderRadius: '16px' }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.95rem', color: '#888', marginBottom: '8px' }}>Monthly Fixed Costs</div>
+                <div style={{ fontSize: '1.1rem', color: '#888', marginBottom: '15px', lineHeight: '1.6' }}>
+                  • Bangalore ops team (20-30): $18K<br/>
+                  • Infrastructure (AWS): $5K<br/>
+                  • Product/eng: $10K<br/>
+                  • Support: $5K<br/>
+                  • Marketing/misc: $7K
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ff4d4d' }}>$45K/mo</div>
+              </div>
+
+              <div style={{ fontSize: '3rem', color: '#888' }}>÷</div>
+
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '0.95rem', color: '#888', marginBottom: '8px' }}>Contribution Margin</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#00ff88', marginBottom: '15px' }}>$1.81</div>
+                <div style={{ fontSize: '0.95rem', color: '#888' }}>per order</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '30px', padding: '30px', background: 'linear-gradient(135deg, rgba(0,136,255,0.2), rgba(0,255,136,0.15))', borderRadius: '16px', border: '3px solid #0088ff', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.1rem', color: '#888', marginBottom: '10px' }}>Breakeven =</div>
+              <div style={{ fontSize: '3rem', fontWeight: 900, color: '#0088ff', marginBottom: '10px' }}>24,862</div>
+              <div style={{ fontSize: '1.2rem', color: '#888' }}>orders per month</div>
+              <div style={{ fontSize: '0.95rem', color: '#888', marginTop: '15px', fontStyle: 'italic' }}>
+                (~830 orders/day across all active campuses)
+              </div>
+            </div>
+          </div>
+
+          {/* Three Scenarios */}
+          <div style={{ marginTop: '50px' }}>
+            <h3 style={{ fontSize: '1.6rem', marginBottom: '30px', textAlign: 'center', color: '#00ff88' }}>Three Scenarios (6-Campus Rollout)</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+              {[
+                {
+                  scenario: 'Conservative',
+                  assumptions: '1% penetration, 2 orders/month',
+                  color: '#ff9500',
+                  campuses: [
+                    { name: 'UT Austin (45K)', orders: '900/mo' },
+                    { name: 'ASU (58K)', orders: '1,160/mo' },
+                    { name: 'Texas A&M (68K)', orders: '1,360/mo' },
+                    { name: 'Ohio State (62K)', orders: '1,240/mo' },
+                    { name: 'U Florida (54K)', orders: '1,080/mo' },
+                    { name: 'Penn State (47K)', orders: '940/mo' },
+                  ],
+                  total: '6,680 orders/mo',
+                  breakeven: 'Month 18-20 (need 3.7x growth)',
+                  note: 'Assumes weak product-market fit'
+                },
+                {
+                  scenario: 'Base Case',
+                  assumptions: '2% penetration, 3 orders/month',
+                  color: '#0088ff',
+                  campuses: [
+                    { name: 'UT Austin (45K)', orders: '2,700/mo' },
+                    { name: 'ASU (58K)', orders: '3,480/mo' },
+                    { name: 'Texas A&M (68K)', orders: '4,080/mo' },
+                    { name: 'Ohio State (62K)', orders: '3,720/mo' },
+                    { name: 'U Florida (54K)', orders: '3,240/mo' },
+                    { name: 'Penn State (47K)', orders: '2,820/mo' },
+                  ],
+                  total: '20,040 orders/mo',
+                  breakeven: 'Month 13-15 (need 1.2x growth)',
+                  note: 'Assumes moderate traction'
+                },
+                {
+                  scenario: 'Optimistic',
+                  assumptions: '3% penetration, 4 orders/month',
+                  color: '#00ff88',
+                  campuses: [
+                    { name: 'UT Austin (45K)', orders: '5,400/mo' },
+                    { name: 'ASU (58K)', orders: '6,960/mo' },
+                    { name: 'Texas A&M (68K)', orders: '8,160/mo' },
+                    { name: 'Ohio State (62K)', orders: '7,440/mo' },
+                    { name: 'U Florida (54K)', orders: '6,480/mo' },
+                    { name: 'Penn State (47K)', orders: '5,640/mo' },
+                  ],
+                  total: '40,080 orders/mo',
+                  breakeven: 'Month 9-11 (already above)',
+                  note: 'Assumes strong product-market fit'
+                },
+              ].map((s, i) => (
+                <div key={i} className="glass-card" style={{ padding: '30px', background: `rgba(${s.color === '#ff9500' ? '255,149,0' : s.color === '#0088ff' ? '0,136,255' : '0,255,136'},0.05)`, border: `2px solid ${s.color}` }}>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <h4 style={{ fontSize: '1.4rem', color: s.color, marginBottom: '8px', fontWeight: 700 }}>{s.scenario}</h4>
+                    <p style={{ fontSize: '0.9rem', color: '#888' }}>{s.assumptions}</p>
+                  </div>
+
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '10px', fontWeight: 600 }}>By Month 12:</div>
+                    {s.campuses.map((campus, j) => (
+                      <div key={j} style={{ fontSize: '0.8rem', color: '#888', marginBottom: '4px', paddingLeft: '10px' }}>
+                        • {campus.name}: {campus.orders}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ padding: '20px', background: `rgba(${s.color === '#ff9500' ? '255,149,0' : s.color === '#0088ff' ? '0,136,255' : '0,255,136'},0.15)`, borderRadius: '12px', marginBottom: '15px' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '5px' }}>Total Orders:</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: s.color }}>{s.total}</div>
+                  </div>
+
+                  <div style={{ padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '5px' }}>Breakeven Timeline:</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'white' }}>{s.breakeven}</div>
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic', textAlign: 'center' }}>
+                    {s.note}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Key Insights */}
+          <div className="glass-card" style={{ padding: '40px', marginTop: '50px', background: 'rgba(155,89,182,0.1)', border: '1px solid rgba(155,89,182,0.4)' }}>
+            <h3 style={{ fontSize: '1.4rem', marginBottom: '25px', textAlign: 'center', color: '#9b59b6' }}>Why This Matters</h3>
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {[
+                'With 90% contribution margins, breakeven happens at relatively LOW volumes (~25K orders/month)',
+                'Competitors need MILLIONS of orders to cover infrastructure + LLM API costs',
+                'Even conservative scenario reaches breakeven within fundraise runway (18-24 months)',
+                'Base case shows path to sustainability by Month 13-15 (middle of runway)',
+                'Optimistic case reaches breakeven BEFORE funding runs out',
+                'This is capital efficient compared to typical food delivery startups',
+              ].map((point, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ color: '#00ff88', fontSize: '1.2rem', marginTop: '2px' }}>✓</div>
+                  <p style={{ fontSize: '1rem', color: '#888', lineHeight: '1.6' }}>{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '50px', textAlign: 'center', padding: '40px', background: 'linear-gradient(135deg, rgba(0,136,255,0.2), rgba(0,255,136,0.15))', borderRadius: '20px', border: '2px solid rgba(0,136,255,0.4)' }}>
+            <p style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', marginBottom: '20px', lineHeight: '1.4' }}>
+              Breakeven at <span style={{ color: '#0088ff' }}>~25K orders/month</span> = Capital Efficient
+            </p>
+            <p style={{ fontSize: '1.2rem', color: '#888' }}>
+              <span style={{ color: '#ff9500', fontWeight: 700 }}>Critical Caveat:</span> All scenarios assume hypothesis validates in 90-day testing period.
+            </p>
+            <p style={{ fontSize: '1rem', color: '#888', marginTop: '15px', fontStyle: 'italic' }}>
+              If behavioral signals fail, we pivot or shut down—not chase breakeven with a broken model.
+            </p>
+          </div>
+        </section>
+
+        {/* Slide 16: The Team */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -1388,7 +1557,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 16: The Ask */}
+        {/* Slide 17: The Ask */}
         <section className="container" style={{ marginTop: '100px', marginBottom: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
