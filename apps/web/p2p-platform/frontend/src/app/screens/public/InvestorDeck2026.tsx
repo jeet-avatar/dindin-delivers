@@ -1549,7 +1549,135 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 16: The Team */}
+        {/* Slide 16: Regulatory Positioning - Lower Risk Than Incumbents */}
+        <section className="container" style={{ marginTop: '100px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              REGULATORY POSITIONING
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Peer-to-Peer Model = Lower Regulatory Risk</h2>
+          <p style={{ ...styles.sectionSubtitle, maxWidth: '900px', margin: '0 auto 50px' }}>
+            We're a <span style={{ color: '#00ff88' }}>matchmaking platform</span>, not a delivery company. This distinction matters legally.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '25px', marginBottom: '40px' }}>
+            <div className="glass-card" style={{ padding: '30px', borderLeft: '4px solid #ff4d4d' }}>
+              <h3 style={{ fontSize: '1.3rem', marginBottom: '20px', color: '#ff4d4d' }}>❌ Traditional Platforms</h3>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '12px' }}>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#ff4d4d' }}>•</span>
+                  Control pricing & dispatch
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#ff4d4d' }}>•</span>
+                  Assign orders to drivers
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#ff4d4d' }}>•</span>
+                  Workers classified as employees (ABC Test risk)
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#ff4d4d' }}>•</span>
+                  Prop 22 required $200M+ campaign
+                </li>
+              </ul>
+            </div>
+
+            <div className="glass-card" style={{ padding: '30px', borderLeft: '4px solid #00ff88' }}>
+              <h3 style={{ fontSize: '1.3rem', marginBottom: '20px', color: '#00ff88' }}>✓ Dollor.ai P2P Model</h3>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '12px' }}>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#00ff88' }}>•</span>
+                  Drivers bid on orders (set own prices)
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#00ff88' }}>•</span>
+                  Restaurants choose drivers independently
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#00ff88' }}>•</span>
+                  True independent contractors (ABC Test defense)
+                </li>
+                <li style={{ fontSize: '1rem', color: '#888', paddingLeft: '20px', position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 0, color: '#00ff88' }}>•</span>
+                  Facilitating connections, not providing service
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="glass-card" style={{ padding: '35px', marginBottom: '30px', background: 'rgba(0,136,255,0.1)', border: '1px solid rgba(0,136,255,0.3)' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '20px', color: '#0088ff', textAlign: 'center' }}>ABC Test Defense (The Critical Worker Classification Test)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>✅</div>
+                <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#00ff88', marginBottom: '8px' }}>Prong A: Control</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>Workers free from our control—they set schedules, routes, pricing</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>⚠️</div>
+                <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#ff9500', marginBottom: '8px' }}>Prong B: Core Business</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>Our business is <strong>connecting parties</strong>, not delivering food</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>✅</div>
+                <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#00ff88', marginBottom: '8px' }}>Prong C: Independent Trade</p>
+                <p style={{ fontSize: '0.85rem', color: '#888' }}>Drivers/restaurants are established businesses transacting</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '30px' }}>
+            <div className="glass-card" style={{ padding: '25px' }}>
+              <h4 style={{ fontSize: '1.1rem', marginBottom: '15px', color: '#0088ff' }}>📋 Compliance Status</h4>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '10px' }}>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>✓</span> Marketplace facilitator registration (TX, AZ, OH, PA)
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>✓</span> Sales tax thresholds monitored ($100K-$500K)
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>✓</span> Terms explicitly define P2P matchmaking model
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#ff9500' }}>⏳</span> Legal counsel review in progress
+                </li>
+              </ul>
+            </div>
+
+            <div className="glass-card" style={{ padding: '25px' }}>
+              <h4 style={{ fontSize: '1.1rem', marginBottom: '15px', color: '#9b59b6' }}>🎯 Risk Mitigation</h4>
+              <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '10px' }}>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>•</span> DOL enforcement softened (May 2025)
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>•</span> TNC laws mostly exempt P2P platforms
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>•</span> Bidding system proves independent pricing
+                </li>
+                <li style={{ fontSize: '0.95rem', color: '#888' }}>
+                  <span style={{ color: '#00ff88' }}>•</span> No algorithmic dispatch = less control
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div style={{ padding: '30px', background: 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,136,255,0.15))', borderRadius: '12px', border: '2px solid rgba(0,255,136,0.3)' }}>
+            <p style={{ fontSize: '1.3rem', fontWeight: 700, color: 'white', textAlign: 'center', marginBottom: '15px' }}>
+              Key Insight: <span style={{ color: '#00ff88' }}>We're Building a Marketplace, Not a Fleet</span>
+            </p>
+            <p style={{ fontSize: '1rem', color: '#888', textAlign: 'center', lineHeight: '1.6' }}>
+              Drivers and restaurants transact with <em>each other</em>, not with us. We facilitate connections.<br/>
+              <span style={{ color: '#0088ff' }}>This architectural choice reduces regulatory risk compared to traditional delivery platforms.</span>
+            </p>
+          </div>
+        </section>
+
+        {/* Slide 17: The Team */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -1627,7 +1755,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 17: The Ask */}
+        {/* Slide 18: The Ask */}
         <section className="container" style={{ marginTop: '100px', marginBottom: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
