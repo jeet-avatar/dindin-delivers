@@ -45,42 +45,57 @@ const TermsOfService: React.FC = () => {
                 do not use our Services.
               </Paragraph>
               <Paragraph>
+                <strong>IMPORTANT: Dollor.ai is a PEER-TO-PEER (P2P) MATCHMAKING PLATFORM.</strong> We connect independent businesses
+                and service providers with customers seeking services. We do not provide delivery, transportation, or food services directly.
+                All transactions facilitated through our platform occur between independent parties, not between you and Dollor.ai.
+              </Paragraph>
+              <Paragraph>
                 These Terms apply to all users of the Services, including but not limited to:
               </Paragraph>
               <ul>
-                <li><strong>Customers/Riders</strong> - individuals who order food or request rides through our platform</li>
-                <li><strong>Restaurant Partners</strong> - businesses that list their food offerings on our platform</li>
-                <li><strong>Driver Partners</strong> - independent contractors who fulfill deliveries and provide rides</li>
+                <li><strong>Customers/Riders</strong> - individuals who order food or request rides through our P2P platform</li>
+                <li><strong>Restaurant Partners</strong> - independent businesses that list their food offerings for customer orders</li>
+                <li><strong>Driver Partners</strong> - independent business operators who choose to accept delivery and ride requests</li>
               </ul>
             </div>
 
             <div className="section">
-              <Title level={2}>2. Description of Services - Matchmaking Platform</Title>
+              <Title level={2}>2. Description of Services - Peer-to-Peer Matchmaking Platform</Title>
               <Paragraph>
-                <strong>Dollor.ai operates as a MATCHMAKING SERVICE</strong> - a technology platform
-                that connects users seeking services with independent service providers. We facilitate
-                connections between:
+                <strong>Dollor.ai operates as a PEER-TO-PEER (P2P) MATCHMAKING PLATFORM</strong> - a technology platform
+                that connects independent parties who wish to transact with each other. We facilitate
+                peer-to-peer connections between:
               </Paragraph>
               <ul>
-                <li>Customers seeking food delivery with restaurants and independent delivery partners</li>
-                <li>Riders seeking transportation with independent driver partners</li>
+                <li><strong>Customers ↔ Restaurants ↔ Delivery Partners</strong> - Customers place orders with restaurants; restaurants and customers connect with independent delivery partners who bid to fulfill deliveries</li>
+                <li><strong>Riders ↔ Driver Partners</strong> - Riders request transportation; independent driver partners bid to provide rides</li>
               </ul>
               <Paragraph>
-                <strong>IMPORTANT - What We Are and Are Not:</strong>
+                <strong>CRITICAL DISTINCTION - Peer-to-Peer Model:</strong>
               </Paragraph>
               <ul>
-                <li>We ARE a technology matchmaking platform and software-as-a-service provider</li>
-                <li>We ARE NOT a delivery company, transportation company, or food service provider</li>
-                <li>We ARE NOT the employer of any driver or delivery partner</li>
-                <li>We DO NOT prepare, handle, or transport food</li>
-                <li>We DO NOT own or operate any delivery vehicles</li>
-                <li>We DO NOT control when, where, or how driver partners work</li>
+                <li><strong>Transactions occur BETWEEN USERS, not with Dollor.ai</strong> - When you order food, you're transacting with the restaurant and a driver partner (not with Dollor.ai). When you request a ride, you're transacting with an independent driver (not with Dollor.ai).</li>
+                <li><strong>Driver Partners set their own prices</strong> - Drivers bid on delivery/ride requests and set their own prices. We do not control pricing.</li>
+                <li><strong>No algorithmic dispatch</strong> - We do not assign orders or rides. Drivers independently choose which requests to accept.</li>
+                <li><strong>True independent businesses</strong> - All drivers and restaurants are independent business operators, not our employees or agents.</li>
               </ul>
               <Paragraph>
-                Restaurants are independent businesses solely responsible for food quality, safety,
-                and compliance with all applicable health regulations. Driver partners are independent
-                contractors who make their own decisions about which requests to accept, their routes,
-                schedules, and methods of service delivery.
+                <strong>What We Are and Are Not:</strong>
+              </Paragraph>
+              <ul>
+                <li>✓ We ARE a peer-to-peer technology platform connecting independent parties</li>
+                <li>✓ We ARE a marketplace facilitator and software-as-a-service provider</li>
+                <li>✗ We ARE NOT a delivery company, transportation company, or food service provider</li>
+                <li>✗ We ARE NOT the employer, agent, or franchisor of any driver or restaurant partner</li>
+                <li>✗ We DO NOT prepare, handle, or transport food ourselves</li>
+                <li>✗ We DO NOT own or operate any delivery vehicles</li>
+                <li>✗ We DO NOT control when, where, how, or at what price driver partners work</li>
+                <li>✗ We DO NOT guarantee service availability or quality (services are provided by independent third parties)</li>
+              </ul>
+              <Paragraph>
+                <strong>Independent Business Relationships:</strong> Restaurants are independent businesses solely responsible for food quality, safety,
+                and compliance with all applicable health regulations. Driver partners are independent business operators who make their own decisions about which requests to accept, their pricing, routes,
+                schedules, and methods of service delivery. Dollor.ai merely facilitates connections between these independent parties through our P2P technology platform.
               </Paragraph>
             </div>
 
@@ -103,16 +118,19 @@ const TermsOfService: React.FC = () => {
 
             <div className="section">
               <Title level={2}>4. Orders, Rides, and Payments</Title>
-              <Title level={3}>4.1 Order/Ride Placement</Title>
+              <Title level={3}>4.1 Order/Ride Placement - Peer-to-Peer Transactions</Title>
               <Paragraph>
                 When you place an order or request a ride through Dollor.ai, you are requesting
-                to be matched with an independent service provider. For food orders, the restaurant
-                may accept or decline based on availability. For rides, driver partners independently
-                choose whether to accept ride requests.
+                to be matched with an independent service provider through our P2P platform. <strong>The transaction occurs
+                between you and the independent service provider, not with Dollor.ai.</strong> For food orders, the restaurant
+                (an independent business) may accept or decline based on availability. Driver partners (independent contractors)
+                then bid on the delivery request and independently choose whether to accept. For rides, driver partners independently
+                bid and choose whether to accept ride requests at prices they set.
               </Paragraph>
-              <Title level={3}>4.2 Pricing - Transparent Matchmaking Fees</Title>
+              <Title level={3}>4.2 Pricing - P2P Platform Facilitation Fees</Title>
               <Paragraph>
-                <strong>Dollor.ai charges simple, transparent matchmaking fees with no hidden charges:</strong>
+                <strong>As a P2P matchmaking platform, Dollor.ai charges simple platform facilitation fees for connecting independent parties.
+                We do NOT take commissions from drivers or set service prices—drivers set their own prices through our bidding system:</strong>
               </Paragraph>
 
               <Title level={4}>Food Delivery - Flat $1 Fees (No Tiered Pricing)</Title>
@@ -138,13 +156,17 @@ const TermsOfService: React.FC = () => {
                 Ride fares are calculated based on distance, time, and market conditions.
                 Drivers receive the full fare amount minus only the platform access fee shown above.
               </Paragraph>
-              <Title level={3}>4.3 Payment Processing</Title>
+              <Title level={3}>4.3 Payment Processing - Marketplace Facilitator Role</Title>
               <Paragraph>
                 Payment is processed through secure third-party payment processors (Stripe).
                 By providing payment information, you authorize us to charge your payment
                 method for orders and rides placed. All transactions are in USD unless otherwise stated.
-                Dollor.ai acts as a payment facilitator, passing through payments to restaurants
-                and driver partners.
+              </Paragraph>
+              <Paragraph>
+                <strong>IMPORTANT - P2P Payment Flow:</strong> As a marketplace facilitator, Dollor.ai collects payments on behalf of
+                the independent service providers and passes through the funds (minus our small platform facilitation fee) to restaurants
+                and driver partners. <strong>You are paying the restaurant and driver partner for their services, not Dollor.ai.</strong> We merely
+                facilitate the payment transaction between independent parties through our P2P platform.
               </Paragraph>
             </div>
 
@@ -164,19 +186,26 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>6. Driver Partner Terms (Delivery and Rideshare)</Title>
+              <Title level={2}>6. Driver Partner Terms - Independent Business Operators on P2P Platform</Title>
               <Paragraph>
-                If you are a driver partner providing delivery or rideshare services, you acknowledge
+                If you are a driver partner providing delivery or rideshare services through our P2P marketplace, you acknowledge
                 and agree to the following:
               </Paragraph>
-              <Title level={3}>6.1 Independent Contractor Relationship</Title>
+              <Paragraph>
+                <strong>CRITICAL: You are operating an independent business and transacting directly with customers and restaurants.
+                You are NOT working for Dollor.ai. You are using our P2P technology platform to connect with customers seeking your services.</strong>
+              </Paragraph>
+              <Title level={3}>6.1 Independent Business Operator - NOT an Employee</Title>
               <ul>
-                <li>You are an <strong>INDEPENDENT CONTRACTOR</strong>, not an employee of Dollor.ai</li>
-                <li>No employment relationship exists between you and Dollor.ai</li>
-                <li>Dollor.ai does not control when, where, or how you work</li>
-                <li>You are free to accept or decline any delivery or ride request</li>
-                <li>You may work for competing platforms simultaneously</li>
-                <li>You set your own schedule and work hours</li>
+                <li>You are an <strong>INDEPENDENT BUSINESS OPERATOR</strong> and <strong>INDEPENDENT CONTRACTOR</strong>, not an employee, agent, or representative of Dollor.ai</li>
+                <li><strong>No employment, agency, partnership, or joint venture relationship exists between you and Dollor.ai</strong></li>
+                <li>You are providing services to customers and restaurants directly (not to Dollor.ai) through our P2P platform</li>
+                <li>Dollor.ai does not control, direct, or supervise when, where, how, or at what price you work</li>
+                <li>You are free to accept or decline any delivery or ride request at your sole discretion</li>
+                <li><strong>You set your own prices</strong> - You bid on orders and set your own delivery/ride fees; we do not control pricing</li>
+                <li>You may work for any competing platforms simultaneously without restriction</li>
+                <li>You set your own schedule, work hours, and service areas</li>
+                <li>You determine your own methods of performing services</li>
               </ul>
               <Title level={3}>6.2 Your Responsibilities</Title>
               <ul>
@@ -298,12 +327,13 @@ const TermsOfService: React.FC = () => {
                 <li>Fares $35.01 - $70: $2.00 matchmaking fee</li>
                 <li>Fares above $70: $3.00 matchmaking fee</li>
               </ul>
-              <Title level={3}>8.3 Disclaimer</Title>
+              <Title level={3}>8.3 P2P Platform Disclaimer</Title>
               <Paragraph>
-                Dollor.ai provides matchmaking technology only. We do not provide transportation
-                services. Driver partners are independent contractors who provide transportation
-                services directly to riders. Dollor.ai is not responsible for the actions of
-                any driver partner.
+                <strong>Dollor.ai is a peer-to-peer matchmaking technology platform only.</strong> We do not provide transportation,
+                delivery, or food services. Driver partners are independent business operators who provide services
+                directly to riders and customers through our P2P marketplace. Restaurants are independent businesses providing food directly to customers.
+                <strong>All services are provided by independent third parties, not by Dollor.ai.</strong> Dollor.ai is not responsible for the actions, services,
+                quality, safety, or conduct of any driver partner, restaurant, or customer. Your transaction is with the independent service provider, not with Dollor.ai.
               </Paragraph>
             </div>
 
@@ -360,16 +390,21 @@ const TermsOfService: React.FC = () => {
             </div>
 
             <div className="section">
-              <Title level={2}>12. Limitation of Liability</Title>
+              <Title level={2}>12. Limitation of Liability - P2P Platform Disclaimer</Title>
+              <Paragraph>
+                <strong>IMPORTANT: As a peer-to-peer marketplace platform, services are provided by independent third parties, not by Dollor.ai.
+                We connect independent parties but do not provide, control, or guarantee any services, food quality, transportation safety, or conduct of users.</strong>
+              </Paragraph>
               <Paragraph>
                 TO THE MAXIMUM EXTENT PERMITTED BY LAW, DOLLOR.AI SHALL NOT BE LIABLE FOR
                 ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES,
-                INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, OR GOODWILL.
+                INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, OR GOODWILL, OR ANY DAMAGES
+                ARISING FROM SERVICES PROVIDED BY INDEPENDENT THIRD PARTIES (DRIVERS, RESTAURANTS, ETC.) THROUGH OUR P2P PLATFORM.
               </Paragraph>
               <Paragraph>
                 Our total liability for any claims arising from the Services shall not
-                exceed the amount you paid to Dollor.ai in the twelve months preceding
-                the claim.
+                exceed the amount you paid to Dollor.ai in platform facilitation fees in the twelve months preceding
+                the claim. This limitation reflects our role as a technology platform facilitator, not a service provider.
               </Paragraph>
             </div>
 
