@@ -103,7 +103,7 @@ jobs:
             pip install -r requirements.txt
 
             # Run database migrations/seeding if needed
-            # python seed_menu_items.py
+            python seed_menu_items.py
 
             # Restart the service using PM2 or systemd
             if command -v pm2 &> /dev/null; then
