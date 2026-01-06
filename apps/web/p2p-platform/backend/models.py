@@ -160,6 +160,8 @@ class Vendor(Base):
     delivery_available = Column(Boolean, default=True)
     pickup_available = Column(Boolean, default=True)
     average_prep_time = Column(Integer)  # in minutes
+    # Note: image_url column added via migration but not in model to avoid query issues
+    # Use stock images via get_stock_image_for_restaurant() in API response
     
     # Primary Contact
     contact_name = Column(String(255))

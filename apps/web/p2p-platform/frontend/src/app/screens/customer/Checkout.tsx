@@ -603,24 +603,47 @@ const Checkout: React.FC = () => {
       </Row>
 
       <style>{`
+        /* ============================================
+           CHECKOUT PAGE - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .checkout-page {
-          max-width: 1200px;
+          max-width: 1440px;
           margin: 0 auto;
+          padding: 24px 16px;
+          min-height: 100vh;
         }
 
         .page-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+          gap: 16px;
+        }
+
+        .page-header h2 {
+          flex: 1;
+          text-align: center;
         }
 
         .checkout-steps {
-          margin-bottom: 32px;
+          margin-bottom: 36px;
+          padding: 0 20px;
+        }
+
+        .checkout-steps .ant-steps-item-title {
+          font-weight: 500;
         }
 
         .step-card {
-          border-radius: 16px;
+          border-radius: 20px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .step-card .ant-card-body {
+          padding: 28px;
         }
 
         .payment-options {
@@ -631,81 +654,129 @@ const Checkout: React.FC = () => {
 
         .payment-option {
           flex: 1;
-          height: 80px !important;
+          height: 88px !important;
           display: flex !important;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          border-radius: 12px !important;
+          gap: 10px;
+          border-radius: 16px !important;
+          transition: all 0.2s ease;
+        }
+
+        .payment-option:hover {
+          border-color: #10B981;
+        }
+
+        .payment-option.ant-radio-button-wrapper-checked {
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          border-color: #10B981;
         }
 
         .card-form {
-          margin-top: 24px;
+          margin-top: 28px;
+        }
+
+        .card-form input {
+          border-radius: 12px;
         }
 
         .tip-options {
           display: flex;
-          gap: 12px;
-          margin-top: 16px;
+          gap: 14px;
+          margin-top: 18px;
         }
 
         .tip-btn {
           flex: 1;
-          height: 48px;
+          height: 52px;
+          border-radius: 12px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+
+        .tip-btn.ant-btn-primary {
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          border: none;
         }
 
         .step-buttons {
           display: flex;
           justify-content: space-between;
-          margin-top: 24px;
+          margin-top: 28px;
+          gap: 16px;
+        }
+
+        .step-buttons button {
+          height: 48px;
+          border-radius: 12px;
+          font-weight: 500;
         }
 
         .place-order-btn {
-          min-width: 200px;
+          min-width: 220px;
+          height: 52px;
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           border: none;
+          font-size: 16px;
+          font-weight: 600;
+          border-radius: 14px;
+          transition: all 0.2s ease;
+        }
+
+        .place-order-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .review-section {
-          margin: 16px 0;
+          margin: 20px 0;
+          padding: 16px;
+          background: #fafafa;
+          border-radius: 14px;
         }
 
         .section-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
         }
 
         .review-item {
           display: flex;
           justify-content: space-between;
-          padding: 8px 0;
+          padding: 10px 0;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .review-item:last-child {
+          border-bottom: none;
         }
 
         .summary-card {
-          border-radius: 16px;
+          border-radius: 20px;
           position: sticky;
           top: 24px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
         .summary-item {
           display: flex;
           justify-content: space-between;
-          padding: 4px 0;
+          padding: 6px 0;
         }
 
         .summary-line {
           display: flex;
           justify-content: space-between;
-          padding: 8px 0;
+          padding: 10px 0;
         }
 
         .summary-line.highlight {
           background: #f0fdf4;
-          margin: 8px -24px;
-          padding: 12px 24px;
+          margin: 10px -24px;
+          padding: 14px 24px;
         }
 
         .platform-fee-label {
@@ -715,7 +786,7 @@ const Checkout: React.FC = () => {
         }
 
         .summary-line.total {
-          padding-top: 16px;
+          padding-top: 18px;
         }
 
         .driver-earnings {
@@ -723,13 +794,113 @@ const Checkout: React.FC = () => {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          margin-top: 16px;
-          padding: 12px;
-          background: #e6f7ff;
-          border-radius: 8px;
+          margin-top: 18px;
+          padding: 14px;
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          border-radius: 12px;
         }
 
-        @media (max-width: 768px) {
+        /* Success Card Styles */
+        .success-card {
+          max-width: 600px;
+          margin: 40px auto;
+          border-radius: 24px;
+          text-align: center;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .order-summary-final {
+          border-top: 1px solid #f0f0f0;
+          padding-top: 24px;
+          margin-top: 24px;
+        }
+
+        .driver-note {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 16px;
+          padding: 14px;
+          background: #f0fdf4;
+          border-radius: 12px;
+        }
+
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
+        @media (max-width: 480px) {
+          .checkout-page {
+            padding: 16px 12px;
+          }
+
+          .page-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .page-header h2 {
+            order: -1;
+            text-align: left;
+          }
+
+          .checkout-steps {
+            padding: 0;
+          }
+
+          .checkout-steps .ant-steps-item-title {
+            font-size: 12px;
+          }
+
+          .step-card .ant-card-body {
+            padding: 20px 16px;
+          }
+
+          .payment-options {
+            flex-direction: column;
+          }
+
+          .payment-option {
+            height: 64px !important;
+            flex-direction: row;
+            gap: 12px;
+          }
+
+          .tip-options {
+            flex-wrap: wrap;
+          }
+
+          .tip-btn {
+            min-width: calc(33% - 10px);
+            flex: none;
+            height: 44px;
+          }
+
+          .step-buttons {
+            flex-direction: column;
+          }
+
+          .step-buttons button {
+            width: 100%;
+          }
+
+          .place-order-btn {
+            min-width: 100%;
+          }
+
+          .summary-card {
+            position: static;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .checkout-page {
+            padding: 20px 16px;
+          }
+
           .payment-options {
             flex-direction: column;
           }
@@ -739,17 +910,39 @@ const Checkout: React.FC = () => {
           }
 
           .tip-btn {
-            min-width: 70px;
-            flex: none;
+            min-width: calc(33% - 10px);
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .checkout-page {
+            padding: 24px 20px;
           }
 
-          .step-buttons {
-            flex-direction: column;
-            gap: 12px;
+          .summary-card {
+            position: static;
           }
+        }
 
-          .step-buttons button {
-            width: 100%;
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .checkout-page {
+            padding: 24px 24px;
+          }
+        }
+
+        /* Extra large devices (1025px to 1280px) */
+        @media (min-width: 1025px) and (max-width: 1280px) {
+          .checkout-page {
+            padding: 24px 32px;
+          }
+        }
+
+        /* XXL devices (1281px and up) */
+        @media (min-width: 1281px) {
+          .checkout-page {
+            padding: 32px 40px;
           }
         }
       `}</style>

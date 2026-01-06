@@ -570,9 +570,16 @@ const OrderTracking: React.FC = () => {
       </Modal>
 
       <style>{`
+        /* ============================================
+           ORDER TRACKING PAGE - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .tracking-page {
-          max-width: 1200px;
+          max-width: 1440px;
           margin: 0 auto;
+          padding: 24px 16px;
+          min-height: 100vh;
         }
 
         .loading-container {
@@ -588,143 +595,221 @@ const OrderTracking: React.FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+          gap: 16px;
+        }
+
+        .page-header h2 {
+          flex: 1;
+          text-align: center;
         }
 
         .tracking-card {
-          border-radius: 16px;
+          border-radius: 20px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .tracking-card .ant-card-body {
+          padding: 28px;
         }
 
         .order-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
+          gap: 20px;
         }
 
         .eta-badge {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 16px 24px;
+          gap: 14px;
+          padding: 18px 28px;
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-          border-radius: 12px;
+          border-radius: 16px;
           color: white;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .eta-badge .anticon {
-          font-size: 24px;
+          font-size: 28px;
         }
 
         .eta-time {
-          font-size: 24px;
+          font-size: 28px;
+          font-weight: 700;
           color: white;
         }
 
         .tracking-steps {
-          margin: 24px 0;
+          margin: 28px 0;
+        }
+
+        .tracking-steps .ant-steps-item-title {
+          font-weight: 500;
         }
 
         .driver-section {
-          margin: 24px 0;
+          margin: 28px 0;
         }
 
         .driver-card {
           display: flex;
           align-items: center;
-          gap: 16px;
-          padding: 16px;
-          background: #f9fafb;
-          border-radius: 12px;
+          gap: 18px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+          border-radius: 16px;
+          transition: box-shadow 0.2s ease;
+        }
+
+        .driver-card:hover {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
 
         .driver-info {
           flex: 1;
+          min-width: 0;
         }
 
         .driver-rating {
           display: flex;
           align-items: center;
-          gap: 4px;
-          margin: 4px 0;
+          gap: 6px;
+          margin: 6px 0;
         }
 
         .driver-actions {
           display: flex;
-          gap: 8px;
+          gap: 10px;
+        }
+
+        .driver-actions button {
+          border-radius: 10px;
+          height: 40px;
         }
 
         .address-section {
-          margin: 24px 0;
-          padding: 16px;
-          background: #f9fafb;
-          border-radius: 12px;
+          margin: 28px 0;
+          padding: 20px;
+          background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+          border-radius: 16px;
+        }
+
+        .address-section h5 {
+          margin-bottom: 12px;
         }
 
         .timeline-section {
-          margin: 24px 0;
+          margin: 28px 0;
         }
 
         .timeline-item {
-          padding: 4px 0;
+          padding: 6px 0;
         }
 
         .rate-section {
-          margin-top: 24px;
+          margin-top: 28px;
+        }
+
+        .rate-section button {
+          height: 52px;
+          font-size: 16px;
+          font-weight: 600;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          border: none;
+          transition: all 0.2s ease;
+        }
+
+        .rate-section button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .summary-card {
-          border-radius: 16px;
+          border-radius: 20px;
           margin-bottom: 16px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
         .summary-item {
           display: flex;
           justify-content: space-between;
-          padding: 4px 0;
+          padding: 6px 0;
         }
 
         .summary-line {
           display: flex;
           justify-content: space-between;
-          padding: 8px 0;
+          padding: 10px 0;
         }
 
         .summary-line.platform-fee {
           background: #f0fdf4;
-          margin: 8px -24px;
-          padding: 8px 24px;
+          margin: 10px -24px;
+          padding: 12px 24px;
         }
 
         .summary-line.total {
-          padding-top: 16px;
+          padding-top: 18px;
         }
 
         .driver-earnings-note {
           text-align: center;
-          margin-top: 16px;
-          padding: 12px;
-          background: #f0f9ff;
-          border-radius: 8px;
+          margin-top: 18px;
+          padding: 14px;
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          border-radius: 12px;
         }
 
         .help-card {
-          border-radius: 16px;
+          border-radius: 20px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+
+        .help-card button {
+          border-radius: 12px;
+          height: 44px;
         }
 
         .rating-content {
           text-align: center;
-          padding: 24px 0;
+          padding: 28px 0;
         }
 
         .rate-driver {
-          margin-bottom: 16px;
+          margin-bottom: 20px;
         }
 
         .rate-stars {
-          margin: 24px 0;
+          margin: 28px 0;
         }
 
-        @media (max-width: 768px) {
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
+        @media (max-width: 480px) {
+          .tracking-page {
+            padding: 16px 12px;
+          }
+
+          .page-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .page-header h2 {
+            order: -1;
+            text-align: left;
+          }
+
+          .tracking-card .ant-card-body {
+            padding: 20px 16px;
+          }
+
           .order-header {
             flex-direction: column;
             gap: 16px;
@@ -733,6 +818,49 @@ const OrderTracking: React.FC = () => {
           .eta-badge {
             width: 100%;
             justify-content: center;
+            padding: 16px 20px;
+          }
+
+          .eta-time {
+            font-size: 24px;
+          }
+
+          .driver-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 16px;
+          }
+
+          .driver-actions {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .tracking-steps .ant-steps-item-title {
+            font-size: 11px;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .tracking-page {
+            padding: 20px 16px;
+          }
+
+          .order-header {
+            flex-direction: column;
+          }
+
+          .eta-badge {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .tracking-page {
+            padding: 24px 20px;
           }
 
           .driver-card {
@@ -743,6 +871,27 @@ const OrderTracking: React.FC = () => {
           .driver-actions {
             width: 100%;
             justify-content: center;
+          }
+        }
+
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .tracking-page {
+            padding: 24px 24px;
+          }
+        }
+
+        /* Extra large devices (1025px to 1280px) */
+        @media (min-width: 1025px) and (max-width: 1280px) {
+          .tracking-page {
+            padding: 24px 32px;
+          }
+        }
+
+        /* XXL devices (1281px and up) */
+        @media (min-width: 1281px) {
+          .tracking-page {
+            padding: 32px 40px;
           }
         }
       `}</style>
