@@ -251,3 +251,107 @@ def assign_stock_images_to_menu(menu_items: list) -> list:
                 item.get("is_vegetarian", False)
             )
     return menu_items
+
+
+# Restaurant/Cuisine stock images (restaurant storefronts and ambiance)
+RESTAURANT_IMAGES = {
+    "indian": [
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",  # Restaurant interior
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600",  # Elegant dining
+        "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600",  # Indian food spread
+    ],
+    "italian": [
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600",  # Italian restaurant
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600",  # Fine dining
+        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600",  # Pizza
+    ],
+    "mexican": [
+        "https://images.unsplash.com/photo-1504544750208-dc0358e63f7f?w=600",  # Mexican restaurant
+        "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600",  # Tacos
+        "https://images.unsplash.com/photo-1613514785940-daed07799d9b?w=600",  # Mexican food
+    ],
+    "chinese": [
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600",  # Asian restaurant
+        "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600",  # Chinese food
+        "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=600",  # Dim sum
+    ],
+    "japanese": [
+        "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600",  # Sushi
+        "https://images.unsplash.com/photo-1553621042-f6e147245754?w=600",  # Japanese restaurant
+        "https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?w=600",  # Ramen
+    ],
+    "thai": [
+        "https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=600",  # Thai food
+        "https://images.unsplash.com/photo-1559314809-0d155014e29e?w=600",  # Pad thai
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600",  # Restaurant
+    ],
+    "american": [
+        "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=600",  # American diner
+        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",  # Burger
+        "https://images.unsplash.com/photo-1550547660-d9450f859349?w=600",  # American food
+    ],
+    "mediterranean": [
+        "https://images.unsplash.com/photo-1544025162-d76694265947?w=600",  # Mediterranean
+        "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600",  # Healthy food
+        "https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600",  # Greek food
+    ],
+    "korean": [
+        "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=600",  # Korean BBQ
+        "https://images.unsplash.com/photo-1590301157890-4810ed352733?w=600",  # Korean food
+        "https://images.unsplash.com/photo-1553163147-622ab57be1c7?w=600",  # Bibimbap
+    ],
+    "vietnamese": [
+        "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=600",  # Pho
+        "https://images.unsplash.com/photo-1576577445504-6af96477db52?w=600",  # Vietnamese
+    ],
+    "fast food": [
+        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",  # Burger
+        "https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=600",  # Fast food
+    ],
+    "pizza": [
+        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600",  # Pizza
+        "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600",  # Pizzeria
+    ],
+    "seafood": [
+        "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=600",  # Seafood
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600",  # Fish
+    ],
+    "cafe": [
+        "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600",  # Cafe
+        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600",  # Coffee shop
+    ],
+    "bakery": [
+        "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600",  # Bakery
+        "https://images.unsplash.com/photo-1517433670267-30f41c09f46c?w=600",  # Pastries
+    ],
+    "default": [
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",  # Restaurant
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600",  # Elegant dining
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600",  # Fine dining
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600",  # Restaurant interior
+    ],
+}
+
+
+def get_stock_image_for_restaurant(cuisine_type: str, restaurant_name: str = "") -> str:
+    """
+    Get a stock image URL for a restaurant based on cuisine type.
+    Uses cuisine matching to find the most appropriate image.
+    """
+    import hashlib
+
+    cuisine_lower = cuisine_type.lower() if cuisine_type else ""
+    name_lower = restaurant_name.lower() if restaurant_name else ""
+
+    # Use hash of restaurant name for consistent image selection
+    hash_input = f"{cuisine_type}:{restaurant_name}"
+    hash_val = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest(), 16)
+
+    # Try to match cuisine type
+    for cuisine_key, images in RESTAURANT_IMAGES.items():
+        if cuisine_key in cuisine_lower or cuisine_key in name_lower:
+            return images[hash_val % len(images)]
+
+    # Fallback to default restaurant images
+    images = RESTAURANT_IMAGES["default"]
+    return images[hash_val % len(images)]
