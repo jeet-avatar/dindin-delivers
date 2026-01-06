@@ -364,7 +364,7 @@ export default function InvestorDeck2026() {
               {
                 title: 'AI-driven ops',
                 subtitle: 'Onboarding, support, routing at much lower cost',
-                desc: 'Self-hosted LLM (Qwen 2.5 32B via Ollama) runs on our servers. Zero per-request API costs. Automated document verification, menu OCR, routing, fraud detection.',
+                desc: 'Self-hosted LLM (Qwen 2.5 32B via Ollama) runs on our servers. Zero LLM inference API costs. Automated document verification, menu OCR, routing, fraud detection.',
                 color: '#9b59b6',
                 icon: '🤖'
               },
@@ -403,7 +403,151 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 6: What We've Built */}
+        {/* Slide 6: Competitive Landscape - Beyond Uber & Lyft */}
+        <section className="container" style={{ marginTop: '100px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              COMPETITIVE LANDSCAPE
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>U.S. Rideshare Market: Beyond Uber & Lyft</h2>
+          <p style={styles.sectionSubtitle}>
+            The market is <span style={{ color: '#ff9500' }}>much bigger and more fragmented</span> than most realize.
+          </p>
+
+          {/* Mass Market Rideshare */}
+          <div className="glass-card" style={{ padding: '40px', marginTop: '40px', background: 'rgba(255,77,77,0.05)', border: '1px solid rgba(255,77,77,0.3)' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '25px', color: '#ff4d4d' }}>🚗 Mass Market On-Demand (Winner-Take-Most)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+              <div className="glass-card" style={{ padding: '25px', background: 'rgba(0,0,0,0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '1.3rem', color: '#ff4d4d', fontWeight: 700 }}>Uber</h4>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ff4d4d' }}>~72%</span>
+                </div>
+                <p style={{ fontSize: '0.95rem', color: '#888' }}>Dominant U.S. market share • 25-30% take rate</p>
+              </div>
+
+              <div className="glass-card" style={{ padding: '25px', background: 'rgba(0,0,0,0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ fontSize: '1.3rem', color: '#ff9500', fontWeight: 700 }}>Lyft</h4>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ff9500' }}>~24%</span>
+                </div>
+                <p style={{ fontSize: '0.95rem', color: '#888' }}>Second largest • Similar take-rate model</p>
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255,77,77,0.1)', borderRadius: '10px' }}>
+              <p style={{ fontSize: '0.95rem', color: '#888', textAlign: 'center' }}>
+                <strong style={{ color: '#ff4d4d' }}>Key insight:</strong> This segment is ripe for disruption due to high take rates, driver dissatisfaction, and incoming AV competition
+              </p>
+            </div>
+          </div>
+
+          {/* Regulated Taxi Networks */}
+          <div className="glass-card" style={{ padding: '40px', marginTop: '30px', background: 'rgba(0,136,255,0.05)', border: '1px solid rgba(0,136,255,0.3)' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '25px', color: '#0088ff' }}>🚕 Regulated Taxi E-Hail (Third Pillar)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+              <div className="glass-card" style={{ padding: '25px', background: 'rgba(0,0,0,0.3)' }}>
+                <h4 style={{ fontSize: '1.3rem', color: '#0088ff', fontWeight: 700, marginBottom: '12px' }}>Curb</h4>
+                <p style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'white' }}>100,000+ connected drivers</p>
+                <p style={{ fontSize: '0.95rem', color: '#888' }}>Largest modern taxi e-hail • Operating across major U.S. metros • Lyft partnership announced</p>
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0,136,255,0.1)', borderRadius: '10px' }}>
+              <p style={{ fontSize: '0.95rem', color: '#888', textAlign: 'center' }}>
+                <strong style={{ color: '#0088ff' }}>Takeaway:</strong> Taxi networks are credible alternatives with different economics — can be partners, not just competitors
+              </p>
+            </div>
+          </div>
+
+          {/* Emerging Alternative Models */}
+          <div className="glass-card" style={{ padding: '40px', marginTop: '30px', background: 'rgba(155,89,182,0.05)', border: '1px solid rgba(155,89,182,0.3)' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '25px', color: '#9b59b6' }}>🔄 Emerging Alternative Models</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+              {[
+                {
+                  category: 'Driver-First / Flat Fee',
+                  players: 'Empower, Wridz',
+                  desc: 'Driver rate control • Flat-fee or subscription models • Regional availability',
+                  note: 'Regulatory pushback in some markets (DC, NYC)',
+                  color: '#00ff88',
+                  icon: '💚'
+                },
+                {
+                  category: 'Premium W2 Employee Model',
+                  players: 'Alto',
+                  desc: 'W2 employee drivers (not gig) • Dallas & Houston',
+                  note: 'Proves demand for better service + labor model, but different scalability',
+                  color: '#ff9500',
+                  icon: '⭐'
+                },
+                {
+                  category: 'Scheduled / Airport-Focused',
+                  players: 'Wingz',
+                  desc: 'Pre-scheduled flat-rate rides • Airport orientation • "Favorite driver" concept',
+                  note: 'Different retention & unit economics than on-demand',
+                  color: '#0088ff',
+                  icon: '✈️'
+                },
+                {
+                  category: 'Specialized Verticals',
+                  players: 'HopSkipDrive (kids), Via (microtransit)',
+                  desc: 'Kids/school transport • B2G microtransit (100+ systems, 40 states)',
+                  note: 'Specialized compliance opens new segments',
+                  color: '#9b59b6',
+                  icon: '🎒'
+                },
+              ].map((item, i) => (
+                <div key={i} className="glass-card" style={{ padding: '25px', background: 'rgba(0,0,0,0.3)', borderTop: `3px solid ${item.color}` }}>
+                  <div style={{ fontSize: '1.8rem', marginBottom: '12px' }}>{item.icon}</div>
+                  <h4 style={{ fontSize: '1.2rem', color: item.color, fontWeight: 700, marginBottom: '8px' }}>{item.category}</h4>
+                  <p style={{ fontSize: '1rem', color: 'white', marginBottom: '10px', fontWeight: 600 }}>{item.players}</p>
+                  <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '12px', lineHeight: '1.5' }}>{item.desc}</p>
+                  <div style={{ padding: '10px', background: `${item.color}15`, borderRadius: '8px', borderLeft: `3px solid ${item.color}` }}>
+                    <p style={{ fontSize: '0.85rem', color: '#aaa', fontStyle: 'italic' }}>{item.note}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Autonomous Disruption Wave */}
+          <div className="glass-card" style={{ padding: '40px', marginTop: '30px', background: 'linear-gradient(135deg, rgba(255,149,0,0.1), rgba(255,77,77,0.1))', border: '2px solid rgba(255,149,0,0.4)' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '25px', color: '#ff9500' }}>🤖 The 2025-2026 Disruption: Autonomous Ride-Hailing</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '25px' }}>
+              {[
+                { name: 'Waymo', status: 'Lyft partnership → Nashville 2026', color: '#00ff88' },
+                { name: 'Zoox (Amazon)', status: 'Public service live in Las Vegas', color: '#0088ff' },
+                { name: 'May Mobility', status: 'Deployed with Lyft in Atlanta (pilot)', color: '#9b59b6' },
+              ].map((av, i) => (
+                <div key={i} className="glass-card" style={{ padding: '20px', background: 'rgba(0,0,0,0.3)' }}>
+                  <h4 style={{ fontSize: '1.2rem', color: av.color, marginBottom: '8px' }}>{av.name}</h4>
+                  <p style={{ fontSize: '0.95rem', color: '#888' }}>{av.status}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '25px', background: 'rgba(255,149,0,0.2)', borderRadius: '12px', border: '1px solid rgba(255,149,0,0.5)' }}>
+              <p style={{ fontSize: '1.1rem', color: 'white', textAlign: 'center', lineHeight: '1.6' }}>
+                <strong style={{ color: '#ff9500' }}>Critical Question:</strong> AVs reduce labor costs, but they also threaten aggregator take-rates.<br/>
+                <span style={{ color: '#888' }}>Dollor positions as an <strong style={{ color: '#00ff88' }}>ethical demand + pricing layer</strong>, not just a dispatch layer.</span>
+              </p>
+            </div>
+          </div>
+
+          {/* The Punchline */}
+          <div style={{ marginTop: '50px', textAlign: 'center', padding: '40px', background: 'linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,136,255,0.15))', borderRadius: '20px', border: '2px solid rgba(0,255,136,0.4)' }}>
+            <p style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', marginBottom: '20px', lineHeight: '1.4' }}>
+              Every Incumbent Monetizes via Take-Rate.
+            </p>
+            <p style={{ fontSize: '1.4rem', color: '#00ff88', fontWeight: 700 }}>
+              Dollor Monetizes via Flat Fees + Self-Hosted AI Operations.
+            </p>
+            <p style={{ fontSize: '1rem', color: '#888', marginTop: '20px', fontStyle: 'italic' }}>
+              This is a fundamentally different business model — and the market is ready for it.
+            </p>
+          </div>
+        </section>
+
+        {/* Slide 7: What We've Built */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #00ff88, #00d4ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
@@ -456,7 +600,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 7: Technical Moat (Zero LLM API Costs) */}
+        {/* Slide 8: Technical Moat (Zero LLM API Costs) */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #9b59b6, #ff4d4d)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -557,7 +701,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 8: Early Signals */}
+        {/* Slide 9: Early Signals */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff9500, #ff4d4d)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -616,7 +760,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 9: Press & Traction */}
+        {/* Slide 10: Press & Traction */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
@@ -652,7 +796,7 @@ export default function InvestorDeck2026() {
                 {
                   outlet: 'Tech Community',
                   headline: 'Self-hosted AI innovation',
-                  desc: 'Featured for zero-API-cost LLM architecture',
+                  desc: 'Featured for zero-LLM-API-cost architecture',
                   date: '2025',
                   color: '#9b59b6',
                   icon: '🤖'
@@ -739,7 +883,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 10: The Learning Plan (CRITICAL) */}
+        {/* Slide 11: The Learning Plan (CRITICAL) */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #9b59b6)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -818,7 +962,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 11: Why Campuses First */}
+        {/* Slide 12: Why Campuses First */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #0088ff, #9b59b6)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -899,7 +1043,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 12: Unit Economics (Only One Table) */}
+        {/* Slide 13: Unit Economics (Only One Table) */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
@@ -957,7 +1101,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 13: The Team */}
+        {/* Slide 14: The Team */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -1035,7 +1179,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 14: The Ask */}
+        {/* Slide 15: The Ask */}
         <section className="container" style={{ marginTop: '100px', marginBottom: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
