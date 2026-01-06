@@ -1,0 +1,79 @@
+name: Migrate Staging to Production
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no changes will be made)'
+        required: true
+        type: boolean
+        default: true
+
+env:
+  AWS_REGION: us-east-1
+  EC2_HOST: 44.192.34.143
+
+jobs:
+  migrate-data:
+    name: Migrate Restaurant & Menu Data
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy migration script to EC2
+        run: |
+          # Sync migration script to EC2
+          rsync -avz --exclude 'venv' --exclude '__pycache__' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            apps/web/p2p-platform/backend/migrate_staging_to_production.py \
+            ec2-user@${{ env.EC2_HOST }}:/opt/dollor-backend/
+
+      - name: Run migration script
+        run: |
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
+            cd /opt/dollor-backend
+
+            # Activate virtual environment
+            source venv/bin/activate
+
+            # Install required dependencies if not already installed
+            pip install sqlalchemy psycopg2-binary --quiet
+
+            # Run migration
+            if [ "${{ inputs.dry_run }}" == "true" ]; then
+              echo "Running migration in DRY-RUN mode..."
+              python3 migrate_staging_to_production.py --dry-run
+            else
+              echo "Running migration in LIVE EXECUTION mode..."
+              python3 migrate_staging_to_production.py --execute
+            fi
+          EOF
+
+      - name: Migration Summary
+        if: always()
+        run: |
+          echo "==================================="
+          echo "Migration Complete!"
+          echo "==================================="
+          echo ""
+          echo "Mode: ${{ inputs.dry_run == 'true' && 'DRY RUN (No changes made)' || 'LIVE EXECUTION (Changes committed)' }}"
+          echo ""
+          echo "Check the logs above for migration details."
+          echo "Check https://dollor.ai/customer/restaurants to verify."
+          echo ""
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "This was a dry run. To execute the migration:"
+            echo "1. Go to Actions tab"
+            echo "2. Select 'Migrate Staging to Production'"
+            echo "3. Click 'Run workflow'"
+            echo "4. Uncheck 'dry_run' option"
+          fi
