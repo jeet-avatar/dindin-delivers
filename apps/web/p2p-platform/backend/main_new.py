@@ -98,6 +98,8 @@ PRODUCTION_ORIGINS = [
 STAGING_ORIGINS = [
     # Staging API (CloudFront) - Required for mobile apps and staging web
     "https://d3kuu45w6kl8hr.cloudfront.net",
+    # Staging Frontend (S3 bucket)
+    "http://dollar-ai-staging-frontend.s3-website-us-east-1.amazonaws.com",
     # Staging subdomains
     "https://staging.dollor.ai",
     "https://staging-api.dollor.ai",
