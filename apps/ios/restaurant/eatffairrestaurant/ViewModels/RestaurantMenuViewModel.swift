@@ -1,12 +1,9 @@
 import SwiftUI
-import FirebaseFirestore
 import Combine
 import FirebaseAuth
-import FirebaseStorage
 import EatFairShared
 
 class RestaurantMenuViewModel: ObservableObject {
-    @Published var items: [EatFairShared.MenuItem] = []
     @Published var p2pMenuItems: [P2PMenuItem] = [] // P2P backend menu items
     @Published var isLoading = false
     @Published var verificationStatus: P2PVerificationStatus?
@@ -16,13 +13,7 @@ class RestaurantMenuViewModel: ObservableObject {
     @Published var isAddingItem = false
     @Published var isDeletingItem = false
 
-    private var db = Firestore.firestore()
     private let p2pAPI = P2PAPIService.shared
-    private var menuListener: ListenerRegistration?
-
-    deinit {
-        menuListener?.remove()
-    }
 
     // Configurable vendor ID for P2P backend (set this when restaurant logs in)
     var p2pVendorId: Int {
@@ -30,36 +21,30 @@ class RestaurantMenuViewModel: ObservableObject {
         p2pAPI.currentVendorId ?? 1
     }
 
-    private var restaurantId: String {
-        Auth.auth().currentUser?.uid ?? "12"
-    }
-
-    // Combined menu items from both sources
+    // Menu items from P2P backend only
     var allItems: [EatFairShared.MenuItem] {
-        items + p2pMenuItems.map { $0.toMenuItem() }
+        p2pMenuItems.map { $0.toMenuItem() }
     }
 
     func fetchMenu() {
         isLoading = true
         errorMessage = nil
 
-        // Fetch from P2P backend first (primary source for scraped menus)
+        // Fetch from P2P backend only
         p2pAPI.fetchMenuItems(vendorId: p2pVendorId) { [weak self] result in
             guard let self = self else { return }
 
-            switch result {
-            case .success(let menuItems):
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                switch result {
+                case .success(let menuItems):
                     self.p2pMenuItems = menuItems
-                }
-            case .failure(let error):
-                DispatchQueue.main.async {
+                case .failure(let error):
                     self.errorMessage = "Failed to load menu: \(error.localizedDescription)"
+                    self.showError = true
                 }
             }
-
-            // Also fetch from Firebase as backup
-            self.fetchFirebaseMenu()
 
             // Fetch verification status
             self.fetchVerificationStatus()
@@ -85,31 +70,6 @@ class RestaurantMenuViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-    private func fetchFirebaseMenu() {
-        // Remove existing listener before adding a new one
-        menuListener?.remove()
-        menuListener = db.collection("restaurants").document(restaurantId).collection("menu")
-            .addSnapshotListener { [weak self] snapshot, error in
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-                }
-
-                if let error = error {
-                    DispatchQueue.main.async {
-                        self?.errorMessage = "Error fetching menu: \(error.localizedDescription)"
-                    }
-                    return
-                }
-
-                guard let documents = snapshot?.documents else { return }
-                DispatchQueue.main.async {
-                    self?.items = documents.compactMap { (doc: QueryDocumentSnapshot) -> EatFairShared.MenuItem? in
-                        try? doc.data(as: EatFairShared.MenuItem.self)
-                    }
-                }
-            }
     }
 
     // MARK: - P2P Menu Verification (Aria AI)
@@ -153,135 +113,159 @@ class RestaurantMenuViewModel: ObservableObject {
         }
     }
     
-    /// Add a new menu item via P2P API (primary) with Firebase fallback
+    /// Add a new menu item via P2P API
     func addItem(name: String, description: String, price: Double, image: UIImage?, category: String? = nil, completion: ((Bool) -> Void)? = nil) {
         isAddingItem = true
 
-        // If image provided, upload first then create item
-        if let image = image {
-            uploadImage(image) { [weak self] url in
-                self?.createMenuItemViaP2P(
-                    name: name,
-                    description: description,
-                    price: price,
-                    imageUrl: url,
-                    category: category,
-                    completion: completion
-                )
-            }
-        } else {
-            createMenuItemViaP2P(
-                name: name,
-                description: description,
-                price: price,
-                imageUrl: nil,
-                category: category,
-                completion: completion
-            )
-        }
+        // Create item first, then upload image if provided
+        createMenuItemViaP2P(
+            name: name,
+            description: description,
+            price: price,
+            image: image,
+            category: category,
+            completion: completion
+        )
     }
 
     /// Create menu item via P2P API
-    private func createMenuItemViaP2P(name: String, description: String, price: Double, imageUrl: String?, category: String?, completion: ((Bool) -> Void)?) {
+    private func createMenuItemViaP2P(name: String, description: String, price: Double, image: UIImage?, category: String?, completion: ((Bool) -> Void)?) {
         let menuItem = P2PMenuItemCreate(
             itemName: name,
             description: description,
             category: category ?? "Main",
             price: price,
-            imageUrl: imageUrl
+            imageUrl: nil  // Will be set after upload
         )
 
         p2pAPI.createMenuItem(vendorId: p2pVendorId, menuItem: menuItem) { [weak self] result in
             guard let self = self else { return }
 
-            DispatchQueue.main.async {
-                self.isAddingItem = false
-
-                switch result {
-                case .success(let createdItem):
-                    // Add to local list immediately
+            switch result {
+            case .success(let createdItem):
+                // Add to local list immediately
+                DispatchQueue.main.async {
                     self.p2pMenuItems.append(createdItem)
                     #if DEBUG
                     print("[Menu] Created menu item via P2P API: \(createdItem.name)")
                     #endif
-                    completion?(true)
+                }
 
-                case .failure(let error):
+                // If image provided, upload it now
+                if let image = image {
+                    self.uploadImageToP2P(image, menuItemId: createdItem.id) { [weak self] success in
+                        DispatchQueue.main.async {
+                            self?.isAddingItem = false
+                            if success {
+                                // Refresh menu to get updated image URL
+                                self?.fetchMenu()
+                            }
+                            completion?(success)
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.isAddingItem = false
+                        completion?(true)
+                    }
+                }
+
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    self.isAddingItem = false
                     self.errorMessage = "Failed to add menu item: \(error.localizedDescription)"
                     self.showError = true
                     #if DEBUG
                     print("[Menu] P2P create failed: \(error.localizedDescription)")
                     #endif
-
-                    // Fallback to Firebase
-                    self.saveItemToFirestore(name: name, description: description, price: price, imageUrl: imageUrl)
                     completion?(false)
                 }
             }
         }
     }
-
-    /// Fallback to Firebase for saving menu items
-    private func saveItemToFirestore(name: String, description: String, price: Double, imageUrl: String?) {
-        let newItem = EatFairShared.MenuItem(name: name, description: description, price: price, imageUrl: imageUrl ?? "", isAvailable: true)
-
-        do {
-            try db.collection("restaurants").document(restaurantId).collection("menu").addDocument(from: newItem)
-        } catch {
-            DispatchQueue.main.async {
-                self.errorMessage = "Error adding item: \(error.localizedDescription)"
-                self.showError = true
-            }
-        }
-    }
     
-    private func uploadImage(_ image: UIImage, completion: @escaping (String?) -> Void) {
-        guard let imageData = image.jpegData(compressionQuality: 0.5) else {
-            completion(nil)
+    /// Upload image to P2P backend vibing endpoint
+    private func uploadImageToP2P(_ image: UIImage, menuItemId: Int, completion: @escaping (Bool) -> Void) {
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            #if DEBUG
+            print("[Menu] Failed to convert image to JPEG data")
+            #endif
+            completion(false)
             return
         }
-        
-        let storageRef = Storage.storage().reference()
-        let imageId = UUID().uuidString
-        let imageRef = storageRef.child("menu_items/\(imageId).jpg")
-        
-        let metadata = StorageMetadata()
-        metadata.contentType = "image/jpeg"
-        
-        imageRef.putData(imageData, metadata: metadata) { metadata, error in
-            if error != nil {
-                completion(nil)
+
+        let boundary = UUID().uuidString
+        let baseURL = p2pAPI.baseURL
+        guard let url = URL(string: "\(baseURL)/api/vibing/upload-image/\(menuItemId)") else {
+            #if DEBUG
+            print("[Menu] Invalid upload URL")
+            #endif
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        // Build multipart form data
+        var body = Data()
+
+        // Add file part
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        #if DEBUG
+        print("[Menu] Uploading image to P2P backend: /api/vibing/upload-image/\(menuItemId)")
+        #endif
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                #if DEBUG
+                print("[Menu] Image upload failed: \(error.localizedDescription)")
+                #endif
+                completion(false)
                 return
             }
 
-            imageRef.downloadURL { url, error in
-                if error != nil {
-                    completion(nil)
-                    return
-                }
-                completion(url?.absoluteString)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                #if DEBUG
+                print("[Menu] Invalid response")
+                #endif
+                completion(false)
+                return
             }
-        }
+
+            if httpResponse.statusCode == 200 {
+                #if DEBUG
+                print("[Menu] Image uploaded successfully to P2P backend")
+                #endif
+                completion(true)
+            } else {
+                #if DEBUG
+                if let data = data, let responseBody = String(data: data, encoding: .utf8) {
+                    print("[Menu] Upload failed with status \(httpResponse.statusCode): \(responseBody)")
+                }
+                #endif
+                completion(false)
+            }
+        }.resume()
     }
     
-    /// Delete menu item via P2P API (primary) with Firebase fallback
+    /// Delete menu item via P2P API
     func deleteItem(at offsets: IndexSet) {
         isDeletingItem = true
 
-        // Determine which list we're deleting from
-        // For now, assume we're deleting from allItems which combines both lists
         offsets.forEach { index in
-            // Check if it's a P2P item
             if index < p2pMenuItems.count {
                 let p2pItem = p2pMenuItems[index]
                 deleteP2PMenuItem(p2pItem)
-            } else {
-                // Firebase item
-                let adjustedIndex = index - p2pMenuItems.count
-                if adjustedIndex < items.count {
-                    let firebaseItem = items[adjustedIndex]
-                    deleteFirebaseMenuItem(firebaseItem)
-                }
             }
         }
     }
@@ -323,30 +307,5 @@ class RestaurantMenuViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-    /// Delete Firebase menu item (fallback)
-    private func deleteFirebaseMenuItem(_ item: EatFairShared.MenuItem) {
-        guard let id = item.id else {
-            isDeletingItem = false
-            return
-        }
-
-        db.collection("restaurants").document(restaurantId).collection("menu").document(id).delete { [weak self] error in
-            DispatchQueue.main.async {
-                self?.isDeletingItem = false
-                if let error = error {
-                    self?.errorMessage = "Failed to delete: \(error.localizedDescription)"
-                    self?.showError = true
-                }
-            }
-        }
-    }
-    
-    func toggleAvailability(item: EatFairShared.MenuItem) {
-        guard let id = item.id else { return }
-        db.collection("restaurants").document(restaurantId).collection("menu").document(id).updateData([
-            "isAvailable": !item.isAvailable
-        ])
     }
 }
