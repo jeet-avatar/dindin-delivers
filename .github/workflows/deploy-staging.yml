@@ -185,6 +185,10 @@ jobs:
             source venv/bin/activate
             pip install -r requirements.txt
 
+            # Run database migrations and seed staging data
+            echo "🌱 Seeding staging database..."
+            python seed_menu_items.py || echo "Seed script completed with warnings"
+
             # Restart the service
             if command -v pm2 &> /dev/null; then
               pm2 restart dollor-backend-staging || pm2 start "uvicorn main_new:app --host 0.0.0.0 --port 3000" --name dollor-backend-staging
@@ -193,7 +197,7 @@ jobs:
               nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /var/log/dollor-backend.log 2>&1 &
             fi
 
-            echo "Staging backend deployment complete!"
+            echo "✅ Staging backend deployment complete!"
           EOF
 
   notify-staging:

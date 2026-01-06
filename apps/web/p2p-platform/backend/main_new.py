@@ -6841,14 +6841,23 @@ def get_order(
     }
 
 
+class OrderStatusUpdate(BaseModel):
+    status: str
+
 @app.patch("/api/orders/{order_id}/status")
 def update_order_status(
     order_id: int,
-    status: str,
+    status: Optional[str] = None,  # Query param for Android/iOS apps
+    status_update: Optional[OrderStatusUpdate] = None,  # Body for web/integration tests
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update order status."""
+    """Update order status. Accepts status as query param OR in request body."""
+    # Support both query param and body for cross-platform compatibility
+    final_status = status or (status_update.status if status_update else None)
+    if not final_status:
+        raise HTTPException(status_code=400, detail="Status is required (query param or body)")
+    status = final_status
     from models import Order, OrderStatus
 
     order = db.query(Order).filter(Order.id == order_id).first()
@@ -11587,6 +11596,10 @@ app.include_router(accounting_router)
 # Include Document Verification Routes (Persona, Onfido, Veriff)
 from verification_routes import router as doc_verification_router
 app.include_router(doc_verification_router)
+
+# Include Investor Deck Tracking (Email-gated access + view logging)
+from investor_tracking import router as investor_router
+app.include_router(investor_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create

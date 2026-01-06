@@ -217,7 +217,8 @@ async def create_order(
         payment_intent = stripe.PaymentIntent.create(
             amount=int(total_amount * 100),  # Stripe uses cents
             currency="usd",
-            receipt_email=order_data.customer_email,  # Use receipt_email instead of customer_email
+            receipt_email=order_data.customer_email,
+            automatic_payment_methods={"enabled": True},  # Enable all payment methods configured in Stripe Dashboard
             metadata={
                 "order_id": new_order.id,
                 "order_number": order_number,

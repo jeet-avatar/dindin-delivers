@@ -1,0 +1,28 @@
+# Appfile - Fastlane configuration for Dollor iOS apps
+
+# Apple ID
+apple_id("jeetnair.in@gmail.com")
+
+# Team ID
+team_id("YRHVAY595K")
+
+# App Store Connect Team ID (usually same as Team ID)
+itc_team_id("YRHVAY595K")
+
+# For all apps in this workspace
+for_platform :ios do
+  # Customer App
+  for_lane :customer do
+    app_identifier("com.dollor.customer")
+  end
+
+  # Restaurant App
+  for_lane :restaurant do
+    app_identifier("com.dollor.restaurant")
+  end
+
+  # Driver App
+  for_lane :driver do
+    app_identifier("com.dollor.driver")
+  end
+end
