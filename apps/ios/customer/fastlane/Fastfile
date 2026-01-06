@@ -1,0 +1,50 @@
+# Fastfile for Dollor Customer App (iOS) - STAGING ONLY
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    ensure_xcode_version(version: "16.1")
+  end
+
+  desc "Build and upload to TestFlight (Staging)"
+  lane :beta do
+    # Install dependencies
+    cocoapods(
+      podfile: "./Podfile",
+      try_repo_update_on_error: true
+    )
+
+    # Increment build number
+    increment_build_number(
+      build_number: ENV["CI_BUILD_NUMBER"] || Time.now.to_i.to_s,
+      xcodeproj: "eatfaircustomer.xcodeproj"
+    )
+
+    # Build the app
+    build_app(
+      workspace: "eatfaircustomer.xcworkspace",
+      scheme: "eatfaircustomer",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "DollorCustomer.ipa",
+      clean: true,
+      xcargs: "-allowProvisioningUpdates"
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight(
+      api_key_path: ENV["APP_STORE_CONNECT_API_KEY_PATH"],
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,
+      distribute_external: false,
+      notify_external_testers: false
+    )
+
+    UI.success("✅ Successfully uploaded to TestFlight!")
+  end
+
+  error do |lane, exception|
+    UI.error("❌ Error in lane '#{lane}': #{exception.message}")
+  end
+end
