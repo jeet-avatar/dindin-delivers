@@ -644,40 +644,59 @@ const Cart: React.FC = () => {
       )}
 
       <style>{`
+        /* ============================================
+           CART PAGE - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .cart-page {
-          max-width: 1200px;
+          max-width: 1440px;
           margin: 0 auto;
+          padding: 24px 16px;
+          min-height: 100vh;
         }
 
         .page-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
           flex-wrap: wrap;
           gap: 16px;
+        }
+
+        .page-header h2 {
+          flex: 1;
+          text-align: center;
         }
 
         .empty-cart {
           max-width: 500px;
           margin: 48px auto;
           text-align: center;
-          border-radius: 16px;
+          border-radius: 20px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
         .restaurant-group-card {
-          border-radius: 16px;
-          margin-bottom: 24px;
+          border-radius: 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          transition: box-shadow 0.2s ease;
+        }
+
+        .restaurant-group-card:hover {
+          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
 
         .restaurant-header {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
         }
 
         .shop-icon {
-          font-size: 24px;
+          font-size: 28px;
           color: #10B981;
         }
 
@@ -685,8 +704,9 @@ const Cart: React.FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          padding: 16px 0;
+          padding: 18px 0;
           border-bottom: 1px solid #f0f0f0;
+          gap: 16px;
         }
 
         .cart-item:last-child {
@@ -695,13 +715,14 @@ const Cart: React.FC = () => {
 
         .item-info {
           flex: 1;
-          padding-right: 16px;
+          min-width: 0;
         }
 
         .item-controls {
           display: flex;
           align-items: center;
           gap: 16px;
+          flex-shrink: 0;
         }
 
         .quantity-controls {
@@ -709,14 +730,20 @@ const Cart: React.FC = () => {
           align-items: center;
           gap: 8px;
           background: #f5f5f5;
-          padding: 4px;
-          border-radius: 8px;
+          padding: 6px;
+          border-radius: 12px;
+        }
+
+        .quantity-controls button {
+          width: 32px;
+          height: 32px;
         }
 
         .quantity {
-          min-width: 24px;
+          min-width: 28px;
           text-align: center;
           font-weight: 600;
+          font-size: 15px;
         }
 
         .item-price {
@@ -731,28 +758,30 @@ const Cart: React.FC = () => {
         }
 
         .summary-card {
-          border-radius: 16px;
+          border-radius: 20px;
           position: sticky;
           top: 24px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
         .summary-line {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 8px 0;
+          padding: 10px 0;
         }
 
         .summary-line.highlight {
           background: #f0fdf4;
-          margin: 8px -24px;
-          padding: 12px 24px;
+          margin: 10px -24px;
+          padding: 14px 24px;
+          border-radius: 0;
         }
 
         .summary-line.discount {
           background: #f0fdf4;
-          margin: 8px -24px;
-          padding: 12px 24px;
+          margin: 10px -24px;
+          padding: 14px 24px;
         }
 
         .platform-fee-label {
@@ -768,12 +797,12 @@ const Cart: React.FC = () => {
         }
 
         .summary-line.total {
-          padding-top: 16px;
+          padding-top: 18px;
         }
 
         .driver-earnings-note {
           text-align: center;
-          margin: 16px 0;
+          margin: 18px 0;
         }
 
         .checkout-btn {
@@ -782,11 +811,15 @@ const Cart: React.FC = () => {
           font-weight: 600;
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           border: none;
-          margin-top: 16px;
+          margin-top: 18px;
+          border-radius: 14px;
+          transition: all 0.2s ease;
         }
 
         .checkout-btn:hover {
           background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .minimum-warning {
@@ -795,28 +828,37 @@ const Cart: React.FC = () => {
           justify-content: center;
           gap: 8px;
           margin-top: 16px;
-          padding: 12px;
+          padding: 14px;
           background: #fef3c7;
-          border-radius: 8px;
+          border-radius: 12px;
         }
 
         .promo-card {
-          border-radius: 16px;
+          border-radius: 20px;
           margin-top: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
 
         .promo-input {
           display: flex;
-          gap: 8px;
+          gap: 10px;
+        }
+
+        .promo-input input {
+          border-radius: 10px;
+        }
+
+        .promo-input button {
+          border-radius: 10px;
         }
 
         .applied-promo {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 8px 12px;
+          padding: 12px 16px;
           background: #f0fdf4;
-          border-radius: 8px;
+          border-radius: 12px;
           border: 1px solid #10B981;
         }
 
@@ -826,20 +868,92 @@ const Cart: React.FC = () => {
           gap: 4px;
         }
 
-        @media (max-width: 768px) {
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
+        @media (max-width: 480px) {
+          .cart-page {
+            padding: 16px 12px;
+          }
+
           .page-header {
             flex-direction: column;
             align-items: stretch;
+            gap: 12px;
+          }
+
+          .page-header h2 {
+            order: -1;
+            text-align: left;
+          }
+
+          .page-header button {
+            width: 100%;
+          }
+
+          .cart-item {
+            flex-direction: column;
+            gap: 12px;
           }
 
           .item-controls {
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 8px;
+            width: 100%;
+            justify-content: space-between;
           }
 
           .summary-card {
             position: static;
+          }
+
+          .checkout-btn {
+            height: 52px;
+            font-size: 16px;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .cart-page {
+            padding: 20px 16px;
+          }
+
+          .item-controls {
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .cart-page {
+            padding: 24px 20px;
+          }
+
+          .summary-card {
+            position: static;
+          }
+        }
+
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .cart-page {
+            padding: 24px 24px;
+          }
+        }
+
+        /* Extra large devices (1025px to 1280px) */
+        @media (min-width: 1025px) and (max-width: 1280px) {
+          .cart-page {
+            padding: 24px 32px;
+          }
+        }
+
+        /* XXL devices (1281px and up) */
+        @media (min-width: 1281px) {
+          .cart-page {
+            padding: 32px 40px;
           }
         }
       `}</style>
