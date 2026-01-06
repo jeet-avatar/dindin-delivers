@@ -456,7 +456,108 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 7: Early Signals */}
+        {/* Slide 7: Technical Moat (Zero LLM API Costs) */}
+        <section className="container" style={{ marginTop: '100px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #9b59b6, #ff4d4d)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+              COMPETITIVE MOAT
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Why This is Hard to Copy</h2>
+          <p style={styles.sectionSubtitle}>
+            Most competitors pay <span style={{ color: '#ff4d4d' }}>$500K-2M/year</span> in LLM API costs. We pay <span style={{ color: '#00ff88' }}>$0</span>.
+          </p>
+
+          <div className="glass-card" style={{ padding: '50px', marginTop: '40px', background: 'linear-gradient(135deg, rgba(155,89,182,0.15), rgba(255,77,77,0.1))', border: '2px solid rgba(155,89,182,0.4)' }}>
+            <h3 style={{ fontSize: '1.6rem', marginBottom: '30px', color: '#9b59b6', textAlign: 'center' }}>🤖 Zero LLM API Costs = Structural Advantage</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', marginTop: '30px' }}>
+              <div className="glass-card" style={{ padding: '30px', background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.3)' }}>
+                <h4 style={{ fontSize: '1.3rem', marginBottom: '15px', color: '#ff4d4d' }}>❌ Competitors</h4>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Pay OpenAI/Anthropic <span style={{ color: '#ff4d4d', fontWeight: 600 }}>$0.01-0.05/call</span>
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • At 100K orders/month: <span style={{ color: '#ff4d4d', fontWeight: 600 }}>$500K-2M/year</span>
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Cost scales linearly with volume
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Subject to API pricing changes
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card" style={{ padding: '30px', background: 'rgba(0,255,136,0.1)', border: '1px solid rgba(0,255,136,0.3)' }}>
+                <h4 style={{ fontSize: '1.3rem', marginBottom: '15px', color: '#00ff88' }}>✅ Dollor.ai</h4>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Self-hosted Qwen 32B via Ollama
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Fixed infrastructure cost: <span style={{ color: '#00ff88', fontWeight: 600 }}>~$2K/month</span>
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • <span style={{ color: '#00ff88', fontWeight: 600 }}>Zero marginal cost</span> per request
+                  </div>
+                  <div style={{ fontSize: '0.95rem', color: '#888' }}>
+                    • Total control over model behavior
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '30px', padding: '25px', background: 'rgba(155,89,182,0.2)', borderRadius: '12px', border: '1px solid rgba(155,89,182,0.5)' }}>
+              <p style={{ fontSize: '1.2rem', fontWeight: 600, color: 'white', textAlign: 'center' }}>
+                At 100K orders/month, competitors burn <span style={{ color: '#ff4d4d' }}>$500K-2M/year</span> on LLM costs.<br/>
+                <span style={{ color: '#00ff88' }}>We pay $24K/year in fixed infrastructure.</span>
+              </p>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            {[
+              {
+                title: 'AI-Powered Operations',
+                desc: 'Menu OCR, document verification, fraud detection, routing optimization, support automation',
+                icon: '🧠',
+                color: '#9b59b6'
+              },
+              {
+                title: '700K+ Lines of Code',
+                desc: '17 microservices, 3 mobile apps (iOS/Android), web platform, admin dashboards',
+                icon: '💻',
+                color: '#0088ff'
+              },
+              {
+                title: 'Infrastructure Expertise',
+                desc: 'Kubernetes + AWS, self-hosted AI models, cost-optimized architecture',
+                icon: '⚙️',
+                color: '#00ff88'
+              },
+            ].map((item, i) => (
+              <div key={i} className="glass-card" style={{ padding: '30px', borderTop: `3px solid ${item.color}` }}>
+                <div style={{ fontSize: '2rem', marginBottom: '15px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '1.2rem', marginBottom: '12px', color: item.color }}>{item.title}</h3>
+                <p style={{ fontSize: '0.95rem', color: '#888', lineHeight: '1.6' }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '40px', textAlign: 'center', padding: '30px', background: 'linear-gradient(135deg, rgba(255,149,0,0.15), rgba(255,77,77,0.1))', borderRadius: '16px', border: '1px solid rgba(255,149,0,0.4)' }}>
+            <p style={{ fontSize: '1.3rem', fontWeight: 600, color: 'white', marginBottom: '10px' }}>
+              This Is Not Just Cost Savings
+            </p>
+            <p style={{ fontSize: '1.1rem', color: '#888' }}>
+              It's a <span style={{ color: '#ff9500', fontWeight: 600 }}>structural competitive advantage</span> that enables the flat-fee model.<br/>
+              <span style={{ color: '#00ff88' }}>Without zero LLM costs, the unit economics don't work.</span>
+            </p>
+          </div>
+        </section>
+
+        {/* Slide 8: Early Signals */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff9500, #ff4d4d)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -515,7 +616,130 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 8: The Learning Plan (CRITICAL) */}
+        {/* Slide 9: Press & Traction */}
+        <section className="container" style={{ marginTop: '100px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
+              PRESS & VALIDATION
+            </span>
+          </div>
+          <h2 style={styles.sectionTitle}>Early Coverage & Social Proof</h2>
+          <p style={styles.sectionSubtitle}>
+            We're not just a pitch deck — <span style={{ color: '#00ff88' }}>this is gaining real attention.</span>
+          </p>
+
+          <div className="glass-card" style={{ padding: '50px', marginTop: '40px', background: 'linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,136,255,0.1))', border: '2px solid rgba(0,255,136,0.3)' }}>
+            <h3 style={{ fontSize: '1.6rem', marginBottom: '35px', textAlign: 'center', color: '#00ff88' }}>📰 Media Coverage & Recognition</h3>
+
+            <div style={{ display: 'grid', gap: '25px' }}>
+              {[
+                {
+                  outlet: 'YourStory',
+                  headline: 'Featured startup coverage',
+                  desc: 'Platform innovation in food delivery and rideshare',
+                  date: '2025',
+                  color: '#00ff88',
+                  icon: '📰'
+                },
+                {
+                  outlet: 'Campus Media',
+                  headline: 'Student entrepreneur spotlight',
+                  desc: 'Local coverage on UT Austin campus innovation',
+                  date: '2025',
+                  color: '#0088ff',
+                  icon: '🎓'
+                },
+                {
+                  outlet: 'Tech Community',
+                  headline: 'Self-hosted AI innovation',
+                  desc: 'Featured for zero-API-cost LLM architecture',
+                  date: '2025',
+                  color: '#9b59b6',
+                  icon: '🤖'
+                },
+              ].map((item, i) => (
+                <div key={i} className="glass-card" style={{ padding: '30px', background: 'rgba(0,0,0,0.3)', borderLeft: `4px solid ${item.color}` }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+                    <div style={{ fontSize: '2.5rem' }}>{item.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h4 style={{ fontSize: '1.3rem', color: item.color, fontWeight: 700 }}>{item.outlet}</h4>
+                        <span style={{ fontSize: '0.85rem', color: '#888' }}>{item.date}</span>
+                      </div>
+                      <p style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'white', fontWeight: 600 }}>{item.headline}</p>
+                      <p style={{ fontSize: '0.95rem', color: '#888' }}>{item.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '25px' }}>
+            {[
+              {
+                metric: 'Platform Status',
+                value: 'Live at dollor.ai',
+                desc: 'Staging environment publicly accessible',
+                icon: '🌐',
+                color: '#00ff88'
+              },
+              {
+                metric: 'Restaurant Interest',
+                value: '15+ contacted',
+                desc: 'Austin restaurant associations engaged',
+                icon: '🍕',
+                color: '#ff9500'
+              },
+              {
+                metric: 'Driver Signups',
+                value: 'Waitlist active',
+                desc: 'Pre-launch driver interest collection',
+                icon: '🚗',
+                color: '#0088ff'
+              },
+              {
+                metric: 'Social Proof',
+                value: 'Student testimonials',
+                desc: 'Early feedback from campus community',
+                icon: '💬',
+                color: '#9b59b6'
+              },
+            ].map((item, i) => (
+              <div key={i} className="glass-card" style={{ padding: '25px', borderTop: `3px solid ${item.color}` }}>
+                <div style={{ fontSize: '2rem', marginBottom: '12px' }}>{item.icon}</div>
+                <div style={{ fontSize: '0.9rem', color: '#888', marginBottom: '5px' }}>{item.metric}</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700, color: item.color, marginBottom: '8px' }}>{item.value}</div>
+                <div style={{ fontSize: '0.85rem', color: '#888' }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="glass-card" style={{ padding: '40px', marginTop: '40px', background: 'linear-gradient(135deg, rgba(155,89,182,0.1), rgba(0,136,255,0.1))', border: '1px solid rgba(155,89,182,0.3)' }}>
+            <h3 style={{ fontSize: '1.4rem', marginBottom: '25px', color: '#9b59b6', textAlign: 'center' }}>🎯 What This Proves</h3>
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {[
+                'Third-party validation shows this is a real company, not just a concept',
+                'Early press coverage de-risks the "is this team credible?" question',
+                'Student/community interest validates campus-first GTM strategy',
+                'Platform is live and functional — investors can test it themselves',
+              ].map((point, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ color: '#00ff88', fontSize: '1.2rem', marginTop: '2px' }}>✓</div>
+                  <p style={{ fontSize: '1rem', color: '#888', lineHeight: '1.6' }}>{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '40px', textAlign: 'center', padding: '30px', background: 'linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,136,255,0.1))', borderRadius: '16px', border: '1px solid rgba(0,255,136,0.4)' }}>
+            <p style={{ fontSize: '1.3rem', fontWeight: 600, color: 'white' }}>
+              This isn't vaporware — <span style={{ color: '#00ff88' }}>we're building in public and gaining attention.</span>
+            </p>
+          </div>
+        </section>
+
+        {/* Slide 10: The Learning Plan (CRITICAL) */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #9b59b6)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -594,7 +818,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 9: Why Campuses First */}
+        {/* Slide 11: Why Campuses First */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #0088ff, #9b59b6)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -675,7 +899,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 10: Unit Economics (Only One Table) */}
+        {/* Slide 12: Unit Economics (Only One Table) */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #00ff88, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#000' }}>
@@ -733,7 +957,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 11: The Team */}
+        {/* Slide 13: The Team */}
         <section className="container" style={{ marginTop: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #9b59b6, #0088ff)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
@@ -811,7 +1035,7 @@ export default function InvestorDeck2026() {
           </div>
         </section>
 
-        {/* Slide 12: The Ask */}
+        {/* Slide 14: The Ask */}
         <section className="container" style={{ marginTop: '100px', marginBottom: '100px' }}>
           <div style={{ textAlign: 'center', marginBottom: '30px' }}>
             <span style={{ background: 'linear-gradient(135deg, #ff4d4d, #ff9500)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
