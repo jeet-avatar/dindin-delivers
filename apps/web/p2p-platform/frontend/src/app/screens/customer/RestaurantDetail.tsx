@@ -653,26 +653,28 @@ const RestaurantDetail: React.FC = () => {
 
         /* Menu Grid - CSS Grid for perfect alignment */
         .menu-grid {
-          max-width: 1400px;
+          max-width: 1600px;
           margin: 0 auto;
-          padding: 0 24px;
+          padding: 0 32px;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 24px;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 28px;
         }
 
         .menu-item-card {
           background: white;
-          border-radius: 16px;
+          border-radius: 20px;
           overflow: hidden;
           cursor: pointer;
           transition: all 0.25s ease;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+          display: flex;
+          flex-direction: column;
         }
 
         .menu-item-card:hover:not(.unavailable) {
           transform: translateY(-6px);
-          box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+          box-shadow: 0 16px 40px rgba(0,0,0,0.14);
         }
 
         .menu-item-card.unavailable {
@@ -680,11 +682,11 @@ const RestaurantDetail: React.FC = () => {
           cursor: not-allowed;
         }
 
-        /* Menu Item Image - Top of card */
+        /* Menu Item Image - Square aspect ratio */
         .menu-item-image-container {
           position: relative;
           width: 100%;
-          height: 180px;
+          aspect-ratio: 4 / 3;
           background: #f5f5f5;
         }
 
@@ -697,11 +699,11 @@ const RestaurantDetail: React.FC = () => {
         .menu-item-placeholder {
           width: 100%;
           height: 100%;
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 48px;
+          font-size: 56px;
         }
 
         .menu-item-placeholder.hidden {
@@ -710,45 +712,52 @@ const RestaurantDetail: React.FC = () => {
 
         .popular-tag {
           position: absolute;
-          top: 12px;
-          left: 12px;
+          top: 14px;
+          left: 14px;
           font-weight: 600;
+          font-size: 12px;
+          padding: 4px 10px;
         }
 
         .menu-item-image-container .add-btn {
           position: absolute;
-          bottom: 12px;
-          right: 12px;
-          width: 40px;
-          height: 40px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          bottom: 14px;
+          right: 14px;
+          width: 44px;
+          height: 44px;
+          font-size: 18px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
 
-        /* Menu Item Info */
+        /* Menu Item Info - No text cutting */
         .menu-item-info {
-          padding: 16px;
+          padding: 20px;
           position: relative;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
         }
 
         .item-name {
           display: block;
-          font-size: 16px;
+          font-size: 17px;
           font-weight: 600;
           color: #1f2937;
-          margin-bottom: 6px;
-          line-height: 1.3;
+          margin-bottom: 8px;
+          line-height: 1.4;
+          word-wrap: break-word;
         }
 
         .item-description {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          font-size: 13px;
+          font-size: 14px;
           line-height: 1.5;
           color: #6b7280;
-          margin-bottom: 12px;
-          min-height: 40px;
+          margin-bottom: 16px;
+          flex: 1;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
         }
 
         .item-footer {
@@ -756,17 +765,20 @@ const RestaurantDetail: React.FC = () => {
           align-items: center;
           justify-content: space-between;
           gap: 12px;
+          margin-top: auto;
+          padding-top: 12px;
+          border-top: 1px solid #f3f4f6;
         }
 
         .price {
-          font-size: 18px;
+          font-size: 20px;
           color: #10B981;
           font-weight: 700;
         }
 
         .dietary-tags {
           display: flex;
-          gap: 4px;
+          gap: 6px;
         }
 
         .diet-tag {
@@ -893,12 +905,20 @@ const RestaurantDetail: React.FC = () => {
 
           .menu-grid {
             padding: 0 12px;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: 1fr;
             gap: 16px;
           }
 
-          .menu-item-image-container {
-            height: 150px;
+          .menu-item-info {
+            padding: 16px;
+          }
+
+          .item-name {
+            font-size: 16px;
+          }
+
+          .price {
+            font-size: 18px;
           }
 
           .floating-cart {
@@ -929,13 +949,9 @@ const RestaurantDetail: React.FC = () => {
           }
 
           .menu-grid {
-            padding: 0 16px;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            padding: 0 20px;
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-          }
-
-          .menu-item-image-container {
-            height: 160px;
           }
         }
 
@@ -946,10 +962,11 @@ const RestaurantDetail: React.FC = () => {
 
           .menu-grid {
             grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
           }
         }
 
-        @media (min-width: 1025px) {
+        @media (min-width: 1025px) and (max-width: 1399px) {
           .header-image {
             height: 360px;
           }
@@ -960,12 +977,42 @@ const RestaurantDetail: React.FC = () => {
 
           .menu-grid {
             grid-template-columns: repeat(4, 1fr);
+            gap: 28px;
           }
         }
 
         @media (min-width: 1400px) {
+          .header-image {
+            height: 400px;
+          }
+
+          .restaurant-info-header h2 {
+            font-size: 48px;
+          }
+
           .menu-grid {
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+          }
+
+          .menu-item-card {
+            border-radius: 24px;
+          }
+
+          .menu-item-info {
+            padding: 24px;
+          }
+
+          .item-name {
+            font-size: 18px;
+          }
+
+          .item-description {
+            font-size: 15px;
+          }
+
+          .price {
+            font-size: 22px;
           }
         }
       `}</style>
