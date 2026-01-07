@@ -335,12 +335,12 @@ const RestaurantDetail: React.FC = () => {
             onClick={() => openCustomizeModal(item)}
           >
             <div className="menu-item-info">
-              <Text strong className="item-name">{item.name}</Text>
+              <Text strong className="item-name" style={{ whiteSpace: 'nowrap', wordBreak: 'keep-all', overflowWrap: 'normal' }}>{item.name}</Text>
               <Text type="secondary" className="item-description">
                 {item.description}
               </Text>
               <div className="item-footer">
-                <Text strong className="price">${item.price.toFixed(2)}</Text>
+                <Text strong className="price" style={{ whiteSpace: 'nowrap', wordBreak: 'keep-all', overflowWrap: 'normal', flexShrink: 0 }}>${item.price.toFixed(2)}</Text>
                 {item.dietary_tags && item.dietary_tags.length > 0 && (
                   <div className="dietary-tags">
                     {item.dietary_tags.slice(0, 2).map(tag => (
@@ -700,9 +700,11 @@ const RestaurantDetail: React.FC = () => {
           color: #1f2937;
           margin-bottom: 6px;
           line-height: 1.3;
-          white-space: nowrap;
+          white-space: nowrap !important;
           overflow: hidden;
           text-overflow: ellipsis;
+          word-break: keep-all !important;
+          overflow-wrap: normal !important;
         }
 
         .item-description {
@@ -722,13 +724,18 @@ const RestaurantDetail: React.FC = () => {
           align-items: center;
           gap: 8px;
           margin-top: auto;
+          flex-wrap: nowrap;
+          overflow: hidden;
         }
 
         .price {
           font-size: 16px;
           color: #10B981;
           font-weight: 700;
-          white-space: nowrap;
+          white-space: nowrap !important;
+          word-break: keep-all !important;
+          overflow-wrap: normal !important;
+          flex-shrink: 0;
         }
 
         .dietary-tags {
@@ -925,6 +932,8 @@ const RestaurantDetail: React.FC = () => {
 
           .item-name {
             font-size: 14px;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
           }
 
           .item-description {
@@ -933,6 +942,8 @@ const RestaurantDetail: React.FC = () => {
 
           .price {
             font-size: 14px;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
           }
 
           .floating-cart {
@@ -1020,10 +1031,14 @@ const RestaurantDetail: React.FC = () => {
 
           .item-name {
             font-size: 16px;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
           }
 
           .price {
             font-size: 18px;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
           }
         }
       `}</style>
