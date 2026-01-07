@@ -15332,6 +15332,26 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             db.commit()
             results["created"].append("restaurant")
         else:
+            # Ensure User record exists for existing vendor
+            existing_user = db.query(User).filter(User.email == vendor_email).first()
+            if not existing_user:
+                vendor_user = User(
+                    email=vendor_email,
+                    password_hash=get_password_hash("DemoRestaurant2025!"),
+                    full_name="Demo Owner",
+                    role=UserRole.VENDOR,
+                    vendor_id=existing.id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(vendor_user)
+                db.commit()
+                results["created"].append("restaurant_user")
+            else:
+                # Update password to ensure it matches
+                existing_user.password_hash = get_password_hash("DemoRestaurant2025!")
+                existing_user.vendor_id = existing.id
+                existing_user.role = UserRole.VENDOR
+                db.commit()
             results["existing"].append("restaurant")
     except Exception as e:
         db.rollback()
