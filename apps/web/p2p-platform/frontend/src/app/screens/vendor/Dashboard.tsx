@@ -321,45 +321,45 @@ const VendorDashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <Row gutter={16} className="stats-row">
-        <Col span={6}>
-          <Card>
+      <Row gutter={[16, 16]} className="stats-row">
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card blue">
             <Statistic
               title="Today's Orders"
               value={stats.todayOrders}
               prefix={<ShoppingOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: '#3B82F6', fontWeight: 700 }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card green">
             <Statistic
               title="Today's Revenue"
               value={stats.todayRevenue}
               precision={2}
               prefix={<DollarOutlined />}
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: '#10B981', fontWeight: 700 }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card orange">
             <Statistic
               title="Pending Orders"
               value={stats.pendingOrders}
               prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: '#F59E0B', fontWeight: 700 }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card purple">
             <Statistic
               title="Completed Today"
               value={stats.completedToday}
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: '#10B981', fontWeight: 700 }}
             />
           </Card>
         </Col>
@@ -395,35 +395,207 @@ const VendorDashboard: React.FC = () => {
       </Card>
 
       <style>{`
+        /* ============================================
+           VENDOR DASHBOARD - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .vendor-dashboard {
           padding: 24px;
-          max-width: 1400px;
+          max-width: 1440px;
           margin: 0 auto;
         }
+
         .dashboard-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+          flex-wrap: wrap;
+          gap: 16px;
         }
+
         .dashboard-header h1 {
           margin: 0;
           font-size: 28px;
+          font-weight: 700;
+          color: #1e293b;
         }
+
         .stats-row {
           margin-bottom: 24px;
         }
+
+        .stat-card {
+          border-radius: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .ant-card-body {
+          padding: 20px;
+        }
+
+        .stat-card.blue {
+          border-left: 4px solid #3B82F6;
+        }
+
+        .stat-card.green {
+          border-left: 4px solid #10B981;
+        }
+
+        .stat-card.orange {
+          border-left: 4px solid #F59E0B;
+        }
+
+        .stat-card.purple {
+          border-left: 4px solid #8B5CF6;
+        }
+
         .orders-card {
           margin-bottom: 24px;
+          border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
+
+        .orders-card .ant-card-head {
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .orders-card .ant-card-head-title {
+          font-weight: 600;
+          font-size: 18px;
+        }
+
         .empty-state {
           text-align: center;
           padding: 48px 0;
         }
+
         .empty-icon {
           font-size: 64px;
-          color: #52c41a;
+          color: #10B981;
           margin-bottom: 16px;
+        }
+
+        /* Table Styling */
+        .ant-table {
+          border-radius: 12px;
+          overflow: hidden;
+        }
+
+        .ant-table-thead > tr > th {
+          background: #f8fafc;
+          font-weight: 600;
+          color: #475569;
+        }
+
+        .ant-table-tbody > tr:hover > td {
+          background: #f0fdf4;
+        }
+
+        /* Button Styling */
+        .ant-btn-primary {
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          border: none;
+          border-radius: 8px;
+        }
+
+        .ant-btn-primary:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
+        @media (max-width: 480px) {
+          .vendor-dashboard {
+            padding: 16px 12px;
+          }
+
+          .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .dashboard-header h1 {
+            font-size: 24px;
+          }
+
+          .stat-card .ant-card-body {
+            padding: 16px;
+          }
+
+          .ant-table {
+            font-size: 13px;
+          }
+
+          .ant-table-thead > tr > th,
+          .ant-table-tbody > tr > td {
+            padding: 8px 4px;
+          }
+
+          .ant-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .vendor-dashboard {
+            padding: 16px;
+          }
+
+          .ant-table-thead > tr > th,
+          .ant-table-tbody > tr > td {
+            padding: 10px 8px;
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .vendor-dashboard {
+            padding: 20px;
+          }
+        }
+
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .vendor-dashboard {
+            padding: 24px;
+          }
+        }
+
+        /* Extra large devices (1025px and up) */
+        @media (min-width: 1025px) {
+          .vendor-dashboard {
+            padding: 32px;
+          }
+        }
+
+        /* Hide certain columns on mobile for better readability */
+        @media (max-width: 768px) {
+          .ant-table-thead > tr > th:nth-child(3),
+          .ant-table-tbody > tr > td:nth-child(3) {
+            display: none;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .ant-table-thead > tr > th:nth-child(4),
+          .ant-table-tbody > tr > td:nth-child(4),
+          .ant-table-thead > tr > th:nth-child(6),
+          .ant-table-tbody > tr > td:nth-child(6) {
+            display: none;
+          }
         }
       `}</style>
     </div>
