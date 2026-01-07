@@ -443,9 +443,17 @@ const DriverDashboard: React.FC = () => {
       </Row>
 
       <style>{`
+        /* ============================================
+           DRIVER DASHBOARD - International-Level Design
+           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           ============================================ */
+
         .driver-dashboard {
           padding: 0;
+          max-width: 1440px;
+          margin: 0 auto;
         }
+
         .welcome-section {
           display: flex;
           justify-content: space-between;
@@ -454,31 +462,51 @@ const DriverDashboard: React.FC = () => {
           flex-wrap: wrap;
           gap: 16px;
         }
+
         .start-delivery-btn {
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           border: none;
           height: 44px;
           padding: 0 24px;
           border-radius: 10px;
+          transition: all 0.2s ease;
         }
+
+        .start-delivery-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
         .stat-card {
           border-radius: 16px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          transition: all 0.2s ease;
         }
+
+        .stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
         .stat-card .ant-card-body {
           padding: 20px;
         }
+
         .stat-footer {
           margin-top: 8px;
         }
+
         .card-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
+
         .active-delivery-card {
           border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
+
         .delivery-progress {
           display: flex;
           align-items: center;
@@ -487,6 +515,7 @@ const DriverDashboard: React.FC = () => {
           margin-bottom: 20px;
           border-bottom: 1px solid #f0f0f0;
         }
+
         .progress-step {
           display: flex;
           flex-direction: column;
@@ -494,12 +523,15 @@ const DriverDashboard: React.FC = () => {
           gap: 8px;
           color: #94a3b8;
         }
+
         .progress-step.completed {
           color: #10B981;
         }
+
         .progress-step .anticon {
           font-size: 24px;
         }
+
         .step-circle {
           width: 24px;
           height: 24px;
@@ -511,33 +543,40 @@ const DriverDashboard: React.FC = () => {
           font-weight: 600;
           font-size: 12px;
         }
+
         .progress-line {
           flex: 1;
           height: 3px;
           background: #e2e8f0;
           margin: 0 10px;
         }
+
         .progress-line.completed {
           background: #10B981;
         }
+
         .delivery-details {
           display: flex;
           flex-direction: column;
           gap: 16px;
         }
+
         .detail-row {
           display: flex;
           gap: 24px;
         }
+
         .detail-item {
           display: flex;
           flex-direction: column;
           gap: 4px;
           flex: 1;
         }
+
         .detail-item.full {
           flex: 3;
         }
+
         .delivery-actions {
           display: flex;
           gap: 12px;
@@ -545,11 +584,13 @@ const DriverDashboard: React.FC = () => {
           padding-top: 20px;
           border-top: 1px solid #f0f0f0;
         }
+
         .contact-btn {
           flex: 1;
           height: 44px;
           border-radius: 10px;
         }
+
         .complete-btn {
           flex: 2;
           height: 44px;
@@ -557,6 +598,7 @@ const DriverDashboard: React.FC = () => {
           background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           border: none;
         }
+
         .no-delivery {
           display: flex;
           flex-direction: column;
@@ -564,71 +606,225 @@ const DriverDashboard: React.FC = () => {
           gap: 16px;
           padding: 40px;
         }
+
         .pending-deliveries-card {
           border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
+
         .delivery-item {
           display: flex;
           justify-content: space-between;
           padding: 16px 0;
         }
+
         .delivery-info {
           display: flex;
           gap: 12px;
         }
+
         .delivery-text {
           display: flex;
           flex-direction: column;
         }
+
         .delivery-address {
           font-size: 12px;
         }
+
         .delivery-meta {
           margin-top: 8px;
         }
+
         .delivery-payout {
           display: flex;
           flex-direction: column;
           align-items: flex-end;
           gap: 4px;
         }
+
         .weekly-card {
           border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
+
         .progress-item {
           padding: 16px;
           background: #f8fafc;
           border-radius: 12px;
         }
+
         .progress-header {
           display: flex;
           justify-content: space-between;
           margin-bottom: 12px;
         }
+
         .fee-info-card {
           border-radius: 16px;
           background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
           border: 1px solid rgba(16, 185, 129, 0.2);
         }
+
         .fee-info-content {
           display: flex;
           flex-direction: column;
           gap: 16px;
         }
+
         .fee-info-header {
           display: flex;
           align-items: center;
           gap: 12px;
         }
+
         .fee-tiers {
           display: flex;
           gap: 24px;
           flex-wrap: wrap;
         }
+
         .fee-tier {
           display: flex;
           align-items: center;
           gap: 8px;
+        }
+
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* Extra small devices (phones, 480px and down) */
+        @media (max-width: 480px) {
+          .welcome-section {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .welcome-section h3 {
+            font-size: 20px;
+          }
+
+          .start-delivery-btn {
+            width: 100%;
+            height: 48px;
+          }
+
+          .stat-card .ant-card-body {
+            padding: 16px;
+          }
+
+          .stat-card .ant-statistic-title {
+            font-size: 12px;
+          }
+
+          .stat-card .ant-statistic-content {
+            font-size: 22px;
+          }
+
+          .delivery-progress {
+            padding: 16px 0;
+            gap: 8px;
+          }
+
+          .progress-step {
+            font-size: 11px;
+          }
+
+          .progress-step .anticon {
+            font-size: 20px;
+          }
+
+          .progress-line {
+            margin: 0 4px;
+          }
+
+          .detail-row {
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .delivery-actions {
+            flex-direction: column;
+          }
+
+          .contact-btn,
+          .complete-btn {
+            flex: 1;
+          }
+
+          .delivery-item {
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .delivery-payout {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+          }
+
+          .fee-tiers {
+            gap: 12px;
+          }
+
+          .fee-tier {
+            width: 100%;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+          }
+
+          .progress-item {
+            padding: 12px;
+          }
+        }
+
+        /* Small devices (landscape phones, 481px to 640px) */
+        @media (min-width: 481px) and (max-width: 640px) {
+          .detail-row {
+            flex-wrap: wrap;
+          }
+
+          .detail-item {
+            min-width: calc(50% - 12px);
+          }
+
+          .delivery-item {
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+
+          .fee-tiers {
+            gap: 16px;
+          }
+        }
+
+        /* Medium devices (tablets, 641px to 768px) */
+        @media (min-width: 641px) and (max-width: 768px) {
+          .stat-card .ant-statistic-content {
+            font-size: 26px;
+          }
+
+          .fee-tiers {
+            justify-content: flex-start;
+          }
+        }
+
+        /* Large devices (desktops, 769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+          .driver-dashboard {
+            padding: 0 16px;
+          }
+        }
+
+        /* Extra large devices (1025px and up) */
+        @media (min-width: 1025px) {
+          .driver-dashboard {
+            padding: 0 24px;
+          }
         }
       `}</style>
     </div>
