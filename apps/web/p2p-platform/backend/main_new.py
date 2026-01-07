@@ -92,6 +92,8 @@ PRODUCTION_ORIGINS = [
     "https://www.vibingticket.com",
     # Production Admin Panel (CloudFront)
     "https://d3pus2gxlb5cer.cloudfront.net",
+    # Staging Frontend (CloudFront)
+    "https://d3b3ow4g7hjwi5.cloudfront.net",
 ]
 
 # Staging origins (allowed in staging and development)
