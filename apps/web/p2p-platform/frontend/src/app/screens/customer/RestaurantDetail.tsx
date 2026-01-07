@@ -326,7 +326,7 @@ const RestaurantDetail: React.FC = () => {
         ))}
       </div>
 
-      {/* Menu Grid - Vertical Cards */}
+      {/* Menu Grid - Horizontal Cards with Image on Right */}
       <div className="menu-grid">
         {filteredMenu.map(item => (
           <div
@@ -334,30 +334,6 @@ const RestaurantDetail: React.FC = () => {
             className={`menu-item-card ${!item.is_available ? 'unavailable' : ''}`}
             onClick={() => openCustomizeModal(item)}
           >
-            <div className="menu-item-image-container">
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  className="menu-item-image"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                  }}
-                />
-              ) : null}
-              <div className={`menu-item-placeholder ${item.image_url ? 'hidden' : ''}`}>
-                <span>🍽️</span>
-              </div>
-              {item.is_popular && <Tag color="gold" className="popular-tag">Popular</Tag>}
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<PlusOutlined />}
-                className="add-btn"
-                disabled={!item.is_available}
-              />
-            </div>
             <div className="menu-item-info">
               <Text strong className="item-name">{item.name}</Text>
               <Text type="secondary" className="item-description">
@@ -373,10 +349,33 @@ const RestaurantDetail: React.FC = () => {
                   </div>
                 )}
               </div>
-              {!item.is_available && (
-                <div className="unavailable-overlay">Unavailable</div>
-              )}
             </div>
+            <div className="menu-item-image-container">
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="menu-item-image"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`menu-item-placeholder ${item.image_url ? 'hidden' : ''}`}>
+                <span>🍽️</span>
+              </div>
+              <Button
+                type="primary"
+                shape="circle"
+                icon={<PlusOutlined />}
+                className="add-btn"
+                disabled={!item.is_available}
+              />
+            </div>
+            {!item.is_available && (
+              <div className="unavailable-overlay">Unavailable</div>
+            )}
           </div>
         ))}
       </div>
@@ -651,42 +650,107 @@ const RestaurantDetail: React.FC = () => {
           border-color: #10B981;
         }
 
-        /* Menu Grid - CSS Grid for perfect alignment */
+        /* Menu Grid - CSS Grid for uniform cards */
         .menu-grid {
-          max-width: 1600px;
+          max-width: 1400px;
           margin: 0 auto;
-          padding: 0 32px;
+          padding: 0 24px;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 28px;
+          grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+          gap: 16px;
         }
 
+        /* Horizontal card layout with fixed height */
         .menu-item-card {
           background: white;
-          border-radius: 20px;
+          border-radius: 12px;
           overflow: hidden;
           cursor: pointer;
-          transition: all 0.25s ease;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.08);
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
+          height: 140px;
+          position: relative;
         }
 
         .menu-item-card:hover:not(.unavailable) {
-          transform: translateY(-6px);
-          box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+          transform: translateY(-2px);
         }
 
         .menu-item-card.unavailable {
-          opacity: 0.5;
+          opacity: 0.6;
           cursor: not-allowed;
         }
 
-        /* Menu Item Image - Square aspect ratio */
+        /* Menu Item Info - Left side */
+        .menu-item-info {
+          flex: 1;
+          padding: 14px 16px;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .item-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1f2937;
+          margin-bottom: 6px;
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .item-description {
+          font-size: 13px;
+          line-height: 1.4;
+          color: #6b7280;
+          margin-bottom: 8px;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          flex: 1;
+        }
+
+        .item-footer {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: auto;
+        }
+
+        .price {
+          font-size: 16px;
+          color: #10B981;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+
+        .dietary-tags {
+          display: flex;
+          gap: 4px;
+          flex-wrap: nowrap;
+          overflow: hidden;
+        }
+
+        .diet-tag {
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          white-space: nowrap;
+        }
+
+        /* Menu Item Image - Right side, fixed size */
         .menu-item-image-container {
           position: relative;
-          width: 100%;
-          aspect-ratio: 4 / 3;
+          width: 120px;
+          height: 140px;
+          flex-shrink: 0;
           background: #f5f5f5;
         }
 
@@ -703,102 +767,38 @@ const RestaurantDetail: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 56px;
+          font-size: 36px;
         }
 
         .menu-item-placeholder.hidden {
           display: none;
         }
 
-        .popular-tag {
-          position: absolute;
-          top: 14px;
-          left: 14px;
-          font-weight: 600;
-          font-size: 12px;
-          padding: 4px 10px;
-        }
-
         .menu-item-image-container .add-btn {
           position: absolute;
-          bottom: 14px;
-          right: 14px;
-          width: 44px;
-          height: 44px;
-          font-size: 18px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-        }
-
-        /* Menu Item Info - No text cutting */
-        .menu-item-info {
-          padding: 20px;
-          position: relative;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .item-name {
-          display: block;
-          font-size: 17px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 8px;
-          line-height: 1.4;
-          word-wrap: break-word;
-        }
-
-        .item-description {
+          bottom: 8px;
+          right: 8px;
+          width: 32px;
+          height: 32px;
           font-size: 14px;
-          line-height: 1.5;
-          color: #6b7280;
-          margin-bottom: 16px;
-          flex: 1;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .item-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-top: auto;
-          padding-top: 12px;
-          border-top: 1px solid #f3f4f6;
-        }
-
-        .price {
-          font-size: 20px;
-          color: #10B981;
-          font-weight: 700;
-        }
-
-        .dietary-tags {
-          display: flex;
-          gap: 6px;
-        }
-
-        .diet-tag {
-          font-size: 10px;
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-
+        /* Unavailable overlay spans full card */
         .unavailable-overlay {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.85);
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 600;
           color: #ef4444;
+          font-size: 14px;
+          z-index: 1;
         }
 
         /* Floating Cart */
@@ -870,28 +870,29 @@ const RestaurantDetail: React.FC = () => {
 
         @media (max-width: 480px) {
           .header-image {
-            height: 220px;
+            height: 200px;
           }
 
           .image-overlay {
-            padding: 20px;
+            padding: 16px;
           }
 
           .restaurant-info-header h2 {
-            font-size: 24px;
+            font-size: 22px;
           }
 
           .back-btn {
             top: 12px;
             left: 12px;
-            height: 40px;
+            height: 36px;
+            padding: 0 12px;
           }
 
           .favorite-btn {
             top: 12px;
             right: 12px;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
           }
 
           .info-card {
@@ -900,33 +901,46 @@ const RestaurantDetail: React.FC = () => {
           }
 
           .category-tabs {
-            padding: 20px 12px;
+            padding: 16px 12px;
           }
 
           .menu-grid {
             padding: 0 12px;
             grid-template-columns: 1fr;
-            gap: 16px;
+            gap: 12px;
+          }
+
+          .menu-item-card {
+            height: 120px;
           }
 
           .menu-item-info {
-            padding: 16px;
+            padding: 12px;
+          }
+
+          .menu-item-image-container {
+            width: 100px;
+            height: 120px;
           }
 
           .item-name {
-            font-size: 16px;
+            font-size: 14px;
+          }
+
+          .item-description {
+            font-size: 12px;
           }
 
           .price {
-            font-size: 18px;
+            font-size: 14px;
           }
 
           .floating-cart {
-            left: 16px;
-            right: 16px;
+            left: 12px;
+            right: 12px;
             transform: none;
-            padding: 12px 20px;
-            gap: 14px;
+            padding: 10px 16px;
+            gap: 12px;
           }
 
           .floating-cart:hover {
@@ -936,7 +950,7 @@ const RestaurantDetail: React.FC = () => {
 
         @media (min-width: 481px) and (max-width: 768px) {
           .header-image {
-            height: 260px;
+            height: 240px;
           }
 
           .restaurant-info-header h2 {
@@ -949,24 +963,39 @@ const RestaurantDetail: React.FC = () => {
           }
 
           .menu-grid {
-            padding: 0 20px;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+            padding: 0 16px;
+            grid-template-columns: 1fr;
+            gap: 12px;
           }
         }
 
         @media (min-width: 769px) and (max-width: 1024px) {
           .header-image {
-            height: 300px;
+            height: 280px;
           }
 
           .menu-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
           }
         }
 
         @media (min-width: 1025px) and (max-width: 1399px) {
+          .header-image {
+            height: 320px;
+          }
+
+          .restaurant-info-header h2 {
+            font-size: 38px;
+          }
+
+          .menu-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+        }
+
+        @media (min-width: 1400px) {
           .header-image {
             height: 360px;
           }
@@ -976,43 +1005,25 @@ const RestaurantDetail: React.FC = () => {
           }
 
           .menu-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 28px;
-          }
-        }
-
-        @media (min-width: 1400px) {
-          .header-image {
-            height: 400px;
-          }
-
-          .restaurant-info-header h2 {
-            font-size: 48px;
-          }
-
-          .menu-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 32px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
           }
 
           .menu-item-card {
-            border-radius: 24px;
+            height: 150px;
           }
 
-          .menu-item-info {
-            padding: 24px;
+          .menu-item-image-container {
+            width: 140px;
+            height: 150px;
           }
 
           .item-name {
-            font-size: 18px;
-          }
-
-          .item-description {
-            font-size: 15px;
+            font-size: 16px;
           }
 
           .price {
-            font-size: 22px;
+            font-size: 18px;
           }
         }
       `}</style>
