@@ -94,9 +94,22 @@ const CustomerHome: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch restaurants
-      const restaurantsRes = await axios.get(`${API_URL}/api/erp/restaurants`);
-      const restaurantData = restaurantsRes.data.restaurants || [];
+      // Fetch published restaurants from database (same endpoint as Restaurants.tsx)
+      const restaurantsRes = await axios.get(`${API_URL}/api/vendors/published?platform=web`);
+      const data = restaurantsRes.data;
+
+      // Map published vendors to restaurant format
+      const restaurantData: Restaurant[] = (data.restaurants || []).map((r: any) => ({
+        id: r.id,
+        name: r.name || r.restaurant_name,
+        cuisine_type: r.cuisine_type || 'Various',
+        rating: r.rating || r.performance_score || 4.5,
+        delivery_time: r.delivery_time || `${r.average_prep_time || 25}-${(r.average_prep_time || 25) + 15} min`,
+        delivery_fee: r.delivery_fee || 2.99,
+        image_url: r.image_url,
+        is_open: r.is_open !== false
+      }));
+
       setRestaurants(restaurantData);
       setFeaturedRestaurants(restaurantData.filter((r: Restaurant) => r.rating >= 4.5).slice(0, 5));
 
