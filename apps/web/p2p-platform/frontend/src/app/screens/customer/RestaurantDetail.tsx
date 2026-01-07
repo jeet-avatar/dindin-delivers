@@ -345,13 +345,29 @@ const RestaurantDetail: React.FC = () => {
                     <Tag color="red" className="unavailable-tag">Unavailable</Tag>
                   )}
                 </div>
-                <Button
-                  type="primary"
-                  shape="circle"
-                  icon={<PlusOutlined />}
-                  className="add-btn"
-                  disabled={!item.is_available}
-                />
+                <div className="menu-item-image-container">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="menu-item-image"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`menu-item-placeholder ${item.image_url ? 'hidden' : ''}`}>
+                    <span>🍽️</span>
+                  </div>
+                  <Button
+                    type="primary"
+                    shape="circle"
+                    icon={<PlusOutlined />}
+                    className="add-btn"
+                    disabled={!item.is_available}
+                  />
+                </div>
               </div>
             </Card>
           </Col>
@@ -598,6 +614,42 @@ const RestaurantDetail: React.FC = () => {
         .menu-item-info {
           flex: 1;
           min-width: 0;
+        }
+
+        .menu-item-image-container {
+          position: relative;
+          flex-shrink: 0;
+          width: 100px;
+          height: 100px;
+        }
+
+        .menu-item-image {
+          width: 100px;
+          height: 100px;
+          object-fit: cover;
+          border-radius: 8px;
+        }
+
+        .menu-item-placeholder {
+          width: 100px;
+          height: 100px;
+          background: #f5f5f5;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 32px;
+        }
+
+        .menu-item-placeholder.hidden {
+          display: none;
+        }
+
+        .menu-item-image-container .add-btn {
+          position: absolute;
+          bottom: -8px;
+          right: -8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
         .item-header {
