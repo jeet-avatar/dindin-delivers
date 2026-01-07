@@ -46,6 +46,7 @@ interface Restaurant {
   delivery_fee: number;
   minimum_order: number;
   is_open: boolean;
+  image_url?: string;
 }
 
 interface CartItem {
@@ -101,7 +102,8 @@ const RestaurantDetail: React.FC = () => {
           delivery_time_max: (r.average_prep_time || 25) + 15,
           delivery_fee: 2.99,
           minimum_order: 0,
-          is_open: true
+          is_open: true,
+          image_url: r.image_url
         });
 
         // Menu is included in the response, flatten from categories
@@ -243,6 +245,15 @@ const RestaurantDetail: React.FC = () => {
         </Button>
 
         <div className="header-image">
+          {restaurant.image_url ? (
+            <img
+              src={restaurant.image_url}
+              alt={restaurant.name}
+              className="header-background-image"
+            />
+          ) : (
+            <div className="header-gradient-fallback" />
+          )}
           <div className="image-overlay">
             <div className="restaurant-info-header">
               <Title level={2} style={{ color: 'white', margin: 0 }}>{restaurant.name}</Title>
@@ -261,9 +272,10 @@ const RestaurantDetail: React.FC = () => {
           />
         </div>
 
-        <Card className="info-card">
-          <Row gutter={[24, 16]}>
-            <Col xs={24} md={16}>
+        <div className="info-card">
+          <Card>
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={16}>
               <Paragraph type="secondary">{restaurant.description}</Paragraph>
               <div className="meta-row">
                 <Tag color="blue">{restaurant.cuisine_type}</Tag>
@@ -296,7 +308,8 @@ const RestaurantDetail: React.FC = () => {
               </div>
             </Col>
           </Row>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       {/* Category Tabs */}
@@ -313,66 +326,60 @@ const RestaurantDetail: React.FC = () => {
         ))}
       </div>
 
-      {/* Menu Grid */}
-      <Row gutter={[20, 20]}>
+      {/* Menu Grid - Vertical Cards */}
+      <div className="menu-grid">
         {filteredMenu.map(item => (
-          <Col xs={24} sm={12} md={8} lg={6} xl={6} xxl={4} key={item.id}>
-            <Card
-              className={`menu-item-card ${!item.is_available ? 'unavailable' : ''}`}
-              hoverable={item.is_available}
-              onClick={() => openCustomizeModal(item)}
-            >
-              <div className="menu-item-content">
-                <div className="menu-item-info">
-                  <div className="item-header">
-                    <Title level={5} style={{ margin: 0 }}>{item.name}</Title>
-                    {item.is_popular && <Tag color="gold">Popular</Tag>}
-                  </div>
-                  <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: '8px 0' }}>
-                    {item.description}
-                  </Paragraph>
-                  <div className="item-footer">
-                    <Text strong className="price">${item.price.toFixed(2)}</Text>
-                    {item.dietary_tags && item.dietary_tags.length > 0 && (
-                      <div className="dietary-tags">
-                        {item.dietary_tags.map(tag => (
-                          <Tag key={tag} color="green" size="small">{tag}</Tag>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {!item.is_available && (
-                    <Tag color="red" className="unavailable-tag">Unavailable</Tag>
-                  )}
-                </div>
-                <div className="menu-item-image-container">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className="menu-item-image"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-                  <div className={`menu-item-placeholder ${item.image_url ? 'hidden' : ''}`}>
-                    <span>🍽️</span>
-                  </div>
-                  <Button
-                    type="primary"
-                    shape="circle"
-                    icon={<PlusOutlined />}
-                    className="add-btn"
-                    disabled={!item.is_available}
-                  />
-                </div>
+          <div
+            key={item.id}
+            className={`menu-item-card ${!item.is_available ? 'unavailable' : ''}`}
+            onClick={() => openCustomizeModal(item)}
+          >
+            <div className="menu-item-image-container">
+              {item.image_url ? (
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="menu-item-image"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`menu-item-placeholder ${item.image_url ? 'hidden' : ''}`}>
+                <span>🍽️</span>
               </div>
-            </Card>
-          </Col>
+              {item.is_popular && <Tag color="gold" className="popular-tag">Popular</Tag>}
+              <Button
+                type="primary"
+                shape="circle"
+                icon={<PlusOutlined />}
+                className="add-btn"
+                disabled={!item.is_available}
+              />
+            </div>
+            <div className="menu-item-info">
+              <Text strong className="item-name">{item.name}</Text>
+              <Text type="secondary" className="item-description">
+                {item.description}
+              </Text>
+              <div className="item-footer">
+                <Text strong className="price">${item.price.toFixed(2)}</Text>
+                {item.dietary_tags && item.dietary_tags.length > 0 && (
+                  <div className="dietary-tags">
+                    {item.dietary_tags.slice(0, 2).map(tag => (
+                      <Tag key={tag} color="green" className="diet-tag">{tag}</Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!item.is_available && (
+                <div className="unavailable-overlay">Unavailable</div>
+              )}
+            </div>
+          </div>
         ))}
-      </Row>
+      </div>
 
       {/* Floating Cart Button */}
       {cartItemCount > 0 && (
@@ -441,14 +448,15 @@ const RestaurantDetail: React.FC = () => {
 
       <style>{`
         /* ============================================
-           RESTAURANT DETAIL - International-Level Design
-           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           RESTAURANT DETAIL - Premium International Design
+           Full-width layout with proper alignment
            ============================================ */
 
         .restaurant-detail-page {
-          max-width: 1440px;
-          margin: 0 auto;
-          padding: 24px 16px 120px;
+          width: 100%;
+          min-height: 100vh;
+          background: #f8f9fa;
+          padding: 0 0 120px;
         }
 
         .loading-container {
@@ -461,83 +469,123 @@ const RestaurantDetail: React.FC = () => {
         }
 
         .restaurant-header {
-          margin-bottom: 28px;
+          margin-bottom: 32px;
         }
 
         .back-btn {
-          margin-bottom: 16px;
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          z-index: 10;
+          background: rgba(255,255,255,0.95);
+          border: none;
           border-radius: 12px;
-          height: 40px;
+          height: 44px;
+          padding: 0 16px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
 
+        .back-btn:hover {
+          background: white;
+        }
+
+        /* Header with Restaurant Image */
         .header-image {
-          height: 240px;
-          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-          border-radius: 20px;
+          width: 100%;
+          height: 320px;
           position: relative;
-          display: flex;
-          align-items: flex-end;
-          padding: 24px;
           overflow: hidden;
         }
 
+        .header-background-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .header-gradient-fallback {
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #10B981 0%, #059669 50%, #047857 100%);
+        }
+
         .image-overlay {
-          background: linear-gradient(transparent 0%, rgba(0,0,0,0.7) 100%);
+          background: linear-gradient(transparent 0%, rgba(0,0,0,0.75) 100%);
           position: absolute;
           bottom: 0;
           left: 0;
           right: 0;
-          padding: 28px;
-          border-radius: 0 0 20px 20px;
+          padding: 40px;
         }
 
         .restaurant-info-header {
-          color: white;
+          max-width: 1400px;
+          margin: 0 auto;
         }
 
         .restaurant-info-header h2 {
-          text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+          font-size: 36px;
+          font-weight: 700;
         }
 
         .rating-badge {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-top: 10px;
+          gap: 10px;
+          margin-top: 12px;
           color: white;
-          font-size: 15px;
+          font-size: 16px;
+        }
+
+        .rating-badge .anticon {
+          color: #fbbf24;
         }
 
         .favorite-btn {
           position: absolute;
-          top: 16px;
-          right: 16px;
+          top: 20px;
+          right: 20px;
           width: 48px;
           height: 48px;
+          background: rgba(255,255,255,0.95);
+          border: none;
           box-shadow: 0 2px 12px rgba(0,0,0,0.2);
         }
 
+        .favorite-btn:hover {
+          background: white;
+          transform: scale(1.05);
+        }
+
+        /* Info Card */
         .info-card {
-          margin-top: -48px;
-          margin-left: 20px;
-          margin-right: 20px;
-          border-radius: 20px;
+          max-width: 1400px;
+          margin: -60px auto 0;
+          margin-left: auto;
+          margin-right: auto;
+          padding: 0 24px;
           position: relative;
           z-index: 1;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .info-card .ant-card {
+          border-radius: 20px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+          border: none;
         }
 
         .meta-row {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px 20px;
-          margin-top: 14px;
+          gap: 12px 24px;
+          margin-top: 16px;
         }
 
         .meta-item {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           color: #6b7280;
           font-size: 14px;
         }
@@ -546,7 +594,7 @@ const RestaurantDetail: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          gap: 20px;
+          gap: 24px;
         }
 
         .fee-item {
@@ -554,7 +602,7 @@ const RestaurantDetail: React.FC = () => {
           flex-direction: column;
           align-items: center;
           text-align: center;
-          padding: 8px 12px;
+          padding: 10px 16px;
         }
 
         .fee-item.platform-fee {
@@ -567,14 +615,16 @@ const RestaurantDetail: React.FC = () => {
           font-weight: 700;
         }
 
+        /* Category Tabs */
         .category-tabs {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 28px 24px;
           display: flex;
           gap: 12px;
           overflow-x: auto;
-          padding: 24px 0;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
-          -ms-overflow-style: none;
         }
 
         .category-tabs::-webkit-scrollbar {
@@ -583,80 +633,122 @@ const RestaurantDetail: React.FC = () => {
 
         .category-btn {
           border-radius: 24px;
-          height: 40px;
-          padding: 0 20px;
+          height: 44px;
+          padding: 0 24px;
           font-weight: 500;
           flex-shrink: 0;
+          border: 2px solid #e5e7eb;
+          background: white;
+        }
+
+        .category-btn:hover {
+          border-color: #10B981;
+          color: #10B981;
+        }
+
+        .category-btn.ant-btn-primary {
+          background: #10B981;
+          border-color: #10B981;
+        }
+
+        /* Menu Grid - CSS Grid for perfect alignment */
+        .menu-grid {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 0 24px;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 24px;
         }
 
         .menu-item-card {
+          background: white;
           border-radius: 16px;
-          height: 100%;
-          transition: all 0.2s ease;
+          overflow: hidden;
+          cursor: pointer;
+          transition: all 0.25s ease;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
         .menu-item-card:hover:not(.unavailable) {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          transform: translateY(-6px);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.12);
         }
 
         .menu-item-card.unavailable {
           opacity: 0.5;
+          cursor: not-allowed;
         }
 
-        .menu-item-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-        }
-
-        .menu-item-info {
-          flex: 1;
-          min-width: 0;
-        }
-
+        /* Menu Item Image - Top of card */
         .menu-item-image-container {
           position: relative;
-          flex-shrink: 0;
-          width: 100px;
-          height: 100px;
+          width: 100%;
+          height: 180px;
+          background: #f5f5f5;
         }
 
         .menu-item-image {
-          width: 100px;
-          height: 100px;
+          width: 100%;
+          height: 100%;
           object-fit: cover;
-          border-radius: 8px;
         }
 
         .menu-item-placeholder {
-          width: 100px;
-          height: 100px;
-          background: #f5f5f5;
-          border-radius: 8px;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 32px;
+          font-size: 48px;
         }
 
         .menu-item-placeholder.hidden {
           display: none;
         }
 
-        .menu-item-image-container .add-btn {
+        .popular-tag {
           position: absolute;
-          bottom: -8px;
-          right: -8px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          top: 12px;
+          left: 12px;
+          font-weight: 600;
         }
 
-        .item-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
+        .menu-item-image-container .add-btn {
+          position: absolute;
+          bottom: 12px;
+          right: 12px;
+          width: 40px;
+          height: 40px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Menu Item Info */
+        .menu-item-info {
+          padding: 16px;
+          position: relative;
+        }
+
+        .item-name {
+          display: block;
+          font-size: 16px;
+          font-weight: 600;
+          color: #1f2937;
+          margin-bottom: 6px;
+          line-height: 1.3;
+        }
+
+        .item-description {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #6b7280;
+          margin-bottom: 12px;
+          min-height: 40px;
         }
 
         .item-footer {
@@ -664,57 +756,65 @@ const RestaurantDetail: React.FC = () => {
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          flex-wrap: wrap;
         }
 
         .price {
-          font-size: 20px;
+          font-size: 18px;
           color: #10B981;
           font-weight: 700;
         }
 
         .dietary-tags {
           display: flex;
-          flex-wrap: wrap;
           gap: 4px;
         }
 
-        .unavailable-tag {
-          margin-top: 10px;
+        .diet-tag {
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 4px;
         }
 
-        .add-btn {
-          flex-shrink: 0;
-          width: 44px;
-          height: 44px;
-          font-size: 18px;
+        .unavailable-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(255,255,255,0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          color: #ef4444;
         }
 
+        /* Floating Cart */
         .floating-cart {
           position: fixed;
           bottom: 24px;
           left: 50%;
           transform: translateX(-50%);
           background: white;
-          padding: 14px 28px;
+          padding: 14px 32px;
           border-radius: 50px;
-          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
           display: flex;
           align-items: center;
-          gap: 18px;
+          gap: 20px;
           cursor: pointer;
           z-index: 100;
-          max-width: calc(100% - 32px);
+          max-width: calc(100% - 48px);
           transition: all 0.2s ease;
         }
 
         .floating-cart:hover {
-          transform: translateX(-50%) translateY(-2px);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+          transform: translateX(-50%) translateY(-3px);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
         }
 
         .cart-icon {
-          font-size: 26px;
+          font-size: 28px;
           color: #10B981;
         }
 
@@ -723,6 +823,7 @@ const RestaurantDetail: React.FC = () => {
           flex-direction: column;
         }
 
+        /* Modal */
         .customize-content {
           padding: 16px 0;
         }
@@ -755,119 +856,116 @@ const RestaurantDetail: React.FC = () => {
            RESPONSIVE BREAKPOINTS
            ============================================ */
 
-        /* Extra small devices (phones, 480px and down) */
         @media (max-width: 480px) {
-          .restaurant-detail-page {
-            padding: 12px 12px 120px;
-          }
-
           .header-image {
-            height: 180px;
-            border-radius: 16px;
+            height: 220px;
           }
 
           .image-overlay {
             padding: 20px;
           }
 
-          .info-card {
-            margin-left: 0;
-            margin-right: 0;
-            margin-top: -32px;
-            border-radius: 16px;
+          .restaurant-info-header h2 {
+            font-size: 24px;
           }
 
-          .fee-info {
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 12px;
+          .back-btn {
+            top: 12px;
+            left: 12px;
+            height: 40px;
+          }
+
+          .favorite-btn {
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+          }
+
+          .info-card {
+            padding: 0 12px;
+            margin-top: -40px;
+          }
+
+          .category-tabs {
+            padding: 20px 12px;
+          }
+
+          .menu-grid {
+            padding: 0 12px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+          }
+
+          .menu-item-image-container {
+            height: 150px;
           }
 
           .floating-cart {
-            left: 12px;
-            right: 12px;
+            left: 16px;
+            right: 16px;
             transform: none;
             padding: 12px 20px;
-            gap: 12px;
+            gap: 14px;
           }
 
           .floating-cart:hover {
             transform: translateY(-2px);
           }
-
-          .price {
-            font-size: 18px;
-          }
-
-          .add-btn {
-            width: 38px;
-            height: 38px;
-          }
         }
 
-        /* Small devices (landscape phones, 481px to 640px) */
-        @media (min-width: 481px) and (max-width: 640px) {
-          .restaurant-detail-page {
-            padding: 16px 16px 120px;
+        @media (min-width: 481px) and (max-width: 768px) {
+          .header-image {
+            height: 260px;
           }
 
-          .header-image {
-            height: 200px;
+          .restaurant-info-header h2 {
+            font-size: 28px;
           }
 
           .info-card {
-            margin-left: 8px;
-            margin-right: 8px;
+            padding: 0 16px;
+            margin-top: -50px;
+          }
+
+          .menu-grid {
+            padding: 0 16px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+          }
+
+          .menu-item-image-container {
+            height: 160px;
           }
         }
 
-        /* Medium devices (tablets, 641px to 768px) */
-        @media (min-width: 641px) and (max-width: 768px) {
-          .restaurant-detail-page {
-            padding: 20px 20px 120px;
-          }
-
-          .header-image {
-            height: 220px;
-          }
-
-          .info-card {
-            margin-left: 16px;
-            margin-right: 16px;
-          }
-        }
-
-        /* Large devices (desktops, 769px to 1024px) */
         @media (min-width: 769px) and (max-width: 1024px) {
-          .restaurant-detail-page {
-            padding: 24px 24px 120px;
+          .header-image {
+            height: 300px;
+          }
+
+          .menu-grid {
+            grid-template-columns: repeat(3, 1fr);
           }
         }
 
-        /* Extra large devices (1025px to 1280px) */
-        @media (min-width: 1025px) and (max-width: 1280px) {
-          .restaurant-detail-page {
-            padding: 24px 32px 120px;
+        @media (min-width: 1025px) {
+          .header-image {
+            height: 360px;
           }
 
-          .header-image {
-            height: 280px;
+          .restaurant-info-header h2 {
+            font-size: 42px;
+          }
+
+          .menu-grid {
+            grid-template-columns: repeat(4, 1fr);
           }
         }
 
-        /* XXL devices (1281px and up) */
-        @media (min-width: 1281px) {
-          .restaurant-detail-page {
-            padding: 32px 40px 120px;
-          }
-
-          .header-image {
-            height: 320px;
-          }
-
-          .info-card {
-            margin-left: 40px;
-            margin-right: 40px;
+        @media (min-width: 1400px) {
+          .menu-grid {
+            grid-template-columns: repeat(5, 1fr);
           }
         }
       `}</style>
