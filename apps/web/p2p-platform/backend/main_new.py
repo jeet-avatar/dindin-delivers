@@ -15497,6 +15497,128 @@ def force_reset_demo_passwords(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/demo/setup-support-customer")
+def setup_support_customer(db: Session = Depends(get_db)):
+    """
+    Create or update support@dollor.ai as a customer account for web login testing.
+
+    IMPORTANT: Creates records in BOTH tables to work with:
+    - main_new.py (queries customers table directly)
+    - auth-service microservice (queries users table with role='CUSTOMER')
+    """
+    try:
+        customer_email = "support@dollor.ai"
+        customer_password = "DemoDollor123!"
+        new_hash = get_password_hash(customer_password)
+
+        # Check if customer exists in customers table
+        existing_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+
+        # Check if user exists in users table
+        existing_user = db.execute(
+            text("SELECT id, customer_id FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+
+        customer_id = None
+
+        if existing_customer:
+            # Update existing customer's password
+            db.execute(
+                text("UPDATE customers SET password_hash = :hash, is_active = true WHERE email = :email"),
+                {"hash": new_hash, "email": customer_email}
+            )
+            customer_id = existing_customer.id
+        else:
+            # Create new customer record
+            customer_code = f"SUPP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            new_customer = Customer(
+                customer_id=customer_code,
+                first_name="Support",
+                last_name="Admin",
+                email=customer_email,
+                phone="+14155550000",
+                password_hash=new_hash,
+                default_address={"street": "1 Dollor Plaza", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+                is_active=True,
+                is_verified=True,
+                loyalty_points=1000,
+                loyalty_tier="platinum",
+                total_orders=0,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_customer)
+            db.flush()  # Get the ID without committing
+            customer_id = new_customer.id
+
+        # Now handle the users table (for auth-service microservice compatibility)
+        if existing_user:
+            # Update existing user's password and link to customer
+            db.execute(
+                text("""
+                    UPDATE users
+                    SET password_hash = :hash, customer_id = :customer_id, role = 'CUSTOMER'
+                    WHERE email = :email
+                """),
+                {"hash": new_hash, "email": customer_email, "customer_id": customer_id}
+            )
+        else:
+            # Create new user record linked to customer
+            db.execute(
+                text("""
+                    INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+                    VALUES (:email, :hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+                """),
+                {
+                    "email": customer_email,
+                    "hash": new_hash,
+                    "full_name": "Support Admin",
+                    "customer_id": customer_id
+                }
+            )
+
+        db.commit()
+
+        # Verify password works in customers table
+        updated_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+        customer_verified = verify_password(customer_password, updated_customer.password_hash) if updated_customer else False
+
+        # Verify password works in users table
+        user_row = db.execute(
+            text("SELECT password_hash FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+        user_verified = verify_password(customer_password, user_row[0]) if user_row else False
+
+        if customer_verified and user_verified:
+            return {
+                "success": True,
+                "action": "created" if not existing_customer else "updated",
+                "customer_id": customer_id,
+                "email": customer_email,
+                "password": customer_password,
+                "message": "Support customer account created/updated in BOTH customers and users tables",
+                "tables_updated": ["customers", "users"],
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Password verification failed",
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
 # These endpoints provide aliases for Android app compatibility
 
