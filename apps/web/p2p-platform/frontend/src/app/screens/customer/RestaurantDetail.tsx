@@ -38,12 +38,9 @@ interface MenuItem {
   dietary_tags?: string[];
 }
 
+// Operating hours from API - each day maps to a time string like "11:00 AM - 9:00 PM"
 interface OperatingHours {
-  [day: string]: {
-    open: string;
-    close: string;
-    is_closed?: boolean;
-  };
+  [day: string]: string;
 }
 
 interface Restaurant {
@@ -121,9 +118,14 @@ const RestaurantDetail: React.FC = () => {
           minimum_order: r.minimum_order,         // Keep null if not set - UI handles it
           is_open: r.is_open ?? true,
           image_url: r.image_url,
-          delivery_available: r.delivery_available, // Keep null if not set - UI handles it
-          pickup_available: r.pickup_available,     // Keep null if not set - UI handles it
-          operating_hours: r.operating_hours,       // Keep null if not set - UI handles it
+          delivery_available: r.delivery_available,
+          pickup_available: r.pickup_available,
+          // Parse operating_hours JSON string from API
+          operating_hours: r.operating_hours ? (
+            typeof r.operating_hours === 'string'
+              ? (() => { try { return JSON.parse(r.operating_hours); } catch { return null; } })()
+              : r.operating_hours
+          ) : null,
           phone: r.contact?.phone
         });
 
@@ -240,22 +242,19 @@ const RestaurantDetail: React.FC = () => {
   const cartTotal = cart.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Helper function to get today's hours
-  const getTodayHours = () => {
+  // Helper function to get today's hours - returns string like "11:00 AM - 9:00 PM"
+  const getTodayHours = (): string | null => {
     if (!restaurant?.operating_hours) return null;
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const today = days[new Date().getDay()];
-    return restaurant.operating_hours[today];
+    const hours = restaurant.operating_hours[today];
+    return typeof hours === 'string' ? hours : null;
   };
 
-  // Helper function to format time (24hr to 12hr)
-  const formatTime = (time: string) => {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+  // Get today's day name for display
+  const getTodayName = (): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[new Date().getDay()];
   };
 
   if (loading) {
@@ -356,13 +355,10 @@ const RestaurantDetail: React.FC = () => {
                   <div className="hours-display">
                     {(() => {
                       const todayHours = getTodayHours();
-                      if (todayHours?.is_closed) {
-                        return <Tag color="red">Closed Today</Tag>;
-                      }
                       if (todayHours) {
                         return (
                           <Text>
-                            Today: {formatTime(todayHours.open)} - {formatTime(todayHours.close)}
+                            <strong>{getTodayName()}:</strong> {todayHours}
                           </Text>
                         );
                       }
