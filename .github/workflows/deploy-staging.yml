@@ -161,6 +161,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+
+      - name: Verify checkout - show version and git info
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          echo "=== Git Commit Info ==="
+          git rev-parse HEAD
+          git log -1 --oneline
+          echo "=== Version in main_new.py ==="
+          grep -n "version" main_new.py | head -5
+          echo "=== main_new.py health check section (lines 220-230) ==="
+          sed -n '220,230p' main_new.py
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
