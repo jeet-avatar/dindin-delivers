@@ -11,7 +11,12 @@ import {
   MinusOutlined,
   ShoppingCartOutlined,
   DollarOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  CarOutlined,
+  ShopOutlined,
+  PhoneOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -33,6 +38,14 @@ interface MenuItem {
   dietary_tags?: string[];
 }
 
+interface OperatingHours {
+  [day: string]: {
+    open: string;
+    close: string;
+    is_closed?: boolean;
+  };
+}
+
 interface Restaurant {
   id: number;
   name: string;
@@ -47,6 +60,10 @@ interface Restaurant {
   minimum_order: number;
   is_open: boolean;
   image_url?: string;
+  delivery_available?: boolean;
+  pickup_available?: boolean;
+  operating_hours?: OperatingHours;
+  phone?: string;
 }
 
 interface CartItem {
@@ -103,7 +120,11 @@ const RestaurantDetail: React.FC = () => {
           delivery_fee: 2.99,
           minimum_order: 0,
           is_open: true,
-          image_url: r.image_url
+          image_url: r.image_url,
+          delivery_available: r.delivery_available,
+          pickup_available: r.pickup_available,
+          operating_hours: r.operating_hours,
+          phone: r.contact?.phone
         });
 
         // Menu is included in the response, flatten from categories
@@ -219,6 +240,24 @@ const RestaurantDetail: React.FC = () => {
   const cartTotal = cart.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Helper function to get today's hours
+  const getTodayHours = () => {
+    if (!restaurant?.operating_hours) return null;
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const today = days[new Date().getDay()];
+    return restaurant.operating_hours[today];
+  };
+
+  // Helper function to format time (24hr to 12hr)
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -277,6 +316,60 @@ const RestaurantDetail: React.FC = () => {
             <Row gutter={[24, 16]}>
               <Col xs={24} md={16}>
               <Paragraph type="secondary">{restaurant.description}</Paragraph>
+
+              {/* Service Availability Badges */}
+              <div className="service-badges">
+                <div className={`service-badge ${restaurant.delivery_available !== false ? 'available' : 'unavailable'}`}>
+                  <CarOutlined />
+                  <span>Delivery</span>
+                  {restaurant.delivery_available !== false ? (
+                    <CheckCircleOutlined className="status-icon available" />
+                  ) : (
+                    <CloseCircleOutlined className="status-icon unavailable" />
+                  )}
+                </div>
+                <div className={`service-badge ${restaurant.pickup_available !== false ? 'available' : 'unavailable'}`}>
+                  <ShopOutlined />
+                  <span>Pickup</span>
+                  {restaurant.pickup_available !== false ? (
+                    <CheckCircleOutlined className="status-icon available" />
+                  ) : (
+                    <CloseCircleOutlined className="status-icon unavailable" />
+                  )}
+                </div>
+              </div>
+
+              {/* Store Hours */}
+              <div className="store-hours-section">
+                <div className="hours-header">
+                  <ClockCircleOutlined />
+                  <Text strong>Store Hours</Text>
+                </div>
+                {restaurant.operating_hours ? (
+                  <div className="hours-display">
+                    {(() => {
+                      const todayHours = getTodayHours();
+                      if (todayHours?.is_closed) {
+                        return <Tag color="red">Closed Today</Tag>;
+                      }
+                      if (todayHours) {
+                        return (
+                          <Text>
+                            Today: {formatTime(todayHours.open)} - {formatTime(todayHours.close)}
+                          </Text>
+                        );
+                      }
+                      return <Text type="secondary">Hours not available</Text>;
+                    })()}
+                  </div>
+                ) : (
+                  <div className="hours-display">
+                    <Text type="secondary">Open Now</Text>
+                    <Text className="default-hours">11:00 AM - 10:00 PM</Text>
+                  </div>
+                )}
+              </div>
+
               <div className="meta-row">
                 <Tag color="blue">{restaurant.cuisine_type}</Tag>
                 <div className="meta-item">
@@ -287,6 +380,12 @@ const RestaurantDetail: React.FC = () => {
                   <EnvironmentOutlined />
                   <span>{restaurant.address}</span>
                 </div>
+                {restaurant.phone && (
+                  <div className="meta-item">
+                    <PhoneOutlined />
+                    <span>{restaurant.phone}</span>
+                  </div>
+                )}
               </div>
             </Col>
             <Col xs={24} md={8}>
@@ -572,6 +671,80 @@ const RestaurantDetail: React.FC = () => {
           border-radius: 20px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.1);
           border: none;
+        }
+
+        /* Service Availability Badges */
+        .service-badges {
+          display: flex;
+          gap: 12px;
+          margin: 16px 0;
+        }
+
+        .service-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 16px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+
+        .service-badge.available {
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          color: #059669;
+          border: 1px solid #a7f3d0;
+        }
+
+        .service-badge.unavailable {
+          background: #fef2f2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
+        }
+
+        .service-badge .status-icon {
+          font-size: 14px;
+          margin-left: 4px;
+        }
+
+        .service-badge .status-icon.available {
+          color: #10b981;
+        }
+
+        .service-badge .status-icon.unavailable {
+          color: #ef4444;
+        }
+
+        /* Store Hours Section */
+        .store-hours-section {
+          background: #f9fafb;
+          border-radius: 12px;
+          padding: 14px 16px;
+          margin: 16px 0;
+        }
+
+        .hours-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+          color: #374151;
+        }
+
+        .hours-header .anticon {
+          color: #10b981;
+        }
+
+        .hours-display {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .hours-display .default-hours {
+          color: #10b981;
+          font-weight: 600;
         }
 
         .meta-row {
@@ -905,6 +1078,26 @@ const RestaurantDetail: React.FC = () => {
           .info-card {
             padding: 0 12px;
             margin-top: -40px;
+          }
+
+          .service-badges {
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .service-badge {
+            padding: 8px 12px;
+            font-size: 13px;
+          }
+
+          .store-hours-section {
+            padding: 12px 14px;
+          }
+
+          .hours-display {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
           }
 
           .category-tabs {
