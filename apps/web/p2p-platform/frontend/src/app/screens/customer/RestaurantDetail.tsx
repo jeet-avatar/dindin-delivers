@@ -105,7 +105,7 @@ const RestaurantDetail: React.FC = () => {
       const restaurantRes = await axios.get(`${API_URL}/api/public/restaurants/${id}`);
 
       if (restaurantRes.data.success) {
-        // Map restaurant data to expected format
+        // Map restaurant data to expected format - all values from API, no hardcoding
         const r = restaurantRes.data.restaurant;
         setRestaurant({
           id: r.id,
@@ -113,16 +113,16 @@ const RestaurantDetail: React.FC = () => {
           description: r.description || '',
           cuisine_type: r.cuisine_type,
           address: r.address?.full_address || `${r.address?.street}, ${r.address?.city}, ${r.address?.state} ${r.address?.zip_code}`,
-          rating: r.rating || 4.5,
-          review_count: r.reviews_count || 0,
-          delivery_time_min: r.average_prep_time || 25,
-          delivery_time_max: (r.average_prep_time || 25) + 15,
-          delivery_fee: 2.99,
-          minimum_order: 0,
-          is_open: true,
+          rating: r.rating ?? 0,
+          review_count: r.reviews_count ?? 0,
+          delivery_time_min: r.average_prep_time ?? r.delivery_time_min ?? 20,
+          delivery_time_max: r.delivery_time_max ?? (r.average_prep_time ? r.average_prep_time + 15 : 35),
+          delivery_fee: r.delivery_fee ?? 0,
+          minimum_order: r.minimum_order ?? 0,
+          is_open: r.is_open ?? true,
           image_url: r.image_url,
-          delivery_available: r.delivery_available,
-          pickup_available: r.pickup_available,
+          delivery_available: r.delivery_available ?? true,
+          pickup_available: r.pickup_available ?? true,
           operating_hours: r.operating_hours,
           phone: r.contact?.phone
         });
@@ -364,8 +364,12 @@ const RestaurantDetail: React.FC = () => {
                   </div>
                 ) : (
                   <div className="hours-display">
-                    <Text type="secondary">Open Now</Text>
-                    <Text className="default-hours">11:00 AM - 10:00 PM</Text>
+                    {restaurant.is_open ? (
+                      <Tag color="green">Open Now</Tag>
+                    ) : (
+                      <Tag color="red">Currently Closed</Tag>
+                    )}
+                    <Text type="secondary">Contact restaurant for hours</Text>
                   </div>
                 )}
               </div>
