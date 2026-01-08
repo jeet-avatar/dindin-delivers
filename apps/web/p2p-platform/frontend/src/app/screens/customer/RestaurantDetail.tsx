@@ -56,13 +56,13 @@ interface Restaurant {
   review_count: number;
   delivery_time_min: number;
   delivery_time_max: number;
-  delivery_fee: number;
-  minimum_order: number;
+  delivery_fee: number | null;      // null if not set from API
+  minimum_order: number | null;     // null if not set from API
   is_open: boolean;
   image_url?: string;
-  delivery_available?: boolean;
-  pickup_available?: boolean;
-  operating_hours?: OperatingHours;
+  delivery_available?: boolean | null;  // null if not set from API
+  pickup_available?: boolean | null;    // null if not set from API
+  operating_hours?: OperatingHours | null;  // null if not set from API
   phone?: string;
 }
 
@@ -105,7 +105,7 @@ const RestaurantDetail: React.FC = () => {
       const restaurantRes = await axios.get(`${API_URL}/api/public/restaurants/${id}`);
 
       if (restaurantRes.data.success) {
-        // Map restaurant data to expected format - all values from API, no hardcoding
+        // Map restaurant data to expected format - preserve null for conditional rendering
         const r = restaurantRes.data.restaurant;
         setRestaurant({
           id: r.id,
@@ -117,13 +117,13 @@ const RestaurantDetail: React.FC = () => {
           review_count: r.reviews_count ?? 0,
           delivery_time_min: r.average_prep_time ?? r.delivery_time_min ?? 20,
           delivery_time_max: r.delivery_time_max ?? (r.average_prep_time ? r.average_prep_time + 15 : 35),
-          delivery_fee: r.delivery_fee ?? 0,
-          minimum_order: r.minimum_order ?? 0,
+          delivery_fee: r.delivery_fee,           // Keep null if not set - UI handles it
+          minimum_order: r.minimum_order,         // Keep null if not set - UI handles it
           is_open: r.is_open ?? true,
           image_url: r.image_url,
-          delivery_available: r.delivery_available ?? true,
-          pickup_available: r.pickup_available ?? true,
-          operating_hours: r.operating_hours,
+          delivery_available: r.delivery_available, // Keep null if not set - UI handles it
+          pickup_available: r.pickup_available,     // Keep null if not set - UI handles it
+          operating_hours: r.operating_hours,       // Keep null if not set - UI handles it
           phone: r.contact?.phone
         });
 
@@ -317,35 +317,42 @@ const RestaurantDetail: React.FC = () => {
               <Col xs={24} md={16}>
               <Paragraph type="secondary">{restaurant.description}</Paragraph>
 
-              {/* Service Availability Badges */}
-              <div className="service-badges">
-                <div className={`service-badge ${restaurant.delivery_available !== false ? 'available' : 'unavailable'}`}>
-                  <CarOutlined />
-                  <span>Delivery</span>
-                  {restaurant.delivery_available !== false ? (
-                    <CheckCircleOutlined className="status-icon available" />
-                  ) : (
-                    <CloseCircleOutlined className="status-icon unavailable" />
+              {/* Service Availability Badges - Only show if data exists from API */}
+              {(restaurant.delivery_available !== null && restaurant.delivery_available !== undefined) ||
+               (restaurant.pickup_available !== null && restaurant.pickup_available !== undefined) ? (
+                <div className="service-badges">
+                  {restaurant.delivery_available !== null && restaurant.delivery_available !== undefined && (
+                    <div className={`service-badge ${restaurant.delivery_available ? 'available' : 'unavailable'}`}>
+                      <CarOutlined />
+                      <span>Delivery</span>
+                      {restaurant.delivery_available ? (
+                        <CheckCircleOutlined className="status-icon available" />
+                      ) : (
+                        <CloseCircleOutlined className="status-icon unavailable" />
+                      )}
+                    </div>
+                  )}
+                  {restaurant.pickup_available !== null && restaurant.pickup_available !== undefined && (
+                    <div className={`service-badge ${restaurant.pickup_available ? 'available' : 'unavailable'}`}>
+                      <ShopOutlined />
+                      <span>Pickup</span>
+                      {restaurant.pickup_available ? (
+                        <CheckCircleOutlined className="status-icon available" />
+                      ) : (
+                        <CloseCircleOutlined className="status-icon unavailable" />
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className={`service-badge ${restaurant.pickup_available !== false ? 'available' : 'unavailable'}`}>
-                  <ShopOutlined />
-                  <span>Pickup</span>
-                  {restaurant.pickup_available !== false ? (
-                    <CheckCircleOutlined className="status-icon available" />
-                  ) : (
-                    <CloseCircleOutlined className="status-icon unavailable" />
-                  )}
-                </div>
-              </div>
+              ) : null}
 
-              {/* Store Hours */}
-              <div className="store-hours-section">
-                <div className="hours-header">
-                  <ClockCircleOutlined />
-                  <Text strong>Store Hours</Text>
-                </div>
-                {restaurant.operating_hours ? (
+              {/* Store Hours - Only show if operating_hours data exists from API */}
+              {restaurant.operating_hours && (
+                <div className="store-hours-section">
+                  <div className="hours-header">
+                    <ClockCircleOutlined />
+                    <Text strong>Store Hours</Text>
+                  </div>
                   <div className="hours-display">
                     {(() => {
                       const todayHours = getTodayHours();
@@ -362,17 +369,8 @@ const RestaurantDetail: React.FC = () => {
                       return <Text type="secondary">Hours not available</Text>;
                     })()}
                   </div>
-                ) : (
-                  <div className="hours-display">
-                    {restaurant.is_open ? (
-                      <Tag color="green">Open Now</Tag>
-                    ) : (
-                      <Tag color="red">Currently Closed</Tag>
-                    )}
-                    <Text type="secondary">Contact restaurant for hours</Text>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="meta-row">
                 <Tag color="blue">{restaurant.cuisine_type}</Tag>
@@ -394,16 +392,24 @@ const RestaurantDetail: React.FC = () => {
             </Col>
             <Col xs={24} md={8}>
               <div className="fee-info">
-                <div className="fee-item">
-                  <Text type="secondary">Delivery Fee</Text>
-                  <Text strong>${restaurant.delivery_fee.toFixed(2)}</Text>
-                </div>
-                <Divider type="vertical" />
-                <div className="fee-item">
-                  <Text type="secondary">Minimum</Text>
-                  <Text strong>${restaurant.minimum_order.toFixed(2)}</Text>
-                </div>
-                <Divider type="vertical" />
+                {restaurant.delivery_fee != null && (
+                  <>
+                    <div className="fee-item">
+                      <Text type="secondary">Delivery Fee</Text>
+                      <Text strong>${restaurant.delivery_fee.toFixed(2)}</Text>
+                    </div>
+                    <Divider type="vertical" />
+                  </>
+                )}
+                {restaurant.minimum_order != null && (
+                  <>
+                    <div className="fee-item">
+                      <Text type="secondary">Minimum</Text>
+                      <Text strong>${restaurant.minimum_order.toFixed(2)}</Text>
+                    </div>
+                    <Divider type="vertical" />
+                  </>
+                )}
                 <div className="fee-item platform-fee">
                   <Text type="secondary">Platform Fee</Text>
                   <Text strong className="green">{pricing.display.foodDelivery.customerFee}</Text>
