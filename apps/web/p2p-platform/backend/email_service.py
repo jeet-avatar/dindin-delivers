@@ -3,14 +3,23 @@ Email Service for Dollor.ai
 Sends transactional emails for vendor approvals, order notifications, etc.
 
 Production vs Development:
-- Production: Requires SMTP credentials. Fails if not configured.
+- Production: Requires SMTP credentials AND recipient must exist in DB.
 - Development: Logs emails to console but doesn't actually send.
+
+Security:
+- STRICT mode: Only sends emails to registered customers, vendors, or drivers.
+- All emails are logged to the Communication table for audit trail.
+- Retry mechanism with exponential backoff for transient failures.
 """
 import smtplib
 import os
 import logging
+import uuid
+import time
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from typing import Optional, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,75 +39,350 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@dollor.ai")
 FROM_NAME = os.getenv("FROM_NAME", "Dollor.ai")
 
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = [1, 2, 4]  # Exponential backoff: 1s, 2s, 4s
+
 # Validate production configuration
 def _validate_smtp_config() -> bool:
     """Check if SMTP is properly configured for sending emails."""
     return bool(SMTP_USER and SMTP_PASSWORD)
 
 
-def send_email(to_email: str, subject: str, html_body: str, text_body: str = None) -> bool:
+def _get_db_session():
+    """Get a database session for email validation and logging."""
+    try:
+        from database import SessionLocal
+        return SessionLocal()
+    except Exception as e:
+        logger.error(f"Failed to get database session: {e}")
+        return None
+
+
+def _validate_recipient_in_db(email: str, db_session) -> Tuple[bool, Optional[str], Optional[int]]:
+    """
+    SECURITY: Validate that the recipient email exists in our database.
+    Only registered customers, vendors, or drivers can receive emails.
+
+    Returns: (is_valid, recipient_type, recipient_id)
+    """
+    if not db_session:
+        logger.error("No database session available for recipient validation")
+        return False, None, None
+
+    try:
+        from models import Customer, Vendor, Driver
+
+        # Check if email belongs to a customer
+        customer = db_session.query(Customer).filter(Customer.email == email).first()
+        if customer:
+            return True, "customer", customer.id
+
+        # Check if email belongs to a vendor
+        vendor = db_session.query(Vendor).filter(Vendor.contact_email == email).first()
+        if vendor:
+            return True, "vendor", vendor.id
+
+        # Check if email belongs to a driver
+        driver = db_session.query(Driver).filter(Driver.email == email).first()
+        if driver:
+            return True, "driver", driver.id
+
+        logger.warning(f"SECURITY: Email {email} not found in customers, vendors, or drivers tables")
+        return False, None, None
+
+    except Exception as e:
+        logger.error(f"Error validating recipient in database: {e}")
+        return False, None, None
+
+
+def _log_communication(
+    db_session,
+    to_email: str,
+    subject: str,
+    body: str,
+    recipient_type: str,
+    recipient_id: int,
+    status: str,
+    template_name: str = None,
+    failure_reason: str = None,
+    order_id: int = None,
+    vendor_id: int = None
+) -> Optional[int]:
+    """
+    Log email communication to the database for audit trail.
+    Returns the communication ID or None if logging failed.
+    """
+    if not db_session:
+        logger.warning("No database session - skipping communication logging")
+        return None
+
+    try:
+        from models_extended import Communication, CommunicationChannel, CommunicationStatus, RecipientType
+
+        # Map string status to enum
+        status_map = {
+            "pending": CommunicationStatus.PENDING,
+            "sent": CommunicationStatus.SENT,
+            "failed": CommunicationStatus.FAILED,
+            "delivered": CommunicationStatus.DELIVERED
+        }
+
+        # Map string recipient type to enum
+        recipient_type_map = {
+            "customer": RecipientType.CUSTOMER,
+            "vendor": RecipientType.VENDOR,
+            "driver": RecipientType.DRIVER
+        }
+
+        communication = Communication(
+            communication_id=f"EMAIL-{uuid.uuid4().hex[:12].upper()}",
+            recipient_type=recipient_type_map.get(recipient_type, RecipientType.CUSTOMER),
+            recipient_id=recipient_id or 0,
+            recipient_email=to_email,
+            channel=CommunicationChannel.EMAIL,
+            template_name=template_name,
+            subject=subject,
+            body=body[:5000] if body else "",  # Truncate to avoid DB issues
+            status=status_map.get(status, CommunicationStatus.PENDING),
+            sent_at=datetime.utcnow() if status == "sent" else None,
+            failed_at=datetime.utcnow() if status == "failed" else None,
+            failure_reason=failure_reason,
+            order_id=order_id,
+            vendor_id=vendor_id,
+            created_at=datetime.utcnow()
+        )
+
+        db_session.add(communication)
+        db_session.commit()
+        db_session.refresh(communication)
+
+        logger.info(f"Communication logged: {communication.communication_id} ({status})")
+        return communication.id
+
+    except Exception as e:
+        logger.error(f"Failed to log communication: {e}")
+        db_session.rollback()
+        return None
+
+
+def _send_smtp_with_retry(to_email: str, subject: str, html_body: str, text_body: str = None) -> Tuple[bool, Optional[str]]:
+    """
+    Send email via SMTP with retry mechanism for transient failures.
+    Returns: (success, error_message)
+    """
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{FROM_NAME} <{FROM_EMAIL}>"
+            msg["To"] = to_email
+
+            if text_body:
+                msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+
+            logger.info(f"Email sent to {to_email}: {subject} (attempt {attempt + 1})")
+            return True, None
+
+        except smtplib.SMTPAuthenticationError as e:
+            # Auth errors won't be fixed by retrying
+            error_msg = f"SMTP authentication failed: {e}"
+            logger.error(error_msg)
+            return False, error_msg
+
+        except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, ConnectionError, TimeoutError) as e:
+            # Transient errors - retry
+            last_error = str(e)
+            logger.warning(f"SMTP transient error (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY_SECONDS[attempt])
+            continue
+
+        except smtplib.SMTPException as e:
+            last_error = str(e)
+            logger.error(f"SMTP error sending to {to_email}: {e}")
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY_SECONDS[attempt])
+            continue
+
+        except Exception as e:
+            last_error = str(e)
+            logger.error(f"Failed to send email to {to_email}: {e}")
+            return False, last_error
+
+    return False, f"Failed after {MAX_RETRIES} attempts. Last error: {last_error}"
+
+
+def send_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str = None,
+    template_name: str = None,
+    order_id: int = None,
+    vendor_id: int = None,
+    skip_validation: bool = False
+) -> bool:
     """
     Send an email using SMTP with authenticated credentials.
 
-    Production Mode:
+    SECURITY (Production Mode):
     - Requires SMTP_USER and SMTP_PASSWORD to be set
-    - Actually sends emails via SMTP
-    - Returns False if credentials are missing
+    - STRICT: Recipient email MUST exist in customers, vendors, or drivers table
+    - All emails are logged to Communication table for audit trail
+    - Retry mechanism with exponential backoff for transient SMTP failures
 
     Development Mode:
     - Logs email details to console
     - Does not actually send emails
     - Returns True (simulates success)
 
+    Args:
+        to_email: Recipient email address (must be registered in DB for production)
+        subject: Email subject line
+        html_body: HTML content of the email
+        text_body: Plain text fallback (optional)
+        template_name: Name of email template for logging (optional)
+        order_id: Related order ID for logging (optional)
+        vendor_id: Related vendor ID for logging (optional)
+        skip_validation: DANGEROUS - Skip DB validation (only for system emails)
+
     Returns True if successful, False otherwise.
     """
-    # Validate email address format (basic check)
-    if not to_email or "@" not in to_email:
-        logger.error(f"Invalid email address: {to_email}")
-        return False
+    db_session = None
+    recipient_type = None
+    recipient_id = None
 
-    # Check SMTP configuration
-    if not _validate_smtp_config():
-        if IS_PRODUCTION:
-            # In production, missing credentials is an error
-            logger.error(f"SMTP not configured in production! Email NOT sent to {to_email}: {subject}")
-            return False
-        else:
-            # In development, log and simulate success
-            logger.info(f"[DEV MODE] Email simulated to {to_email}: {subject}")
-            print(f"📧 [DEV] Email would be sent to {to_email}: {subject}")
-            return True
-
-    # Send actual email with authenticated SMTP
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{FROM_NAME} <{FROM_EMAIL}>"
-        msg["To"] = to_email
+        # Validate email address format (basic check)
+        if not to_email or "@" not in to_email:
+            logger.error(f"Invalid email address format: {to_email}")
+            return False
 
-        # Add plain text and HTML parts
-        if text_body:
-            msg.attach(MIMEText(text_body, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
+        # Get database session for validation and logging
+        db_session = _get_db_session()
 
-        # Send email with TLS
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+        # SECURITY: In production, validate recipient exists in our database
+        if IS_PRODUCTION and not skip_validation:
+            if db_session:
+                is_valid, recipient_type, recipient_id = _validate_recipient_in_db(to_email, db_session)
+                if not is_valid:
+                    logger.error(f"SECURITY BLOCK: Attempted to send email to unregistered address: {to_email}")
+                    # Log the blocked attempt
+                    _log_communication(
+                        db_session=db_session,
+                        to_email=to_email,
+                        subject=subject,
+                        body=html_body,
+                        recipient_type="unknown",
+                        recipient_id=0,
+                        status="failed",
+                        template_name=template_name,
+                        failure_reason="SECURITY: Recipient not found in database",
+                        order_id=order_id,
+                        vendor_id=vendor_id
+                    )
+                    return False
+            else:
+                # No DB connection in production = security risk, block email
+                logger.error(f"SECURITY BLOCK: Cannot validate recipient (no DB connection): {to_email}")
+                return False
 
-        logger.info(f"Email sent to {to_email}: {subject}")
-        return True
+        # Check SMTP configuration
+        if not _validate_smtp_config():
+            if IS_PRODUCTION:
+                logger.error(f"SMTP not configured in production! Email NOT sent to {to_email}: {subject}")
+                if db_session and recipient_type:
+                    _log_communication(
+                        db_session=db_session,
+                        to_email=to_email,
+                        subject=subject,
+                        body=html_body,
+                        recipient_type=recipient_type or "unknown",
+                        recipient_id=recipient_id or 0,
+                        status="failed",
+                        template_name=template_name,
+                        failure_reason="SMTP not configured",
+                        order_id=order_id,
+                        vendor_id=vendor_id
+                    )
+                return False
+            else:
+                # Development mode - simulate success and log
+                logger.info(f"[DEV MODE] Email simulated to {to_email}: {subject}")
+                print(f"[DEV] Email would be sent to {to_email}: {subject}")
+                if db_session:
+                    _log_communication(
+                        db_session=db_session,
+                        to_email=to_email,
+                        subject=subject,
+                        body=html_body,
+                        recipient_type=recipient_type or "customer",
+                        recipient_id=recipient_id or 0,
+                        status="sent",
+                        template_name=template_name,
+                        failure_reason=None,
+                        order_id=order_id,
+                        vendor_id=vendor_id
+                    )
+                return True
 
-    except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"SMTP authentication failed: {e}")
-        return False
-    except smtplib.SMTPException as e:
-        logger.error(f"SMTP error sending to {to_email}: {e}")
-        return False
+        # Send email with retry mechanism
+        success, error_message = _send_smtp_with_retry(to_email, subject, html_body, text_body)
+
+        # Log to database
+        if db_session:
+            _log_communication(
+                db_session=db_session,
+                to_email=to_email,
+                subject=subject,
+                body=html_body,
+                recipient_type=recipient_type or "customer",
+                recipient_id=recipient_id or 0,
+                status="sent" if success else "failed",
+                template_name=template_name,
+                failure_reason=error_message,
+                order_id=order_id,
+                vendor_id=vendor_id
+            )
+
+        return success
+
     except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {e}")
+        logger.error(f"Unexpected error in send_email: {e}")
+        if db_session:
+            try:
+                _log_communication(
+                    db_session=db_session,
+                    to_email=to_email,
+                    subject=subject,
+                    body=html_body,
+                    recipient_type=recipient_type or "unknown",
+                    recipient_id=recipient_id or 0,
+                    status="failed",
+                    template_name=template_name,
+                    failure_reason=str(e),
+                    order_id=order_id,
+                    vendor_id=vendor_id
+                )
+            except Exception:
+                pass
         return False
+
+    finally:
+        if db_session:
+            try:
+                db_session.close()
+            except Exception:
+                pass
 
 
 def send_vendor_approval_email(

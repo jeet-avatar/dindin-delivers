@@ -1476,8 +1476,9 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         try:
             send_vendor_registration_confirmation(
                 to_email=request.email,
-                vendor_name=owner_name,
-                restaurant_name=rest_name
+                restaurant_name=rest_name,
+                contact_name=owner_name,
+                vendor_id=str(new_vendor.id)
             )
             print(f"Vendor registration email sent to: {request.email}")
         except Exception as e:
