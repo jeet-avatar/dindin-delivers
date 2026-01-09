@@ -152,9 +152,9 @@ class TestDriverOnboardingFlow:
             token = data.get("access_token") or data.get("token")
 
             if not token:
-                # Step 2: Login if no token returned
-                login_response = client.post("/api/auth/driver/login", json={
-                    "email": driver_data["email"],
+                # Step 2: Login if no token returned (OAuth2 form data)
+                login_response = client.post("/api/auth/driver/login", data={
+                    "username": driver_data["email"],
                     "password": driver_data["password"]
                 })
                 if login_response.status_code == 200:
@@ -222,14 +222,14 @@ class TestVendorOnboardingFlow:
 
     def test_vendor_menu_management_flow(self, client, db_session):
         """Test vendor can manage their menu"""
-        # First need to login as vendor
-        login_response = client.post("/api/vendor/login", json={
-            "email": "test@vendor.com",
+        # First need to login as vendor (OAuth2 form data with username field)
+        login_response = client.post("/api/auth/vendor/login", data={
+            "username": "test@vendor.com",
             "password": "testpassword"
         })
 
         # Vendor login should respond appropriately
-        assert login_response.status_code in [200, 400, 401, 404]
+        assert login_response.status_code in [200, 400, 401]
 
         if login_response.status_code == 200:
             token = login_response.json().get("access_token")
