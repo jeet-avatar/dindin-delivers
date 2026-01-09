@@ -225,6 +225,59 @@ def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
             headers={"Retry-After": str(retry_after)}
         )
 
+# ===================== FILE UPLOAD SECURITY =====================
+# SECURITY: Validate file content using magic bytes (not just extension)
+# Prevents attackers from uploading malicious files with fake extensions
+
+# Magic byte signatures for allowed file types
+MAGIC_BYTES = {
+    'image/jpeg': [b'\xff\xd8\xff'],
+    'image/jpg': [b'\xff\xd8\xff'],
+    'image/png': [b'\x89PNG\r\n\x1a\n'],
+    'image/gif': [b'GIF87a', b'GIF89a'],
+    'image/webp': [b'RIFF'],  # WebP starts with RIFF, then 4 bytes, then WEBP
+    'application/pdf': [b'%PDF'],
+}
+
+def validate_file_magic_bytes(content: bytes, content_type: str, filename: str) -> tuple[bool, str]:
+    """
+    Validate that file content matches its declared content type using magic bytes.
+
+    Args:
+        content: Raw file content bytes
+        content_type: Declared MIME type
+        filename: Original filename for error messages
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not content:
+        return False, "File is empty"
+
+    # Normalize content type
+    normalized_type = content_type.lower().split(';')[0].strip() if content_type else ''
+
+    # Check if content type is in our allowed list
+    if normalized_type not in MAGIC_BYTES:
+        # Allow generic types but warn
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf']
+        ext = '.' + filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if ext not in allowed_extensions:
+            return False, f"Unsupported file type: {normalized_type or 'unknown'}. Allowed: images (JPEG, PNG, GIF, WebP) and PDF"
+        return True, ""  # Extension-based validation for unknown MIME types
+
+    # Validate magic bytes
+    expected_signatures = MAGIC_BYTES[normalized_type]
+    for signature in expected_signatures:
+        if content[:len(signature)] == signature:
+            # Special handling for WebP (needs additional check)
+            if normalized_type == 'image/webp' and len(content) >= 12:
+                if content[8:12] != b'WEBP':
+                    continue
+            return True, ""
+
+    return False, f"File content does not match declared type ({normalized_type}). File may be corrupted or mislabeled."
+
 # Health Check Endpoint
 @app.get("/health")
 @app.get("/api/health")
@@ -1181,7 +1234,9 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email or username is required"
         )
-    print(f"Admin JSON login attempt for: {login_email}")
+    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
+    if not _is_production:
+        logger.debug(f"Admin login attempt for: {login_email}")
 
     # Find user with ADMIN role
     user = db.query(User).filter(
@@ -1190,7 +1245,8 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     ).first()
 
     if not user:
-        print(f"Admin user not found: {login_email}")
+        if not _is_production:
+            logger.debug("Admin auth failed: user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1198,14 +1254,15 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
         )
 
     if not verify_password(request.password, user.password_hash):
-        print(f"Password verification failed for admin")
+        if not _is_production:
+            logger.debug("Admin auth failed: invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    print(f"Admin login successful for: {user.email}")
+    logger.info(f"Admin login successful: {user.id}")
 
     access_token = create_access_token(data={"sub": user.email, "role": "admin"})
 
@@ -1222,26 +1279,29 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    print(f"Login attempt for: {form_data.username}")  # Debug log
+    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
+    if not _is_production:
+        logger.debug(f"Login attempt for: {form_data.username}")
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        print(f"User not found: {form_data.username}")  # Debug log
+        if not _is_production:
+            logger.debug("Auth failed: user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    print(f"User found, verifying password...")  # Debug log
+
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed")  # Debug log
+        if not _is_production:
+            logger.debug("Auth failed: invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    print(f"Login successful for: {user.email}")  # Debug log
+
+    logger.info(f"Login successful: user_id={user.id}")
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -1254,24 +1314,28 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "vendor_login")
-    print(f"Vendor login attempt for: {form_data.username}")
-    
+    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
+    if not _is_production:
+        logger.debug(f"Vendor login attempt for: {form_data.username}")
+
     # Find user with VENDOR role
     user = db.query(User).filter(
         User.email == form_data.username,
         User.role == UserRole.VENDOR
     ).first()
-    
+
     if not user:
-        print(f"Vendor user not found: {form_data.username}")
+        if not _is_production:
+            logger.debug("Vendor auth failed: user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for vendor")
+        if not _is_production:
+            logger.debug("Vendor auth failed: invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1527,12 +1591,11 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         db.rollback()
-        print(f"Vendor registration error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        # SECURITY: Log full traceback server-side but don't expose to client
+        logger.exception(f"Vendor registration error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail="Registration failed. Please try again or contact support."
         )
 
 # Vendor Google OAuth
@@ -1773,7 +1836,9 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     """Driver login - authenticates driver and returns token"""
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "driver_login")
-    print(f"Driver login attempt for: {form_data.username}")
+    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
+    if not _is_production:
+        logger.debug(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role
     user = db.query(User).filter(
@@ -1782,7 +1847,8 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     ).first()
 
     if not user:
-        print(f"Driver user not found: {form_data.username}")
+        if not _is_production:
+            logger.debug("Driver auth failed: user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1790,7 +1856,8 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for driver")
+        if not _is_production:
+            logger.debug("Driver auth failed: invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1947,12 +2014,11 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         db.rollback()
-        print(f"Driver registration error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        # SECURITY: Log full traceback server-side but don't expose to client
+        logger.exception(f"Driver registration error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            detail="Registration failed. Please try again or contact support."
         )
 
 
@@ -2289,13 +2355,16 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
     """Customer login - authenticates customer and returns token for rideshare"""
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "customer_login")
-    print(f"Customer login attempt for: {form_data.username}")
+    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
+    if not _is_production:
+        logger.debug(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
     customer = db.query(Customer).filter(Customer.email == form_data.username).first()
 
     if not customer:
-        print(f"Customer not found: {form_data.username}")
+        if not _is_production:
+            logger.debug("Customer auth failed: user not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2303,7 +2372,8 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
-        print(f"Password verification failed for customer")
+        if not _is_production:
+            logger.debug("Customer auth failed: invalid password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -4574,6 +4644,11 @@ async def upload_driver_document_by_id(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
     success, url_path, message = await s3_service.upload_file(
@@ -4649,6 +4724,11 @@ async def upload_driver_document(
     # Validate file size (max 10MB)
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
 
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
@@ -8430,13 +8510,10 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         return db_vendor
 
     except Exception as e:
-        print(f"❌ ERROR creating vendor: {str(e)}")
-        print(f"Error type: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
-        print("=" * 60)
+        # SECURITY: Log full traceback server-side but don't expose to client
+        logger.exception(f"Error creating vendor: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create vendor. Please try again or contact support.")
 
 # Public document upload endpoint for vendor registration (no auth required)
 @app.post("/api/vendors/public/{vendor_id}/documents")
@@ -8464,7 +8541,7 @@ async def upload_vendor_document_public(
     # If vendor has no email, accept the provided email and update the record
     if not db_vendor.contact_email:
         db_vendor.contact_email = contact_email
-        print(f"📧 Updated vendor {vendor_id} email to: {contact_email}")
+        logger.info(f"Updated vendor {vendor_id} email to: {contact_email}")
     elif db_vendor.contact_email != contact_email:
         raise HTTPException(status_code=403, detail="Email does not match vendor record")
 
@@ -8486,13 +8563,23 @@ async def upload_vendor_document_public(
     unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
+    # Read file content first for validation
+    content = await file.read()
+
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     # Save file
     with open(file_path, "wb") as f:
-        content = await file.read()
         f.write(content)
 
-    print(f"📄 Document uploaded: {safe_doc_type} for vendor {vendor_id}")
-    print(f"   File: {unique_filename}")
+    logger.info(f"Document uploaded: {safe_doc_type} for vendor {vendor_id}, file: {unique_filename}")
 
     # Update vendor document fields based on type (all 7 document types)
     field_mapping = {
@@ -8512,7 +8599,6 @@ async def upload_vendor_document_public(
         has_field, url_field = field_mapping[document_type]
         setattr(db_vendor, has_field, True)
         setattr(db_vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
-        print(f"   Updated {has_field}=True, {url_field}=/uploads/vendor_documents/{unique_filename}")
 
     db_vendor.updated_at = datetime.now()
     db_vendor.last_activity = datetime.now()
@@ -8591,15 +8677,24 @@ async def create_vendor_public_with_menu(
     import uuid
 
     print("=" * 60)
-    print("🍽️  RESTAURANT APPLICATION WITH MENU FILE RECEIVED")
+    logger.info("Restaurant application with menu file received")
 
     try:
         # Parse the JSON data
         vendor_data = json.loads(data)
-        print(f"Restaurant: {vendor_data.get('restaurant_name')}")
-        print(f"Contact: {vendor_data.get('contact_email')}")
-        print(f"Menu file: {menu_file.filename}")
-        print("=" * 60)
+        logger.info(f"Restaurant application: {vendor_data.get('restaurant_name')}, contact: {vendor_data.get('contact_email')}")
+
+        # Read and validate menu file content
+        content = await menu_file.read()
+
+        # Validate file size (max 10MB)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Menu file too large. Maximum size is 10MB")
+
+        # SECURITY: Validate file content matches declared type (magic bytes)
+        is_valid, error_msg = validate_file_magic_bytes(content, menu_file.content_type, menu_file.filename)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
 
         # Save the uploaded file with sanitized extension
         allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
@@ -8611,10 +8706,9 @@ async def create_vendor_public_with_menu(
         file_path = secure_file_path(uploads_dir, unique_filename)
 
         with open(file_path, "wb") as buffer:
-            content = await menu_file.read()
             buffer.write(content)
 
-        print(f"📁 Menu file saved: {file_path}")
+        logger.info(f"Menu file saved: {file_path}")
 
         # Check if email already exists
         if vendor_data.get('contact_email'):
@@ -8725,12 +8819,10 @@ async def create_vendor_public_with_menu(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ ERROR creating vendor with menu: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        print("=" * 60)
+        # SECURITY: Log full traceback server-side but don't expose to client
+        logger.exception(f"Error creating vendor with menu: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create vendor. Please try again or contact support.")
 
 @app.post("/api/vendors", response_model=VendorResponse)
 def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -9474,9 +9566,20 @@ async def upload_vendor_document(
     unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
+    # Read file content first for validation
+    content = await file.read()
+
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     # Save file
     with open(file_path, "wb") as f:
-        content = await file.read()
         f.write(content)
 
     # Update vendor document fields based on type
@@ -9713,9 +9816,20 @@ async def admin_upload_vendor_document(
     unique_filename = f"{vendor_id}_{document_type}_admin_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
 
+    # Read file content first for validation
+    content = await file.read()
+
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     # Save file
     with open(file_path, "wb") as f:
-        content = await file.read()
         f.write(content)
 
     print(f"📄 Admin uploaded document: {document_type} for vendor {vendor_id}")
@@ -9943,9 +10057,20 @@ async def vendor_upload_document(
     unique_filename = f"{vendor.id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
 
+    # Read file content first for validation
+    content = await file.read()
+
+    # Validate file size (max 10MB)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     # Save file
     with open(file_path, "wb") as f:
-        content = await file.read()
         f.write(content)
 
     print(f"📄 Vendor uploaded document: {document_type} for vendor {vendor.id}")
@@ -12192,6 +12317,11 @@ async def upload_vendor_image(
     contents = await file.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB")
+
+    # SECURITY: Validate file content matches declared type (magic bytes)
+    is_valid, error_msg = validate_file_magic_bytes(contents, file.content_type, file.filename)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
 
     # Get vendor
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
