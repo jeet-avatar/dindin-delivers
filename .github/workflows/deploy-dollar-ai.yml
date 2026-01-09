@@ -88,10 +88,68 @@ jobs:
             -e "ssh -o StrictHostKeyChecking=no" \
             apps/web/p2p-platform/backend/ ec2-user@${{ env.EC2_HOST }}:/opt/dollor-backend/
 
-      - name: Install dependencies and restart service
+      - name: Configure environment and install dependencies
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << ENVSSH
             cd /opt/dollor-backend
+
+            # Update .env file with production settings
+            echo "Configuring production environment..."
+
+            # Ensure .env exists
+            touch .env
+
+            # Update or add ENVIRONMENT
+            if grep -q "^ENVIRONMENT=" .env; then
+              sed -i 's/^ENVIRONMENT=.*/ENVIRONMENT=production/' .env
+            else
+              echo "ENVIRONMENT=production" >> .env
+            fi
+
+            # Update or add SMTP settings if secrets are provided
+            if [ -n "$SMTP_HOST" ]; then
+              if grep -q "^SMTP_HOST=" .env; then
+                sed -i "s|^SMTP_HOST=.*|SMTP_HOST=$SMTP_HOST|" .env
+              else
+                echo "SMTP_HOST=$SMTP_HOST" >> .env
+              fi
+            fi
+
+            if [ -n "$SMTP_PORT" ]; then
+              if grep -q "^SMTP_PORT=" .env; then
+                sed -i "s|^SMTP_PORT=.*|SMTP_PORT=$SMTP_PORT|" .env
+              else
+                echo "SMTP_PORT=$SMTP_PORT" >> .env
+              fi
+            fi
+
+            if [ -n "$SMTP_USER" ]; then
+              if grep -q "^SMTP_USER=" .env; then
+                sed -i "s|^SMTP_USER=.*|SMTP_USER=$SMTP_USER|" .env
+              else
+                echo "SMTP_USER=$SMTP_USER" >> .env
+              fi
+            fi
+
+            if [ -n "$SMTP_PASSWORD" ]; then
+              if grep -q "^SMTP_PASSWORD=" .env; then
+                sed -i "s|^SMTP_PASSWORD=.*|SMTP_PASSWORD=$SMTP_PASSWORD|" .env
+              else
+                echo "SMTP_PASSWORD=$SMTP_PASSWORD" >> .env
+              fi
+            fi
+
+            # Ensure FROM_EMAIL is set
+            if ! grep -q "^FROM_EMAIL=" .env; then
+              echo "FROM_EMAIL=noreply@dollor.ai" >> .env
+            fi
+
+            echo "Environment configured."
 
             # Create virtual environment if it doesn't exist
             if [ ! -d "venv" ]; then
@@ -118,12 +176,12 @@ jobs:
                 sleep 2
                 nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /opt/dollor-backend/backend.log 2>&1 &
                 sleep 3
-                echo "Process started with PID: $(pgrep -f 'uvicorn main_new:app')"
+                echo "Process started with PID: \$(pgrep -f 'uvicorn main_new:app')"
               fi
             fi
 
             echo "Backend deployment complete!"
-          EOF
+          ENVSSH
 
   deploy-ecs:
     name: Deploy Backend to ECS
