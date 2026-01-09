@@ -86,7 +86,7 @@ const Cart: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+    return localStorage.getItem('customer_token');
   }, []);
 
   // Convert local storage format to API format for display
@@ -136,6 +136,30 @@ const Cart: React.FC = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
 
+        // If API cart is empty, check localStorage for items (not synced yet)
+        if (!response.data.items || response.data.items.length === 0) {
+          const savedCart = localStorage.getItem('cart');
+          if (savedCart) {
+            try {
+              const localItems: LocalCartItem[] = JSON.parse(savedCart);
+              if (localItems.length > 0) {
+                // Use localStorage items since API cart is empty
+                const apiFormatItems = convertLocalToApiFormat(localItems);
+                const summary = calculateLocalSummary(apiFormatItems);
+                setCartData({
+                  cart_id: null,
+                  items: apiFormatItems,
+                  summary
+                });
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error('Failed to parse local cart:', e);
+            }
+          }
+        }
+
         setCartData(response.data);
         if (response.data.promo_code) {
           setPromoCode(response.data.promo_code);
@@ -156,7 +180,7 @@ const Cart: React.FC = () => {
       loadLocalCart();
     }
     setLoading(false);
-  }, [API_URL, getAuthToken]);
+  }, [API_URL, getAuthToken, convertLocalToApiFormat, calculateLocalSummary]);
 
   const loadLocalCart = useCallback(() => {
     const savedCart = localStorage.getItem('cart');

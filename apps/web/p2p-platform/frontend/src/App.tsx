@@ -41,6 +41,11 @@ import InvestorDeck2026 from './app/screens/public/InvestorDeck2026';
 import CustomerLogin from './app/screens/auth/CustomerLogin';
 import CustomerHome from './app/screens/customer/CustomerHome';
 import CustomerProfile from './app/screens/customer/CustomerProfile';
+import CustomerAddresses from './app/screens/customer/CustomerAddresses';
+import CustomerPaymentMethods from './app/screens/customer/CustomerPaymentMethods';
+import CustomerFavorites from './app/screens/customer/CustomerFavorites';
+import CustomerSettings from './app/screens/customer/CustomerSettings';
+import CustomerNotifications from './app/screens/customer/CustomerNotifications';
 import Restaurants from './app/screens/customer/Restaurants';
 import RestaurantDetail from './app/screens/customer/RestaurantDetail';
 import Cart from './app/screens/customer/Cart';
@@ -65,6 +70,12 @@ import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverEarnings from './app/screens/driver/Earnings';
 import RideBidding from './app/screens/driver/RideBidding';
 import RideBids from './app/screens/customer/RideBids';
+
+// Wrapper to provide dynamic customerId from localStorage
+const RideBidsWrapper = () => {
+  const customerId = parseInt(localStorage.getItem('customer_id') || '0');
+  return <RideBids customerId={customerId} />;
+};
 
 /**
  * DOLLOR.AI WEB APPLICATION
@@ -152,12 +163,21 @@ function App() {
         <Route path="/customer/order-tracking" element={<OrderTracking />} />
         <Route path="/customer/rides" element={<RideBooking />} />
         <Route path="/customer/ride" element={<RideBooking />} />
-        <Route path="/customer/ride-bids" element={<RideBids customerId={1} />} />
-        <Route path="/customer/ride-bids/:requestId" element={<RideBids customerId={1} />} />
+        <Route path="/customer/ride-bids" element={<RideBidsWrapper />} />
+        <Route path="/customer/ride-bids/:requestId" element={<RideBidsWrapper />} />
         <Route path="/customer/deals" element={<DealsPage />} />
         <Route path="/customer/search" element={<Restaurants />} />
         <Route path="/customer/address" element={<CustomerHome />} />
         <Route path="/customer/profile" element={<CustomerProfile />} />
+        <Route path="/customer/addresses" element={<CustomerAddresses />} />
+        <Route path="/customer/payment-methods" element={<CustomerPaymentMethods />} />
+        <Route path="/customer/favorites" element={<CustomerFavorites />} />
+        <Route path="/customer/settings" element={<CustomerSettings />} />
+        <Route path="/customer/notifications" element={<CustomerNotifications />} />
+        <Route path="/customer/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/customer/terms" element={<TermsOfService />} />
+        <Route path="/customer/help" element={<HelpSupport />} />
+        <Route path="/customer/refer" element={<ReferAndEarn />} />
         <Route path="/customer/history" element={<OrderTracking />} />
 
         {/* Vendor Routes */}
