@@ -1655,55 +1655,12 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
         "email": user.email
     }
 
-# Password Reset Request
-@app.post("/api/auth/password-reset/request")
-def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
-    print(f"Password reset requested for: {request.email}")
-
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        # Don't reveal if email exists or not for security
-        return {"message": "If this email exists, a password reset link has been sent"}
-
-    # Generate reset token (valid for 1 hour)
-    reset_token = create_access_token(
-        data={"sub": user.email, "type": "password_reset"},
-        expires_delta=timedelta(hours=1)
-    )
-
-    # In production, send email with reset link
-    # For now, just log it
-    print(f"Password reset token for {user.email}: {reset_token[:50]}...")
-
-    # TODO: Integrate with email service (SendGrid, SES, etc.)
-    # send_password_reset_email(user.email, reset_token)
-
-    return {"message": "If this email exists, a password reset link has been sent"}
-
-# Password Reset Confirm
-@app.post("/api/auth/password-reset/confirm")
-def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(request.token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        token_type = payload.get("type")
-
-        if token_type != "password_reset":
-            raise HTTPException(status_code=400, detail="Invalid reset token")
-
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            raise HTTPException(status_code=400, detail="Invalid reset token")
-
-        # Update password
-        user.password_hash = get_password_hash(request.new_password)
-        db.commit()
-
-        print(f"Password reset successful for: {email}")
-        return {"message": "Password has been reset successfully"}
-
-    except JWTError:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+# ==================== REMOVED DEAD ENDPOINTS ====================
+# /api/auth/password-reset/request - Never sent emails, used JWT tokens
+# /api/auth/password-reset/confirm - Paired with dead request endpoint
+# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
+# These endpoints actually send emails via AWS SES and use 6-digit codes
+# ==============================================================
 
 # Helper function to get current vendor user
 def get_current_vendor_user(current_user: User = Depends(get_current_user)) -> User:
@@ -13618,23 +13575,9 @@ async def proxy_customer_register(request: dict):
     return {"error": "Auth service unavailable", "fallback": True}
 
 
-@app.post("/api/erp/auth/password-reset/request")
-async def proxy_password_reset_request(request: dict):
-    """Proxy to auth-service: Request password reset"""
-    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/request", method="POST", json_data=request)
-    if result:
-        return result
-    return {"error": "Auth service unavailable", "fallback": True}
-
-
-@app.post("/api/erp/auth/password-reset/confirm")
-async def proxy_password_reset_confirm(request: dict):
-    """Proxy to auth-service: Confirm password reset"""
-    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/confirm", method="POST", json_data=request)
-    if result:
-        return result
-    return {"error": "Auth service unavailable", "fallback": True}
-
+# REMOVED: /api/erp/auth/password-reset/request - Dead proxy to non-existent auth-service
+# REMOVED: /api/erp/auth/password-reset/confirm - Dead proxy to non-existent auth-service
+# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
 
 # ==================== ORDER SERVICE PROXY ====================
 
