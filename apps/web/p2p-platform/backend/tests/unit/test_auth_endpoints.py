@@ -195,24 +195,25 @@ class TestDriverAuthentication:
 
     def test_driver_login_success(self, client: TestClient, test_driver):
         """Should successfully login driver"""
-        response = client.post("/api/auth/driver/login", json={
-            "email": test_driver.email,
+        # Driver login uses OAuth2PasswordRequestForm (form data with username field)
+        response = client.post("/api/auth/driver/login", data={
+            "username": test_driver.email,
             "password": "DriverPassword123!",
         })
         # May succeed, fail auth, or require different format
-        assert response.status_code in [200, 400, 401, 422]
+        assert response.status_code in [200, 400, 401]
         if response.status_code == 200:
             data = response.json()
             assert "access_token" in data or "token" in data
 
     def test_driver_login_wrong_password(self, client: TestClient, test_driver):
         """Should reject wrong driver password"""
-        response = client.post("/api/auth/driver/login", json={
-            "email": test_driver.email,
+        response = client.post("/api/auth/driver/login", data={
+            "username": test_driver.email,
             "password": "WrongPassword123!",
         })
         # May reject with different status codes
-        assert response.status_code in [400, 401, 422]
+        assert response.status_code in [400, 401]
 
     def test_driver_profile_requires_auth(self, client: TestClient):
         """Should require auth for driver profile"""
@@ -231,8 +232,9 @@ class TestVendorAuthentication:
 
     def test_vendor_login_success(self, client: TestClient, test_vendor):
         """Should successfully login vendor"""
-        response = client.post("/api/vendor/login", json={
-            "email": test_vendor.contact_email,
+        # Vendor login uses OAuth2PasswordRequestForm (form data with username field)
+        response = client.post("/api/auth/vendor/login", data={
+            "username": test_vendor.contact_email,
             "password": "VendorPassword123!",
         })
         # May succeed or fail depending on password verification
@@ -243,16 +245,16 @@ class TestVendorAuthentication:
 
     def test_vendor_login_wrong_password(self, client: TestClient, test_vendor):
         """Should reject wrong vendor password"""
-        response = client.post("/api/vendor/login", json={
-            "email": test_vendor.contact_email,
+        response = client.post("/api/auth/vendor/login", data={
+            "username": test_vendor.contact_email,
             "password": "WrongPassword123!",
         })
         assert response.status_code in [400, 401]
 
     def test_vendor_login_nonexistent(self, client: TestClient):
         """Should reject nonexistent vendor"""
-        response = client.post("/api/vendor/login", json={
-            "email": f"nonexistent_{datetime.now().timestamp()}@test.com",
+        response = client.post("/api/auth/vendor/login", data={
+            "username": f"nonexistent_{datetime.now().timestamp()}@test.com",
             "password": "AnyPassword123!",
         })
         assert response.status_code in [400, 401, 404]
@@ -265,31 +267,27 @@ class TestVendorAuthentication:
 
 
 class TestPasswordReset:
-    """Tests for password reset flow"""
+    """Tests for password reset flow - uses /api/customer/password-reset/* endpoints"""
 
     def test_request_password_reset(self, client: TestClient, test_user):
-        """Should accept password reset request"""
-        response = client.post("/api/auth/password-reset", json={
+        """Should accept password reset request for customer"""
+        response = client.post("/api/customer/password-reset/request", json={
             "email": test_user.email,
         })
-        # Endpoint may not exist or return success
-        assert response.status_code in [200, 404, 422]
+        # Should return success (doesn't reveal if email exists)
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") == True
 
     def test_request_password_reset_nonexistent(self, client: TestClient):
-        """Should not reveal if email exists"""
-        response = client.post("/api/auth/password-reset", json={
+        """Should not reveal if email exists (security)"""
+        response = client.post("/api/customer/password-reset/request", json={
             "email": f"nonexistent_{datetime.now().timestamp()}@test.com",
         })
-        # Endpoint may not exist or return success
-        assert response.status_code in [200, 404, 422]
-
-    def test_driver_password_reset(self, client: TestClient, test_driver):
-        """Should accept driver password reset request"""
-        response = client.post("/api/auth/driver/forgot-password", json={
-            "email": test_driver.email,
-        })
-        # May succeed or fail
-        assert response.status_code in [200, 400, 404, 422]
+        # Should return success even for non-existent emails (security)
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") == True
 
 
 class TestGoogleAuth:

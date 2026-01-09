@@ -23,10 +23,11 @@ class TestCrossPlatformAuth:
             assert "access_token" in response.json()
 
     def test_customer_login_ios_android(self, client):
-        """TC-001: Customer login via iOS/Android (JSON body)"""
+        """TC-001: Customer login via iOS/Android (OAuth2 form data - same as web)"""
+        # All platforms use OAuth2PasswordRequestForm for login endpoints
         response = client.post(
-            "/api/auth/customer/login/json",
-            json={"email": "test@example.com", "password": "testpass123"}
+            "/api/auth/customer/login",
+            data={"username": "test@example.com", "password": "testpass123"}
         )
         assert response.status_code in [200, 401]
         if response.status_code == 200:
@@ -47,10 +48,11 @@ class TestVendorAuth:
         assert response.status_code in [200, 401]
 
     def test_vendor_login_ios(self, client):
-        """TC-002: Vendor login via iOS (JSON)"""
+        """TC-002: Vendor login via iOS (OAuth2 form data - same as web)"""
+        # All platforms use OAuth2PasswordRequestForm for login endpoints
         response = client.post(
-            "/api/vendor/login",
-            json={"email": "vendor@restaurant.com", "password": "vendorpass"}
+            "/api/auth/vendor/login",
+            data={"username": "vendor@restaurant.com", "password": "vendorpass"}
         )
         assert response.status_code in [200, 401]
 
@@ -68,12 +70,13 @@ class TestDriverAuth:
         assert response.status_code in [200, 401]
 
     def test_driver_login_android(self, client):
-        """TC-003: Driver login via Android (JSON)"""
+        """TC-003: Driver login via Android (OAuth2 form data - same as web)"""
+        # All platforms use OAuth2PasswordRequestForm for login endpoints
         response = client.post(
-            "/api/v2/driver/login",
-            json={"email": "driver@dollor.ai", "password": "driverpass"}
+            "/api/auth/driver/login",
+            data={"username": "driver@dollor.ai", "password": "driverpass"}
         )
-        assert response.status_code in [200, 401, 404]
+        assert response.status_code in [200, 401]
 
 
 # Test Case 4: Menu Retrieval - Cross-Platform
@@ -299,16 +302,13 @@ Cross-Platform Test Case Summary for Dollor.ai
 ==============================================
 
 TC-001: Customer Authentication
-       - Web: POST /api/auth/customer/login (form-urlencoded)
-       - iOS/Android: POST /api/auth/customer/login/json (JSON body)
+       - All platforms: POST /api/auth/customer/login (OAuth2 form-urlencoded)
 
 TC-002: Vendor Authentication
-       - Web: POST /api/auth/vendor/login (form-urlencoded)
-       - iOS: POST /api/vendor/login (JSON body)
+       - All platforms: POST /api/auth/vendor/login (OAuth2 form-urlencoded)
 
 TC-003: Driver Authentication
-       - Web: POST /api/auth/driver/login (form-urlencoded)
-       - Android: POST /api/v2/driver/login (JSON body)
+       - All platforms: POST /api/auth/driver/login (OAuth2 form-urlencoded)
 
 TC-004: Menu Retrieval
        - Web: GET /api/vendors/{id}/menu
@@ -327,8 +327,7 @@ TC-007: Order Tracking
        - Mobile: GET /api/v1/orders/{id}/track
 
 TC-008: Driver Location Updates
-       - Web: POST /api/auth/driver/location
-       - Android: POST /api/v2/driver/location
+       - All platforms: POST /api/auth/driver/location
 
 TC-009: Payment Processing
        - Web: POST /api/payments/process

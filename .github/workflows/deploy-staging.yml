@@ -161,6 +161,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+
+      - name: Verify checkout - show version and git info
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          echo "=== Git Commit Info ==="
+          git rev-parse HEAD
+          git log -1 --oneline
+          echo "=== Version in main_new.py ==="
+          grep -n "version" main_new.py | head -5
+          echo "=== main_new.py health check section (lines 220-230) ==="
+          sed -n '220,230p' main_new.py
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -174,20 +188,46 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image to Amazon ECR
+        id: build-image
         working-directory: apps/web/p2p-platform/backend
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker build --no-cache -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update ECS service
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query 'taskDefinition' > task-definition.json
+          # Remove fields that can't be in register-task-definition
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' task-definition.json > clean-task-definition.json
+
+      - name: Update task definition with new image
+        id: task-def
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          NEW_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          # Update the container image in the task definition
+          jq --arg IMAGE "$NEW_IMAGE" '.containerDefinitions[0].image = $IMAGE' clean-task-definition.json > new-task-definition.json
+          # Register the new task definition
+          NEW_TASK_DEF=$(aws ecs register-task-definition --cli-input-json file://new-task-definition.json)
+          NEW_TASK_DEF_ARN=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.taskDefinitionArn')
+          echo "task-definition-arn=$NEW_TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "Registered new task definition: $NEW_TASK_DEF_ARN"
+
+      - name: Update ECS service with new task definition
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
+            --task-definition ${{ steps.task-def.outputs.task-definition-arn }} \
             --force-new-deployment
 
       - name: Wait for ECS deployment
