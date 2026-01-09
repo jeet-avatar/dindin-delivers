@@ -76,7 +76,7 @@ const CustomerDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
 
       if (!token) {
         // Not logged in, use cached name or redirect

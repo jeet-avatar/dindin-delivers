@@ -77,7 +77,7 @@ const CustomerProfile: React.FC = () => {
       } else {
         // Fallback to individual localStorage items
         setCustomerData({
-          id: parseInt(localStorage.getItem('p2p_customer_id') || '0'),
+          id: parseInt(localStorage.getItem('customer_id') || '0'),
           name: customerName || 'User',
           email: customerEmail || 'No Email'
         });
@@ -173,7 +173,7 @@ const CustomerProfile: React.FC = () => {
     setIsDeletingAccount(true);
 
     try {
-      const customerId = customerData?.id || parseInt(localStorage.getItem('p2p_customer_id') || '0');
+      const customerId = customerData?.id || parseInt(localStorage.getItem('customer_id') || '0');
 
       if (!customerId || customerId === 0) {
         message.error('Unable to identify account. Please try logging out and back in.');
@@ -181,7 +181,7 @@ const CustomerProfile: React.FC = () => {
         return;
       }
 
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
 
       // Call delete account API
       const response = await fetch(`${API_URL}/api/customers/${customerId}/delete`, {

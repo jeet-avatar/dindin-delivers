@@ -45,6 +45,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  unit_price?: number;  // Backend may return unit_price instead of price
 }
 
 interface Order {
@@ -250,18 +251,26 @@ const OrderTracking: React.FC = () => {
     const orderData = data.order as Record<string, unknown> || data;
     const driver = data.driver as Driver | undefined;
 
+    // Map items and normalize price field (backend may return unit_price instead of price)
+    const rawItems = orderData.items as Array<Record<string, unknown>> || [];
+    const mappedItems: OrderItem[] = rawItems.map(item => ({
+      name: item.name as string || 'Item',
+      quantity: item.quantity as number || 1,
+      price: (item.price as number) || (item.unit_price as number) || (item.item_price as number) || 0
+    }));
+
     return {
       id: orderData.id as number || 1,
       order_number: orderData.order_number as string || `ORD-${Date.now().toString().slice(-8)}`,
       status: orderData.status as string || 'preparing',
-      restaurant_name: orderData.restaurant_name as string || 'Restaurant',
-      items: orderData.items as OrderItem[] || [],
+      restaurant_name: orderData.restaurant_name as string || orderData.vendor_name as string || 'Restaurant',
+      items: mappedItems,
       subtotal: orderData.subtotal as number || 0,
       delivery_fee: orderData.delivery_fee as number || 0,
       platform_fee: orderData.platform_fee as number || pricing.foodDelivery.customerFee,
-      tax: orderData.tax as number || 0,
+      tax: (orderData.tax as number) || (orderData.tax_amount as number) || 0,
       tip: orderData.tip as number || 0,
-      total: orderData.total_amount as number || 0,
+      total: (orderData.total_amount as number) || (orderData.total as number) || 0,
       delivery_address: orderData.delivery_address as string || '',
       estimated_delivery: orderData.estimated_delivery as string,
       driver: driver,
@@ -472,7 +481,7 @@ const OrderTracking: React.FC = () => {
             {order.items.map((item, index) => (
               <div key={index} className="summary-item">
                 <Text>{item.quantity}x {item.name}</Text>
-                <Text>${(item.price * item.quantity).toFixed(2)}</Text>
+                <Text>${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</Text>
               </div>
             ))}
 
