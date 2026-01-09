@@ -122,9 +122,13 @@ jobs:
             echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
             echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
 
-            # Activate existing venv and fix urllib3 compatibility
+            # Recreate venv (previous deployments corrupted it)
+            rm -rf venv
+            python3 -m venv venv
             source venv/bin/activate
-            pip install 'urllib3<2' -q 2>/dev/null || true
+            pip install --upgrade pip -q
+            pip install 'urllib3<2' -q  # Pin for old OpenSSL
+            pip install -r requirements.txt -q 2>&1 | tail -3 || true
 
             # Force kill ALL uvicorn and python processes related to the app
             echo "=== Restarting backend service ==="
