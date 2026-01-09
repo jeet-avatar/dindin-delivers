@@ -27,7 +27,8 @@ def init_db():
     from models_extended import (
         Promotion, PromotionRedemption, RestaurantInvitation,
         OnboardingLog, ScrapedMenuItem, RealTimeEvent,
-        Communication, CustomerFavorite, VendorAnalytics
+        Communication, CustomerFavorite, VendorAnalytics,
+        EmailTemplate, EmailSchedule, EmailABTest
     )
     from sqlalchemy.exc import ProgrammingError
 

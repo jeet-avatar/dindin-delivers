@@ -3229,6 +3229,517 @@ def update_driver_notification_preferences(
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
+# ==================== EMAIL TEMPLATES & SCHEDULING ====================
+# Admin endpoints for managing email templates, A/B tests, and scheduled emails
+
+from models_extended import (
+    EmailTemplate, EmailSchedule, EmailABTest,
+    EmailTemplateType, EmailTemplateStatus, EmailScheduleStatus
+)
+
+class EmailTemplateCreate(BaseModel):
+    template_id: str
+    name: str
+    description: Optional[str] = None
+    type: str = "transactional"
+    subject: str
+    html_body: str
+    text_body: Optional[str] = None
+    variables: Optional[List[str]] = None
+    recipient_types: Optional[List[str]] = None
+
+class EmailTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
+    text_body: Optional[str] = None
+    variables: Optional[List[str]] = None
+    status: Optional[str] = None
+
+class EmailScheduleCreate(BaseModel):
+    recipient_email: str
+    recipient_type: str = "customer"
+    recipient_id: int
+    template_id: Optional[int] = None
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
+    scheduled_for: datetime
+    timezone: str = "UTC"
+    template_variables: Optional[dict] = None
+
+
+@app.get("/api/admin/email-templates")
+def list_email_templates(
+    status: Optional[str] = None,
+    type: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """List all email templates with optional filtering"""
+    query = db.query(EmailTemplate).filter(EmailTemplate.is_variant == False)
+
+    if status:
+        query = query.filter(EmailTemplate.status == status)
+    if type:
+        query = query.filter(EmailTemplate.type == type)
+
+    templates = query.order_by(EmailTemplate.updated_at.desc()).offset(skip).limit(limit).all()
+
+    return {
+        "templates": [
+            {
+                "id": t.id,
+                "template_id": t.template_id,
+                "name": t.name,
+                "type": t.type.value if t.type else None,
+                "status": t.status.value if t.status else None,
+                "subject": t.subject,
+                "variables": t.variables,
+                "times_sent": t.times_sent,
+                "open_rate": t.open_rate,
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None
+            }
+            for t in templates
+        ],
+        "total": query.count()
+    }
+
+
+@app.post("/api/admin/email-templates")
+def create_email_template(
+    template: EmailTemplateCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new email template"""
+    # Check if template_id already exists
+    existing = db.query(EmailTemplate).filter(
+        EmailTemplate.template_id == template.template_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Template ID already exists")
+
+    # Map type string to enum
+    type_map = {
+        "transactional": EmailTemplateType.TRANSACTIONAL,
+        "marketing": EmailTemplateType.MARKETING,
+        "system": EmailTemplateType.SYSTEM,
+        "onboarding": EmailTemplateType.ONBOARDING
+    }
+
+    new_template = EmailTemplate(
+        template_id=template.template_id,
+        name=template.name,
+        description=template.description,
+        type=type_map.get(template.type, EmailTemplateType.TRANSACTIONAL),
+        status=EmailTemplateStatus.DRAFT,
+        subject=template.subject,
+        html_body=template.html_body,
+        text_body=template.text_body,
+        variables=template.variables,
+        recipient_types=template.recipient_types
+    )
+
+    db.add(new_template)
+    db.commit()
+    db.refresh(new_template)
+
+    return {
+        "success": True,
+        "template_id": new_template.template_id,
+        "id": new_template.id,
+        "message": "Email template created successfully"
+    }
+
+
+@app.get("/api/admin/email-templates/{template_id}")
+def get_email_template(
+    template_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get a specific email template with its variants"""
+    template = db.query(EmailTemplate).filter(
+        EmailTemplate.template_id == template_id
+    ).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Get variants
+    variants = db.query(EmailTemplate).filter(
+        EmailTemplate.parent_template_id == template.id
+    ).all()
+
+    return {
+        "id": template.id,
+        "template_id": template.template_id,
+        "name": template.name,
+        "description": template.description,
+        "type": template.type.value if template.type else None,
+        "status": template.status.value if template.status else None,
+        "subject": template.subject,
+        "html_body": template.html_body,
+        "text_body": template.text_body,
+        "variables": template.variables,
+        "recipient_types": template.recipient_types,
+        "times_sent": template.times_sent,
+        "times_opened": template.times_opened,
+        "open_rate": template.open_rate,
+        "click_rate": template.click_rate,
+        "variants": [
+            {
+                "id": v.id,
+                "variant_name": v.variant_name,
+                "variant_weight": v.variant_weight,
+                "subject": v.subject,
+                "times_sent": v.times_sent,
+                "open_rate": v.open_rate
+            }
+            for v in variants
+        ],
+        "created_at": template.created_at.isoformat() if template.created_at else None,
+        "updated_at": template.updated_at.isoformat() if template.updated_at else None
+    }
+
+
+@app.put("/api/admin/email-templates/{template_id}")
+def update_email_template(
+    template_id: str,
+    updates: EmailTemplateUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an email template"""
+    template = db.query(EmailTemplate).filter(
+        EmailTemplate.template_id == template_id
+    ).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    update_data = updates.model_dump(exclude_none=True)
+
+    # Handle status enum
+    if "status" in update_data:
+        status_map = {
+            "draft": EmailTemplateStatus.DRAFT,
+            "active": EmailTemplateStatus.ACTIVE,
+            "archived": EmailTemplateStatus.ARCHIVED
+        }
+        update_data["status"] = status_map.get(update_data["status"], EmailTemplateStatus.DRAFT)
+
+    for key, value in update_data.items():
+        setattr(template, key, value)
+
+    template.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "template_id": template_id,
+        "message": "Template updated successfully"
+    }
+
+
+@app.delete("/api/admin/email-templates/{template_id}")
+def delete_email_template(
+    template_id: str,
+    db: Session = Depends(get_db)
+):
+    """Archive an email template (soft delete)"""
+    template = db.query(EmailTemplate).filter(
+        EmailTemplate.template_id == template_id
+    ).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    template.status = EmailTemplateStatus.ARCHIVED
+    template.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "Template archived successfully"}
+
+
+@app.post("/api/admin/email-templates/{template_id}/variant")
+def create_template_variant(
+    template_id: str,
+    variant_name: str = Form(...),
+    subject: str = Form(...),
+    html_body: str = Form(...),
+    variant_weight: int = Form(50),
+    db: Session = Depends(get_db)
+):
+    """Create an A/B test variant of a template"""
+    parent = db.query(EmailTemplate).filter(
+        EmailTemplate.template_id == template_id
+    ).first()
+
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent template not found")
+
+    variant = EmailTemplate(
+        template_id=f"{template_id}_variant_{variant_name.lower()}",
+        name=f"{parent.name} - Variant {variant_name}",
+        type=parent.type,
+        status=EmailTemplateStatus.ACTIVE,
+        subject=subject,
+        html_body=html_body,
+        text_body=parent.text_body,
+        variables=parent.variables,
+        is_variant=True,
+        parent_template_id=parent.id,
+        variant_name=variant_name,
+        variant_weight=variant_weight
+    )
+
+    db.add(variant)
+    db.commit()
+    db.refresh(variant)
+
+    return {
+        "success": True,
+        "variant_id": variant.id,
+        "variant_name": variant_name,
+        "message": "Variant created successfully"
+    }
+
+
+# ==================== EMAIL SCHEDULING ENDPOINTS ====================
+
+@app.get("/api/admin/email-schedules")
+def list_email_schedules(
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """List scheduled emails"""
+    query = db.query(EmailSchedule)
+
+    if status:
+        status_map = {
+            "pending": EmailScheduleStatus.PENDING,
+            "processing": EmailScheduleStatus.PROCESSING,
+            "sent": EmailScheduleStatus.SENT,
+            "failed": EmailScheduleStatus.FAILED,
+            "cancelled": EmailScheduleStatus.CANCELLED
+        }
+        query = query.filter(EmailSchedule.status == status_map.get(status))
+
+    schedules = query.order_by(EmailSchedule.scheduled_for.asc()).offset(skip).limit(limit).all()
+
+    return {
+        "schedules": [
+            {
+                "id": s.id,
+                "schedule_id": s.schedule_id,
+                "recipient_email": s.recipient_email,
+                "subject": s.subject,
+                "scheduled_for": s.scheduled_for.isoformat() if s.scheduled_for else None,
+                "status": s.status.value if s.status else None,
+                "is_recurring": s.is_recurring,
+                "attempts": s.attempts
+            }
+            for s in schedules
+        ],
+        "total": query.count()
+    }
+
+
+@app.post("/api/admin/email-schedules")
+def create_email_schedule(
+    schedule: EmailScheduleCreate,
+    db: Session = Depends(get_db)
+):
+    """Schedule an email for future sending"""
+    import uuid
+
+    # Validate recipient exists
+    recipient_type_map = {
+        "customer": RecipientType.CUSTOMER,
+        "vendor": RecipientType.VENDOR,
+        "driver": RecipientType.DRIVER
+    }
+
+    new_schedule = EmailSchedule(
+        schedule_id=f"SCHED-{uuid.uuid4().hex[:12].upper()}",
+        template_id=schedule.template_id,
+        recipient_type=recipient_type_map.get(schedule.recipient_type, RecipientType.CUSTOMER),
+        recipient_id=schedule.recipient_id,
+        recipient_email=schedule.recipient_email,
+        subject=schedule.subject,
+        html_body=schedule.html_body,
+        template_variables=schedule.template_variables,
+        scheduled_for=schedule.scheduled_for,
+        timezone=schedule.timezone,
+        status=EmailScheduleStatus.PENDING
+    )
+
+    db.add(new_schedule)
+    db.commit()
+    db.refresh(new_schedule)
+
+    return {
+        "success": True,
+        "schedule_id": new_schedule.schedule_id,
+        "scheduled_for": new_schedule.scheduled_for.isoformat(),
+        "message": "Email scheduled successfully"
+    }
+
+
+@app.delete("/api/admin/email-schedules/{schedule_id}")
+def cancel_email_schedule(
+    schedule_id: str,
+    db: Session = Depends(get_db)
+):
+    """Cancel a scheduled email"""
+    schedule = db.query(EmailSchedule).filter(
+        EmailSchedule.schedule_id == schedule_id
+    ).first()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    if schedule.status == EmailScheduleStatus.SENT:
+        raise HTTPException(status_code=400, detail="Cannot cancel already sent email")
+
+    schedule.status = EmailScheduleStatus.CANCELLED
+    schedule.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "Email schedule cancelled"}
+
+
+# ==================== A/B TESTING ENDPOINTS ====================
+
+@app.get("/api/admin/email-ab-tests")
+def list_ab_tests(
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """List A/B test campaigns"""
+    query = db.query(EmailABTest)
+
+    if status:
+        query = query.filter(EmailABTest.status == status)
+
+    tests = query.order_by(EmailABTest.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {
+        "tests": [
+            {
+                "id": t.id,
+                "test_id": t.test_id,
+                "name": t.name,
+                "status": t.status,
+                "variant_ids": t.variant_ids,
+                "winning_variant_id": t.winning_variant_id,
+                "started_at": t.started_at.isoformat() if t.started_at else None,
+                "ended_at": t.ended_at.isoformat() if t.ended_at else None
+            }
+            for t in tests
+        ],
+        "total": query.count()
+    }
+
+
+@app.post("/api/admin/email-ab-tests")
+def create_ab_test(
+    name: str = Form(...),
+    base_template_id: int = Form(...),
+    variant_ids: str = Form(...),  # Comma-separated IDs
+    sample_size: int = Form(1000),
+    db: Session = Depends(get_db)
+):
+    """Create a new A/B test campaign"""
+    import uuid
+
+    # Parse variant IDs
+    variant_list = [int(v.strip()) for v in variant_ids.split(",") if v.strip()]
+
+    new_test = EmailABTest(
+        test_id=f"ABTEST-{uuid.uuid4().hex[:8].upper()}",
+        name=name,
+        base_template_id=base_template_id,
+        variant_ids=variant_list,
+        sample_size=sample_size,
+        status="draft"
+    )
+
+    db.add(new_test)
+    db.commit()
+    db.refresh(new_test)
+
+    return {
+        "success": True,
+        "test_id": new_test.test_id,
+        "message": "A/B test created successfully"
+    }
+
+
+@app.post("/api/admin/email-ab-tests/{test_id}/start")
+def start_ab_test(
+    test_id: str,
+    db: Session = Depends(get_db)
+):
+    """Start an A/B test campaign"""
+    test = db.query(EmailABTest).filter(EmailABTest.test_id == test_id).first()
+
+    if not test:
+        raise HTTPException(status_code=404, detail="A/B test not found")
+
+    if test.status != "draft":
+        raise HTTPException(status_code=400, detail="Test is not in draft status")
+
+    test.status = "running"
+    test.started_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "A/B test started"}
+
+
+@app.post("/api/admin/email-ab-tests/{test_id}/end")
+def end_ab_test(
+    test_id: str,
+    db: Session = Depends(get_db)
+):
+    """End an A/B test and optionally select winner"""
+    test = db.query(EmailABTest).filter(EmailABTest.test_id == test_id).first()
+
+    if not test:
+        raise HTTPException(status_code=404, detail="A/B test not found")
+
+    test.status = "completed"
+    test.ended_at = datetime.utcnow()
+
+    # Auto-select winner if enabled
+    if test.auto_select_winner and test.variant_ids:
+        # Get variant with best open rate
+        best_variant = None
+        best_rate = 0
+
+        for variant_id in test.variant_ids:
+            variant = db.query(EmailTemplate).filter(EmailTemplate.id == variant_id).first()
+            if variant and variant.open_rate > best_rate:
+                best_rate = variant.open_rate
+                best_variant = variant_id
+
+        if best_variant:
+            test.winning_variant_id = best_variant
+            test.winning_metric = "open_rate"
+
+    db.commit()
+
+    return {
+        "success": True,
+        "winning_variant_id": test.winning_variant_id,
+        "message": "A/B test completed"
+    }
+
+
 # ==================== RIDESHARE ENDPOINTS ====================
 # Rideshare booking endpoints for customer web and mobile apps
 
