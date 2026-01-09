@@ -4098,16 +4098,9 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         print(f"[PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
         email_status = f"error: {str(e)}"
 
-    # Return debug info temporarily
     return {
         "success": True,
-        "message": "Reset code sent to your email.",
-        "_debug": {
-            "email_status": email_status,
-            "smtp_configured": bool(smtp_user and smtp_pwd),
-            "environment": env,
-            "customer_found": customer is not None
-        }
+        "message": "Reset code sent to your email."
     }
 
 @app.post("/api/customer/password-reset/confirm")
