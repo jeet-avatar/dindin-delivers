@@ -33,6 +33,7 @@ from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
+    send_password_reset_email,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
     send_driver_assigned_email, send_order_delivered_email,
@@ -4046,11 +4047,17 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     """Request a password reset - sends code to email"""
     import random
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        # Don't reveal whether email exists for security
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+    # Check if customer exists (Customer table stores customer accounts)
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if not customer:
+        # Also check User table for fallback
+        user = db.query(User).filter(User.email == request.email).first()
+        if not user:
+            # Don't reveal whether email exists for security
+            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+        customer_name = user.full_name or "Customer"
+    else:
+        customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
 
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
@@ -4062,8 +4069,19 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         "expires": datetime.utcnow() + timedelta(minutes=15)
     }
 
-    # In production, send email here
-    print(f"Password reset code for {request.email}: {code}")
+    # Send password reset email
+    try:
+        email_sent = send_password_reset_email(
+            to_email=request.email,
+            customer_name=customer_name,
+            reset_code=code
+        )
+        if email_sent:
+            print(f"Password reset email sent to {request.email}")
+        else:
+            print(f"Failed to send password reset email to {request.email}, code: {code}")
+    except Exception as e:
+        print(f"Error sending password reset email: {e}, code: {code}")
 
     return {"success": True, "message": "Reset code sent to your email."}
 
@@ -4084,7 +4102,16 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    # Get user and update password
+    # Check Customer table first (where customer accounts are stored)
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if customer:
+        # Update customer password
+        customer.password_hash = get_password_hash(request.new_password)
+        db.commit()
+        del password_reset_codes[request.email]
+        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+    # Fallback to User table
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

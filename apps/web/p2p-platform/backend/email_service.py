@@ -1082,6 +1082,86 @@ def send_order_cancelled_email(
     return send_email(to_email, subject, html_body, text_body)
 
 
+def send_password_reset_email(
+    to_email: str,
+    customer_name: str,
+    reset_code: str
+) -> bool:
+    """
+    Send password reset code to customer.
+    """
+    subject = f"Your Dollor.ai Password Reset Code: {reset_code}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
+            .code-box {{ background: #f8f9fa; border: 2px dashed #FF6B35; padding: 20px; text-align: center; margin: 20px 0; border-radius: 10px; }}
+            .code {{ font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF6B35; font-family: monospace; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
+            .warning {{ background: #FFF3CD; border: 1px solid #FFEEBA; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Password Reset</h1>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+
+                <p>We received a request to reset your password. Use the code below to complete the process:</p>
+
+                <div class="code-box">
+                    <div class="code">{reset_code}</div>
+                </div>
+
+                <p>Enter this code in the app to reset your password.</p>
+
+                <div class="warning">
+                    <strong>This code expires in 15 minutes.</strong><br>
+                    If you didn't request a password reset, please ignore this email or contact support if you have concerns.
+                </div>
+
+                <p>Thanks,<br>The Dollor.ai Team</p>
+            </div>
+            <div class="footer">
+                <p>2024 Dollor.ai by Vibing World Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Password Reset - Dollor.ai
+
+    Hi {customer_name},
+
+    We received a request to reset your password. Use the code below:
+
+    {reset_code}
+
+    Enter this code in the app to reset your password.
+
+    This code expires in 15 minutes.
+    If you didn't request this, please ignore this email.
+
+    Thanks,
+    The Dollor.ai Team
+
+    2024 Dollor.ai by Vibing World Inc.
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
 def send_new_order_vendor_email(
     to_email: str,
     restaurant_name: str,
