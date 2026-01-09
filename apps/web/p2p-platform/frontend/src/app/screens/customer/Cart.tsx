@@ -86,7 +86,7 @@ const Cart: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const getAuthToken = useCallback(() => {
-    return localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+    return localStorage.getItem('customer_token');
   }, []);
 
   // Convert local storage format to API format for display

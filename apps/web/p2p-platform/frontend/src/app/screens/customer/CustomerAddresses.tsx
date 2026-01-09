@@ -55,7 +55,7 @@ const CustomerAddresses: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
-  const customerId = localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id');
+  const customerId = localStorage.getItem('customer_id');
 
   useEffect(() => {
     if (customerId) {
@@ -69,7 +69,7 @@ const CustomerAddresses: React.FC = () => {
   const fetchAddresses = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       const response = await axios.get(`${API_URL}/api/addresses/${customerId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -89,7 +89,7 @@ const CustomerAddresses: React.FC = () => {
   const handleAddAddress = async (values: any) => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       const addressData = {
         location_name: values.location_name,
         street: values.street,
@@ -141,7 +141,7 @@ const CustomerAddresses: React.FC = () => {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+          const token = localStorage.getItem('customer_token');
           await axios.delete(`${API_URL}/api/addresses/${customerId}/${address.id}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
@@ -157,7 +157,7 @@ const CustomerAddresses: React.FC = () => {
 
   const handleSetDefault = async (address: Address) => {
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.post(
         `${API_URL}/api/addresses/${customerId}/${address.id}/set-default`,
         {},

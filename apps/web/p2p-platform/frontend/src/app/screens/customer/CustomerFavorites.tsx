@@ -39,7 +39,7 @@ const CustomerFavorites: React.FC = () => {
   const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
   const [removingId, setRemovingId] = useState<number | null>(null);
 
-  const customerId = localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id');
+  const customerId = localStorage.getItem('customer_id');
 
   useEffect(() => {
     if (customerId) {
@@ -53,7 +53,7 @@ const CustomerFavorites: React.FC = () => {
   const fetchFavorites = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       const response = await axios.get(`${API_URL}/api/customer/favorites/${customerId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -69,7 +69,7 @@ const CustomerFavorites: React.FC = () => {
   const handleRemoveFavorite = async (vendorId: number) => {
     setRemovingId(vendorId);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.delete(`${API_URL}/api/customer/favorites/${customerId}/${vendorId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
