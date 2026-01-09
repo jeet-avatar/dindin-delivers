@@ -71,6 +71,12 @@ import DriverEarnings from './app/screens/driver/Earnings';
 import RideBidding from './app/screens/driver/RideBidding';
 import RideBids from './app/screens/customer/RideBids';
 
+// Wrapper to provide dynamic customerId from localStorage
+const RideBidsWrapper = () => {
+  const customerId = parseInt(localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id') || '0');
+  return <RideBids customerId={customerId} />;
+};
+
 /**
  * DOLLOR.AI WEB APPLICATION
  *
@@ -157,8 +163,8 @@ function App() {
         <Route path="/customer/order-tracking" element={<OrderTracking />} />
         <Route path="/customer/rides" element={<RideBooking />} />
         <Route path="/customer/ride" element={<RideBooking />} />
-        <Route path="/customer/ride-bids" element={<RideBids customerId={1} />} />
-        <Route path="/customer/ride-bids/:requestId" element={<RideBids customerId={1} />} />
+        <Route path="/customer/ride-bids" element={<RideBidsWrapper />} />
+        <Route path="/customer/ride-bids/:requestId" element={<RideBidsWrapper />} />
         <Route path="/customer/deals" element={<DealsPage />} />
         <Route path="/customer/search" element={<Restaurants />} />
         <Route path="/customer/address" element={<CustomerHome />} />
