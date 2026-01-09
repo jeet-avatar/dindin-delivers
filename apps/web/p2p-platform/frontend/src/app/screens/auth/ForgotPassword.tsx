@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message, Steps } from 'antd';
 import { MailOutlined, LockOutlined, SafetyOutlined, DollarOutlined, ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
 const { Step } = Steps;
@@ -12,7 +12,11 @@ const ForgotPassword: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const API_URL = getApiUrl();
+
+  // Get return URL from query params (e.g., /vendor/login for vendors)
+  const returnUrl = searchParams.get('return') || '/customer/login';
 
   // Step 1: Request password reset
   const onRequestReset = async (values: { email: string }) => {
@@ -52,7 +56,7 @@ const ForgotPassword: React.FC = () => {
       });
 
       message.success('Password reset successfully! Please sign in with your new password.');
-      navigate('/customer/login');
+      navigate(returnUrl);
     } catch (error: any) {
       console.error('Reset error:', error);
       const detail = error.response?.data?.detail;
@@ -236,7 +240,7 @@ const ForgotPassword: React.FC = () => {
       {/* Right Side - Reset Form */}
       <div className="form-section">
         <div className="form-container">
-          <Link to="/customer/login" className="back-link">
+          <Link to={returnUrl} className="back-link">
             <ArrowLeftOutlined /> Back to Sign In
           </Link>
 
@@ -255,7 +259,7 @@ const ForgotPassword: React.FC = () => {
           <div className="form-footer">
             <p>
               Remember your password?{' '}
-              <Link to="/customer/login">Sign In</Link>
+              <Link to={returnUrl}>Sign In</Link>
             </p>
           </div>
         </div>

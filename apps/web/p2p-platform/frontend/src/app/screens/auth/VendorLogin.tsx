@@ -261,7 +261,7 @@ const VendorLogin: React.FC = () => {
 
             <div className="form-options">
               <Checkbox>Remember me</Checkbox>
-              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
+              <Link to="/forgot-password?return=/vendor/login" className="forgot-link">Forgot password?</Link>
             </div>
 
             <Form.Item>
