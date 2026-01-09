@@ -1229,3 +1229,712 @@ def send_new_order_vendor_email(
     """
 
     return send_email(to_email, subject, html_body, text_body)
+
+
+# ==================== RIDESHARE LIFECYCLE EMAILS ====================
+
+def send_ride_request_confirmation_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    pickup_address: str,
+    dropoff_address: str,
+    estimated_price: float,
+    estimated_distance_miles: float,
+    estimated_duration_minutes: int
+) -> bool:
+    """
+    Send confirmation email when customer creates a ride request.
+    """
+    subject = f"Ride Request Submitted - {request_id}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .logo {{ font-size: 28px; font-weight: bold; }}
+            .content {{ padding: 30px; }}
+            .ride-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
+            .location {{ display: flex; align-items: flex-start; margin: 15px 0; }}
+            .location-icon {{ width: 24px; height: 24px; margin-right: 12px; font-size: 20px; }}
+            .location-text {{ flex: 1; }}
+            .location-label {{ font-size: 12px; color: #64748b; text-transform: uppercase; }}
+            .location-address {{ font-size: 16px; color: #1e293b; margin-top: 4px; }}
+            .trip-details {{ display: flex; justify-content: space-between; margin: 20px 0; padding: 15px; background: #eff6ff; border-radius: 8px; }}
+            .detail {{ text-align: center; }}
+            .detail-value {{ font-size: 24px; font-weight: bold; color: #4f46e5; }}
+            .detail-label {{ font-size: 12px; color: #64748b; margin-top: 4px; }}
+            .status {{ display: inline-block; background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-size: 14px; margin: 10px 0; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">Dollor.ai Rides</div>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Your ride request is live!</p>
+            </div>
+            <div class="content">
+                <h2>Hi {customer_name}!</h2>
+                <p>Your ride request has been submitted and drivers in your area are being notified.</p>
+
+                <div class="ride-box">
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <span class="status">Waiting for Bids</span>
+                    </div>
+
+                    <div class="location">
+                        <div class="location-icon">📍</div>
+                        <div class="location-text">
+                            <div class="location-label">Pickup</div>
+                            <div class="location-address">{pickup_address}</div>
+                        </div>
+                    </div>
+
+                    <div class="location">
+                        <div class="location-icon">🏁</div>
+                        <div class="location-text">
+                            <div class="location-label">Dropoff</div>
+                            <div class="location-address">{dropoff_address}</div>
+                        </div>
+                    </div>
+
+                    <div class="trip-details">
+                        <div class="detail">
+                            <div class="detail-value">${estimated_price:.2f}</div>
+                            <div class="detail-label">Est. Fare</div>
+                        </div>
+                        <div class="detail">
+                            <div class="detail-value">{estimated_distance_miles:.1f}</div>
+                            <div class="detail-label">Miles</div>
+                        </div>
+                        <div class="detail">
+                            <div class="detail-value">{estimated_duration_minutes}</div>
+                            <div class="detail-label">Minutes</div>
+                        </div>
+                    </div>
+                </div>
+
+                <p><strong>What happens next?</strong></p>
+                <p>Drivers will submit their fare proposals. You'll receive notifications as bids come in, and you can choose the best offer.</p>
+                <p>Check the Dollor.ai app to view and accept bids!</p>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Ride Request Submitted - Dollor.ai
+
+    Hi {customer_name},
+
+    Your ride request has been submitted!
+
+    REQUEST ID: {request_id}
+
+    PICKUP: {pickup_address}
+    DROPOFF: {dropoff_address}
+
+    TRIP DETAILS:
+    - Estimated Fare: ${estimated_price:.2f}
+    - Distance: {estimated_distance_miles:.1f} miles
+    - Duration: {estimated_duration_minutes} minutes
+
+    Drivers will submit their fare proposals. Check the app to view and accept bids!
+
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_ride_bid_received_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    driver_name: str,
+    driver_rating: float,
+    proposed_price: float,
+    eta_minutes: int,
+    total_bids: int
+) -> bool:
+    """
+    Send email when a driver submits a bid on customer's ride request.
+    """
+    subject = f"New Bid Received - ${proposed_price:.2f} | {request_id}"
+
+    # Format rating stars
+    full_stars = int(driver_rating) if driver_rating else 0
+    rating_display = "★" * full_stars + "☆" * (5 - full_stars)
+    rating_value = driver_rating if driver_rating else 0.0
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .bid-box {{ background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; padding: 25px; margin: 20px 0; border: 2px solid #10b981; }}
+            .bid-price {{ font-size: 48px; font-weight: bold; color: #059669; text-align: center; }}
+            .driver-info {{ display: flex; align-items: center; margin: 20px 0; padding: 15px; background: white; border-radius: 8px; }}
+            .driver-avatar {{ width: 50px; height: 50px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; margin-right: 15px; }}
+            .driver-details {{ flex: 1; }}
+            .driver-name {{ font-size: 18px; font-weight: bold; color: #1e293b; }}
+            .driver-rating {{ color: #f59e0b; font-size: 14px; }}
+            .eta-badge {{ display: inline-block; background: #dbeafe; color: #1d4ed8; padding: 8px 16px; border-radius: 20px; font-size: 14px; }}
+            .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 20px 0; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>New Bid Received!</h2>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">You have {total_bids} bid(s) waiting</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>A driver has submitted a bid for your ride!</p>
+
+                <div class="bid-box">
+                    <div class="bid-price">${proposed_price:.2f}</div>
+
+                    <div class="driver-info">
+                        <div class="driver-avatar">🚗</div>
+                        <div class="driver-details">
+                            <div class="driver-name">{driver_name}</div>
+                            <div class="driver-rating">{rating_display} ({rating_value:.1f})</div>
+                        </div>
+                        <span class="eta-badge">{eta_minutes} min away</span>
+                    </div>
+                </div>
+
+                <center>
+                    <a href="https://dollor.ai/customer/rides" class="cta-button">
+                        View All Bids
+                    </a>
+                </center>
+
+                <p style="text-align: center; color: #64748b; font-size: 14px;">
+                    Compare bids and choose the best offer for your ride!
+                </p>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    New Bid Received - Dollor.ai
+
+    Hi {customer_name},
+
+    A driver has submitted a bid for your ride!
+
+    BID DETAILS:
+    - Price: ${proposed_price:.2f}
+    - Driver: {driver_name}
+    - Rating: {rating_value:.1f}/5
+    - ETA: {eta_minutes} minutes
+
+    You have {total_bids} bid(s) total.
+
+    View all bids in the Dollor.ai app!
+
+    Request ID: {request_id}
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_ride_matched_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    driver_name: str,
+    driver_phone: str,
+    driver_vehicle: str,
+    final_price: float,
+    eta_minutes: int,
+    pickup_address: str
+) -> bool:
+    """
+    Send email when customer accepts a bid and ride is matched.
+    """
+    subject = f"Ride Confirmed! Driver {driver_name} is on the way"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .match-badge {{ background: #22c55e; color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 10px 0; }}
+            .driver-card {{ background: #f8fafc; border-radius: 16px; padding: 25px; margin: 20px 0; }}
+            .driver-header {{ display: flex; align-items: center; margin-bottom: 20px; }}
+            .driver-avatar {{ width: 70px; height: 70px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; margin-right: 20px; }}
+            .driver-info h3 {{ margin: 0 0 5px 0; color: #1e293b; font-size: 22px; }}
+            .vehicle-info {{ color: #64748b; font-size: 14px; }}
+            .contact-btn {{ display: inline-block; background: #eff6ff; color: #1d4ed8; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; margin: 10px 5px 10px 0; }}
+            .eta-box {{ background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
+            .eta-time {{ font-size: 48px; font-weight: bold; color: #1d4ed8; }}
+            .eta-label {{ color: #64748b; font-size: 14px; margin-top: 5px; }}
+            .price-box {{ background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
+            .price {{ font-size: 36px; font-weight: bold; color: #16a34a; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Ride Confirmed!</h2>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Your driver is on the way</p>
+            </div>
+            <div class="content">
+                <center><span class="match-badge">MATCHED</span></center>
+
+                <p>Hi {customer_name},</p>
+                <p>Great news! Your ride has been confirmed. Your driver is heading to pick you up!</p>
+
+                <div class="driver-card">
+                    <div class="driver-header">
+                        <div class="driver-avatar">🚗</div>
+                        <div class="driver-info">
+                            <h3>{driver_name}</h3>
+                            <div class="vehicle-info">{driver_vehicle if driver_vehicle else 'Vehicle info pending'}</div>
+                        </div>
+                    </div>
+                    <a href="tel:{driver_phone}" class="contact-btn">📞 Call Driver</a>
+                    <a href="sms:{driver_phone}" class="contact-btn">💬 Text Driver</a>
+                </div>
+
+                <div class="eta-box">
+                    <div class="eta-time">{eta_minutes}</div>
+                    <div class="eta-label">minutes until pickup</div>
+                </div>
+
+                <div class="price-box">
+                    <div style="font-size: 14px; color: #64748b;">Agreed Fare</div>
+                    <div class="price">${final_price:.2f}</div>
+                </div>
+
+                <div style="background: #fffbeb; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <strong>📍 Pickup Location:</strong><br>
+                    {pickup_address}
+                </div>
+
+                <p style="text-align: center; color: #64748b;">
+                    Track your driver in real-time in the Dollor.ai app!
+                </p>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Ride Confirmed! - Dollor.ai
+
+    Hi {customer_name},
+
+    Your ride has been confirmed!
+
+    DRIVER DETAILS:
+    - Name: {driver_name}
+    - Vehicle: {driver_vehicle if driver_vehicle else 'Vehicle info pending'}
+    - Phone: {driver_phone}
+
+    ETA: {eta_minutes} minutes
+
+    FARE: ${final_price:.2f}
+
+    PICKUP: {pickup_address}
+
+    Track your driver in the Dollor.ai app!
+
+    Request ID: {request_id}
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_ride_started_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    driver_name: str,
+    pickup_address: str,
+    dropoff_address: str,
+    estimated_duration_minutes: int,
+    final_price: float
+) -> bool:
+    """
+    Send email when ride starts (customer picked up).
+    """
+    subject = f"Ride Started! On the way to your destination"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .status-badge {{ background: #6366f1; color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 10px 0; }}
+            .route-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
+            .route-point {{ display: flex; align-items: flex-start; margin: 15px 0; }}
+            .route-icon {{ font-size: 20px; margin-right: 12px; }}
+            .route-line {{ border-left: 2px dashed #cbd5e1; margin-left: 10px; height: 30px; }}
+            .duration-box {{ background: linear-gradient(135deg, #ede9fe, #ddd6fe); border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }}
+            .duration-time {{ font-size: 36px; font-weight: bold; color: #4f46e5; }}
+            .fare-info {{ background: #f0fdf4; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>🚗 Ride In Progress</h2>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Enjoy your ride!</p>
+            </div>
+            <div class="content">
+                <center><span class="status-badge">IN PROGRESS</span></center>
+
+                <p>Hi {customer_name},</p>
+                <p>You're on your way with <strong>{driver_name}</strong>!</p>
+
+                <div class="route-box">
+                    <div class="route-point">
+                        <span class="route-icon">🟢</span>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">PICKED UP FROM</div>
+                            <div>{pickup_address}</div>
+                        </div>
+                    </div>
+                    <div class="route-line"></div>
+                    <div class="route-point">
+                        <span class="route-icon">🏁</span>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">HEADING TO</div>
+                            <div>{dropoff_address}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="duration-box">
+                    <div style="font-size: 14px; color: #64748b;">Estimated Arrival</div>
+                    <div class="duration-time">{estimated_duration_minutes} min</div>
+                </div>
+
+                <div class="fare-info">
+                    <div style="font-size: 14px; color: #64748b;">Trip Fare</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #16a34a;">${final_price:.2f}</div>
+                </div>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Ride In Progress - Dollor.ai
+
+    Hi {customer_name},
+
+    Your ride with {driver_name} has started!
+
+    FROM: {pickup_address}
+    TO: {dropoff_address}
+
+    ESTIMATED ARRIVAL: {estimated_duration_minutes} minutes
+    FARE: ${final_price:.2f}
+
+    Enjoy your ride!
+
+    Request ID: {request_id}
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_ride_completed_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    driver_name: str,
+    pickup_address: str,
+    dropoff_address: str,
+    final_price: float,
+    platform_fee: float,
+    distance_miles: float,
+    duration_minutes: int
+) -> bool:
+    """
+    Send email when ride is completed with receipt.
+    """
+    subject = f"Ride Complete! Receipt for ${final_price:.2f}"
+
+    driver_earnings = final_price - platform_fee
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .complete-icon {{ font-size: 64px; text-align: center; margin: 20px 0; }}
+            .receipt-box {{ background: #f8fafc; border-radius: 12px; padding: 25px; margin: 20px 0; border: 1px solid #e2e8f0; }}
+            .receipt-header {{ border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }}
+            .receipt-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
+            .receipt-label {{ color: #64748b; }}
+            .receipt-value {{ font-weight: 500; color: #1e293b; }}
+            .receipt-total {{ display: flex; justify-content: space-between; padding: 15px 0; border-top: 2px solid #1e293b; margin-top: 15px; }}
+            .total-label {{ font-size: 18px; font-weight: bold; }}
+            .total-value {{ font-size: 24px; font-weight: bold; color: #22c55e; }}
+            .tip-box {{ background: #fef3c7; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
+            .tip-button {{ display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 10px 5px; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+            .driver-earnings {{ background: #ecfdf5; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Ride Complete!</h2>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Thanks for riding with Dollor.ai</p>
+            </div>
+            <div class="content">
+                <div class="complete-icon">🎉</div>
+
+                <p>Hi {customer_name},</p>
+                <p>You've arrived at your destination. Here's your trip receipt:</p>
+
+                <div class="receipt-box">
+                    <div class="receipt-header">
+                        <strong>Trip Receipt</strong><br>
+                        <span style="color: #64748b; font-size: 14px;">{request_id}</span>
+                    </div>
+
+                    <div class="receipt-row">
+                        <span class="receipt-label">Driver</span>
+                        <span class="receipt-value">{driver_name}</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">From</span>
+                        <span class="receipt-value">{pickup_address[:40]}...</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">To</span>
+                        <span class="receipt-value">{dropoff_address[:40]}...</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Distance</span>
+                        <span class="receipt-value">{distance_miles:.1f} miles</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Duration</span>
+                        <span class="receipt-value">{duration_minutes} min</span>
+                    </div>
+
+                    <div class="receipt-row">
+                        <span class="receipt-label">Trip Fare</span>
+                        <span class="receipt-value">${final_price:.2f}</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Platform Fee</span>
+                        <span class="receipt-value">${platform_fee:.2f}</span>
+                    </div>
+
+                    <div class="receipt-total">
+                        <span class="total-label">Total Charged</span>
+                        <span class="total-value">${final_price:.2f}</span>
+                    </div>
+                </div>
+
+                <div class="driver-earnings">
+                    <div style="font-size: 14px; color: #059669;">💰 {driver_name} earned</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #059669;">${driver_earnings:.2f}</div>
+                    <div style="font-size: 12px; color: #64748b;">Drivers keep the fare, platform fee goes to Dollor.ai</div>
+                </div>
+
+                <div class="tip-box">
+                    <p style="margin: 0 0 15px 0;"><strong>Enjoyed your ride?</strong></p>
+                    <p style="margin: 0 0 15px 0; color: #92400e;">Add a tip for {driver_name}</p>
+                    <a href="https://dollor.ai/customer/rides/{request_id}/tip" class="tip-button">Add Tip</a>
+                    <p style="font-size: 12px; color: #92400e; margin: 15px 0 0 0;">100% of tips go directly to your driver</p>
+                </div>
+
+                <p style="text-align: center;">
+                    <a href="https://dollor.ai/customer/rides/{request_id}/rate" style="color: #6366f1;">Rate your ride</a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Ride Complete - Dollor.ai Receipt
+
+    Hi {customer_name},
+
+    Thanks for riding with Dollor.ai! Here's your receipt:
+
+    TRIP DETAILS
+    ------------
+    Request ID: {request_id}
+    Driver: {driver_name}
+    From: {pickup_address}
+    To: {dropoff_address}
+    Distance: {distance_miles:.1f} miles
+    Duration: {duration_minutes} min
+
+    CHARGES
+    -------
+    Trip Fare: ${final_price:.2f}
+    Platform Fee: ${platform_fee:.2f}
+    -----------------
+    TOTAL: ${final_price:.2f}
+
+    {driver_name} earned ${driver_earnings:.2f}
+
+    Add a tip for your driver at:
+    https://dollor.ai/customer/rides/{request_id}/tip
+
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_ride_cancelled_email(
+    to_email: str,
+    customer_name: str,
+    request_id: str,
+    cancelled_by: str,
+    reason: str,
+    refund_amount: float = None
+) -> bool:
+    """
+    Send email when ride is cancelled.
+    """
+    subject = f"Ride Cancelled - {request_id}"
+
+    refund_text = f"""
+        <div class="refund-box">
+            <p style="margin: 0;">💳 Refund Processing</p>
+            <p style="font-size: 24px; font-weight: bold; color: #16a34a; margin: 10px 0;">${refund_amount:.2f}</p>
+            <p style="font-size: 12px; color: #64748b; margin: 0;">Will be credited within 5-10 business days</p>
+        </div>
+    """ if refund_amount else ""
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .cancel-icon {{ font-size: 64px; text-align: center; margin: 20px 0; }}
+            .reason-box {{ background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .refund-box {{ background: #f0fdf4; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
+            .cta-button {{ display: inline-block; background: #6366f1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Ride Cancelled</h2>
+            </div>
+            <div class="content">
+                <div class="cancel-icon">❌</div>
+
+                <p>Hi {customer_name},</p>
+                <p>Your ride request has been cancelled.</p>
+
+                <div class="reason-box">
+                    <p style="margin: 0 0 10px 0;"><strong>Cancelled by:</strong> {cancelled_by}</p>
+                    <p style="margin: 0;"><strong>Reason:</strong> {reason}</p>
+                </div>
+
+                {refund_text}
+
+                <p>We apologize for any inconvenience. You can request a new ride anytime!</p>
+
+                <center>
+                    <a href="https://dollor.ai/customer/rides/new" class="cta-button">
+                        Request New Ride
+                    </a>
+                </center>
+            </div>
+            <div class="footer">
+                <p>Request ID: {request_id}</p>
+                <p>Need help? Contact support@dollor.ai</p>
+                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Ride Cancelled - Dollor.ai
+
+    Hi {customer_name},
+
+    Your ride request {request_id} has been cancelled.
+
+    Cancelled by: {cancelled_by}
+    Reason: {reason}
+    {f'Refund: ${refund_amount:.2f} will be processed within 5-10 business days.' if refund_amount else ''}
+
+    You can request a new ride anytime at https://dollor.ai
+
+    Need help? Contact support@dollor.ai
+
+    © 2025 Dollor.ai
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
