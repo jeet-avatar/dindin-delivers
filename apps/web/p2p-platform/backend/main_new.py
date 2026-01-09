@@ -255,6 +255,45 @@ async def health_live():
     """Liveness probe - checks if service is running"""
     return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
 
+
+@app.post("/api/debug/test-email")
+async def debug_test_email(email: str = Query(...), secret: str = Query(...)):
+    """
+    Debug endpoint to test email configuration.
+    Requires secret key for security.
+    """
+    import os
+    expected_secret = os.getenv("ADMIN_SECRET_KEY", "debug123")
+    if secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    # Check email configuration
+    smtp_host = os.getenv("SMTP_HOST", "not set")
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_configured = bool(smtp_user and os.getenv("SMTP_PASSWORD", ""))
+    environment = os.getenv("ENVIRONMENT", "not set")
+
+    # Try sending test email
+    try:
+        result = send_password_reset_email(
+            to_email=email,
+            customer_name="Test User",
+            reset_code="123456"
+        )
+        email_status = "sent" if result else "failed"
+    except Exception as e:
+        email_status = f"error: {str(e)}"
+
+    return {
+        "smtp_host": smtp_host,
+        "smtp_user_set": bool(smtp_user),
+        "smtp_configured": smtp_configured,
+        "environment": environment,
+        "email_status": email_status,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 # Database Migration Endpoint (protected with secret key)
 @app.post("/api/admin/migrate")
 async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get_db)):
