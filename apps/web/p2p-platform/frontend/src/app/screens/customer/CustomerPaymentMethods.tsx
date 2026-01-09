@@ -57,7 +57,7 @@ const CustomerPaymentMethods: React.FC = () => {
   const [cardToDelete, setCardToDelete] = useState<SavedCard | null>(null);
   const [form] = Form.useForm();
 
-  const customerId = localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id');
+  const customerId = localStorage.getItem('customer_id');
 
   useEffect(() => {
     if (customerId) {
@@ -71,7 +71,7 @@ const CustomerPaymentMethods: React.FC = () => {
   const fetchCards = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       const response = await axios.get(`${API_URL}/api/customers/${customerId}/cards`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -87,7 +87,7 @@ const CustomerPaymentMethods: React.FC = () => {
   const handleAddCard = async (values: any) => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
 
       // Parse expiry date (MM/YY format)
       const [expMonth, expYear] = values.expiry.split('/').map((v: string) => parseInt(v.trim()));
@@ -123,7 +123,7 @@ const CustomerPaymentMethods: React.FC = () => {
     if (!cardToDelete) return;
 
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.delete(`${API_URL}/api/customers/${customerId}/cards/${cardToDelete.id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -138,7 +138,7 @@ const CustomerPaymentMethods: React.FC = () => {
 
   const handleSetDefault = async (card: SavedCard) => {
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.post(
         `${API_URL}/api/customers/${customerId}/cards/${card.id}/default`,
         {},

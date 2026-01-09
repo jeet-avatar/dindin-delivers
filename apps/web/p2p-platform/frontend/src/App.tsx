@@ -73,7 +73,7 @@ import RideBids from './app/screens/customer/RideBids';
 
 // Wrapper to provide dynamic customerId from localStorage
 const RideBidsWrapper = () => {
-  const customerId = parseInt(localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id') || '0');
+  const customerId = parseInt(localStorage.getItem('customer_id') || '0');
   return <RideBids customerId={customerId} />;
 };
 

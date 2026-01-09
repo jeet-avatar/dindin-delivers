@@ -127,7 +127,7 @@ const CustomerSettings: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  const customerId = localStorage.getItem('customer_id') || localStorage.getItem('p2p_customer_id');
+  const customerId = localStorage.getItem('customer_id');
 
   const availableLanguages = ['English', 'Spanish', 'French', 'Chinese', 'Hindi'];
 
@@ -153,7 +153,7 @@ const CustomerSettings: React.FC = () => {
 
     setSubmittingBug(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.post(
         `${API_URL}/api/feedback`,
         {
@@ -183,7 +183,7 @@ const CustomerSettings: React.FC = () => {
 
     setDeletingAccount(true);
     try {
-      const token = localStorage.getItem('customer_token') || localStorage.getItem('access_token');
+      const token = localStorage.getItem('customer_token');
       await axios.delete(`${API_URL}/api/customers/${customerId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
