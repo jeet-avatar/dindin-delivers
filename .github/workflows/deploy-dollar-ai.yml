@@ -122,8 +122,9 @@ jobs:
             echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
             echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
 
-            # Activate existing venv (don't reinstall - packages already working)
+            # Activate existing venv and fix urllib3 compatibility
             source venv/bin/activate
+            pip install 'urllib3<2' -q 2>/dev/null || true
 
             # Force kill ALL uvicorn and python processes related to the app
             echo "=== Restarting backend service ==="
