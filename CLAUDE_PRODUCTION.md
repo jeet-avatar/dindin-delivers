@@ -421,6 +421,292 @@ cd apps/android
 
 ---
 
+## DATABASE INDEXING CONVENTIONS (VERIFIED)
+
+### Primary Key Pattern
+```python
+id = Column(Integer, primary_key=True, index=True)
+```
+
+### Indexed Fields (Always Index These):
+```python
+# Unique identifiers - ALWAYS index
+email = Column(String(255), unique=True, index=True, nullable=False)
+order_number = Column(String(50), unique=True, nullable=False, index=True)
+invoice_number = Column(String(50), unique=True, nullable=False, index=True)
+driver_id = Column(String(50), unique=True, nullable=False, index=True)
+customer_id = Column(String(50), unique=True, nullable=True, index=True)
+
+# Business codes - ALWAYS index
+ticket_id = Column(String(20), unique=True, nullable=False, index=True)  # DOLLOR-123
+request_id = Column(String(50), unique=True, nullable=False, index=True)  # RR-20241221-001
+bid_id = Column(String(50), unique=True, nullable=False, index=True)  # BID-20241221-001
+template_id = Column(String(100), unique=True, nullable=False, index=True)
+
+# Foreign keys for frequent queries - index for performance
+customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False, index=True)
+order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False, index=True)
+conversation_id = Column(Integer, ForeignKey("chat_conversations.id"), nullable=False, index=True)
+
+# Scheduled/time-based queries - index for filtering
+scheduled_for = Column(DateTime, nullable=False, index=True)
+```
+
+### DO NOT Index:
+- Boolean fields (low cardinality)
+- Text/JSON columns
+- Rarely queried fields
+- Fields already part of composite unique constraints
+
+---
+
+## FIELD NAMING CONVENTIONS (VERIFIED)
+
+### Boolean Fields - Use `is_` or `has_` Prefix
+```python
+# Status booleans
+is_active = Column(Boolean, default=True)
+is_online = Column(Boolean, default=False)
+is_published = Column(Boolean, default=False)
+is_verified = Column(Boolean, default=False)
+is_read = Column(Boolean, default=False)
+is_delivered = Column(Boolean, default=False)
+is_recurring = Column(Boolean, default=False)
+is_counter_offer = Column(Boolean, default=False)
+is_internal = Column(Boolean, default=False)
+
+# Feature flags
+is_vegetarian = Column(Boolean, default=False)
+is_vegan = Column(Boolean, default=False)
+is_gluten_free = Column(Boolean, default=False)
+is_spicy = Column(Boolean, default=False)
+is_available = Column(Boolean, default=True)
+
+# Document/verification booleans (no prefix - legacy pattern)
+w9_form = Column(Boolean, default=False)
+insurance = Column(Boolean, default=False)
+background_check = Column(Boolean, default=False)
+documents_verified = Column(Boolean, default=False)
+```
+
+### Timestamp Fields - Use `_at` Suffix
+```python
+created_at = Column(DateTime, default=datetime.utcnow)
+updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+approved_at = Column(DateTime)
+delivered_at = Column(DateTime)
+cancelled_at = Column(DateTime)
+sent_at = Column(DateTime)
+read_at = Column(DateTime)
+matched_at = Column(DateTime)
+published_at = Column(DateTime)
+verified_at = Column(DateTime)
+```
+
+### ID Fields
+```python
+# Database primary key
+id = Column(Integer, primary_key=True, index=True)
+
+# Business identifiers (string format)
+driver_id = Column(String(50))  # DRV-00001
+order_number = Column(String(50))  # ORD-20241221-001
+request_id = Column(String(50))  # RR-20241221-001
+
+# External system IDs
+stripe_customer_id = Column(String(255))
+stripe_account_id = Column(String(255))
+persona_inquiry_id = Column(String(255))
+coupa_invoice_id = Column(String(100))
+```
+
+### URL Fields - Use `_url` Suffix
+```python
+image_url = Column(String(500))
+photo_url = Column(String(500))
+drivers_license_url = Column(String(500))
+insurance_url = Column(String(500))
+w9_form_url = Column(String(500))
+```
+
+---
+
+## API ROUTING CONVENTIONS (VERIFIED)
+
+### URL Structure
+```
+/api/{resource}                    # Collection
+/api/{resource}/{id}               # Single item
+/api/{resource}/{id}/{action}      # Action on item
+/api/{resource}/{id}/{sub-resource} # Nested resource
+```
+
+### Auth Routes
+```python
+# Customer auth
+@app.post("/api/auth/customer/login")
+@app.post("/api/auth/customer/register")
+@app.post("/api/auth/customer/google")
+@app.get("/api/auth/customer/me")
+
+# Driver auth
+@app.post("/api/auth/driver/login")
+@app.post("/api/auth/driver/register")
+@app.post("/api/auth/driver/google")
+@app.post("/api/auth/driver/apple-auth")
+@app.get("/api/auth/driver/me")
+
+# Vendor auth
+@app.post("/api/auth/vendor/login")
+@app.post("/api/auth/vendor/register")
+@app.post("/api/auth/vendor/google-auth")
+@app.post("/api/auth/vendor/apple-auth")
+```
+
+### Resource Routes (CRUD)
+```python
+# Standard pattern
+@app.get("/api/vendors")                    # List
+@app.post("/api/vendors")                   # Create
+@app.get("/api/vendors/{vendor_id}")        # Read
+@app.put("/api/vendors/{vendor_id}")        # Update (full)
+@app.patch("/api/vendors/{vendor_id}")      # Update (partial)
+@app.delete("/api/vendors/{vendor_id}")     # Delete
+
+# Nested resources
+@app.get("/api/vendors/{vendor_id}/menu")
+@app.get("/api/vendors/{vendor_id}/documents")
+@app.post("/api/vendors/{vendor_id}/documents")
+```
+
+### Action Routes
+```python
+@app.patch("/api/vendors/{vendor_id}/status")
+@app.post("/api/orders/{order_id}/assign-driver")
+@app.post("/api/orders/{order_id}/picked-up")
+@app.post("/api/orders/{order_id}/delivered")
+@app.post("/api/rides/bid/{bid_id}/accept")
+@app.post("/api/rides/bid/{bid_id}/withdraw")
+```
+
+### Mobile Aliases (Support Both)
+```python
+# Some mobile apps use routes without /api prefix
+@app.post("/api/auth/driver/login")
+@app.post("/auth/driver/login")  # Alias for mobile apps
+
+@app.post("/api/auth/customer/login")
+@app.post("/auth/customer/login")  # Alias for mobile apps
+```
+
+---
+
+## AXIOS / HTTP CLIENT CONVENTIONS (VERIFIED)
+
+### Frontend (React/TypeScript)
+```typescript
+// api.ts - Centralized API client
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.dollor.ai';
+
+const api = axios.create({
+  baseURL: `${API_BASE_URL}/api`,
+});
+
+// Request interceptor for auth
+api.interceptors.request.use(async (config) => {
+  const token = localStorage.getItem("token")
+    || localStorage.getItem("id_token")
+    || localStorage.getItem("access_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Export named functions
+export const getOrders = async (params?: Record<string, unknown>) => {
+  const response = await api.get('/orders', { params });
+  return response.data;
+};
+```
+
+### iOS (Swift/URLSession)
+```swift
+// P2PAPIService.swift - Native URLSession
+private var baseURL: String {
+    return "\(AppConfig.shared.p2pAPIBaseURL)/api"
+}
+
+// Tokens in Keychain via SecureStorage
+private var customerToken: String? {
+    return SecureStorage.shared.customerAccessToken
+}
+
+// HTTP calls with URLSession
+URLSession.shared.dataTask(with: url) { data, response, error in
+    // Handle response
+}.resume()
+```
+
+### Android (Kotlin/Retrofit)
+```kotlin
+// DollorApiService.kt - Retrofit interface
+interface DollorApiService {
+    @GET("vendors/published")
+    suspend fun getPublishedVendors(@Query("platform") platform: String): List<Vendor>
+
+    @POST("auth/customer/login")
+    suspend fun customerLogin(@Body request: LoginRequest): LoginResponse
+}
+
+// AppConfig.kt
+object AppConfig {
+    const val API_BASE_URL = "https://api.dollor.ai/api/"
+}
+```
+
+---
+
+## ENUM PATTERNS (VERIFIED)
+
+### Status Enums
+```python
+class OrderStatus(enum.Enum):
+    PENDING_PAYMENT = "pending_payment"
+    CONFIRMED = "confirmed"
+    PENDING_RESTAURANT = "pending_restaurant"
+    PREPARING = "preparing"
+    READY_FOR_PICKUP = "ready_for_pickup"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+class VendorStatus(enum.Enum):
+    PENDING = "pending"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SUSPENDED = "suspended"
+
+class DriverStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+```
+
+### Column Definition with Enum
+```python
+status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING_PAYMENT)
+onboarding_status = Column(SQLEnum(VendorStatus), default=VendorStatus.PENDING)
+```
+
+---
+
 ## ANTI-HALLUCINATION RULES
 
 1. Backend is PYTHON FASTAPI (not Node.js/Kotlin)
@@ -428,6 +714,11 @@ cd apps/android
 3. Android is in `apps/android/` (not separate repo)
 4. Always verify file paths with `ls` before editing
 5. Run `python3 -m py_compile` before committing Python
+6. Boolean fields use `is_` prefix (except legacy document fields)
+7. Timestamps use `_at` suffix
+8. Always index: primary keys, unique identifiers, foreign keys for frequent queries
+9. API routes follow `/api/{resource}/{id}/{action}` pattern
+10. Mobile apps may use routes with or without `/api` prefix
 
 ---
 
