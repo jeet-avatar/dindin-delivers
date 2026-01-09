@@ -4043,20 +4043,27 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     """Request a password reset - sends code to email"""
     import random
 
+    print(f"[PWD_RESET] === Request for {request.email} ===")
+
     # Check if customer exists (Customer table stores customer accounts)
     customer = db.query(Customer).filter(Customer.email == request.email).first()
     if not customer:
+        print(f"[PWD_RESET] Not in Customer table, checking User table...")
         # Also check User table for fallback
         user = db.query(User).filter(User.email == request.email).first()
         if not user:
+            print(f"[PWD_RESET] Not found in any table - returning without sending email")
             # Don't reveal whether email exists for security
             return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
         customer_name = user.full_name or "Customer"
+        print(f"[PWD_RESET] Found in User table: {customer_name}")
     else:
         customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+        print(f"[PWD_RESET] Found in Customer table: {customer_name}")
 
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
+    print(f"[PWD_RESET] Generated code: {code}")
 
     # Store code with timestamp (expires in 15 minutes)
     from datetime import datetime, timedelta
@@ -4065,21 +4072,42 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         "expires": datetime.utcnow() + timedelta(minutes=15)
     }
 
+    # Log SMTP config for debugging
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pwd = os.getenv("SMTP_PASSWORD", "")
+    env = os.getenv("ENVIRONMENT", "unknown")
+    print(f"[PWD_RESET] SMTP config: user_set={bool(smtp_user)}, pwd_set={bool(smtp_pwd)}, env={env}")
+
     # Send password reset email
+    email_status = "unknown"
     try:
+        print(f"[PWD_RESET] Calling send_password_reset_email...")
         email_sent = send_password_reset_email(
             to_email=request.email,
             customer_name=customer_name,
             reset_code=code
         )
         if email_sent:
-            print(f"Password reset email sent to {request.email}")
+            print(f"[PWD_RESET] SUCCESS - email sent to {request.email}")
+            email_status = "sent"
         else:
-            print(f"Failed to send password reset email to {request.email}, code: {code}")
+            print(f"[PWD_RESET] FAILED - function returned False, code: {code}")
+            email_status = "failed"
     except Exception as e:
-        print(f"Error sending password reset email: {e}, code: {code}")
+        print(f"[PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
+        email_status = f"error: {str(e)}"
 
-    return {"success": True, "message": "Reset code sent to your email."}
+    # Return debug info temporarily
+    return {
+        "success": True,
+        "message": "Reset code sent to your email.",
+        "_debug": {
+            "email_status": email_status,
+            "smtp_configured": bool(smtp_user and smtp_pwd),
+            "environment": env,
+            "customer_found": customer is not None
+        }
+    }
 
 @app.post("/api/customer/password-reset/confirm")
 def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
