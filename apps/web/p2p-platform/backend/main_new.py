@@ -148,6 +148,23 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
+# ===================== SECURITY HEADERS =====================
+# Add security headers to all responses (OWASP recommendations)
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # Prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    # Prevent MIME type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # XSS protection (legacy browsers)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Referrer policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Permissions policy (disable sensitive features)
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
 # Mount static files for serving uploaded documents
 # Creates uploads directory if it doesn't exist
 import os
@@ -265,7 +282,9 @@ async def debug_test_email(email: str = Query(...), secret: str = Query(...)):
     Requires secret key for security.
     """
     import os
-    expected_secret = os.getenv("ADMIN_SECRET_KEY", "debug123")
+    expected_secret = os.getenv("ADMIN_SECRET_KEY")
+    if not expected_secret:
+        raise HTTPException(status_code=500, detail="ADMIN_SECRET_KEY not configured - debug endpoint disabled")
     if secret != expected_secret:
         raise HTTPException(status_code=403, detail="Invalid secret")
 
@@ -1232,7 +1251,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 # Vendor Login
 @app.post("/api/auth/vendor/login", response_model=Token)
-def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "vendor_login")
     print(f"Vendor login attempt for: {form_data.username}")
     
     # Find user with VENDOR role
@@ -1748,8 +1769,10 @@ class DriverLoginResponse(BaseModel):
 
 @app.post("/api/auth/driver/login")
 @app.post("/auth/driver/login")  # Alias for mobile apps without /api prefix
-def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "driver_login")
     print(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role
@@ -4933,8 +4956,10 @@ class CustomerPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
+def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
+    # SECURITY: Rate limit password reset requests to prevent abuse
+    check_rate_limit(http_request, auth_rate_limiter, "password_reset")
     import random
 
     print(f"[PWD_RESET] === Request for {request.email} ===")
@@ -4997,8 +5022,10 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     }
 
 @app.post("/api/customer/password-reset/confirm")
-def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
+def customer_confirm_password_reset(http_request: Request, request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
+    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
+    check_rate_limit(http_request, auth_rate_limiter, "password_reset_confirm")
     from datetime import datetime
 
     # Check if code exists and is valid
