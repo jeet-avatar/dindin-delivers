@@ -33,6 +33,7 @@ from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
+    send_password_reset_email,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
     send_driver_assigned_email, send_order_delivered_email,
@@ -92,12 +93,16 @@ PRODUCTION_ORIGINS = [
     "https://www.vibingticket.com",
     # Production Admin Panel (CloudFront)
     "https://d3pus2gxlb5cer.cloudfront.net",
+    # Staging Frontend (CloudFront)
+    "https://d3b3ow4g7hjwi5.cloudfront.net",
 ]
 
 # Staging origins (allowed in staging and development)
 STAGING_ORIGINS = [
     # Staging API (CloudFront) - Required for mobile apps and staging web
     "https://d3kuu45w6kl8hr.cloudfront.net",
+    # Staging Frontend (CloudFront)
+    "https://d3b3ow4g7hjwi5.cloudfront.net",
     # Staging Frontend (S3 bucket)
     "http://dollar-ai-staging-frontend.s3-website-us-east-1.amazonaws.com",
     # Staging subdomains
@@ -217,7 +222,7 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.1",
+        "version": "1.0.5",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -1650,55 +1655,12 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
         "email": user.email
     }
 
-# Password Reset Request
-@app.post("/api/auth/password-reset/request")
-def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
-    print(f"Password reset requested for: {request.email}")
-
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        # Don't reveal if email exists or not for security
-        return {"message": "If this email exists, a password reset link has been sent"}
-
-    # Generate reset token (valid for 1 hour)
-    reset_token = create_access_token(
-        data={"sub": user.email, "type": "password_reset"},
-        expires_delta=timedelta(hours=1)
-    )
-
-    # In production, send email with reset link
-    # For now, just log it
-    print(f"Password reset token for {user.email}: {reset_token[:50]}...")
-
-    # TODO: Integrate with email service (SendGrid, SES, etc.)
-    # send_password_reset_email(user.email, reset_token)
-
-    return {"message": "If this email exists, a password reset link has been sent"}
-
-# Password Reset Confirm
-@app.post("/api/auth/password-reset/confirm")
-def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(request.token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        token_type = payload.get("type")
-
-        if token_type != "password_reset":
-            raise HTTPException(status_code=400, detail="Invalid reset token")
-
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            raise HTTPException(status_code=400, detail="Invalid reset token")
-
-        # Update password
-        user.password_hash = get_password_hash(request.new_password)
-        db.commit()
-
-        print(f"Password reset successful for: {email}")
-        return {"message": "Password has been reset successfully"}
-
-    except JWTError:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+# ==================== REMOVED DEAD ENDPOINTS ====================
+# /api/auth/password-reset/request - Never sent emails, used JWT tokens
+# /api/auth/password-reset/confirm - Paired with dead request endpoint
+# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
+# These endpoints actually send emails via AWS SES and use 6-digit codes
+# ==============================================================
 
 # Helper function to get current vendor user
 def get_current_vendor_user(current_user: User = Depends(get_current_user)) -> User:
@@ -2303,57 +2265,8 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
     }
 
 
-# JSON-based customer login (alternative to OAuth2 form data)
-# Accepts both 'email' and 'username' fields for maximum compatibility
-@app.post("/api/auth/customer/login/json")
-@app.post("/auth/customer/login/json")  # Alias for mobile apps without /api prefix
-def customer_auth_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
-    """Customer login with JSON body - accepts email or username field"""
-    login_email = request.get_email()
-    if not login_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username is required"
-        )
-    print(f"Customer auth JSON login attempt for: {login_email}")
-
-    # Find customer by email
-    customer = db.query(Customer).filter(Customer.email == login_email).first()
-
-    if not customer:
-        print(f"Customer not found: {login_email}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not customer.password_hash or not verify_password(request.password, customer.password_hash):
-        print(f"Password verification failed for customer")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not customer.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Customer account is not active"
-        )
-
-    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-    print(f"Customer auth JSON login successful for: {customer.email}")
-    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "customer_id": customer.id,
-        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
-        "name": full_name,
-        "email": customer.email,
-        "phone": customer.phone
-    }
+# REMOVED: /api/auth/customer/login/json - Dead endpoint (no platform uses it)
+# All platforms use OAuth2 form-based /api/auth/customer/login or /auth/customer/login
 
 
 @app.post("/api/auth/customer/register")
@@ -3345,215 +3258,16 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
     }
 
 
-# iOS/Android-compatible customer login endpoint (matches /api/customer/login)
-# Accepts JSON body with email/password OR username/password (not OAuth2 form data)
-@app.post("/api/customer/login")
-def customer_login_json(request: CustomerLoginRequest, db: Session = Depends(get_db)):
-    """iOS/Android-compatible customer login endpoint - accepts JSON with email/password or username/password"""
-    # Get email from either 'email' or 'username' field
-    login_email = request.get_email()
-    if not login_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username is required"
-        )
-    print(f"Customer JSON login attempt for: {login_email}")
-
-    # Find customer by email
-    customer = db.query(Customer).filter(Customer.email == login_email).first()
-
-    if not customer:
-        print(f"Customer not found: {login_email}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not customer.password_hash or not verify_password(request.password, customer.password_hash):
-        print(f"Password verification failed for customer")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not customer.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Customer account is not active"
-        )
-
-    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-    access_token_expires = timedelta(hours=24)
-    access_token = create_access_token(
-        data={"sub": customer.email, "type": "customer", "id": customer.id},
-        expires_delta=access_token_expires
-    )
-
-    return CustomerLoginResponse(
-        access_token=access_token,
-        token_type="bearer",
-        customer_id=customer.id,
-        customer_code=customer.customer_id or f"CUST{customer.id:06d}",
-        name=full_name,
-        email=customer.email,
-        phone=customer.phone
-    )
-
-
-# ==================== iOS APP COMPATIBLE ENDPOINTS ====================
-# These endpoints match what the iOS driver app expects
-
-# iOS/Android-compatible driver login endpoint (matches /api/driver/login)
-# Accepts JSON body with email/password (not OAuth2 form data)
-class DriverLoginRequest(BaseModel):
-    email: Optional[str] = None
-    username: Optional[str] = None  # Alias for email
-    password: str
-
-    def get_email(self) -> Optional[str]:
-        return self.email or self.username
-
-@app.post("/api/driver/login")
-def driver_login_json(request: DriverLoginRequest, db: Session = Depends(get_db)):
-    """iOS/Android-compatible driver login endpoint - accepts JSON with email/password"""
-    login_email = request.get_email()
-    if not login_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username is required"
-        )
-    print(f"Driver JSON login attempt for: {login_email}")
-
-    # Find user with DRIVER role
-    user = db.query(User).filter(
-        User.email == login_email,
-        User.role == UserRole.DRIVER
-    ).first()
-
-    if not user:
-        print(f"Driver user not found: {login_email}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not verify_password(request.password, user.password_hash):
-        print(f"Password verification failed for driver")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Get driver record
-    driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-    if not driver:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Driver profile not found"
-        )
-
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Driver account is not active. Status: {driver.status.value}"
-        )
-
-    print(f"Driver login successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "driver_id": driver.id,
-        "driver_code": driver.driver_id,
-        "name": f"{driver.first_name} {driver.last_name}",
-        "email": driver.email,
-        "status": driver.status.value
-    }
-
-
-# iOS/Android-compatible vendor login endpoint (matches /api/vendor/login)
-# Accepts JSON body with email/password (not OAuth2 form data)
-class VendorLoginRequest(BaseModel):
-    email: Optional[str] = None
-    username: Optional[str] = None  # Alias for email
-    password: str
-
-    def get_email(self) -> Optional[str]:
-        return self.email or self.username
-
-@app.post("/api/vendor/login")
-def vendor_login_json(request: VendorLoginRequest, db: Session = Depends(get_db)):
-    """iOS/Android-compatible vendor login endpoint - accepts JSON with email/password"""
-    login_email = request.get_email()
-    if not login_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username is required"
-        )
-    print(f"Vendor JSON login attempt for: {login_email}")
-
-    # Find user with VENDOR role
-    user = db.query(User).filter(
-        User.email == login_email,
-        User.role == UserRole.VENDOR
-    ).first()
-
-    if not user:
-        print(f"Vendor user not found: {login_email}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not verify_password(request.password, user.password_hash):
-        print(f"Password verification failed for vendor")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Get vendor record
-    if not user.vendor_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vendor profile not found"
-        )
-
-    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-    if not vendor:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vendor profile not found"
-        )
-
-    # Check onboarding_status (not status)
-    if str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
-        )
-
-    print(f"Vendor login successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": vendor.id})
-
-    # Get business name from restaurant_name or company_name
-    business_name = vendor.restaurant_name or vendor.company_name
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "vendor_id": vendor.id,
-        "business_name": business_name,
-        "name": user.full_name,
-        "email": vendor.contact_email or user.email,
-        "status": str(vendor.onboarding_status)
-    }
+# ==================== REMOVED LEGACY ENDPOINTS ====================
+# The following endpoints were removed as they are not used by any platform:
+# - /api/customer/login (use /api/auth/customer/login or /auth/customer/login instead)
+# - /api/driver/login (use /api/auth/driver/login or /auth/driver/login instead)
+# - /api/vendor/login (use /api/auth/vendor/login or /auth/vendor/login instead)
+#
+# Active login endpoints by platform:
+# - iOS/Android: /auth/customer/login, /auth/driver/login, /auth/vendor/login (no /api prefix)
+# - WebApp: /api/auth/customer/login, /api/auth/driver/login, /api/auth/vendor/login
+# ===================================================================
 
 
 @app.get("/erp/drivers/{driver_id}")
@@ -4158,79 +3872,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
             )
 
 
-class CustomerGoogleAuthRequestV2(BaseModel):
-    """Google auth request v2 - requires email and name"""
-    email: str
-    name: str
-    google_id: Optional[str] = None
-    id_token: Optional[str] = None  # Android/iOS sends this
-
-    @property
-    def identifier(self) -> str:
-        """Get the Google identifier (id_token takes priority for mobile apps)"""
-        return self.id_token or self.google_id or ""
-
-@app.post("/api/customer/google-auth")
-def customer_google_auth_v2(request: CustomerGoogleAuthRequestV2, db: Session = Depends(get_db)):
-    """Google OAuth authentication for customers - handles both login and registration (v2 endpoint)"""
-    print(f"Customer Google auth for: {request.email}")
-    google_identifier = request.identifier
-
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email).first()
-
-    if not user:
-        # Create new user
-        hashed_password = get_password_hash(f"google_oauth_{google_identifier}")
-        user = User(
-            email=request.email,
-            password_hash=hashed_password,
-            full_name=request.name,
-            role=UserRole.USER
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new user for Google auth: {request.email}")
-
-    # Check if customer record exists
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
-
-    if not customer:
-        # Parse name into first_name and last_name
-        name_parts = request.name.split(" ", 1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-        # Generate unique customer_id
-        import random
-        customer_id = f"CUST{random.randint(100000, 999999)}"
-
-        # Create customer record with first_name/last_name to match database schema
-        customer = Customer(
-            customer_id=customer_id,
-            first_name=first_name,
-            last_name=last_name,
-            email=request.email
-        )
-        db.add(customer)
-        db.commit()
-        db.refresh(customer)
-        print(f"Created new customer record for: {request.email} with ID: {customer_id}")
-
-    # Generate token
-    access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
-
-    # Construct full name from first_name and last_name
-    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "customer_id": customer.id,
-        "name": full_name,
-        "email": user.email
-    }
+# REMOVED: /api/customer/google-auth (v2 duplicate endpoint)
+# Use /api/auth/customer/google or /auth/customer/google instead
 
 
 class CustomerAppleAuthRequest(BaseModel):
@@ -4361,11 +4004,17 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     """Request a password reset - sends code to email"""
     import random
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        # Don't reveal whether email exists for security
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+    # Check if customer exists (Customer table stores customer accounts)
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if not customer:
+        # Also check User table for fallback
+        user = db.query(User).filter(User.email == request.email).first()
+        if not user:
+            # Don't reveal whether email exists for security
+            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+        customer_name = user.full_name or "Customer"
+    else:
+        customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
 
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
@@ -4377,8 +4026,19 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         "expires": datetime.utcnow() + timedelta(minutes=15)
     }
 
-    # In production, send email here
-    print(f"Password reset code for {request.email}: {code}")
+    # Send password reset email
+    try:
+        email_sent = send_password_reset_email(
+            to_email=request.email,
+            customer_name=customer_name,
+            reset_code=code
+        )
+        if email_sent:
+            print(f"Password reset email sent to {request.email}")
+        else:
+            print(f"Failed to send password reset email to {request.email}, code: {code}")
+    except Exception as e:
+        print(f"Error sending password reset email: {e}, code: {code}")
 
     return {"success": True, "message": "Reset code sent to your email."}
 
@@ -4399,7 +4059,16 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    # Get user and update password
+    # Check Customer table first (where customer accounts are stored)
+    customer = db.query(Customer).filter(Customer.email == request.email).first()
+    if customer:
+        # Update customer password
+        customer.password_hash = get_password_hash(request.new_password)
+        db.commit()
+        del password_reset_codes[request.email]
+        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+    # Fallback to User table
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -13906,23 +13575,9 @@ async def proxy_customer_register(request: dict):
     return {"error": "Auth service unavailable", "fallback": True}
 
 
-@app.post("/api/erp/auth/password-reset/request")
-async def proxy_password_reset_request(request: dict):
-    """Proxy to auth-service: Request password reset"""
-    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/request", method="POST", json_data=request)
-    if result:
-        return result
-    return {"error": "Auth service unavailable", "fallback": True}
-
-
-@app.post("/api/erp/auth/password-reset/confirm")
-async def proxy_password_reset_confirm(request: dict):
-    """Proxy to auth-service: Confirm password reset"""
-    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/confirm", method="POST", json_data=request)
-    if result:
-        return result
-    return {"error": "Auth service unavailable", "fallback": True}
-
+# REMOVED: /api/erp/auth/password-reset/request - Dead proxy to non-existent auth-service
+# REMOVED: /api/erp/auth/password-reset/confirm - Dead proxy to non-existent auth-service
+# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
 
 # ==================== ORDER SERVICE PROXY ====================
 
@@ -15332,6 +14987,26 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             db.commit()
             results["created"].append("restaurant")
         else:
+            # Ensure User record exists for existing vendor
+            existing_user = db.query(User).filter(User.email == vendor_email).first()
+            if not existing_user:
+                vendor_user = User(
+                    email=vendor_email,
+                    password_hash=get_password_hash("DemoRestaurant2025!"),
+                    full_name="Demo Owner",
+                    role=UserRole.VENDOR,
+                    vendor_id=existing.id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(vendor_user)
+                db.commit()
+                results["created"].append("restaurant_user")
+            else:
+                # Update password to ensure it matches
+                existing_user.password_hash = get_password_hash("DemoRestaurant2025!")
+                existing_user.vendor_id = existing.id
+                existing_user.role = UserRole.VENDOR
+                db.commit()
             results["existing"].append("restaurant")
     except Exception as e:
         db.rollback()
@@ -15471,6 +15146,128 @@ def force_reset_demo_passwords(db: Session = Depends(get_db)):
             "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
         }
     }
+
+
+@app.post("/api/demo/setup-support-customer")
+def setup_support_customer(db: Session = Depends(get_db)):
+    """
+    Create or update support@dollor.ai as a customer account for web login testing.
+
+    IMPORTANT: Creates records in BOTH tables to work with:
+    - main_new.py (queries customers table directly)
+    - auth-service microservice (queries users table with role='CUSTOMER')
+    """
+    try:
+        customer_email = "support@dollor.ai"
+        customer_password = "DemoDollor123!"
+        new_hash = get_password_hash(customer_password)
+
+        # Check if customer exists in customers table
+        existing_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+
+        # Check if user exists in users table
+        existing_user = db.execute(
+            text("SELECT id, customer_id FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+
+        customer_id = None
+
+        if existing_customer:
+            # Update existing customer's password
+            db.execute(
+                text("UPDATE customers SET password_hash = :hash, is_active = true WHERE email = :email"),
+                {"hash": new_hash, "email": customer_email}
+            )
+            customer_id = existing_customer.id
+        else:
+            # Create new customer record
+            customer_code = f"SUPP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            new_customer = Customer(
+                customer_id=customer_code,
+                first_name="Support",
+                last_name="Admin",
+                email=customer_email,
+                phone="+14155550000",
+                password_hash=new_hash,
+                default_address={"street": "1 Dollor Plaza", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+                is_active=True,
+                is_verified=True,
+                loyalty_points=1000,
+                loyalty_tier="platinum",
+                total_orders=0,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_customer)
+            db.flush()  # Get the ID without committing
+            customer_id = new_customer.id
+
+        # Now handle the users table (for auth-service microservice compatibility)
+        if existing_user:
+            # Update existing user's password and link to customer
+            db.execute(
+                text("""
+                    UPDATE users
+                    SET password_hash = :hash, customer_id = :customer_id, role = 'CUSTOMER'
+                    WHERE email = :email
+                """),
+                {"hash": new_hash, "email": customer_email, "customer_id": customer_id}
+            )
+        else:
+            # Create new user record linked to customer
+            db.execute(
+                text("""
+                    INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+                    VALUES (:email, :hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+                """),
+                {
+                    "email": customer_email,
+                    "hash": new_hash,
+                    "full_name": "Support Admin",
+                    "customer_id": customer_id
+                }
+            )
+
+        db.commit()
+
+        # Verify password works in customers table
+        updated_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+        customer_verified = verify_password(customer_password, updated_customer.password_hash) if updated_customer else False
+
+        # Verify password works in users table
+        user_row = db.execute(
+            text("SELECT password_hash FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+        user_verified = verify_password(customer_password, user_row[0]) if user_row else False
+
+        if customer_verified and user_verified:
+            return {
+                "success": True,
+                "action": "created" if not existing_customer else "updated",
+                "customer_id": customer_id,
+                "email": customer_email,
+                "password": customer_password,
+                "message": "Support customer account created/updated in BOTH customers and users tables",
+                "tables_updated": ["customers", "users"],
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Password verification failed",
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
 
 
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
