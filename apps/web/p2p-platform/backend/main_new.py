@@ -6,6 +6,7 @@ handling food delivery and rideshare coordination.
 
 Version: 1.0.1
 """
+from __future__ import annotations
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
 from fastapi.staticfiles import StaticFiles
