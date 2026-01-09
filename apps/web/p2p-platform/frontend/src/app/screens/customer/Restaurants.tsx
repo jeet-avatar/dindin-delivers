@@ -266,97 +266,77 @@ const Restaurants: React.FC = () => {
           </Button>
         </Empty>
       ) : (
-        <Row gutter={[20, 20]}>
+        <div className="restaurant-grid">
           {filteredRestaurants.map(restaurant => (
-            <Col xs={24} sm={12} md={8} lg={6} xl={6} xxl={4} key={restaurant.id}>
-              <Card
-                className={`restaurant-card ${!restaurant.is_open ? 'closed' : ''}`}
-                hoverable={restaurant.is_open}
-                onClick={() => handleRestaurantClick(restaurant)}
-                cover={
-                  <div className="restaurant-image">
-                    {restaurant.image_url ? (
-                      <img
-                        src={restaurant.image_url}
-                        alt={restaurant.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          // Fallback to emoji on image load error
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          target.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <div className={`image-placeholder ${restaurant.image_url ? 'hidden' : ''}`}>
-                      <span className="cuisine-emoji-large">
-                        {cuisineCategories.find(c => c.key === restaurant.cuisine_type)?.emoji || '🍽️'}
-                      </span>
-                    </div>
-                    {!restaurant.is_open && (
-                      <div className="closed-overlay">
-                        <Tag color="red">Closed</Tag>
-                      </div>
-                    )}
-                    <div
-                      className="favorite-btn"
-                      onClick={(e) => toggleFavorite(restaurant.id, e)}
-                    >
-                      {restaurant.is_favorite ? (
-                        <HeartFilled style={{ color: '#ff4d4f' }} />
-                      ) : (
-                        <HeartOutlined />
-                      )}
-                    </div>
-                  </div>
-                }
-              >
-                <div className="restaurant-info">
-                  <div className="restaurant-header">
-                    <Title level={5} ellipsis style={{ margin: 0 }}>
-                      {restaurant.name}
-                    </Title>
-                    <div className="rating">
-                      <StarOutlined style={{ color: '#fadb14' }} />
-                      <span>{restaurant.rating.toFixed(1)}</span>
-                      <Text type="secondary">({restaurant.review_count})</Text>
-                    </div>
-                  </div>
-
-                  <Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: '4px 0' }}>
-                    {restaurant.description}
-                  </Paragraph>
-
-                  <div className="restaurant-meta">
-                    <Tag color="blue">{restaurant.cuisine_type}</Tag>
-                    <div className="meta-item">
-                      <ClockCircleOutlined />
-                      <span>{restaurant.delivery_time_min}-{restaurant.delivery_time_max} min</span>
-                    </div>
-                  </div>
-
-                  <div className="restaurant-footer">
-                    <div className="delivery-info">
-                      <Text type="secondary">
-                        ${restaurant.delivery_fee.toFixed(2)} delivery
-                      </Text>
-                      <Text type="secondary">•</Text>
-                      <Text type="secondary">
-                        ${restaurant.minimum_order} min
-                      </Text>
-                    </div>
-                  </div>
+            <div
+              key={restaurant.id}
+              className={`restaurant-card ${!restaurant.is_open ? 'closed' : ''}`}
+              onClick={() => handleRestaurantClick(restaurant)}
+            >
+              <div className="restaurant-info">
+                <div className="restaurant-name">{restaurant.name}</div>
+                <div className="restaurant-rating">
+                  <StarOutlined style={{ color: '#fadb14' }} />
+                  <span className="rating-value">{restaurant.rating.toFixed(1)}</span>
+                  <span className="review-count">({restaurant.review_count})</span>
                 </div>
-              </Card>
-            </Col>
+                <div className="restaurant-description">{restaurant.description}</div>
+                <div className="restaurant-meta">
+                  <Tag color="blue">{restaurant.cuisine_type}</Tag>
+                  <span className="meta-item">
+                    <ClockCircleOutlined />
+                    {restaurant.delivery_time_min}-{restaurant.delivery_time_max} min
+                  </span>
+                </div>
+                <div className="restaurant-footer">
+                  <span className="delivery-fee">${restaurant.delivery_fee.toFixed(2)} delivery</span>
+                  <span className="separator">•</span>
+                  <span className="min-order">${restaurant.minimum_order} min</span>
+                </div>
+              </div>
+              <div className="restaurant-image-container">
+                {restaurant.image_url ? (
+                  <img
+                    src={restaurant.image_url}
+                    alt={restaurant.name}
+                    className="restaurant-image"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`image-placeholder ${restaurant.image_url ? 'hidden' : ''}`}>
+                  <span className="cuisine-emoji-large">
+                    {cuisineCategories.find(c => c.key === restaurant.cuisine_type)?.emoji || '🍽️'}
+                  </span>
+                </div>
+                <div
+                  className="favorite-btn"
+                  onClick={(e) => toggleFavorite(restaurant.id, e)}
+                >
+                  {restaurant.is_favorite ? (
+                    <HeartFilled style={{ color: '#ff4d4f' }} />
+                  ) : (
+                    <HeartOutlined />
+                  )}
+                </div>
+              </div>
+              {!restaurant.is_open && (
+                <div className="closed-overlay">
+                  <Tag color="red">Closed</Tag>
+                </div>
+              )}
+            </div>
           ))}
-        </Row>
+        </div>
       )}
 
       <style>{`
         /* ============================================
-           RESTAURANTS PAGE - International-Level Design
-           Responsive breakpoints: 480, 640, 768, 1024, 1280px
+           RESTAURANTS PAGE - Horizontal Card Layout
+           Matching RestaurantDetail.tsx style
            ============================================ */
 
         .restaurants-page {
@@ -462,24 +442,33 @@ const Restaurants: React.FC = () => {
           gap: 16px;
         }
 
-        .restaurant-card {
-          border-radius: 16px;
-          overflow: hidden;
-          transition: all 0.2s ease;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
+        /* ============================================
+           HORIZONTAL CARD GRID - Like RestaurantDetail
+           ============================================ */
+
+        .restaurant-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+          gap: 20px;
         }
 
-        .restaurant-card .ant-card-body {
-          flex: 1;
+        .restaurant-card {
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
+          height: 160px;
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          border: 1px solid #e5e7eb;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          position: relative;
         }
 
         .restaurant-card:hover:not(.closed) {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+          border-color: #10B981;
         }
 
         .restaurant-card.closed {
@@ -487,34 +476,147 @@ const Restaurants: React.FC = () => {
           cursor: not-allowed;
         }
 
-        .restaurant-image {
-          height: 180px;
+        .restaurant-info {
+          flex: 1;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .restaurant-name {
+          font-size: 17px;
+          font-weight: 700;
+          color: #1f2937;
+          margin: 0 0 6px 0;
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .restaurant-rating {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .rating-value {
+          font-weight: 700;
+          font-size: 14px;
+          color: #1f2937;
+        }
+
+        .review-count {
+          color: #9ca3af;
+          font-size: 13px;
+        }
+
+        .restaurant-description {
+          font-size: 13px;
+          color: #6b7280;
+          line-height: 1.4;
+          margin-bottom: 8px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          flex: 1;
+        }
+
+        .restaurant-meta {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .meta-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: #6b7280;
+          font-size: 12px;
+        }
+
+        .restaurant-footer {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: auto;
+          padding-top: 8px;
+          font-size: 12px;
+          color: #6b7280;
+        }
+
+        .delivery-fee {
+          color: #059669;
+          font-weight: 600;
+        }
+
+        .separator {
+          color: #d1d5db;
+        }
+
+        .min-order {
+          color: #6b7280;
+        }
+
+        .restaurant-image-container {
+          width: 160px;
+          height: 160px;
+          flex-shrink: 0;
           position: relative;
           background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+
+        .restaurant-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .image-placeholder {
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
           height: 100%;
+          background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
         }
 
         .image-placeholder.hidden {
           display: none;
         }
 
-        .restaurant-image img {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+        .cuisine-emoji-large {
+          font-size: 48px;
         }
 
-        .cuisine-emoji-large {
-          font-size: 64px;
+        .favorite-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          font-size: 16px;
+          z-index: 2;
+        }
+
+        .favorite-btn:hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .closed-overlay {
@@ -527,93 +629,14 @@ const Restaurants: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-        }
-
-        .favorite-btn {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          font-size: 18px;
-        }
-
-        .favorite-btn:hover {
-          transform: scale(1.1);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .restaurant-info {
-          padding: 4px 0;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .restaurant-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 6px;
-          gap: 8px;
-        }
-
-        .restaurant-header h5 {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .rating {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-weight: 600;
-          font-size: 14px;
-          flex-shrink: 0;
-        }
-
-        .restaurant-meta {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px 12px;
-          margin: 8px 0;
-        }
-
-        .meta-item {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          color: #6b7280;
-          font-size: 13px;
-        }
-
-        .restaurant-footer {
-          padding-top: 12px;
-          border-top: 1px solid #f0f0f0;
-          margin-top: auto;
-        }
-
-        .delivery-info {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
+          z-index: 1;
         }
 
         /* ============================================
            RESPONSIVE BREAKPOINTS
            ============================================ */
 
-        /* Extra small devices (phones, 480px and down) */
+        /* Mobile (480px and down) */
         @media (max-width: 480px) {
           .restaurants-page {
             padding: 16px 12px;
@@ -644,68 +667,89 @@ const Restaurants: React.FC = () => {
             font-size: 11px;
           }
 
-          .restaurant-image {
-            height: 140px;
-          }
-
-          .cuisine-emoji-large {
-            font-size: 48px;
-          }
-
           .platform-fee-badge {
             padding: 10px 12px;
             font-size: 13px;
           }
-        }
 
-        /* Small devices (landscape phones, 481px to 640px) */
-        @media (min-width: 481px) and (max-width: 640px) {
-          .restaurants-page {
-            padding: 20px 16px;
+          .restaurant-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
           }
 
-          .restaurant-image {
+          .restaurant-card {
+            height: 140px;
+          }
+
+          .restaurant-image-container {
+            width: 120px;
+            height: 140px;
+          }
+
+          .restaurant-info {
+            padding: 12px;
+          }
+
+          .restaurant-name {
+            font-size: 15px;
+          }
+
+          .cuisine-emoji-large {
+            font-size: 40px;
+          }
+        }
+
+        /* Small tablets (481px to 768px) */
+        @media (min-width: 481px) and (max-width: 768px) {
+          .restaurant-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+
+          .restaurant-card {
+            height: 150px;
+          }
+
+          .restaurant-image-container {
+            width: 150px;
             height: 150px;
           }
         }
 
-        /* Medium devices (tablets, 641px to 768px) */
-        @media (min-width: 641px) and (max-width: 768px) {
-          .restaurants-page {
-            padding: 24px 20px;
-          }
-
-          .restaurant-image {
-            height: 160px;
-          }
-        }
-
-        /* Large devices (desktops, 769px to 1024px) */
+        /* Medium devices (769px to 1024px) */
         @media (min-width: 769px) and (max-width: 1024px) {
-          .restaurants-page {
-            padding: 24px 24px;
+          .restaurant-grid {
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 18px;
           }
         }
 
-        /* Extra large devices (large desktops, 1025px to 1280px) */
-        @media (min-width: 1025px) and (max-width: 1280px) {
-          .restaurants-page {
-            padding: 24px 32px;
-          }
-        }
-
-        /* XXL devices (1281px and up) */
-        @media (min-width: 1281px) {
+        /* Large devices (1025px and up) */
+        @media (min-width: 1025px) {
           .restaurants-page {
             padding: 32px 40px;
           }
 
-          .restaurant-image {
-            height: 200px;
+          .restaurant-grid {
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 24px;
+          }
+
+          .restaurant-card {
+            height: 170px;
+          }
+
+          .restaurant-image-container {
+            width: 170px;
+            height: 170px;
+          }
+
+          .restaurant-name {
+            font-size: 18px;
           }
 
           .cuisine-emoji-large {
-            font-size: 72px;
+            font-size: 56px;
           }
         }
       `}</style>
