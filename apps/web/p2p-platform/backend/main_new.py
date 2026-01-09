@@ -11,6 +11,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_, text
@@ -2846,6 +2847,386 @@ def get_email_verification_status(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+
+# ==================== EMAIL MANAGEMENT ENDPOINTS ====================
+# Unsubscribe, tracking, and notification preferences
+
+from email_service import verify_unsubscribe_token, generate_email_footer
+
+class NotificationPreferencesUpdate(BaseModel):
+    """Model for updating notification preferences"""
+    email_order_updates: Optional[bool] = None
+    email_promotions: Optional[bool] = None
+    email_newsletters: Optional[bool] = None
+    push_order_updates: Optional[bool] = None
+    push_promotions: Optional[bool] = None
+    sms_order_updates: Optional[bool] = None
+    sms_promotions: Optional[bool] = None
+
+
+@app.get("/api/email/unsubscribe")
+def handle_email_unsubscribe(
+    token: str = Query(..., description="Signed unsubscribe token"),
+    db: Session = Depends(get_db)
+):
+    """
+    Handle email unsubscribe requests (CAN-SPAM compliance).
+    Validates the signed token and updates user's email preferences.
+    """
+    # Verify the unsubscribe token
+    is_valid, email, recipient_type = verify_unsubscribe_token(token)
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired unsubscribe link. Please use the link from a recent email."
+        )
+
+    try:
+        # Update preferences based on recipient type
+        if recipient_type == "customer":
+            customer = db.query(Customer).filter(Customer.email == email).first()
+            if customer:
+                # Set all email marketing preferences to False
+                prefs = customer.notification_preferences or {}
+                prefs["email_promotions"] = False
+                prefs["email_newsletters"] = False
+                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
+                customer.notification_preferences = prefs
+                db.commit()
+                logger.info(f"Customer {email} unsubscribed from marketing emails")
+
+        elif recipient_type == "vendor":
+            vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
+            if vendor:
+                prefs = vendor.notification_preferences or {}
+                prefs["email_promotions"] = False
+                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
+                vendor.notification_preferences = prefs
+                db.commit()
+                logger.info(f"Vendor {email} unsubscribed from marketing emails")
+
+        elif recipient_type == "driver":
+            driver = db.query(Driver).filter(Driver.email == email).first()
+            if driver:
+                prefs = driver.notification_preferences or {}
+                prefs["email_promotions"] = False
+                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
+                driver.notification_preferences = prefs
+                db.commit()
+                logger.info(f"Driver {email} unsubscribed from marketing emails")
+
+        # Return a user-friendly HTML page
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Unsubscribed - Dollor.ai</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                       background: #f5f5f5; margin: 0; padding: 40px; text-align: center; }}
+                .container {{ max-width: 500px; margin: 0 auto; background: white; padding: 40px;
+                             border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                h1 {{ color: #1a1a2e; }}
+                p {{ color: #64748b; line-height: 1.6; }}
+                .checkmark {{ font-size: 48px; margin-bottom: 20px; }}
+                a {{ color: #ffd700; text-decoration: none; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="checkmark">✓</div>
+                <h1>You've been unsubscribed</h1>
+                <p>You will no longer receive marketing emails from Dollor.ai.</p>
+                <p>You'll still receive important transactional emails about your orders and account.</p>
+                <p style="margin-top: 30px;">
+                    <a href="https://dollor.ai">Return to Dollor.ai</a>
+                </p>
+            </div>
+        </body>
+        </html>
+        """, status_code=200)
+
+    except Exception as e:
+        logger.error(f"Error processing unsubscribe: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process unsubscribe request")
+
+
+@app.get("/api/email/track/open/{communication_id}")
+def track_email_open(
+    communication_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Track email opens via 1x1 tracking pixel.
+    Updates the Communication record with open timestamp.
+    """
+    try:
+        from models_extended import Communication, CommunicationStatus
+
+        # Find the communication record
+        comm = db.query(Communication).filter(
+            Communication.communication_id == communication_id
+        ).first()
+
+        if comm and not comm.read_at:
+            comm.read_at = datetime.utcnow()
+            comm.status = CommunicationStatus.READ
+            db.commit()
+            logger.info(f"Email open tracked: {communication_id}")
+
+    except Exception as e:
+        logger.error(f"Error tracking email open: {e}")
+        # Don't raise - tracking failures should be silent
+
+    # Return a 1x1 transparent GIF
+    gif_bytes = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+    from fastapi.responses import Response
+    return Response(content=gif_bytes, media_type="image/gif")
+
+
+@app.get("/api/customer/{customer_id}/notification-preferences")
+def get_customer_notification_preferences(
+    customer_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get customer's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_customer_id = payload.get("customer_id")
+
+        # Verify customer is accessing their own preferences
+        if str(token_customer_id) != str(customer_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Return preferences with defaults
+        prefs = customer.notification_preferences or {}
+        return {
+            "customer_id": customer_id,
+            "email": customer.email,
+            "preferences": {
+                "email_order_updates": prefs.get("email_order_updates", True),
+                "email_promotions": prefs.get("email_promotions", True),
+                "email_newsletters": prefs.get("email_newsletters", True),
+                "push_order_updates": prefs.get("push_order_updates", True),
+                "push_promotions": prefs.get("push_promotions", True),
+                "sms_order_updates": prefs.get("sms_order_updates", False),
+                "sms_promotions": prefs.get("sms_promotions", False)
+            },
+            "unsubscribed_at": prefs.get("unsubscribed_at"),
+            "updated_at": prefs.get("updated_at")
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.put("/api/customer/{customer_id}/notification-preferences")
+def update_customer_notification_preferences(
+    customer_id: int,
+    preferences: NotificationPreferencesUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Update customer's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_customer_id = payload.get("customer_id")
+
+        # Verify customer is updating their own preferences
+        if str(token_customer_id) != str(customer_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Update only provided fields
+        current_prefs = customer.notification_preferences or {}
+        update_data = preferences.model_dump(exclude_none=True)
+
+        for key, value in update_data.items():
+            current_prefs[key] = value
+
+        current_prefs["updated_at"] = datetime.utcnow().isoformat()
+        customer.notification_preferences = current_prefs
+        db.commit()
+
+        logger.info(f"Updated notification preferences for customer {customer_id}")
+
+        return {
+            "success": True,
+            "customer_id": customer_id,
+            "preferences": current_prefs,
+            "message": "Notification preferences updated successfully"
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.get("/api/vendor/{vendor_id}/notification-preferences")
+def get_vendor_notification_preferences(
+    vendor_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get vendor's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+
+        if str(token_vendor_id) != str(vendor_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+
+        prefs = vendor.notification_preferences or {}
+        return {
+            "vendor_id": vendor_id,
+            "email": vendor.contact_email,
+            "preferences": {
+                "email_new_orders": prefs.get("email_new_orders", True),
+                "email_order_updates": prefs.get("email_order_updates", True),
+                "email_promotions": prefs.get("email_promotions", True),
+                "push_new_orders": prefs.get("push_new_orders", True),
+                "push_order_updates": prefs.get("push_order_updates", True),
+                "sms_new_orders": prefs.get("sms_new_orders", False)
+            },
+            "unsubscribed_at": prefs.get("unsubscribed_at"),
+            "updated_at": prefs.get("updated_at")
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.put("/api/vendor/{vendor_id}/notification-preferences")
+def update_vendor_notification_preferences(
+    vendor_id: int,
+    preferences: dict,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Update vendor's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+
+        if str(token_vendor_id) != str(vendor_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+
+        current_prefs = vendor.notification_preferences or {}
+        for key, value in preferences.items():
+            if key not in ["unsubscribed_at", "updated_at"]:  # Protect system fields
+                current_prefs[key] = value
+
+        current_prefs["updated_at"] = datetime.utcnow().isoformat()
+        vendor.notification_preferences = current_prefs
+        db.commit()
+
+        logger.info(f"Updated notification preferences for vendor {vendor_id}")
+
+        return {
+            "success": True,
+            "vendor_id": vendor_id,
+            "preferences": current_prefs,
+            "message": "Notification preferences updated successfully"
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.get("/api/driver/{driver_id}/notification-preferences")
+def get_driver_notification_preferences(
+    driver_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get driver's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_driver_id = payload.get("driver_id")
+
+        if str(token_driver_id) != str(driver_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        prefs = driver.notification_preferences or {}
+        return {
+            "driver_id": driver_id,
+            "email": driver.email,
+            "preferences": {
+                "email_new_deliveries": prefs.get("email_new_deliveries", True),
+                "email_earnings": prefs.get("email_earnings", True),
+                "email_promotions": prefs.get("email_promotions", True),
+                "push_new_deliveries": prefs.get("push_new_deliveries", True),
+                "push_earnings": prefs.get("push_earnings", True),
+                "sms_new_deliveries": prefs.get("sms_new_deliveries", False)
+            },
+            "unsubscribed_at": prefs.get("unsubscribed_at"),
+            "updated_at": prefs.get("updated_at")
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.put("/api/driver/{driver_id}/notification-preferences")
+def update_driver_notification_preferences(
+    driver_id: int,
+    preferences: dict,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Update driver's notification preferences"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_driver_id = payload.get("driver_id")
+
+        if str(token_driver_id) != str(driver_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        current_prefs = driver.notification_preferences or {}
+        for key, value in preferences.items():
+            if key not in ["unsubscribed_at", "updated_at"]:
+                current_prefs[key] = value
+
+        current_prefs["updated_at"] = datetime.utcnow().isoformat()
+        driver.notification_preferences = current_prefs
+        db.commit()
+
+        logger.info(f"Updated notification preferences for driver {driver_id}")
+
+        return {
+            "success": True,
+            "driver_id": driver_id,
+            "preferences": current_prefs,
+            "message": "Notification preferences updated successfully"
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 # ==================== RIDESHARE ENDPOINTS ====================

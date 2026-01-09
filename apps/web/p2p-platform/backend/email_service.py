@@ -43,6 +43,127 @@ FROM_NAME = os.getenv("FROM_NAME", "Dollor.ai")
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = [1, 2, 4]  # Exponential backoff: 1s, 2s, 4s
 
+# Base URLs for links
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.dollor.ai")
+WEB_BASE_URL = os.getenv("WEB_BASE_URL", "https://dollor.ai")
+
+# Secret for signing unsubscribe tokens
+UNSUBSCRIBE_SECRET = os.getenv("UNSUBSCRIBE_SECRET", "dollor-unsubscribe-secret-change-in-prod")
+
+
+def _generate_unsubscribe_token(email: str, recipient_type: str) -> str:
+    """
+    Generate a signed token for unsubscribe links.
+    Token format: base64(email:recipient_type:timestamp:signature)
+    """
+    import hashlib
+    import base64
+
+    timestamp = str(int(datetime.utcnow().timestamp()))
+    data = f"{email}:{recipient_type}:{timestamp}"
+    signature = hashlib.sha256(f"{data}:{UNSUBSCRIBE_SECRET}".encode()).hexdigest()[:16]
+    token = base64.urlsafe_b64encode(f"{data}:{signature}".encode()).decode()
+    return token
+
+
+def verify_unsubscribe_token(token: str, max_age_days: int = 30) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Verify an unsubscribe token and extract email and recipient type.
+    Returns: (is_valid, email, recipient_type)
+    """
+    import hashlib
+    import base64
+
+    try:
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.split(":")
+        if len(parts) != 4:
+            return False, None, None
+
+        email, recipient_type, timestamp, signature = parts
+
+        # Verify signature
+        data = f"{email}:{recipient_type}:{timestamp}"
+        expected_sig = hashlib.sha256(f"{data}:{UNSUBSCRIBE_SECRET}".encode()).hexdigest()[:16]
+        if signature != expected_sig:
+            logger.warning(f"Invalid unsubscribe token signature for {email}")
+            return False, None, None
+
+        # Check token age
+        token_time = int(timestamp)
+        current_time = int(datetime.utcnow().timestamp())
+        max_age_seconds = max_age_days * 24 * 60 * 60
+        if current_time - token_time > max_age_seconds:
+            logger.warning(f"Expired unsubscribe token for {email}")
+            return False, None, None
+
+        return True, email, recipient_type
+
+    except Exception as e:
+        logger.error(f"Error verifying unsubscribe token: {e}")
+        return False, None, None
+
+
+def generate_unsubscribe_link(email: str, recipient_type: str = "customer") -> str:
+    """Generate a full unsubscribe URL with signed token."""
+    token = _generate_unsubscribe_token(email, recipient_type)
+    return f"{API_BASE_URL}/api/email/unsubscribe?token={token}"
+
+
+def generate_tracking_pixel(communication_id: str) -> str:
+    """
+    Generate an HTML tracking pixel for email open tracking.
+    The pixel URL will be hit when the email is opened.
+    """
+    tracking_url = f"{API_BASE_URL}/api/email/track/open/{communication_id}"
+    return f'<img src="{tracking_url}" width="1" height="1" style="display:none;" alt="" />'
+
+
+def generate_email_footer(
+    email: str,
+    recipient_type: str = "customer",
+    include_unsubscribe: bool = True,
+    communication_id: str = None
+) -> str:
+    """
+    Generate a standard email footer with unsubscribe link and tracking pixel.
+    CAN-SPAM compliant footer for all marketing/transactional emails.
+    """
+    unsubscribe_link = generate_unsubscribe_link(email, recipient_type)
+    preferences_link = f"{WEB_BASE_URL}/{recipient_type}/settings/notifications"
+
+    tracking_pixel = ""
+    if communication_id:
+        tracking_pixel = generate_tracking_pixel(communication_id)
+
+    footer = f"""
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; color: #64748b; text-align: center;">
+            <tr>
+                <td style="padding: 10px 0;">
+                    <p style="margin: 0 0 10px 0;">© {datetime.utcnow().year} Dollor.ai - The $1 Delivery Platform</p>
+                    <p style="margin: 0 0 10px 0;">
+                        <a href="{WEB_BASE_URL}/terms" style="color: #64748b; text-decoration: underline;">Terms</a> |
+                        <a href="{WEB_BASE_URL}/privacy" style="color: #64748b; text-decoration: underline;">Privacy</a> |
+                        <a href="{WEB_BASE_URL}/support" style="color: #64748b; text-decoration: underline;">Support</a>
+                    </p>
+                </td>
+            </tr>
+            {"<tr><td style='padding: 10px 0;'><p style='margin: 0;'>Don't want these emails? <a href=\"" + unsubscribe_link + "\" style=\"color: #64748b; text-decoration: underline;\">Unsubscribe</a> or <a href=\"" + preferences_link + "\" style=\"color: #64748b; text-decoration: underline;\">Manage Preferences</a></p></td></tr>" if include_unsubscribe else ""}
+            <tr>
+                <td style="padding: 10px 0;">
+                    <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                        Dollor.ai, Inc. | 123 Tech Street, San Francisco, CA 94105
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {tracking_pixel}
+    """
+    return footer
+
+
 # Validate production configuration
 def _validate_smtp_config() -> bool:
     """Check if SMTP is properly configured for sending emails."""
