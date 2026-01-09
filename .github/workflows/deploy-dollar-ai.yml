@@ -122,14 +122,8 @@ jobs:
             echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
             echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
 
-            # Create virtual environment if it doesn't exist
-            if [ ! -d "venv" ]; then
-              python3.11 -m venv venv
-            fi
-
-            # Activate and install dependencies (continue on error)
+            # Activate existing venv (don't reinstall - packages already working)
             source venv/bin/activate
-            pip install -r requirements.txt --ignore-installed 2>&1 | tail -5 || echo "Some pip packages may have failed, continuing..."
 
             # Force kill ALL uvicorn and python processes related to the app
             echo "=== Restarting backend service ==="
