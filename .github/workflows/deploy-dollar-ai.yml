@@ -115,6 +115,13 @@ jobs:
           ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
             cd /opt/dollor-backend
 
+            # Verify .env configuration
+            echo "=== Verifying .env configuration ==="
+            echo "ENVIRONMENT=$(grep '^ENVIRONMENT=' .env | cut -d'=' -f2)"
+            echo "SMTP_HOST=$(grep '^SMTP_HOST=' .env | cut -d'=' -f2 | head -c 20)..."
+            echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
+            echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
+
             # Create virtual environment if it doesn't exist
             if [ ! -d "venv" ]; then
               python3.11 -m venv venv
@@ -122,29 +129,31 @@ jobs:
 
             # Activate and install dependencies
             source venv/bin/activate
-            pip install -r requirements.txt
+            pip install -r requirements.txt -q
 
             # Run database migrations/seeding if needed
-            python seed_menu_items.py
+            python seed_menu_items.py 2>/dev/null || true
 
-            # Restart the service using PM2 or systemd
-            if command -v pm2 &> /dev/null; then
-              pm2 restart dollor-backend || pm2 start "uvicorn main_new:app --host 0.0.0.0 --port 3000" --name dollor-backend
+            # Force kill any existing uvicorn process
+            echo "=== Restarting backend service ==="
+            pkill -9 -f "uvicorn main_new:app" 2>/dev/null || true
+            sleep 3
+
+            # Start uvicorn with explicit env loading
+            cd /opt/dollor-backend
+            source venv/bin/activate
+            nohup python -c "from dotenv import load_dotenv; load_dotenv(); import uvicorn; uvicorn.run('main_new:app', host='0.0.0.0', port=3000)" > /opt/dollor-backend/backend.log 2>&1 &
+
+            sleep 5
+            echo "Process started with PID: $(pgrep -f 'uvicorn')"
+
+            # Verify it's running
+            if pgrep -f "uvicorn" > /dev/null; then
+              echo "Backend service started successfully!"
             else
-              # Use systemd if available
-              if systemctl is-active --quiet dollor-backend 2>/dev/null; then
-                sudo systemctl restart dollor-backend
-              else
-                # Fallback to direct run in background with user-accessible log
-                pkill -f "uvicorn main_new:app" || true
-                sleep 2
-                nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /opt/dollor-backend/backend.log 2>&1 &
-                sleep 3
-                echo "Process started with PID: $(pgrep -f 'uvicorn main_new:app')"
-              fi
+              echo "WARNING: Backend service may not have started!"
+              tail -20 /opt/dollor-backend/backend.log
             fi
-
-            echo "Backend deployment complete!"
           EOF
 
   deploy-ecs:
