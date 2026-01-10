@@ -278,6 +278,68 @@ def validate_file_magic_bytes(content: bytes, content_type: str, filename: str) 
 
     return False, f"File content does not match declared type ({normalized_type}). File may be corrupted or mislabeled."
 
+# ===================== SECURITY EVENT LOGGING =====================
+# SECURITY: Log security-relevant events for audit trail and incident response
+
+class SecurityEventType:
+    """Security event types for logging"""
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    LOGIN_FAILED = "LOGIN_FAILED"
+    REGISTRATION = "REGISTRATION"
+    PASSWORD_RESET_REQUEST = "PASSWORD_RESET_REQUEST"
+    PASSWORD_RESET_COMPLETE = "PASSWORD_RESET_COMPLETE"
+    PASSWORD_CHANGED = "PASSWORD_CHANGED"
+    ACCOUNT_LOCKED = "ACCOUNT_LOCKED"
+    SUSPICIOUS_ACTIVITY = "SUSPICIOUS_ACTIVITY"
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
+    FILE_UPLOAD = "FILE_UPLOAD"
+    ADMIN_ACTION = "ADMIN_ACTION"
+
+def log_security_event(
+    event_type: str,
+    user_email: str = None,
+    user_id: int = None,
+    ip_address: str = None,
+    user_agent: str = None,
+    details: dict = None,
+    success: bool = True
+):
+    """
+    Log a security event for audit trail.
+
+    Args:
+        event_type: Type of security event (see SecurityEventType)
+        user_email: Email of the user involved
+        user_id: ID of the user involved
+        ip_address: Client IP address
+        user_agent: Client user agent string
+        details: Additional event details
+        success: Whether the action was successful
+    """
+    event_data = {
+        "event_type": event_type,
+        "timestamp": datetime.utcnow().isoformat(),
+        "success": success,
+        "user_email": user_email,
+        "user_id": user_id,
+        "ip_address": ip_address,
+        "user_agent": user_agent[:200] if user_agent else None,  # Truncate for safety
+        "details": details or {}
+    }
+
+    # Log to application logger with appropriate level
+    if success:
+        logger.info(f"SECURITY_EVENT: {event_type} - {event_data}")
+    else:
+        logger.warning(f"SECURITY_EVENT: {event_type} - {event_data}")
+
+def get_client_info(request: Request) -> tuple[str, str]:
+    """Extract client IP and user agent from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    user_agent = request.headers.get("User-Agent", "unknown")
+    return client_ip, user_agent
+
 # Health Check Endpoint
 @app.get("/health")
 @app.get("/api/health")
@@ -716,6 +778,53 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+# ===================== PASSWORD SECURITY =====================
+# SECURITY: Enforce password complexity requirements
+import re
+
+def validate_password_complexity(password: str) -> tuple[bool, str]:
+    """
+    Validate password meets security requirements.
+
+    Requirements:
+    - Minimum 8 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not password:
+        return False, "Password is required"
+
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+
+    if len(password) > 128:
+        return False, "Password must be less than 128 characters"
+
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one digit"
+
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;\'`~]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
+
+    return True, ""
+
+def require_valid_password(password: str):
+    """Validate password and raise HTTPException if invalid."""
+    is_valid, error_msg = validate_password_complexity(password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -1278,14 +1387,23 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/auth/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
-    if not _is_production:
-        logger.debug(f"Login attempt for: {form_data.username}")
+def login(http_request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(http_request, auth_rate_limiter, "login")
+
+    client_ip, user_agent = get_client_info(http_request)
+
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        if not _is_production:
-            logger.debug("Auth failed: user not found")
+        # SECURITY: Log failed login attempt
+        log_security_event(
+            SecurityEventType.LOGIN_FAILED,
+            user_email=form_data.username,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"reason": "user_not_found"},
+            success=False
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1293,15 +1411,32 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        if not _is_production:
-            logger.debug("Auth failed: invalid password")
+        # SECURITY: Log failed login attempt
+        log_security_event(
+            SecurityEventType.LOGIN_FAILED,
+            user_email=form_data.username,
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"reason": "invalid_password"},
+            success=False
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    logger.info(f"Login successful: user_id={user.id}")
+    # SECURITY: Log successful login
+    log_security_event(
+        SecurityEventType.LOGIN_SUCCESS,
+        user_email=user.email,
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"role": str(user.role)}
+    )
+
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -1314,9 +1449,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "vendor_login")
-    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
-    if not _is_production:
-        logger.debug(f"Vendor login attempt for: {form_data.username}")
+
+    client_ip, user_agent = get_client_info(request)
 
     # Find user with VENDOR role
     user = db.query(User).filter(
@@ -1325,8 +1459,14 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     ).first()
 
     if not user:
-        if not _is_production:
-            logger.debug("Vendor auth failed: user not found")
+        log_security_event(
+            SecurityEventType.LOGIN_FAILED,
+            user_email=form_data.username,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"reason": "user_not_found", "account_type": "vendor"},
+            success=False
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1334,24 +1474,39 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        if not _is_production:
-            logger.debug("Vendor auth failed: invalid password")
+        log_security_event(
+            SecurityEventType.LOGIN_FAILED,
+            user_email=form_data.username,
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"reason": "invalid_password", "account_type": "vendor"},
+            success=False
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Check if vendor account is active
     if user.vendor_id:
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
         if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+                detail="Vendor account is pending approval"
             )
-    
-    print(f"Vendor login successful for: {user.email}")
+
+    # SECURITY: Log successful login
+    log_security_event(
+        SecurityEventType.LOGIN_SUCCESS,
+        user_email=user.email,
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"account_type": "vendor", "vendor_id": user.vendor_id}
+    )
 
     # Get vendor business name for Android compatibility
     business_name = None
@@ -1513,6 +1668,9 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password is required and cannot be empty"
             )
+
+        # SECURITY: Validate password complexity
+        require_valid_password(request.password)
 
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
@@ -1929,6 +2087,9 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
     print(f"Driver registration attempt for: {request.email}")
 
     try:
+        # SECURITY: Validate password complexity
+        require_valid_password(request.password)
+
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
@@ -2421,35 +2582,8 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
                 detail="Email already registered"
             )
 
-        # Validate password is not empty and meets security requirements
-        if not request.password or len(request.password.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password is required and cannot be empty"
-            )
-
-        # SECURITY: Enforce password policy
-        password = request.password
-        if len(password) < 8:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long"
-            )
-        if not any(c.isupper() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one uppercase letter"
-            )
-        if not any(c.islower() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one lowercase letter"
-            )
-        if not any(c.isdigit() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one number"
-            )
+        # SECURITY: Validate password complexity using centralized validation
+        require_valid_password(request.password)
 
         # Split name (accepts both 'name' and 'full_name' fields)
         customer_name = request.get_name()
@@ -4818,12 +4952,8 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
                 detail="Email already registered"
             )
 
-        # Validate password is not empty
-        if not request.password or len(request.password.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password is required and cannot be empty"
-            )
+        # SECURITY: Validate password complexity using centralized validation
+        require_valid_password(request.password)
 
         # Split name into first and last name (accepts both 'name' and 'full_name')
         customer_name = request.get_name()
@@ -5108,6 +5238,9 @@ def customer_confirm_password_reset(http_request: Request, request: CustomerPass
     check_rate_limit(http_request, auth_rate_limiter, "password_reset_confirm")
     from datetime import datetime
 
+    # SECURITY: Validate password complexity before processing
+    require_valid_password(request.new_password)
+
     # Check if code exists and is valid
     reset_data = password_reset_codes.get(request.email)
     if not reset_data:
@@ -5120,6 +5253,9 @@ def customer_confirm_password_reset(http_request: Request, request: CustomerPass
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
+    # Get client info for security logging
+    client_ip, user_agent = get_client_info(http_request)
+
     # Check Customer table first (where customer accounts are stored)
     customer = db.query(Customer).filter(Customer.email == request.email).first()
     if customer:
@@ -5127,12 +5263,23 @@ def customer_confirm_password_reset(http_request: Request, request: CustomerPass
         customer.password_hash = get_password_hash(request.new_password)
         db.commit()
         del password_reset_codes[request.email]
+
+        # SECURITY: Log password reset event
+        log_security_event(
+            SecurityEventType.PASSWORD_RESET_COMPLETE,
+            user_email=request.email,
+            user_id=customer.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"account_type": "customer"}
+        )
         return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
     # Fallback to User table
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # SECURITY: Generic error to prevent user enumeration
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
     # Update password
     user.password_hash = get_password_hash(request.new_password)
@@ -5140,6 +5287,16 @@ def customer_confirm_password_reset(http_request: Request, request: CustomerPass
 
     # Remove used code
     del password_reset_codes[request.email]
+
+    # SECURITY: Log password reset event
+    log_security_event(
+        SecurityEventType.PASSWORD_RESET_COMPLETE,
+        user_email=request.email,
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"account_type": "user", "role": str(user.role)}
+    )
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
