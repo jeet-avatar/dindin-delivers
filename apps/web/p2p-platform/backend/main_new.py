@@ -207,8 +207,13 @@ class RateLimiter:
         return max(0, int(self.window_seconds - (time.time() - oldest)))
 
 # Rate limiters for different endpoints
-auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
-registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 registrations per 5 minutes
+# SECURITY: Strict rate limiting to prevent brute force attacks
+# 5 attempts per minute for auth endpoints (stricter to prevent credential stuffing)
+auth_rate_limiter = RateLimiter(max_requests=5, window_seconds=60)
+# 3 registrations per 5 minutes (prevents spam account creation)
+registration_rate_limiter = RateLimiter(max_requests=3, window_seconds=300)
+# Password reset rate limiter (prevents enumeration and abuse)
+password_reset_rate_limiter = RateLimiter(max_requests=3, window_seconds=300)
 
 def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
     """Check rate limit and raise HTTPException if exceeded"""
@@ -5168,8 +5173,8 @@ class CustomerPasswordResetConfirm(BaseModel):
 @app.post("/api/customer/password-reset/request")
 def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
-    # SECURITY: Rate limit password reset requests to prevent abuse
-    check_rate_limit(http_request, auth_rate_limiter, "password_reset")
+    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
     import random
 
     print(f"[PWD_RESET] === Request for {request.email} ===")
@@ -5235,7 +5240,7 @@ def customer_request_password_reset(http_request: Request, request: CustomerPass
 def customer_confirm_password_reset(http_request: Request, request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
     # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
-    check_rate_limit(http_request, auth_rate_limiter, "password_reset_confirm")
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
     from datetime import datetime
 
     # SECURITY: Validate password complexity before processing
@@ -9008,11 +9013,30 @@ def get_vendors(
 
     query = db.query(Vendor)
 
+    # SECURITY: Validate enum values to prevent 500 errors and potential injection
     if status:
-        query = query.filter(Vendor.onboarding_status == VendorStatus[status.upper()])
+        try:
+            # Sanitize and validate status parameter
+            sanitized_status = sanitize_input(status).upper()
+            vendor_status = VendorStatus[sanitized_status]
+            query = query.filter(Vendor.onboarding_status == vendor_status)
+        except (KeyError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status value. Valid values: {[s.name for s in VendorStatus]}"
+            )
 
     if risk_rating:
-        query = query.filter(Vendor.risk_rating == RiskRating[risk_rating.upper()])
+        try:
+            # Sanitize and validate risk_rating parameter
+            sanitized_rating = sanitize_input(risk_rating).upper()
+            rating = RiskRating[sanitized_rating]
+            query = query.filter(Vendor.risk_rating == rating)
+        except (KeyError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid risk_rating value. Valid values: {[r.name for r in RiskRating]}"
+            )
 
     return query.order_by(Vendor.created_at.desc()).all()
 
