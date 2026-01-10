@@ -136,6 +136,11 @@ def generate_email_footer(
     if communication_id:
         tracking_pixel = generate_tracking_pixel(communication_id)
 
+    # Build unsubscribe row separately to avoid f-string escaping issues
+    unsubscribe_row = ""
+    if include_unsubscribe:
+        unsubscribe_row = f'''<tr><td style="padding: 10px 0;"><p style="margin: 0;">Don't want these emails? <a href="{unsubscribe_link}" style="color: #64748b; text-decoration: underline;">Unsubscribe</a> or <a href="{preferences_link}" style="color: #64748b; text-decoration: underline;">Manage Preferences</a></p></td></tr>'''
+
     footer = f"""
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
         <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; color: #64748b; text-align: center;">
@@ -149,7 +154,7 @@ def generate_email_footer(
                     </p>
                 </td>
             </tr>
-            {"<tr><td style='padding: 10px 0;'><p style='margin: 0;'>Don't want these emails? <a href=\"" + unsubscribe_link + "\" style=\"color: #64748b; text-decoration: underline;\">Unsubscribe</a> or <a href=\"" + preferences_link + "\" style=\"color: #64748b; text-decoration: underline;\">Manage Preferences</a></p></td></tr>" if include_unsubscribe else ""}
+            {unsubscribe_row}
             <tr>
                 <td style="padding: 10px 0;">
                     <p style="margin: 0; font-size: 11px; color: #94a3b8;">
