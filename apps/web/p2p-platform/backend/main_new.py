@@ -2864,6 +2864,61 @@ def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depe
         )
 
 
+@app.post("/api/auth/customer/refresh")
+@app.post("/auth/customer/refresh")  # Alias for mobile apps without /api prefix
+def customer_refresh_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Refresh customer authentication token
+
+    Returns a new access token for authenticated customers.
+    The current token must still be valid (not expired) to refresh.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        role = payload.get("role")
+        customer_id = payload.get("customer_id")
+
+        if role != "customer" or not customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not a customer account"
+            )
+
+        customer = db.query(Customer).filter(Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer profile not found")
+
+        if not customer.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Customer account is not active"
+            )
+
+        # Generate new token with same claims
+        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+        access_token = create_access_token(data={
+            "sub": customer.email,
+            "role": "customer",
+            "customer_id": customer.id
+        })
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "customer_id": customer.id,
+            "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+            "name": full_name,
+            "email": customer.email,
+            "phone": customer.phone
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 @app.put("/api/auth/customer/profile")
 @app.put("/api/customer/{customer_id}/profile")
 @app.put("/customer/{customer_id}/profile")  # Alias for iOS
