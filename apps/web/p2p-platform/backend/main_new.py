@@ -12940,9 +12940,9 @@ class ScheduledDeliveryRequest(BaseModel):
     """Request model for scheduling a future delivery"""
     vendor_id: int
     scheduled_for: str  # ISO 8601 datetime string (e.g., "2026-01-15T18:00:00Z")
-    items: Optional[List[Dict[str, Any]]] = None
-    delivery_address: Optional[Dict[str, Any]] = None
-    delivery_instructions: Optional[str] = None
+    items: list[dict[str, Any]] | None = None
+    delivery_address: dict[str, Any] | None = None
+    delivery_instructions: str | None = None
     tip: float = 0.0
 
 
@@ -14743,17 +14743,17 @@ async def set_default_card(
 
 class PaymentMethodRequest(BaseModel):
     type: str = "card"  # card, bank_account, etc.
-    token: Optional[str] = None  # Stripe payment method token or card token
-    payment_method_id: Optional[str] = None  # Stripe PaymentMethod ID (pm_xxx)
+    token: str | None = None  # Stripe payment method token or card token
+    payment_method_id: str | None = None  # Stripe PaymentMethod ID (pm_xxx)
     # Card details (for manual entry without Stripe.js)
-    card_number: Optional[str] = None
-    exp_month: Optional[int] = None
-    exp_year: Optional[int] = None
-    cvc: Optional[str] = None
+    card_number: str | None = None
+    exp_month: int | None = None
+    exp_year: int | None = None
+    cvc: str | None = None
     # Metadata
-    brand: Optional[str] = None
-    last4: Optional[str] = None
-    is_default: Optional[bool] = False
+    brand: str | None = None
+    last4: str | None = None
+    is_default: bool | None = False
 
 
 @app.get("/api/customer/payment-methods")
