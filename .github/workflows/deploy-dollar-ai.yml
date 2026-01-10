@@ -122,13 +122,27 @@ jobs:
             echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
             echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
 
-            # Recreate venv (previous deployments corrupted it)
+            # Ensure Python 3.11 is installed (required for FastAPI 0.104.1)
+            echo "=== Checking Python version ==="
+            if ! command -v python3.11 &> /dev/null; then
+              echo "Python 3.11 not found, installing..."
+              sudo amazon-linux-extras enable python3.11 2>/dev/null || true
+              sudo yum install -y python3.11 python3.11-pip 2>/dev/null || {
+                # Fallback for Amazon Linux 2023 or other distros
+                sudo dnf install -y python3.11 python3.11-pip 2>/dev/null || {
+                  echo "ERROR: Could not install Python 3.11"
+                  exit 1
+                }
+              }
+            fi
+            python3.11 --version
+
+            # Recreate venv with Python 3.11
             rm -rf venv
-            python3 -m venv venv
+            python3.11 -m venv venv
             source venv/bin/activate
             pip install --upgrade pip -q
-            pip install 'urllib3<2' -q  # Pin for old OpenSSL
-            pip install -r requirements.txt -q 2>&1 | tail -3 || true
+            pip install -r requirements.txt -q 2>&1 | tail -5 || true
 
             # Force kill ALL uvicorn and python processes related to the app
             echo "=== Restarting backend service ==="
