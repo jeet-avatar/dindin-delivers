@@ -30,6 +30,8 @@ def init_db():
         Communication, CustomerFavorite, VendorAnalytics,
         EmailTemplate, EmailSchedule, EmailABTest
     )
+    # Import RateLimitEntry for distributed rate limiting
+    from models import RateLimitEntry
     from sqlalchemy.exc import ProgrammingError
 
     # Try to create all tables/indices, ignore if they already exist
