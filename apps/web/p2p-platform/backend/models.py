@@ -1545,3 +1545,28 @@ class CoupaRequisition(Base):
     department = relationship("CoupaDepartment")
     cost_center = relationship("CoupaCostCenter")
     purchase_order = relationship("CoupaPurchaseOrder")
+
+
+# =============================================================================
+# RATE LIMITING - Distributed rate limit tracking for security
+# =============================================================================
+
+class RateLimitEntry(Base):
+    """
+    Database-backed rate limiting for distributed environments (ECS/K8s).
+    Stores rate limit attempts per client IP and endpoint to enforce
+    limits across multiple container instances.
+    """
+    __tablename__ = "rate_limit_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Composite key: IP + endpoint type (e.g., "192.168.1.1:customer_login")
+    client_key = Column(String(255), nullable=False, index=True)
+    # Timestamp of the request attempt
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Index for efficient cleanup of old entries
+    __table_args__ = (
+        # Composite index for fast lookups by key + time window
+        # This enables efficient sliding window queries
+    )

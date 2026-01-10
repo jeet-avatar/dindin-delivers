@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, RateLimitEntry
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
@@ -173,62 +173,108 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks
-from collections import defaultdict
-import time
-import threading
+# Uses database-backed rate limiting for distributed environments (ECS/K8s)
+from database import SessionLocal
 
-class RateLimiter:
-    """Simple in-memory rate limiter with sliding window"""
+class DistributedRateLimiter:
+    """
+    Database-backed rate limiter with sliding window.
+    Works across distributed container instances (ECS, K8s) by storing
+    rate limit entries in PostgreSQL instead of in-memory.
+    """
 
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests = defaultdict(list)
-        self.lock = threading.Lock()
 
-    def is_allowed(self, key: str) -> bool:
-        """Check if request is allowed for the given key (IP or email)"""
-        now = time.time()
-        with self.lock:
-            # Clean old requests
-            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
-            # Check limit
-            if len(self.requests[key]) >= self.max_requests:
-                return False
-            # Record this request
-            self.requests[key].append(now)
-            return True
+    def is_allowed(self, key: str, db: Session) -> bool:
+        """
+        Check if request is allowed for the given key (IP:endpoint).
+        Uses database for distributed rate limiting across containers.
+        """
+        now = datetime.utcnow()
+        window_start = now - timedelta(seconds=self.window_seconds)
 
-    def get_retry_after(self, key: str) -> int:
+        # Count requests in the current window
+        request_count = db.query(RateLimitEntry).filter(
+            RateLimitEntry.client_key == key,
+            RateLimitEntry.timestamp >= window_start
+        ).count()
+
+        if request_count >= self.max_requests:
+            return False
+
+        # Record this request
+        entry = RateLimitEntry(client_key=key, timestamp=now)
+        db.add(entry)
+        db.commit()
+
+        # Cleanup old entries (probabilistic - 1% of requests trigger cleanup)
+        import random
+        if random.random() < 0.01:
+            self._cleanup_old_entries(db)
+
+        return True
+
+    def get_retry_after(self, key: str, db: Session) -> int:
         """Get seconds until the rate limit resets"""
-        if not self.requests[key]:
+        now = datetime.utcnow()
+        window_start = now - timedelta(seconds=self.window_seconds)
+
+        # Get oldest entry in the window
+        oldest_entry = db.query(RateLimitEntry).filter(
+            RateLimitEntry.client_key == key,
+            RateLimitEntry.timestamp >= window_start
+        ).order_by(RateLimitEntry.timestamp.asc()).first()
+
+        if not oldest_entry:
             return 0
-        oldest = min(self.requests[key])
-        return max(0, int(self.window_seconds - (time.time() - oldest)))
+
+        # Calculate when the oldest entry will expire
+        entry_age = (now - oldest_entry.timestamp).total_seconds()
+        return max(0, int(self.window_seconds - entry_age))
+
+    def _cleanup_old_entries(self, db: Session):
+        """Remove rate limit entries older than the window"""
+        try:
+            cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds * 2)
+            db.query(RateLimitEntry).filter(
+                RateLimitEntry.timestamp < cutoff
+            ).delete(synchronize_session=False)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Rate limit cleanup error: {e}")
+            db.rollback()
 
 # Rate limiters for different endpoints
 # SECURITY: Strict rate limiting to prevent brute force attacks
 # 5 attempts per minute for auth endpoints (stricter to prevent credential stuffing)
-auth_rate_limiter = RateLimiter(max_requests=5, window_seconds=60)
+auth_rate_limiter = DistributedRateLimiter(max_requests=5, window_seconds=60)
 # 3 registrations per 5 minutes (prevents spam account creation)
-registration_rate_limiter = RateLimiter(max_requests=3, window_seconds=300)
+registration_rate_limiter = DistributedRateLimiter(max_requests=3, window_seconds=300)
 # Password reset rate limiter (prevents enumeration and abuse)
-password_reset_rate_limiter = RateLimiter(max_requests=3, window_seconds=300)
+password_reset_rate_limiter = DistributedRateLimiter(max_requests=3, window_seconds=300)
 
-def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
+def check_rate_limit(request, limiter: DistributedRateLimiter, key_prefix: str = ""):
     """Check rate limit and raise HTTPException if exceeded"""
     # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
     forwarded = request.headers.get("X-Forwarded-For")
     client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
     key = f"{key_prefix}:{client_ip}"
 
-    if not limiter.is_allowed(key):
-        retry_after = limiter.get_retry_after(key)
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many requests. Please try again in {retry_after} seconds.",
-            headers={"Retry-After": str(retry_after)}
-        )
+    # Create a new database session for rate limiting
+    # This avoids conflicts with the main request session
+    db = SessionLocal()
+    try:
+        if not limiter.is_allowed(key, db):
+            retry_after = limiter.get_retry_after(key, db)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many requests. Please try again in {retry_after} seconds.",
+                headers={"Retry-After": str(retry_after)}
+            )
+    finally:
+        db.close()
 
 # ===================== FILE UPLOAD SECURITY =====================
 # SECURITY: Validate file content using magic bytes (not just extension)
