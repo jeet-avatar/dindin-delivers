@@ -291,7 +291,15 @@ def check_rate_limit(request, limiter: DistributedRateLimiter, key_prefix: str =
     # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
     forwarded = request.headers.get("X-Forwarded-For")
     client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
-    key = f"{key_prefix}:{client_ip}"
+
+    # SECURITY: Include platform in rate limit key to allow legitimate multi-device logins
+    # This allows iOS and Android to have separate rate limit counters per IP
+    # while still protecting against brute force attacks per platform
+    platform = request.headers.get("X-Platform", "unknown").lower()
+    # Normalize platform values to prevent bypass attempts
+    if platform not in ["ios", "android", "web"]:
+        platform = "unknown"
+    key = f"{key_prefix}:{client_ip}:{platform}"
 
     # Create a new database session for rate limiting
     # This avoids conflicts with the main request session
