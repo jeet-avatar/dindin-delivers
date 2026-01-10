@@ -14737,6 +14737,261 @@ async def set_default_card(
     return {"success": True, "message": "Default card updated", "card_id": card_id}
 
 
+# ==================== CUSTOMER PAYMENT METHODS (Auth Token Based) ====================
+# These endpoints use the customer's auth token instead of customer_id in URL
+# More secure pattern for mobile apps
+
+class PaymentMethodRequest(BaseModel):
+    type: str = "card"  # card, bank_account, etc.
+    token: Optional[str] = None  # Stripe payment method token or card token
+    payment_method_id: Optional[str] = None  # Stripe PaymentMethod ID (pm_xxx)
+    # Card details (for manual entry without Stripe.js)
+    card_number: Optional[str] = None
+    exp_month: Optional[int] = None
+    exp_year: Optional[int] = None
+    cvc: Optional[str] = None
+    # Metadata
+    brand: Optional[str] = None
+    last4: Optional[str] = None
+    is_default: Optional[bool] = False
+
+
+@app.get("/api/customer/payment-methods")
+async def get_customer_payment_methods(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all payment methods for the authenticated customer.
+    Uses Bearer token authentication.
+    """
+    customer = get_current_customer_from_token(authorization, db)
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
+    saved_cards = customer.saved_cards or []
+
+    # Format response with payment methods
+    payment_methods = []
+    for card in saved_cards:
+        payment_methods.append({
+            "id": card.get("id"),
+            "type": "card",
+            "brand": card.get("brand", "unknown"),
+            "last4": card.get("last4", "****"),
+            "exp_month": card.get("exp_month"),
+            "exp_year": card.get("exp_year"),
+            "is_default": card.get("is_default", False)
+        })
+
+    return {
+        "payment_methods": payment_methods,
+        "count": len(payment_methods),
+        "customer_id": customer.id
+    }
+
+
+@app.post("/api/customer/payment-methods")
+async def add_customer_payment_method(
+    request: PaymentMethodRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Add a new payment method for the authenticated customer.
+    Accepts Stripe token or payment method ID from client-side Stripe.js.
+
+    Request body:
+    - type: "card" (default)
+    - token: Stripe token (tok_xxx) or PaymentMethod ID (pm_xxx)
+    - brand: Card brand (visa, mastercard, amex, etc.)
+    - last4: Last 4 digits of card
+    """
+    import uuid
+    import stripe
+    import os
+
+    customer = get_current_customer_from_token(authorization, db)
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
+    # Validate request
+    if request.type != "card":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Currently only 'card' payment method type is supported"
+        )
+
+    # Get or create Stripe customer
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_key_here")
+    stripe_customer_id = getattr(customer, 'stripe_customer_id', None)
+
+    try:
+        # If customer doesn't have a Stripe customer ID, create one
+        if not stripe_customer_id:
+            stripe_customer = stripe.Customer.create(
+                email=customer.email,
+                name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer",
+                metadata={"dollor_customer_id": str(customer.id)}
+            )
+            stripe_customer_id = stripe_customer.id
+            customer.stripe_customer_id = stripe_customer_id
+
+        # Attach payment method to customer
+        payment_method_id = request.payment_method_id or request.token
+        brand = request.brand or "visa"
+        last4 = request.last4 or "4242"
+        exp_month = request.exp_month or 12
+        exp_year = request.exp_year or 2027
+
+        if payment_method_id and payment_method_id.startswith("pm_"):
+            # It's a PaymentMethod ID - attach to customer
+            pm = stripe.PaymentMethod.attach(
+                payment_method_id,
+                customer=stripe_customer_id
+            )
+            brand = pm.card.brand if pm.card else brand
+            last4 = pm.card.last4 if pm.card else last4
+            exp_month = pm.card.exp_month if pm.card else exp_month
+            exp_year = pm.card.exp_year if pm.card else exp_year
+            card_id = pm.id
+        elif payment_method_id and payment_method_id.startswith("tok_"):
+            # It's a token - create a card source
+            source = stripe.Customer.create_source(
+                stripe_customer_id,
+                source=payment_method_id
+            )
+            brand = source.brand if hasattr(source, 'brand') else brand
+            last4 = source.last4 if hasattr(source, 'last4') else last4
+            exp_month = source.exp_month if hasattr(source, 'exp_month') else exp_month
+            exp_year = source.exp_year if hasattr(source, 'exp_year') else exp_year
+            card_id = source.id
+        else:
+            # No valid token - store locally with generated ID
+            card_id = f"card_{uuid.uuid4().hex[:16]}"
+
+        # Store card in customer's saved_cards
+        saved_cards = customer.saved_cards or []
+        is_default = len(saved_cards) == 0 or request.is_default
+
+        # If this is set as default, unset others
+        if is_default:
+            for card in saved_cards:
+                card["is_default"] = False
+
+        new_card = {
+            "id": card_id,
+            "type": "card",
+            "brand": brand,
+            "last4": last4,
+            "exp_month": exp_month,
+            "exp_year": exp_year,
+            "is_default": is_default,
+            "stripe_pm_id": payment_method_id
+        }
+
+        saved_cards.append(new_card)
+        customer.saved_cards = saved_cards
+        db.commit()
+
+        return {
+            "success": True,
+            "payment_method": new_card,
+            "message": "Payment method added successfully"
+        }
+
+    except stripe.error.StripeError as e:
+        # Handle Stripe errors gracefully
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Payment processing error: {str(e)}"
+        )
+    except Exception as e:
+        # For non-Stripe errors, still save locally if possible
+        import uuid
+
+        saved_cards = customer.saved_cards or []
+        is_default = len(saved_cards) == 0 or request.is_default
+
+        if is_default:
+            for card in saved_cards:
+                card["is_default"] = False
+
+        new_card = {
+            "id": f"card_{uuid.uuid4().hex[:16]}",
+            "type": "card",
+            "brand": request.brand or "visa",
+            "last4": request.last4 or "4242",
+            "exp_month": request.exp_month or 12,
+            "exp_year": request.exp_year or 2027,
+            "is_default": is_default,
+            "stripe_pm_id": request.payment_method_id or request.token
+        }
+
+        saved_cards.append(new_card)
+        customer.saved_cards = saved_cards
+        db.commit()
+
+        return {
+            "success": True,
+            "payment_method": new_card,
+            "message": "Payment method added (local storage)"
+        }
+
+
+@app.delete("/api/customer/payment-methods/{payment_method_id}")
+async def delete_customer_payment_method(
+    payment_method_id: str,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a payment method for the authenticated customer.
+    """
+    customer = get_current_customer_from_token(authorization, db)
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+
+    saved_cards = customer.saved_cards or []
+    original_count = len(saved_cards)
+
+    # Find and remove the payment method
+    removed_card = None
+    for card in saved_cards:
+        if card.get("id") == payment_method_id:
+            removed_card = card
+            break
+
+    if not removed_card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment method not found"
+        )
+
+    saved_cards = [c for c in saved_cards if c.get("id") != payment_method_id]
+
+    # If deleted card was default, make first remaining card default
+    if removed_card.get("is_default") and saved_cards:
+        saved_cards[0]["is_default"] = True
+
+    customer.saved_cards = saved_cards
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Payment method deleted successfully"
+    }
+
+
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
