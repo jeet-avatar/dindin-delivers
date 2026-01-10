@@ -14,7 +14,6 @@ env:
   AWS_REGION: us-east-1
   S3_BUCKET: dollar-ai-frontend
   CLOUDFRONT_DISTRIBUTION_ID: E1TL8YTTU1SF3A
-  EC2_HOST: 44.192.34.143
   ECR_REPOSITORY: dollor-api
   ECS_CLUSTER: dollor-production
   ECS_SERVICE: dollor-api-service
@@ -64,122 +63,6 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
-
-  deploy-backend:
-    name: Deploy Backend to EC2
-    runs-on: ubuntu-latest
-    needs: deploy-frontend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy backend to EC2
-        run: |
-          # Sync backend files (excluding venv and __pycache__)
-          rsync -avz --exclude 'venv' --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' \
-            -e "ssh -o StrictHostKeyChecking=no" \
-            apps/web/p2p-platform/backend/ ec2-user@${{ env.EC2_HOST }}:/opt/dollor-backend/
-
-      - name: Configure SMTP environment on EC2
-        run: |
-          # Set ENVIRONMENT=production
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && touch .env && (grep -q '^ENVIRONMENT=' .env && sed -i 's/^ENVIRONMENT=.*/ENVIRONMENT=production/' .env || echo 'ENVIRONMENT=production' >> .env)"
-
-          # Set SMTP_HOST
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && (grep -q '^SMTP_HOST=' .env && sed -i 's|^SMTP_HOST=.*|SMTP_HOST=${{ secrets.SMTP_HOST }}|' .env || echo 'SMTP_HOST=${{ secrets.SMTP_HOST }}' >> .env)"
-
-          # Set SMTP_PORT
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && (grep -q '^SMTP_PORT=' .env && sed -i 's|^SMTP_PORT=.*|SMTP_PORT=${{ secrets.SMTP_PORT }}|' .env || echo 'SMTP_PORT=${{ secrets.SMTP_PORT }}' >> .env)"
-
-          # Set SMTP_USER
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && (grep -q '^SMTP_USER=' .env && sed -i 's|^SMTP_USER=.*|SMTP_USER=${{ secrets.SMTP_USER }}|' .env || echo 'SMTP_USER=${{ secrets.SMTP_USER }}' >> .env)"
-
-          # Set SMTP_PASSWORD
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && (grep -q '^SMTP_PASSWORD=' .env && sed -i 's|^SMTP_PASSWORD=.*|SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}|' .env || echo 'SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}' >> .env)"
-
-          # Set FROM_EMAIL
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} "cd /opt/dollor-backend && (grep -q '^FROM_EMAIL=' .env || echo 'FROM_EMAIL=noreply@dollor.ai' >> .env)"
-
-          echo "SMTP environment configured on EC2"
-
-      - name: Install dependencies and restart service
-        run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} << 'EOF'
-            cd /opt/dollor-backend
-
-            # Verify .env configuration
-            echo "=== Verifying .env configuration ==="
-            echo "ENVIRONMENT=$(grep '^ENVIRONMENT=' .env | cut -d'=' -f2)"
-            echo "SMTP_HOST=$(grep '^SMTP_HOST=' .env | cut -d'=' -f2 | head -c 20)..."
-            echo "SMTP_USER set: $(grep -q '^SMTP_USER=' .env && echo 'yes' || echo 'no')"
-            echo "SMTP_PASSWORD set: $(grep -q '^SMTP_PASSWORD=' .env && echo 'yes' || echo 'no')"
-
-            # Ensure Python 3.11 is installed (required for FastAPI 0.104.1)
-            echo "=== Checking Python version ==="
-            if ! command -v python3.11 &> /dev/null; then
-              echo "Python 3.11 not found, installing..."
-              sudo amazon-linux-extras enable python3.11 2>/dev/null || true
-              sudo yum install -y python3.11 python3.11-pip 2>/dev/null || {
-                # Fallback for Amazon Linux 2023 or other distros
-                sudo dnf install -y python3.11 python3.11-pip 2>/dev/null || {
-                  echo "ERROR: Could not install Python 3.11"
-                  exit 1
-                }
-              }
-            fi
-            python3.11 --version
-
-            # Recreate venv with Python 3.11
-            rm -rf venv
-            python3.11 -m venv venv
-            source venv/bin/activate
-            pip install --upgrade pip -q
-            pip install -r requirements.txt -q 2>&1 | tail -5 || true
-
-            # Force kill ALL uvicorn and python processes related to the app
-            echo "=== Restarting backend service ==="
-            echo "Killing existing processes..."
-            pkill -9 -f "uvicorn" 2>/dev/null || true
-            pkill -9 -f "main_new:app" 2>/dev/null || true
-            fuser -k 3000/tcp 2>/dev/null || true
-            sleep 3
-
-            # Verify port is free
-            if netstat -tuln 2>/dev/null | grep -q ":3000 "; then
-              echo "WARNING: Port 3000 still in use!"
-              fuser -k 3000/tcp 2>/dev/null || true
-              sleep 2
-            fi
-
-            # Start uvicorn directly (dotenv is loaded in main_new.py already)
-            cd /opt/dollor-backend
-            source venv/bin/activate
-            export $(grep -v '^#' .env | xargs)  # Export .env variables to shell
-            nohup uvicorn main_new:app --host 0.0.0.0 --port 3000 > /opt/dollor-backend/backend.log 2>&1 &
-
-            sleep 5
-            UVICORN_PID=$(pgrep -f 'uvicorn')
-            echo "Process started with PID: $UVICORN_PID"
-
-            # Verify it's running and responding
-            if [ -n "$UVICORN_PID" ]; then
-              echo "Backend service started successfully!"
-              sleep 2
-              curl -s http://localhost:3000/health | head -c 100 || echo "Health check pending..."
-            else
-              echo "ERROR: Backend service failed to start!"
-              cat /opt/dollor-backend/backend.log
-              exit 1
-            fi
-          EOF
 
   deploy-ecs:
     name: Deploy Backend to ECS
@@ -284,7 +167,7 @@ jobs:
   notify:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
-    needs: [deploy-frontend, deploy-backend, deploy-ecs, deploy-eks]
+    needs: [deploy-frontend, deploy-ecs, deploy-eks]
     if: always()
 
     steps:
@@ -294,12 +177,14 @@ jobs:
           echo "Deployment to Dollor.ai Complete!"
           echo "==================================="
           echo ""
-          echo "Frontend: https://d3pus2gxlb5cer.cloudfront.net"
-          echo "Backend API: http://${{ env.EC2_HOST }}:3000"
-          echo ""
           echo "Production URLs:"
           echo "  Frontend: https://dollor.ai"
           echo "  API: https://api.dollor.ai"
+          echo ""
+          echo "Deployment Targets:"
+          echo "  - Frontend: CloudFront (S3)"
+          echo "  - Backend: ECS Fargate (Production)"
+          echo "  - Backend: EKS (Staging)"
           echo ""
           echo "Pages deployed:"
           echo "  - Landing Page: https://dollor.ai/"
