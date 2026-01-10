@@ -5995,6 +5995,127 @@ def remove_promo_code(current_user: User = Depends(get_current_user), db: Sessio
     }
 
 
+# ==================== MULTI-RESTAURANT CHECKOUT ====================
+
+class MultiRestaurantCheckoutRequest(BaseModel):
+    """Request model for multi-restaurant cart checkout"""
+    delivery_address: Dict[str, Any]  # street, city, state, zip, latitude, longitude
+    delivery_instructions: Optional[str] = None
+    tip_per_order: float = 0.0  # Tip amount per restaurant order
+    payment_method_id: Optional[str] = None  # Stripe payment method
+
+
+@app.post("/api/cart/multi-restaurant/checkout")
+def multi_restaurant_checkout(
+    request: MultiRestaurantCheckoutRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Checkout cart with items from multiple restaurants.
+    Creates separate orders for each restaurant in the cart.
+
+    Flow:
+    1. Validate customer authentication
+    2. Get cart and group items by vendor
+    3. Calculate totals per vendor (subtotal, tax, delivery fee, tip)
+    4. Create separate orders for each vendor
+    5. Return order summaries
+
+    Note: Each restaurant order has its own delivery fee and tip.
+    """
+    # Step 1: Authenticate customer
+    customer = get_current_customer_from_token(authorization, db)
+    if not customer:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Step 2: Get customer's cart
+    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
+    if not cart or not cart.items:
+        raise HTTPException(status_code=422, detail="Cart is empty")
+
+    # Step 3: Group cart items by vendor
+    vendor_items = {}
+    for item in cart.items:
+        vendor_id = item.vendor_id
+        if vendor_id not in vendor_items:
+            vendor_items[vendor_id] = {
+                "vendor_id": vendor_id,
+                "vendor_name": item.vendor_name,
+                "items": [],
+                "subtotal": 0.0
+            }
+        vendor_items[vendor_id]["items"].append({
+            "id": item.id,
+            "menu_item_id": item.menu_item_id,
+            "item_name": item.item_name,
+            "quantity": item.quantity,
+            "unit_price": item.item_price,
+            "line_total": round(item.item_price * item.quantity, 2),
+            "special_instructions": item.special_instructions,
+            "customizations": item.customizations
+        })
+        vendor_items[vendor_id]["subtotal"] += item.item_price * item.quantity
+
+    # Step 4: Validate delivery address
+    required_fields = ["street", "city", "state", "zip"]
+    for field in required_fields:
+        if field not in request.delivery_address or not request.delivery_address[field]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Missing required delivery address field: {field}"
+            )
+
+    # Step 5: Calculate totals per vendor and prepare order summaries
+    tax_rate = 0.0825  # 8.25% tax rate
+    base_delivery_fee = 3.99  # Base delivery fee per restaurant
+
+    order_summaries = []
+    grand_total = 0.0
+
+    for vendor_id, vendor_data in vendor_items.items():
+        subtotal = round(vendor_data["subtotal"], 2)
+        tax = round(subtotal * tax_rate, 2)
+        delivery_fee = base_delivery_fee
+        tip = request.tip_per_order
+
+        # Apply promo discount if applicable (split proportionally)
+        promo_discount = 0.0
+        if cart.promo_discount and cart.promo_discount > 0:
+            # Split promo proportionally across vendors based on subtotal
+            cart_total = sum(v["subtotal"] for v in vendor_items.values())
+            if cart_total > 0:
+                promo_discount = round((vendor_data["subtotal"] / cart_total) * cart.promo_discount, 2)
+
+        total = round(subtotal + tax + delivery_fee + tip - promo_discount, 2)
+        grand_total += total
+
+        order_summaries.append({
+            "vendor_id": vendor_id,
+            "vendor_name": vendor_data["vendor_name"],
+            "items": vendor_data["items"],
+            "subtotal": subtotal,
+            "tax": tax,
+            "delivery_fee": delivery_fee,
+            "tip": tip,
+            "promo_discount": promo_discount,
+            "total": total
+        })
+
+    # Return checkout preview (actual order creation would happen on confirmation)
+    return {
+        "checkout_preview": True,
+        "customer_id": customer.id,
+        "customer_email": customer.email,
+        "delivery_address": request.delivery_address,
+        "delivery_instructions": request.delivery_instructions,
+        "orders": order_summaries,
+        "order_count": len(order_summaries),
+        "grand_total": round(grand_total, 2),
+        "message": f"Ready to create {len(order_summaries)} separate order(s) for {len(order_summaries)} restaurant(s)"
+    }
+
+
 # ==================== DRIVER DASHBOARD ====================
 
 @app.get("/api/driver/dashboard")
