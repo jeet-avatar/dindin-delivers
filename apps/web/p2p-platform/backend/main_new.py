@@ -174,7 +174,24 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks
 # Uses database-backed rate limiting for distributed environments (ECS/K8s)
-from database import SessionLocal
+from database import SessionLocal, engine
+from models import Base
+import random
+
+# Ensure rate_limit_entries table exists at startup
+def _ensure_rate_limit_table():
+    """Create rate_limit_entries table if it doesn't exist"""
+    try:
+        # Import here to ensure model is registered
+        from models import RateLimitEntry
+        # Create only the rate_limit_entries table if it doesn't exist
+        RateLimitEntry.__table__.create(engine, checkfirst=True)
+        logger.info("Rate limit table initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to create rate limit table: {e}")
+
+# Initialize table on module load
+_ensure_rate_limit_table()
 
 class DistributedRateLimiter:
     """
@@ -191,57 +208,71 @@ class DistributedRateLimiter:
         """
         Check if request is allowed for the given key (IP:endpoint).
         Uses database for distributed rate limiting across containers.
+        Returns False if rate limit exceeded, True otherwise.
+        On error, fails CLOSED (denies request) for security.
         """
-        now = datetime.utcnow()
-        window_start = now - timedelta(seconds=self.window_seconds)
+        try:
+            now = datetime.utcnow()
+            window_start = now - timedelta(seconds=self.window_seconds)
 
-        # Count requests in the current window
-        request_count = db.query(RateLimitEntry).filter(
-            RateLimitEntry.client_key == key,
-            RateLimitEntry.timestamp >= window_start
-        ).count()
+            # Count requests in the current window
+            request_count = db.query(RateLimitEntry).filter(
+                RateLimitEntry.client_key == key,
+                RateLimitEntry.timestamp >= window_start
+            ).count()
 
-        if request_count >= self.max_requests:
+            if request_count >= self.max_requests:
+                logger.warning(f"Rate limit exceeded for {key}: {request_count}/{self.max_requests}")
+                return False
+
+            # Record this request
+            entry = RateLimitEntry(client_key=key, timestamp=now)
+            db.add(entry)
+            db.commit()
+
+            # Cleanup old entries (probabilistic - 1% of requests trigger cleanup)
+            if random.random() < 0.01:
+                self._cleanup_old_entries(db)
+
+            return True
+        except Exception as e:
+            logger.error(f"Rate limiter error for {key}: {e}")
+            db.rollback()
+            # Fail CLOSED for security - deny request on error
             return False
-
-        # Record this request
-        entry = RateLimitEntry(client_key=key, timestamp=now)
-        db.add(entry)
-        db.commit()
-
-        # Cleanup old entries (probabilistic - 1% of requests trigger cleanup)
-        import random
-        if random.random() < 0.01:
-            self._cleanup_old_entries(db)
-
-        return True
 
     def get_retry_after(self, key: str, db: Session) -> int:
         """Get seconds until the rate limit resets"""
-        now = datetime.utcnow()
-        window_start = now - timedelta(seconds=self.window_seconds)
+        try:
+            now = datetime.utcnow()
+            window_start = now - timedelta(seconds=self.window_seconds)
 
-        # Get oldest entry in the window
-        oldest_entry = db.query(RateLimitEntry).filter(
-            RateLimitEntry.client_key == key,
-            RateLimitEntry.timestamp >= window_start
-        ).order_by(RateLimitEntry.timestamp.asc()).first()
+            # Get oldest entry in the window
+            oldest_entry = db.query(RateLimitEntry).filter(
+                RateLimitEntry.client_key == key,
+                RateLimitEntry.timestamp >= window_start
+            ).order_by(RateLimitEntry.timestamp.asc()).first()
 
-        if not oldest_entry:
-            return 0
+            if not oldest_entry:
+                return self.window_seconds  # Default to full window
 
-        # Calculate when the oldest entry will expire
-        entry_age = (now - oldest_entry.timestamp).total_seconds()
-        return max(0, int(self.window_seconds - entry_age))
+            # Calculate when the oldest entry will expire
+            entry_age = (now - oldest_entry.timestamp).total_seconds()
+            return max(0, int(self.window_seconds - entry_age))
+        except Exception as e:
+            logger.error(f"Rate limiter retry_after error: {e}")
+            return self.window_seconds  # Default to full window on error
 
     def _cleanup_old_entries(self, db: Session):
         """Remove rate limit entries older than the window"""
         try:
             cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds * 2)
-            db.query(RateLimitEntry).filter(
+            deleted = db.query(RateLimitEntry).filter(
                 RateLimitEntry.timestamp < cutoff
             ).delete(synchronize_session=False)
             db.commit()
+            if deleted > 0:
+                logger.debug(f"Cleaned up {deleted} old rate limit entries")
         except Exception as e:
             logger.warning(f"Rate limit cleanup error: {e}")
             db.rollback()
