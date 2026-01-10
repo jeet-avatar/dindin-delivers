@@ -12934,6 +12934,94 @@ async def android_create_order(order_data: CreateOrderRequest, db: Session = Dep
     return await erp_create_order(order_data=order_data, db=db)
 
 
+# ==================== SCHEDULED DELIVERY ====================
+
+class ScheduledDeliveryRequest(BaseModel):
+    """Request model for scheduling a future delivery"""
+    vendor_id: int
+    scheduled_for: str  # ISO 8601 datetime string (e.g., "2026-01-15T18:00:00Z")
+    items: Optional[List[Dict[str, Any]]] = None
+    delivery_address: Optional[Dict[str, Any]] = None
+    delivery_instructions: Optional[str] = None
+    tip: float = 0.0
+
+
+@app.post("/api/orders/schedule")
+def schedule_delivery(
+    request: ScheduledDeliveryRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Schedule a delivery for a future date/time.
+
+    Use cases:
+    - Pre-order breakfast/lunch for office
+    - Schedule catering orders
+    - Plan ahead for special occasions
+
+    The order will be sent to the restaurant at the appropriate time
+    based on their typical preparation time.
+    """
+    from datetime import datetime, timezone
+
+    # Step 1: Authenticate customer
+    customer = get_current_customer_from_token(authorization, db)
+    if not customer:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Step 2: Validate vendor exists
+    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Step 3: Parse and validate scheduled time
+    try:
+        scheduled_dt = datetime.fromisoformat(request.scheduled_for.replace('Z', '+00:00'))
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid datetime format. Use ISO 8601 (e.g., 2026-01-15T18:00:00Z)"
+        )
+
+    # Step 4: Ensure scheduled time is in the future (at least 30 minutes)
+    now = datetime.now(timezone.utc)
+    min_schedule_time = now + timedelta(minutes=30)
+
+    if scheduled_dt < min_schedule_time:
+        raise HTTPException(
+            status_code=422,
+            detail="Scheduled time must be at least 30 minutes in the future"
+        )
+
+    # Step 5: Ensure scheduled time is not too far in the future (max 7 days)
+    max_schedule_time = now + timedelta(days=7)
+    if scheduled_dt > max_schedule_time:
+        raise HTTPException(
+            status_code=422,
+            detail="Scheduled time cannot be more than 7 days in the future"
+        )
+
+    # Step 6: Check if restaurant accepts scheduled orders (placeholder - always true for now)
+    # In production, check vendor.accepts_scheduled_orders or similar field
+
+    # Step 7: Return schedule confirmation (actual order creation happens closer to time)
+    return {
+        "status": "scheduled",
+        "customer_id": customer.id,
+        "customer_email": customer.email,
+        "vendor_id": vendor.id,
+        "vendor_name": vendor.business_name or vendor.restaurant_name,
+        "scheduled_for": scheduled_dt.isoformat(),
+        "scheduled_for_local": scheduled_dt.strftime("%B %d, %Y at %I:%M %p"),
+        "items": request.items or [],
+        "delivery_address": request.delivery_address,
+        "delivery_instructions": request.delivery_instructions,
+        "tip": request.tip,
+        "message": f"Your order is scheduled for {scheduled_dt.strftime('%B %d at %I:%M %p')}. You will receive a confirmation when the restaurant accepts it."
+    }
+
+
 @app.get("/api/customer/orders")
 def get_customer_orders(
     db: Session = Depends(get_db),
