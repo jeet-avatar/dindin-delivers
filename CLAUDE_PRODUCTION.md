@@ -722,6 +722,86 @@ onboarding_status = Column(SQLEnum(VendorStatus), default=VendorStatus.PENDING)
 
 ---
 
+## SECURITY AUDIT - DISTRIBUTED RATE LIMITING (January 9, 2026)
+
+### Implementation Summary
+
+Successfully implemented database-backed distributed rate limiting to replace the previous in-memory rate limiting system. This ensures consistent rate limiting across all ECS/K8s container instances in production.
+
+### Test Results
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Total Tests | 60 | 60 |
+| Passed | 53 (88.3%) | **60 (100%)** |
+| Failed | 7 | **0** |
+
+### What Was Implemented
+
+1. **Database-Backed Rate Limiting (PostgreSQL)**
+   - Replaced in-memory storage with PostgreSQL for distributed consistency
+
+2. **New Components:**
+   - `RateLimitEntry` model in `models.py` - Database model to track rate limit attempts
+   - `DistributedRateLimiter` class in `main_new.py` - Core rate limiting logic
+
+3. **DistributedRateLimiter Features:**
+   | Feature | Description |
+   |---------|-------------|
+   | Distributed Support | Works across ECS/K8s container instances |
+   | Sliding Window Algorithm | Accurate rate tracking over time windows |
+   | Auto Table Creation | Creates rate_limit_entries table on startup |
+   | Fail-Closed Security | Denies requests on errors (secure default) |
+   | Probabilistic Cleanup | Auto-removes expired entries to prevent table bloat |
+
+### Rate Limits Enforced
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| Login | 5 attempts | 1 minute |
+| Registration | 3 attempts | 5 minutes |
+| Password Reset | 3 attempts | 5 minutes |
+
+### Issues Fixed
+
+**F-String Syntax Error (email_service.py:152)**
+- Problem: Escaped quotes inside f-string expression causing container startup failures
+- Resolution: Fixed f-string syntax to properly format the email footer
+- Commit: `009332a0` - fix(email): Fix f-string syntax error in email footer
+
+### Deployment History
+
+| Commit | Description |
+|--------|-------------|
+| `361d4891` | fix(security): Implement distributed rate limiting with PostgreSQL |
+| `469d8aaa` | chore(production): update image - blue-green deployment |
+| `2e656dd6` | fix(security): Add explicit table creation and error handling for rate limiter |
+| `ee2c19e1` | chore(production): update image - blue-green deployment |
+| `009332a0` | fix(email): Fix f-string syntax error in email footer |
+
+### Security Improvements
+
+**Before (Vulnerable):**
+- In-memory rate limiting only worked per-container
+- Attackers could bypass limits by hitting different container instances
+- No persistence of rate limit data across container restarts
+
+**After (Secure):**
+- Centralized rate limit tracking in PostgreSQL
+- Consistent enforcement across all container instances
+- Rate limit data persists through container restarts/deployments
+- Fail-closed behavior ensures security even on database errors
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/web/p2p-platform/backend/models.py` | Added RateLimitEntry model |
+| `apps/web/p2p-platform/backend/main_new.py` | Added DistributedRateLimiter class |
+| `apps/web/p2p-platform/backend/email_service.py` | Fixed f-string syntax error |
+
+---
+
 ## DEMO CREDENTIALS
 
 ```
@@ -733,3 +813,4 @@ Vendor:   demo.restaurant@dollor.ai / DemoRestaurant2025!
 ---
 
 *Last Verified: 2026-01-09*
+*Security Audit Completed: 2026-01-09*
