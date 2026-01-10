@@ -24,7 +24,7 @@ commonAnnotations:
 images:
 - name: dollor-api
   newName: 134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api
-  newTag: 0450feb71fcc0c94b82d9667e98b2be2c4c7f3d1
+  newTag: aad5a49e86e4d5b1a7faca14f1bfb420d9f2f29a
 
 # Remove base deployment since we use Argo Rollout
   # Delete the base deployment (replaced by Rollout)
