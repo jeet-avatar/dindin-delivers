@@ -189,11 +189,11 @@ class TestVendorAPIContracts:
 
     def test_vendor_login_response_format(self, client):
         """Verify vendor login returns iOS-compatible format"""
-        login_data = {
-            "email": "test@vendor.com",
+        # Vendor login uses OAuth2PasswordRequestForm (form data with username field)
+        response = client.post("/api/auth/vendor/login", data={
+            "username": "test@vendor.com",
             "password": "testpassword"
-        }
-        response = client.post("/api/vendor/login", json=login_data)
+        })
 
         if response.status_code == 200:
             data = response.json()

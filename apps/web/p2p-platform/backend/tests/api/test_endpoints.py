@@ -206,12 +206,13 @@ class TestVendorEndpoints:
 
     def test_vendor_login_endpoint_exists(self, client):
         """Vendor login endpoint should exist"""
-        response = client.post("/api/vendor/login", json={
-            "email": "test@test.com",
+        # Vendor login uses OAuth2PasswordRequestForm (form data with username field)
+        response = client.post("/api/auth/vendor/login", data={
+            "username": "test@test.com",
             "password": "test"
         })
         # Should not be 404
-        assert response.status_code in [200, 400, 401, 422]
+        assert response.status_code in [200, 400, 401]
 
     def test_vendor_menu_requires_auth(self, client):
         """Menu endpoint should require vendor auth"""
