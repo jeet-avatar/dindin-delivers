@@ -23,9 +23,18 @@
         {"name": "ENVIRONMENT", "value": "production"},
         {"name": "SMTP_HOST", "value": "email-smtp.us-east-1.amazonaws.com"},
         {"name": "SMTP_PORT", "value": "587"},
-        {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"}
+        {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"},
+        {"name": "DOCUMENT_VERIFICATION_PROVIDER", "value": "persona"}
       ],
       "secrets": [
+        {
+          "name": "PERSONA_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/persona-aqEOSX:PERSONA_API_KEY::"
+        },
+        {
+          "name": "PERSONA_TEMPLATE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/persona-aqEOSX:PERSONA_TEMPLATE_ID::"
+        },
         {
           "name": "DATABASE_URL",
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/database-v2-gd1oKf:DATABASE_URL::"
