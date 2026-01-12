@@ -17307,7 +17307,7 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
     try:
         # Get orders that are ready for pickup and don't have a driver assigned
         orders = db.query(Order).filter(
-            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY]),
+            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
             Order.driver_id.is_(None)
         ).limit(20).all()
 
