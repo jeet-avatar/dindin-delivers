@@ -772,7 +772,8 @@ export const getAvailableDeliveries = async (): Promise<AvailableDelivery[]> => 
   const response = await api.get('/v2/driver/deliveries/available', {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
-  return response.data;
+  // Backend returns {deliveries: [...], count: N}, extract the array
+  return response.data?.deliveries || response.data || [];
 };
 
 // Accept Delivery - uses order assign-driver endpoint
