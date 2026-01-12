@@ -86,26 +86,56 @@ class RideshareUIAgent:
     def customer_login(self, email: str, password: str) -> TestResult:
         """Login as customer"""
         try:
-            self.page.goto(f"{self.base_url}/customer/login")
+            # Go to homepage first
+            self.page.goto(self.base_url)
             self.page.wait_for_load_state("networkidle")
+            time.sleep(1)
+
+            # Click Customer Login button in header
+            customer_login_btn = self.page.query_selector('a:has-text("Customer Login"), button:has-text("Customer Login")')
+            if customer_login_btn:
+                customer_login_btn.click()
+                self.page.wait_for_load_state("networkidle")
+                time.sleep(1)
+            else:
+                self.page.goto(f"{self.base_url}/customer/login")
+                self.page.wait_for_load_state("networkidle")
+
             self.screenshot("01_customer_login_page")
 
             # Enter credentials
-            self.page.fill('input[type="email"], input[placeholder*="email" i], input[name="email"]', email)
-            self.page.fill('input[type="password"]', password)
+            email_input = self.page.wait_for_selector(
+                'input[type="email"], input[name="email"], input[placeholder*="email" i]',
+                timeout=5000
+            )
+            password_input = self.page.wait_for_selector('input[type="password"]', timeout=5000)
+
+            email_input.fill(email)
+            time.sleep(0.3)
+            password_input.fill(password)
             self.screenshot("02_customer_credentials")
 
-            # Click login button (avoid social logins)
-            login_buttons = self.page.locator('button:has-text("Sign In"), button:has-text("Login"), button:has-text("Log In")')
-            for i in range(login_buttons.count()):
-                btn = login_buttons.nth(i)
-                text = btn.inner_text().lower()
-                if "google" not in text and "apple" not in text:
-                    btn.click()
+            # Find and click the correct login button (avoid social logins)
+            all_buttons = self.page.query_selector_all('button')
+            login_btn = None
+            for btn in all_buttons:
+                btn_text = btn.text_content() or ""
+                if "Google" in btn_text or "Apple" in btn_text or "Signing" in btn_text:
+                    continue
+                if "Continue" in btn_text or "Sign In" in btn_text or "Login" in btn_text or "Log In" in btn_text:
+                    login_btn = btn
                     break
 
+            if login_btn:
+                login_btn.click()
+            else:
+                # Fallback: try submit button
+                submit_btn = self.page.query_selector('button[type="submit"]')
+                if submit_btn:
+                    submit_btn.click()
+
             self.page.wait_for_load_state("networkidle")
-            time.sleep(1)
+            time.sleep(2)
             self.screenshot("03_customer_logged_in")
 
             current_url = self.page.url
@@ -199,23 +229,50 @@ class RideshareUIAgent:
             return TestResult(False, f"Ride type selection error: {str(e)}")
 
     def request_ride(self) -> TestResult:
-        """Submit ride request"""
+        """Submit ride request (handles 2-step flow: Get Estimate -> Confirm Request)"""
         try:
-            # Look for request/book button
-            request_btn = self.page.locator(
-                'button:has-text("Request Ride"), button:has-text("Book Ride"), '
-                'button:has-text("Find Drivers"), button:has-text("Get Quotes"), '
-                'button:has-text("Submit"), button[type="submit"]'
+            # Step 1: Click "Get Price Estimate" button first
+            estimate_btn = self.page.locator(
+                'button:has-text("Get Price Estimate"), button:has-text("Get Estimate"), '
+                'button:has-text("Get Quote"), button.main-button'
             ).first
 
-            if request_btn.is_visible():
-                request_btn.click()
+            if estimate_btn.is_visible():
+                print("[Rideshare Agent] Clicking 'Get Price Estimate' button")
+                estimate_btn.click()
+                self.page.wait_for_load_state("networkidle")
+                time.sleep(2)
+                self.screenshot("08a_fare_estimate")
+
+            # Step 2: Click "Confirm & Request Ride" button
+            confirm_btn = self.page.locator(
+                'button:has-text("Confirm & Request Ride"), button:has-text("Request Ride"), '
+                'button:has-text("Confirm"), button.confirm-button'
+            ).first
+
+            if confirm_btn.is_visible():
+                print("[Rideshare Agent] Clicking 'Confirm & Request Ride' button")
+                confirm_btn.click()
+                self.page.wait_for_load_state("networkidle")
+                time.sleep(2)
+                self.screenshot("08b_ride_requested")
+                return TestResult(True, "Ride request submitted")
+
+            # Fallback: Look for any primary action button
+            primary_btn = self.page.locator(
+                'button[type="submit"], button.ant-btn-primary:visible'
+            ).first
+
+            if primary_btn.is_visible():
+                print("[Rideshare Agent] Clicking primary button")
+                primary_btn.click()
                 self.page.wait_for_load_state("networkidle")
                 time.sleep(2)
                 self.screenshot("08_ride_requested")
-                return TestResult(True, "Ride request submitted")
-            else:
-                return TestResult(False, "Request button not found")
+                return TestResult(True, "Ride request submitted via primary button")
+
+            self.screenshot("08_no_button_found")
+            return TestResult(False, "Request button not found")
 
         except Exception as e:
             self.screenshot("error_request_ride")
