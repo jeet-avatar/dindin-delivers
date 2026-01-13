@@ -10099,31 +10099,46 @@ def update_vendor_documents(
 @app.delete("/api/vendors/{vendor_id}")
 def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from models import Vendor, VendorMenuItem, VendorMenuCategory, VendorPayout, Order
+    from sqlalchemy import text
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Delete all related records first (foreign key constraints)
-    # 1. Delete menu items
-    db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id).delete()
+    # Delete all related records using raw SQL to handle all FK constraints
+    # This ensures we clean up everything regardless of ORM model availability
+    tables_to_delete = [
+        "vendor_menu_items",
+        "vendor_menu_categories",
+        "vendor_payouts",
+        "promotions",
+        "vendor_analytics",
+        "vendor_purchase_orders",
+    ]
 
-    # 2. Delete menu categories
-    try:
-        db.query(VendorMenuCategory).filter(VendorMenuCategory.vendor_id == vendor_id).delete()
-    except Exception:
-        pass  # Table might not exist or no records
+    tables_to_nullify = [
+        "orders",
+        "order_items",
+        "vendor_leads",
+        "reviews",
+        "chat_messages",
+    ]
 
-    # 3. Nullify vendor_id in orders (preserve order history)
-    db.query(Order).filter(Order.vendor_id == vendor_id).update({"vendor_id": None})
+    # Delete from tables with non-nullable vendor_id
+    for table in tables_to_delete:
+        try:
+            db.execute(text(f"DELETE FROM {table} WHERE vendor_id = :vid"), {"vid": vendor_id})
+        except Exception:
+            pass  # Table might not exist
 
-    # 4. Delete payouts
-    try:
-        db.query(VendorPayout).filter(VendorPayout.vendor_id == vendor_id).delete()
-    except Exception:
-        pass
+    # Nullify vendor_id in tables that preserve history
+    for table in tables_to_nullify:
+        try:
+            db.execute(text(f"UPDATE {table} SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
+        except Exception:
+            pass  # Table might not exist or column might not exist
 
-    # 5. Delete associated user record
+    # Delete associated user record
     associated_user = db.query(User).filter(User.vendor_id == vendor_id).first()
     if associated_user:
         db.delete(associated_user)
