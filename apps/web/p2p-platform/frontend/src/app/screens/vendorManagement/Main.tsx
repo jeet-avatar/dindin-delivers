@@ -14,7 +14,8 @@ import {
   Eye,
   Brain,
   Send,
-  Loader2
+  Loader2,
+  Filter
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import VendorOnboardingModal from '../../components/vendors/VendorOnboardingModal';
