@@ -10108,6 +10108,7 @@ def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: U
     # Delete all related records using raw SQL to handle all FK constraints
     # This ensures we clean up everything regardless of ORM model availability
     tables_to_delete = [
+        "cart_items",  # Must delete before vendor_menu_items (FK to menu_item_id)
         "vendor_menu_items",
         "vendor_menu_categories",
         "vendor_payouts",
