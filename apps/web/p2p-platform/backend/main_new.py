@@ -10104,9 +10104,14 @@ def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: U
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
+    # Delete associated user record first (foreign key constraint)
+    associated_user = db.query(User).filter(User.vendor_id == vendor_id).first()
+    if associated_user:
+        db.delete(associated_user)
+
     db.delete(vendor)
     db.commit()
-    return {"message": "Vendor deleted successfully"}
+    return {"message": "Vendor and associated user deleted successfully"}
 
 # ============================================================================
 # ADMIN DOCUMENT REVIEW ENDPOINTS
