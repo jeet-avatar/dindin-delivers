@@ -10098,20 +10098,40 @@ def update_vendor_documents(
 
 @app.delete("/api/vendors/{vendor_id}")
 def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from models import Vendor
+    from models import Vendor, VendorMenuItem, VendorMenuCategory, VendorPayout, Order
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Delete associated user record first (foreign key constraint)
+    # Delete all related records first (foreign key constraints)
+    # 1. Delete menu items
+    db.query(VendorMenuItem).filter(VendorMenuItem.vendor_id == vendor_id).delete()
+
+    # 2. Delete menu categories
+    try:
+        db.query(VendorMenuCategory).filter(VendorMenuCategory.vendor_id == vendor_id).delete()
+    except Exception:
+        pass  # Table might not exist or no records
+
+    # 3. Nullify vendor_id in orders (preserve order history)
+    db.query(Order).filter(Order.vendor_id == vendor_id).update({"vendor_id": None})
+
+    # 4. Delete payouts
+    try:
+        db.query(VendorPayout).filter(VendorPayout.vendor_id == vendor_id).delete()
+    except Exception:
+        pass
+
+    # 5. Delete associated user record
     associated_user = db.query(User).filter(User.vendor_id == vendor_id).first()
     if associated_user:
         db.delete(associated_user)
 
+    # Finally delete the vendor
     db.delete(vendor)
     db.commit()
-    return {"message": "Vendor and associated user deleted successfully"}
+    return {"message": "Vendor and all associated records deleted successfully"}
 
 # ============================================================================
 # ADMIN DOCUMENT REVIEW ENDPOINTS
