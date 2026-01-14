@@ -1734,6 +1734,238 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Driver Password Reset
+
+    /// Request password reset for driver - sends reset code to email
+    public func requestDriverPasswordReset(
+        email: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/driver/password-reset/request") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["email": email]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset request failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Confirm password reset for driver with code and new password
+    public func confirmDriverPasswordReset(
+        email: String,
+        code: String,
+        newPassword: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/driver/password-reset/confirm") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "code": code,
+            "new_password": newPassword
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset confirmation failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Vendor/Restaurant Password Reset
+
+    /// Request password reset for vendor/restaurant - sends reset code to email
+    public func requestVendorPasswordReset(
+        email: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendor/password-reset/request") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["email": email]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset request failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Confirm password reset for vendor/restaurant with code and new password
+    public func confirmVendorPasswordReset(
+        email: String,
+        code: String,
+        newPassword: String,
+        completion: @escaping (Result<P2PPasswordResetResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendor/password-reset/confirm") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "email": email,
+            "code": code,
+            "new_password": newPassword
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Password reset confirmation failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let resetResponse = try JSONDecoder().decode(P2PPasswordResetResponse.self, from: data)
+                    completion(.success(resetResponse))
+                } catch {
+                    self?.error = "Failed to decode response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Customer registration
     public func customerRegister(
         email: String,
