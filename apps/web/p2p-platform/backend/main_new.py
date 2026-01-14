@@ -4814,13 +4814,39 @@ async def upload_driver_document_by_id(
 
     db.commit()
 
+    # Trigger Persona verification for driver's license uploads ONLY
+    persona_response = None
+    if document_type in ['drivers_license', 'license_front'] and os.getenv("PERSONA_API_KEY"):
+        try:
+            from document_verification_service import get_verification_service, DocumentType as VerificationDocType
+            verifier = get_verification_service("persona")
+
+            persona_response = await verifier.create_persona_inquiry(
+                reference_id=f"driver_{driver_id}",
+                entity_type="driver",
+                email=driver.email,
+                document_types=[VerificationDocType.DRIVERS_LICENSE]
+            )
+
+            if persona_response.get("success"):
+                driver.persona_inquiry_id = persona_response.get("inquiry_id")
+                driver.verification_status = "pending"
+                driver.verification_provider = "persona"
+                db.commit()
+                logger.info(f"Persona inquiry created for driver {driver_id}: {persona_response.get('inquiry_id')}")
+        except Exception as e:
+            logger.warning(f"Persona verification failed for driver {driver_id}: {e}")
+            # Don't fail upload if verification fails - document is still stored
+
     return {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_url": url_path,
         "file_path": url_path,
         "document_type": document_type,
-        "verification_status": "pending"
+        "verification_status": driver.verification_status or "uploaded",
+        "persona_inquiry_id": persona_response.get("inquiry_id") if persona_response else None,
+        "persona_inquiry_url": persona_response.get("inquiry_url") if persona_response else None
     }
 
 
@@ -4883,11 +4909,38 @@ async def upload_driver_document(
 
     db.commit()
 
+    # Trigger Persona verification for driver's license uploads ONLY
+    persona_response = None
+    if document_type == 'drivers_license' and os.getenv("PERSONA_API_KEY"):
+        try:
+            from document_verification_service import get_verification_service, DocumentType as VerificationDocType
+            verifier = get_verification_service("persona")
+
+            persona_response = await verifier.create_persona_inquiry(
+                reference_id=f"driver_{driver.id}",
+                entity_type="driver",
+                email=driver.email,
+                document_types=[VerificationDocType.DRIVERS_LICENSE]
+            )
+
+            if persona_response.get("success"):
+                driver.persona_inquiry_id = persona_response.get("inquiry_id")
+                driver.verification_status = "pending"
+                driver.verification_provider = "persona"
+                db.commit()
+                logger.info(f"Persona inquiry created for driver {driver.id}: {persona_response.get('inquiry_id')}")
+        except Exception as e:
+            logger.warning(f"Persona verification failed for driver {driver.id}: {e}")
+            # Don't fail upload if verification fails - document is still stored
+
     return {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_path": url_path,
-        "document_type": document_type
+        "document_type": document_type,
+        "verification_status": driver.verification_status or "uploaded",
+        "persona_inquiry_id": persona_response.get("inquiry_id") if persona_response else None,
+        "persona_inquiry_url": persona_response.get("inquiry_url") if persona_response else None
     }
 
 
@@ -11718,7 +11771,7 @@ async def start_verification(
         ]
 
         result = await verifier.create_persona_inquiry(
-            reference_id=str(vendor.id),
+            reference_id=f"vendor_{vendor.id}",
             entity_type="vendor",
             email=vendor.contact_email,
             document_types=[DocumentType(dt) for dt in doc_types]
@@ -11745,7 +11798,7 @@ async def start_verification(
         ]
 
         result = await verifier.create_persona_inquiry(
-            reference_id=str(driver.id),
+            reference_id=f"driver_{driver.id}",
             entity_type="driver",
             email=driver.email,
             document_types=[DocumentType(dt) for dt in doc_types]

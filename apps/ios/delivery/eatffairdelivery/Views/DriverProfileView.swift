@@ -5,6 +5,18 @@ import FirebaseStorage
 import PhotosUI
 import MapKit
 import EatFairShared
+import SafariServices
+
+// MARK: - Safari View for Persona Verification
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        return SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+}
 
 // MARK: - Main Profile View
 struct DriverProfileView: View {
@@ -65,6 +77,13 @@ struct DriverProfileView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(viewModel.errorMessage)
+            }
+            .sheet(isPresented: $viewModel.showVerificationWebView) {
+                if let urlString = viewModel.pendingVerificationUrl,
+                   let url = URL(string: urlString) {
+                    SafariView(url: url)
+                        .ignoresSafeArea()
+                }
             }
         }
     }

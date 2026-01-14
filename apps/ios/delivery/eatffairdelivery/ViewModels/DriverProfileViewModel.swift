@@ -73,6 +73,10 @@ class DriverProfileViewModel: ObservableObject {
     @Published var documentsResponse: DriverDocumentsResponse?
     @Published var isLoadingDocuments = false
 
+    // MARK: - Persona Verification
+    @Published var pendingVerificationUrl: String?
+    @Published var showVerificationWebView = false
+
     struct ExpirationAlert: Identifiable {
         let id = UUID()
         let type: DocumentType
@@ -793,6 +797,15 @@ class DriverProfileViewModel: ObservableObject {
                         default:
                             break
                         }
+                    }
+
+                    // If Persona verification URL is returned, open it for identity verification
+                    if let personaUrl = response.personaInquiryUrl {
+                        #if DEBUG
+                        print("[DriverProfileViewModel] Persona verification required: \(personaUrl)")
+                        #endif
+                        self.pendingVerificationUrl = personaUrl
+                        self.showVerificationWebView = true
                     }
 
                     // If the document was auto-verified, refresh profile to get updated status

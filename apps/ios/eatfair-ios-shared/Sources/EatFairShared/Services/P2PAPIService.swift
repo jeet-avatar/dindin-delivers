@@ -7536,6 +7536,8 @@ public struct DocumentUploadResponse: Codable {
     public let documentType: String
     public let verificationStatus: String
     public let aiVerificationId: String?
+    public let personaInquiryId: String?
+    public let personaInquiryUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -7544,15 +7546,19 @@ public struct DocumentUploadResponse: Codable {
         case documentType = "document_type"
         case verificationStatus = "verification_status"
         case aiVerificationId = "ai_verification_id"
+        case personaInquiryId = "persona_inquiry_id"
+        case personaInquiryUrl = "persona_inquiry_url"
     }
 
-    public init(success: Bool, message: String, fileUrl: String?, documentType: String, verificationStatus: String, aiVerificationId: String?) {
+    public init(success: Bool, message: String, fileUrl: String?, documentType: String, verificationStatus: String, aiVerificationId: String?, personaInquiryId: String? = nil, personaInquiryUrl: String? = nil) {
         self.success = success
         self.message = message
         self.fileUrl = fileUrl
         self.documentType = documentType
         self.verificationStatus = verificationStatus
         self.aiVerificationId = aiVerificationId
+        self.personaInquiryId = personaInquiryId
+        self.personaInquiryUrl = personaInquiryUrl
     }
 }
 
