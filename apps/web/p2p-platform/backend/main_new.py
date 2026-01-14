@@ -5619,6 +5619,7 @@ class DriverPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/driver/password-reset/request")
+@app.post("/api/auth/driver/forgot-password")  # Legacy Android endpoint
 def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset for driver - sends code to email"""
     # SECURITY: Rate limit password reset requests to prevent abuse and enumeration

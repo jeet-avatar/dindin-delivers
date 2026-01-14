@@ -98,7 +98,19 @@ const DriversAdmin: React.FC = () => {
       setSelectedDriver(null);
     } catch (error: any) {
       console.error('Failed to update driver status:', error);
-      message.error(error.response?.data?.detail || 'Failed to update driver status');
+      const detail = error.response?.data?.detail;
+      if (typeof detail === 'object' && detail !== null) {
+        // Handle structured error (e.g., missing documents)
+        const errorMsg = detail.message || 'Failed to update driver status';
+        const missingDocs = detail.missing_documents?.join(', ');
+        if (missingDocs) {
+          message.error(`${errorMsg}: ${missingDocs}`, 8);
+        } else {
+          message.error(errorMsg, 5);
+        }
+      } else {
+        message.error(detail || 'Failed to update driver status');
+      }
     } finally {
       setUpdating(false);
     }
