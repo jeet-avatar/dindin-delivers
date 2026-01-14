@@ -18551,20 +18551,23 @@ def run_database_migration(
     results = []
 
     try:
-        # Check if activation_token column exists
-        try:
-            db.execute(text("SELECT activation_token FROM drivers LIMIT 1"))
+        # Use schema inspection to check columns (no transaction issues)
+        from sqlalchemy import inspect
+        inspector = inspect(db.bind)
+        columns = [col['name'] for col in inspector.get_columns('drivers')]
+
+        # Check and add activation_token column
+        if 'activation_token' in columns:
             results.append("activation_token column already exists")
-        except Exception:
+        else:
             db.execute(text("ALTER TABLE drivers ADD COLUMN activation_token VARCHAR(64) UNIQUE"))
             db.commit()
             results.append("activation_token column added successfully")
 
-        # Check if terms_accepted_at column exists
-        try:
-            db.execute(text("SELECT terms_accepted_at FROM drivers LIMIT 1"))
+        # Check and add terms_accepted_at column
+        if 'terms_accepted_at' in columns:
             results.append("terms_accepted_at column already exists")
-        except Exception:
+        else:
             db.execute(text("ALTER TABLE drivers ADD COLUMN terms_accepted_at TIMESTAMP"))
             db.commit()
             results.append("terms_accepted_at column added successfully")
@@ -18575,6 +18578,7 @@ def run_database_migration(
             db.commit()
             results.append("Index created on activation_token")
         except Exception as e:
+            db.rollback()
             results.append(f"Index may already exist: {str(e)}")
 
         return {
@@ -18584,6 +18588,7 @@ def run_database_migration(
         }
 
     except Exception as e:
+        db.rollback()
         return {
             "success": False,
             "error": str(e),
