@@ -5605,6 +5605,236 @@ def customer_confirm_password_reset(http_request: Request, request: CustomerPass
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
 
+# ==================== DRIVER PASSWORD RESET ====================
+
+# In-memory storage for driver password reset codes
+driver_password_reset_codes = {}
+
+class DriverPasswordResetRequest(BaseModel):
+    email: str
+
+class DriverPasswordResetConfirm(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@app.post("/api/driver/password-reset/request")
+def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset for driver - sends code to email"""
+    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
+    import random
+
+    print(f"[DRIVER_PWD_RESET] === Request for {request.email} ===")
+
+    # Check if driver exists
+    driver = db.query(Driver).filter(Driver.email == request.email).first()
+    if not driver:
+        print(f"[DRIVER_PWD_RESET] Driver not found - returning without sending email")
+        # Don't reveal whether email exists for security
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
+    driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
+    print(f"[DRIVER_PWD_RESET] Found driver: {driver_name}")
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+    print(f"[DRIVER_PWD_RESET] Generated code: {code}")
+
+    # Store code with timestamp (expires in 15 minutes)
+    from datetime import datetime, timedelta
+    driver_password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    # Send password reset email
+    try:
+        print(f"[DRIVER_PWD_RESET] Calling send_password_reset_email...")
+        email_sent = send_password_reset_email(
+            to_email=request.email,
+            customer_name=driver_name,  # Reuse the same email template
+            reset_code=code
+        )
+        if email_sent:
+            print(f"[DRIVER_PWD_RESET] SUCCESS - email sent to {request.email}")
+        else:
+            print(f"[DRIVER_PWD_RESET] FAILED - function returned False, code: {code}")
+    except Exception as e:
+        print(f"[DRIVER_PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
+
+    return {
+        "success": True,
+        "message": "Reset code sent to your email."
+    }
+
+@app.post("/api/driver/password-reset/confirm")
+def driver_confirm_password_reset(http_request: Request, request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset for driver with code and set new password"""
+    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
+    from datetime import datetime
+
+    # SECURITY: Validate password complexity before processing
+    require_valid_password(request.new_password)
+
+    # Check if code exists and is valid
+    reset_data = driver_password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > reset_data["expires"]:
+        del driver_password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Get client info for security logging
+    client_ip, user_agent = get_client_info(http_request)
+
+    # Find driver and update password
+    driver = db.query(Driver).filter(Driver.email == request.email).first()
+    if not driver:
+        # SECURITY: Generic error to prevent user enumeration
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    # Update driver password
+    driver.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
+    # Remove used code
+    del driver_password_reset_codes[request.email]
+
+    # SECURITY: Log password reset event
+    log_security_event(
+        SecurityEventType.PASSWORD_RESET_COMPLETE,
+        user_email=request.email,
+        user_id=driver.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"account_type": "driver", "driver_id": driver.driver_id}
+    )
+
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+
+# ==================== VENDOR/RESTAURANT PASSWORD RESET ====================
+
+# In-memory storage for vendor password reset codes
+vendor_password_reset_codes = {}
+
+class VendorPasswordResetRequest(BaseModel):
+    email: str
+
+class VendorPasswordResetConfirm(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@app.post("/api/vendor/password-reset/request")
+@app.post("/api/restaurant/password-reset/request")
+def vendor_request_password_reset(http_request: Request, request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset for vendor/restaurant - sends code to email"""
+    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
+    import random
+
+    print(f"[VENDOR_PWD_RESET] === Request for {request.email} ===")
+
+    # Check if vendor exists
+    vendor = db.query(Vendor).filter(Vendor.email == request.email).first()
+    if not vendor:
+        print(f"[VENDOR_PWD_RESET] Vendor not found - returning without sending email")
+        # Don't reveal whether email exists for security
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
+    vendor_name = vendor.contact_name or vendor.business_name or "Restaurant Partner"
+    print(f"[VENDOR_PWD_RESET] Found vendor: {vendor_name}")
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+    print(f"[VENDOR_PWD_RESET] Generated code: {code}")
+
+    # Store code with timestamp (expires in 15 minutes)
+    from datetime import datetime, timedelta
+    vendor_password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    # Send password reset email
+    try:
+        print(f"[VENDOR_PWD_RESET] Calling send_password_reset_email...")
+        email_sent = send_password_reset_email(
+            to_email=request.email,
+            customer_name=vendor_name,  # Reuse the same email template
+            reset_code=code
+        )
+        if email_sent:
+            print(f"[VENDOR_PWD_RESET] SUCCESS - email sent to {request.email}")
+        else:
+            print(f"[VENDOR_PWD_RESET] FAILED - function returned False, code: {code}")
+    except Exception as e:
+        print(f"[VENDOR_PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
+
+    return {
+        "success": True,
+        "message": "Reset code sent to your email."
+    }
+
+@app.post("/api/vendor/password-reset/confirm")
+@app.post("/api/restaurant/password-reset/confirm")
+def vendor_confirm_password_reset(http_request: Request, request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset for vendor/restaurant with code and set new password"""
+    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
+    from datetime import datetime
+
+    # SECURITY: Validate password complexity before processing
+    require_valid_password(request.new_password)
+
+    # Check if code exists and is valid
+    reset_data = vendor_password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > reset_data["expires"]:
+        del vendor_password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Get client info for security logging
+    client_ip, user_agent = get_client_info(http_request)
+
+    # Find vendor and update password
+    vendor = db.query(Vendor).filter(Vendor.email == request.email).first()
+    if not vendor:
+        # SECURITY: Generic error to prevent user enumeration
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    # Update vendor password
+    vendor.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
+    # Remove used code
+    del vendor_password_reset_codes[request.email]
+
+    # SECURITY: Log password reset event
+    log_security_event(
+        SecurityEventType.PASSWORD_RESET_COMPLETE,
+        user_email=request.email,
+        user_id=vendor.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"account_type": "vendor", "business_name": vendor.business_name}
+    )
+
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+
 @app.get("/api/customer/profile")
 async def get_customer_profile_v2(customer: Customer = Depends(get_current_customer)):
     """Get current customer's profile - uses Customer table directly via JWT"""
