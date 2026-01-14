@@ -18568,7 +18568,12 @@ def get_admin_drivers(
                 "documents_verified": d.documents_verified,
                 "stripe_onboarded": d.stripe_onboarded,
                 "created_at": d.created_at.isoformat() if d.created_at else None,
-                "photo_url": d.photo_url
+                "photo_url": d.photo_url,
+                # Document URLs for admin review
+                "drivers_license": d.drivers_license,
+                "drivers_license_url": d.drivers_license_url,
+                "insurance": d.insurance,
+                "insurance_url": d.insurance_url
             }
             for d in drivers
         ],
