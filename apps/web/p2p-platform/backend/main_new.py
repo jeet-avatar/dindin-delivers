@@ -18530,6 +18530,67 @@ def get_duplicate_routes():
     }
 
 
+# ==================== DATABASE MIGRATION ENDPOINT ====================
+# One-time use endpoint to add new columns - requires admin secret
+
+MIGRATION_SECRET = os.getenv("MIGRATION_SECRET", "dollor-migrate-2026-secure")
+
+@app.post("/api/admin/run-migration")
+def run_database_migration(
+    secret: str = Header(..., alias="X-Migration-Secret"),
+    db: Session = Depends(get_db)
+):
+    """
+    Run database migration to add activation columns.
+    Requires X-Migration-Secret header with correct value.
+    This endpoint should be called once after deployment.
+    """
+    if secret != MIGRATION_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid migration secret")
+
+    results = []
+
+    try:
+        # Check if activation_token column exists
+        try:
+            db.execute(text("SELECT activation_token FROM drivers LIMIT 1"))
+            results.append("activation_token column already exists")
+        except Exception:
+            db.execute(text("ALTER TABLE drivers ADD COLUMN activation_token VARCHAR(64) UNIQUE"))
+            db.commit()
+            results.append("activation_token column added successfully")
+
+        # Check if terms_accepted_at column exists
+        try:
+            db.execute(text("SELECT terms_accepted_at FROM drivers LIMIT 1"))
+            results.append("terms_accepted_at column already exists")
+        except Exception:
+            db.execute(text("ALTER TABLE drivers ADD COLUMN terms_accepted_at TIMESTAMP"))
+            db.commit()
+            results.append("terms_accepted_at column added successfully")
+
+        # Create index on activation_token
+        try:
+            db.execute(text("CREATE INDEX IF NOT EXISTS ix_drivers_activation_token ON drivers(activation_token)"))
+            db.commit()
+            results.append("Index created on activation_token")
+        except Exception as e:
+            results.append(f"Index may already exist: {str(e)}")
+
+        return {
+            "success": True,
+            "message": "Migration completed",
+            "results": results
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "results": results
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
