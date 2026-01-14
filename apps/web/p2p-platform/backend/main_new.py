@@ -4711,6 +4711,7 @@ def update_driver_profile_by_id(
     }
 
 
+@app.patch("/api/drivers/{driver_id}/status")
 @app.patch("/drivers/{driver_id}/status")
 def update_driver_status(
     driver_id: int,
