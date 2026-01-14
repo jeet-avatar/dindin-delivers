@@ -5743,15 +5743,18 @@ def vendor_request_password_reset(http_request: Request, request: VendorPassword
 
     print(f"[VENDOR_PWD_RESET] === Request for {request.email} ===")
 
-    # Check if vendor exists
-    vendor = db.query(Vendor).filter(Vendor.email == request.email).first()
-    if not vendor:
-        print(f"[VENDOR_PWD_RESET] Vendor not found - returning without sending email")
+    # Check if vendor user exists (vendors use User table with VENDOR role)
+    user = db.query(User).filter(
+        User.email == request.email,
+        User.role == UserRole.VENDOR
+    ).first()
+    if not user:
+        print(f"[VENDOR_PWD_RESET] Vendor user not found - returning without sending email")
         # Don't reveal whether email exists for security
         return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
 
-    vendor_name = vendor.contact_name or vendor.business_name or "Restaurant Partner"
-    print(f"[VENDOR_PWD_RESET] Found vendor: {vendor_name}")
+    vendor_name = user.full_name or "Restaurant Partner"
+    print(f"[VENDOR_PWD_RESET] Found vendor user: {vendor_name}")
 
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
@@ -5810,14 +5813,17 @@ def vendor_confirm_password_reset(http_request: Request, request: VendorPassword
     # Get client info for security logging
     client_ip, user_agent = get_client_info(http_request)
 
-    # Find vendor and update password
-    vendor = db.query(Vendor).filter(Vendor.email == request.email).first()
-    if not vendor:
+    # Find vendor user and update password (vendors use User table with VENDOR role)
+    user = db.query(User).filter(
+        User.email == request.email,
+        User.role == UserRole.VENDOR
+    ).first()
+    if not user:
         # SECURITY: Generic error to prevent user enumeration
         raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
-    # Update vendor password
-    vendor.password_hash = get_password_hash(request.new_password)
+    # Update vendor user password
+    user.password_hash = get_password_hash(request.new_password)
     db.commit()
 
     # Remove used code
@@ -5827,10 +5833,10 @@ def vendor_confirm_password_reset(http_request: Request, request: VendorPassword
     log_security_event(
         SecurityEventType.PASSWORD_RESET_COMPLETE,
         user_email=request.email,
-        user_id=vendor.id,
+        user_id=user.id,
         ip_address=client_ip,
         user_agent=user_agent,
-        details={"account_type": "vendor", "business_name": vendor.business_name}
+        details={"account_type": "vendor", "user_name": user.full_name}
     )
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
