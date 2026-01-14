@@ -745,12 +745,16 @@ def send_vendor_registration_confirmation(
 def send_driver_approval_email(
     to_email: str,
     driver_name: str,
-    driver_code: str
+    driver_code: str,
+    activation_token: str = None
 ) -> bool:
     """
-    Send approval notification email to a driver.
+    Send approval notification email to a driver with Terms of Service acceptance.
+    Driver must click activation link to accept terms and become active.
     """
-    subject = f"You're Approved! Start Delivering with Dollor.ai"
+    activation_url = f"{API_BASE_URL}/drivers/activate/{activation_token}" if activation_token else f"{WEB_BASE_URL}/driver/activate"
+
+    subject = f"ACTION REQUIRED: Activate Your Dollor.ai Driver Account"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -758,80 +762,144 @@ def send_driver_approval_email(
     <head>
         <style>
             body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .container {{ max-width: 700px; margin: 0 auto; background-color: white; }}
             .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center; }}
             .logo {{ font-size: 32px; color: white; font-weight: bold; }}
             .content {{ padding: 40px 30px; }}
             .greeting {{ font-size: 24px; color: #1e293b; margin-bottom: 20px; }}
             .message {{ color: #475569; font-size: 16px; line-height: 1.6; }}
-            .highlight {{ background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-left: 4px solid #10b981; padding: 20px; margin: 30px 0; border-radius: 8px; }}
-            .cta-button {{ display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 20px 0; }}
-            .driver-code {{ background: #f8fafc; border: 2px solid #10b981; padding: 15px 20px; border-radius: 8px; font-family: monospace; font-size: 24px; text-align: center; margin: 20px 0; color: #10b981; }}
-            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
-            .steps {{ margin: 20px 0; }}
-            .step {{ display: flex; align-items: center; margin: 15px 0; }}
-            .step-number {{ background: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; }}
+            .driver-code {{ background: #f0fdf4; border: 2px solid #10b981; padding: 15px 20px; border-radius: 8px; font-family: monospace; font-size: 24px; text-align: center; margin: 20px 0; color: #10b981; }}
+            .alert-box {{ background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 8px; }}
+            .services-box {{ background: #f0fdf4; border: 1px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; }}
+            .terms-section {{ background: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; margin: 25px 0; border-radius: 8px; }}
+            .terms-item {{ margin: 15px 0; padding-left: 15px; border-left: 3px solid #10b981; }}
+            .cta-button {{ display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 18px 40px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 18px; margin: 25px 0; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }}
+            .footer {{ background: #1e293b; padding: 30px; text-align: center; color: #94a3b8; font-size: 13px; }}
+            .checkmark {{ color: #10b981; font-weight: bold; margin-right: 8px; }}
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Dollor.ai Driver</div>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Earn More. Drive Less.</p>
+                <div class="logo">DOLLOR.AI</div>
+                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 18px;">Your Application Has Been Approved!</p>
             </div>
             <div class="content">
-                <h1 class="greeting">Welcome to the team, {driver_name}!</h1>
+                <h1 class="greeting">Congratulations, {driver_name}!</h1>
                 <p class="message">
-                    Great news! Your driver application has been <strong>approved</strong>.
-                    You're now ready to start earning with Dollor.ai!
+                    Your driver application with <strong>Dollor.ai</strong> has been <strong style="color: #10b981;">APPROVED</strong>.
+                    You are now eligible to provide services as an <strong>Independent Contractor</strong> on our platform.
                 </p>
 
-                <div class="driver-code">
-                    Your Driver Code: <strong>{driver_code}</strong>
-                </div>
+                <div class="driver-code">YOUR DRIVER CODE: <strong>{driver_code}</strong></div>
 
-                <div class="highlight">
-                    <strong>You're ready to start delivering!</strong><br>
-                    Download the Driver app, go online, and start accepting delivery requests.
-                </div>
-
-                <h3>Get Started:</h3>
-                <div class="steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <span>Download the Dollor.ai Driver app</span>
-                    </div>
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <span>Log in with your email and password</span>
-                    </div>
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <span>Go online and start accepting deliveries!</span>
-                    </div>
-                </div>
-
-                <center>
-                    <a href="https://dollor.ai/driver/login" class="cta-button">
-                        Start Driving
-                    </a>
-                </center>
-
-                <div style="margin: 30px 0;">
-                    <p><strong>Download the Driver App:</strong></p>
-                    <p>
-                        <a href="https://apps.apple.com/app/dollor-driver">iOS App Store</a> |
-                        <a href="https://play.google.com/store/apps/details?id=com.dollor.driver">Google Play</a>
+                <div class="alert-box">
+                    <strong style="color: #92400e; font-size: 16px;">⚠️ IMPORTANT: ACTIVATION REQUIRED</strong>
+                    <p style="color: #78350f; margin: 10px 0 0 0;">
+                        Before you can start accepting requests, you must review and accept our Terms of Service
+                        by clicking the <strong>ACTIVATE MY ACCOUNT</strong> button below.
                     </p>
                 </div>
 
+                <h2 style="color: #1e293b; border-bottom: 2px solid #10b981; padding-bottom: 10px;">You Are Approved For:</h2>
+
+                <div class="services-box">
+                    <h3 style="color: #10b981; margin-top: 0;"><span class="checkmark">✅</span> FOOD DELIVERY SERVICES</h3>
+                    <ul style="color: #475569;">
+                        <li>Deliver food orders from restaurants to customers</li>
+                        <li><strong>Earn 100% of delivery fees + 100% of tips</strong></li>
+                        <li>Platform fee: $1 per delivery (paid by customer)</li>
+                    </ul>
+                    <h3 style="color: #10b981;"><span class="checkmark">✅</span> RIDESHARE SERVICES</h3>
+                    <ul style="color: #475569;">
+                        <li>Provide transportation services to riders</li>
+                        <li><strong>Set your own fares through negotiation</strong></li>
+                        <li>Platform fee: $1-$3 tiered (paid by rider)</li>
+                    </ul>
+                </div>
+
+                <div class="terms-section">
+                    <h2 style="color: #1e293b; margin-top: 0;">INDEPENDENT CONTRACTOR AGREEMENT</h2>
+                    <p style="color: #64748b; font-size: 14px;">By clicking "ACTIVATE MY ACCOUNT" below, you acknowledge and agree to:</p>
+
+                    <div class="terms-item">
+                        <strong>1. INDEPENDENT CONTRACTOR STATUS</strong>
+                        <p style="color: #475569; margin: 5px 0;">You are an independent contractor, NOT an employee of Dollor.ai or Zietra Technology Inc. You are responsible for your own taxes, insurance, and business expenses.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>2. MATCHMAKING PLATFORM</strong>
+                        <p style="color: #475569; margin: 5px 0;">Dollor.ai is a MATCHMAKING PLATFORM that connects drivers with customers. We do not employ drivers, set mandatory prices, or control how you perform services.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>3. VEHICLE & INSURANCE REQUIREMENTS</strong>
+                        <p style="color: #475569; margin: 5px 0;">You must maintain valid vehicle registration and carry minimum auto insurance as required by your state. For rideshare: commercial/TNC insurance is required.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>4. BACKGROUND CHECK CONSENT</strong>
+                        <p style="color: #475569; margin: 5px 0;">You consent to periodic background checks as required by law and platform policies.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>5. SERVICE STANDARDS</strong>
+                        <p style="color: #475569; margin: 5px 0;">Maintain minimum 4.5 star rating, complete services safely and professionally, follow all traffic laws, no discrimination.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>6. PAYMENT TERMS</strong>
+                        <p style="color: #475569; margin: 5px 0;">Payments via Stripe Connect with weekly automatic payouts. You keep 100% of tips. Platform fees deducted per transaction.</p>
+                    </div>
+                    <div class="terms-item">
+                        <strong>7. DEACTIVATION POLICY</strong>
+                        <p style="color: #475569; margin: 5px 0;">Your account may be deactivated for: rating below 4.5 stars, safety violations, customer complaints, fraudulent activity, or Terms of Service violations.</p>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <p style="color: #475569; font-size: 14px; margin: 0;"><strong>By activating your account, you agree to:</strong></p>
+                    <p style="color: #475569; font-size: 14px; margin: 10px 0;">
+                        <span class="checkmark">☑</span> Dollor.ai Driver Terms of Service<br>
+                        <span class="checkmark">☑</span> Independent Contractor Agreement<br>
+                        <span class="checkmark">☑</span> Privacy Policy<br>
+                        <span class="checkmark">☑</span> Community Guidelines<br>
+                        <span class="checkmark">☑</span> Deactivation Policy
+                    </p>
+                </div>
+
+                <center>
+                    <a href="{activation_url}" class="cta-button">ACTIVATE MY ACCOUNT</a>
+                    <p style="color: #64748b; font-size: 13px;">Click to accept terms and start driving</p>
+                </center>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <p style="font-size: 14px; color: #64748b;">Review full legal documents:</p>
+                    <a href="{WEB_BASE_URL}/legal/driver-terms" style="color: #10b981; margin: 0 10px;">Driver Terms</a> |
+                    <a href="{WEB_BASE_URL}/legal/privacy" style="color: #10b981; margin: 0 10px;">Privacy Policy</a> |
+                    <a href="{WEB_BASE_URL}/legal/insurance" style="color: #10b981; margin: 0 10px;">Insurance Requirements</a>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+
+                <h3 style="color: #1e293b;">Get Started After Activation:</h3>
+                <ol style="color: #475569;">
+                    <li><strong>Download the Dollor Driver App</strong><br>
+                        <a href="https://apps.apple.com/app/dollor-driver">iOS App Store</a> |
+                        <a href="https://play.google.com/store/apps/details?id=ai.dollor.driver">Google Play</a>
+                    </li>
+                    <li><strong>Log in</strong> with your email and password</li>
+                    <li><strong>Complete Stripe payment setup</strong> (if not done)</li>
+                    <li><strong>Go online</strong> and start earning!</li>
+                </ol>
+
                 <p class="message" style="margin-top: 30px;">
-                    Questions? Our driver support team is here to help 24/7.<br>
-                    Email us at <strong>drivers@dollor.ai</strong> or call <strong>(800) 555-RIDE</strong>.
+                    Questions? Contact our driver support team 24/7.<br>
+                    Email: <strong>support@dollor.ai</strong>
                 </p>
             </div>
             <div class="footer">
-                <p>2024 Dollor.ai - Earn $25+/hour with $1 Deliveries</p>
+                <p style="margin: 0 0 10px 0;">© 2025 Zietra Technology Inc. All rights reserved.</p>
+                <p style="margin: 0; font-size: 12px;">Rancho Santa Margarita, CA 92688 | Dollor.ai</p>
+                <p style="margin: 15px 0 0 0; font-size: 11px; color: #64748b;">
+                    This email was sent because you applied to be a driver on Dollor.ai.<br>
+                    If you did not apply, please ignore this email or contact support.
+                </p>
             </div>
         </div>
     </body>
@@ -839,25 +907,76 @@ def send_driver_approval_email(
     """
 
     text_body = f"""
-    Welcome to the team, {driver_name}!
+    DOLLOR.AI - YOUR APPLICATION HAS BEEN APPROVED
+    ================================================
 
-    Great news! Your driver application has been approved.
-    You're now ready to start earning with Dollor.ai!
+    Congratulations, {driver_name}!
 
-    Your Driver Code: {driver_code}
+    Your driver application with Dollor.ai has been APPROVED.
+    You are now eligible to provide services as an Independent Contractor.
 
-    Get Started:
-    1. Download the Dollor.ai Driver app
-    2. Log in with your email and password
-    3. Go online and start accepting deliveries!
+    YOUR DRIVER CODE: {driver_code}
 
-    Download the Driver App:
-    - iOS: https://apps.apple.com/app/dollor-driver
-    - Android: https://play.google.com/store/apps/details?id=com.dollor.driver
+    ⚠️ IMPORTANT: ACTIVATION REQUIRED
+    Before you can start accepting requests, you must accept our Terms of Service.
 
-    Questions? Email drivers@dollor.ai or call (800) 555-RIDE.
+    Activate your account here: {activation_url}
 
-    2024 Dollor.ai
+    ================================================
+    YOU ARE APPROVED FOR:
+    ================================================
+
+    ✅ FOOD DELIVERY SERVICES
+    - Deliver food orders from restaurants to customers
+    - Earn 100% of delivery fees + 100% of tips
+    - Platform fee: $1 per delivery (paid by customer)
+
+    ✅ RIDESHARE SERVICES
+    - Provide transportation services to riders
+    - Set your own fares through negotiation
+    - Platform fee: $1-$3 tiered (paid by rider)
+
+    ================================================
+    INDEPENDENT CONTRACTOR AGREEMENT
+    ================================================
+
+    By activating your account, you acknowledge and agree to:
+
+    1. INDEPENDENT CONTRACTOR STATUS - You are NOT an employee of Dollor.ai or Zietra Technology Inc.
+    2. MATCHMAKING PLATFORM - We connect drivers with customers, we do not employ drivers.
+    3. VEHICLE & INSURANCE - Maintain valid registration and required insurance.
+    4. BACKGROUND CHECK CONSENT - You consent to periodic background checks.
+    5. SERVICE STANDARDS - Maintain 4.5+ star rating and professional conduct.
+    6. PAYMENT TERMS - Payments via Stripe Connect, weekly payouts, 100% of tips.
+    7. DEACTIVATION POLICY - Account may be deactivated for policy violations.
+
+    Legal Documents:
+    - Driver Terms: {WEB_BASE_URL}/legal/driver-terms
+    - Privacy Policy: {WEB_BASE_URL}/legal/privacy
+    - Insurance Requirements: {WEB_BASE_URL}/legal/insurance
+
+    ================================================
+    ACTIVATE YOUR ACCOUNT
+    ================================================
+
+    Click here to accept terms and start driving:
+    {activation_url}
+
+    ================================================
+    GET STARTED AFTER ACTIVATION
+    ================================================
+
+    1. Download the Dollor Driver App
+       - iOS: https://apps.apple.com/app/dollor-driver
+       - Android: https://play.google.com/store/apps/details?id=ai.dollor.driver
+    2. Log in with your email
+    3. Complete Stripe payment setup
+    4. Go online and start earning!
+
+    Questions? Email support@dollor.ai
+
+    © 2025 Zietra Technology Inc.
+    Rancho Santa Margarita, CA 92688 | Dollor.ai
     """
 
     return send_email(to_email, subject, html_body, text_body)

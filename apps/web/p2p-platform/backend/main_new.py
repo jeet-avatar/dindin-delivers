@@ -23,6 +23,7 @@ from jose import jwt, JWTError
 import os
 import json
 import logging
+import secrets
 from dotenv import load_dotenv
 
 # Configure logging
@@ -4760,18 +4761,24 @@ def update_driver_status(
 
     driver.updated_at = datetime.utcnow()
 
-    # If driver is being approved, set approved_at and send approval email
-    if status.upper() in ["APPROVED", "ACTIVE"] and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+    # If driver is being approved, set approved_at, generate activation token, and send approval email
+    if status.upper() == "APPROVED" and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
         driver.approved_at = datetime.utcnow()
+        # Generate a unique activation token for terms acceptance
+        activation_token = secrets.token_urlsafe(32)
+        driver.activation_token = activation_token
+        driver.status = DriverStatus.APPROVED  # Keep as APPROVED until they click activation link
+
         try:
             send_driver_approval_email(
                 to_email=driver.email,
                 driver_name=f"{driver.first_name} {driver.last_name}",
-                driver_code=driver.driver_id
+                driver_code=driver.driver_id,
+                activation_token=activation_token
             )
-            print(f"Driver approval email sent to: {driver.email}")
+            print(f"✅ Driver approval email with activation link sent to: {driver.email}")
         except Exception as e:
-            print(f"Failed to send driver approval email: {str(e)}")
+            print(f"❌ Failed to send driver approval email: {str(e)}")
 
     db.commit()
     db.refresh(driver)
@@ -4782,6 +4789,157 @@ def update_driver_status(
         "driver_id": driver.id,
         "status": driver.status.value
     }
+
+
+# ==================== DRIVER ACTIVATION ENDPOINT ====================
+# Driver clicks email link to accept terms and activate account
+
+@app.get("/drivers/activate/{token}")
+@app.get("/api/drivers/activate/{token}")
+def activate_driver_account(token: str, db: Session = Depends(get_db)):
+    """
+    Activate driver account - Driver clicks this link in their approval email.
+
+    This endpoint:
+    1. Validates the activation token
+    2. Updates driver status from APPROVED to ACTIVE
+    3. Records terms acceptance timestamp (legal compliance)
+    4. Returns an HTML success page
+    """
+    # Find driver by activation token
+    driver = db.query(Driver).filter(Driver.activation_token == token).first()
+
+    if not driver:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Invalid Link - Dollor.ai</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                       display: flex; justify-content: center; align-items: center; min-height: 100vh;
+                       margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
+                .container {{ text-align: center; padding: 40px; max-width: 500px; }}
+                .icon {{ font-size: 64px; margin-bottom: 20px; }}
+                h1 {{ color: #ff6b6b; margin-bottom: 10px; }}
+                p {{ color: #a0a0a0; line-height: 1.6; }}
+                .btn {{ display: inline-block; padding: 12px 24px; background: #667eea; color: white;
+                        text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">❌</div>
+                <h1>Invalid or Expired Link</h1>
+                <p>This activation link is invalid or has already been used.</p>
+                <p>If you've already activated your account, you can log in to the Driver app.</p>
+                <a href="https://dollor.ai" class="btn">Visit Dollor.ai</a>
+            </div>
+        </body>
+        </html>
+        """, status_code=400)
+
+    # Check if already activated
+    if driver.status == DriverStatus.ACTIVE:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Already Activated - Dollor.ai</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                       display: flex; justify-content: center; align-items: center; min-height: 100vh;
+                       margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
+                .container {{ text-align: center; padding: 40px; max-width: 500px; }}
+                .icon {{ font-size: 64px; margin-bottom: 20px; }}
+                h1 {{ color: #4ecdc4; margin-bottom: 10px; }}
+                p {{ color: #a0a0a0; line-height: 1.6; }}
+                .btn {{ display: inline-block; padding: 12px 24px; background: #667eea; color: white;
+                        text-decoration: none; border-radius: 8px; margin-top: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">✓</div>
+                <h1>Already Activated!</h1>
+                <p>Hi {driver.first_name}, your account is already active.</p>
+                <p>You can log in to the Driver app and start accepting deliveries and rides.</p>
+                <a href="https://dollor.ai" class="btn">Visit Dollor.ai</a>
+            </div>
+        </body>
+        </html>
+        """)
+
+    # Activate the driver
+    driver.status = DriverStatus.ACTIVE
+    driver.terms_accepted_at = datetime.utcnow()
+    driver.updated_at = datetime.utcnow()
+    # Clear the token after use (one-time use)
+    driver.activation_token = None
+
+    db.commit()
+
+    print(f"✅ Driver {driver.first_name} {driver.last_name} ({driver.email}) activated - Terms accepted at {driver.terms_accepted_at}")
+
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Account Activated! - Dollor.ai</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                   display: flex; justify-content: center; align-items: center; min-height: 100vh;
+                   margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
+            .container {{ text-align: center; padding: 40px; max-width: 600px; }}
+            .icon {{ font-size: 80px; margin-bottom: 20px; }}
+            h1 {{ color: #4ecdc4; margin-bottom: 10px; font-size: 32px; }}
+            .welcome {{ font-size: 20px; color: #667eea; margin-bottom: 20px; }}
+            p {{ color: #a0a0a0; line-height: 1.8; margin: 15px 0; }}
+            .highlight {{ color: #4ecdc4; font-weight: bold; }}
+            .card {{ background: rgba(255,255,255,0.1); border-radius: 12px; padding: 25px; margin: 20px 0; }}
+            .card h3 {{ color: #667eea; margin-bottom: 15px; }}
+            .card ul {{ text-align: left; padding-left: 20px; }}
+            .card li {{ margin: 10px 0; color: #d0d0d0; }}
+            .btn {{ display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white; text-decoration: none; border-radius: 10px; margin-top: 25px; font-weight: bold;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }}
+            .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="icon">🎉</div>
+            <h1>Welcome to Dollor.ai!</h1>
+            <p class="welcome">Congratulations, {driver.first_name}!</p>
+            <p>Your account has been <span class="highlight">successfully activated</span>.</p>
+            <p>By clicking this link, you have accepted the Independent Contractor Agreement
+               and Terms of Service.</p>
+
+            <div class="card">
+                <h3>You're Ready To:</h3>
+                <ul>
+                    <li>🚗 Accept rideshare requests from passengers</li>
+                    <li>🍕 Deliver food orders from restaurants</li>
+                    <li>💰 Keep 100% of your earnings + tips</li>
+                    <li>⏰ Work on your own schedule</li>
+                </ul>
+            </div>
+
+            <p>Download and log in to the <strong>Dollor Driver</strong> app to start accepting requests.</p>
+
+            <a href="https://dollor.ai" class="btn">Get Started</a>
+
+            <div class="footer">
+                <p>© 2025 Zietra Technology Inc. | Rancho Santa Margarita, CA 92688</p>
+                <p>Terms accepted on: {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """)
 
 
 # ==================== DRIVER STATUS ENDPOINTS (Android Compatibility) ====================

@@ -706,6 +706,10 @@ class Driver(Base):
     # NOTE: approved_at should be set when driver status changes to APPROVED - currently unused
     approved_at = Column(DateTime)
 
+    # Activation & Terms Acceptance (Legal Compliance)
+    activation_token = Column(String(64), unique=True, index=True)  # Token sent via email for activation
+    terms_accepted_at = Column(DateTime)  # When driver accepted Independent Contractor Agreement
+
     # Document Verification (Third-Party Integration - Persona/Onfido)
     verification_id = Column(String(255))  # Persona/Onfido inquiry ID
     verification_status = Column(String(50), default="not_started")  # pending, verified, rejected, needs_review
