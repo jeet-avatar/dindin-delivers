@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, Input, Select, Button, Space, Card, Statistic, Row, Col, message, Avatar, Badge, Modal, Descriptions } from 'antd';
-import { SearchOutlined, UserOutlined, CarOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, PhoneOutlined, MailOutlined, StarFilled } from '@ant-design/icons';
+import { Table, Tag, Input, Select, Button, Space, Card, Statistic, Row, Col, message, Avatar, Badge, Modal, Descriptions, Popconfirm } from 'antd';
+import { SearchOutlined, UserOutlined, CarOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, PhoneOutlined, MailOutlined, StarFilled, CheckOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../../api/api';
 
@@ -32,6 +32,7 @@ interface Driver {
 const DriversAdmin: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -78,6 +79,28 @@ const DriversAdmin: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateDriverStatus = async (driverId: number, newStatus: string) => {
+    setUpdating(true);
+    try {
+      await api.patch(`/drivers/${driverId}/status`, null, { params: { status: newStatus } });
+      const statusMessages: Record<string, string> = {
+        'approved': 'Driver approved! Activation email has been sent.',
+        'rejected': 'Driver has been rejected.',
+        'suspended': 'Driver has been suspended.',
+        'active': 'Driver is now active.'
+      };
+      message.success(statusMessages[newStatus] || `Driver status updated to ${newStatus}`);
+      fetchDrivers();
+      setDetailModalVisible(false);
+      setSelectedDriver(null);
+    } catch (error: any) {
+      console.error('Failed to update driver status:', error);
+      message.error(error.response?.data?.detail || 'Failed to update driver status');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -209,18 +232,47 @@ const DriversAdmin: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: Driver) => (
-        <Button
-          type="link"
-          onClick={() => {
-            setSelectedDriver(record);
-            setDetailModalVisible(true);
-          }}
-        >
-          View
-        </Button>
+        <Space size="small">
+          <Button
+            type="link"
+            onClick={() => {
+              setSelectedDriver(record);
+              setDetailModalVisible(true);
+            }}
+          >
+            View
+          </Button>
+          {record.status === 'pending' && (
+            <>
+              <Popconfirm
+                title="Approve this driver?"
+                description="An activation email will be sent to the driver."
+                onConfirm={() => updateDriverStatus(record.id, 'approved')}
+                okText="Approve"
+                cancelText="Cancel"
+              >
+                <Button type="primary" size="small" icon={<CheckOutlined />} loading={updating}>
+                  Approve
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Reject this driver?"
+                description="This action cannot be undone."
+                onConfirm={() => updateDriverStatus(record.id, 'rejected')}
+                okText="Reject"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger size="small" icon={<CloseOutlined />} loading={updating}>
+                  Reject
+                </Button>
+              </Popconfirm>
+            </>
+          )}
+        </Space>
       )
     }
   ];
@@ -365,7 +417,69 @@ const DriversAdmin: React.FC = () => {
           setDetailModalVisible(false);
           setSelectedDriver(null);
         }}
-        footer={null}
+        footer={selectedDriver ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button onClick={() => { setDetailModalVisible(false); setSelectedDriver(null); }}>
+              Close
+            </Button>
+            <Space>
+              {selectedDriver.status === 'pending' && (
+                <>
+                  <Popconfirm
+                    title="Approve this driver?"
+                    description="An activation email will be sent to the driver."
+                    onConfirm={() => updateDriverStatus(selectedDriver.id, 'approved')}
+                    okText="Approve"
+                    cancelText="Cancel"
+                  >
+                    <Button type="primary" icon={<CheckOutlined />} loading={updating}>
+                      Approve Driver
+                    </Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title="Reject this driver?"
+                    description="This action cannot be undone."
+                    onConfirm={() => updateDriverStatus(selectedDriver.id, 'rejected')}
+                    okText="Reject"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger icon={<CloseOutlined />} loading={updating}>
+                      Reject
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
+              {(selectedDriver.status === 'approved' || selectedDriver.status === 'active') && (
+                <Popconfirm
+                  title="Suspend this driver?"
+                  description="Driver will not be able to accept new requests."
+                  onConfirm={() => updateDriverStatus(selectedDriver.id, 'suspended')}
+                  okText="Suspend"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button danger icon={<StopOutlined />} loading={updating}>
+                    Suspend Driver
+                  </Button>
+                </Popconfirm>
+              )}
+              {selectedDriver.status === 'suspended' && (
+                <Popconfirm
+                  title="Reactivate this driver?"
+                  description="Driver will be able to accept requests again."
+                  onConfirm={() => updateDriverStatus(selectedDriver.id, 'active')}
+                  okText="Reactivate"
+                  cancelText="Cancel"
+                >
+                  <Button type="primary" icon={<CheckOutlined />} loading={updating}>
+                    Reactivate Driver
+                  </Button>
+                </Popconfirm>
+              )}
+            </Space>
+          </div>
+        ) : null}
         width={700}
       >
         {selectedDriver && (
