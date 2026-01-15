@@ -952,7 +952,7 @@ struct OrderInvoiceView: View {
                         Text("Thank you for your order!")
                             .font(.headline)
 
-                        Text("Powered by Dollor.ai")
+                        Text("Powered by Dollor.AI")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1062,7 +1062,7 @@ struct InvoiceShareSheet: UIViewControllerRepresentable {
         ================================
 
         Thank you for your order!
-        Powered by Dollor.ai
+        Powered by Dollor.AI
         """
 
         return text

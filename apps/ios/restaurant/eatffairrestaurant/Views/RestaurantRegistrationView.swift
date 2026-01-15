@@ -775,7 +775,7 @@ struct Step4ReviewView: View {
 
             // Pricing Info
             VStack(alignment: .leading, spacing: 12) {
-                Text("Dollor.ai Pricing")
+                Text("Dollor.AI Pricing")
                     .font(.headline)
 
                 HStack {
@@ -823,7 +823,7 @@ struct Step4ReviewView: View {
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .green))
 
-                Text("By submitting, you agree to our matchmaking platform terms. Dollor.ai connects restaurants with customers and independent delivery partners.")
+                Text("By submitting, you agree to our matchmaking platform terms. Dollor.AI connects restaurants with customers and independent delivery partners.")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
@@ -960,7 +960,7 @@ struct RegistrationSuccessView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Thank you for applying to join Dollor.ai!")
+            Text("Thank you for applying to join Dollor.AI!")
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
