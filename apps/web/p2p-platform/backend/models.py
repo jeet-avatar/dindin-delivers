@@ -1574,3 +1574,59 @@ class RateLimitEntry(Base):
         # Composite index for fast lookups by key + time window
         # This enables efficient sliding window queries
     )
+
+
+# =============================================================================
+# PASSWORD RESET TOKENS - Database-backed for distributed environments
+# =============================================================================
+
+class PasswordResetToken(Base):
+    """
+    Database-backed password reset tokens.
+
+    CRITICAL: This replaces in-memory storage to work across multiple
+    container instances (App Runner, ECS, K8s scaling).
+
+    Features:
+    - Secure hashed code storage (not plaintext)
+    - Expiration tracking
+    - Delivery status tracking
+    - Audit trail (IP, user agent, timestamps)
+    - Failed attempt tracking to prevent brute force
+    """
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # User identification
+    email = Column(String(255), nullable=False, index=True)
+    user_type = Column(String(50), nullable=False)  # 'customer', 'driver', 'vendor'
+    user_id = Column(Integer, nullable=False)
+
+    # Secure code storage (hashed, not plaintext)
+    code_hash = Column(String(255), nullable=False)
+
+    # Expiration
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+    # Usage tracking
+    used = Column(Boolean, default=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    failed_attempts = Column(Integer, default=0)
+
+    # Delivery tracking
+    delivery_status = Column(String(50), default='pending')  # pending, sent, delivered, failed, bounced
+    delivery_provider = Column(String(50), nullable=True)  # smtp, aws_ses, sendgrid, twilio_sms
+    delivery_message_id = Column(String(255), nullable=True)
+    delivery_error = Column(Text, nullable=True)
+
+    # Audit trail
+    ip_address = Column(String(45), nullable=True)  # IPv6 compatible
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for finding active tokens by email
+        # Index for cleanup of expired tokens
+    )
