@@ -16797,30 +16797,48 @@ except ImportError as e:
 
 
 # ==================== PUSH NOTIFICATION SERVICE ====================
+
+class RegisterPushTokenRequest(BaseModel):
+    """Request body for push token registration from mobile apps"""
+    device_token: str = Field(..., min_length=10, max_length=500, description="FCM device token")
+    platform: str = Field(..., pattern="^(ios|android)$", description="Mobile platform")
+    user_type: str = Field(..., pattern="^(customer|driver|vendor)$", description="User type")
+    user_id: int = Field(..., gt=0, description="User ID")
+
+
 @app.post("/api/notifications/register-token")
 def register_push_token(
-    device_token: str = Form(...),
-    platform: str = Form(...),  # ios or android
-    user_type: str = Form(...),  # customer, driver, restaurant
-    user_id: int = Form(...),
+    request: RegisterPushTokenRequest,
     db: Session = Depends(get_db)
 ):
     """Register a device token for push notifications."""
     # Store token in database (update existing or create new)
-    if user_type == "customer":
-        customer = db.query(Customer).filter(Customer.id == user_id).first()
+    if request.user_type == "customer":
+        customer = db.query(Customer).filter(Customer.id == request.user_id).first()
         if customer:
-            customer.push_token = device_token
-            customer.platform = platform
+            customer.push_token = request.device_token
+            customer.platform = request.platform
             db.commit()
-    elif user_type == "driver":
-        driver = db.query(Driver).filter(Driver.id == user_id).first()
+            return {"success": True, "message": "Push token registered for customer"}
+        return {"success": False, "message": "Customer not found"}
+    elif request.user_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == request.user_id).first()
         if driver:
-            driver.push_token = device_token
-            driver.platform = platform
+            driver.push_token = request.device_token
+            driver.platform = request.platform
             db.commit()
+            return {"success": True, "message": "Push token registered for driver"}
+        return {"success": False, "message": "Driver not found"}
+    elif request.user_type == "vendor":
+        vendor = db.query(Vendor).filter(Vendor.id == request.user_id).first()
+        if vendor:
+            vendor.push_token = request.device_token
+            vendor.platform = request.platform
+            db.commit()
+            return {"success": True, "message": "Push token registered for vendor"}
+        return {"success": False, "message": "Vendor not found"}
 
-    return {"success": True, "message": "Push token registered"}
+    return {"success": False, "message": f"Unknown user type: {request.user_type}"}
 
 
 @app.delete("/api/notifications/unregister-token")
