@@ -194,7 +194,7 @@ const Profile: React.FC = () => {
           <Text strong style={{ fontSize: 16 }}>
             <FileTextOutlined /> Documents Status
           </Text>
-          <Button type="link" size="small">View All</Button>
+          <Button type="link" size="small" onClick={() => navigate('/driver/documents')}>View All</Button>
         </div>
         <div className="documents-grid">
           <div className={`doc-item ${driverData?.drivers_license ? 'verified' : 'pending'}`}>
@@ -226,7 +226,13 @@ const Profile: React.FC = () => {
         <List
           dataSource={menuItems}
           renderItem={(item) => (
-            <List.Item className="menu-item" onClick={() => console.log(item.key)}>
+            <List.Item className="menu-item" onClick={() => {
+              if (item.key === 'documents') {
+                navigate('/driver/documents');
+              } else {
+                console.log(item.key);
+              }
+            }}>
               <div className="menu-item-content">
                 <div className="menu-icon" style={{ color: '#10B981' }}>
                   {item.icon}
