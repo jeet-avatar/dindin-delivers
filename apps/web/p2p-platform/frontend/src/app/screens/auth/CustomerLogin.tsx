@@ -266,7 +266,7 @@ const CustomerLogin: React.FC = () => {
       localStorage.setItem('customer_email', response.data.email);
       localStorage.setItem('customer_phone', response.data.phone || '');
 
-      message.success('Account created! Welcome to Dollor.ai');
+      message.success('Account created! Welcome to Dollor.AI');
       navigate('/customer/home');
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -290,7 +290,7 @@ const CustomerLogin: React.FC = () => {
               <text x="20" y="26" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="system-ui">$</text>
             </svg>
           </div>
-          <h1 className="app-name">Dollor.ai</h1>
+          <h1 className="app-name">Dollor.AI</h1>
         </div>
 
         {/* Title */}
@@ -299,7 +299,7 @@ const CustomerLogin: React.FC = () => {
           <p className="subtitle">
             {isSignUp
               ? 'Start riding with just $1 platform fee'
-              : 'Log in to continue to Dollor.ai'}
+              : 'Log in to continue to Dollor.AI'}
           </p>
         </div>
 

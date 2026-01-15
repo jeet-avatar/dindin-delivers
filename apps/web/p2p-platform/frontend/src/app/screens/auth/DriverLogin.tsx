@@ -179,7 +179,7 @@ const DriverLogin: React.FC = () => {
         <div className="brand-content">
           <div className="logo-container">
             <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
+            <span className="logo-text">Dollor.AI</span>
           </div>
 
           <h1 className="brand-headline">
@@ -224,7 +224,7 @@ const DriverLogin: React.FC = () => {
         </div>
 
         <div className="brand-footer">
-          <p>© 2024 Dollor.ai — Empowering Local Delivery</p>
+          <p>© 2024 Dollor.AI — Empowering Local Delivery</p>
         </div>
       </div>
 

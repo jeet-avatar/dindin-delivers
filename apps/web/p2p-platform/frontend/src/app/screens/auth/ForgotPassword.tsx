@@ -210,7 +210,7 @@ const ForgotPassword: React.FC = () => {
         <div className="brand-content">
           <div className="logo-container">
             <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
+            <span className="logo-text">Dollor.AI</span>
           </div>
 
           <h1 className="brand-headline">
@@ -233,7 +233,7 @@ const ForgotPassword: React.FC = () => {
         </div>
 
         <div className="brand-footer">
-          <p>© 2024 Dollor.ai Matchmaking, Inc.</p>
+          <p>© 2024 Dollor.AI Matchmaking, Inc.</p>
         </div>
       </div>
 

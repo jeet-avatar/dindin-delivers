@@ -1,5 +1,5 @@
 """
-Email Service for Dollor.ai
+Email Service for Dollor.AI
 Sends transactional emails for vendor approvals, order notifications, etc.
 
 Production vs Development:
@@ -37,7 +37,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@dollor.ai")
-FROM_NAME = os.getenv("FROM_NAME", "Dollor.ai")
+FROM_NAME = os.getenv("FROM_NAME", "Dollor.AI")
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -146,7 +146,7 @@ def generate_email_footer(
         <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; color: #64748b; text-align: center;">
             <tr>
                 <td style="padding: 10px 0;">
-                    <p style="margin: 0 0 10px 0;">© {datetime.utcnow().year} Dollor.ai - The $1 Delivery Platform</p>
+                    <p style="margin: 0 0 10px 0;">© {datetime.utcnow().year} Dollor.AI - The $1 Delivery Platform</p>
                     <p style="margin: 0 0 10px 0;">
                         <a href="{WEB_BASE_URL}/terms" style="color: #64748b; text-decoration: underline;">Terms</a> |
                         <a href="{WEB_BASE_URL}/privacy" style="color: #64748b; text-decoration: underline;">Privacy</a> |
@@ -158,7 +158,7 @@ def generate_email_footer(
             <tr>
                 <td style="padding: 10px 0;">
                     <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-                        Dollor.ai, Inc. | 123 Tech Street, San Francisco, CA 94105
+                        Dollor.AI, Inc. | 123 Tech Street, San Francisco, CA 94105
                     </p>
                 </td>
             </tr>
@@ -519,7 +519,7 @@ def send_vendor_approval_email(
     """
     Send approval notification email to a vendor.
     """
-    subject = f"🎉 Congratulations! {restaurant_name} is Now Live on Dollor.ai"
+    subject = f"🎉 Congratulations! {restaurant_name} is Now Live on Dollor.AI"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -546,13 +546,13 @@ def send_vendor_approval_email(
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">💰 Dollor.ai</div>
+                <div class="logo">💰 Dollor.AI</div>
                 <p style="color: rgba(255,255,255,0.8); margin: 10px 0 0 0;">The $1 Delivery Revolution</p>
             </div>
             <div class="content">
-                <h1 class="greeting">Welcome to Dollor.ai, {contact_name}! 🎉</h1>
+                <h1 class="greeting">Welcome to Dollor.AI, {contact_name}! 🎉</h1>
                 <p class="message">
-                    Great news! <strong>{restaurant_name}</strong> has been approved and is now live on the Dollor.ai platform.
+                    Great news! <strong>{restaurant_name}</strong> has been approved and is now live on the Dollor.AI platform.
                     Your customers can start ordering right away!
                 </p>
 
@@ -569,7 +569,7 @@ def send_vendor_approval_email(
                     </div>
                     <div class="step">
                         <div class="step-number">2</div>
-                        <span>Download the Dollor.ai Restaurant app for real-time order alerts</span>
+                        <span>Download the Dollor.AI Restaurant app for real-time order alerts</span>
                     </div>
                     <div class="step">
                         <div class="step-number">3</div>
@@ -597,7 +597,7 @@ def send_vendor_approval_email(
                 </p>
             </div>
             <div class="footer">
-                <p>© 2024 Dollor.ai - The World's First $1 Delivery Platform</p>
+                <p>© 2024 Dollor.AI - The World's First $1 Delivery Platform</p>
                 <p>
                     <a href="https://dollor.ai/terms">Terms</a> |
                     <a href="https://dollor.ai/privacy">Privacy</a> |
@@ -610,15 +610,15 @@ def send_vendor_approval_email(
     """
 
     text_body = f"""
-    Welcome to Dollor.ai, {contact_name}!
+    Welcome to Dollor.AI, {contact_name}!
 
-    Great news! {restaurant_name} has been approved and is now live on the Dollor.ai platform.
+    Great news! {restaurant_name} has been approved and is now live on the Dollor.AI platform.
 
     Your customers can start ordering right away!
 
     Next Steps:
     1. Log in to your Vendor Dashboard to review your menu
-    2. Download the Dollor.ai Restaurant app for real-time order alerts
+    2. Download the Dollor.AI Restaurant app for real-time order alerts
     3. Set up your bank account for weekly payouts
 
     Login to Dashboard: https://dollor.ai/vendor/login
@@ -626,7 +626,7 @@ def send_vendor_approval_email(
     If you have any questions, our partner support team is available 24/7.
     Just reply to this email or call us at (800) 555-FOOD.
 
-    © 2024 Dollor.ai - The World's First $1 Delivery Platform
+    © 2024 Dollor.AI - The World's First $1 Delivery Platform
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -641,7 +641,7 @@ def send_vendor_registration_confirmation(
     """
     Send registration confirmation email to a new vendor.
     """
-    subject = f"Application Received - {restaurant_name} | Dollor.ai"
+    subject = f"Application Received - {restaurant_name} | Dollor.AI"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -665,13 +665,13 @@ def send_vendor_registration_confirmation(
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">💰 Dollor.ai</div>
+                <div class="logo">💰 Dollor.AI</div>
                 <p style="color: rgba(255,255,255,0.8); margin: 10px 0 0 0;">Partner Application</p>
             </div>
             <div class="content">
                 <h1 class="greeting">Thank you, {contact_name}! 🙏</h1>
                 <p class="message">
-                    We've received your application for <strong>{restaurant_name}</strong> to join the Dollor.ai platform.
+                    We've received your application for <strong>{restaurant_name}</strong> to join the Dollor.AI platform.
                 </p>
 
                 <div class="app-id">
@@ -713,7 +713,7 @@ def send_vendor_registration_confirmation(
                 </p>
             </div>
             <div class="footer">
-                <p>© 2024 Dollor.ai - The World's First $1 Delivery Platform</p>
+                <p>© 2024 Dollor.AI - The World's First $1 Delivery Platform</p>
             </div>
         </div>
     </body>
@@ -723,7 +723,7 @@ def send_vendor_registration_confirmation(
     text_body = f"""
     Thank you, {contact_name}!
 
-    We've received your application for {restaurant_name} to join the Dollor.ai platform.
+    We've received your application for {restaurant_name} to join the Dollor.AI platform.
 
     Application ID: {vendor_id}
 
@@ -736,7 +736,7 @@ def send_vendor_registration_confirmation(
 
     Questions? Reply to this email or call (800) 555-FOOD.
 
-    © 2024 Dollor.ai
+    © 2024 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -754,7 +754,7 @@ def send_driver_approval_email(
     """
     activation_url = f"{API_BASE_URL}/drivers/activate/{activation_token}" if activation_token else f"{WEB_BASE_URL}/driver/activate"
 
-    subject = f"ACTION REQUIRED: Activate Your Dollor.ai Driver Account"
+    subject = f"ACTION REQUIRED: Activate Your Dollor.AI Driver Account"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -787,7 +787,7 @@ def send_driver_approval_email(
             <div class="content">
                 <h1 class="greeting">Congratulations, {driver_name}!</h1>
                 <p class="message">
-                    Your driver application with <strong>Dollor.ai</strong> has been <strong style="color: #10b981;">APPROVED</strong>.
+                    Your driver application with <strong>Dollor.AI</strong> has been <strong style="color: #10b981;">APPROVED</strong>.
                     You are now eligible to provide services as an <strong>Independent Contractor</strong> on our platform.
                 </p>
 
@@ -824,11 +824,11 @@ def send_driver_approval_email(
 
                     <div class="terms-item">
                         <strong>1. INDEPENDENT CONTRACTOR STATUS</strong>
-                        <p style="color: #475569; margin: 5px 0;">You are an independent contractor, NOT an employee of Dollor.ai or Zietra Technology Inc. You are responsible for your own taxes, insurance, and business expenses.</p>
+                        <p style="color: #475569; margin: 5px 0;">You are an independent contractor, NOT an employee of Dollor.AI or Zietra Technologies Inc. You are responsible for your own taxes, insurance, and business expenses.</p>
                     </div>
                     <div class="terms-item">
                         <strong>2. MATCHMAKING PLATFORM</strong>
-                        <p style="color: #475569; margin: 5px 0;">Dollor.ai is a MATCHMAKING PLATFORM that connects drivers with customers. We do not employ drivers, set mandatory prices, or control how you perform services.</p>
+                        <p style="color: #475569; margin: 5px 0;">Dollor.AI is a MATCHMAKING PLATFORM that connects drivers with customers. We do not employ drivers, set mandatory prices, or control how you perform services.</p>
                     </div>
                     <div class="terms-item">
                         <strong>3. VEHICLE & INSURANCE REQUIREMENTS</strong>
@@ -855,7 +855,7 @@ def send_driver_approval_email(
                 <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <p style="color: #475569; font-size: 14px; margin: 0;"><strong>By activating your account, you agree to:</strong></p>
                     <p style="color: #475569; font-size: 14px; margin: 10px 0;">
-                        <span class="checkmark">☑</span> Dollor.ai Driver Terms of Service<br>
+                        <span class="checkmark">☑</span> Dollor.AI Driver Terms of Service<br>
                         <span class="checkmark">☑</span> Independent Contractor Agreement<br>
                         <span class="checkmark">☑</span> Privacy Policy<br>
                         <span class="checkmark">☑</span> Community Guidelines<br>
@@ -894,10 +894,10 @@ def send_driver_approval_email(
                 </p>
             </div>
             <div class="footer">
-                <p style="margin: 0 0 10px 0;">© 2025 Zietra Technology Inc. All rights reserved.</p>
-                <p style="margin: 0; font-size: 12px;">Rancho Santa Margarita, CA 92688 | Dollor.ai</p>
+                <p style="margin: 0 0 10px 0;">© 2025 Zietra Technologies Inc. All rights reserved.</p>
+                <p style="margin: 0; font-size: 12px;">Rancho Santa Margarita, CA 92688 | Dollor.AI</p>
                 <p style="margin: 15px 0 0 0; font-size: 11px; color: #64748b;">
-                    This email was sent because you applied to be a driver on Dollor.ai.<br>
+                    This email was sent because you applied to be a driver on Dollor.AI.<br>
                     If you did not apply, please ignore this email or contact support.
                 </p>
             </div>
@@ -912,7 +912,7 @@ def send_driver_approval_email(
 
     Congratulations, {driver_name}!
 
-    Your driver application with Dollor.ai has been APPROVED.
+    Your driver application with Dollor.AI has been APPROVED.
     You are now eligible to provide services as an Independent Contractor.
 
     YOUR DRIVER CODE: {driver_code}
@@ -942,7 +942,7 @@ def send_driver_approval_email(
 
     By activating your account, you acknowledge and agree to:
 
-    1. INDEPENDENT CONTRACTOR STATUS - You are NOT an employee of Dollor.ai or Zietra Technology Inc.
+    1. INDEPENDENT CONTRACTOR STATUS - You are NOT an employee of Dollor.AI or Zietra Technologies Inc.
     2. MATCHMAKING PLATFORM - We connect drivers with customers, we do not employ drivers.
     3. VEHICLE & INSURANCE - Maintain valid registration and required insurance.
     4. BACKGROUND CHECK CONSENT - You consent to periodic background checks.
@@ -975,8 +975,8 @@ def send_driver_approval_email(
 
     Questions? Email support@dollor.ai
 
-    © 2025 Zietra Technology Inc.
-    Rancho Santa Margarita, CA 92688 | Dollor.ai
+    © 2025 Zietra Technologies Inc.
+    Rancho Santa Margarita, CA 92688 | Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -990,7 +990,7 @@ def send_driver_registration_confirmation(
     """
     Send registration confirmation email to a new driver.
     """
-    subject = f"Application Received - Driver {driver_code} | Dollor.ai"
+    subject = f"Application Received - Driver {driver_code} | Dollor.AI"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -1014,13 +1014,13 @@ def send_driver_registration_confirmation(
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Dollor.ai Driver</div>
+                <div class="logo">Dollor.AI Driver</div>
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Driver Application</p>
             </div>
             <div class="content">
                 <h1 class="greeting">Thank you, {driver_name}!</h1>
                 <p class="message">
-                    We've received your application to become a Dollor.ai delivery partner.
+                    We've received your application to become a Dollor.AI delivery partner.
                 </p>
 
                 <div class="app-id">
@@ -1062,7 +1062,7 @@ def send_driver_registration_confirmation(
                 </p>
             </div>
             <div class="footer">
-                <p>2024 Dollor.ai - Earn $25+/hour with $1 Deliveries</p>
+                <p>2024 Dollor.AI - Earn $25+/hour with $1 Deliveries</p>
             </div>
         </div>
     </body>
@@ -1072,7 +1072,7 @@ def send_driver_registration_confirmation(
     text_body = f"""
     Thank you, {driver_name}!
 
-    We've received your application to become a Dollor.ai delivery partner.
+    We've received your application to become a Dollor.AI delivery partner.
 
     Application ID: {driver_code}
 
@@ -1085,7 +1085,7 @@ def send_driver_registration_confirmation(
 
     Questions? Email drivers@dollor.ai or call (800) 555-RIDE.
 
-    2024 Dollor.ai
+    2024 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1099,7 +1099,7 @@ def send_customer_welcome_email(
     """
     Send welcome email to a new customer after registration.
     """
-    subject = "Welcome to Dollor.ai!"
+    subject = "Welcome to Dollor.AI!"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -1120,12 +1120,12 @@ def send_customer_welcome_email(
     <body>
         <div class="container">
             <div class="header">
-                <h1>Welcome to Dollor.ai!</h1>
+                <h1>Welcome to Dollor.AI!</h1>
             </div>
             <div class="content">
                 <p>Hi {customer_name},</p>
 
-                <p>Thank you for joining Dollor.ai! We're excited to have you as part of our community.</p>
+                <p>Thank you for joining Dollor.AI! We're excited to have you as part of our community.</p>
 
                 <div class="welcome-box">
                     <h3 style="margin-top: 0;">Our Mission</h3>
@@ -1152,11 +1152,11 @@ def send_customer_welcome_email(
 
                 <p>Questions? Reply to this email or contact us at support@dollor.ai</p>
 
-                <p>Welcome aboard!<br>The Dollor.ai Team</p>
+                <p>Welcome aboard!<br>The Dollor.AI Team</p>
             </div>
             <div class="footer">
-                <p>2024 Dollor.ai by Vibing World Inc.</p>
-                <p>You received this email because you created an account on Dollor.ai</p>
+                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
+                <p>You received this email because you created an account on Dollor.AI</p>
             </div>
         </div>
     </body>
@@ -1164,11 +1164,11 @@ def send_customer_welcome_email(
     """
 
     text_body = f"""
-    Welcome to Dollor.ai!
+    Welcome to Dollor.AI!
 
     Hi {customer_name},
 
-    Thank you for joining Dollor.ai! We're excited to have you as part of our community.
+    Thank you for joining Dollor.AI! We're excited to have you as part of our community.
 
     OUR MISSION
     Fair pricing for everyone in the food delivery ecosystem. No hidden fees, no surge pricing.
@@ -1183,9 +1183,9 @@ def send_customer_welcome_email(
     Questions? Contact us at support@dollor.ai
 
     Welcome aboard!
-    The Dollor.ai Team
+    The Dollor.AI Team
 
-    2024 Dollor.ai by Vibing World Inc.
+    2024 Dollor.AI by Zietra Technologies Inc.
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1199,7 +1199,7 @@ def send_email_verification_code(
     """
     Send email verification code to customer.
     """
-    subject = f"Your Dollor.ai Verification Code: {verification_code}"
+    subject = f"Your Dollor.AI Verification Code: {verification_code}"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -1238,10 +1238,10 @@ def send_email_verification_code(
                     If you didn't request this code, please ignore this email.
                 </div>
 
-                <p>Thanks,<br>The Dollor.ai Team</p>
+                <p>Thanks,<br>The Dollor.AI Team</p>
             </div>
             <div class="footer">
-                <p>2024 Dollor.ai by Vibing World Inc.</p>
+                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1249,7 +1249,7 @@ def send_email_verification_code(
     """
 
     text_body = f"""
-    Verify Your Email - Dollor.ai
+    Verify Your Email - Dollor.AI
 
     Hi {customer_name},
 
@@ -1263,9 +1263,9 @@ def send_email_verification_code(
     If you didn't request this code, please ignore this email.
 
     Thanks,
-    The Dollor.ai Team
+    The Dollor.AI Team
 
-    2024 Dollor.ai by Vibing World Inc.
+    2024 Dollor.AI by Zietra Technologies Inc.
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1305,7 +1305,7 @@ def send_order_confirmation_email(
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Dollor.ai</div>
+                <div class="logo">Dollor.AI</div>
             </div>
             <div class="content">
                 <h2>Hi {customer_name}!</h2>
@@ -1320,11 +1320,11 @@ def send_order_confirmation_email(
                 </div>
 
                 <p>We'll notify you when your order is ready for pickup and when the driver is on the way!</p>
-                <p>Track your order in the Dollor.ai app.</p>
+                <p>Track your order in the Dollor.AI app.</p>
             </div>
             <div class="footer">
                 <p>Questions? Contact support@dollor.ai</p>
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1338,9 +1338,9 @@ def send_order_confirmation_email(
     Total: ${order_total:.2f}
 
     We'll notify you when your order is ready and when the driver is on the way.
-    Track your order in the Dollor.ai app.
+    Track your order in the Dollor.AI app.
 
-    - The Dollor.ai Team
+    — The Dollor.AI Team
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1383,7 +1383,7 @@ def send_order_ready_email(
                 <p>A driver will be assigned shortly and your food will be on its way soon!</p>
             </div>
             <div class="footer">
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1398,7 +1398,7 @@ def send_order_ready_email(
     Your order #{order_number} from {restaurant_name} is ready!
     A driver will pick it up shortly.
 
-    - The Dollor.ai Team
+    — The Dollor.AI Team
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1444,11 +1444,11 @@ def send_driver_assigned_email(
                     <div class="eta">{eta_minutes} min</div>
                 </div>
 
-                <p>Track your driver in real-time in the Dollor.ai app!</p>
+                <p>Track your driver in real-time in the Dollor.AI app!</p>
             </div>
             <div class="footer">
                 <p>Order #{order_number}</p>
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1463,9 +1463,9 @@ def send_driver_assigned_email(
     Your driver {driver_name} has picked up order #{order_number} and is heading your way!
     Estimated arrival: {eta_minutes} minutes
 
-    Track your driver in the Dollor.ai app.
+    Track your driver in the Dollor.AI app.
 
-    - The Dollor.ai Team
+    — The Dollor.AI Team
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1509,14 +1509,14 @@ def send_order_delivered_email(
                 <div class="tip-box">
                     <p>Enjoyed your delivery?</p>
                     <p>Leave a tip for <strong>{driver_name}</strong> in the app!</p>
-                    <p style="font-size: 12px; color: #92400e;">Drivers keep 100% of tips on Dollor.ai</p>
+                    <p style="font-size: 12px; color: #92400e;">Drivers keep 100% of tips on Dollor.AI</p>
                 </div>
 
-                <p>Thank you for choosing Dollor.ai!</p>
+                <p>Thank you for choosing Dollor.AI!</p>
             </div>
             <div class="footer">
                 <p>Rate your experience in the app</p>
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1532,11 +1532,11 @@ def send_order_delivered_email(
     Total: ${order_total:.2f}
 
     Enjoyed your delivery? Leave a tip for {driver_name} in the app!
-    Drivers keep 100% of tips on Dollor.ai.
+    Drivers keep 100% of tips on Dollor.AI.
 
-    Thank you for choosing Dollor.ai!
+    Thank you for choosing Dollor.AI!
 
-    - The Dollor.ai Team
+    — The Dollor.AI Team
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1587,7 +1587,7 @@ def send_order_cancelled_email(
             </div>
             <div class="footer">
                 <p>Need help? support@dollor.ai</p>
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1605,7 +1605,7 @@ def send_order_cancelled_email(
 
     We apologize for any inconvenience.
 
-    - The Dollor.ai Team
+    — The Dollor.AI Team
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1619,7 +1619,7 @@ def send_password_reset_email(
     """
     Send password reset code to customer.
     """
-    subject = f"Your Dollor.ai Password Reset Code: {reset_code}"
+    subject = f"Your Dollor.AI Password Reset Code: {reset_code}"
 
     html_body = f"""
     <!DOCTYPE html>
@@ -1658,10 +1658,10 @@ def send_password_reset_email(
                     If you didn't request a password reset, please ignore this email or contact support if you have concerns.
                 </div>
 
-                <p>Thanks,<br>The Dollor.ai Team</p>
+                <p>Thanks,<br>The Dollor.AI Team</p>
             </div>
             <div class="footer">
-                <p>2024 Dollor.ai by Vibing World Inc.</p>
+                <p>2024 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1669,7 +1669,7 @@ def send_password_reset_email(
     """
 
     text_body = f"""
-    Password Reset - Dollor.ai
+    Password Reset - Dollor.AI
 
     Hi {customer_name},
 
@@ -1683,9 +1683,9 @@ def send_password_reset_email(
     If you didn't request this, please ignore this email.
 
     Thanks,
-    The Dollor.ai Team
+    The Dollor.AI Team
 
-    2024 Dollor.ai by Vibing World Inc.
+    2024 Dollor.AI by Zietra Technologies Inc.
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1733,11 +1733,11 @@ def send_new_order_vendor_email(
                     <p><strong>Total:</strong> ${order_total:.2f}</p>
                 </div>
 
-                <p>Open the Dollor.ai Partner app to accept this order!</p>
+                <p>Open the Dollor.AI Partner app to accept this order!</p>
             </div>
             <div class="footer">
                 <p>{restaurant_name}</p>
-                <p>2025 Dollor.ai by Vibing World Inc.</p>
+                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -1752,9 +1752,9 @@ def send_new_order_vendor_email(
     Total: ${order_total:.2f}
 
     Please confirm within 3 minutes!
-    Open the Dollor.ai Partner app to accept.
+    Open the Dollor.AI Partner app to accept.
 
-    - Dollor.ai
+    — Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1804,7 +1804,7 @@ def send_ride_request_confirmation_email(
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">Dollor.ai Rides</div>
+                <div class="logo">Dollor.AI Rides</div>
                 <p style="margin: 10px 0 0 0; opacity: 0.9;">Your ride request is live!</p>
             </div>
             <div class="content">
@@ -1850,11 +1850,11 @@ def send_ride_request_confirmation_email(
 
                 <p><strong>What happens next?</strong></p>
                 <p>Drivers will submit their fare proposals. You'll receive notifications as bids come in, and you can choose the best offer.</p>
-                <p>Check the Dollor.ai app to view and accept bids!</p>
+                <p>Check the Dollor.AI app to view and accept bids!</p>
             </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -1862,7 +1862,7 @@ def send_ride_request_confirmation_email(
     """
 
     text_body = f"""
-    Ride Request Submitted - Dollor.ai
+    Ride Request Submitted — Dollor.AI
 
     Hi {customer_name},
 
@@ -1880,7 +1880,7 @@ def send_ride_request_confirmation_email(
 
     Drivers will submit their fare proposals. Check the app to view and accept bids!
 
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -1962,7 +1962,7 @@ def send_ride_bid_received_email(
             </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -1970,7 +1970,7 @@ def send_ride_bid_received_email(
     """
 
     text_body = f"""
-    New Bid Received - Dollor.ai
+    New Bid Received — Dollor.AI
 
     Hi {customer_name},
 
@@ -1984,10 +1984,10 @@ def send_ride_bid_received_email(
 
     You have {total_bids} bid(s) total.
 
-    View all bids in the Dollor.ai app!
+    View all bids in the Dollor.AI app!
 
     Request ID: {request_id}
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -2073,12 +2073,12 @@ def send_ride_matched_email(
                 </div>
 
                 <p style="text-align: center; color: #64748b;">
-                    Track your driver in real-time in the Dollor.ai app!
+                    Track your driver in real-time in the Dollor.AI app!
                 </p>
             </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -2086,7 +2086,7 @@ def send_ride_matched_email(
     """
 
     text_body = f"""
-    Ride Confirmed! - Dollor.ai
+    Ride Confirmed! — Dollor.AI
 
     Hi {customer_name},
 
@@ -2103,10 +2103,10 @@ def send_ride_matched_email(
 
     PICKUP: {pickup_address}
 
-    Track your driver in the Dollor.ai app!
+    Track your driver in the Dollor.AI app!
 
     Request ID: {request_id}
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -2189,7 +2189,7 @@ def send_ride_started_email(
             </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -2197,7 +2197,7 @@ def send_ride_started_email(
     """
 
     text_body = f"""
-    Ride In Progress - Dollor.ai
+    Ride In Progress — Dollor.AI
 
     Hi {customer_name},
 
@@ -2212,7 +2212,7 @@ def send_ride_started_email(
     Enjoy your ride!
 
     Request ID: {request_id}
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -2265,7 +2265,7 @@ def send_ride_completed_email(
         <div class="container">
             <div class="header">
                 <h2>Ride Complete!</h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Thanks for riding with Dollor.ai</p>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Thanks for riding with Dollor.AI</p>
             </div>
             <div class="content">
                 <div class="complete-icon">🎉</div>
@@ -2318,7 +2318,7 @@ def send_ride_completed_email(
                 <div class="driver-earnings">
                     <div style="font-size: 14px; color: #059669;">💰 {driver_name} earned</div>
                     <div style="font-size: 20px; font-weight: bold; color: #059669;">${driver_earnings:.2f}</div>
-                    <div style="font-size: 12px; color: #64748b;">Drivers keep the fare, platform fee goes to Dollor.ai</div>
+                    <div style="font-size: 12px; color: #64748b;">Drivers keep the fare, platform fee goes to Dollor.AI</div>
                 </div>
 
                 <div class="tip-box">
@@ -2334,7 +2334,7 @@ def send_ride_completed_email(
             </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -2342,11 +2342,11 @@ def send_ride_completed_email(
     """
 
     text_body = f"""
-    Ride Complete - Dollor.ai Receipt
+    Ride Complete — Dollor.AI Receipt
 
     Hi {customer_name},
 
-    Thanks for riding with Dollor.ai! Here's your receipt:
+    Thanks for riding with Dollor.AI! Here's your receipt:
 
     TRIP DETAILS
     ------------
@@ -2369,7 +2369,7 @@ def send_ride_completed_email(
     Add a tip for your driver at:
     https://dollor.ai/customer/rides/{request_id}/tip
 
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
@@ -2441,7 +2441,7 @@ def send_ride_cancelled_email(
             <div class="footer">
                 <p>Request ID: {request_id}</p>
                 <p>Need help? Contact support@dollor.ai</p>
-                <p>© 2025 Dollor.ai - Fair Rideshare Platform</p>
+                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
             </div>
         </div>
     </body>
@@ -2449,7 +2449,7 @@ def send_ride_cancelled_email(
     """
 
     text_body = f"""
-    Ride Cancelled - Dollor.ai
+    Ride Cancelled — Dollor.AI
 
     Hi {customer_name},
 
@@ -2463,7 +2463,7 @@ def send_ride_cancelled_email(
 
     Need help? Contact support@dollor.ai
 
-    © 2025 Dollor.ai
+    © 2025 Dollor.AI
     """
 
     return send_email(to_email, subject, html_body, text_body)
