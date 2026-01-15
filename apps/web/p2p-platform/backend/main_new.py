@@ -31,7 +31,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, RateLimitEntry
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, RateLimitEntry, PasswordResetToken
+from password_reset_service import PasswordResetService, get_password_reset_service
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
@@ -5204,8 +5205,14 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     }
 
 
-# In-memory storage for password reset codes (in production, use Redis or database)
-password_reset_codes = {}
+# =============================================================================
+# PASSWORD RESET - Database-backed, multi-provider, bulletproof implementation
+# =============================================================================
+# CRITICAL: Previous implementation used in-memory dict which:
+# - Lost codes on server restart
+# - Didn't work with multiple instances (App Runner scaling)
+# - Had no delivery tracking
+# This new implementation fixes all issues.
 
 class CustomerPasswordResetRequest(BaseModel):
     email: str
@@ -5217,144 +5224,153 @@ class CustomerPasswordResetConfirm(BaseModel):
 
 @app.post("/api/customer/password-reset/request")
 def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset - sends code to email"""
-    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    """
+    Request a password reset - sends code to email.
+
+    BULLETPROOF IMPLEMENTATION:
+    - Database-backed token storage (works across multiple instances)
+    - Multi-provider email delivery (SMTP → AWS SES → SendGrid fallback)
+    - Comprehensive logging for debugging
+    - Proper error handling and delivery verification
+    """
+    # SECURITY: Rate limit password reset requests
     check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
-    import random
 
-    print(f"[PWD_RESET] === Request for {request.email} ===")
+    logger.info(f"[CUSTOMER_PWD_RESET] Request for {request.email}")
 
-    # Check if customer exists (Customer table stores customer accounts)
+    # Get client info for audit trail
+    client_ip, user_agent = get_client_info(http_request)
+
+    # Check if customer exists
     customer = db.query(Customer).filter(Customer.email == request.email).first()
+    user_record = None
+
     if not customer:
-        print(f"[PWD_RESET] Not in Customer table, checking User table...")
         # Also check User table for fallback
-        user = db.query(User).filter(User.email == request.email).first()
-        if not user:
-            print(f"[PWD_RESET] Not found in any table - returning without sending email")
-            # Don't reveal whether email exists for security
+        user_record = db.query(User).filter(User.email == request.email).first()
+        if not user_record:
+            logger.info(f"[CUSTOMER_PWD_RESET] Email {request.email} not found - returning generic success (security)")
+            # SECURITY: Don't reveal if email exists
             return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-        customer_name = user.full_name or "Customer"
-        print(f"[PWD_RESET] Found in User table: {customer_name}")
+        user_id = user_record.id
+        user_name = user_record.full_name or "Customer"
     else:
-        customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-        print(f"[PWD_RESET] Found in Customer table: {customer_name}")
+        user_id = customer.id
+        user_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
 
-    # Generate 6-digit code
-    code = str(random.randint(100000, 999999))
-    print(f"[PWD_RESET] Generated code: {code}")
-
-    # Store code with timestamp (expires in 15 minutes)
-    from datetime import datetime, timedelta
-    password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
-
-    # Log SMTP config for debugging
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pwd = os.getenv("SMTP_PASSWORD", "")
-    env = os.getenv("ENVIRONMENT", "unknown")
-    print(f"[PWD_RESET] SMTP config: user_set={bool(smtp_user)}, pwd_set={bool(smtp_pwd)}, env={env}")
-
-    # Send password reset email
-    email_status = "unknown"
+    # Use the bulletproof password reset service
     try:
-        print(f"[PWD_RESET] Calling send_password_reset_email...")
-        email_sent = send_password_reset_email(
-            to_email=request.email,
-            customer_name=customer_name,
-            reset_code=code
+        pwd_service = get_password_reset_service(get_db)
+        success, result, details = pwd_service.create_reset_token(
+            db=db,
+            email=request.email,
+            user_type="customer",
+            user_id=user_id,
+            user_name=user_name,
+            ip_address=client_ip,
+            user_agent=user_agent
         )
-        if email_sent:
-            print(f"[PWD_RESET] SUCCESS - email sent to {request.email}")
-            email_status = "sent"
-        else:
-            print(f"[PWD_RESET] FAILED - function returned False, code: {code}")
-            email_status = "failed"
-    except Exception as e:
-        print(f"[PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
-        email_status = f"error: {str(e)}"
 
-    return {
-        "success": True,
-        "message": "Reset code sent to your email."
-    }
+        logger.info(f"[CUSTOMER_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
+
+        if success:
+            return {
+                "success": True,
+                "message": "Reset code sent to your email. Please check your inbox and spam folder."
+            }
+        else:
+            # Log failure but return generic message
+            logger.error(f"[CUSTOMER_PWD_RESET] Failed: {result}")
+            return {
+                "success": True,  # Still return success to prevent enumeration
+                "message": "If an account exists with this email, a reset code has been sent."
+            }
+
+    except Exception as e:
+        logger.exception(f"[CUSTOMER_PWD_RESET] Exception: {e}")
+        return {
+            "success": True,
+            "message": "If an account exists with this email, a reset code has been sent."
+        }
+
 
 @app.post("/api/customer/password-reset/confirm")
 def customer_confirm_password_reset(http_request: Request, request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
-    """Confirm password reset with code and set new password"""
-    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
-    from datetime import datetime
+    """
+    Confirm password reset with code and set new password.
 
-    # SECURITY: Validate password complexity before processing
+    BULLETPROOF: Uses database-backed tokens that work across all instances.
+    """
+    # SECURITY: Rate limit code verification
+    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
+
+    # SECURITY: Validate password complexity
     require_valid_password(request.new_password)
 
-    # Check if code exists and is valid
-    reset_data = password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
+    logger.info(f"[CUSTOMER_PWD_CONFIRM] Verifying code for {request.email}")
 
     # Get client info for security logging
     client_ip, user_agent = get_client_info(http_request)
 
-    # Check Customer table first (where customer accounts are stored)
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
-    if customer:
-        # Update customer password
-        customer.password_hash = get_password_hash(request.new_password)
-        db.commit()
-        del password_reset_codes[request.email]
-
-        # SECURITY: Log password reset event
-        log_security_event(
-            SecurityEventType.PASSWORD_RESET_COMPLETE,
-            user_email=request.email,
-            user_id=customer.id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"account_type": "customer"}
+    # Verify using the password reset service
+    try:
+        pwd_service = get_password_reset_service(get_db)
+        success, message, user_id = pwd_service.verify_reset_token(
+            db=db,
+            email=request.email,
+            code=request.code,
+            user_type="customer"
         )
-        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
-    # Fallback to User table
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        # SECURITY: Generic error to prevent user enumeration
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        if not success:
+            logger.warning(f"[CUSTOMER_PWD_CONFIRM] Verification failed: {message}")
+            raise HTTPException(status_code=400, detail=message)
 
-    # Update password
-    user.password_hash = get_password_hash(request.new_password)
-    db.commit()
+        # Update password - check Customer table first
+        customer = db.query(Customer).filter(Customer.email == request.email).first()
+        if customer:
+            customer.password_hash = get_password_hash(request.new_password)
+            db.commit()
 
-    # Remove used code
-    del password_reset_codes[request.email]
+            log_security_event(
+                SecurityEventType.PASSWORD_RESET_COMPLETE,
+                user_email=request.email,
+                user_id=customer.id,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                details={"account_type": "customer", "method": "database_token"}
+            )
+            logger.info(f"[CUSTOMER_PWD_CONFIRM] Password updated for customer {customer.id}")
+            return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
-    # SECURITY: Log password reset event
-    log_security_event(
-        SecurityEventType.PASSWORD_RESET_COMPLETE,
-        user_email=request.email,
-        user_id=user.id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details={"account_type": "user", "role": str(user.role)}
-    )
+        # Fallback to User table
+        user = db.query(User).filter(User.email == request.email).first()
+        if user:
+            user.password_hash = get_password_hash(request.new_password)
+            db.commit()
 
-    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+            log_security_event(
+                SecurityEventType.PASSWORD_RESET_COMPLETE,
+                user_email=request.email,
+                user_id=user.id,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                details={"account_type": "user", "method": "database_token"}
+            )
+            logger.info(f"[CUSTOMER_PWD_CONFIRM] Password updated for user {user.id}")
+            return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+        raise HTTPException(status_code=400, detail="Account not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[CUSTOMER_PWD_CONFIRM] Exception: {e}")
+        raise HTTPException(status_code=500, detail="System error during password reset")
 
 
 # ==================== DRIVER PASSWORD RESET ====================
-
-# In-memory storage for driver password reset codes
-driver_password_reset_codes = {}
+# Uses the same bulletproof database-backed service
 
 class DriverPasswordResetRequest(BaseModel):
     email: str
@@ -5367,109 +5383,93 @@ class DriverPasswordResetConfirm(BaseModel):
 @app.post("/api/driver/password-reset/request")
 @app.post("/api/auth/driver/forgot-password")  # Legacy Android endpoint
 def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset for driver - sends code to email"""
-    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    """Request a password reset for driver - sends code to email (BULLETPROOF)"""
     check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
-    import random
 
-    print(f"[DRIVER_PWD_RESET] === Request for {request.email} ===")
+    logger.info(f"[DRIVER_PWD_RESET] Request for {request.email}")
+    client_ip, user_agent = get_client_info(http_request)
 
-    # Check if driver exists
     driver = db.query(Driver).filter(Driver.email == request.email).first()
     if not driver:
-        print(f"[DRIVER_PWD_RESET] Driver not found - returning without sending email")
-        # Don't reveal whether email exists for security
+        logger.info(f"[DRIVER_PWD_RESET] Driver not found - returning generic success")
         return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
 
     driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
-    print(f"[DRIVER_PWD_RESET] Found driver: {driver_name}")
 
-    # Generate 6-digit code
-    code = str(random.randint(100000, 999999))
-    print(f"[DRIVER_PWD_RESET] Generated code: {code}")
-
-    # Store code with timestamp (expires in 15 minutes)
-    from datetime import datetime, timedelta
-    driver_password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
-
-    # Send password reset email
     try:
-        print(f"[DRIVER_PWD_RESET] Calling send_password_reset_email...")
-        email_sent = send_password_reset_email(
-            to_email=request.email,
-            customer_name=driver_name,  # Reuse the same email template
-            reset_code=code
+        pwd_service = get_password_reset_service(get_db)
+        success, result, details = pwd_service.create_reset_token(
+            db=db,
+            email=request.email,
+            user_type="driver",
+            user_id=driver.id,
+            user_name=driver_name,
+            ip_address=client_ip,
+            user_agent=user_agent
         )
-        if email_sent:
-            print(f"[DRIVER_PWD_RESET] SUCCESS - email sent to {request.email}")
-        else:
-            print(f"[DRIVER_PWD_RESET] FAILED - function returned False, code: {code}")
-    except Exception as e:
-        print(f"[DRIVER_PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
 
-    return {
-        "success": True,
-        "message": "Reset code sent to your email."
-    }
+        logger.info(f"[DRIVER_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
+
+        if success:
+            return {"success": True, "message": "Reset code sent to your email. Please check your inbox and spam folder."}
+        else:
+            logger.error(f"[DRIVER_PWD_RESET] Failed: {result}")
+            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
+    except Exception as e:
+        logger.exception(f"[DRIVER_PWD_RESET] Exception: {e}")
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
 
 @app.post("/api/driver/password-reset/confirm")
 def driver_confirm_password_reset(http_request: Request, request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
-    """Confirm password reset for driver with code and set new password"""
-    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
+    """Confirm password reset for driver (BULLETPROOF)"""
     check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
-    from datetime import datetime
-
-    # SECURITY: Validate password complexity before processing
     require_valid_password(request.new_password)
 
-    # Check if code exists and is valid
-    reset_data = driver_password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del driver_password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
-
-    # Get client info for security logging
+    logger.info(f"[DRIVER_PWD_CONFIRM] Verifying code for {request.email}")
     client_ip, user_agent = get_client_info(http_request)
 
-    # Find driver and update password
-    driver = db.query(Driver).filter(Driver.email == request.email).first()
-    if not driver:
-        # SECURITY: Generic error to prevent user enumeration
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+    try:
+        pwd_service = get_password_reset_service(get_db)
+        success, message, user_id = pwd_service.verify_reset_token(
+            db=db,
+            email=request.email,
+            code=request.code,
+            user_type="driver"
+        )
 
-    # Update driver password
-    driver.password_hash = get_password_hash(request.new_password)
-    db.commit()
+        if not success:
+            logger.warning(f"[DRIVER_PWD_CONFIRM] Verification failed: {message}")
+            raise HTTPException(status_code=400, detail=message)
 
-    # Remove used code
-    del driver_password_reset_codes[request.email]
+        driver = db.query(Driver).filter(Driver.email == request.email).first()
+        if not driver:
+            raise HTTPException(status_code=400, detail="Account not found")
 
-    # SECURITY: Log password reset event
-    log_security_event(
-        SecurityEventType.PASSWORD_RESET_COMPLETE,
-        user_email=request.email,
-        user_id=driver.id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details={"account_type": "driver", "driver_id": driver.driver_id}
-    )
+        driver.password_hash = get_password_hash(request.new_password)
+        db.commit()
 
-    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+        log_security_event(
+            SecurityEventType.PASSWORD_RESET_COMPLETE,
+            user_email=request.email,
+            user_id=driver.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"account_type": "driver", "method": "database_token"}
+        )
+        logger.info(f"[DRIVER_PWD_CONFIRM] Password updated for driver {driver.id}")
+        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[DRIVER_PWD_CONFIRM] Exception: {e}")
+        raise HTTPException(status_code=500, detail="System error during password reset")
 
 
 # ==================== VENDOR/RESTAURANT PASSWORD RESET ====================
-
-# In-memory storage for vendor password reset codes
-vendor_password_reset_codes = {}
+# Uses the same bulletproof database-backed service
 
 class VendorPasswordResetRequest(BaseModel):
     email: str
@@ -5482,110 +5482,99 @@ class VendorPasswordResetConfirm(BaseModel):
 @app.post("/api/vendor/password-reset/request")
 @app.post("/api/restaurant/password-reset/request")
 def vendor_request_password_reset(http_request: Request, request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset for vendor/restaurant - sends code to email"""
-    # SECURITY: Rate limit password reset requests to prevent abuse and enumeration
+    """Request a password reset for vendor/restaurant (BULLETPROOF)"""
     check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
-    import random
 
-    print(f"[VENDOR_PWD_RESET] === Request for {request.email} ===")
+    logger.info(f"[VENDOR_PWD_RESET] Request for {request.email}")
+    client_ip, user_agent = get_client_info(http_request)
 
     # Check if vendor user exists (vendors use User table with VENDOR role)
     user = db.query(User).filter(
         User.email == request.email,
         User.role == UserRole.VENDOR
     ).first()
+
     if not user:
-        print(f"[VENDOR_PWD_RESET] Vendor user not found - returning without sending email")
-        # Don't reveal whether email exists for security
+        logger.info(f"[VENDOR_PWD_RESET] Vendor not found - returning generic success")
         return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
 
     vendor_name = user.full_name or "Restaurant Partner"
-    print(f"[VENDOR_PWD_RESET] Found vendor user: {vendor_name}")
 
-    # Generate 6-digit code
-    code = str(random.randint(100000, 999999))
-    print(f"[VENDOR_PWD_RESET] Generated code: {code}")
-
-    # Store code with timestamp (expires in 15 minutes)
-    from datetime import datetime, timedelta
-    vendor_password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
-
-    # Send password reset email
     try:
-        print(f"[VENDOR_PWD_RESET] Calling send_password_reset_email...")
-        email_sent = send_password_reset_email(
-            to_email=request.email,
-            customer_name=vendor_name,  # Reuse the same email template
-            reset_code=code
+        pwd_service = get_password_reset_service(get_db)
+        success, result, details = pwd_service.create_reset_token(
+            db=db,
+            email=request.email,
+            user_type="vendor",
+            user_id=user.id,
+            user_name=vendor_name,
+            ip_address=client_ip,
+            user_agent=user_agent
         )
-        if email_sent:
-            print(f"[VENDOR_PWD_RESET] SUCCESS - email sent to {request.email}")
-        else:
-            print(f"[VENDOR_PWD_RESET] FAILED - function returned False, code: {code}")
-    except Exception as e:
-        print(f"[VENDOR_PWD_RESET] EXCEPTION: {type(e).__name__}: {e}, code: {code}")
 
-    return {
-        "success": True,
-        "message": "Reset code sent to your email."
-    }
+        logger.info(f"[VENDOR_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
+
+        if success:
+            return {"success": True, "message": "Reset code sent to your email. Please check your inbox and spam folder."}
+        else:
+            logger.error(f"[VENDOR_PWD_RESET] Failed: {result}")
+            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
+    except Exception as e:
+        logger.exception(f"[VENDOR_PWD_RESET] Exception: {e}")
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+
 
 @app.post("/api/vendor/password-reset/confirm")
 @app.post("/api/restaurant/password-reset/confirm")
 def vendor_confirm_password_reset(http_request: Request, request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
-    """Confirm password reset for vendor/restaurant with code and set new password"""
-    # SECURITY: Rate limit code verification to prevent brute force (6-digit = 1M combinations)
+    """Confirm password reset for vendor/restaurant (BULLETPROOF)"""
     check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
-    from datetime import datetime
-
-    # SECURITY: Validate password complexity before processing
     require_valid_password(request.new_password)
 
-    # Check if code exists and is valid
-    reset_data = vendor_password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del vendor_password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
-
-    # Get client info for security logging
+    logger.info(f"[VENDOR_PWD_CONFIRM] Verifying code for {request.email}")
     client_ip, user_agent = get_client_info(http_request)
 
-    # Find vendor user and update password (vendors use User table with VENDOR role)
-    user = db.query(User).filter(
-        User.email == request.email,
-        User.role == UserRole.VENDOR
-    ).first()
-    if not user:
-        # SECURITY: Generic error to prevent user enumeration
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+    try:
+        pwd_service = get_password_reset_service(get_db)
+        success, message, user_id = pwd_service.verify_reset_token(
+            db=db,
+            email=request.email,
+            code=request.code,
+            user_type="vendor"
+        )
 
-    # Update vendor user password
-    user.password_hash = get_password_hash(request.new_password)
-    db.commit()
+        if not success:
+            logger.warning(f"[VENDOR_PWD_CONFIRM] Verification failed: {message}")
+            raise HTTPException(status_code=400, detail=message)
 
-    # Remove used code
-    del vendor_password_reset_codes[request.email]
+        user = db.query(User).filter(
+            User.email == request.email,
+            User.role == UserRole.VENDOR
+        ).first()
 
-    # SECURITY: Log password reset event
-    log_security_event(
-        SecurityEventType.PASSWORD_RESET_COMPLETE,
-        user_email=request.email,
-        user_id=user.id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details={"account_type": "vendor", "user_name": user.full_name}
-    )
+        if not user:
+            raise HTTPException(status_code=400, detail="Account not found")
 
-    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+        user.password_hash = get_password_hash(request.new_password)
+        db.commit()
+
+        log_security_event(
+            SecurityEventType.PASSWORD_RESET_COMPLETE,
+            user_email=request.email,
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"account_type": "vendor", "method": "database_token"}
+        )
+        logger.info(f"[VENDOR_PWD_CONFIRM] Password updated for vendor user {user.id}")
+        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[VENDOR_PWD_CONFIRM] Exception: {e}")
+        raise HTTPException(status_code=500, detail="System error during password reset")
 
 
 @app.get("/api/customer/profile")

@@ -31,7 +31,8 @@ def init_db():
         EmailTemplate, EmailSchedule, EmailABTest
     )
     # Import RateLimitEntry for distributed rate limiting
-    from models import RateLimitEntry
+    # Import PasswordResetToken for bulletproof password reset
+    from models import RateLimitEntry, PasswordResetToken
     from sqlalchemy.exc import ProgrammingError
 
     # Try to create all tables/indices, ignore if they already exist
