@@ -16090,147 +16090,6 @@ async def proxy_send_order_notification(request: dict):
     return {"error": "Notification service unavailable", "fallback": True}
 
 
-# ==================== FCM TOKEN REGISTRATION ENDPOINTS ====================
-# These endpoints allow mobile apps to register FCM tokens for push notifications
-
-class FCMTokenRequest(BaseModel):
-    """Request body for FCM token registration"""
-    fcm_token: str = Field(..., min_length=10, max_length=500)
-    platform: Optional[str] = Field(None, pattern="^(ios|android)$")
-    device_id: Optional[str] = None
-
-
-@app.post("/api/erp/customers/{customer_id}/fcm-token")
-@app.post("/erp/customers/{customer_id}/fcm-token")
-def register_customer_fcm_token(
-    customer_id: int,
-    token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Register FCM token for customer push notifications"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    customer.push_token = token_request.fcm_token
-    if token_request.platform:
-        customer.platform = token_request.platform
-    if token_request.device_id:
-        customer.device_id = token_request.device_id
-    customer.updated_at = datetime.utcnow()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "FCM token registered successfully",
-        "customer_id": customer_id
-    }
-
-
-@app.post("/api/erp/drivers/{driver_id}/fcm-token")
-@app.post("/erp/drivers/{driver_id}/fcm-token")
-def register_driver_fcm_token(
-    driver_id: int,
-    token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Register FCM token for driver push notifications"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    # Update both push_token and fcm_token for driver (driver model has both)
-    driver.push_token = token_request.fcm_token
-    driver.fcm_token = token_request.fcm_token
-    driver.fcm_token_updated_at = datetime.utcnow()
-    if token_request.platform:
-        driver.platform = token_request.platform
-    driver.updated_at = datetime.utcnow()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "FCM token registered successfully",
-        "driver_id": driver_id
-    }
-
-
-@app.post("/api/erp/vendors/{vendor_id}/fcm-token")
-@app.post("/erp/vendors/{vendor_id}/fcm-token")
-def register_vendor_fcm_token(
-    vendor_id: int,
-    token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Register FCM token for vendor/restaurant push notifications"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    vendor.push_token = token_request.fcm_token
-    if token_request.platform:
-        vendor.platform = token_request.platform
-    if token_request.device_id:
-        vendor.mobile_device_id = token_request.device_id
-    vendor.updated_at = datetime.utcnow()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "FCM token registered successfully",
-        "vendor_id": vendor_id
-    }
-
-
-@app.delete("/api/erp/customers/{customer_id}/fcm-token")
-@app.delete("/erp/customers/{customer_id}/fcm-token")
-def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db)):
-    """Unregister FCM token for customer (on logout)"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    customer.push_token = None
-    customer.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "FCM token unregistered", "customer_id": customer_id}
-
-
-@app.delete("/api/erp/drivers/{driver_id}/fcm-token")
-@app.delete("/erp/drivers/{driver_id}/fcm-token")
-def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
-    """Unregister FCM token for driver (on logout)"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    driver.push_token = None
-    driver.fcm_token = None
-    driver.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "FCM token unregistered", "driver_id": driver_id}
-
-
-@app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
-@app.delete("/erp/vendors/{vendor_id}/fcm-token")
-def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db)):
-    """Unregister FCM token for vendor (on logout)"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    vendor.push_token = None
-    vendor.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "FCM token unregistered", "vendor_id": vendor_id}
-
-
 # ==================== RATING SERVICE PROXY ====================
 
 @app.get("/api/erp/ratings")
@@ -16797,69 +16656,168 @@ except ImportError as e:
 
 
 # ==================== PUSH NOTIFICATION SERVICE ====================
+# Enterprise API for mobile push notification token management
+# Used by: iOS App, Android App (Customer, Driver, Partner)
+#
+# Endpoints:
+#   POST   /api/notifications/tokens  - Register FCM/APNs device token
+#   DELETE /api/notifications/tokens  - Unregister token (logout)
+#
+# Legacy aliases (for backward compatibility):
+#   POST   /api/notifications/register-token
+#   DELETE /api/notifications/unregister-token
+# ==================================================================
 
 class RegisterPushTokenRequest(BaseModel):
-    """Request body for push token registration from mobile apps"""
-    device_token: str = Field(..., min_length=10, max_length=500, description="FCM device token")
-    platform: str = Field(..., pattern="^(ios|android)$", description="Mobile platform")
-    user_type: str = Field(..., pattern="^(customer|driver|vendor)$", description="User type")
-    user_id: int = Field(..., gt=0, description="User ID")
+    """
+    Request body for push notification token registration.
+
+    Used by mobile apps (iOS/Android) to register FCM device tokens
+    for receiving push notifications.
+    """
+    device_token: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="FCM/APNs device token from Firebase"
+    )
+    platform: str = Field(
+        ...,
+        pattern="^(ios|android)$",
+        description="Mobile platform: 'ios' or 'android'"
+    )
+    user_type: str = Field(
+        ...,
+        pattern="^(customer|driver|vendor)$",
+        description="User type: 'customer', 'driver', or 'vendor'"
+    )
+    user_id: int = Field(
+        ...,
+        gt=0,
+        description="User ID from authentication"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "device_token": "fMHk9...",
+                "platform": "android",
+                "user_type": "customer",
+                "user_id": 123
+            }
+        }
 
 
-@app.post("/api/notifications/register-token")
+class PushTokenResponse(BaseModel):
+    """Standard response for push token operations"""
+    success: bool
+    message: str
+    user_type: Optional[str] = None
+    user_id: Optional[int] = None
+
+
+@app.post("/api/notifications/tokens", response_model=PushTokenResponse, tags=["Notifications"])
+@app.post("/api/notifications/register-token", response_model=PushTokenResponse, include_in_schema=False)
 def register_push_token(
     request: RegisterPushTokenRequest,
     db: Session = Depends(get_db)
 ):
-    """Register a device token for push notifications."""
-    # Store token in database (update existing or create new)
+    """
+    Register a device token for push notifications.
+
+    This endpoint stores the FCM/APNs device token for the specified user,
+    enabling the platform to send push notifications to their device.
+
+    Called automatically by mobile apps on:
+    - App launch (if logged in)
+    - User login
+    - Token refresh
+    """
     if request.user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == request.user_id).first()
-        if customer:
-            customer.push_token = request.device_token
-            customer.platform = request.platform
-            db.commit()
-            return {"success": True, "message": "Push token registered for customer"}
-        return {"success": False, "message": "Customer not found"}
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        customer.push_token = request.device_token
+        customer.platform = request.platform
+        db.commit()
+        return PushTokenResponse(
+            success=True,
+            message="Push token registered",
+            user_type="customer",
+            user_id=request.user_id
+        )
+
     elif request.user_type == "driver":
         driver = db.query(Driver).filter(Driver.id == request.user_id).first()
-        if driver:
-            driver.push_token = request.device_token
-            driver.platform = request.platform
-            db.commit()
-            return {"success": True, "message": "Push token registered for driver"}
-        return {"success": False, "message": "Driver not found"}
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        driver.push_token = request.device_token
+        driver.platform = request.platform
+        db.commit()
+        return PushTokenResponse(
+            success=True,
+            message="Push token registered",
+            user_type="driver",
+            user_id=request.user_id
+        )
+
     elif request.user_type == "vendor":
         vendor = db.query(Vendor).filter(Vendor.id == request.user_id).first()
-        if vendor:
-            vendor.push_token = request.device_token
-            vendor.platform = request.platform
-            db.commit()
-            return {"success": True, "message": "Push token registered for vendor"}
-        return {"success": False, "message": "Vendor not found"}
+        if not vendor:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+        vendor.push_token = request.device_token
+        vendor.platform = request.platform
+        db.commit()
+        return PushTokenResponse(
+            success=True,
+            message="Push token registered",
+            user_type="vendor",
+            user_id=request.user_id
+        )
 
-    return {"success": False, "message": f"Unknown user type: {request.user_type}"}
+    raise HTTPException(status_code=400, detail=f"Invalid user_type: {request.user_type}")
 
 
-@app.delete("/api/notifications/unregister-token")
+@app.delete("/api/notifications/tokens", response_model=PushTokenResponse, tags=["Notifications"])
+@app.delete("/api/notifications/unregister-token", response_model=PushTokenResponse, include_in_schema=False)
 def unregister_push_token(
-    user_type: str = Query(...),
-    user_id: int = Query(...),
+    user_type: str = Query(..., pattern="^(customer|driver|vendor)$", description="User type"),
+    user_id: int = Query(..., gt=0, description="User ID"),
     db: Session = Depends(get_db)
 ):
-    """Unregister a device token (on logout)."""
+    """
+    Unregister a device token (on logout).
+
+    Removes the push token for the specified user, preventing further
+    push notifications to their device until they log in again.
+
+    Called automatically by mobile apps on user logout.
+    """
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
         if customer:
             customer.push_token = None
             db.commit()
+            return PushTokenResponse(success=True, message="Push token unregistered", user_type="customer", user_id=user_id)
+        raise HTTPException(status_code=404, detail="Customer not found")
+
     elif user_type == "driver":
         driver = db.query(Driver).filter(Driver.id == user_id).first()
         if driver:
             driver.push_token = None
             db.commit()
+            return PushTokenResponse(success=True, message="Push token unregistered", user_type="driver", user_id=user_id)
+        raise HTTPException(status_code=404, detail="Driver not found")
 
-    return {"success": True, "message": "Push token unregistered"}
+    elif user_type == "vendor":
+        vendor = db.query(Vendor).filter(Vendor.id == user_id).first()
+        if vendor:
+            vendor.push_token = None
+            db.commit()
+            return PushTokenResponse(success=True, message="Push token unregistered", user_type="vendor", user_id=user_id)
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    raise HTTPException(status_code=400, detail=f"Invalid user_type: {user_type}")
 
 
 # ==================== LEGAL DOCUMENT ENDPOINTS ====================
