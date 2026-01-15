@@ -1,7 +1,7 @@
 """
-Dollor.ai P2P Platform Backend - Main API Module
+Dollor.AI P2P Platform Backend - Main API Module
 
-This is the primary API server for the Dollor.ai matchmaking platform,
+This is the primary API server for the Dollor.AI matchmaking platform,
 handling food delivery and rideshare coordination.
 
 Version: 1.0.1
@@ -1059,7 +1059,7 @@ def get_app_config():
         "extraStopFee": 2.0,
         "platformFeePerRestaurant": 1.00,  # $1 platform fee from customer
         "maxRestaurantsPerOrder": 3,
-        "serviceFeeRate": 0.0,  # DEPRECATED: Dollor.ai uses flat $1 fees, NOT percentage
+        "serviceFeeRate": 0.0,  # DEPRECATED: Dollor.AI uses flat $1 fees, NOT percentage
         "smallOrderThreshold": 10.0,
         "smallOrderFee": 2.0,
 
@@ -2426,7 +2426,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
             "name": full_name,
             "email": new_customer.email,
             "phone": new_customer.phone or "",
-            "message": "Registration successful. Welcome to Dollor.ai!"
+            "message": "Registration successful. Welcome to Dollor.AI!"
         }
     except HTTPException:
         raise
@@ -2989,7 +2989,7 @@ def handle_email_unsubscribe(
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Unsubscribed - Dollor.ai</title>
+            <title>Unsubscribed - Dollor.AI</title>
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                        background: #f5f5f5; margin: 0; padding: 40px; text-align: center; }}
@@ -3005,10 +3005,10 @@ def handle_email_unsubscribe(
             <div class="container">
                 <div class="checkmark">✓</div>
                 <h1>You've been unsubscribed</h1>
-                <p>You will no longer receive marketing emails from Dollor.ai.</p>
+                <p>You will no longer receive marketing emails from Dollor.AI.</p>
                 <p>You'll still receive important transactional emails about your orders and account.</p>
                 <p style="margin-top: 30px;">
-                    <a href="https://dollor.ai">Return to Dollor.ai</a>
+                    <a href="https://dollor.ai">Return to Dollor.AI</a>
                 </p>
             </div>
         </body>
@@ -4509,7 +4509,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Invalid Link - Dollor.ai</title>
+            <title>Invalid Link - Dollor.AI</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -4529,7 +4529,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
                 <h1>Invalid or Expired Link</h1>
                 <p>This activation link is invalid or has already been used.</p>
                 <p>If you've already activated your account, you can log in to the Driver app.</p>
-                <a href="https://dollor.ai" class="btn">Visit Dollor.ai</a>
+                <a href="https://dollor.ai" class="btn">Visit Dollor.AI</a>
             </div>
         </body>
         </html>
@@ -4541,7 +4541,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Already Activated - Dollor.ai</title>
+            <title>Already Activated - Dollor.AI</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -4561,7 +4561,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
                 <h1>Already Activated!</h1>
                 <p>Hi {driver.first_name}, your account is already active.</p>
                 <p>You can log in to the Driver app and start accepting deliveries and rides.</p>
-                <a href="https://dollor.ai" class="btn">Visit Dollor.ai</a>
+                <a href="https://dollor.ai" class="btn">Visit Dollor.AI</a>
             </div>
         </body>
         </html>
@@ -4582,7 +4582,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Account Activated! - Dollor.ai</title>
+        <title>Account Activated! - Dollor.AI</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -4607,7 +4607,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
     <body>
         <div class="container">
             <div class="icon">🎉</div>
-            <h1>Welcome to Dollor.ai!</h1>
+            <h1>Welcome to Dollor.AI!</h1>
             <p class="welcome">Congratulations, {driver.first_name}!</p>
             <p>Your account has been <span class="highlight">successfully activated</span>.</p>
             <p>By clicking this link, you have accepted the Independent Contractor Agreement
@@ -4628,7 +4628,7 @@ def activate_driver_account(token: str, db: Session = Depends(get_db)):
             <a href="https://dollor.ai" class="btn">Get Started</a>
 
             <div class="footer">
-                <p>© 2025 Zietra Technology Inc. | Rancho Santa Margarita, CA 92688</p>
+                <p>© 2025 Zietra Technologies Inc. | Rancho Santa Margarita, CA 92688</p>
                 <p>Terms accepted on: {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
             </div>
         </div>
@@ -6544,7 +6544,7 @@ async def get_driver_earnings(
         "bonuses": round(bonuses, 2),
         "total_earnings": round(base_earnings + tips + bonuses, 2),
         "platform_fee": 0.00,  # Drivers pay $0 commission per CLAUDE.md
-        "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers.",
+        "note": "100% of your earnings go to you. Dollor.AI charges $0 commission to drivers.",
         # Period totals for iOS/Android apps
         "today": round(base_earnings + tips, 2) if period == "today" else 0,
         "week": round(base_earnings + tips, 2) if period == "week" else 0,
@@ -7468,7 +7468,7 @@ def get_recent_activity(db: Session = Depends(get_db), current_user: User = Depe
     return activity[:10]
 
 # ============================================================================
-# CONSOLIDATED DASHBOARD API - Dollor.ai Platform Metrics
+# CONSOLIDATED DASHBOARD API - Dollor.AI Platform Metrics
 # ============================================================================
 
 def format_amount(amount):
@@ -7487,7 +7487,7 @@ def get_consolidated_dashboard(
     db: Session = Depends(get_db)
 ):
     """
-    Get consolidated dashboard metrics for Dollor.ai platform.
+    Get consolidated dashboard metrics for Dollor.AI platform.
     Includes: Orders, Vendors, Drivers, Revenue, and Support Tickets.
     """
     from models import Order, OrderStatus, Vendor, VendorStatus, Driver, DriverStatus, SupportTicket, TicketStatus
@@ -12768,7 +12768,7 @@ def get_featured_deals(db: Session = Depends(get_db)):
             {
                 "id": 1,
                 "title": "20% OFF Your First Order",
-                "description": "Welcome to Dollor.ai! Get 20% off your first food delivery order.",
+                "description": "Welcome to Dollor.AI! Get 20% off your first food delivery order.",
                 "image_url": None,
                 "discount_text": "20% OFF",
                 "restaurant_id": None,
@@ -16868,7 +16868,7 @@ def get_terms_of_service():
                 }
             },
             "key_points": [
-                "Dollor.ai is a technology matchmaking platform, not a delivery or transportation company",
+                "Dollor.AI is a technology matchmaking platform, not a delivery or transportation company",
                 "Drivers are independent contractors, not employees",
                 "Flat $1 matchmaking fee - no percentage commissions",
                 "100% of tips go directly to drivers",
