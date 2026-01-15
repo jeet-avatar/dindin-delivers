@@ -69,6 +69,7 @@ import DriverProfile from './app/screens/driver/Profile';
 import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverEarnings from './app/screens/driver/Earnings';
 import RideBidding from './app/screens/driver/RideBidding';
+import DriverDocuments from './app/screens/driver/Documents';
 import RideBids from './app/screens/customer/RideBids';
 
 // Wrapper to provide dynamic customerId from localStorage
@@ -196,6 +197,7 @@ function App() {
           <Route path="history" element={<DriverDeliveries />} />
           <Route path="messages" element={<DriverMessages />} />
           <Route path="profile" element={<DriverProfile />} />
+          <Route path="documents" element={<DriverDocuments />} />
           <Route path="dashboard" element={<DriverDashboard />} />
           <Route path="earnings" element={<DriverEarnings />} />
         </Route>
