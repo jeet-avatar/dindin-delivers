@@ -195,7 +195,7 @@ class RestaurantMenuViewModel: ObservableObject {
         }
 
         let boundary = UUID().uuidString
-        let baseURL = p2pAPI.baseURL
+        let baseURL = AppConfig.shared.p2pAPIBaseURL
         guard let url = URL(string: "\(baseURL)/api/vibing/upload-image/\(menuItemId)") else {
             #if DEBUG
             print("[Menu] Invalid upload URL")

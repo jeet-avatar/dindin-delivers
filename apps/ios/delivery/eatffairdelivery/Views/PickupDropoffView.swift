@@ -41,7 +41,7 @@ struct ActivePickupDropoffView: View {
 
     private var isPickedUp: Bool {
         let status = DeliveryOrderStatus.from(order.status)
-        return status == .pickedUp || status == .outForDelivery
+        return status == .outForDelivery || status == .restaurantWillDeliver
     }
 
     var body: some View {
