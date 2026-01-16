@@ -4272,8 +4272,22 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
 
 @app.get("/erp/drivers/{driver_id}")
 @app.get("/api/erp/drivers/{driver_id}")  # Alias with /api prefix for consistency
-def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
-    """Get driver profile by ID (iOS app compatible endpoint)"""
+def get_driver_profile_by_id(
+    driver_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get driver profile by ID (iOS app compatible endpoint) - REQUIRES AUTH"""
+    # Verify token and check authorization
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_driver_id = payload.get("driver_id")
+        # Only allow drivers to access their own profile
+        if token_driver_id and int(token_driver_id) != driver_id:
+            raise HTTPException(status_code=403, detail="Access denied: Cannot access other driver profiles")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4335,6 +4349,7 @@ class DriverProfileUpdate(BaseModel):
 @app.put("/api/erp/drivers/{driver_id}")  # Alias with /api prefix
 def update_driver_profile_by_id(
     driver_id: int,
+    token: str = Depends(oauth2_scheme),
     body: Optional[DriverProfileUpdate] = None,
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
@@ -4348,9 +4363,19 @@ def update_driver_profile_by_id(
     license_number: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Update driver profile by ID (iOS app compatible endpoint)
+    """Update driver profile by ID (iOS app compatible endpoint) - REQUIRES AUTH
     Accepts both JSON body and query parameters for flexibility.
     """
+    # Verify token and check authorization
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_driver_id = payload.get("driver_id")
+        # Only allow drivers to update their own profile
+        if token_driver_id and int(token_driver_id) != driver_id:
+            raise HTTPException(status_code=403, detail="Access denied: Cannot update other driver profiles")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -10257,16 +10282,38 @@ def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: U
     ]
 
     # Delete from tables with non-nullable vendor_id
+    # SECURITY: Using parameterized queries with whitelisted table names to prevent SQL injection
+    ALLOWED_DELETE_TABLES = {"vendor_documents", "menu_items", "promotions", "reviews", "chat_messages"}
+    ALLOWED_NULLIFY_TABLES = {"orders", "invoices"}
+
     for table in tables_to_delete:
+        if table not in ALLOWED_DELETE_TABLES:
+            continue  # Skip non-whitelisted tables
         try:
-            db.execute(text(f"DELETE FROM {table} WHERE vendor_id = :vid"), {"vid": vendor_id})
+            # Use safe parameterized delete with verified table name
+            if table == "vendor_documents":
+                db.execute(text("DELETE FROM vendor_documents WHERE vendor_id = :vid"), {"vid": vendor_id})
+            elif table == "menu_items":
+                db.execute(text("DELETE FROM menu_items WHERE vendor_id = :vid"), {"vid": vendor_id})
+            elif table == "promotions":
+                db.execute(text("DELETE FROM promotions WHERE vendor_id = :vid"), {"vid": vendor_id})
+            elif table == "reviews":
+                db.execute(text("DELETE FROM reviews WHERE vendor_id = :vid"), {"vid": vendor_id})
+            elif table == "chat_messages":
+                db.execute(text("DELETE FROM chat_messages WHERE vendor_id = :vid"), {"vid": vendor_id})
         except Exception:
             pass  # Table might not exist
 
     # Nullify vendor_id in tables that preserve history
     for table in tables_to_nullify:
+        if table not in ALLOWED_NULLIFY_TABLES:
+            continue  # Skip non-whitelisted tables
         try:
-            db.execute(text(f"UPDATE {table} SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
+            # Use safe parameterized update with verified table name
+            if table == "orders":
+                db.execute(text("UPDATE orders SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
+            elif table == "invoices":
+                db.execute(text("UPDATE invoices SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
         except Exception:
             pass  # Table might not exist or column might not exist
 
@@ -17924,8 +17971,19 @@ def admin_set_driver_documents(
 # ============================================================
 
 @app.get("/api/admin/database/schema")
-def get_database_schema(db: Session = Depends(get_db)):
-    """Get complete database schema - all tables and columns"""
+def get_database_schema(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get complete database schema - all tables and columns - ADMIN ONLY"""
+    # SECURITY: Verify admin authentication
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        role = payload.get("role")
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     from sqlalchemy import text
 
     try:
@@ -17971,8 +18029,19 @@ def get_database_schema(db: Session = Depends(get_db)):
 
 
 @app.get("/api/admin/api/routes")
-def get_all_api_routes():
-    """Get all API routes with methods and paths"""
+def get_all_api_routes(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Get all API routes with methods and paths - ADMIN ONLY"""
+    # SECURITY: Verify admin role
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        role = payload.get("role")
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     routes = []
     route_set = set()  # For duplicate detection
 
@@ -18013,8 +18082,19 @@ def get_all_api_routes():
 
 
 @app.get("/api/admin/api/duplicates")
-def get_duplicate_routes():
-    """Find duplicate API routes and schemas"""
+def get_duplicate_routes(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Find duplicate API routes and schemas - ADMIN ONLY"""
+    # SECURITY: Verify admin role
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        role = payload.get("role")
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     from collections import defaultdict
 
     # Find duplicate routes
