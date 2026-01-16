@@ -12,27 +12,8 @@ struct MenuView: View {
                     ProgressView()
                 }
                 
-                ForEach(viewModel.items) { item in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(item.name)
-                                .font(.headline)
-                            Text(item.description)
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            Text("$\(String(format: "%.2f", item.price))")
-                                .font(.subheadline)
-                        }
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            viewModel.toggleAvailability(item: item)
-                        }) {
-                            Image(systemName: item.isAvailable ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(item.isAvailable ? .green : .gray)
-                        }
-                    }
+                ForEach(Array(viewModel.allItems), id: \.id) { item in
+                    MenuItemRow(item: item)
                 }
                 .onDelete(perform: viewModel.deleteItem)
             }
@@ -115,6 +96,30 @@ struct AddMenuItemView: View {
             .sheet(isPresented: $showingImagePicker) {
                 ImagePicker(image: $selectedImage)
             }
+        }
+    }
+}
+
+// MARK: - Menu Item Row
+struct MenuItemRow: View {
+    let item: EatFairShared.MenuItem
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(item.name)
+                    .font(.headline)
+                Text(item.description)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                Text("$\(String(format: "%.2f", item.price))")
+                    .font(.subheadline)
+            }
+
+            Spacer()
+
+            Image(systemName: item.isAvailable ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(item.isAvailable ? .green : .gray)
         }
     }
 }
