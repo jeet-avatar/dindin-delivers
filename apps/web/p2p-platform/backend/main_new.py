@@ -2558,7 +2558,7 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered as driver. Please use a different email or sign in with that account type."
             )
-        existing_vendor = db.query(Vendor).filter(Vendor.email == email).first()
+        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
         if existing_vendor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -5260,7 +5260,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered as driver. Please use a different email or sign in with that account type."
             )
-        existing_vendor = db.query(Vendor).filter(Vendor.email == email).first()
+        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
         if existing_vendor:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
