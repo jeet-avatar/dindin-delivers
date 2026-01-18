@@ -190,7 +190,20 @@ struct AddAddressView: View {
                 Section {
                     Toggle("Set as Default Address", isOn: $isDefault)
                 }
-                
+
+                // Show error message if present
+                if let error = viewModel.errorMessage {
+                    Section {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+
                 Button(action: saveAddress) {
                     if viewModel.isLoading {
                         ProgressView()

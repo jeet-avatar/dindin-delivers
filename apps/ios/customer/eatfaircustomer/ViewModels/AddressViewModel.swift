@@ -118,14 +118,35 @@ class AddressViewModel: ObservableObject {
                 #endif
             }
 
+            // Check if we already have valid coordinates from AddressSearchView
+            let hasValidCoordinates = newAddress.latitude != 0.0 || newAddress.longitude != 0.0
+
             if let location = placemarks?.first?.location {
+                // Use geocoded coordinates
                 newAddress.latitude = location.coordinate.latitude
                 newAddress.longitude = location.coordinate.longitude
                 #if DEBUG
                 print("[AddressViewModel] Geocoded: lat=\(newAddress.latitude), lng=\(newAddress.longitude)")
                 #endif
+            } else if !hasValidCoordinates {
+                // Geocoding failed and we don't have coordinates - show error
+                #if DEBUG
+                print("[AddressViewModel] Geocoding failed and no valid coordinates provided")
+                #endif
+                self.isLoading = false
+                self.errorMessage = "Unable to find location. Please use the address search feature or check the address."
+                completion(false)
+                return
             }
-            // If geocoding fails, lat/long will be 0.0
+            // If geocoding fails but we have valid coordinates from search, keep them
+
+            // Validate coordinates are not (0,0) before saving
+            if newAddress.latitude == 0.0 && newAddress.longitude == 0.0 {
+                self.isLoading = false
+                self.errorMessage = "Invalid location. Please use address search to ensure accurate coordinates."
+                completion(false)
+                return
+            }
 
             // If this is the first address, make it default
             if self.addresses.isEmpty {
