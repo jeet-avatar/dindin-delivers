@@ -17153,6 +17153,30 @@ def serve_terms_of_service_page():
         raise HTTPException(status_code=404, detail="Terms of service page not found")
 
 
+@app.get("/driver-terms", response_class=HTMLResponse)
+def serve_driver_terms_page():
+    """Serve Driver Terms of Service HTML page for App Store compliance."""
+    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
+    driver_terms_file = os.path.join(legal_dir, "driver-terms.html")
+    try:
+        with open(driver_terms_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Driver terms page not found")
+
+
+@app.get("/restaurant-terms", response_class=HTMLResponse)
+def serve_restaurant_terms_page():
+    """Serve Restaurant Partner Terms HTML page for App Store compliance."""
+    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
+    restaurant_terms_file = os.path.join(legal_dir, "restaurant-terms.html")
+    try:
+        with open(restaurant_terms_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Restaurant terms page not found")
+
+
 # Fare estimate endpoint for Android
 # Note: Driver profile GET /api/erp/drivers/{driver_id} is handled by get_driver_profile_by_id (line ~3027)
 @app.post("/api/rides/estimate")
