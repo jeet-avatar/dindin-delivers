@@ -4,3 +4,10 @@ source "https://rubygems.org"
 
 gem "fastlane", "~> 2.219"
 gem "cocoapods", "~> 1.14"
+
+# Ruby 4.0 compatibility - gems removed from stdlib
+gem "ostruct"
+gem "logger"
+gem "csv"
+gem "base64"
+gem "bigdecimal"
