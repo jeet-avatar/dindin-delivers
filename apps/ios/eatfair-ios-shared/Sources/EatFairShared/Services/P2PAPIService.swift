@@ -2992,7 +2992,7 @@ public class P2PAPIService: ObservableObject {
         isOnline: Bool,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/status?is_online=\(isOnline)") else {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/online-status?is_online=\(isOnline)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
