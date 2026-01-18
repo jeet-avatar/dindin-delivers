@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 import EatFairShared
 
 /// World-class Restaurant Dashboard with AI-powered insights
