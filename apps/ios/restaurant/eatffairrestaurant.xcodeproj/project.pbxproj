@@ -71,15 +71,11 @@
 		};
 		104404C22ED6B25300ED321A /* eatffairrestaurantTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatffairrestaurantTests;
 			sourceTree = "<group>";
 		};
 		104404CC2ED6B25300ED321A /* eatffairrestaurantUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = eatffairrestaurantUITests;
 			sourceTree = "<group>";
 		};
@@ -282,7 +278,7 @@
 				104404FF2ED6BC5B00ED321A /* XCRemoteSwiftPackageReference "stripe-ios-spm" */,
 				1044050A2ED6BE9400ED321A /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				104405132ED6BEE200ED321A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
-				104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */,
+				104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 104404AE2ED6B25100ED321A /* Products */;
@@ -329,9 +325,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -529,7 +529,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = eatffairrestaurant/eatffairrestaurant.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -564,7 +564,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = eatffairrestaurant/eatffairrestaurant.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -596,7 +596,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -618,7 +618,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -639,7 +639,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -659,7 +659,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YRHVAY595K;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -717,7 +717,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */ = {
+		104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../eatfair-ios-shared";
 		};
@@ -813,7 +813,7 @@
 		};
 		104406A32ED8346800ED321A /* EatFairShared */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "eatfair-ios-shared" */;
+			package = 104406A22ED8346800ED321A /* XCLocalSwiftPackageReference "../eatfair-ios-shared" */;
 			productName = EatFairShared;
 		};
 /* End XCSwiftPackageProductDependency section */
