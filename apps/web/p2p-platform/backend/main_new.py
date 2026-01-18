@@ -9613,7 +9613,7 @@ def get_vendor_analytics(
     ).all()
 
     # Calculate key metrics
-    completed_statuses = [OrderStatus.DELIVERED, OrderStatus.PICKED_UP, OrderStatus.READY_FOR_PICKUP]
+    completed_statuses = [OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.READY_FOR_PICKUP]
 
     completed_orders = [o for o in current_orders if o.status in completed_statuses]
     total_orders = len(current_orders)
