@@ -2570,23 +2570,30 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-        customer_count = db.query(Customer).count()
-        customer_code = f"CUST-{customer_count + 1:05d}"
+        # Use timestamp-based customer_code to avoid collisions (same as registration)
+        import time
+        timestamp_suffix = int(time.time() * 1000) % 100000
+        customer_code = f"CUST-{timestamp_suffix:05d}"
 
         hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
 
-        customer = Customer(
-            customer_id=customer_code,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            password_hash=hashed_password,
-            is_active=True
-        )
-        db.add(customer)
-        db.commit()
-        db.refresh(customer)
-        print(f"Created new customer via Google auth: {email}")
+        try:
+            customer = Customer(
+                customer_id=customer_code,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                password_hash=hashed_password,
+                is_active=True
+            )
+            db.add(customer)
+            db.commit()
+            db.refresh(customer)
+            print(f"Created new customer via Google auth: {email}")
+        except Exception as e:
+            db.rollback()
+            print(f"Error creating customer: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create customer account")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
     print(f"Customer Google auth successful for: {customer.email}")
@@ -5285,21 +5292,27 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-        # Generate unique customer_id
-        import random
-        customer_id = f"CUST{random.randint(100000, 999999)}"
+        # Use timestamp-based customer_id to avoid collisions (same as registration)
+        import time
+        timestamp_suffix = int(time.time() * 1000) % 100000
+        customer_id = f"CUST-{timestamp_suffix:05d}"
 
-        # Create customer record with first_name/last_name to match database schema
-        customer = Customer(
-            customer_id=customer_id,
-            first_name=first_name,
-            last_name=last_name,
-            email=email
-        )
-        db.add(customer)
-        db.commit()
-        db.refresh(customer)
-        print(f"Created new customer record for: {email} with ID: {customer_id}")
+        try:
+            # Create customer record with first_name/last_name to match database schema
+            customer = Customer(
+                customer_id=customer_id,
+                first_name=first_name,
+                last_name=last_name,
+                email=email
+            )
+            db.add(customer)
+            db.commit()
+            db.refresh(customer)
+            print(f"Created new customer record for: {email} with ID: {customer_id}")
+        except Exception as e:
+            db.rollback()
+            print(f"Error creating customer: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create customer account")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
