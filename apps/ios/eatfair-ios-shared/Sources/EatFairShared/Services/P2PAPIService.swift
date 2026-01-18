@@ -1398,10 +1398,10 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["email": email, "password": password]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        let bodyString = "username=\(email)&password=\(password)"
+        request.httpBody = bodyString.data(using: .utf8)
 
         isLoading = true
 

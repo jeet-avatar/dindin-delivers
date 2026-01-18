@@ -1609,6 +1609,22 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
                     detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
                 )
     else:
+        # Check if email exists with a different role
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
+            )
+
+        # Check if email exists in Vendor table
+        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
+        if existing_vendor:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered. Please sign in with your existing account."
+            )
+
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
@@ -1679,6 +1695,22 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
                     detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
                 )
     else:
+        # Check if email exists with a different role
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
+            )
+
+        # Check if email exists in Vendor table
+        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == request.email).first()
+        if existing_vendor:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered. Please sign in with your existing account."
+            )
+
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
@@ -2001,6 +2033,22 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
                     detail=f"Driver account is not active. Status: {driver.status.value}"
                 )
     else:
+        # Check if email exists with a different role
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
+            )
+
+        # Check if email exists in Driver table
+        existing_driver = db.query(Driver).filter(Driver.email == email).first()
+        if existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered. Please sign in with your existing account."
+            )
+
         # Create new driver and user
         name_parts = name.split(" ", 1)
         first_name = name_parts[0]
@@ -2083,6 +2131,22 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
                     detail=f"Driver account is not active. Status: {driver.status.value}"
                 )
     else:
+        # Check if email exists with a different role
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
+            )
+
+        # Check if email exists in Driver table
+        existing_driver = db.query(Driver).filter(Driver.email == request.email).first()
+        if existing_driver:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered. Please sign in with your existing account."
+            )
+
         # Create new driver and user
         name_parts = request.name.split(" ", 1)
         first_name = name_parts[0]
