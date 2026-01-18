@@ -1731,20 +1731,6 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
 # These endpoints actually send emails via AWS SES and use 6-digit codes
 # ==============================================================
 
-# Helper function to get current vendor user
-def get_current_vendor_user(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != UserRole.VENDOR:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access restricted to vendors only"
-        )
-    if not current_user.vendor_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account not linked to a vendor"
-        )
-    return current_user
-
 @app.get("/api/auth/me", response_model=UserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
