@@ -13,6 +13,7 @@ struct LoginView: View {
     @State private var showForgotPassword = false
     @State private var showSignUp = false
     @State private var currentNonce: String?
+    @State private var emailValidationError: String?
     @Binding var isLoggedIn: Bool
 
     private let p2pAPI = P2PAPIService.shared
@@ -63,6 +64,13 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .textContentType(.emailAddress)
                                 .autocorrectionDisabled()
+                                .onChange(of: email) { emailValidationError = nil }
+
+                            if let error = emailValidationError {
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
                         }
 
                         // Password Field
@@ -310,9 +318,17 @@ struct LoginView: View {
             return
         }
 
+        // Validate email using shared EmailValidator
+        let validation = EmailValidator.validate(email)
+        guard validation.isValid else {
+            emailValidationError = validation.errorMessage
+            return
+        }
+
         isLoading = true
         errorMessage = ""
         successMessage = ""
+        emailValidationError = nil
 
         // Use P2P backend for vendor login
         p2pAPI.vendorLogin(email: email, password: password) { result in
@@ -584,8 +600,8 @@ struct ForgotPasswordView: View {
         isLoading = true
         errorMessage = ""
 
-        // Use P2P backend for password reset
-        p2pAPI.requestPasswordReset(email: email) { (result: Result<P2PPasswordResetResponse, Error>) in
+        // Use P2P backend for vendor password reset (NOT customer endpoint!)
+        p2pAPI.requestVendorPasswordReset(email: email) { (result: Result<P2PPasswordResetResponse, Error>) in
             DispatchQueue.main.async {
                 isLoading = false
                 switch result {
@@ -765,13 +781,21 @@ struct SignUpView: View {
         !confirmPassword.isEmpty &&
         !restaurantName.isEmpty &&
         password == confirmPassword &&
-        password.count >= 8
+        password.count >= 8 &&
+        EmailValidator.isValid(email)
     }
 
     func signUp() {
         // Validate
         guard !email.isEmpty, !password.isEmpty, !restaurantName.isEmpty else {
             errorMessage = "Please fill in all fields"
+            return
+        }
+
+        // Validate email using shared EmailValidator
+        let emailValidation = EmailValidator.validate(email)
+        guard emailValidation.isValid else {
+            errorMessage = emailValidation.errorMessage ?? "Invalid email address"
             return
         }
 

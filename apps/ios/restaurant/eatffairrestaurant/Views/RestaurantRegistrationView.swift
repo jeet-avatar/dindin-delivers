@@ -212,7 +212,7 @@ struct RestaurantRegistrationView: View {
                    !formData.password.isEmpty &&
                    formData.password == formData.confirmPassword &&
                    formData.password.count >= 8 &&
-                   isValidEmail(formData.contactEmail)
+                   EmailValidator.isValid(formData.contactEmail)
         case .contactLocation:
             return !formData.streetAddress.isEmpty &&
                    !formData.city.isEmpty &&
@@ -224,12 +224,6 @@ struct RestaurantRegistrationView: View {
         case .review:
             return formData.acceptedTerms && formData.acceptedPrivacy
         }
-    }
-
-    private func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
     }
 
     // MARK: - Navigation
@@ -463,14 +457,22 @@ struct Step1RestaurantInfoView: View {
             )
 
             // Contact Email
-            FormTextField(
-                title: "Email Address",
-                placeholder: "email@example.com",
-                text: $formData.contactEmail,
-                icon: "envelope",
-                keyboardType: .emailAddress,
-                autocapitalization: .none
-            )
+            VStack(alignment: .leading, spacing: 4) {
+                FormTextField(
+                    title: "Email Address",
+                    placeholder: "email@example.com",
+                    text: $formData.contactEmail,
+                    icon: "envelope",
+                    keyboardType: .emailAddress,
+                    autocapitalization: .none
+                )
+
+                if !formData.contactEmail.isEmpty && !EmailValidator.isValid(formData.contactEmail) {
+                    Text(EmailValidator.getErrorMessage(formData.contactEmail) ?? "Invalid email address")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
 
             // Contact Phone
             FormTextField(
