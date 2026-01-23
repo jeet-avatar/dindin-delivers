@@ -348,10 +348,11 @@ const PrivacyPolicy: React.FC = () => {
             <Link to="/">Home</Link>
             <Link to="/terms">Terms of Service</Link>
             <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/refund">Refund Policy</Link>
             <Link to="/vendor/login">Restaurant Login</Link>
             <Link to="/driver/login">Driver Login</Link>
           </div>
-          <p className="copyright">&copy; 2025 Dollor.ai. All rights reserved.</p>
+          <p className="copyright">&copy; 2026 Dollor.ai. All rights reserved.</p>
         </div>
       </footer>
 
