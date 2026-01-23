@@ -22,18 +22,7 @@ const { Title, Text } = Typography;
  * Matches iOS NotificationView.swift for platform parity
  */
 
-type NotificationType =
-  | 'order'
-  | 'promotion'
-  | 'system'
-  | 'delivery'
-  // Ride-specific notification types
-  | 'ride_request'
-  | 'ride_bid'
-  | 'ride_matched'
-  | 'ride_started'
-  | 'ride_completed'
-  | 'ride_cancelled';
+type NotificationType = 'order' | 'promotion' | 'system' | 'delivery';
 
 interface NotificationItem {
   id: string;
@@ -42,74 +31,29 @@ interface NotificationItem {
   type: NotificationType;
   timestamp: string;
   is_read: boolean;
-  // Optional ride-specific data
-  ride_request_id?: string;
-  driver_name?: string;
-  fare_amount?: number;
 }
 
-// Notification type styling with ride support
-const notificationTypeConfig: Record<NotificationType, { icon: React.ReactNode; color: string; bgColor: string; label: string }> = {
+// Notification type styling
+const notificationTypeConfig: Record<NotificationType, { icon: React.ReactNode; color: string; bgColor: string }> = {
   order: {
     icon: <ShoppingOutlined />,
     color: '#1890ff',
-    bgColor: 'rgba(24, 144, 255, 0.1)',
-    label: 'Order'
+    bgColor: 'rgba(24, 144, 255, 0.1)'
   },
   promotion: {
     icon: <TagOutlined />,
     color: DollorTheme.Brand.orange,
-    bgColor: 'rgba(242, 153, 74, 0.1)',
-    label: 'Promotion'
+    bgColor: 'rgba(242, 153, 74, 0.1)'
   },
   system: {
     icon: <BellOutlined />,
     color: '#8c8c8c',
-    bgColor: 'rgba(140, 140, 140, 0.1)',
-    label: 'System'
+    bgColor: 'rgba(140, 140, 140, 0.1)'
   },
   delivery: {
     icon: <CarOutlined />,
     color: DollorTheme.Brand.green,
-    bgColor: 'rgba(6, 193, 103, 0.1)',
-    label: 'Delivery'
-  },
-  // Ride notification types
-  ride_request: {
-    icon: <CarOutlined />,
-    color: '#722ed1',
-    bgColor: 'rgba(114, 46, 209, 0.1)',
-    label: 'Ride Request'
-  },
-  ride_bid: {
-    icon: <CarOutlined />,
-    color: '#13c2c2',
-    bgColor: 'rgba(19, 194, 194, 0.1)',
-    label: 'New Bid'
-  },
-  ride_matched: {
-    icon: <CarOutlined />,
-    color: DollorTheme.Brand.green,
-    bgColor: 'rgba(6, 193, 103, 0.1)',
-    label: 'Ride Matched'
-  },
-  ride_started: {
-    icon: <CarOutlined />,
-    color: '#1890ff',
-    bgColor: 'rgba(24, 144, 255, 0.1)',
-    label: 'Ride Started'
-  },
-  ride_completed: {
-    icon: <CarOutlined />,
-    color: DollorTheme.Brand.green,
-    bgColor: 'rgba(6, 193, 103, 0.15)',
-    label: 'Ride Completed'
-  },
-  ride_cancelled: {
-    icon: <CarOutlined />,
-    color: '#ff4d4f',
-    bgColor: 'rgba(255, 77, 79, 0.1)',
-    label: 'Ride Cancelled'
+    bgColor: 'rgba(6, 193, 103, 0.1)'
   }
 };
 
@@ -165,8 +109,7 @@ const CustomerNotifications: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = async (notification: NotificationItem) => {
-    // Mark as read
+  const handleMarkAsRead = async (notification: NotificationItem) => {
     try {
       const token = localStorage.getItem('customer_token');
       await axios.post(
@@ -184,42 +127,6 @@ const CustomerNotifications: React.FC = () => {
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
       );
-    }
-
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'ride_request':
-      case 'ride_bid':
-        // Navigate to ride bids page
-        if (notification.ride_request_id) {
-          navigate(`/customer/ride-bids/${notification.ride_request_id}`);
-        } else {
-          navigate('/customer/ride-bids');
-        }
-        break;
-      case 'ride_matched':
-      case 'ride_started':
-        // Navigate to active ride tracking
-        if (notification.ride_request_id) {
-          navigate(`/customer/ride-tracking/${notification.ride_request_id}`);
-        }
-        break;
-      case 'ride_completed':
-        // Navigate to ride history/receipt
-        if (notification.ride_request_id) {
-          navigate(`/customer/ride-history/${notification.ride_request_id}`);
-        }
-        break;
-      case 'ride_cancelled':
-        // Stay on notifications or show details
-        break;
-      case 'order':
-      case 'delivery':
-        // Navigate to order tracking if order_id available
-        break;
-      default:
-        // No navigation for other types
-        break;
     }
   };
 
@@ -284,7 +191,7 @@ const CustomerNotifications: React.FC = () => {
           <Text strong className="empty-title">No Notifications</Text>
           <Text type="secondary" className="empty-message">
             You don't have any notifications yet.
-            {'\n'}We'll notify you about orders, rides, and promotions.
+            {'\n'}We'll notify you about orders and promotions.
           </Text>
         </div>
       ) : (
@@ -295,7 +202,7 @@ const CustomerNotifications: React.FC = () => {
               <div
                 key={notification.id}
                 className={`notification-card ${!notification.is_read ? 'unread' : ''}`}
-                onClick={() => handleNotificationClick(notification)}
+                onClick={() => handleMarkAsRead(notification)}
               >
                 {/* Icon */}
                 <div
