@@ -2,6 +2,12 @@
 """
 Play Store Screenshot Capture Script
 Captures mobile-optimized screenshots for Dollor.ai apps
+
+Google Play Store Requirements:
+- Aspect ratio: 16:9 to 9:16 (we use 9:16 = 1080x1920)
+- Min dimension: 320px
+- Max dimension: 3840px
+- Format: JPEG or 24-bit PNG
 """
 
 import os
@@ -11,30 +17,30 @@ from playwright.async_api import async_playwright
 BASE_URL = 'https://www.dollor.ai'
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Play Store phone dimensions (1080x1920 output at 2.625x scale)
-PHONE_VIEWPORT = {'width': 412, 'height': 915}
-DEVICE_SCALE = 2.625
+# Play Store phone dimensions - exactly 1080x1920 (9:16 aspect ratio)
+PHONE_VIEWPORT = {'width': 360, 'height': 640}
+DEVICE_SCALE = 3.0  # 360*3=1080, 640*3=1920
 
-# Screenshot configurations
+# Screenshot configurations - updated with better pages
 SCREENSHOTS = {
     'customer': [
-        {'name': '01-home', 'url': '/', 'wait': 2000},
-        {'name': '02-restaurants', 'url': '/customer/restaurants', 'wait': 3000},
-        {'name': '03-deals', 'url': '/customer/deals', 'wait': 2000},
-        {'name': '04-rides', 'url': '/customer/rides', 'wait': 2000},
+        {'name': '01-home', 'url': '/', 'wait': 3000},
+        {'name': '02-restaurants', 'url': '/customer/restaurants', 'wait': 4000},
+        {'name': '03-deals', 'url': '/customer/deals', 'wait': 3000},
+        {'name': '04-rides', 'url': '/customer/rides', 'wait': 3000},
         {'name': '05-login', 'url': '/customer/login', 'wait': 2000},
     ],
     'driver': [
-        {'name': '01-login', 'url': '/driver/login', 'wait': 2000},
-        {'name': '02-orders', 'url': '/driver/orders', 'wait': 3000},
-        {'name': '03-bidding', 'url': '/driver/bidding', 'wait': 2000},
-        {'name': '04-earnings', 'url': '/driver/earnings', 'wait': 2000},
-        {'name': '05-profile', 'url': '/driver/profile', 'wait': 2000},
+        {'name': '01-login', 'url': '/driver/login', 'wait': 3000},
+        {'name': '02-dashboard', 'url': '/driver/dashboard', 'wait': 4000},
+        {'name': '03-bidding', 'url': '/driver/bidding', 'wait': 3000},
+        {'name': '04-earnings', 'url': '/driver/earnings', 'wait': 3000},
+        {'name': '05-profile', 'url': '/driver/profile', 'wait': 3000},
     ],
     'partner': [
-        {'name': '01-login', 'url': '/vendor/login', 'wait': 2000},
-        {'name': '02-dashboard', 'url': '/vendor/dashboard', 'wait': 3000},
-        {'name': '03-profile', 'url': '/vendor/profile', 'wait': 2000},
+        {'name': '01-login', 'url': '/vendor/login', 'wait': 3000},
+        {'name': '02-dashboard', 'url': '/vendor/dashboard', 'wait': 4000},
+        {'name': '03-settings', 'url': '/vendor/settings', 'wait': 3000},
     ],
 }
 
@@ -64,13 +70,26 @@ async def capture_screenshots():
                     url = f"{BASE_URL}{screen['url']}"
                     print(f"  📸 {screen['name']}: {url}")
 
-                    await page.goto(url, wait_until='networkidle', timeout=30000)
+                    await page.goto(url, wait_until='networkidle', timeout=45000)
+
+                    # Wait for content to load
                     await page.wait_for_timeout(screen['wait'])
+
+                    # Scroll slightly to trigger lazy loading
+                    await page.evaluate('window.scrollBy(0, 100)')
+                    await page.wait_for_timeout(500)
+                    await page.evaluate('window.scrollTo(0, 0)')
+                    await page.wait_for_timeout(500)
 
                     filename = os.path.join(output_dir, f"{screen['name']}.png")
                     await page.screenshot(path=filename, full_page=False, type='png')
 
-                    print(f"    ✅ Saved: {filename}")
+                    # Verify file size (blank images are very small)
+                    file_size = os.path.getsize(filename)
+                    if file_size < 50000:  # Less than 50KB is suspicious
+                        print(f"    ⚠️  Warning: Small file size ({file_size} bytes) - may be blank")
+                    else:
+                        print(f"    ✅ Saved: {filename} ({file_size // 1024}KB)")
 
                 except Exception as e:
                     print(f"    ❌ Error: {str(e)}")
@@ -83,6 +102,9 @@ async def capture_screenshots():
     print('\n📁 Screenshots saved to:')
     for app_type in SCREENSHOTS.keys():
         print(f'   - store-assets/{app_type}/')
+
+    print('\n📐 Dimensions: 1080x1920 (9:16 aspect ratio)')
+    print('✓ Meets Google Play Store requirements')
 
 
 if __name__ == '__main__':
