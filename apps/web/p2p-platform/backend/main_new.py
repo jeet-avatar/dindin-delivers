@@ -1,17 +1,15 @@
 """
-Dollor.AI P2P Platform Backend - Main API Module
+Dollor.ai P2P Platform Backend - Main API Module
 
-This is the primary API server for the Dollor.AI matchmaking platform,
+This is the primary API server for the Dollor.ai matchmaking platform,
 handling food delivery and rideshare coordination.
 
 Version: 1.0.1
 """
-from __future__ import annotations
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_, or_, text
@@ -23,7 +21,6 @@ from jose import jwt, JWTError
 import os
 import json
 import logging
-import secrets
 from dotenv import load_dotenv
 
 # Configure logging
@@ -31,13 +28,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, RateLimitEntry, PasswordResetToken
-from password_reset_service import PasswordResetService, get_password_reset_service
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
-    send_password_reset_email,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
     send_driver_assigned_email, send_order_delivered_email,
@@ -150,23 +145,6 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
-# ===================== SECURITY HEADERS =====================
-# Add security headers to all responses (OWASP recommendations)
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    # Prevent clickjacking
-    response.headers["X-Frame-Options"] = "DENY"
-    # Prevent MIME type sniffing
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    # XSS protection (legacy browsers)
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    # Referrer policy
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Permissions policy (disable sensitive features)
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    return response
-
 # Mount static files for serving uploaded documents
 # Creates uploads directory if it doesn't exist
 import os
@@ -175,262 +153,57 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks
-# Uses database-backed rate limiting for distributed environments (ECS/K8s)
-from database import SessionLocal, engine
-from models import Base
-import random
+from collections import defaultdict
+import time
+import threading
 
-# Ensure rate_limit_entries table exists at startup
-def _ensure_rate_limit_table():
-    """Create rate_limit_entries table if it doesn't exist"""
-    try:
-        # Import here to ensure model is registered
-        from models import RateLimitEntry
-        # Create only the rate_limit_entries table if it doesn't exist
-        RateLimitEntry.__table__.create(engine, checkfirst=True)
-        logger.info("Rate limit table initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to create rate limit table: {e}")
-
-# Initialize table on module load
-_ensure_rate_limit_table()
-
-class DistributedRateLimiter:
-    """
-    Database-backed rate limiter with sliding window.
-    Works across distributed container instances (ECS, K8s) by storing
-    rate limit entries in PostgreSQL instead of in-memory.
-    """
+class RateLimiter:
+    """Simple in-memory rate limiter with sliding window"""
 
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+        self.lock = threading.Lock()
 
-    def is_allowed(self, key: str, db: Session) -> bool:
-        """
-        Check if request is allowed for the given key (IP:endpoint).
-        Uses database for distributed rate limiting across containers.
-        Returns False if rate limit exceeded, True otherwise.
-        On error, fails CLOSED (denies request) for security.
-        """
-        try:
-            now = datetime.utcnow()
-            window_start = now - timedelta(seconds=self.window_seconds)
-
-            # Count requests in the current window
-            request_count = db.query(RateLimitEntry).filter(
-                RateLimitEntry.client_key == key,
-                RateLimitEntry.timestamp >= window_start
-            ).count()
-
-            if request_count >= self.max_requests:
-                logger.warning(f"Rate limit exceeded for {key}: {request_count}/{self.max_requests}")
+    def is_allowed(self, key: str) -> bool:
+        """Check if request is allowed for the given key (IP or email)"""
+        now = time.time()
+        with self.lock:
+            # Clean old requests
+            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
+            # Check limit
+            if len(self.requests[key]) >= self.max_requests:
                 return False
-
             # Record this request
-            entry = RateLimitEntry(client_key=key, timestamp=now)
-            db.add(entry)
-            db.commit()
-
-            # Cleanup old entries (probabilistic - 1% of requests trigger cleanup)
-            if random.random() < 0.01:
-                self._cleanup_old_entries(db)
-
+            self.requests[key].append(now)
             return True
-        except Exception as e:
-            logger.error(f"Rate limiter error for {key}: {e}")
-            db.rollback()
-            # Fail CLOSED for security - deny request on error
-            return False
 
-    def get_retry_after(self, key: str, db: Session) -> int:
+    def get_retry_after(self, key: str) -> int:
         """Get seconds until the rate limit resets"""
-        try:
-            now = datetime.utcnow()
-            window_start = now - timedelta(seconds=self.window_seconds)
-
-            # Get oldest entry in the window
-            oldest_entry = db.query(RateLimitEntry).filter(
-                RateLimitEntry.client_key == key,
-                RateLimitEntry.timestamp >= window_start
-            ).order_by(RateLimitEntry.timestamp.asc()).first()
-
-            if not oldest_entry:
-                return self.window_seconds  # Default to full window
-
-            # Calculate when the oldest entry will expire
-            entry_age = (now - oldest_entry.timestamp).total_seconds()
-            return max(0, int(self.window_seconds - entry_age))
-        except Exception as e:
-            logger.error(f"Rate limiter retry_after error: {e}")
-            return self.window_seconds  # Default to full window on error
-
-    def _cleanup_old_entries(self, db: Session):
-        """Remove rate limit entries older than the window"""
-        try:
-            cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds * 2)
-            deleted = db.query(RateLimitEntry).filter(
-                RateLimitEntry.timestamp < cutoff
-            ).delete(synchronize_session=False)
-            db.commit()
-            if deleted > 0:
-                logger.debug(f"Cleaned up {deleted} old rate limit entries")
-        except Exception as e:
-            logger.warning(f"Rate limit cleanup error: {e}")
-            db.rollback()
+        if not self.requests[key]:
+            return 0
+        oldest = min(self.requests[key])
+        return max(0, int(self.window_seconds - (time.time() - oldest)))
 
 # Rate limiters for different endpoints
-# SECURITY: Strict rate limiting to prevent brute force attacks
-# 5 attempts per minute for auth endpoints (stricter to prevent credential stuffing)
-auth_rate_limiter = DistributedRateLimiter(max_requests=5, window_seconds=60)
-# 3 registrations per 5 minutes (prevents spam account creation)
-registration_rate_limiter = DistributedRateLimiter(max_requests=3, window_seconds=300)
-# Password reset rate limiter (prevents enumeration and abuse)
-password_reset_rate_limiter = DistributedRateLimiter(max_requests=3, window_seconds=300)
+auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
+registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 registrations per 5 minutes
 
-def check_rate_limit(request, limiter: DistributedRateLimiter, key_prefix: str = ""):
+def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
     """Check rate limit and raise HTTPException if exceeded"""
     # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
     forwarded = request.headers.get("X-Forwarded-For")
     client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+    key = f"{key_prefix}:{client_ip}"
 
-    # SECURITY: Include platform in rate limit key to allow legitimate multi-device logins
-    # This allows iOS and Android to have separate rate limit counters per IP
-    # while still protecting against brute force attacks per platform
-    platform = request.headers.get("X-Platform", "unknown").lower()
-    # Normalize platform values to prevent bypass attempts
-    if platform not in ["ios", "android", "web"]:
-        platform = "unknown"
-    key = f"{key_prefix}:{client_ip}:{platform}"
-
-    # Create a new database session for rate limiting
-    # This avoids conflicts with the main request session
-    db = SessionLocal()
-    try:
-        if not limiter.is_allowed(key, db):
-            retry_after = limiter.get_retry_after(key, db)
-            raise HTTPException(
-                status_code=429,
-                detail=f"Too many requests. Please try again in {retry_after} seconds.",
-                headers={"Retry-After": str(retry_after)}
-            )
-    finally:
-        db.close()
-
-# ===================== FILE UPLOAD SECURITY =====================
-# SECURITY: Validate file content using magic bytes (not just extension)
-# Prevents attackers from uploading malicious files with fake extensions
-
-# Magic byte signatures for allowed file types
-MAGIC_BYTES = {
-    'image/jpeg': [b'\xff\xd8\xff'],
-    'image/jpg': [b'\xff\xd8\xff'],
-    'image/png': [b'\x89PNG\r\n\x1a\n'],
-    'image/gif': [b'GIF87a', b'GIF89a'],
-    'image/webp': [b'RIFF'],  # WebP starts with RIFF, then 4 bytes, then WEBP
-    'application/pdf': [b'%PDF'],
-}
-
-def validate_file_magic_bytes(content: bytes, content_type: str, filename: str) -> tuple[bool, str]:
-    """
-    Validate that file content matches its declared content type using magic bytes.
-
-    Args:
-        content: Raw file content bytes
-        content_type: Declared MIME type
-        filename: Original filename for error messages
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if not content:
-        return False, "File is empty"
-
-    # Normalize content type
-    normalized_type = content_type.lower().split(';')[0].strip() if content_type else ''
-
-    # Check if content type is in our allowed list
-    if normalized_type not in MAGIC_BYTES:
-        # Allow generic types but warn
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf']
-        ext = '.' + filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-        if ext not in allowed_extensions:
-            return False, f"Unsupported file type: {normalized_type or 'unknown'}. Allowed: images (JPEG, PNG, GIF, WebP) and PDF"
-        return True, ""  # Extension-based validation for unknown MIME types
-
-    # Validate magic bytes
-    expected_signatures = MAGIC_BYTES[normalized_type]
-    for signature in expected_signatures:
-        if content[:len(signature)] == signature:
-            # Special handling for WebP (needs additional check)
-            if normalized_type == 'image/webp' and len(content) >= 12:
-                if content[8:12] != b'WEBP':
-                    continue
-            return True, ""
-
-    return False, f"File content does not match declared type ({normalized_type}). File may be corrupted or mislabeled."
-
-# ===================== SECURITY EVENT LOGGING =====================
-# SECURITY: Log security-relevant events for audit trail and incident response
-
-class SecurityEventType:
-    """Security event types for logging"""
-    LOGIN_SUCCESS = "LOGIN_SUCCESS"
-    LOGIN_FAILED = "LOGIN_FAILED"
-    REGISTRATION = "REGISTRATION"
-    PASSWORD_RESET_REQUEST = "PASSWORD_RESET_REQUEST"
-    PASSWORD_RESET_COMPLETE = "PASSWORD_RESET_COMPLETE"
-    PASSWORD_CHANGED = "PASSWORD_CHANGED"
-    ACCOUNT_LOCKED = "ACCOUNT_LOCKED"
-    SUSPICIOUS_ACTIVITY = "SUSPICIOUS_ACTIVITY"
-    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
-    FILE_UPLOAD = "FILE_UPLOAD"
-    ADMIN_ACTION = "ADMIN_ACTION"
-
-def log_security_event(
-    event_type: str,
-    user_email: str = None,
-    user_id: int = None,
-    ip_address: str = None,
-    user_agent: str = None,
-    details: dict = None,
-    success: bool = True
-):
-    """
-    Log a security event for audit trail.
-
-    Args:
-        event_type: Type of security event (see SecurityEventType)
-        user_email: Email of the user involved
-        user_id: ID of the user involved
-        ip_address: Client IP address
-        user_agent: Client user agent string
-        details: Additional event details
-        success: Whether the action was successful
-    """
-    event_data = {
-        "event_type": event_type,
-        "timestamp": datetime.utcnow().isoformat(),
-        "success": success,
-        "user_email": user_email,
-        "user_id": user_id,
-        "ip_address": ip_address,
-        "user_agent": user_agent[:200] if user_agent else None,  # Truncate for safety
-        "details": details or {}
-    }
-
-    # Log to application logger with appropriate level
-    if success:
-        logger.info(f"SECURITY_EVENT: {event_type} - {event_data}")
-    else:
-        logger.warning(f"SECURITY_EVENT: {event_type} - {event_data}")
-
-def get_client_info(request: Request) -> tuple[str, str]:
-    """Extract client IP and user agent from request."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
-    user_agent = request.headers.get("User-Agent", "unknown")
-    return client_ip, user_agent
+    if not limiter.is_allowed(key):
+        retry_after = limiter.get_retry_after(key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)}
+        )
 
 # Health Check Endpoint
 @app.get("/health")
@@ -481,6 +254,214 @@ async def health_live():
     """Liveness probe - checks if service is running"""
     return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
 
+# Database Migration Endpoint (protected with secret key)
+@app.post("/api/admin/migrate")
+async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get_db)):
+    """
+    Run database migrations to add missing columns.
+    Protected with ADMIN_SECRET_KEY environment variable.
+    Each migration step commits independently to prevent cascade failures.
+    """
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="ADMIN_SECRET_KEY not configured")
+    if secret_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+
+    migrations_run = []
+    errors = []
+
+    def run_migration(sql: str, name: str):
+        """Execute a migration with isolated transaction"""
+        try:
+            db.execute(text(sql))
+            db.commit()
+            migrations_run.append(name)
+            return True
+        except Exception as e:
+            db.rollback()
+            errors.append(f"{name}: {str(e)}")
+            return False
+
+    # Migration: Add customer columns
+    customer_columns = [
+        ("customer_id", "VARCHAR(50)"),
+        # Email verification columns
+        ("email_verified", "BOOLEAN DEFAULT FALSE"),
+        ("email_verification_code", "VARCHAR(10)"),
+        ("email_verification_expires", "TIMESTAMP"),
+        ("email_verified_at", "TIMESTAMP"),
+    ]
+
+    for col_name, col_type in customer_columns:
+        run_migration(
+            f"ALTER TABLE customers ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"customers.{col_name}"
+        )
+
+    # Migration: Add vendor_id and driver_id to users table
+    user_columns = [
+        ("vendor_id", "INTEGER"),
+        ("driver_id", "INTEGER"),
+    ]
+
+    for col_name, col_type in user_columns:
+        run_migration(
+            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"users.{col_name}"
+        )
+
+    # Migration: Add verification columns to drivers table
+    driver_columns = [
+        ("verification_id", "VARCHAR(255)"),
+        ("verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("documents_verified_at", "TIMESTAMP"),
+        ("verification_notes", "TEXT"),
+        ("verification_reviewer_id", "INTEGER"),
+        # Third-party verification provider columns
+        ("persona_inquiry_id", "VARCHAR(255)"),
+        ("onfido_applicant_id", "VARCHAR(255)"),
+        ("veriff_session_id", "VARCHAR(255)"),
+        ("verification_provider", "VARCHAR(50)"),
+    ]
+
+    for col_name, col_type in driver_columns:
+        run_migration(
+            f"ALTER TABLE drivers ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"drivers.{col_name}"
+        )
+
+    # Migration: Add verification and online status columns to vendors table
+    vendor_columns = [
+        ("verification_id", "VARCHAR(255)"),
+        ("verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("documents_verified_at", "TIMESTAMP"),
+        ("verification_notes", "TEXT"),
+        ("verification_reviewer_id", "INTEGER"),
+        # Online/Offline Status columns
+        ("is_online", "BOOLEAN DEFAULT FALSE"),
+        ("went_online_at", "TIMESTAMP"),
+        ("went_offline_at", "TIMESTAMP"),
+        # Publishing Status columns
+        ("is_published", "BOOLEAN DEFAULT FALSE"),
+        ("published_at", "TIMESTAMP"),
+        ("published_platforms", "TEXT"),
+        # Menu verification columns
+        ("menu_verified", "BOOLEAN DEFAULT FALSE"),
+        ("menu_verified_at", "TIMESTAMP"),
+        ("menu_verified_by", "INTEGER"),
+        # Admin approval columns
+        ("approved_by", "INTEGER"),
+        # Stripe integration columns
+        ("stripe_account_id", "VARCHAR(255)"),
+        ("stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
+        # Restaurant image/logo
+        ("image_url", "VARCHAR(500)"),
+    ]
+
+    for col_name, col_type in vendor_columns:
+        run_migration(
+            f"ALTER TABLE vendors ADD COLUMN IF NOT EXISTS {col_name} {col_type}",
+            f"vendors.{col_name}"
+        )
+
+    # Migration: Fix vendor_id NOT NULL constraint issue
+    run_migration(
+        "ALTER TABLE vendors ALTER COLUMN vendor_id DROP NOT NULL",
+        "vendors.vendor_id: dropped NOT NULL constraint"
+    )
+
+    # Trigger for vendor_id removed - vendor_id is now a regular nullable column
+    # that gets set during INSERT in application code
+
+    # Migration: Add payment and platform fee columns to ride_requests table
+    ride_request_columns = [
+        ("stripe_payment_intent_id", "VARCHAR(255)"),
+        ("payment_status", "VARCHAR(50) DEFAULT 'pending'"),
+        ("platform_fee", "FLOAT"),
+        ("driver_payout", "FLOAT"),
+        ("payment_completed_at", "TIMESTAMP"),
+        ("driver_paid_at", "TIMESTAMP"),
+        ("stripe_transfer_id", "VARCHAR(255)"),
+    ]
+
+    for col_name, col_type in ride_request_columns:
+        try:
+            db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"ride_requests.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"ride_requests.{col_name}: {str(e)}")
+
+    # Migration: Add restaurant acceptance flow columns to orders table
+    order_acceptance_columns = [
+        ("sent_to_restaurant_at", "TIMESTAMP"),
+        ("restaurant_accepted_at", "TIMESTAMP"),
+        ("restaurant_declined_at", "TIMESTAMP"),
+        ("restaurant_timeout_at", "TIMESTAMP"),
+        ("decline_reason", "TEXT"),
+    ]
+
+    for col_name, col_type in order_acceptance_columns:
+        try:
+            db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"orders.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"orders.{col_name}: {str(e)}")
+
+    # Migration: Add delivery decision window columns to orders table
+    delivery_decision_columns = [
+        ("delivery_decision_sent_at", "TIMESTAMP"),
+        ("restaurant_will_deliver", "BOOLEAN"),
+        ("delivery_decision_at", "TIMESTAMP"),
+        ("delivery_decision_timeout_at", "TIMESTAMP"),
+    ]
+
+    for col_name, col_type in delivery_decision_columns:
+        try:
+            db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"orders.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"orders.{col_name}: {str(e)}")
+
+    # Migration: Add new OrderStatus enum values for restaurant acceptance and delivery decision
+    # PostgreSQL requires ALTER TYPE to add new enum values
+    # SQLAlchemy stores enum NAMES (uppercase) not values, so we need uppercase values
+    new_order_statuses = [
+        "PENDING_RESTAURANT",
+        "DECLINED_BY_RESTAURANT",
+        "RESTAURANT_TIMEOUT",
+        "PENDING_DELIVERY_DECISION",
+        "RESTAURANT_WILL_DELIVER",
+        "DELIVERY_DECISION_TIMEOUT",
+    ]
+
+    for status_value in new_order_statuses:
+        try:
+            # Check if value already exists before adding
+            db.execute(text(f"ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS '{status_value}'"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"orderstatus.{status_value}")
+        except Exception as e:
+            db.rollback()
+            # Value might already exist
+            errors.append(f"orderstatus.{status_value}: {str(e)}")
+
+    return {
+        "status": "completed",
+        "migrations_run": migrations_run,
+        "errors": errors,
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -621,53 +602,6 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
-
-# ===================== PASSWORD SECURITY =====================
-# SECURITY: Enforce password complexity requirements
-import re
-
-def validate_password_complexity(password: str) -> tuple[bool, str]:
-    """
-    Validate password meets security requirements.
-
-    Requirements:
-    - Minimum 8 characters
-    - At least one uppercase letter
-    - At least one lowercase letter
-    - At least one digit
-    - At least one special character
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if not password:
-        return False, "Password is required"
-
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-
-    if len(password) > 128:
-        return False, "Password must be less than 128 characters"
-
-    if not re.search(r'[A-Z]', password):
-        return False, "Password must contain at least one uppercase letter"
-
-    if not re.search(r'[a-z]', password):
-        return False, "Password must contain at least one lowercase letter"
-
-    if not re.search(r'\d', password):
-        return False, "Password must contain at least one digit"
-
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;\'`~]', password):
-        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
-
-    return True, ""
-
-def require_valid_password(password: str):
-    """Validate password and raise HTTPException if invalid."""
-    is_valid, error_msg = validate_password_complexity(password)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -1059,7 +993,7 @@ def get_app_config():
         "extraStopFee": 2.0,
         "platformFeePerRestaurant": 1.00,  # $1 platform fee from customer
         "maxRestaurantsPerOrder": 3,
-        "serviceFeeRate": 0.0,  # DEPRECATED: Dollor.AI uses flat $1 fees, NOT percentage
+        "serviceFeeRate": 0.0,  # DEPRECATED: Dollor.ai uses flat $1 fees, NOT percentage
         "smallOrderThreshold": 10.0,
         "smallOrderFee": 2.0,
 
@@ -1110,6 +1044,64 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+# Production Admin Setup - creates support@dollor.ai admin
+@app.post("/api/auth/admin/setup-production")
+def setup_production_admin(db: Session = Depends(get_db)):
+    """One-time setup for production admin account"""
+    admin_email = "support@dollor.ai"
+    admin_password = "DollorAdmin2026!"
+
+    # Check if production admin exists
+    existing = db.query(User).filter(User.email == admin_email).first()
+
+    if existing:
+        # Update password
+        existing.password_hash = get_password_hash(admin_password)
+        existing.role = UserRole.ADMIN
+        db.commit()
+        return {"message": "Production admin password updated", "email": admin_email}
+
+    # Create production admin
+    admin_user = User(
+        email=admin_email,
+        password_hash=get_password_hash(admin_password),
+        full_name="Dollor Admin",
+        role=UserRole.ADMIN,
+        created_at=datetime.utcnow()
+    )
+    db.add(admin_user)
+    db.commit()
+
+    return {"message": "Production admin created", "email": admin_email}
+
+# Delete legacy admin user (admin@invoice.com)
+@app.delete("/api/auth/admin/legacy-cleanup")
+def cleanup_legacy_admin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Remove legacy admin@invoice.com account - requires authenticated admin"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if current_user.email == "admin@invoice.com":
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    legacy_admin = db.query(User).filter(User.email == "admin@invoice.com").first()
+    if not legacy_admin:
+        return {"message": "Legacy admin not found", "deleted": False}
+
+    db.delete(legacy_admin)
+    db.commit()
+    return {"message": "Legacy admin@invoice.com deleted", "deleted": True}
+
+# Admin Demo Login - DISABLED FOR PRODUCTION
+# Use /api/admin/login with proper credentials instead
+@app.post("/api/auth/admin/demo-login")
+def admin_demo_login():
+    """Demo login disabled in production - use proper authentication"""
+    raise HTTPException(
+        status_code=403,
+        detail="Demo login is disabled. Use /api/admin/login with your credentials."
+    )
+
 # Admin JSON Login endpoint (for web frontend)
 class AdminLoginRequest(BaseModel):
     email: Optional[str] = None
@@ -1128,9 +1120,7 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email or username is required"
         )
-    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
-    if not _is_production:
-        logger.debug(f"Admin login attempt for: {login_email}")
+    print(f"Admin JSON login attempt for: {login_email}")
 
     # Find user with ADMIN role
     user = db.query(User).filter(
@@ -1139,8 +1129,7 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     ).first()
 
     if not user:
-        if not _is_production:
-            logger.debug("Admin auth failed: user not found")
+        print(f"Admin user not found: {login_email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1148,15 +1137,14 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
         )
 
     if not verify_password(request.password, user.password_hash):
-        if not _is_production:
-            logger.debug("Admin auth failed: invalid password")
+        print(f"Password verification failed for admin")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    logger.info(f"Admin login successful: {user.id}")
+    print(f"Admin login successful for: {user.email}")
 
     access_token = create_access_token(data={"sub": user.email, "role": "admin"})
 
@@ -1172,56 +1160,27 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/auth/login", response_model=Token)
-def login(http_request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(http_request, auth_rate_limiter, "login")
-
-    client_ip, user_agent = get_client_info(http_request)
-
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print(f"Login attempt for: {form_data.username}")  # Debug log
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        # SECURITY: Log failed login attempt
-        log_security_event(
-            SecurityEventType.LOGIN_FAILED,
-            user_email=form_data.username,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"reason": "user_not_found"},
-            success=False
-        )
+        print(f"User not found: {form_data.username}")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
+    print(f"User found, verifying password...")  # Debug log
     if not verify_password(form_data.password, user.password_hash):
-        # SECURITY: Log failed login attempt
-        log_security_event(
-            SecurityEventType.LOGIN_FAILED,
-            user_email=form_data.username,
-            user_id=user.id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"reason": "invalid_password"},
-            success=False
-        )
+        print(f"Password verification failed")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    # SECURITY: Log successful login
-    log_security_event(
-        SecurityEventType.LOGIN_SUCCESS,
-        user_email=user.email,
-        user_id=user.id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details={"role": str(user.role)}
-    )
-
+    
+    print(f"Login successful for: {user.email}")  # Debug log
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -1231,67 +1190,41 @@ def login(http_request: Request, form_data: OAuth2PasswordRequestForm = Depends(
 
 # Vendor Login
 @app.post("/api/auth/vendor/login", response_model=Token)
-def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "vendor_login")
-
-    client_ip, user_agent = get_client_info(request)
-
+def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print(f"Vendor login attempt for: {form_data.username}")
+    
     # Find user with VENDOR role
     user = db.query(User).filter(
         User.email == form_data.username,
         User.role == UserRole.VENDOR
     ).first()
-
+    
     if not user:
-        log_security_event(
-            SecurityEventType.LOGIN_FAILED,
-            user_email=form_data.username,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"reason": "user_not_found", "account_type": "vendor"},
-            success=False
-        )
+        print(f"Vendor user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
     if not verify_password(form_data.password, user.password_hash):
-        log_security_event(
-            SecurityEventType.LOGIN_FAILED,
-            user_email=form_data.username,
-            user_id=user.id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"reason": "invalid_password", "account_type": "vendor"},
-            success=False
-        )
+        print(f"Password verification failed for vendor")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
     # Check if vendor account is active
     if user.vendor_id:
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
         if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Vendor account is pending approval"
+                detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
             )
-
-    # SECURITY: Log successful login
-    log_security_event(
-        SecurityEventType.LOGIN_SUCCESS,
-        user_email=user.email,
-        user_id=user.id,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        details={"account_type": "vendor", "vendor_id": user.vendor_id}
-    )
+    
+    print(f"Vendor login successful for: {user.email}")
 
     # Get vendor business name for Android compatibility
     business_name = None
@@ -1454,9 +1387,6 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
                 detail="Password is required and cannot be empty"
             )
 
-        # SECURITY: Validate password complexity
-        require_valid_password(request.password)
-
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
@@ -1505,9 +1435,8 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         try:
             send_vendor_registration_confirmation(
                 to_email=request.email,
-                restaurant_name=rest_name,
-                contact_name=owner_name,
-                vendor_id=str(new_vendor.id)
+                vendor_name=owner_name,
+                restaurant_name=rest_name
             )
             print(f"Vendor registration email sent to: {request.email}")
         except Exception as e:
@@ -1534,11 +1463,12 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         db.rollback()
-        # SECURITY: Log full traceback server-side but don't expose to client
-        logger.exception(f"Vendor registration error: {str(e)}")
+        print(f"Vendor registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed. Please try again or contact support."
+            detail=f"Registration failed: {str(e)}"
         )
 
 # Vendor Google OAuth
@@ -1609,22 +1539,6 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
                     detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
                 )
     else:
-        # Check if email exists with a different role
-        existing_user = db.query(User).filter(User.email == email).first()
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
-            )
-
-        # Check if email exists in Vendor table
-        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
-        if existing_vendor:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered. Please sign in with your existing account."
-            )
-
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
@@ -1695,22 +1609,6 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
                     detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
                 )
     else:
-        # Check if email exists with a different role
-        existing_user = db.query(User).filter(User.email == request.email).first()
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
-            )
-
-        # Check if email exists in Vendor table
-        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == request.email).first()
-        if existing_vendor:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered. Please sign in with your existing account."
-            )
-
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
@@ -1756,12 +1654,69 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
         "email": user.email
     }
 
-# ==================== REMOVED DEAD ENDPOINTS ====================
-# /api/auth/password-reset/request - Never sent emails, used JWT tokens
-# /api/auth/password-reset/confirm - Paired with dead request endpoint
-# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
-# These endpoints actually send emails via AWS SES and use 6-digit codes
-# ==============================================================
+# Password Reset Request
+@app.post("/api/auth/password-reset/request")
+def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+    print(f"Password reset requested for: {request.email}")
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Don't reveal if email exists or not for security
+        return {"message": "If this email exists, a password reset link has been sent"}
+
+    # Generate reset token (valid for 1 hour)
+    reset_token = create_access_token(
+        data={"sub": user.email, "type": "password_reset"},
+        expires_delta=timedelta(hours=1)
+    )
+
+    # In production, send email with reset link
+    # For now, just log it
+    print(f"Password reset token for {user.email}: {reset_token[:50]}...")
+
+    # TODO: Integrate with email service (SendGrid, SES, etc.)
+    # send_password_reset_email(user.email, reset_token)
+
+    return {"message": "If this email exists, a password reset link has been sent"}
+
+# Password Reset Confirm
+@app.post("/api/auth/password-reset/confirm")
+def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(request.token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        token_type = payload.get("type")
+
+        if token_type != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+
+        # Update password
+        user.password_hash = get_password_hash(request.new_password)
+        db.commit()
+
+        print(f"Password reset successful for: {email}")
+        return {"message": "Password has been reset successfully"}
+
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+# Helper function to get current vendor user
+def get_current_vendor_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.VENDOR:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted to vendors only"
+        )
+    if not current_user.vendor_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account not linked to a vendor"
+        )
+    return current_user
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
@@ -1793,13 +1748,9 @@ class DriverLoginResponse(BaseModel):
 
 @app.post("/api/auth/driver/login")
 @app.post("/auth/driver/login")  # Alias for mobile apps without /api prefix
-def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
-    # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "driver_login")
-    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
-    if not _is_production:
-        logger.debug(f"Driver login attempt for: {form_data.username}")
+    print(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role
     user = db.query(User).filter(
@@ -1808,8 +1759,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     ).first()
 
     if not user:
-        if not _is_production:
-            logger.debug("Driver auth failed: user not found")
+        print(f"Driver user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1817,8 +1767,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        if not _is_production:
-            logger.debug("Driver auth failed: invalid password")
+        print(f"Password verification failed for driver")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1890,9 +1839,6 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
     print(f"Driver registration attempt for: {request.email}")
 
     try:
-        # SECURITY: Validate password complexity
-        require_valid_password(request.password)
-
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
@@ -1978,11 +1924,12 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         db.rollback()
-        # SECURITY: Log full traceback server-side but don't expose to client
-        logger.exception(f"Driver registration error: {str(e)}")
+        print(f"Driver registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed. Please try again or contact support."
+            detail=f"Registration failed: {str(e)}"
         )
 
 
@@ -2033,30 +1980,6 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
                     detail=f"Driver account is not active. Status: {driver.status.value}"
                 )
     else:
-        # Check if email exists with a different role
-        existing_user = db.query(User).filter(User.email == email).first()
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
-            )
-
-        # Check if email exists in Customer table
-        existing_customer = db.query(Customer).filter(Customer.email == email).first()
-        if existing_customer:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered as customer. Please use a different email or sign in with that account type."
-            )
-
-        # Check if email exists in Driver table
-        existing_driver = db.query(Driver).filter(Driver.email == email).first()
-        if existing_driver:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered. Please sign in with your existing account."
-            )
-
         # Create new driver and user
         name_parts = name.split(" ", 1)
         first_name = name_parts[0]
@@ -2139,22 +2062,6 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
                     detail=f"Driver account is not active. Status: {driver.status.value}"
                 )
     else:
-        # Check if email exists with a different role
-        existing_user = db.query(User).filter(User.email == request.email).first()
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email already registered as {existing_user.role.value}. Please use a different email or sign in with that account type."
-            )
-
-        # Check if email exists in Driver table
-        existing_driver = db.query(Driver).filter(Driver.email == request.email).first()
-        if existing_driver:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered. Please sign in with your existing account."
-            )
-
         # Create new driver and user
         name_parts = request.name.split(" ", 1)
         first_name = name_parts[0]
@@ -2359,16 +2266,13 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
     """Customer login - authenticates customer and returns token for rideshare"""
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "customer_login")
-    # SECURITY: Only log auth attempts in non-production (prevents user enumeration)
-    if not _is_production:
-        logger.debug(f"Customer login attempt for: {form_data.username}")
+    print(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
     customer = db.query(Customer).filter(Customer.email == form_data.username).first()
 
     if not customer:
-        if not _is_production:
-            logger.debug("Customer auth failed: user not found")
+        print(f"Customer not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2376,8 +2280,7 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
-        if not _is_production:
-            logger.debug("Customer auth failed: invalid password")
+        print(f"Password verification failed for customer")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2425,8 +2328,35 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
                 detail="Email already registered"
             )
 
-        # SECURITY: Validate password complexity using centralized validation
-        require_valid_password(request.password)
+        # Validate password is not empty and meets security requirements
+        if not request.password or len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required and cannot be empty"
+            )
+
+        # SECURITY: Enforce password policy
+        password = request.password
+        if len(password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+        if not any(c.isupper() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one uppercase letter"
+            )
+        if not any(c.islower() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one lowercase letter"
+            )
+        if not any(c.isdigit() for c in password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must contain at least one number"
+            )
 
         # Split name (accepts both 'name' and 'full_name' fields)
         customer_name = request.get_name()
@@ -2484,7 +2414,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
             "name": full_name,
             "email": new_customer.email,
             "phone": new_customer.phone or "",
-            "message": "Registration successful. Welcome to Dollor.AI!"
+            "message": "Registration successful. Welcome to Dollor.ai!"
         }
     except HTTPException:
         raise
@@ -2551,49 +2481,28 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
                 detail="Customer account is not active"
             )
     else:
-        # Check if email exists with a different role (Driver or Vendor)
-        existing_driver = db.query(Driver).filter(Driver.email == email).first()
-        if existing_driver:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered as driver. Please use a different email or sign in with that account type."
-            )
-        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
-        if existing_vendor:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered as vendor. Please use a different email or sign in with that account type."
-            )
-
         # Create new customer
         name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-        # Use timestamp-based customer_code to avoid collisions (same as registration)
-        import time
-        timestamp_suffix = int(time.time() * 1000) % 100000
-        customer_code = f"CUST-{timestamp_suffix:05d}"
+        customer_count = db.query(Customer).count()
+        customer_code = f"CUST-{customer_count + 1:05d}"
 
         hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
 
-        try:
-            customer = Customer(
-                customer_id=customer_code,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                password_hash=hashed_password,
-                is_active=True
-            )
-            db.add(customer)
-            db.commit()
-            db.refresh(customer)
-            print(f"Created new customer via Google auth: {email}")
-        except Exception as e:
-            db.rollback()
-            print(f"Error creating customer: {e}")
-            raise HTTPException(status_code=500, detail="Failed to create customer account")
+        customer = Customer(
+            customer_id=customer_code,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password_hash=hashed_password,
+            is_active=True
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        print(f"Created new customer via Google auth: {email}")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
     print(f"Customer Google auth successful for: {customer.email}")
@@ -2642,61 +2551,6 @@ def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depe
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-@app.post("/api/auth/customer/refresh")
-@app.post("/auth/customer/refresh")  # Alias for mobile apps without /api prefix
-def customer_refresh_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Refresh customer authentication token
-
-    Returns a new access token for authenticated customers.
-    The current token must still be valid (not expired) to refresh.
-    """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        role = payload.get("role")
-        customer_id = payload.get("customer_id")
-
-        if role != "customer" or not customer_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not a customer account"
-            )
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer profile not found")
-
-        if not customer.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Customer account is not active"
-            )
-
-        # Generate new token with same claims
-        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-        access_token = create_access_token(data={
-            "sub": customer.email,
-            "role": "customer",
-            "customer_id": customer.id
-        })
-
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "customer_id": customer.id,
-            "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
-            "name": full_name,
-            "email": customer.email,
-            "phone": customer.phone
-        }
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -2993,897 +2847,6 @@ def get_email_verification_status(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
-
-
-# ==================== EMAIL MANAGEMENT ENDPOINTS ====================
-# Unsubscribe, tracking, and notification preferences
-
-from email_service import verify_unsubscribe_token, generate_email_footer
-
-class NotificationPreferencesUpdate(BaseModel):
-    """Model for updating notification preferences"""
-    email_order_updates: Optional[bool] = None
-    email_promotions: Optional[bool] = None
-    email_newsletters: Optional[bool] = None
-    push_order_updates: Optional[bool] = None
-    push_promotions: Optional[bool] = None
-    sms_order_updates: Optional[bool] = None
-    sms_promotions: Optional[bool] = None
-
-
-@app.get("/api/email/unsubscribe")
-def handle_email_unsubscribe(
-    token: str = Query(..., description="Signed unsubscribe token"),
-    db: Session = Depends(get_db)
-):
-    """
-    Handle email unsubscribe requests (CAN-SPAM compliance).
-    Validates the signed token and updates user's email preferences.
-    """
-    # Verify the unsubscribe token
-    is_valid, email, recipient_type = verify_unsubscribe_token(token)
-
-    if not is_valid:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid or expired unsubscribe link. Please use the link from a recent email."
-        )
-
-    try:
-        # Update preferences based on recipient type
-        if recipient_type == "customer":
-            customer = db.query(Customer).filter(Customer.email == email).first()
-            if customer:
-                # Set all email marketing preferences to False
-                prefs = customer.notification_preferences or {}
-                prefs["email_promotions"] = False
-                prefs["email_newsletters"] = False
-                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
-                customer.notification_preferences = prefs
-                db.commit()
-                logger.info(f"Customer {email} unsubscribed from marketing emails")
-
-        elif recipient_type == "vendor":
-            vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
-            if vendor:
-                prefs = vendor.notification_preferences or {}
-                prefs["email_promotions"] = False
-                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
-                vendor.notification_preferences = prefs
-                db.commit()
-                logger.info(f"Vendor {email} unsubscribed from marketing emails")
-
-        elif recipient_type == "driver":
-            driver = db.query(Driver).filter(Driver.email == email).first()
-            if driver:
-                prefs = driver.notification_preferences or {}
-                prefs["email_promotions"] = False
-                prefs["unsubscribed_at"] = datetime.utcnow().isoformat()
-                driver.notification_preferences = prefs
-                db.commit()
-                logger.info(f"Driver {email} unsubscribed from marketing emails")
-
-        # Return a user-friendly HTML page
-        return HTMLResponse(content=f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Unsubscribed - Dollor.AI</title>
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                       background: #f5f5f5; margin: 0; padding: 40px; text-align: center; }}
-                .container {{ max-width: 500px; margin: 0 auto; background: white; padding: 40px;
-                             border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                h1 {{ color: #1a1a2e; }}
-                p {{ color: #64748b; line-height: 1.6; }}
-                .checkmark {{ font-size: 48px; margin-bottom: 20px; }}
-                a {{ color: #ffd700; text-decoration: none; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="checkmark">✓</div>
-                <h1>You've been unsubscribed</h1>
-                <p>You will no longer receive marketing emails from Dollor.AI.</p>
-                <p>You'll still receive important transactional emails about your orders and account.</p>
-                <p style="margin-top: 30px;">
-                    <a href="https://dollor.ai">Return to Dollor.AI</a>
-                </p>
-            </div>
-        </body>
-        </html>
-        """, status_code=200)
-
-    except Exception as e:
-        logger.error(f"Error processing unsubscribe: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process unsubscribe request")
-
-
-@app.get("/api/email/track/open/{communication_id}")
-def track_email_open(
-    communication_id: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Track email opens via 1x1 tracking pixel.
-    Updates the Communication record with open timestamp.
-    """
-    try:
-        from models_extended import Communication, CommunicationStatus
-
-        # Find the communication record
-        comm = db.query(Communication).filter(
-            Communication.communication_id == communication_id
-        ).first()
-
-        if comm and not comm.read_at:
-            comm.read_at = datetime.utcnow()
-            comm.status = CommunicationStatus.READ
-            db.commit()
-            logger.info(f"Email open tracked: {communication_id}")
-
-    except Exception as e:
-        logger.error(f"Error tracking email open: {e}")
-        # Don't raise - tracking failures should be silent
-
-    # Return a 1x1 transparent GIF
-    gif_bytes = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
-    from fastapi.responses import Response
-    return Response(content=gif_bytes, media_type="image/gif")
-
-
-@app.get("/api/customer/{customer_id}/notification-preferences")
-def get_customer_notification_preferences(
-    customer_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get customer's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_customer_id = payload.get("customer_id")
-
-        # Verify customer is accessing their own preferences
-        if str(token_customer_id) != str(customer_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Return preferences with defaults
-        prefs = customer.notification_preferences or {}
-        return {
-            "customer_id": customer_id,
-            "email": customer.email,
-            "preferences": {
-                "email_order_updates": prefs.get("email_order_updates", True),
-                "email_promotions": prefs.get("email_promotions", True),
-                "email_newsletters": prefs.get("email_newsletters", True),
-                "push_order_updates": prefs.get("push_order_updates", True),
-                "push_promotions": prefs.get("push_promotions", True),
-                "sms_order_updates": prefs.get("sms_order_updates", False),
-                "sms_promotions": prefs.get("sms_promotions", False)
-            },
-            "unsubscribed_at": prefs.get("unsubscribed_at"),
-            "updated_at": prefs.get("updated_at")
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.put("/api/customer/{customer_id}/notification-preferences")
-def update_customer_notification_preferences(
-    customer_id: int,
-    preferences: NotificationPreferencesUpdate,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Update customer's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_customer_id = payload.get("customer_id")
-
-        # Verify customer is updating their own preferences
-        if str(token_customer_id) != str(customer_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Update only provided fields
-        current_prefs = customer.notification_preferences or {}
-        update_data = preferences.model_dump(exclude_none=True)
-
-        for key, value in update_data.items():
-            current_prefs[key] = value
-
-        current_prefs["updated_at"] = datetime.utcnow().isoformat()
-        customer.notification_preferences = current_prefs
-        db.commit()
-
-        logger.info(f"Updated notification preferences for customer {customer_id}")
-
-        return {
-            "success": True,
-            "customer_id": customer_id,
-            "preferences": current_prefs,
-            "message": "Notification preferences updated successfully"
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.get("/api/vendor/{vendor_id}/notification-preferences")
-def get_vendor_notification_preferences(
-    vendor_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get vendor's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-
-        if str(token_vendor_id) != str(vendor_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-        if not vendor:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-
-        prefs = vendor.notification_preferences or {}
-        return {
-            "vendor_id": vendor_id,
-            "email": vendor.contact_email,
-            "preferences": {
-                "email_new_orders": prefs.get("email_new_orders", True),
-                "email_order_updates": prefs.get("email_order_updates", True),
-                "email_promotions": prefs.get("email_promotions", True),
-                "push_new_orders": prefs.get("push_new_orders", True),
-                "push_order_updates": prefs.get("push_order_updates", True),
-                "sms_new_orders": prefs.get("sms_new_orders", False)
-            },
-            "unsubscribed_at": prefs.get("unsubscribed_at"),
-            "updated_at": prefs.get("updated_at")
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.put("/api/vendor/{vendor_id}/notification-preferences")
-def update_vendor_notification_preferences(
-    vendor_id: int,
-    preferences: dict,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Update vendor's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-
-        if str(token_vendor_id) != str(vendor_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-        if not vendor:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-
-        current_prefs = vendor.notification_preferences or {}
-        for key, value in preferences.items():
-            if key not in ["unsubscribed_at", "updated_at"]:  # Protect system fields
-                current_prefs[key] = value
-
-        current_prefs["updated_at"] = datetime.utcnow().isoformat()
-        vendor.notification_preferences = current_prefs
-        db.commit()
-
-        logger.info(f"Updated notification preferences for vendor {vendor_id}")
-
-        return {
-            "success": True,
-            "vendor_id": vendor_id,
-            "preferences": current_prefs,
-            "message": "Notification preferences updated successfully"
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.get("/api/driver/{driver_id}/notification-preferences")
-def get_driver_notification_preferences(
-    driver_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get driver's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_driver_id = payload.get("driver_id")
-
-        if str(token_driver_id) != str(driver_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        prefs = driver.notification_preferences or {}
-        return {
-            "driver_id": driver_id,
-            "email": driver.email,
-            "preferences": {
-                "email_new_deliveries": prefs.get("email_new_deliveries", True),
-                "email_earnings": prefs.get("email_earnings", True),
-                "email_promotions": prefs.get("email_promotions", True),
-                "push_new_deliveries": prefs.get("push_new_deliveries", True),
-                "push_earnings": prefs.get("push_earnings", True),
-                "sms_new_deliveries": prefs.get("sms_new_deliveries", False)
-            },
-            "unsubscribed_at": prefs.get("unsubscribed_at"),
-            "updated_at": prefs.get("updated_at")
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-@app.put("/api/driver/{driver_id}/notification-preferences")
-def update_driver_notification_preferences(
-    driver_id: int,
-    preferences: dict,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Update driver's notification preferences"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_driver_id = payload.get("driver_id")
-
-        if str(token_driver_id) != str(driver_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        current_prefs = driver.notification_preferences or {}
-        for key, value in preferences.items():
-            if key not in ["unsubscribed_at", "updated_at"]:
-                current_prefs[key] = value
-
-        current_prefs["updated_at"] = datetime.utcnow().isoformat()
-        driver.notification_preferences = current_prefs
-        db.commit()
-
-        logger.info(f"Updated notification preferences for driver {driver_id}")
-
-        return {
-            "success": True,
-            "driver_id": driver_id,
-            "preferences": current_prefs,
-            "message": "Notification preferences updated successfully"
-        }
-
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-# ==================== EMAIL TEMPLATES & SCHEDULING ====================
-# Admin endpoints for managing email templates, A/B tests, and scheduled emails
-
-from models_extended import (
-    EmailTemplate, EmailSchedule, EmailABTest,
-    EmailTemplateType, EmailTemplateStatus, EmailScheduleStatus
-)
-
-class EmailTemplateCreate(BaseModel):
-    template_id: str
-    name: str
-    description: Optional[str] = None
-    type: str = "transactional"
-    subject: str
-    html_body: str
-    text_body: Optional[str] = None
-    variables: Optional[List[str]] = None
-    recipient_types: Optional[List[str]] = None
-
-class EmailTemplateUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    subject: Optional[str] = None
-    html_body: Optional[str] = None
-    text_body: Optional[str] = None
-    variables: Optional[List[str]] = None
-    status: Optional[str] = None
-
-class EmailScheduleCreate(BaseModel):
-    recipient_email: str
-    recipient_type: str = "customer"
-    recipient_id: int
-    template_id: Optional[int] = None
-    subject: Optional[str] = None
-    html_body: Optional[str] = None
-    scheduled_for: datetime
-    timezone: str = "UTC"
-    template_variables: Optional[dict] = None
-
-
-@app.get("/api/admin/email-templates")
-def list_email_templates(
-    status: Optional[str] = None,
-    type: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db)
-):
-    """List all email templates with optional filtering"""
-    query = db.query(EmailTemplate).filter(EmailTemplate.is_variant == False)
-
-    if status:
-        query = query.filter(EmailTemplate.status == status)
-    if type:
-        query = query.filter(EmailTemplate.type == type)
-
-    templates = query.order_by(EmailTemplate.updated_at.desc()).offset(skip).limit(limit).all()
-
-    return {
-        "templates": [
-            {
-                "id": t.id,
-                "template_id": t.template_id,
-                "name": t.name,
-                "type": t.type.value if t.type else None,
-                "status": t.status.value if t.status else None,
-                "subject": t.subject,
-                "variables": t.variables,
-                "times_sent": t.times_sent,
-                "open_rate": t.open_rate,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None
-            }
-            for t in templates
-        ],
-        "total": query.count()
-    }
-
-
-@app.post("/api/admin/email-templates")
-def create_email_template(
-    template: EmailTemplateCreate,
-    db: Session = Depends(get_db)
-):
-    """Create a new email template"""
-    # Check if template_id already exists
-    existing = db.query(EmailTemplate).filter(
-        EmailTemplate.template_id == template.template_id
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Template ID already exists")
-
-    # Map type string to enum
-    type_map = {
-        "transactional": EmailTemplateType.TRANSACTIONAL,
-        "marketing": EmailTemplateType.MARKETING,
-        "system": EmailTemplateType.SYSTEM,
-        "onboarding": EmailTemplateType.ONBOARDING
-    }
-
-    new_template = EmailTemplate(
-        template_id=template.template_id,
-        name=template.name,
-        description=template.description,
-        type=type_map.get(template.type, EmailTemplateType.TRANSACTIONAL),
-        status=EmailTemplateStatus.DRAFT,
-        subject=template.subject,
-        html_body=template.html_body,
-        text_body=template.text_body,
-        variables=template.variables,
-        recipient_types=template.recipient_types
-    )
-
-    db.add(new_template)
-    db.commit()
-    db.refresh(new_template)
-
-    return {
-        "success": True,
-        "template_id": new_template.template_id,
-        "id": new_template.id,
-        "message": "Email template created successfully"
-    }
-
-
-@app.get("/api/admin/email-templates/{template_id}")
-def get_email_template(
-    template_id: str,
-    db: Session = Depends(get_db)
-):
-    """Get a specific email template with its variants"""
-    template = db.query(EmailTemplate).filter(
-        EmailTemplate.template_id == template_id
-    ).first()
-
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    # Get variants
-    variants = db.query(EmailTemplate).filter(
-        EmailTemplate.parent_template_id == template.id
-    ).all()
-
-    return {
-        "id": template.id,
-        "template_id": template.template_id,
-        "name": template.name,
-        "description": template.description,
-        "type": template.type.value if template.type else None,
-        "status": template.status.value if template.status else None,
-        "subject": template.subject,
-        "html_body": template.html_body,
-        "text_body": template.text_body,
-        "variables": template.variables,
-        "recipient_types": template.recipient_types,
-        "times_sent": template.times_sent,
-        "times_opened": template.times_opened,
-        "open_rate": template.open_rate,
-        "click_rate": template.click_rate,
-        "variants": [
-            {
-                "id": v.id,
-                "variant_name": v.variant_name,
-                "variant_weight": v.variant_weight,
-                "subject": v.subject,
-                "times_sent": v.times_sent,
-                "open_rate": v.open_rate
-            }
-            for v in variants
-        ],
-        "created_at": template.created_at.isoformat() if template.created_at else None,
-        "updated_at": template.updated_at.isoformat() if template.updated_at else None
-    }
-
-
-@app.put("/api/admin/email-templates/{template_id}")
-def update_email_template(
-    template_id: str,
-    updates: EmailTemplateUpdate,
-    db: Session = Depends(get_db)
-):
-    """Update an email template"""
-    template = db.query(EmailTemplate).filter(
-        EmailTemplate.template_id == template_id
-    ).first()
-
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    update_data = updates.model_dump(exclude_none=True)
-
-    # Handle status enum
-    if "status" in update_data:
-        status_map = {
-            "draft": EmailTemplateStatus.DRAFT,
-            "active": EmailTemplateStatus.ACTIVE,
-            "archived": EmailTemplateStatus.ARCHIVED
-        }
-        update_data["status"] = status_map.get(update_data["status"], EmailTemplateStatus.DRAFT)
-
-    for key, value in update_data.items():
-        setattr(template, key, value)
-
-    template.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {
-        "success": True,
-        "template_id": template_id,
-        "message": "Template updated successfully"
-    }
-
-
-@app.delete("/api/admin/email-templates/{template_id}")
-def delete_email_template(
-    template_id: str,
-    db: Session = Depends(get_db)
-):
-    """Archive an email template (soft delete)"""
-    template = db.query(EmailTemplate).filter(
-        EmailTemplate.template_id == template_id
-    ).first()
-
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    template.status = EmailTemplateStatus.ARCHIVED
-    template.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "Template archived successfully"}
-
-
-@app.post("/api/admin/email-templates/{template_id}/variant")
-def create_template_variant(
-    template_id: str,
-    variant_name: str = Form(...),
-    subject: str = Form(...),
-    html_body: str = Form(...),
-    variant_weight: int = Form(50),
-    db: Session = Depends(get_db)
-):
-    """Create an A/B test variant of a template"""
-    parent = db.query(EmailTemplate).filter(
-        EmailTemplate.template_id == template_id
-    ).first()
-
-    if not parent:
-        raise HTTPException(status_code=404, detail="Parent template not found")
-
-    variant = EmailTemplate(
-        template_id=f"{template_id}_variant_{variant_name.lower()}",
-        name=f"{parent.name} - Variant {variant_name}",
-        type=parent.type,
-        status=EmailTemplateStatus.ACTIVE,
-        subject=subject,
-        html_body=html_body,
-        text_body=parent.text_body,
-        variables=parent.variables,
-        is_variant=True,
-        parent_template_id=parent.id,
-        variant_name=variant_name,
-        variant_weight=variant_weight
-    )
-
-    db.add(variant)
-    db.commit()
-    db.refresh(variant)
-
-    return {
-        "success": True,
-        "variant_id": variant.id,
-        "variant_name": variant_name,
-        "message": "Variant created successfully"
-    }
-
-
-# ==================== EMAIL SCHEDULING ENDPOINTS ====================
-
-@app.get("/api/admin/email-schedules")
-def list_email_schedules(
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db)
-):
-    """List scheduled emails"""
-    query = db.query(EmailSchedule)
-
-    if status:
-        status_map = {
-            "pending": EmailScheduleStatus.PENDING,
-            "processing": EmailScheduleStatus.PROCESSING,
-            "sent": EmailScheduleStatus.SENT,
-            "failed": EmailScheduleStatus.FAILED,
-            "cancelled": EmailScheduleStatus.CANCELLED
-        }
-        query = query.filter(EmailSchedule.status == status_map.get(status))
-
-    schedules = query.order_by(EmailSchedule.scheduled_for.asc()).offset(skip).limit(limit).all()
-
-    return {
-        "schedules": [
-            {
-                "id": s.id,
-                "schedule_id": s.schedule_id,
-                "recipient_email": s.recipient_email,
-                "subject": s.subject,
-                "scheduled_for": s.scheduled_for.isoformat() if s.scheduled_for else None,
-                "status": s.status.value if s.status else None,
-                "is_recurring": s.is_recurring,
-                "attempts": s.attempts
-            }
-            for s in schedules
-        ],
-        "total": query.count()
-    }
-
-
-@app.post("/api/admin/email-schedules")
-def create_email_schedule(
-    schedule: EmailScheduleCreate,
-    db: Session = Depends(get_db)
-):
-    """Schedule an email for future sending"""
-    import uuid
-
-    # Validate recipient exists
-    recipient_type_map = {
-        "customer": RecipientType.CUSTOMER,
-        "vendor": RecipientType.VENDOR,
-        "driver": RecipientType.DRIVER
-    }
-
-    new_schedule = EmailSchedule(
-        schedule_id=f"SCHED-{uuid.uuid4().hex[:12].upper()}",
-        template_id=schedule.template_id,
-        recipient_type=recipient_type_map.get(schedule.recipient_type, RecipientType.CUSTOMER),
-        recipient_id=schedule.recipient_id,
-        recipient_email=schedule.recipient_email,
-        subject=schedule.subject,
-        html_body=schedule.html_body,
-        template_variables=schedule.template_variables,
-        scheduled_for=schedule.scheduled_for,
-        timezone=schedule.timezone,
-        status=EmailScheduleStatus.PENDING
-    )
-
-    db.add(new_schedule)
-    db.commit()
-    db.refresh(new_schedule)
-
-    return {
-        "success": True,
-        "schedule_id": new_schedule.schedule_id,
-        "scheduled_for": new_schedule.scheduled_for.isoformat(),
-        "message": "Email scheduled successfully"
-    }
-
-
-@app.delete("/api/admin/email-schedules/{schedule_id}")
-def cancel_email_schedule(
-    schedule_id: str,
-    db: Session = Depends(get_db)
-):
-    """Cancel a scheduled email"""
-    schedule = db.query(EmailSchedule).filter(
-        EmailSchedule.schedule_id == schedule_id
-    ).first()
-
-    if not schedule:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-
-    if schedule.status == EmailScheduleStatus.SENT:
-        raise HTTPException(status_code=400, detail="Cannot cancel already sent email")
-
-    schedule.status = EmailScheduleStatus.CANCELLED
-    schedule.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "Email schedule cancelled"}
-
-
-# ==================== A/B TESTING ENDPOINTS ====================
-
-@app.get("/api/admin/email-ab-tests")
-def list_ab_tests(
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 20,
-    db: Session = Depends(get_db)
-):
-    """List A/B test campaigns"""
-    query = db.query(EmailABTest)
-
-    if status:
-        query = query.filter(EmailABTest.status == status)
-
-    tests = query.order_by(EmailABTest.created_at.desc()).offset(skip).limit(limit).all()
-
-    return {
-        "tests": [
-            {
-                "id": t.id,
-                "test_id": t.test_id,
-                "name": t.name,
-                "status": t.status,
-                "variant_ids": t.variant_ids,
-                "winning_variant_id": t.winning_variant_id,
-                "started_at": t.started_at.isoformat() if t.started_at else None,
-                "ended_at": t.ended_at.isoformat() if t.ended_at else None
-            }
-            for t in tests
-        ],
-        "total": query.count()
-    }
-
-
-@app.post("/api/admin/email-ab-tests")
-def create_ab_test(
-    name: str = Form(...),
-    base_template_id: int = Form(...),
-    variant_ids: str = Form(...),  # Comma-separated IDs
-    sample_size: int = Form(1000),
-    db: Session = Depends(get_db)
-):
-    """Create a new A/B test campaign"""
-    import uuid
-
-    # Parse variant IDs
-    variant_list = [int(v.strip()) for v in variant_ids.split(",") if v.strip()]
-
-    new_test = EmailABTest(
-        test_id=f"ABTEST-{uuid.uuid4().hex[:8].upper()}",
-        name=name,
-        base_template_id=base_template_id,
-        variant_ids=variant_list,
-        sample_size=sample_size,
-        status="draft"
-    )
-
-    db.add(new_test)
-    db.commit()
-    db.refresh(new_test)
-
-    return {
-        "success": True,
-        "test_id": new_test.test_id,
-        "message": "A/B test created successfully"
-    }
-
-
-@app.post("/api/admin/email-ab-tests/{test_id}/start")
-def start_ab_test(
-    test_id: str,
-    db: Session = Depends(get_db)
-):
-    """Start an A/B test campaign"""
-    test = db.query(EmailABTest).filter(EmailABTest.test_id == test_id).first()
-
-    if not test:
-        raise HTTPException(status_code=404, detail="A/B test not found")
-
-    if test.status != "draft":
-        raise HTTPException(status_code=400, detail="Test is not in draft status")
-
-    test.status = "running"
-    test.started_at = datetime.utcnow()
-    db.commit()
-
-    return {"success": True, "message": "A/B test started"}
-
-
-@app.post("/api/admin/email-ab-tests/{test_id}/end")
-def end_ab_test(
-    test_id: str,
-    db: Session = Depends(get_db)
-):
-    """End an A/B test and optionally select winner"""
-    test = db.query(EmailABTest).filter(EmailABTest.test_id == test_id).first()
-
-    if not test:
-        raise HTTPException(status_code=404, detail="A/B test not found")
-
-    test.status = "completed"
-    test.ended_at = datetime.utcnow()
-
-    # Auto-select winner if enabled
-    if test.auto_select_winner and test.variant_ids:
-        # Get variant with best open rate
-        best_variant = None
-        best_rate = 0
-
-        for variant_id in test.variant_ids:
-            variant = db.query(EmailTemplate).filter(EmailTemplate.id == variant_id).first()
-            if variant and variant.open_rate > best_rate:
-                best_rate = variant.open_rate
-                best_variant = variant_id
-
-        if best_variant:
-            test.winning_variant_id = best_variant
-            test.winning_metric = "open_rate"
-
-    db.commit()
-
-    return {
-        "success": True,
-        "winning_variant_id": test.winning_variant_id,
-        "message": "A/B test completed"
-    }
 
 
 # ==================== RIDESHARE ENDPOINTS ====================
@@ -4351,22 +3314,8 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
 
 @app.get("/erp/drivers/{driver_id}")
 @app.get("/api/erp/drivers/{driver_id}")  # Alias with /api prefix for consistency
-def get_driver_profile_by_id(
-    driver_id: int,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get driver profile by ID (iOS app compatible endpoint) - REQUIRES AUTH"""
-    # Verify token and check authorization
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_driver_id = payload.get("driver_id")
-        # Only allow drivers to access their own profile
-        if token_driver_id and int(token_driver_id) != driver_id:
-            raise HTTPException(status_code=403, detail="Access denied: Cannot access other driver profiles")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
+def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
+    """Get driver profile by ID (iOS app compatible endpoint)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4428,7 +3377,6 @@ class DriverProfileUpdate(BaseModel):
 @app.put("/api/erp/drivers/{driver_id}")  # Alias with /api prefix
 def update_driver_profile_by_id(
     driver_id: int,
-    token: str = Depends(oauth2_scheme),
     body: Optional[DriverProfileUpdate] = None,
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
@@ -4442,19 +3390,9 @@ def update_driver_profile_by_id(
     license_number: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Update driver profile by ID (iOS app compatible endpoint) - REQUIRES AUTH
+    """Update driver profile by ID (iOS app compatible endpoint)
     Accepts both JSON body and query parameters for flexibility.
     """
-    # Verify token and check authorization
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_driver_id = payload.get("driver_id")
-        # Only allow drivers to update their own profile
-        if token_driver_id and int(token_driver_id) != driver_id:
-            raise HTTPException(status_code=403, detail="Access denied: Cannot update other driver profiles")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4509,7 +3447,6 @@ def update_driver_profile_by_id(
     }
 
 
-@app.patch("/api/drivers/{driver_id}/status")
 @app.patch("/drivers/{driver_id}/status")
 def update_driver_status(
     driver_id: int,
@@ -4560,24 +3497,18 @@ def update_driver_status(
 
     driver.updated_at = datetime.utcnow()
 
-    # If driver is being approved, set approved_at, generate activation token, and send approval email
-    if status.upper() == "APPROVED" and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+    # If driver is being approved, set approved_at and send approval email
+    if status.upper() in ["APPROVED", "ACTIVE"] and old_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
         driver.approved_at = datetime.utcnow()
-        # Generate a unique activation token for terms acceptance
-        activation_token = secrets.token_urlsafe(32)
-        driver.activation_token = activation_token
-        driver.status = DriverStatus.APPROVED  # Keep as APPROVED until they click activation link
-
         try:
             send_driver_approval_email(
                 to_email=driver.email,
                 driver_name=f"{driver.first_name} {driver.last_name}",
-                driver_code=driver.driver_id,
-                activation_token=activation_token
+                driver_code=driver.driver_id
             )
-            print(f"✅ Driver approval email with activation link sent to: {driver.email}")
+            print(f"Driver approval email sent to: {driver.email}")
         except Exception as e:
-            print(f"❌ Failed to send driver approval email: {str(e)}")
+            print(f"Failed to send driver approval email: {str(e)}")
 
     db.commit()
     db.refresh(driver)
@@ -4588,157 +3519,6 @@ def update_driver_status(
         "driver_id": driver.id,
         "status": driver.status.value
     }
-
-
-# ==================== DRIVER ACTIVATION ENDPOINT ====================
-# Driver clicks email link to accept terms and activate account
-
-@app.get("/drivers/activate/{token}")
-@app.get("/api/drivers/activate/{token}")
-def activate_driver_account(token: str, db: Session = Depends(get_db)):
-    """
-    Activate driver account - Driver clicks this link in their approval email.
-
-    This endpoint:
-    1. Validates the activation token
-    2. Updates driver status from APPROVED to ACTIVE
-    3. Records terms acceptance timestamp (legal compliance)
-    4. Returns an HTML success page
-    """
-    # Find driver by activation token
-    driver = db.query(Driver).filter(Driver.activation_token == token).first()
-
-    if not driver:
-        return HTMLResponse(content=f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Invalid Link - Dollor.AI</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                       display: flex; justify-content: center; align-items: center; min-height: 100vh;
-                       margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
-                .container {{ text-align: center; padding: 40px; max-width: 500px; }}
-                .icon {{ font-size: 64px; margin-bottom: 20px; }}
-                h1 {{ color: #ff6b6b; margin-bottom: 10px; }}
-                p {{ color: #a0a0a0; line-height: 1.6; }}
-                .btn {{ display: inline-block; padding: 12px 24px; background: #667eea; color: white;
-                        text-decoration: none; border-radius: 8px; margin-top: 20px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="icon">❌</div>
-                <h1>Invalid or Expired Link</h1>
-                <p>This activation link is invalid or has already been used.</p>
-                <p>If you've already activated your account, you can log in to the Driver app.</p>
-                <a href="https://dollor.ai" class="btn">Visit Dollor.AI</a>
-            </div>
-        </body>
-        </html>
-        """, status_code=400)
-
-    # Check if already activated
-    if driver.status == DriverStatus.ACTIVE:
-        return HTMLResponse(content=f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Already Activated - Dollor.AI</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                       display: flex; justify-content: center; align-items: center; min-height: 100vh;
-                       margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
-                .container {{ text-align: center; padding: 40px; max-width: 500px; }}
-                .icon {{ font-size: 64px; margin-bottom: 20px; }}
-                h1 {{ color: #4ecdc4; margin-bottom: 10px; }}
-                p {{ color: #a0a0a0; line-height: 1.6; }}
-                .btn {{ display: inline-block; padding: 12px 24px; background: #667eea; color: white;
-                        text-decoration: none; border-radius: 8px; margin-top: 20px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="icon">✓</div>
-                <h1>Already Activated!</h1>
-                <p>Hi {driver.first_name}, your account is already active.</p>
-                <p>You can log in to the Driver app and start accepting deliveries and rides.</p>
-                <a href="https://dollor.ai" class="btn">Visit Dollor.AI</a>
-            </div>
-        </body>
-        </html>
-        """)
-
-    # Activate the driver
-    driver.status = DriverStatus.ACTIVE
-    driver.terms_accepted_at = datetime.utcnow()
-    driver.updated_at = datetime.utcnow()
-    # Clear the token after use (one-time use)
-    driver.activation_token = None
-
-    db.commit()
-
-    print(f"✅ Driver {driver.first_name} {driver.last_name} ({driver.email}) activated - Terms accepted at {driver.terms_accepted_at}")
-
-    return HTMLResponse(content=f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Account Activated! - Dollor.AI</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                   display: flex; justify-content: center; align-items: center; min-height: 100vh;
-                   margin: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; }}
-            .container {{ text-align: center; padding: 40px; max-width: 600px; }}
-            .icon {{ font-size: 80px; margin-bottom: 20px; }}
-            h1 {{ color: #4ecdc4; margin-bottom: 10px; font-size: 32px; }}
-            .welcome {{ font-size: 20px; color: #667eea; margin-bottom: 20px; }}
-            p {{ color: #a0a0a0; line-height: 1.8; margin: 15px 0; }}
-            .highlight {{ color: #4ecdc4; font-weight: bold; }}
-            .card {{ background: rgba(255,255,255,0.1); border-radius: 12px; padding: 25px; margin: 20px 0; }}
-            .card h3 {{ color: #667eea; margin-bottom: 15px; }}
-            .card ul {{ text-align: left; padding-left: 20px; }}
-            .card li {{ margin: 10px 0; color: #d0d0d0; }}
-            .btn {{ display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white; text-decoration: none; border-radius: 10px; margin-top: 25px; font-weight: bold;
-                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }}
-            .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="icon">🎉</div>
-            <h1>Welcome to Dollor.AI!</h1>
-            <p class="welcome">Congratulations, {driver.first_name}!</p>
-            <p>Your account has been <span class="highlight">successfully activated</span>.</p>
-            <p>By clicking this link, you have accepted the Independent Contractor Agreement
-               and Terms of Service.</p>
-
-            <div class="card">
-                <h3>You're Ready To:</h3>
-                <ul>
-                    <li>🚗 Accept rideshare requests from passengers</li>
-                    <li>🍕 Deliver food orders from restaurants</li>
-                    <li>💰 Keep 100% of your earnings + tips</li>
-                    <li>⏰ Work on your own schedule</li>
-                </ul>
-            </div>
-
-            <p>Download and log in to the <strong>Dollor Driver</strong> app to start accepting requests.</p>
-
-            <a href="https://dollor.ai" class="btn">Get Started</a>
-
-            <div class="footer">
-                <p>© 2025 Zietra Technologies Inc. | Rancho Santa Margarita, CA 92688</p>
-                <p>Terms accepted on: {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """)
 
 
 # ==================== DRIVER STATUS ENDPOINTS (Android Compatibility) ====================
@@ -4880,11 +3660,6 @@ async def upload_driver_document_by_id(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
     success, url_path, message = await s3_service.upload_file(
@@ -4919,39 +3694,13 @@ async def upload_driver_document_by_id(
 
     db.commit()
 
-    # Trigger Persona verification for driver's license uploads ONLY
-    persona_response = None
-    if document_type in ['drivers_license', 'license_front'] and os.getenv("PERSONA_API_KEY"):
-        try:
-            from document_verification_service import get_verification_service, DocumentType as VerificationDocType
-            verifier = get_verification_service("persona")
-
-            persona_response = await verifier.create_persona_inquiry(
-                reference_id=f"driver_{driver_id}",
-                entity_type="driver",
-                email=driver.email,
-                document_types=[VerificationDocType.DRIVERS_LICENSE]
-            )
-
-            if persona_response.get("success"):
-                driver.persona_inquiry_id = persona_response.get("inquiry_id")
-                driver.verification_status = "pending"
-                driver.verification_provider = "persona"
-                db.commit()
-                logger.info(f"Persona inquiry created for driver {driver_id}: {persona_response.get('inquiry_id')}")
-        except Exception as e:
-            logger.warning(f"Persona verification failed for driver {driver_id}: {e}")
-            # Don't fail upload if verification fails - document is still stored
-
     return {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_url": url_path,
         "file_path": url_path,
         "document_type": document_type,
-        "verification_status": driver.verification_status or "uploaded",
-        "persona_inquiry_id": persona_response.get("inquiry_id") if persona_response else None,
-        "persona_inquiry_url": persona_response.get("inquiry_url") if persona_response else None
+        "verification_status": "pending"
     }
 
 
@@ -4987,11 +3736,6 @@ async def upload_driver_document(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
 
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Use S3 service for upload (falls back to local if S3 not configured)
     s3_service = get_s3_service()
     success, url_path, message = await s3_service.upload_file(
@@ -5014,38 +3758,11 @@ async def upload_driver_document(
 
     db.commit()
 
-    # Trigger Persona verification for driver's license uploads ONLY
-    persona_response = None
-    if document_type == 'drivers_license' and os.getenv("PERSONA_API_KEY"):
-        try:
-            from document_verification_service import get_verification_service, DocumentType as VerificationDocType
-            verifier = get_verification_service("persona")
-
-            persona_response = await verifier.create_persona_inquiry(
-                reference_id=f"driver_{driver.id}",
-                entity_type="driver",
-                email=driver.email,
-                document_types=[VerificationDocType.DRIVERS_LICENSE]
-            )
-
-            if persona_response.get("success"):
-                driver.persona_inquiry_id = persona_response.get("inquiry_id")
-                driver.verification_status = "pending"
-                driver.verification_provider = "persona"
-                db.commit()
-                logger.info(f"Persona inquiry created for driver {driver.id}: {persona_response.get('inquiry_id')}")
-        except Exception as e:
-            logger.warning(f"Persona verification failed for driver {driver.id}: {e}")
-            # Don't fail upload if verification fails - document is still stored
-
     return {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_path": url_path,
-        "document_type": document_type,
-        "verification_status": driver.verification_status or "uploaded",
-        "persona_inquiry_id": persona_response.get("inquiry_id") if persona_response else None,
-        "persona_inquiry_url": persona_response.get("inquiry_url") if persona_response else None
+        "document_type": document_type
     }
 
 
@@ -5107,8 +3824,12 @@ def customer_food_register(request: CustomerRegisterRequest, db: Session = Depen
                 detail="Email already registered"
             )
 
-        # SECURITY: Validate password complexity using centralized validation
-        require_valid_password(request.password)
+        # Validate password is not empty
+        if not request.password or len(request.password.strip()) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required and cannot be empty"
+            )
 
         # Split name into first and last name (accepts both 'name' and 'full_name')
         customer_name = request.get_name()
@@ -5253,20 +3974,6 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In")
 
     if not user:
-        # Check if email exists with a different role (Driver or Vendor)
-        existing_driver = db.query(Driver).filter(Driver.email == email).first()
-        if existing_driver:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered as driver. Please use a different email or sign in with that account type."
-            )
-        existing_vendor = db.query(Vendor).filter(Vendor.contact_email == email).first()
-        if existing_vendor:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered as vendor. Please use a different email or sign in with that account type."
-            )
-
         # Create new user - need email and name for new users
         if not name:
             name = email.split('@')[0] if email else 'Apple User'
@@ -5292,27 +3999,21 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-        # Use timestamp-based customer_id to avoid collisions (same as registration)
-        import time
-        timestamp_suffix = int(time.time() * 1000) % 100000
-        customer_id = f"CUST-{timestamp_suffix:05d}"
+        # Generate unique customer_id
+        import random
+        customer_id = f"CUST{random.randint(100000, 999999)}"
 
-        try:
-            # Create customer record with first_name/last_name to match database schema
-            customer = Customer(
-                customer_id=customer_id,
-                first_name=first_name,
-                last_name=last_name,
-                email=email
-            )
-            db.add(customer)
-            db.commit()
-            db.refresh(customer)
-            print(f"Created new customer record for: {email} with ID: {customer_id}")
-        except Exception as e:
-            db.rollback()
-            print(f"Error creating customer: {e}")
-            raise HTTPException(status_code=500, detail="Failed to create customer account")
+        # Create customer record with first_name/last_name to match database schema
+        customer = Customer(
+            customer_id=customer_id,
+            first_name=first_name,
+            last_name=last_name,
+            email=email
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        print(f"Created new customer record for: {email} with ID: {customer_id}")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
@@ -5329,14 +4030,8 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     }
 
 
-# =============================================================================
-# PASSWORD RESET - Database-backed, multi-provider, bulletproof implementation
-# =============================================================================
-# CRITICAL: Previous implementation used in-memory dict which:
-# - Lost codes on server restart
-# - Didn't work with multiple instances (App Runner scaling)
-# - Had no delivery tracking
-# This new implementation fixes all issues.
+# In-memory storage for password reset codes (in production, use Redis or database)
+password_reset_codes = {}
 
 class CustomerPasswordResetRequest(BaseModel):
     email: str
@@ -5347,358 +4042,61 @@ class CustomerPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
-    """
-    Request a password reset - sends code to email.
+def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a password reset - sends code to email"""
+    import random
 
-    BULLETPROOF IMPLEMENTATION:
-    - Database-backed token storage (works across multiple instances)
-    - Multi-provider email delivery (SMTP → AWS SES → SendGrid fallback)
-    - Comprehensive logging for debugging
-    - Proper error handling and delivery verification
-    """
-    # SECURITY: Rate limit password reset requests
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
+    # Check if user exists
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        # Don't reveal whether email exists for security
+        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
 
-    logger.info(f"[CUSTOMER_PWD_RESET] Request for {request.email}")
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
 
-    # Get client info for audit trail
-    client_ip, user_agent = get_client_info(http_request)
+    # Store code with timestamp (expires in 15 minutes)
+    from datetime import datetime, timedelta
+    password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
 
-    # Check if customer exists
-    customer = db.query(Customer).filter(Customer.email == request.email).first()
-    user_record = None
+    # In production, send email here
+    print(f"Password reset code for {request.email}: {code}")
 
-    if not customer:
-        # Also check User table for fallback
-        user_record = db.query(User).filter(User.email == request.email).first()
-        if not user_record:
-            logger.info(f"[CUSTOMER_PWD_RESET] Email {request.email} not found - returning generic success (security)")
-            # SECURITY: Don't reveal if email exists
-            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-        user_id = user_record.id
-        user_name = user_record.full_name or "Customer"
-    else:
-        user_id = customer.id
-        user_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-
-    # Use the bulletproof password reset service
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, result, details = pwd_service.create_reset_token(
-            db=db,
-            email=request.email,
-            user_type="customer",
-            user_id=user_id,
-            user_name=user_name,
-            ip_address=client_ip,
-            user_agent=user_agent
-        )
-
-        logger.info(f"[CUSTOMER_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
-
-        if success:
-            return {
-                "success": True,
-                "message": "Reset code sent to your email. Please check your inbox and spam folder."
-            }
-        else:
-            # Log failure but return generic message
-            logger.error(f"[CUSTOMER_PWD_RESET] Failed: {result}")
-            return {
-                "success": True,  # Still return success to prevent enumeration
-                "message": "If an account exists with this email, a reset code has been sent."
-            }
-
-    except Exception as e:
-        logger.exception(f"[CUSTOMER_PWD_RESET] Exception: {e}")
-        return {
-            "success": True,
-            "message": "If an account exists with this email, a reset code has been sent."
-        }
-
+    return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/customer/password-reset/confirm")
-def customer_confirm_password_reset(http_request: Request, request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
-    """
-    Confirm password reset with code and set new password.
+def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm password reset with code and set new password"""
+    from datetime import datetime
 
-    BULLETPROOF: Uses database-backed tokens that work across all instances.
-    """
-    # SECURITY: Rate limit code verification
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
+    # Check if code exists and is valid
+    reset_data = password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
 
-    # SECURITY: Validate password complexity
-    require_valid_password(request.new_password)
+    if datetime.utcnow() > reset_data["expires"]:
+        del password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
 
-    logger.info(f"[CUSTOMER_PWD_CONFIRM] Verifying code for {request.email}")
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    # Get client info for security logging
-    client_ip, user_agent = get_client_info(http_request)
-
-    # Verify using the password reset service
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, message, user_id = pwd_service.verify_reset_token(
-            db=db,
-            email=request.email,
-            code=request.code,
-            user_type="customer"
-        )
-
-        if not success:
-            logger.warning(f"[CUSTOMER_PWD_CONFIRM] Verification failed: {message}")
-            raise HTTPException(status_code=400, detail=message)
-
-        # Update password - check Customer table first
-        customer = db.query(Customer).filter(Customer.email == request.email).first()
-        if customer:
-            customer.password_hash = get_password_hash(request.new_password)
-            db.commit()
-
-            log_security_event(
-                SecurityEventType.PASSWORD_RESET_COMPLETE,
-                user_email=request.email,
-                user_id=customer.id,
-                ip_address=client_ip,
-                user_agent=user_agent,
-                details={"account_type": "customer", "method": "database_token"}
-            )
-            logger.info(f"[CUSTOMER_PWD_CONFIRM] Password updated for customer {customer.id}")
-            return {"success": True, "message": "Password reset successful. You can now login with your new password."}
-
-        # Fallback to User table
-        user = db.query(User).filter(User.email == request.email).first()
-        if user:
-            user.password_hash = get_password_hash(request.new_password)
-            db.commit()
-
-            log_security_event(
-                SecurityEventType.PASSWORD_RESET_COMPLETE,
-                user_email=request.email,
-                user_id=user.id,
-                ip_address=client_ip,
-                user_agent=user_agent,
-                details={"account_type": "user", "method": "database_token"}
-            )
-            logger.info(f"[CUSTOMER_PWD_CONFIRM] Password updated for user {user.id}")
-            return {"success": True, "message": "Password reset successful. You can now login with your new password."}
-
-        raise HTTPException(status_code=400, detail="Account not found")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[CUSTOMER_PWD_CONFIRM] Exception: {e}")
-        raise HTTPException(status_code=500, detail="System error during password reset")
-
-
-# ==================== DRIVER PASSWORD RESET ====================
-# Uses the same bulletproof database-backed service
-
-class DriverPasswordResetRequest(BaseModel):
-    email: str
-
-class DriverPasswordResetConfirm(BaseModel):
-    email: str
-    code: str
-    new_password: str
-
-@app.post("/api/driver/password-reset/request")
-@app.post("/api/auth/driver/forgot-password")  # Legacy Android endpoint
-def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset for driver - sends code to email (BULLETPROOF)"""
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
-
-    logger.info(f"[DRIVER_PWD_RESET] Request for {request.email}")
-    client_ip, user_agent = get_client_info(http_request)
-
-    driver = db.query(Driver).filter(Driver.email == request.email).first()
-    if not driver:
-        logger.info(f"[DRIVER_PWD_RESET] Driver not found - returning generic success")
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-
-    driver_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or "Driver"
-
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, result, details = pwd_service.create_reset_token(
-            db=db,
-            email=request.email,
-            user_type="driver",
-            user_id=driver.id,
-            user_name=driver_name,
-            ip_address=client_ip,
-            user_agent=user_agent
-        )
-
-        logger.info(f"[DRIVER_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
-
-        if success:
-            return {"success": True, "message": "Reset code sent to your email. Please check your inbox and spam folder."}
-        else:
-            logger.error(f"[DRIVER_PWD_RESET] Failed: {result}")
-            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-
-    except Exception as e:
-        logger.exception(f"[DRIVER_PWD_RESET] Exception: {e}")
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-
-
-@app.post("/api/driver/password-reset/confirm")
-def driver_confirm_password_reset(http_request: Request, request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
-    """Confirm password reset for driver (BULLETPROOF)"""
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
-    require_valid_password(request.new_password)
-
-    logger.info(f"[DRIVER_PWD_CONFIRM] Verifying code for {request.email}")
-    client_ip, user_agent = get_client_info(http_request)
-
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, message, user_id = pwd_service.verify_reset_token(
-            db=db,
-            email=request.email,
-            code=request.code,
-            user_type="driver"
-        )
-
-        if not success:
-            logger.warning(f"[DRIVER_PWD_CONFIRM] Verification failed: {message}")
-            raise HTTPException(status_code=400, detail=message)
-
-        driver = db.query(Driver).filter(Driver.email == request.email).first()
-        if not driver:
-            raise HTTPException(status_code=400, detail="Account not found")
-
-        driver.password_hash = get_password_hash(request.new_password)
-        db.commit()
-
-        log_security_event(
-            SecurityEventType.PASSWORD_RESET_COMPLETE,
-            user_email=request.email,
-            user_id=driver.id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"account_type": "driver", "method": "database_token"}
-        )
-        logger.info(f"[DRIVER_PWD_CONFIRM] Password updated for driver {driver.id}")
-        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[DRIVER_PWD_CONFIRM] Exception: {e}")
-        raise HTTPException(status_code=500, detail="System error during password reset")
-
-
-# ==================== VENDOR/RESTAURANT PASSWORD RESET ====================
-# Uses the same bulletproof database-backed service
-
-class VendorPasswordResetRequest(BaseModel):
-    email: str
-
-class VendorPasswordResetConfirm(BaseModel):
-    email: str
-    code: str
-    new_password: str
-
-@app.post("/api/vendor/password-reset/request")
-@app.post("/api/restaurant/password-reset/request")
-def vendor_request_password_reset(http_request: Request, request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
-    """Request a password reset for vendor/restaurant (BULLETPROOF)"""
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset")
-
-    logger.info(f"[VENDOR_PWD_RESET] Request for {request.email}")
-    client_ip, user_agent = get_client_info(http_request)
-
-    # Check if vendor user exists (vendors use User table with VENDOR role)
-    user = db.query(User).filter(
-        User.email == request.email,
-        User.role == UserRole.VENDOR
-    ).first()
-
+    # Get user and update password
+    user = db.query(User).filter(User.email == request.email).first()
     if not user:
-        logger.info(f"[VENDOR_PWD_RESET] Vendor not found - returning generic success")
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
+        raise HTTPException(status_code=404, detail="User not found")
 
-    vendor_name = user.full_name or "Restaurant Partner"
+    # Update password
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
 
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, result, details = pwd_service.create_reset_token(
-            db=db,
-            email=request.email,
-            user_type="vendor",
-            user_id=user.id,
-            user_name=vendor_name,
-            ip_address=client_ip,
-            user_agent=user_agent
-        )
+    # Remove used code
+    del password_reset_codes[request.email]
 
-        logger.info(f"[VENDOR_PWD_RESET] Result: success={success}, status={details.get('final_status')}")
-
-        if success:
-            return {"success": True, "message": "Reset code sent to your email. Please check your inbox and spam folder."}
-        else:
-            logger.error(f"[VENDOR_PWD_RESET] Failed: {result}")
-            return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-
-    except Exception as e:
-        logger.exception(f"[VENDOR_PWD_RESET] Exception: {e}")
-        return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
-
-
-@app.post("/api/vendor/password-reset/confirm")
-@app.post("/api/restaurant/password-reset/confirm")
-def vendor_confirm_password_reset(http_request: Request, request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
-    """Confirm password reset for vendor/restaurant (BULLETPROOF)"""
-    check_rate_limit(http_request, password_reset_rate_limiter, "password_reset_confirm")
-    require_valid_password(request.new_password)
-
-    logger.info(f"[VENDOR_PWD_CONFIRM] Verifying code for {request.email}")
-    client_ip, user_agent = get_client_info(http_request)
-
-    try:
-        pwd_service = get_password_reset_service(get_db)
-        success, message, user_id = pwd_service.verify_reset_token(
-            db=db,
-            email=request.email,
-            code=request.code,
-            user_type="vendor"
-        )
-
-        if not success:
-            logger.warning(f"[VENDOR_PWD_CONFIRM] Verification failed: {message}")
-            raise HTTPException(status_code=400, detail=message)
-
-        user = db.query(User).filter(
-            User.email == request.email,
-            User.role == UserRole.VENDOR
-        ).first()
-
-        if not user:
-            raise HTTPException(status_code=400, detail="Account not found")
-
-        user.password_hash = get_password_hash(request.new_password)
-        db.commit()
-
-        log_security_event(
-            SecurityEventType.PASSWORD_RESET_COMPLETE,
-            user_email=request.email,
-            user_id=user.id,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            details={"account_type": "vendor", "method": "database_token"}
-        )
-        logger.info(f"[VENDOR_PWD_CONFIRM] Password updated for vendor user {user.id}")
-        return {"success": True, "message": "Password reset successful. You can now login with your new password."}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"[VENDOR_PWD_CONFIRM] Exception: {e}")
-        raise HTTPException(status_code=500, detail="System error during password reset")
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
 
 @app.get("/api/customer/profile")
@@ -6250,127 +4648,6 @@ def remove_promo_code(current_user: User = Depends(get_current_user), db: Sessio
     }
 
 
-# ==================== MULTI-RESTAURANT CHECKOUT ====================
-
-class MultiRestaurantCheckoutRequest(BaseModel):
-    """Request model for multi-restaurant cart checkout"""
-    delivery_address: Dict[str, Any]  # street, city, state, zip, latitude, longitude
-    delivery_instructions: Optional[str] = None
-    tip_per_order: float = 0.0  # Tip amount per restaurant order
-    payment_method_id: Optional[str] = None  # Stripe payment method
-
-
-@app.post("/api/cart/multi-restaurant/checkout")
-def multi_restaurant_checkout(
-    request: MultiRestaurantCheckoutRequest,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Checkout cart with items from multiple restaurants.
-    Creates separate orders for each restaurant in the cart.
-
-    Flow:
-    1. Validate customer authentication
-    2. Get cart and group items by vendor
-    3. Calculate totals per vendor (subtotal, tax, delivery fee, tip)
-    4. Create separate orders for each vendor
-    5. Return order summaries
-
-    Note: Each restaurant order has its own delivery fee and tip.
-    """
-    # Step 1: Authenticate customer
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    # Step 2: Get customer's cart
-    cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
-    if not cart or not cart.items:
-        raise HTTPException(status_code=422, detail="Cart is empty")
-
-    # Step 3: Group cart items by vendor
-    vendor_items = {}
-    for item in cart.items:
-        vendor_id = item.vendor_id
-        if vendor_id not in vendor_items:
-            vendor_items[vendor_id] = {
-                "vendor_id": vendor_id,
-                "vendor_name": item.vendor_name,
-                "items": [],
-                "subtotal": 0.0
-            }
-        vendor_items[vendor_id]["items"].append({
-            "id": item.id,
-            "menu_item_id": item.menu_item_id,
-            "item_name": item.item_name,
-            "quantity": item.quantity,
-            "unit_price": item.item_price,
-            "line_total": round(item.item_price * item.quantity, 2),
-            "special_instructions": item.special_instructions,
-            "customizations": item.customizations
-        })
-        vendor_items[vendor_id]["subtotal"] += item.item_price * item.quantity
-
-    # Step 4: Validate delivery address
-    required_fields = ["street", "city", "state", "zip"]
-    for field in required_fields:
-        if field not in request.delivery_address or not request.delivery_address[field]:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Missing required delivery address field: {field}"
-            )
-
-    # Step 5: Calculate totals per vendor and prepare order summaries
-    tax_rate = 0.0825  # 8.25% tax rate
-    base_delivery_fee = 3.99  # Base delivery fee per restaurant
-
-    order_summaries = []
-    grand_total = 0.0
-
-    for vendor_id, vendor_data in vendor_items.items():
-        subtotal = round(vendor_data["subtotal"], 2)
-        tax = round(subtotal * tax_rate, 2)
-        delivery_fee = base_delivery_fee
-        tip = request.tip_per_order
-
-        # Apply promo discount if applicable (split proportionally)
-        promo_discount = 0.0
-        if cart.promo_discount and cart.promo_discount > 0:
-            # Split promo proportionally across vendors based on subtotal
-            cart_total = sum(v["subtotal"] for v in vendor_items.values())
-            if cart_total > 0:
-                promo_discount = round((vendor_data["subtotal"] / cart_total) * cart.promo_discount, 2)
-
-        total = round(subtotal + tax + delivery_fee + tip - promo_discount, 2)
-        grand_total += total
-
-        order_summaries.append({
-            "vendor_id": vendor_id,
-            "vendor_name": vendor_data["vendor_name"],
-            "items": vendor_data["items"],
-            "subtotal": subtotal,
-            "tax": tax,
-            "delivery_fee": delivery_fee,
-            "tip": tip,
-            "promo_discount": promo_discount,
-            "total": total
-        })
-
-    # Return checkout preview (actual order creation would happen on confirmation)
-    return {
-        "checkout_preview": True,
-        "customer_id": customer.id,
-        "customer_email": customer.email,
-        "delivery_address": request.delivery_address,
-        "delivery_instructions": request.delivery_instructions,
-        "orders": order_summaries,
-        "order_count": len(order_summaries),
-        "grand_total": round(grand_total, 2),
-        "message": f"Ready to create {len(order_summaries)} separate order(s) for {len(order_summaries)} restaurant(s)"
-    }
-
-
 # ==================== DRIVER DASHBOARD ====================
 
 @app.get("/api/driver/dashboard")
@@ -6668,7 +4945,7 @@ async def get_driver_earnings(
         "bonuses": round(bonuses, 2),
         "total_earnings": round(base_earnings + tips + bonuses, 2),
         "platform_fee": 0.00,  # Drivers pay $0 commission per CLAUDE.md
-        "note": "100% of your earnings go to you. Dollor.AI charges $0 commission to drivers.",
+        "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers.",
         # Period totals for iOS/Android apps
         "today": round(base_earnings + tips, 2) if period == "today" else 0,
         "week": round(base_earnings + tips, 2) if period == "week" else 0,
@@ -7592,7 +5869,7 @@ def get_recent_activity(db: Session = Depends(get_db), current_user: User = Depe
     return activity[:10]
 
 # ============================================================================
-# CONSOLIDATED DASHBOARD API - Dollor.AI Platform Metrics
+# CONSOLIDATED DASHBOARD API - Dollor.ai Platform Metrics
 # ============================================================================
 
 def format_amount(amount):
@@ -7611,7 +5888,7 @@ def get_consolidated_dashboard(
     db: Session = Depends(get_db)
 ):
     """
-    Get consolidated dashboard metrics for Dollor.AI platform.
+    Get consolidated dashboard metrics for Dollor.ai platform.
     Includes: Orders, Vendors, Drivers, Revenue, and Support Tickets.
     """
     from models import Order, OrderStatus, Vendor, VendorStatus, Driver, DriverStatus, SupportTicket, TicketStatus
@@ -9188,10 +7465,13 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         return db_vendor
 
     except Exception as e:
-        # SECURITY: Log full traceback server-side but don't expose to client
-        logger.exception(f"Error creating vendor: {str(e)}")
+        print(f"❌ ERROR creating vendor: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 60)
         db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create vendor. Please try again or contact support.")
+        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
 
 # Public document upload endpoint for vendor registration (no auth required)
 @app.post("/api/vendors/public/{vendor_id}/documents")
@@ -9219,7 +7499,7 @@ async def upload_vendor_document_public(
     # If vendor has no email, accept the provided email and update the record
     if not db_vendor.contact_email:
         db_vendor.contact_email = contact_email
-        logger.info(f"Updated vendor {vendor_id} email to: {contact_email}")
+        print(f"📧 Updated vendor {vendor_id} email to: {contact_email}")
     elif db_vendor.contact_email != contact_email:
         raise HTTPException(status_code=403, detail="Email does not match vendor record")
 
@@ -9241,23 +7521,13 @@ async def upload_vendor_document_public(
     unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
-    # Read file content first for validation
-    content = await file.read()
-
-    # Validate file size (max 10MB)
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
-
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Save file
     with open(file_path, "wb") as f:
+        content = await file.read()
         f.write(content)
 
-    logger.info(f"Document uploaded: {safe_doc_type} for vendor {vendor_id}, file: {unique_filename}")
+    print(f"📄 Document uploaded: {safe_doc_type} for vendor {vendor_id}")
+    print(f"   File: {unique_filename}")
 
     # Update vendor document fields based on type (all 7 document types)
     field_mapping = {
@@ -9277,6 +7547,7 @@ async def upload_vendor_document_public(
         has_field, url_field = field_mapping[document_type]
         setattr(db_vendor, has_field, True)
         setattr(db_vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+        print(f"   Updated {has_field}=True, {url_field}=/uploads/vendor_documents/{unique_filename}")
 
     db_vendor.updated_at = datetime.now()
     db_vendor.last_activity = datetime.now()
@@ -9355,24 +7626,15 @@ async def create_vendor_public_with_menu(
     import uuid
 
     print("=" * 60)
-    logger.info("Restaurant application with menu file received")
+    print("🍽️  RESTAURANT APPLICATION WITH MENU FILE RECEIVED")
 
     try:
         # Parse the JSON data
         vendor_data = json.loads(data)
-        logger.info(f"Restaurant application: {vendor_data.get('restaurant_name')}, contact: {vendor_data.get('contact_email')}")
-
-        # Read and validate menu file content
-        content = await menu_file.read()
-
-        # Validate file size (max 10MB)
-        if len(content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Menu file too large. Maximum size is 10MB")
-
-        # SECURITY: Validate file content matches declared type (magic bytes)
-        is_valid, error_msg = validate_file_magic_bytes(content, menu_file.content_type, menu_file.filename)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_msg)
+        print(f"Restaurant: {vendor_data.get('restaurant_name')}")
+        print(f"Contact: {vendor_data.get('contact_email')}")
+        print(f"Menu file: {menu_file.filename}")
+        print("=" * 60)
 
         # Save the uploaded file with sanitized extension
         allowed_exts = ['pdf', 'jpg', 'jpeg', 'png', 'webp']
@@ -9384,9 +7646,10 @@ async def create_vendor_public_with_menu(
         file_path = secure_file_path(uploads_dir, unique_filename)
 
         with open(file_path, "wb") as buffer:
+            content = await menu_file.read()
             buffer.write(content)
 
-        logger.info(f"Menu file saved: {file_path}")
+        print(f"📁 Menu file saved: {file_path}")
 
         # Check if email already exists
         if vendor_data.get('contact_email'):
@@ -9497,10 +7760,12 @@ async def create_vendor_public_with_menu(
     except HTTPException:
         raise
     except Exception as e:
-        # SECURITY: Log full traceback server-side but don't expose to client
-        logger.exception(f"Error creating vendor with menu: {str(e)}")
+        print(f"❌ ERROR creating vendor with menu: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 60)
         db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create vendor. Please try again or contact support.")
+        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
 
 @app.post("/api/vendors", response_model=VendorResponse)
 def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -9529,30 +7794,11 @@ def get_vendors(
 
     query = db.query(Vendor)
 
-    # SECURITY: Validate enum values to prevent 500 errors and potential injection
     if status:
-        try:
-            # Sanitize and validate status parameter
-            sanitized_status = sanitize_input(status).upper()
-            vendor_status = VendorStatus[sanitized_status]
-            query = query.filter(Vendor.onboarding_status == vendor_status)
-        except (KeyError, ValueError):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid status value. Valid values: {[s.name for s in VendorStatus]}"
-            )
+        query = query.filter(Vendor.onboarding_status == VendorStatus[status.upper()])
 
     if risk_rating:
-        try:
-            # Sanitize and validate risk_rating parameter
-            sanitized_rating = sanitize_input(risk_rating).upper()
-            rating = RiskRating[sanitized_rating]
-            query = query.filter(Vendor.risk_rating == rating)
-        except (KeyError, ValueError):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid risk_rating value. Valid values: {[r.name for r in RiskRating]}"
-            )
+        query = query.filter(Vendor.risk_rating == RiskRating[risk_rating.upper()])
 
     return query.order_by(Vendor.created_at.desc()).all()
 
@@ -9660,198 +7906,6 @@ def get_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return vendor
-
-
-@app.get("/api/vendors/{vendor_id}/analytics")
-def get_vendor_analytics(
-    vendor_id: int,
-    period: str = "today",  # today, week, month, year
-    db: Session = Depends(get_db)
-):
-    """
-    Get vendor analytics including revenue, orders, popular items, and performance metrics.
-    Used by iOS, Android, and Web Restaurant apps.
-
-    Returns:
-    - Key metrics: totalRevenue, totalOrders, averageOrderValue, averagePrepTime
-    - Change percentages compared to previous period
-    - Hourly distribution data for charts
-    - Popular items ranking
-    - Peak hours analysis
-    - Performance metrics: completion rate, on-time rate, rating
-    """
-    from models import Vendor, Order, OrderStatus
-    from datetime import datetime, timedelta
-    from collections import defaultdict
-
-    # Verify vendor exists
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    # Calculate period boundaries
-    now = datetime.utcnow()
-    if period == "today":
-        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        prev_start = period_start - timedelta(days=1)
-        prev_end = period_start
-    elif period == "week":
-        period_start = now - timedelta(days=7)
-        prev_start = period_start - timedelta(days=7)
-        prev_end = period_start
-    elif period == "month":
-        period_start = now - timedelta(days=30)
-        prev_start = period_start - timedelta(days=30)
-        prev_end = period_start
-    elif period == "year":
-        period_start = now - timedelta(days=365)
-        prev_start = period_start - timedelta(days=365)
-        prev_end = period_start
-    else:
-        period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        prev_start = period_start - timedelta(days=1)
-        prev_end = period_start
-
-    # Fetch orders for current period
-    current_orders = db.query(Order).filter(
-        Order.vendor_id == vendor_id,
-        Order.created_at >= period_start
-    ).all()
-
-    # Fetch orders for previous period (for comparison)
-    previous_orders = db.query(Order).filter(
-        Order.vendor_id == vendor_id,
-        Order.created_at >= prev_start,
-        Order.created_at < prev_end
-    ).all()
-
-    # Calculate key metrics
-    completed_statuses = [OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.READY_FOR_PICKUP]
-
-    completed_orders = [o for o in current_orders if o.status in completed_statuses]
-    total_orders = len(current_orders)
-    total_revenue = sum(o.total_amount or 0 for o in completed_orders)
-    avg_order_value = total_revenue / total_orders if total_orders > 0 else 0
-
-    # Calculate average prep time (in minutes)
-    prep_times = []
-    for order in completed_orders:
-        if order.confirmed_at and order.created_at:
-            prep_time = (order.confirmed_at - order.created_at).total_seconds() / 60
-            if 0 < prep_time < 120:  # Reasonable prep time range
-                prep_times.append(prep_time)
-    avg_prep_time = int(sum(prep_times) / len(prep_times)) if prep_times else 20
-
-    # Calculate previous period metrics for comparison
-    prev_completed = [o for o in previous_orders if o.status in completed_statuses]
-    prev_revenue = sum(o.total_amount or 0 for o in prev_completed)
-    prev_order_count = len(previous_orders)
-    prev_avg_order = prev_revenue / prev_order_count if prev_order_count > 0 else 0
-
-    # Calculate change percentages
-    revenue_change = ((total_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else (100 if total_revenue > 0 else 0)
-    orders_change = ((total_orders - prev_order_count) / prev_order_count * 100) if prev_order_count > 0 else (100 if total_orders > 0 else 0)
-    avg_order_change = ((avg_order_value - prev_avg_order) / prev_avg_order * 100) if prev_avg_order > 0 else (100 if avg_order_value > 0 else 0)
-
-    # Calculate hourly distribution (9 AM to 9 PM)
-    hourly_data = []
-    hourly_counts = defaultdict(lambda: {"revenue": 0, "orders": 0})
-    for order in current_orders:
-        if order.created_at:
-            hour = order.created_at.hour
-            if 9 <= hour <= 21:
-                hourly_counts[hour]["orders"] += 1
-                hourly_counts[hour]["revenue"] += order.total_amount or 0
-
-    for hour in range(9, 22):
-        data = hourly_counts[hour]
-        hour_str = f"{hour % 12 or 12}{'PM' if hour >= 12 else 'AM'}"
-        avg_order = data["revenue"] / data["orders"] if data["orders"] > 0 else 0
-        hourly_data.append({
-            "hour": hour_str,
-            "revenue": round(data["revenue"], 2),
-            "orders": data["orders"],
-            "avgOrder": round(avg_order, 2)
-        })
-
-    # Calculate popular items
-    item_counts = defaultdict(lambda: {"name": "", "quantity": 0, "revenue": 0})
-    for order in current_orders:
-        if order.items:
-            for item in order.items:
-                name = item.get("name", "Unknown")
-                qty = item.get("quantity", 1)
-                price = item.get("price", 0) * qty
-                item_counts[name]["name"] = name
-                item_counts[name]["quantity"] += qty
-                item_counts[name]["revenue"] += price
-
-    popular_items = sorted(item_counts.values(), key=lambda x: x["quantity"], reverse=True)[:5]
-    if not popular_items:
-        popular_items = [{"name": "No orders yet", "quantity": 0, "revenue": 0}]
-
-    # Calculate peak hours
-    lunch_orders = sum(1 for o in current_orders if o.created_at and 11 <= o.created_at.hour <= 14)
-    dinner_orders = sum(1 for o in current_orders if o.created_at and 17 <= o.created_at.hour <= 21)
-
-    # Find actual peak hours
-    lunch_peak = max(range(11, 15), key=lambda h: hourly_counts[h]["orders"], default=12)
-    dinner_peak = max(range(17, 22), key=lambda h: hourly_counts[h]["orders"], default=18)
-
-    # Performance metrics
-    cancelled_orders = [o for o in current_orders if o.status == OrderStatus.CANCELLED]
-    total_processed = len(completed_orders) + len(cancelled_orders)
-    completion_rate = len(completed_orders) / total_processed if total_processed > 0 else 0.98
-
-    # On-time delivery rate (simplified - in production would check actual vs estimated)
-    delivered_orders = [o for o in current_orders if o.status == OrderStatus.DELIVERED]
-    on_time_rate = 0.94 if delivered_orders else 0.94  # Would calculate from actual delivery times
-
-    return {
-        "success": True,
-        "vendor_id": vendor_id,
-        "restaurant_name": vendor.restaurant_name,
-        "period": period,
-        "generated_at": now.isoformat(),
-
-        # Key metrics
-        "totalRevenue": round(total_revenue, 2),
-        "totalOrders": total_orders,
-        "averageOrderValue": round(avg_order_value, 2),
-        "averagePrepTime": avg_prep_time,
-
-        # Change percentages
-        "revenueChange": round(revenue_change, 1),
-        "ordersChange": round(orders_change, 1),
-        "avgOrderChange": round(avg_order_change, 1),
-        "prepTimeChange": 0,  # Would need historical prep time data
-
-        # Hourly distribution
-        "hourlyData": hourly_data,
-
-        # Popular items
-        "popularItems": popular_items,
-
-        # Peak hours
-        "peakHours": {
-            "lunch": {
-                "time": f"{lunch_peak % 12 or 12}PM - {(lunch_peak + 2) % 12 or 12}PM",
-                "orders": lunch_orders
-            },
-            "dinner": {
-                "time": f"{dinner_peak % 12 or 12}PM - {(dinner_peak + 2) % 12 or 12}PM",
-                "orders": dinner_orders
-            }
-        },
-
-        # Performance metrics
-        "performance": {
-            "orderCompletionRate": round(completion_rate, 3),
-            "onTimeDeliveryRate": round(on_time_rate, 3),
-            "customerRating": 4.8,  # Would come from reviews
-            "repeatCustomerRate": 0.67  # Would need customer history
-        }
-    }
 
 
 @app.get("/api/vendor/profile", response_model=VendorResponse)
@@ -10455,20 +8509,9 @@ async def upload_vendor_document(
     unique_filename = f"{vendor_id}_{safe_doc_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = secure_file_path(upload_dir, unique_filename)
 
-    # Read file content first for validation
-    content = await file.read()
-
-    # Validate file size (max 10MB)
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
-
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Save file
     with open(file_path, "wb") as f:
+        content = await file.read()
         f.write(content)
 
     # Update vendor document fields based on type
@@ -10545,78 +8588,15 @@ def update_vendor_documents(
 
 @app.delete("/api/vendors/{vendor_id}")
 def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from models import Vendor, VendorMenuItem, VendorMenuCategory, VendorPayout, Order
-    from sqlalchemy import text
+    from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Delete all related records using raw SQL to handle all FK constraints
-    # This ensures we clean up everything regardless of ORM model availability
-    tables_to_delete = [
-        "cart_items",  # Must delete before vendor_menu_items (FK to menu_item_id)
-        "vendor_menu_items",
-        "vendor_menu_categories",
-        "vendor_payouts",
-        "promotions",
-        "vendor_analytics",
-        "vendor_purchase_orders",
-    ]
-
-    tables_to_nullify = [
-        "orders",
-        "order_items",
-        "vendor_leads",
-        "reviews",
-        "chat_messages",
-    ]
-
-    # Delete from tables with non-nullable vendor_id
-    # SECURITY: Using parameterized queries with whitelisted table names to prevent SQL injection
-    ALLOWED_DELETE_TABLES = {"vendor_documents", "menu_items", "promotions", "reviews", "chat_messages"}
-    ALLOWED_NULLIFY_TABLES = {"orders", "invoices"}
-
-    for table in tables_to_delete:
-        if table not in ALLOWED_DELETE_TABLES:
-            continue  # Skip non-whitelisted tables
-        try:
-            # Use safe parameterized delete with verified table name
-            if table == "vendor_documents":
-                db.execute(text("DELETE FROM vendor_documents WHERE vendor_id = :vid"), {"vid": vendor_id})
-            elif table == "menu_items":
-                db.execute(text("DELETE FROM menu_items WHERE vendor_id = :vid"), {"vid": vendor_id})
-            elif table == "promotions":
-                db.execute(text("DELETE FROM promotions WHERE vendor_id = :vid"), {"vid": vendor_id})
-            elif table == "reviews":
-                db.execute(text("DELETE FROM reviews WHERE vendor_id = :vid"), {"vid": vendor_id})
-            elif table == "chat_messages":
-                db.execute(text("DELETE FROM chat_messages WHERE vendor_id = :vid"), {"vid": vendor_id})
-        except Exception:
-            pass  # Table might not exist
-
-    # Nullify vendor_id in tables that preserve history
-    for table in tables_to_nullify:
-        if table not in ALLOWED_NULLIFY_TABLES:
-            continue  # Skip non-whitelisted tables
-        try:
-            # Use safe parameterized update with verified table name
-            if table == "orders":
-                db.execute(text("UPDATE orders SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
-            elif table == "invoices":
-                db.execute(text("UPDATE invoices SET vendor_id = NULL WHERE vendor_id = :vid"), {"vid": vendor_id})
-        except Exception:
-            pass  # Table might not exist or column might not exist
-
-    # Delete associated user record
-    associated_user = db.query(User).filter(User.vendor_id == vendor_id).first()
-    if associated_user:
-        db.delete(associated_user)
-
-    # Finally delete the vendor
     db.delete(vendor)
     db.commit()
-    return {"message": "Vendor and all associated records deleted successfully"}
+    return {"message": "Vendor deleted successfully"}
 
 # ============================================================================
 # ADMIN DOCUMENT REVIEW ENDPOINTS
@@ -10768,20 +8748,9 @@ async def admin_upload_vendor_document(
     unique_filename = f"{vendor_id}_{document_type}_admin_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
 
-    # Read file content first for validation
-    content = await file.read()
-
-    # Validate file size (max 10MB)
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
-
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Save file
     with open(file_path, "wb") as f:
+        content = await file.read()
         f.write(content)
 
     print(f"📄 Admin uploaded document: {document_type} for vendor {vendor_id}")
@@ -11009,20 +8978,9 @@ async def vendor_upload_document(
     unique_filename = f"{vendor.id}_{document_type}_{uuid.uuid4().hex[:8]}.{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
 
-    # Read file content first for validation
-    content = await file.read()
-
-    # Validate file size (max 10MB)
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
-
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(content, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-
     # Save file
     with open(file_path, "wb") as f:
+        content = await file.read()
         f.write(content)
 
     print(f"📄 Vendor uploaded document: {document_type} for vendor {vendor.id}")
@@ -12098,7 +10056,7 @@ async def start_verification(
         ]
 
         result = await verifier.create_persona_inquiry(
-            reference_id=f"vendor_{vendor.id}",
+            reference_id=str(vendor.id),
             entity_type="vendor",
             email=vendor.contact_email,
             document_types=[DocumentType(dt) for dt in doc_types]
@@ -12125,7 +10083,7 @@ async def start_verification(
         ]
 
         result = await verifier.create_persona_inquiry(
-            reference_id=f"driver_{driver.id}",
+            reference_id=str(driver.id),
             entity_type="driver",
             email=driver.email,
             document_types=[DocumentType(dt) for dt in doc_types]
@@ -13106,7 +11064,7 @@ def get_featured_deals(db: Session = Depends(get_db)):
             {
                 "id": 1,
                 "title": "20% OFF Your First Order",
-                "description": "Welcome to Dollor.AI! Get 20% off your first food delivery order.",
+                "description": "Welcome to Dollor.ai! Get 20% off your first food delivery order.",
                 "image_url": None,
                 "discount_text": "20% OFF",
                 "restaurant_id": None,
@@ -13269,11 +11227,6 @@ async def upload_vendor_image(
     contents = await file.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB")
-
-    # SECURITY: Validate file content matches declared type (magic bytes)
-    is_valid, error_msg = validate_file_magic_bytes(contents, file.content_type, file.filename)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
 
     # Get vendor
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -13442,94 +11395,6 @@ async def android_create_order(order_data: CreateOrderRequest, db: Session = Dep
     Maps to: POST /api/erp/orders/create
     """
     return await erp_create_order(order_data=order_data, db=db)
-
-
-# ==================== SCHEDULED DELIVERY ====================
-
-class ScheduledDeliveryRequest(BaseModel):
-    """Request model for scheduling a future delivery"""
-    vendor_id: int
-    scheduled_for: str  # ISO 8601 datetime string (e.g., "2026-01-15T18:00:00Z")
-    items: list[dict[str, Any]] | None = None
-    delivery_address: dict[str, Any] | None = None
-    delivery_instructions: str | None = None
-    tip: float = 0.0
-
-
-@app.post("/api/orders/schedule")
-def schedule_delivery(
-    request: ScheduledDeliveryRequest,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Schedule a delivery for a future date/time.
-
-    Use cases:
-    - Pre-order breakfast/lunch for office
-    - Schedule catering orders
-    - Plan ahead for special occasions
-
-    The order will be sent to the restaurant at the appropriate time
-    based on their typical preparation time.
-    """
-    from datetime import datetime, timezone
-
-    # Step 1: Authenticate customer
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    # Step 2: Validate vendor exists
-    vendor = db.query(Vendor).filter(Vendor.id == request.vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Restaurant not found")
-
-    # Step 3: Parse and validate scheduled time
-    try:
-        scheduled_dt = datetime.fromisoformat(request.scheduled_for.replace('Z', '+00:00'))
-    except ValueError:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid datetime format. Use ISO 8601 (e.g., 2026-01-15T18:00:00Z)"
-        )
-
-    # Step 4: Ensure scheduled time is in the future (at least 30 minutes)
-    now = datetime.now(timezone.utc)
-    min_schedule_time = now + timedelta(minutes=30)
-
-    if scheduled_dt < min_schedule_time:
-        raise HTTPException(
-            status_code=422,
-            detail="Scheduled time must be at least 30 minutes in the future"
-        )
-
-    # Step 5: Ensure scheduled time is not too far in the future (max 7 days)
-    max_schedule_time = now + timedelta(days=7)
-    if scheduled_dt > max_schedule_time:
-        raise HTTPException(
-            status_code=422,
-            detail="Scheduled time cannot be more than 7 days in the future"
-        )
-
-    # Step 6: Check if restaurant accepts scheduled orders (placeholder - always true for now)
-    # In production, check vendor.accepts_scheduled_orders or similar field
-
-    # Step 7: Return schedule confirmation (actual order creation happens closer to time)
-    return {
-        "status": "scheduled",
-        "customer_id": customer.id,
-        "customer_email": customer.email,
-        "vendor_id": vendor.id,
-        "vendor_name": vendor.business_name or vendor.restaurant_name,
-        "scheduled_for": scheduled_dt.isoformat(),
-        "scheduled_for_local": scheduled_dt.strftime("%B %d, %Y at %I:%M %p"),
-        "items": request.items or [],
-        "delivery_address": request.delivery_address,
-        "delivery_instructions": request.delivery_instructions,
-        "tip": request.tip,
-        "message": f"Your order is scheduled for {scheduled_dt.strftime('%B %d at %I:%M %p')}. You will receive a confirmation when the restaurant accepts it."
-    }
 
 
 @app.get("/api/customer/orders")
@@ -15247,261 +13112,6 @@ async def set_default_card(
     return {"success": True, "message": "Default card updated", "card_id": card_id}
 
 
-# ==================== CUSTOMER PAYMENT METHODS (Auth Token Based) ====================
-# These endpoints use the customer's auth token instead of customer_id in URL
-# More secure pattern for mobile apps
-
-class PaymentMethodRequest(BaseModel):
-    type: str = "card"  # card, bank_account, etc.
-    token: str | None = None  # Stripe payment method token or card token
-    payment_method_id: str | None = None  # Stripe PaymentMethod ID (pm_xxx)
-    # Card details (for manual entry without Stripe.js)
-    card_number: str | None = None
-    exp_month: int | None = None
-    exp_year: int | None = None
-    cvc: str | None = None
-    # Metadata
-    brand: str | None = None
-    last4: str | None = None
-    is_default: bool | None = False
-
-
-@app.get("/api/customer/payment-methods")
-async def get_customer_payment_methods(
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Get all payment methods for the authenticated customer.
-    Uses Bearer token authentication.
-    """
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
-
-    saved_cards = customer.saved_cards or []
-
-    # Format response with payment methods
-    payment_methods = []
-    for card in saved_cards:
-        payment_methods.append({
-            "id": card.get("id"),
-            "type": "card",
-            "brand": card.get("brand", "unknown"),
-            "last4": card.get("last4", "****"),
-            "exp_month": card.get("exp_month"),
-            "exp_year": card.get("exp_year"),
-            "is_default": card.get("is_default", False)
-        })
-
-    return {
-        "payment_methods": payment_methods,
-        "count": len(payment_methods),
-        "customer_id": customer.id
-    }
-
-
-@app.post("/api/customer/payment-methods")
-async def add_customer_payment_method(
-    request: PaymentMethodRequest,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Add a new payment method for the authenticated customer.
-    Accepts Stripe token or payment method ID from client-side Stripe.js.
-
-    Request body:
-    - type: "card" (default)
-    - token: Stripe token (tok_xxx) or PaymentMethod ID (pm_xxx)
-    - brand: Card brand (visa, mastercard, amex, etc.)
-    - last4: Last 4 digits of card
-    """
-    import uuid
-    import stripe
-    import os
-
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
-
-    # Validate request
-    if request.type != "card":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Currently only 'card' payment method type is supported"
-        )
-
-    # Get or create Stripe customer
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_key_here")
-    stripe_customer_id = getattr(customer, 'stripe_customer_id', None)
-
-    try:
-        # If customer doesn't have a Stripe customer ID, create one
-        if not stripe_customer_id:
-            stripe_customer = stripe.Customer.create(
-                email=customer.email,
-                name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer",
-                metadata={"dollor_customer_id": str(customer.id)}
-            )
-            stripe_customer_id = stripe_customer.id
-            customer.stripe_customer_id = stripe_customer_id
-
-        # Attach payment method to customer
-        payment_method_id = request.payment_method_id or request.token
-        brand = request.brand or "visa"
-        last4 = request.last4 or "4242"
-        exp_month = request.exp_month or 12
-        exp_year = request.exp_year or 2027
-
-        if payment_method_id and payment_method_id.startswith("pm_"):
-            # It's a PaymentMethod ID - attach to customer
-            pm = stripe.PaymentMethod.attach(
-                payment_method_id,
-                customer=stripe_customer_id
-            )
-            brand = pm.card.brand if pm.card else brand
-            last4 = pm.card.last4 if pm.card else last4
-            exp_month = pm.card.exp_month if pm.card else exp_month
-            exp_year = pm.card.exp_year if pm.card else exp_year
-            card_id = pm.id
-        elif payment_method_id and payment_method_id.startswith("tok_"):
-            # It's a token - create a card source
-            source = stripe.Customer.create_source(
-                stripe_customer_id,
-                source=payment_method_id
-            )
-            brand = source.brand if hasattr(source, 'brand') else brand
-            last4 = source.last4 if hasattr(source, 'last4') else last4
-            exp_month = source.exp_month if hasattr(source, 'exp_month') else exp_month
-            exp_year = source.exp_year if hasattr(source, 'exp_year') else exp_year
-            card_id = source.id
-        else:
-            # No valid token - store locally with generated ID
-            card_id = f"card_{uuid.uuid4().hex[:16]}"
-
-        # Store card in customer's saved_cards
-        saved_cards = customer.saved_cards or []
-        is_default = len(saved_cards) == 0 or request.is_default
-
-        # If this is set as default, unset others
-        if is_default:
-            for card in saved_cards:
-                card["is_default"] = False
-
-        new_card = {
-            "id": card_id,
-            "type": "card",
-            "brand": brand,
-            "last4": last4,
-            "exp_month": exp_month,
-            "exp_year": exp_year,
-            "is_default": is_default,
-            "stripe_pm_id": payment_method_id
-        }
-
-        saved_cards.append(new_card)
-        customer.saved_cards = saved_cards
-        db.commit()
-
-        return {
-            "success": True,
-            "payment_method": new_card,
-            "message": "Payment method added successfully"
-        }
-
-    except stripe.error.StripeError as e:
-        # Handle Stripe errors gracefully
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Payment processing error: {str(e)}"
-        )
-    except Exception as e:
-        # For non-Stripe errors, still save locally if possible
-        import uuid
-
-        saved_cards = customer.saved_cards or []
-        is_default = len(saved_cards) == 0 or request.is_default
-
-        if is_default:
-            for card in saved_cards:
-                card["is_default"] = False
-
-        new_card = {
-            "id": f"card_{uuid.uuid4().hex[:16]}",
-            "type": "card",
-            "brand": request.brand or "visa",
-            "last4": request.last4 or "4242",
-            "exp_month": request.exp_month or 12,
-            "exp_year": request.exp_year or 2027,
-            "is_default": is_default,
-            "stripe_pm_id": request.payment_method_id or request.token
-        }
-
-        saved_cards.append(new_card)
-        customer.saved_cards = saved_cards
-        db.commit()
-
-        return {
-            "success": True,
-            "payment_method": new_card,
-            "message": "Payment method added (local storage)"
-        }
-
-
-@app.delete("/api/customer/payment-methods/{payment_method_id}")
-async def delete_customer_payment_method(
-    payment_method_id: str,
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Delete a payment method for the authenticated customer.
-    """
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
-        )
-
-    saved_cards = customer.saved_cards or []
-    original_count = len(saved_cards)
-
-    # Find and remove the payment method
-    removed_card = None
-    for card in saved_cards:
-        if card.get("id") == payment_method_id:
-            removed_card = card
-            break
-
-    if not removed_card:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Payment method not found"
-        )
-
-    saved_cards = [c for c in saved_cards if c.get("id") != payment_method_id]
-
-    # If deleted card was default, make first remaining card default
-    if removed_card.get("is_default") and saved_cards:
-        saved_cards[0]["is_default"] = True
-
-    customer.saved_cards = saved_cards
-    db.commit()
-
-    return {
-        "success": True,
-        "message": "Payment method deleted successfully"
-    }
-
-
 @app.post("/api/customer/orders/{order_id}/rate-driver")
 async def rate_order_driver(
     order_id: int,
@@ -15981,9 +13591,23 @@ async def proxy_customer_register(request: dict):
     return {"error": "Auth service unavailable", "fallback": True}
 
 
-# REMOVED: /api/erp/auth/password-reset/request - Dead proxy to non-existent auth-service
-# REMOVED: /api/erp/auth/password-reset/confirm - Dead proxy to non-existent auth-service
-# Use /api/customer/password-reset/request and /api/customer/password-reset/confirm instead
+@app.post("/api/erp/auth/password-reset/request")
+async def proxy_password_reset_request(request: dict):
+    """Proxy to auth-service: Request password reset"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/request", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
+
+@app.post("/api/erp/auth/password-reset/confirm")
+async def proxy_password_reset_confirm(request: dict):
+    """Proxy to auth-service: Confirm password reset"""
+    result = await proxy_request(AUTH_SERVICE_URL, "/api/auth/password-reset/confirm", method="POST", json_data=request)
+    if result:
+        return result
+    return {"error": "Auth service unavailable", "fallback": True}
+
 
 # ==================== ORDER SERVICE PROXY ====================
 
@@ -16426,6 +14050,147 @@ async def proxy_send_order_notification(request: dict):
     if result:
         return result
     return {"error": "Notification service unavailable", "fallback": True}
+
+
+# ==================== FCM TOKEN REGISTRATION ENDPOINTS ====================
+# These endpoints allow mobile apps to register FCM tokens for push notifications
+
+class FCMTokenRequest(BaseModel):
+    """Request body for FCM token registration"""
+    fcm_token: str = Field(..., min_length=10, max_length=500)
+    platform: Optional[str] = Field(None, pattern="^(ios|android)$")
+    device_id: Optional[str] = None
+
+
+@app.post("/api/erp/customers/{customer_id}/fcm-token")
+@app.post("/erp/customers/{customer_id}/fcm-token")
+def register_customer_fcm_token(
+    customer_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for customer push notifications"""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.push_token = token_request.fcm_token
+    if token_request.platform:
+        customer.platform = token_request.platform
+    if token_request.device_id:
+        customer.device_id = token_request.device_id
+    customer.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "customer_id": customer_id
+    }
+
+
+@app.post("/api/erp/drivers/{driver_id}/fcm-token")
+@app.post("/erp/drivers/{driver_id}/fcm-token")
+def register_driver_fcm_token(
+    driver_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for driver push notifications"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Update both push_token and fcm_token for driver (driver model has both)
+    driver.push_token = token_request.fcm_token
+    driver.fcm_token = token_request.fcm_token
+    driver.fcm_token_updated_at = datetime.utcnow()
+    if token_request.platform:
+        driver.platform = token_request.platform
+    driver.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "driver_id": driver_id
+    }
+
+
+@app.post("/api/erp/vendors/{vendor_id}/fcm-token")
+@app.post("/erp/vendors/{vendor_id}/fcm-token")
+def register_vendor_fcm_token(
+    vendor_id: int,
+    token_request: FCMTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """Register FCM token for vendor/restaurant push notifications"""
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.push_token = token_request.fcm_token
+    if token_request.platform:
+        vendor.platform = token_request.platform
+    if token_request.device_id:
+        vendor.mobile_device_id = token_request.device_id
+    vendor.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "vendor_id": vendor_id
+    }
+
+
+@app.delete("/api/erp/customers/{customer_id}/fcm-token")
+@app.delete("/erp/customers/{customer_id}/fcm-token")
+def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for customer (on logout)"""
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.push_token = None
+    customer.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "customer_id": customer_id}
+
+
+@app.delete("/api/erp/drivers/{driver_id}/fcm-token")
+@app.delete("/erp/drivers/{driver_id}/fcm-token")
+def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for driver (on logout)"""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    driver.push_token = None
+    driver.fcm_token = None
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "driver_id": driver_id}
+
+
+@app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
+@app.delete("/erp/vendors/{vendor_id}/fcm-token")
+def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db)):
+    """Unregister FCM token for vendor (on logout)"""
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    vendor.push_token = None
+    vendor.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "FCM token unregistered", "vendor_id": vendor_id}
 
 
 # ==================== RATING SERVICE PROXY ====================
@@ -16994,168 +14759,51 @@ except ImportError as e:
 
 
 # ==================== PUSH NOTIFICATION SERVICE ====================
-# Enterprise API for mobile push notification token management
-# Used by: iOS App, Android App (Customer, Driver, Partner)
-#
-# Endpoints:
-#   POST   /api/notifications/tokens  - Register FCM/APNs device token
-#   DELETE /api/notifications/tokens  - Unregister token (logout)
-#
-# Legacy aliases (for backward compatibility):
-#   POST   /api/notifications/register-token
-#   DELETE /api/notifications/unregister-token
-# ==================================================================
-
-class RegisterPushTokenRequest(BaseModel):
-    """
-    Request body for push notification token registration.
-
-    Used by mobile apps (iOS/Android) to register FCM device tokens
-    for receiving push notifications.
-    """
-    device_token: str = Field(
-        ...,
-        min_length=10,
-        max_length=500,
-        description="FCM/APNs device token from Firebase"
-    )
-    platform: str = Field(
-        ...,
-        pattern="^(ios|android)$",
-        description="Mobile platform: 'ios' or 'android'"
-    )
-    user_type: str = Field(
-        ...,
-        pattern="^(customer|driver|vendor)$",
-        description="User type: 'customer', 'driver', or 'vendor'"
-    )
-    user_id: int = Field(
-        ...,
-        gt=0,
-        description="User ID from authentication"
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "device_token": "fMHk9...",
-                "platform": "android",
-                "user_type": "customer",
-                "user_id": 123
-            }
-        }
-
-
-class PushTokenResponse(BaseModel):
-    """Standard response for push token operations"""
-    success: bool
-    message: str
-    user_type: Optional[str] = None
-    user_id: Optional[int] = None
-
-
-@app.post("/api/notifications/tokens", response_model=PushTokenResponse, tags=["Notifications"])
-@app.post("/api/notifications/register-token", response_model=PushTokenResponse, include_in_schema=False)
+@app.post("/api/notifications/register-token")
 def register_push_token(
-    request: RegisterPushTokenRequest,
+    device_token: str = Form(...),
+    platform: str = Form(...),  # ios or android
+    user_type: str = Form(...),  # customer, driver, restaurant
+    user_id: int = Form(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Register a device token for push notifications.
+    """Register a device token for push notifications."""
+    # Store token in database (update existing or create new)
+    if user_type == "customer":
+        customer = db.query(Customer).filter(Customer.id == user_id).first()
+        if customer:
+            customer.push_token = device_token
+            customer.platform = platform
+            db.commit()
+    elif user_type == "driver":
+        driver = db.query(Driver).filter(Driver.id == user_id).first()
+        if driver:
+            driver.push_token = device_token
+            driver.platform = platform
+            db.commit()
 
-    This endpoint stores the FCM/APNs device token for the specified user,
-    enabling the platform to send push notifications to their device.
-
-    Called automatically by mobile apps on:
-    - App launch (if logged in)
-    - User login
-    - Token refresh
-    """
-    if request.user_type == "customer":
-        customer = db.query(Customer).filter(Customer.id == request.user_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-        customer.push_token = request.device_token
-        customer.platform = request.platform
-        db.commit()
-        return PushTokenResponse(
-            success=True,
-            message="Push token registered",
-            user_type="customer",
-            user_id=request.user_id
-        )
-
-    elif request.user_type == "driver":
-        driver = db.query(Driver).filter(Driver.id == request.user_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-        driver.push_token = request.device_token
-        driver.platform = request.platform
-        db.commit()
-        return PushTokenResponse(
-            success=True,
-            message="Push token registered",
-            user_type="driver",
-            user_id=request.user_id
-        )
-
-    elif request.user_type == "vendor":
-        vendor = db.query(Vendor).filter(Vendor.id == request.user_id).first()
-        if not vendor:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-        vendor.push_token = request.device_token
-        vendor.platform = request.platform
-        db.commit()
-        return PushTokenResponse(
-            success=True,
-            message="Push token registered",
-            user_type="vendor",
-            user_id=request.user_id
-        )
-
-    raise HTTPException(status_code=400, detail=f"Invalid user_type: {request.user_type}")
+    return {"success": True, "message": "Push token registered"}
 
 
-@app.delete("/api/notifications/tokens", response_model=PushTokenResponse, tags=["Notifications"])
-@app.delete("/api/notifications/unregister-token", response_model=PushTokenResponse, include_in_schema=False)
+@app.delete("/api/notifications/unregister-token")
 def unregister_push_token(
-    user_type: str = Query(..., pattern="^(customer|driver|vendor)$", description="User type"),
-    user_id: int = Query(..., gt=0, description="User ID"),
+    user_type: str = Query(...),
+    user_id: int = Query(...),
     db: Session = Depends(get_db)
 ):
-    """
-    Unregister a device token (on logout).
-
-    Removes the push token for the specified user, preventing further
-    push notifications to their device until they log in again.
-
-    Called automatically by mobile apps on user logout.
-    """
+    """Unregister a device token (on logout)."""
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
         if customer:
             customer.push_token = None
             db.commit()
-            return PushTokenResponse(success=True, message="Push token unregistered", user_type="customer", user_id=user_id)
-        raise HTTPException(status_code=404, detail="Customer not found")
-
     elif user_type == "driver":
         driver = db.query(Driver).filter(Driver.id == user_id).first()
         if driver:
             driver.push_token = None
             db.commit()
-            return PushTokenResponse(success=True, message="Push token unregistered", user_type="driver", user_id=user_id)
-        raise HTTPException(status_code=404, detail="Driver not found")
 
-    elif user_type == "vendor":
-        vendor = db.query(Vendor).filter(Vendor.id == user_id).first()
-        if vendor:
-            vendor.push_token = None
-            db.commit()
-            return PushTokenResponse(success=True, message="Push token unregistered", user_type="vendor", user_id=user_id)
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    raise HTTPException(status_code=400, detail=f"Invalid user_type: {user_type}")
+    return {"success": True, "message": "Push token unregistered"}
 
 
 # ==================== LEGAL DOCUMENT ENDPOINTS ====================
@@ -17182,7 +14830,7 @@ def get_terms_of_service():
                 }
             },
             "key_points": [
-                "Dollor.AI is a technology matchmaking platform, not a delivery or transportation company",
+                "Dollor.ai is a technology matchmaking platform, not a delivery or transportation company",
                 "Drivers are independent contractors, not employees",
                 "Flat $1 matchmaking fee - no percentage commissions",
                 "100% of tips go directly to drivers",
@@ -17221,6 +14869,435 @@ def get_privacy_policy():
         ],
         "contact": "privacy@dollor.ai"
     }
+
+
+# ==================== DEMO ACCOUNT SETUP (App Store Review) ====================
+@app.post("/api/demo/setup")
+def setup_demo_accounts(db: Session = Depends(get_db)):
+    """Create demo accounts for App Store/Play Store review."""
+    results = {"created": [], "existing": [], "errors": []}
+
+    # --- Demo Customer ---
+    try:
+        customer_email = "demo.customer@dollor.ai"
+        existing = db.query(Customer).filter(Customer.email == customer_email).first()
+        if not existing:
+            demo_customer = Customer(
+                customer_id="DEMO-CUST-001",
+                first_name="Demo",
+                last_name="Customer",
+                email=customer_email,
+                phone="+14155551001",
+                password_hash=get_password_hash("DemoCustomer2025!"),
+                default_address={"street": "123 Market St", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+                is_active=True,
+                is_verified=True,
+                loyalty_points=500,
+                loyalty_tier="gold",
+                total_orders=25,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_customer)
+            db.commit()
+            results["created"].append("customer")
+        else:
+            # Update password to ensure it matches (for existing accounts)
+            # Use explicit SQL UPDATE to ensure the change is applied
+            new_hash = get_password_hash("DemoCustomer2025!")
+            db.execute(
+                text("UPDATE customers SET password_hash = :hash, is_active = true WHERE email = :email"),
+                {"hash": new_hash, "email": customer_email}
+            )
+            db.commit()
+            results["existing"].append("customer")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"customer: {str(e)}")
+
+    # --- Demo Driver (Driver + User) ---
+    try:
+        driver_email = "demo.driver@dollor.ai"
+        existing_driver = db.query(Driver).filter(Driver.email == driver_email).first()
+        if not existing_driver:
+            demo_driver = Driver(
+                driver_id="DEMO-DRV-001",
+                first_name="Demo",
+                last_name="Driver",
+                email=driver_email,
+                phone="+14155551002",
+                password_hash=get_password_hash("DemoDriver2025!"),
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                vehicle_type="car",
+                vehicle_make="Toyota",
+                vehicle_model="Camry",
+                vehicle_year=2022,
+                vehicle_color="Silver",
+                license_plate="DEMO123",
+                drivers_license=True,
+                insurance=True,
+                background_check=True,
+                status=DriverStatus.APPROVED,
+                rating=4.9,
+                total_deliveries=150,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_driver)
+            db.flush()  # Get driver.id before creating User
+            # Create User record for driver login (required for /api/auth/driver/login)
+            driver_user = User(
+                email=driver_email,
+                password_hash=get_password_hash("DemoDriver2025!"),
+                full_name="Demo Driver",
+                role=UserRole.DRIVER,
+                driver_id=demo_driver.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(driver_user)
+            db.commit()
+            results["created"].append("driver")
+        else:
+            # Ensure User record exists for existing driver
+            existing_user = db.query(User).filter(User.email == driver_email).first()
+            if not existing_user:
+                driver_user = User(
+                    email=driver_email,
+                    password_hash=get_password_hash("DemoDriver2025!"),
+                    full_name="Demo Driver",
+                    role=UserRole.DRIVER,
+                    driver_id=existing_driver.id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(driver_user)
+                db.commit()
+                results["created"].append("driver_user")
+            else:
+                # Update password to ensure it matches
+                existing_user.password_hash = get_password_hash("DemoDriver2025!")
+                existing_user.driver_id = existing_driver.id
+                existing_user.role = UserRole.DRIVER
+                db.commit()
+            results["existing"].append("driver")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"driver: {str(e)}")
+
+    # --- Demo Restaurant (Vendor + User) ---
+    try:
+        vendor_email = "demo.restaurant@dollor.ai"
+        existing = db.query(Vendor).filter(Vendor.contact_email == vendor_email).first()
+        if not existing:
+            demo_vendor = Vendor(
+                restaurant_name="Demo Restaurant",
+                company_name="Demo Restaurant LLC",
+                contact_email=vendor_email,
+                contact_phone="+14155551003",
+                contact_name="Demo Owner",
+                street="456 Demo Ave",
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                cuisine_type="American",
+                onboarding_status="APPROVED",
+                is_online=True,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_vendor)
+            db.flush()
+            vendor_user = User(
+                email=vendor_email,
+                password_hash=get_password_hash("DemoRestaurant2025!"),
+                full_name="Demo Owner",
+                role=UserRole.VENDOR,
+                vendor_id=demo_vendor.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(vendor_user)
+            db.commit()
+            results["created"].append("restaurant")
+        else:
+            # Ensure User record exists for existing vendor
+            existing_user = db.query(User).filter(User.email == vendor_email).first()
+            if not existing_user:
+                vendor_user = User(
+                    email=vendor_email,
+                    password_hash=get_password_hash("DemoRestaurant2025!"),
+                    full_name="Demo Owner",
+                    role=UserRole.VENDOR,
+                    vendor_id=existing.id,
+                    created_at=datetime.utcnow()
+                )
+                db.add(vendor_user)
+                db.commit()
+                results["created"].append("restaurant_user")
+            else:
+                # Update password to ensure it matches
+                existing_user.password_hash = get_password_hash("DemoRestaurant2025!")
+                existing_user.vendor_id = existing.id
+                existing_user.role = UserRole.VENDOR
+                db.commit()
+            results["existing"].append("restaurant")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"restaurant: {str(e)}")
+
+    # --- Production Admin (support@dollor.ai) ---
+    try:
+        admin_email = "support@dollor.ai"
+        existing = db.query(User).filter(User.email == admin_email).first()
+        if not existing:
+            admin_user = User(
+                email=admin_email,
+                password_hash=get_password_hash("DollorAdmin2026!"),
+                full_name="Dollor Admin",
+                role=UserRole.ADMIN,
+                created_at=datetime.utcnow()
+            )
+            db.add(admin_user)
+            db.commit()
+            results["created"].append("admin")
+        else:
+            # Update password to ensure it matches
+            existing.password_hash = get_password_hash("DollorAdmin2026!")
+            existing.role = UserRole.ADMIN
+            db.commit()
+            results["existing"].append("admin")
+    except Exception as e:
+        db.rollback()
+        results["errors"].append(f"admin: {str(e)}")
+
+    return {
+        "success": len(results["errors"]) == 0,
+        "results": results,
+        "credentials": {
+            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
+            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
+        }
+    }
+
+
+@app.post("/api/demo/recreate-customer")
+def recreate_demo_customer(db: Session = Depends(get_db)):
+    """Delete and recreate demo customer account to fix corrupted data."""
+    try:
+        # Delete existing demo customer
+        db.execute(text("DELETE FROM customers WHERE email = 'demo.customer@dollor.ai'"))
+        db.commit()
+
+        # Create fresh demo customer (password without special chars for compatibility)
+        demo_password = "DemoCustomer2025"
+        new_hash = get_password_hash(demo_password)
+        demo_customer = Customer(
+            customer_id="DEMO-CUST-001",
+            first_name="Demo",
+            last_name="Customer",
+            email="demo.customer@dollor.ai",
+            phone="+14155551001",
+            password_hash=new_hash,
+            default_address={"street": "123 Market St", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+            is_active=True,
+            is_verified=True,
+            loyalty_points=500,
+            loyalty_tier="gold",
+            total_orders=25,
+            created_at=datetime.utcnow()
+        )
+        db.add(demo_customer)
+        db.commit()
+        db.refresh(demo_customer)
+
+        # Verify password works
+        if verify_password(demo_password, demo_customer.password_hash):
+            return {
+                "success": True,
+                "customer_id": demo_customer.id,
+                "email": "demo.customer@dollor.ai",
+                "password": demo_password,
+                "message": "Demo customer recreated and verified"
+            }
+        else:
+            return {"success": False, "error": "Password verification failed after creation"}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/demo/force-reset-passwords")
+def force_reset_demo_passwords(db: Session = Depends(get_db)):
+    """Force reset all demo account passwords and verify they work."""
+    results = {"reset": [], "verified": [], "failed": []}
+
+    demo_accounts = [
+        {"type": "customer", "email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!", "table": "customers"},
+        {"type": "driver", "email": "demo.driver@dollor.ai", "password": "DemoDriver2025!", "table": "users"},
+        {"type": "vendor", "email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!", "table": "users"},
+        {"type": "admin", "email": "support@dollor.ai", "password": "DollorAdmin2026!", "table": "users"},
+    ]
+
+    for account in demo_accounts:
+        try:
+            # Generate fresh password hash
+            new_hash = get_password_hash(account["password"])
+
+            # Update using raw SQL
+            db.execute(
+                text(f"UPDATE {account['table']} SET password_hash = :hash WHERE email = :email"),
+                {"hash": new_hash, "email": account["email"]}
+            )
+            db.commit()
+            results["reset"].append(account["type"])
+
+            # Verify password works
+            if account["table"] == "customers":
+                record = db.query(Customer).filter(Customer.email == account["email"]).first()
+            else:
+                record = db.query(User).filter(User.email == account["email"]).first()
+
+            if record and verify_password(account["password"], record.password_hash):
+                results["verified"].append(account["type"])
+            else:
+                results["failed"].append(f"{account['type']}: verification failed")
+
+        except Exception as e:
+            db.rollback()
+            results["failed"].append(f"{account['type']}: {str(e)}")
+
+    return {
+        "success": len(results["failed"]) == 0,
+        "results": results,
+        "message": "All demo passwords reset and verified" if len(results["failed"]) == 0 else "Some accounts failed",
+        "credentials": {
+            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
+            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
+            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
+        }
+    }
+
+
+@app.post("/api/demo/setup-support-customer")
+def setup_support_customer(db: Session = Depends(get_db)):
+    """
+    Create or update support@dollor.ai as a customer account for web login testing.
+
+    IMPORTANT: Creates records in BOTH tables to work with:
+    - main_new.py (queries customers table directly)
+    - auth-service microservice (queries users table with role='CUSTOMER')
+    """
+    try:
+        customer_email = "support@dollor.ai"
+        customer_password = "DemoDollor123!"
+        new_hash = get_password_hash(customer_password)
+
+        # Check if customer exists in customers table
+        existing_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+
+        # Check if user exists in users table
+        existing_user = db.execute(
+            text("SELECT id, customer_id FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+
+        customer_id = None
+
+        if existing_customer:
+            # Update existing customer's password
+            db.execute(
+                text("UPDATE customers SET password_hash = :hash, is_active = true WHERE email = :email"),
+                {"hash": new_hash, "email": customer_email}
+            )
+            customer_id = existing_customer.id
+        else:
+            # Create new customer record
+            customer_code = f"SUPP-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            new_customer = Customer(
+                customer_id=customer_code,
+                first_name="Support",
+                last_name="Admin",
+                email=customer_email,
+                phone="+14155550000",
+                password_hash=new_hash,
+                default_address={"street": "1 Dollor Plaza", "city": "San Francisco", "state": "CA", "zip_code": "94102"},
+                is_active=True,
+                is_verified=True,
+                loyalty_points=1000,
+                loyalty_tier="platinum",
+                total_orders=0,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_customer)
+            db.flush()  # Get the ID without committing
+            customer_id = new_customer.id
+
+        # Now handle the users table (for auth-service microservice compatibility)
+        if existing_user:
+            # Update existing user's password and link to customer
+            db.execute(
+                text("""
+                    UPDATE users
+                    SET password_hash = :hash, customer_id = :customer_id, role = 'CUSTOMER'
+                    WHERE email = :email
+                """),
+                {"hash": new_hash, "email": customer_email, "customer_id": customer_id}
+            )
+        else:
+            # Create new user record linked to customer
+            db.execute(
+                text("""
+                    INSERT INTO users (email, password_hash, full_name, role, customer_id, created_at)
+                    VALUES (:email, :hash, :full_name, 'CUSTOMER', :customer_id, NOW())
+                """),
+                {
+                    "email": customer_email,
+                    "hash": new_hash,
+                    "full_name": "Support Admin",
+                    "customer_id": customer_id
+                }
+            )
+
+        db.commit()
+
+        # Verify password works in customers table
+        updated_customer = db.query(Customer).filter(Customer.email == customer_email).first()
+        customer_verified = verify_password(customer_password, updated_customer.password_hash) if updated_customer else False
+
+        # Verify password works in users table
+        user_row = db.execute(
+            text("SELECT password_hash FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+        user_verified = verify_password(customer_password, user_row[0]) if user_row else False
+
+        if customer_verified and user_verified:
+            return {
+                "success": True,
+                "action": "created" if not existing_customer else "updated",
+                "customer_id": customer_id,
+                "email": customer_email,
+                "password": customer_password,
+                "message": "Support customer account created/updated in BOTH customers and users tables",
+                "tables_updated": ["customers", "users"],
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Password verification failed",
+                "verification": {
+                    "customers_table": customer_verified,
+                    "users_table": user_verified
+                }
+            }
+
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
 
 
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
@@ -17264,30 +15341,6 @@ def serve_terms_of_service_page():
             return HTMLResponse(content=f.read(), status_code=200)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Terms of service page not found")
-
-
-@app.get("/driver-terms", response_class=HTMLResponse)
-def serve_driver_terms_page():
-    """Serve Driver Terms of Service HTML page for App Store compliance."""
-    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
-    driver_terms_file = os.path.join(legal_dir, "driver-terms.html")
-    try:
-        with open(driver_terms_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read(), status_code=200)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Driver terms page not found")
-
-
-@app.get("/restaurant-terms", response_class=HTMLResponse)
-def serve_restaurant_terms_page():
-    """Serve Restaurant Partner Terms HTML page for App Store compliance."""
-    legal_dir = os.path.join(os.path.dirname(__file__), "legal")
-    restaurant_terms_file = os.path.join(legal_dir, "restaurant-terms.html")
-    try:
-        with open(restaurant_terms_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read(), status_code=200)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Restaurant terms page not found")
 
 
 # Fare estimate endpoint for Android
@@ -17388,7 +15441,7 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
     try:
         # Get orders that are ready for pickup and don't have a driver assigned
         orders = db.query(Order).filter(
-            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
+            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY]),
             Order.driver_id.is_(None)
         ).limit(20).all()
 
@@ -18212,12 +16265,7 @@ def get_admin_drivers(
                 "documents_verified": d.documents_verified,
                 "stripe_onboarded": d.stripe_onboarded,
                 "created_at": d.created_at.isoformat() if d.created_at else None,
-                "photo_url": d.photo_url,
-                # Document URLs for admin review
-                "drivers_license": d.drivers_license,
-                "drivers_license_url": d.drivers_license_url,
-                "insurance": d.insurance,
-                "insurance_url": d.insurance_url
+                "photo_url": d.photo_url
             }
             for d in drivers
         ],
@@ -18286,19 +16334,8 @@ def admin_set_driver_documents(
 # ============================================================
 
 @app.get("/api/admin/database/schema")
-def get_database_schema(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get complete database schema - all tables and columns - ADMIN ONLY"""
-    # SECURITY: Verify admin authentication
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        role = payload.get("role")
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+def get_database_schema(db: Session = Depends(get_db)):
+    """Get complete database schema - all tables and columns"""
     from sqlalchemy import text
 
     try:
@@ -18344,19 +16381,8 @@ def get_database_schema(
 
 
 @app.get("/api/admin/api/routes")
-def get_all_api_routes(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Get all API routes with methods and paths - ADMIN ONLY"""
-    # SECURITY: Verify admin role
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        role = payload.get("role")
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+def get_all_api_routes():
+    """Get all API routes with methods and paths"""
     routes = []
     route_set = set()  # For duplicate detection
 
@@ -18397,19 +16423,8 @@ def get_all_api_routes(
 
 
 @app.get("/api/admin/api/duplicates")
-def get_duplicate_routes(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    """Find duplicate API routes and schemas - ADMIN ONLY"""
-    # SECURITY: Verify admin role
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        role = payload.get("role")
-        if role != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+def get_duplicate_routes():
+    """Find duplicate API routes and schemas"""
     from collections import defaultdict
 
     # Find duplicate routes
@@ -18448,72 +16463,6 @@ def get_duplicate_routes(
             "total_paths": len(paths)
         }
     }
-
-
-# ==================== DATABASE MIGRATION ENDPOINT ====================
-# One-time use endpoint to add new columns - requires admin secret
-
-MIGRATION_SECRET = os.getenv("MIGRATION_SECRET", "dollor-migrate-2026-secure")
-
-@app.post("/api/admin/run-migration")
-def run_database_migration(
-    secret: str = Header(..., alias="X-Migration-Secret"),
-    db: Session = Depends(get_db)
-):
-    """
-    Run database migration to add activation columns.
-    Requires X-Migration-Secret header with correct value.
-    This endpoint should be called once after deployment.
-    """
-    if secret != MIGRATION_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid migration secret")
-
-    results = []
-
-    try:
-        # Use schema inspection to check columns (no transaction issues)
-        from sqlalchemy import inspect
-        inspector = inspect(db.bind)
-        columns = [col['name'] for col in inspector.get_columns('drivers')]
-
-        # Check and add activation_token column
-        if 'activation_token' in columns:
-            results.append("activation_token column already exists")
-        else:
-            db.execute(text("ALTER TABLE drivers ADD COLUMN activation_token VARCHAR(64) UNIQUE"))
-            db.commit()
-            results.append("activation_token column added successfully")
-
-        # Check and add terms_accepted_at column
-        if 'terms_accepted_at' in columns:
-            results.append("terms_accepted_at column already exists")
-        else:
-            db.execute(text("ALTER TABLE drivers ADD COLUMN terms_accepted_at TIMESTAMP"))
-            db.commit()
-            results.append("terms_accepted_at column added successfully")
-
-        # Create index on activation_token
-        try:
-            db.execute(text("CREATE INDEX IF NOT EXISTS ix_drivers_activation_token ON drivers(activation_token)"))
-            db.commit()
-            results.append("Index created on activation_token")
-        except Exception as e:
-            db.rollback()
-            results.append(f"Index may already exist: {str(e)}")
-
-        return {
-            "success": True,
-            "message": "Migration completed",
-            "results": results
-        }
-
-    except Exception as e:
-        db.rollback()
-        return {
-            "success": False,
-            "error": str(e),
-            "results": results
-        }
 
 
 if __name__ == "__main__":

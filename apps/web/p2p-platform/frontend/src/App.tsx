@@ -34,6 +34,7 @@ import RestaurantApplication from './app/screens/public/RestaurantApplication';
 import DriverApplication from './app/screens/public/DriverApplication';
 import HelpSupport from './app/screens/public/HelpSupport';
 import ReferAndEarn from './app/screens/public/ReferAndEarn';
+import RefundPolicy from './app/screens/public/RefundPolicy';
 import InvestorDeck from './app/screens/public/InvestorDeck';
 import InvestorDeck2026 from './app/screens/public/InvestorDeck2026';
 
@@ -134,6 +135,8 @@ function App() {
         {/* Public Pages */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/refund" element={<RefundPolicy />} />
+        <Route path="/refunds" element={<RefundPolicy />} />
         <Route path="/help" element={<HelpSupport />} />
         <Route path="/support" element={<HelpSupport />} />
         <Route path="/refer" element={<ReferAndEarn />} />
