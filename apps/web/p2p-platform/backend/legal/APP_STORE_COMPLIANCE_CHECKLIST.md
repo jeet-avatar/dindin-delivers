@@ -2,7 +2,7 @@
 ## Matchmaking Platform - iOS & Android
 
 **Document ID:** APP-COMPLIANCE-001
-**Date:** December 24, 2024
+**Date:** January 23, 2026 (Updated)
 **Platform Type:** Transportation Network Company (TNC) / Matchmaking
 
 ---
@@ -103,11 +103,12 @@ WHERE YOUR MONEY GOES:
 | Third-party sharing disclosure | ✅ | ✅ | PASS |
 | "Do not sell" disclosure | ✅ | ✅ | PASS |
 
-### Privacy Policy URLs
+### Legal Page URLs
 
 ```
-Production: https://api.dollor.ai/privacy
-Staging: https://d3kuu45w6kl8hr.cloudfront.net/privacy.html
+Privacy Policy: https://dollor.ai/privacy
+Terms of Service: https://dollor.ai/terms
+Refund Policy: https://dollor.ai/refund
 ```
 
 ### Data Collection Disclosed
@@ -129,6 +130,7 @@ Staging: https://d3kuu45w6kl8hr.cloudfront.net/privacy.html
 | Payment processor disclosed | ✅ (Stripe) | ✅ (Stripe) | PASS |
 | Security measures stated | ✅ | ✅ | PASS |
 | Refund policy accessible | ✅ | ✅ | PASS |
+| Refund policy URL | ✅ https://dollor.ai/refund | ✅ | PASS |
 | Processing fees explained | ✅ | ✅ | PASS |
 | PCI compliance mentioned | ✅ | ✅ | PASS |
 
@@ -270,13 +272,16 @@ NSLocationAlwaysUsageDescription:
 
 - [x] APK/AAB signed with release key
 - [x] AndroidManifest.xml permissions correct
-- [x] Data Safety form completed
-- [x] Content rating questionnaire completed
-- [x] Privacy Policy URL configured
-- [x] Terms URL configured
+- [ ] Data Safety form completed (IN PLAY CONSOLE - see DATA_SAFETY_DECLARATION.md)
+- [ ] Content rating questionnaire completed (IN PLAY CONSOLE)
+- [x] Privacy Policy URL configured (https://dollor.ai/privacy)
+- [x] Terms URL configured (https://dollor.ai/terms)
+- [x] Refund Policy URL configured (https://dollor.ai/refund)
 - [x] Demo accounts documented
+- [x] Store listing descriptions created (see store-assets/*/listing.md)
 - [ ] Firebase configs for production
 - [ ] Google Maps API key for production
+- [ ] Deobfuscation file (mapping.txt) upload configured
 
 ---
 
@@ -410,6 +415,48 @@ NSLocationAlwaysUsageDescription:
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** December 24, 2024
+**Document Version:** 1.1
+**Last Updated:** January 23, 2026
 **Next Review:** Before each major app update
+
+---
+
+## APPENDIX B: STORE ASSETS
+
+### Play Store Listing Files (Created Jan 2026)
+
+| App | File | Status |
+|-----|------|--------|
+| Customer | `store-assets/customer/listing.md` | ✅ Complete |
+| Driver | `store-assets/driver/listing.md` | ✅ Complete |
+| Partner | `store-assets/partner/listing.md` | ✅ Complete |
+
+### Data Safety Declaration
+
+| File | Purpose |
+|------|---------|
+| `store-assets/DATA_SAFETY_DECLARATION.md` | Play Console Data Safety form reference |
+
+### Legal Pages (Web)
+
+| Page | React Component | HTML Fallback |
+|------|-----------------|---------------|
+| Privacy Policy | `PrivacyPolicy.tsx` | `backend/legal/privacy.html` |
+| Terms of Service | `TermsOfService.tsx` | `backend/legal/terms.html` |
+| Refund Policy | `RefundPolicy.tsx` | `backend/legal/refund.html` |
+
+### Screenshot Requirements
+
+| App | Required | Current | Status |
+|-----|----------|---------|--------|
+| Customer | 4-8 | 2 | ⚠️ Need more |
+| Driver | 4-8 | 0 | ❌ Missing |
+| Partner | 4-8 | 0 | ❌ Missing |
+
+### Feature Graphics (1024x500)
+
+| App | Status |
+|-----|--------|
+| Customer | ✅ Exists |
+| Driver | ❌ Missing |
+| Partner | ❌ Missing |
