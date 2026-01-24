@@ -1,33 +1,26 @@
 # Matchfile - Fastlane Match configuration for certificate/profile sync
+# Production account: support@dollor.ai
 
-# Git repository for storing certificates and profiles
-# You'll need to create a private GitHub repo for this
 git_url("https://github.com/jeet-avatar/ios-certificates.git")
-
-# Git branch
 git_branch("main")
-
-# Storage mode
 storage_mode("git")
 
-# Type of provisioning profiles to sync (development, appstore, adhoc)
-type("development")
+# Type: appstore for production release
+type("appstore")
 
-# App identifiers to manage
+# App identifiers for Dollor apps
 app_identifier([
-  "com.dollor.customer",
-  "com.dollor.restaurant",
-  "com.dollor.driver"
+  "com.dollorai.customer",
+  "com.dollorai.restaurant",
+  "com.dollorai.delivery"
 ])
 
-# Apple ID
-username("jeetnair.in@gmail.com")
+# Apple Developer Account
+username("support@dollor.ai")
+team_id("PRKZ4UVCD7")
 
-# Team ID
-team_id("YRHVAY595K")
+# For CI - read only mode
+readonly(is_ci)
 
-# Don't force overwrite existing certificates
+# Force for new devices
 force_for_new_devices(true)
-
-# Read-only mode for CI (will be overridden in CI environment)
-readonly(false)
