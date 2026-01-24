@@ -45,13 +45,13 @@ platform :ios do
   desc "Build Customer app for development"
   lane :customer_dev do
     sync_dev_certs
-    Dir.chdir("../customer") do
+    Dir.chdir("customer") do
       build_app(
         workspace: "eatfaircustomer.xcworkspace",
         scheme: "eatfaircustomer",
         configuration: "Debug",
         export_method: "development",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorCustomer-Dev.ipa"
       )
     end
@@ -61,19 +61,19 @@ platform :ios do
   lane :customer_testflight do
     setup_api_key
     sync_appstore_certs
-    Dir.chdir("../customer") do
+    Dir.chdir("customer") do
       build_app(
         workspace: "eatfaircustomer.xcworkspace",
         scheme: "eatfaircustomer",
         configuration: "Release",
         export_method: "app-store",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorCustomer.ipa"
       )
     end
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorCustomer.ipa"
+      ipa: "customer/build/DollorCustomer.ipa"
     )
   end
 
@@ -82,13 +82,13 @@ platform :ios do
   desc "Build Restaurant app for development"
   lane :restaurant_dev do
     sync_dev_certs
-    Dir.chdir("../restaurant") do
+    Dir.chdir("restaurant") do
       build_app(
         workspace: "eatffairrestaurant.xcworkspace",
         scheme: "eatffairrestaurant",
         configuration: "Debug",
         export_method: "development",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorRestaurant-Dev.ipa"
       )
     end
@@ -98,19 +98,19 @@ platform :ios do
   lane :restaurant_testflight do
     setup_api_key
     sync_appstore_certs
-    Dir.chdir("../restaurant") do
+    Dir.chdir("restaurant") do
       build_app(
         workspace: "eatffairrestaurant.xcworkspace",
         scheme: "eatffairrestaurant",
         configuration: "Release",
         export_method: "app-store",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorRestaurant.ipa"
       )
     end
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorRestaurant.ipa"
+      ipa: "restaurant/build/DollorRestaurant.ipa"
     )
   end
 
@@ -119,13 +119,13 @@ platform :ios do
   desc "Build Driver app for development"
   lane :driver_dev do
     sync_dev_certs
-    Dir.chdir("../delivery") do
+    Dir.chdir("delivery") do
       build_app(
         workspace: "eatffairdelivery.xcworkspace",
         scheme: "eatffairdelivery",
         configuration: "Debug",
         export_method: "development",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorDriver-Dev.ipa"
       )
     end
@@ -135,19 +135,19 @@ platform :ios do
   lane :driver_testflight do
     setup_api_key
     sync_appstore_certs
-    Dir.chdir("../delivery") do
+    Dir.chdir("delivery") do
       build_app(
         workspace: "eatffairdelivery.xcworkspace",
         scheme: "eatffairdelivery",
         configuration: "Release",
         export_method: "app-store",
-        output_directory: "../build",
+        output_directory: "build",
         output_name: "DollorDriver.ipa"
       )
     end
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorDriver.ipa"
+      ipa: "delivery/build/DollorDriver.ipa"
     )
   end
 
