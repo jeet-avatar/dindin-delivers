@@ -19,8 +19,5 @@ app_identifier([
 username("support@dollor.ai")
 team_id("PRKZ4UVCD7")
 
-# For CI - read only mode
-readonly(is_ci)
-
 # Force for new devices
 force_for_new_devices(true)
