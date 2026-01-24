@@ -1,28 +1,41 @@
 # Appfile - Fastlane configuration for Dollor iOS apps
+# Production account: support@dollor.ai
 
 # Apple ID
-apple_id("jeetnair.in@gmail.com")
+apple_id("support@dollor.ai")
 
 # Team ID
-team_id("YRHVAY595K")
+team_id("PRKZ4UVCD7")
 
-# App Store Connect Team ID (usually same as Team ID)
-itc_team_id("YRHVAY595K")
+# App Store Connect Team ID
+itc_team_id("PRKZ4UVCD7")
 
 # For all apps in this workspace
 for_platform :ios do
   # Customer App
   for_lane :customer do
-    app_identifier("com.dollor.customer")
+    app_identifier("com.dollorai.customer")
+  end
+
+  for_lane :customer_testflight do
+    app_identifier("com.dollorai.customer")
   end
 
   # Restaurant App
   for_lane :restaurant do
-    app_identifier("com.dollor.restaurant")
+    app_identifier("com.dollorai.restaurant")
   end
 
-  # Driver App
+  for_lane :restaurant_testflight do
+    app_identifier("com.dollorai.restaurant")
+  end
+
+  # Delivery App
   for_lane :driver do
-    app_identifier("com.dollor.driver")
+    app_identifier("com.dollorai.delivery")
+  end
+
+  for_lane :driver_testflight do
+    app_identifier("com.dollorai.delivery")
   end
 end
