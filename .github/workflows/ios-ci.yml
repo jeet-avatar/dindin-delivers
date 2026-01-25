@@ -65,6 +65,11 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
 
+      - name: Inject Google Maps API Key
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+            apps/ios/customer/eatfaircustomer/Info.plist
+
       - name: Build Customer App
         run: |
           cd apps/ios/customer
@@ -83,10 +88,12 @@ jobs:
               -configuration Debug \
               CODE_SIGNING_ALLOWED=NO
 
+  # Restaurant app build - disabled until app created in App Store Connect
   build-restaurant:
     name: Build Restaurant App
     runs-on: macos-14
     needs: build-shared
+    if: false  # Disabled
     steps:
       - uses: actions/checkout@v4
 
@@ -120,10 +127,12 @@ jobs:
               -configuration Debug \
               CODE_SIGNING_ALLOWED=NO
 
+  # Delivery app build - disabled until app created in App Store Connect
   build-delivery:
     name: Build Delivery App
     runs-on: macos-14
     needs: build-shared
+    if: false  # Disabled
     steps:
       - uses: actions/checkout@v4
 
@@ -419,6 +428,11 @@ jobs:
           cd apps/ios/${{ matrix.dir }}
           APP_DIR=$(ls -d */ | head -1 | tr -d '/')
           echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > ${APP_DIR}/GoogleService-Info.plist
+
+      - name: Inject Google Maps API Key
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" \
+            apps/ios/${{ matrix.dir }}/eatfaircustomer/Info.plist
 
       - name: Setup Keychain
         env:
