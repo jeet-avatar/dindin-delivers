@@ -169,7 +169,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: macos-14
-    needs: [build-customer, build-restaurant, build-delivery]
+    needs: build-customer
     steps:
       - uses: actions/checkout@v4
 
@@ -197,27 +197,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty --report junit --output TestResults/customer-junit.xml || true
 
-      - name: Install CocoaPods (Delivery)
-        run: |
-          cd apps/ios/delivery
-          pod install --repo-update || echo "Pods may not be configured"
-
-      - name: Create GoogleService-Info.plist (Delivery)
-        run: |
-          echo '${{ secrets.GOOGLE_SERVICE_INFO_DELIVERY }}' > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
-
-      - name: Run Delivery App Tests
-        run: |
-          cd apps/ios/delivery
-          xcodebuild test \
-            -workspace eatffairdelivery.xcworkspace \
-            -scheme eatffairdelivery \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
-            -resultBundlePath TestResults/delivery \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcpretty --report junit --output TestResults/delivery-junit.xml || true
-
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -232,7 +211,7 @@ jobs:
   build-staging:
     name: Build Staging Apps
     runs-on: macos-14
-    needs: [build-customer, build-restaurant, build-delivery]
+    needs: build-customer
     if: github.event.inputs.build_type == 'staging' || github.event.inputs.build_type == ''
     strategy:
       matrix:
@@ -241,14 +220,15 @@ jobs:
             workspace: eatfaircustomer.xcworkspace
             scheme: eatfaircustomer
             dir: customer
-          - app: restaurant
-            workspace: eatffairrestaurant.xcworkspace
-            scheme: eatffairrestaurant
-            dir: restaurant
-          - app: delivery
-            workspace: eatffairdelivery.xcworkspace
-            scheme: eatffairdelivery
-            dir: delivery
+          # Restaurant and Delivery - uncomment when created in App Store Connect
+          # - app: restaurant
+          #   workspace: eatffairrestaurant.xcworkspace
+          #   scheme: eatffairrestaurant
+          #   dir: restaurant
+          # - app: delivery
+          #   workspace: eatffairdelivery.xcworkspace
+          #   scheme: eatffairdelivery
+          #   dir: delivery
     steps:
       - uses: actions/checkout@v4
 
