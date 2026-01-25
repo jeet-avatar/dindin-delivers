@@ -49,7 +49,8 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorCustomer.ipa",
-      clean: true
+      clean: true,
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.customer'"
     )
 
     upload_to_testflight(
@@ -76,7 +77,8 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorRestaurant.ipa",
-      clean: true
+      clean: true,
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.restaurant'"
     )
 
     upload_to_testflight(
@@ -103,7 +105,8 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorDriver.ipa",
-      clean: true
+      clean: true,
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.delivery'"
     )
 
     upload_to_testflight(
