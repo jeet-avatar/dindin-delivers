@@ -5,7 +5,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Dollor</string>
 	<key>GOOGLE_MAPS_API_KEY</key>
-	<string>AIzaSyBjqJCURMLC5EAoIcQn2Q7PwUjXe3L4B7M</string>
+	<string>REPLACE_WITH_GOOGLE_MAPS_API_KEY</string>
 	<key>CFBundleName</key>
 	<string>Dollor - $1 Delivery</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
