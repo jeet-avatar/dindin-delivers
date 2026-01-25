@@ -42,6 +42,16 @@ platform :ios do
       readonly: is_ci
     )
 
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "customer/eatfaircustomer.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.customer",
+      targets: ["eatfaircustomer"]
+    )
+
     build_app(
       workspace: "customer/eatfaircustomer.xcworkspace",
       scheme: "eatfaircustomer",
@@ -49,8 +59,7 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorCustomer.ipa",
-      clean: true,
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.customer'"
+      clean: true
     )
 
     upload_to_testflight(
@@ -70,6 +79,16 @@ platform :ios do
       readonly: is_ci
     )
 
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "restaurant/eatffairrestaurant.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.restaurant",
+      targets: ["eatffairrestaurant"]
+    )
+
     build_app(
       workspace: "restaurant/eatffairrestaurant.xcworkspace",
       scheme: "eatffairrestaurant",
@@ -77,8 +96,7 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorRestaurant.ipa",
-      clean: true,
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.restaurant'"
+      clean: true
     )
 
     upload_to_testflight(
@@ -98,6 +116,16 @@ platform :ios do
       readonly: is_ci
     )
 
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "delivery/eatffairdelivery.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.delivery",
+      targets: ["eatffairdelivery"]
+    )
+
     build_app(
       workspace: "delivery/eatffairdelivery.xcworkspace",
       scheme: "eatffairdelivery",
@@ -105,8 +133,7 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DollorDriver.ipa",
-      clean: true,
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=PRKZ4UVCD7 CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='match AppStore com.dollorai.delivery'"
+      clean: true
     )
 
     upload_to_testflight(
