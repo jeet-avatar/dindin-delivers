@@ -302,12 +302,14 @@ jobs:
           name: ${{ matrix.app }}-staging-app
           path: ${{ runner.temp }}/${{ matrix.app }}-staging.zip
 
-  # Production archive - Requires code signing certificates
+  # Production archive - Disabled until BUILD_CERTIFICATE_BASE64 is configured
+  # Uses manual certificate approach instead of Fastlane match
   archive:
     name: Archive for App Store
     runs-on: macos-14
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event.inputs.build_type == 'release'
+    # Disabled - use deploy-testflight with Fastlane match instead
+    if: false && github.ref == 'refs/heads/main' && github.event.inputs.build_type == 'release'
     strategy:
       matrix:
         app: [customer, restaurant, delivery]
@@ -387,12 +389,13 @@ jobs:
           - app: customer
             lane: customer_testflight
             dir: customer
-          - app: restaurant
-            lane: restaurant_testflight
-            dir: restaurant
-          - app: driver
-            lane: driver_testflight
-            dir: delivery
+          # Restaurant and Delivery apps - uncomment when created in App Store Connect
+          # - app: restaurant
+          #   lane: restaurant_testflight
+          #   dir: restaurant
+          # - app: driver
+          #   lane: driver_testflight
+          #   dir: delivery
     steps:
       - uses: actions/checkout@v4
 
