@@ -3,7 +3,7 @@ import Combine
 import EatFairShared
 import os.log
 
-private let orderLogger = Logger(subsystem: "com.dollor.customer", category: "OrderHistoryViewModel")
+private let orderLogger = Logger(subsystem: "com.dollorai.customer", category: "OrderHistoryViewModel")
 
 /// Order History ViewModel - Uses P2P API as primary source
 class OrderHistoryViewModel: ObservableObject {

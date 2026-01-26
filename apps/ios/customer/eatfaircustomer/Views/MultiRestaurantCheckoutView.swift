@@ -805,7 +805,7 @@ struct MultiRestaurantCheckoutView: View {
 
                     // Create payment request for Apple Pay
                     let request = StripeAPI.paymentRequest(
-                        withMerchantIdentifier: "merchant.com.dollor.customer",
+                        withMerchantIdentifier: "merchant.com.dollorai.customer",
                         country: "US",
                         currency: "USD"
                     )

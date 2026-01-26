@@ -6,7 +6,7 @@ import AuthenticationServices
 import CryptoKit
 import os.log
 
-private let logger = Logger(subsystem: "com.dollor.customer", category: "AuthViewModel")
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "AuthViewModel")
 
 /// Customer Authentication ViewModel
 /// Uses Google Sign-In SDK directly + P2P backend (no Firebase)
