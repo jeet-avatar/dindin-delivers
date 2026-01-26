@@ -67,8 +67,23 @@ jobs:
 
       - name: Inject Google Maps API Key
         run: |
-          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" \
-            apps/ios/customer/eatfaircustomer/Info.plist
+          PLIST_PATH="apps/ios/customer/eatfaircustomer/Info.plist"
+          echo "Injecting API key into: $PLIST_PATH"
+
+          # Show current value
+          echo "Current value:"
+          /usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH" || echo "Key not found"
+
+          # Set the new value
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" "$PLIST_PATH"
+
+          # Verify it was set
+          NEW_VALUE=$(/usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH")
+          if [ "$NEW_VALUE" = "REPLACE_WITH_GOOGLE_MAPS_API_KEY" ]; then
+            echo "ERROR: API key was not injected!"
+            exit 1
+          fi
+          echo "API key injected successfully"
 
       - name: Build Customer App
         run: |
@@ -411,8 +426,29 @@ jobs:
 
       - name: Inject Google Maps API Key
         run: |
-          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" \
-            apps/ios/${{ matrix.dir }}/eatfaircustomer/Info.plist
+          PLIST_PATH="apps/ios/${{ matrix.dir }}/eatfaircustomer/Info.plist"
+          echo "Injecting API key into: $PLIST_PATH"
+
+          # Verify file exists
+          if [ ! -f "$PLIST_PATH" ]; then
+            echo "ERROR: Info.plist not found at $PLIST_PATH"
+            exit 1
+          fi
+
+          # Show current value (will show placeholder)
+          echo "Current value:"
+          /usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH" || echo "Key not found"
+
+          # Set the new value
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" "$PLIST_PATH"
+
+          # Verify it was set (check it's not the placeholder)
+          NEW_VALUE=$(/usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH")
+          if [ "$NEW_VALUE" = "REPLACE_WITH_GOOGLE_MAPS_API_KEY" ]; then
+            echo "ERROR: API key was not injected properly!"
+            exit 1
+          fi
+          echo "API key injected successfully (value masked)"
 
       - name: Setup Keychain
         env:
