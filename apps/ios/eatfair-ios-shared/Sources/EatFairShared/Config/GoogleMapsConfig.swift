@@ -9,9 +9,9 @@ import Foundation
 /// 5. Geocoding API
 ///
 /// ACTUAL BUNDLE IDs (add these to API Key restrictions in Google Cloud Console):
-/// - Customer App: com.dollor.customer
-/// - Restaurant App: com.dollor.restaurant
-/// - Delivery App: com.dollor.driver
+/// - Customer App: com.dollorai.customer
+/// - Restaurant App: com.dollorai.restaurant
+/// - Delivery App: com.dollorai.driver
 ///
 /// APP STORE FIX: API key must be loaded from Info.plist or GoogleService-Info.plist
 /// Never hardcode API keys in source code for production builds.
@@ -22,7 +22,7 @@ public struct GoogleMapsConfig {
     ///
     /// Make sure to restrict this key in Google Cloud Console:
     /// - Application restrictions: iOS apps
-    /// - Bundle IDs: com.dollor.customer, com.dollor.restaurant, com.dollor.driver
+    /// - Bundle IDs: com.dollorai.customer, com.dollorai.restaurant, com.dollorai.driver
     /// - API restrictions: Maps SDK for iOS, Places API, Directions API, Geocoding API
     public static var apiKey: String {
         // Try to load from Info.plist first (recommended for production)
