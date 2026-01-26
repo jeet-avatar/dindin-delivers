@@ -4,48 +4,8 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Dollor</string>
-	<key>GOOGLE_MAPS_API_KEY</key>
-	<string>REPLACE_WITH_GOOGLE_MAPS_API_KEY</string>
 	<key>CFBundleName</key>
 	<string>Dollor - $1 Delivery</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<false/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>amazonaws.com</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSExceptionMinimumTLSVersion</key>
-				<string>TLSv1.2</string>
-			</dict>
-		</dict>
-	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -57,29 +17,69 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Dollor AI Service needs your location to show nearby restaurants, request rides, and deliver food to you.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Dollor AI Service needs your location to show nearby restaurants, request rides, and track your delivery in real-time.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Voice commands allow hands-free food ordering and ride requests.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access enables voice search and voice commands for hands-free ordering.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Camera access allows you to scan payment cards and take profile photos.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo library access allows you to upload profile photos.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Contacts access allows you to quickly share your delivery address from your contacts.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>AIzaSyCELfWMuckt-Bbx5tyuiOSS3sYNywxVTXc</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>comgooglemaps</string>
 		<string>tel</string>
 		<string>sms</string>
+	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>amazonaws.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access allows you to scan payment cards and take profile photos.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Contacts access allows you to quickly share your delivery address from your contacts.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Dollor AI Service needs your location to show nearby restaurants, request rides, and track your delivery in real-time.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Dollor AI Service needs your location to show nearby restaurants, request rides, and deliver food to you.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access enables voice search and voice commands for hands-free ordering.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access allows you to upload profile photos.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Voice commands allow hands-free food ordering and ride requests.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>
