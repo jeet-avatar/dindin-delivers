@@ -65,6 +65,18 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
 
+          # Verify the plist is valid and show bundle ID
+          echo "=== Verifying GoogleService-Info.plist ==="
+          PLIST_PATH="apps/ios/customer/eatfaircustomer/GoogleService-Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$PLIST_PATH" 2>/dev/null || echo "MISSING")
+          echo "Bundle ID in GoogleService-Info.plist: $BUNDLE_ID"
+          if [ "$BUNDLE_ID" != "com.dollorai.customer" ]; then
+            echo "ERROR: Bundle ID mismatch! Expected: com.dollorai.customer, Got: $BUNDLE_ID"
+            echo "Please update GOOGLE_SERVICE_INFO_CUSTOMER GitHub secret!"
+            exit 1
+          fi
+          echo "Bundle ID verified: $BUNDLE_ID ✓"
+
       - name: Inject Google Maps API Key
         run: |
           PLIST_PATH="apps/ios/customer/eatfaircustomer/Info.plist"
@@ -423,6 +435,24 @@ jobs:
           cd apps/ios/${{ matrix.dir }}
           APP_DIR=$(ls -d */ | head -1 | tr -d '/')
           echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > ${APP_DIR}/GoogleService-Info.plist
+
+          # Verify the plist is valid and show bundle ID
+          echo "=== Verifying GoogleService-Info.plist ==="
+          PLIST_PATH="${APP_DIR}/GoogleService-Info.plist"
+          if [ -f "$PLIST_PATH" ]; then
+            echo "File exists: $PLIST_PATH"
+            BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$PLIST_PATH" 2>/dev/null || echo "MISSING")
+            echo "Bundle ID in GoogleService-Info.plist: $BUNDLE_ID"
+            if [ "$BUNDLE_ID" != "com.dollorai.customer" ]; then
+              echo "ERROR: Bundle ID mismatch! Expected: com.dollorai.customer, Got: $BUNDLE_ID"
+              echo "Please update the GOOGLE_SERVICE_INFO_CUSTOMER GitHub secret with the correct Firebase config!"
+              exit 1
+            fi
+            echo "Bundle ID verified: $BUNDLE_ID ✓"
+          else
+            echo "ERROR: GoogleService-Info.plist not created!"
+            exit 1
+          fi
 
       - name: Inject Google Maps API Key
         run: |
