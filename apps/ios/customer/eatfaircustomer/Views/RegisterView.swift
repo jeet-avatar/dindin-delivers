@@ -62,7 +62,7 @@ struct RegisterView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Text("Join EatFair")
+            Text("Join Dollor")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
 
@@ -174,7 +174,7 @@ struct RegisterView: View {
     // MARK: - Benefits Card
     private var benefitsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Why Join EatFair?")
+            Text("Why Join Dollor?")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.black)
 
@@ -196,7 +196,7 @@ struct RegisterView: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
             } else {
-                Text("Join EatFair")
+                Text("Join Dollor")
                     .font(.system(size: 18, weight: .semibold))
             }
         }

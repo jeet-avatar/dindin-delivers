@@ -885,7 +885,7 @@ struct MultiRestaurantCheckoutView: View {
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()
-                    configuration.merchantDisplayName = "EatFair"
+                    configuration.merchantDisplayName = "Dollor"
                     if let customerId = keys.customer, let ephemeralKey = keys.ephemeralKey {
                         configuration.customer = .init(id: customerId, ephemeralKeySecret: ephemeralKey)
                     }
