@@ -6,7 +6,7 @@ import EatFairShared
 import CoreLocation
 import os.log
 
-private let logger = Logger(subsystem: "com.dollor.customer", category: "HomeViewModel")
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "HomeViewModel")
 
 class HomeViewModel: ObservableObject {
     @Published var restaurants: [Restaurant] = []

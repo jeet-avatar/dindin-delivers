@@ -4,7 +4,7 @@ import FirebaseFirestore
 import EatFairShared
 import os.log
 
-private let menuLogger = Logger(subsystem: "com.dollor.customer", category: "MenuViewModel")
+private let menuLogger = Logger(subsystem: "com.dollorai.customer", category: "MenuViewModel")
 
 class MenuViewModel: ObservableObject {
     @Published var menuItems: [MenuItem] = []
