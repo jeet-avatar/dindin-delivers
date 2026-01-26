@@ -39,7 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		104403322ED64A4000ED321A /* EatFair.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EatFair.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		104403322ED64A4000ED321A /* Dollor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dollor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		104403442ED64A4100ED321A /* eatfaircustomerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatfaircustomerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1044034E2ED64A4100ED321A /* eatfaircustomerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatfaircustomerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7199266C558D3A0C875B993B /* Pods_eatfaircustomer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_eatfaircustomer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -134,7 +134,7 @@
 		104403332ED64A4000ED321A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				104403322ED64A4000ED321A /* EatFair.app */,
+				104403322ED64A4000ED321A /* Dollor.app */,
 				104403442ED64A4100ED321A /* eatfaircustomerTests.xctest */,
 				1044034E2ED64A4100ED321A /* eatfaircustomerUITests.xctest */,
 			);
@@ -193,7 +193,7 @@
 				104406AB2ED8354200ED321A /* EatFairShared */,
 			);
 			productName = eatfaircustomer;
-			productReference = 104403322ED64A4000ED321A /* EatFair.app */;
+			productReference = 104403322ED64A4000ED321A /* Dollor.app */;
 			productType = "com.apple.product-type.application";
 		};
 		104403432ED64A4100ED321A /* eatfaircustomerTests */ = {
