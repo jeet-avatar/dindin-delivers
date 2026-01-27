@@ -487,8 +487,8 @@ public struct APIEndpoints {
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
     public static let customerOrders = "/api/customer/orders"
-    public static let restaurants = "/api/restaurants"
-    public static let restaurantMenu = "/api/restaurants"  // + /{id}/menu
+    public static let restaurants = "/api/erp/restaurants"
+    public static let restaurantMenu = "/api/erp/restaurants"  // + /{id}/menu
 
     // Vendor endpoints
     public static let vendorAuth = "/api/vendors/google-auth"

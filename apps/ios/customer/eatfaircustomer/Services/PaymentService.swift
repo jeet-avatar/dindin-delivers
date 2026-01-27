@@ -77,14 +77,9 @@ struct PaymentIntentData: Decodable, Sendable {
 class PaymentService {
     static let shared = PaymentService()
 
-    /// Payment endpoint - uses P2P backend in production, demo in debug
+    /// Payment endpoint - uses P2P backend ERP payments API
     private var paymentEndpoint: String {
-        #if DEBUG
-        // Demo endpoint for testing - replace with P2P backend endpoint for production
-        return "\(AppConfig.shared.p2pAPIBaseURL)/api/payments/create-intent"
-        #else
-        return "\(AppConfig.shared.p2pAPIBaseURL)/api/payments/create-intent"
-        #endif
+        return "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/payments/intent"
     }
 
     /// Create a PaymentIntent for Apple Pay (simple endpoint - just returns clientSecret and publishableKey)
