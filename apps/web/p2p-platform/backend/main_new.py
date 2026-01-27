@@ -13715,13 +13715,66 @@ async def proxy_order_stats():
 
 # ==================== PAYMENT SERVICE PROXY ====================
 
+# Import Stripe for direct payment processing (fallback when microservice unavailable)
+import stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+
 @app.post("/api/erp/payments/intent")
 async def proxy_create_payment_intent(request: dict):
-    """Proxy to payment-service: Create payment intent"""
+    """
+    Create payment intent - uses direct Stripe integration.
+    Returns clientSecret and publishableKey for iOS/Android apps.
+    """
+    # Try microservice first
     result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/intent", method="POST", json_data=request)
     if result:
         return result
-    return {"error": "Payment service unavailable", "fallback": True}
+
+    # Direct Stripe integration (fallback or primary)
+    if not stripe.api_key:
+        logger.error("STRIPE_SECRET_KEY not configured")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Payment service not configured", "message": "Stripe keys are missing"}
+        )
+
+    try:
+        amount = request.get("amount", 0)  # Amount in cents
+        currency = request.get("currency", "usd")
+        order_id = request.get("order_id")
+        customer_email = request.get("customer_email")
+
+        # Create Stripe PaymentIntent
+        payment_intent_params = {
+            "amount": int(amount),
+            "currency": currency,
+            "automatic_payment_methods": {"enabled": True},
+        }
+
+        if customer_email:
+            payment_intent_params["receipt_email"] = customer_email
+
+        if order_id:
+            payment_intent_params["metadata"] = {"order_id": order_id}
+
+        payment_intent = stripe.PaymentIntent.create(**payment_intent_params)
+
+        # Return format expected by iOS PaymentService
+        return {
+            "clientSecret": payment_intent.client_secret,
+            "paymentIntent": payment_intent.client_secret,  # iOS compatibility
+            "publishableKey": STRIPE_PUBLISHABLE_KEY,
+            "ephemeralKey": None,  # Not using customer sessions for simple payments
+            "customer": None
+        }
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating payment intent: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Payment processing failed", "message": str(e)}
+        )
 
 
 @app.get("/api/erp/payments/intent/{payment_intent_id}")
