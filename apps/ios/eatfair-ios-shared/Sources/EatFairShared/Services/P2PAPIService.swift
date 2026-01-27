@@ -6244,7 +6244,7 @@ public enum P2PAPIError: Error, LocalizedError {
 
 // MARK: - Response Models
 
-public struct P2PRestaurantsResponse: Codable {
+public struct P2PRestaurantsResponse: Decodable {
     public let success: Bool
     public let count: Int
     public let restaurants: [P2PRestaurant]
@@ -6261,7 +6261,7 @@ public struct P2PRestaurantsResponse: Codable {
     }
 }
 
-public struct P2PRestaurant: Identifiable, Codable {
+public struct P2PRestaurant: Identifiable, Decodable {
     public let id: Int
     public let vendorId: String
     public let name: String
@@ -6284,6 +6284,8 @@ public struct P2PRestaurant: Identifiable, Codable {
         case name
         case cuisineType = "cuisine_type"
         case address
+        case street, city, state
+        case zipCode = "zip_code"
         case location
         case contact
         case operatingHours = "operating_hours"
@@ -6302,7 +6304,24 @@ public struct P2PRestaurant: Identifiable, Codable {
         vendorId = try container.decode(String.self, forKey: .vendorId)
         name = try container.decode(String.self, forKey: .name)
         cuisineType = try container.decodeIfPresent(String.self, forKey: .cuisineType)
-        address = try container.decode(P2PAddress.self, forKey: .address)
+
+        // Handle address - can be either P2PAddress object or String
+        if let addressObj = try? container.decode(P2PAddress.self, forKey: .address) {
+            address = addressObj
+        } else if let addressString = try? container.decode(String.self, forKey: .address) {
+            // API returns flat structure - build P2PAddress from top-level fields
+            address = P2PAddress(
+                street: try container.decodeIfPresent(String.self, forKey: .street),
+                city: try container.decodeIfPresent(String.self, forKey: .city),
+                state: try container.decodeIfPresent(String.self, forKey: .state),
+                zipCode: try container.decodeIfPresent(String.self, forKey: .zipCode),
+                country: nil,
+                fullAddress: addressString
+            )
+        } else {
+            address = P2PAddress(street: nil, city: nil, state: nil, zipCode: nil, country: nil, fullAddress: "Address not available")
+        }
+
         location = try container.decode(P2PLocation.self, forKey: .location)
         contact = try container.decode(P2PContact.self, forKey: .contact)
         operatingHours = try container.decodeIfPresent(String.self, forKey: .operatingHours)
@@ -6329,6 +6348,15 @@ public struct P2PAddress: Codable {
         case zipCode = "zip_code"
         case country
         case fullAddress = "full_address"
+    }
+
+    public init(street: String?, city: String?, state: String?, zipCode: String?, country: String?, fullAddress: String) {
+        self.street = street
+        self.city = city
+        self.state = state
+        self.zipCode = zipCode
+        self.country = country
+        self.fullAddress = fullAddress
     }
 
     public init(from decoder: Decoder) throws {

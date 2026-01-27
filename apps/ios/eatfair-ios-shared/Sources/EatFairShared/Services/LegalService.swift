@@ -10,7 +10,7 @@ public struct LegalDocument: Codable {
     public let acceptanceRequired: Bool
     public let keyPoints: [String]
     public let documentHash: String
-    
+
     enum CodingKeys: String, CodingKey {
         case title
         case version
@@ -19,6 +19,16 @@ public struct LegalDocument: Codable {
         case acceptanceRequired = "acceptance_required"
         case keyPoints = "key_points"
         case documentHash = "document_hash"
+    }
+
+    public init(title: String, version: String, lastUpdated: String, content: String, acceptanceRequired: Bool, keyPoints: [String], documentHash: String) {
+        self.title = title
+        self.version = version
+        self.lastUpdated = lastUpdated
+        self.content = content
+        self.acceptanceRequired = acceptanceRequired
+        self.keyPoints = keyPoints
+        self.documentHash = documentHash
     }
 }
 
@@ -294,23 +304,23 @@ public class LegalService {
     // MARK: - Fetch Legal Documents
     
     public func getCustomerTOS(completion: @escaping (Result<LegalDocument, Error>) -> Void) {
-        fetchLegalDocument(endpoint: "/api/platform-legal/food-delivery/customer-tos", completion: completion)
+        fetchLegalDocument(endpoint: "/api/legal/tos", completion: completion)
     }
-    
+
     public func getRestaurantTOS(completion: @escaping (Result<LegalDocument, Error>) -> Void) {
-        fetchLegalDocument(endpoint: "/api/platform-legal/food-delivery/restaurant-tos", completion: completion)
+        fetchLegalDocument(endpoint: "/api/legal/tos", completion: completion)
     }
-    
+
     public func getDriverAgreement(completion: @escaping (Result<LegalDocument, Error>) -> Void) {
-        fetchLegalDocument(endpoint: "/api/platform-legal/driver-agreement", completion: completion)
+        fetchLegalDocument(endpoint: "/api/legal/tos", completion: completion)
     }
-    
+
     public func getTripBoardTOS(completion: @escaping (Result<LegalDocument, Error>) -> Void) {
-        fetchLegalDocument(endpoint: "/api/platform-legal/trip-board-tos", completion: completion)
+        fetchLegalDocument(endpoint: "/api/legal/tos", completion: completion)
     }
-    
+
     public func getPrivacyPolicy(completion: @escaping (Result<LegalDocument, Error>) -> Void) {
-        fetchLegalDocument(endpoint: "/api/platform-legal/privacy-policy", completion: completion)
+        fetchLegalDocument(endpoint: "/api/legal/privacy-policy", completion: completion)
     }
 
     public func getTieredPricingDisclosure(completion: @escaping (Result<[String: Any], Error>) -> Void) {
@@ -401,7 +411,7 @@ public class LegalService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
@@ -421,9 +431,58 @@ public class LegalService {
                 return
             }
 
-            do {
-                let document = try JSONDecoder().decode(LegalDocument.self, from: data)
+            // Try to decode as LegalDocument first
+            if let document = try? JSONDecoder().decode(LegalDocument.self, from: data) {
                 completion(.success(document))
+                return
+            }
+
+            // Fallback: parse backend response format and construct LegalDocument
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let version = json["version"] as? String ?? "1.0"
+                    let lastUpdated = json["last_updated"] as? String ?? ""
+                    let webUrl = json["url"] as? String ?? ""
+
+                    // Extract key points from summary or other fields
+                    var keyPoints: [String] = []
+                    if let summary = json["summary"] as? [String: Any],
+                       let points = summary["key_points"] as? [String] {
+                        keyPoints = points
+                    } else if let rights = json["user_rights"] as? [String] {
+                        keyPoints = rights
+                    }
+
+                    // Determine title based on endpoint
+                    let title = endpoint.contains("privacy") ? "Privacy Policy" : "Terms of Service"
+
+                    // Build content from available data
+                    var content = "Please review our \(title) at: \(webUrl)\n\n"
+                    if let summary = json["summary"] as? [String: Any] {
+                        if let serviceType = summary["service_type"] as? String {
+                            content += "Service Type: \(serviceType)\n\n"
+                        }
+                    }
+                    if !keyPoints.isEmpty {
+                        content += "Key Points:\n"
+                        for point in keyPoints {
+                            content += "• \(point)\n"
+                        }
+                    }
+
+                    let document = LegalDocument(
+                        title: title,
+                        version: version,
+                        lastUpdated: lastUpdated,
+                        content: content,
+                        acceptanceRequired: true,
+                        keyPoints: keyPoints,
+                        documentHash: version
+                    )
+                    completion(.success(document))
+                } else {
+                    completion(.failure(NSError(domain: "LegalService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Invalid response format"])))
+                }
             } catch {
                 completion(.failure(error))
             }

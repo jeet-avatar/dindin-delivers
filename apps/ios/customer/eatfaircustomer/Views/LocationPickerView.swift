@@ -151,8 +151,11 @@ struct LocationPickerView: View {
                 )
             }
         }
+        .onAppear {
+            viewModel.fetchAddresses()
+        }
     }
-    
+
     func iconForType(_ type: String) -> String {
         switch type.lowercased() {
         case "home": return "house.fill"
