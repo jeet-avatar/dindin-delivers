@@ -12984,7 +12984,8 @@ async def mark_items_unavailable(
 
 
 # ==================== P19: PAYMENT CARDS ENDPOINTS ====================
-# Endpoints for managing saved payment cards (Stripe integration)
+# PCI-COMPLIANT: All card data stored BY STRIPE, not in our database
+# We only store stripe_customer_id and fetch card info from Stripe API
 
 @app.get("/api/customers/{customer_id}/cards")
 async def get_saved_cards(
@@ -12992,16 +12993,45 @@ async def get_saved_cards(
     db: Session = Depends(get_db)
 ):
     """
-    Get all saved payment cards for a customer.
-    Used by Android/iOS customer apps.
+    Get all saved payment cards for a customer FROM STRIPE.
+    PCI Compliant: Card data is stored by Stripe, not in our database.
     """
     from models import Customer
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    return {"cards": saved_cards, "count": len(saved_cards)}
+    # If no Stripe customer, return empty list
+    if not customer.stripe_customer_id:
+        return {"cards": [], "count": 0}
+
+    try:
+        # Fetch payment methods FROM STRIPE (PCI compliant)
+        payment_methods = stripe.PaymentMethod.list(
+            customer=customer.stripe_customer_id,
+            type="card"
+        )
+
+        # Get default payment method
+        stripe_customer = stripe.Customer.retrieve(customer.stripe_customer_id)
+        default_pm_id = stripe_customer.invoice_settings.default_payment_method
+
+        cards = []
+        for pm in payment_methods.data:
+            cards.append({
+                "id": pm.id,
+                "brand": pm.card.brand,
+                "last4": pm.card.last4,
+                "exp_month": pm.card.exp_month,
+                "exp_year": pm.card.exp_year,
+                "is_default": pm.id == default_pm_id
+            })
+
+        return {"cards": cards, "count": len(cards)}
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error fetching cards: {str(e)}")
+        return {"cards": [], "count": 0, "error": str(e)}
 
 
 @app.post("/api/customers/{customer_id}/cards")
@@ -13011,47 +13041,54 @@ async def add_payment_card(
     db: Session = Depends(get_db)
 ):
     """
-    Add a new payment card for a customer.
-    In production, this would use Stripe's PaymentMethod API.
+    Attach a payment method to customer IN STRIPE.
+    PCI Compliant: Card tokenization happens on client, we only receive payment_method_id.
     """
     from models import Customer
-    import uuid
 
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    # Extract card details from request
-    card_token = request.get("card_token")  # Stripe token from client
-    brand = request.get("brand", "visa")
-    last4 = request.get("last4", "4242")
-    exp_month = request.get("exp_month", 12)
-    exp_year = request.get("exp_year", 2025)
+    payment_method_id = request.get("payment_method_id")
+    if not payment_method_id:
+        raise HTTPException(status_code=400, detail="payment_method_id is required")
 
-    # Generate card ID (in production, this comes from Stripe)
-    card_id = f"card_{uuid.uuid4().hex[:16]}"
+    try:
+        # Create Stripe customer if needed
+        if not customer.stripe_customer_id:
+            stripe_customer = stripe.Customer.create(
+                email=customer.email,
+                name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or None,
+                metadata={"dollor_customer_id": str(customer.id)}
+            )
+            customer.stripe_customer_id = stripe_customer.id
+            db.commit()
 
-    saved_cards = customer.saved_cards or []
-    is_default = len(saved_cards) == 0  # First card is default
+        # Attach payment method to customer IN STRIPE
+        stripe.PaymentMethod.attach(
+            payment_method_id,
+            customer=customer.stripe_customer_id
+        )
 
-    new_card = {
-        "id": card_id,
-        "brand": brand,
-        "last4": last4,
-        "exp_month": exp_month,
-        "exp_year": exp_year,
-        "is_default": is_default
-    }
+        # Get the payment method details to return
+        pm = stripe.PaymentMethod.retrieve(payment_method_id)
 
-    saved_cards.append(new_card)
-    customer.saved_cards = saved_cards
-    db.commit()
+        return {
+            "success": True,
+            "card": {
+                "id": pm.id,
+                "brand": pm.card.brand,
+                "last4": pm.card.last4,
+                "exp_month": pm.card.exp_month,
+                "exp_year": pm.card.exp_year
+            },
+            "message": "Card added successfully"
+        }
 
-    return {
-        "success": True,
-        "card": new_card,
-        "message": "Card added successfully"
-    }
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error adding card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.delete("/api/customers/{customer_id}/cards/{card_id}")
@@ -13061,7 +13098,8 @@ async def delete_payment_card(
     db: Session = Depends(get_db)
 ):
     """
-    Delete a saved payment card.
+    Detach a payment method FROM STRIPE.
+    PCI Compliant: Card deletion happens in Stripe, not our database.
     """
     from models import Customer
 
@@ -13069,23 +13107,17 @@ async def delete_payment_card(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    original_count = len(saved_cards)
+    if not customer.stripe_customer_id:
+        raise HTTPException(status_code=404, detail="No payment methods found")
 
-    # Remove the card
-    saved_cards = [c for c in saved_cards if c.get("id") != card_id]
+    try:
+        # Detach payment method FROM STRIPE
+        stripe.PaymentMethod.detach(card_id)
+        return {"success": True, "message": "Card deleted successfully"}
 
-    if len(saved_cards) == original_count:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    # If deleted card was default, make first remaining card default
-    if saved_cards and not any(c.get("is_default") for c in saved_cards):
-        saved_cards[0]["is_default"] = True
-
-    customer.saved_cards = saved_cards
-    db.commit()
-
-    return {"success": True, "message": "Card deleted successfully"}
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error deleting card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/customers/{customer_id}/cards/{card_id}/default")
@@ -13095,7 +13127,8 @@ async def set_default_card(
     db: Session = Depends(get_db)
 ):
     """
-    Set a payment card as the default card.
+    Set default payment method IN STRIPE.
+    PCI Compliant: Default card setting stored in Stripe, not our database.
     """
     from models import Customer
 
@@ -13103,23 +13136,20 @@ async def set_default_card(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    card_found = False
+    if not customer.stripe_customer_id:
+        raise HTTPException(status_code=404, detail="No payment methods found")
 
-    for card in saved_cards:
-        if card.get("id") == card_id:
-            card["is_default"] = True
-            card_found = True
-        else:
-            card["is_default"] = False
+    try:
+        # Set default payment method IN STRIPE
+        stripe.Customer.modify(
+            customer.stripe_customer_id,
+            invoice_settings={"default_payment_method": card_id}
+        )
+        return {"success": True, "message": "Default card updated", "card_id": card_id}
 
-    if not card_found:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    customer.saved_cards = saved_cards
-    db.commit()
-
-    return {"success": True, "message": "Default card updated", "card_id": card_id}
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error setting default card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/customer/orders/{order_id}/rate-driver")
