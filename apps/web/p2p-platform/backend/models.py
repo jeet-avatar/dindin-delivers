@@ -559,6 +559,10 @@ class Customer(Base):
     stripe_customer_id = Column(String(255))
     saved_cards = Column(JSON)  # Array of payment cards [{id, brand, last4, exp_month, exp_year, is_default}]
 
+    # OAuth identifiers for social login
+    apple_id = Column(String(255), unique=True, nullable=True, index=True)  # Apple Sign In user ID
+    google_id = Column(String(255), unique=True, nullable=True, index=True)  # Google Sign In user ID
+
     # Status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
