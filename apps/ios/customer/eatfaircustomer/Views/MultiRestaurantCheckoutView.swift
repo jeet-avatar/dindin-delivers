@@ -891,6 +891,12 @@ struct MultiRestaurantCheckoutView: View {
                     }
                     configuration.allowsDelayedPaymentMethods = false
 
+                    // Enable Apple Pay
+                    configuration.applePay = .init(
+                        merchantId: "merchant.com.dolloraiai",
+                        merchantCountryCode: "US"
+                    )
+
                     self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
 
