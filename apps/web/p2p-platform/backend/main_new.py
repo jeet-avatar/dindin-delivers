@@ -13731,10 +13731,15 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 
 @app.post("/api/erp/payments/intent")
-async def proxy_create_payment_intent(request: dict):
+async def proxy_create_payment_intent(
+    request: dict,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
     """
     Create payment intent - uses direct Stripe integration.
-    Returns clientSecret and publishableKey for iOS/Android apps.
+    Returns clientSecret, ephemeralKey, customer, and publishableKey for iOS/Android apps.
+    With customer and ephemeralKey, users can save cards and use Apple Pay.
     """
     # Try microservice first
     result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/intent", method="POST", json_data=request)
@@ -13755,6 +13760,37 @@ async def proxy_create_payment_intent(request: dict):
         order_id = request.get("order_id")
         customer_email = request.get("customer_email")
 
+        # Get current customer from token (if authenticated)
+        customer = get_current_customer_from_token(authorization, db) if authorization else None
+        stripe_customer_id = None
+        ephemeral_key = None
+
+        if customer:
+            # Get or create Stripe customer
+            if customer.stripe_customer_id:
+                stripe_customer_id = customer.stripe_customer_id
+                logger.info(f"Using existing Stripe customer: {stripe_customer_id}")
+            else:
+                # Create new Stripe customer
+                stripe_customer = stripe.Customer.create(
+                    email=customer.email,
+                    name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or None,
+                    phone=customer.phone,
+                    metadata={"dollor_customer_id": str(customer.id)}
+                )
+                stripe_customer_id = stripe_customer.id
+                # Save to database
+                customer.stripe_customer_id = stripe_customer_id
+                db.commit()
+                logger.info(f"Created new Stripe customer: {stripe_customer_id}")
+
+            # Create ephemeral key for the customer (allows saving/retrieving payment methods)
+            ephemeral_key_obj = stripe.EphemeralKey.create(
+                customer=stripe_customer_id,
+                stripe_version="2023-10-16"  # Use a stable API version
+            )
+            ephemeral_key = ephemeral_key_obj.secret
+
         # Create Stripe PaymentIntent
         payment_intent_params = {
             "amount": int(amount),
@@ -13762,21 +13798,27 @@ async def proxy_create_payment_intent(request: dict):
             "automatic_payment_methods": {"enabled": True},
         }
 
-        if customer_email:
-            payment_intent_params["receipt_email"] = customer_email
+        # Attach customer to payment intent (enables saved cards)
+        if stripe_customer_id:
+            payment_intent_params["customer"] = stripe_customer_id
+            # Allow saving payment method for future use
+            payment_intent_params["setup_future_usage"] = "off_session"
+
+        if customer_email or (customer and customer.email):
+            payment_intent_params["receipt_email"] = customer_email or customer.email
 
         if order_id:
             payment_intent_params["metadata"] = {"order_id": order_id}
 
         payment_intent = stripe.PaymentIntent.create(**payment_intent_params)
 
-        # Return format expected by iOS PaymentService
+        # Return format expected by iOS PaymentService (with customer for saved cards)
         return {
             "clientSecret": payment_intent.client_secret,
             "paymentIntent": payment_intent.client_secret,  # iOS compatibility
             "publishableKey": STRIPE_PUBLISHABLE_KEY,
-            "ephemeralKey": None,  # Not using customer sessions for simple payments
-            "customer": None
+            "ephemeralKey": ephemeral_key,
+            "customer": stripe_customer_id
         }
 
     except stripe.error.StripeError as e:
