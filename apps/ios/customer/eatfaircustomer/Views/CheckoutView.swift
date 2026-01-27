@@ -457,6 +457,53 @@ struct CheckoutView: View {
                                     }
                                 }
 
+                                // Restaurant Fee Transparency (informational - not charged to customer)
+                                Divider()
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Restaurant Contribution")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Text("Not in your total")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    HStack {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "storefront")
+                                                .font(.caption2)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Restaurant Platform Fee")
+                                                    .font(.caption)
+                                                Text("Deducted from restaurant payout")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .foregroundColor(Theme.textGrey)
+                                        Spacer()
+                                        VStack(alignment: .trailing) {
+                                            Text("$1.00")
+                                                .font(.caption)
+                                            Text("→ Dollor.ai")
+                                                .font(.caption2)
+                                                .foregroundColor(.orange)
+                                        }
+                                    }
+
+                                    // Summary of Dollor's earnings
+                                    HStack {
+                                        Spacer()
+                                        Text("Dollor earns $2 total: $1 from you + $1 from restaurant")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                            .italic()
+                                        Spacer()
+                                    }
+                                    .padding(.top, 4)
+                                }
+
                                 // Discounts
                                 if discount > 0 || selectedPaymentMethod == "ACH" {
                                     Divider()
@@ -1020,13 +1067,22 @@ struct FeeBreakdownDetailView: View {
                         explanation: "Sales taxes are required by law and vary by location. In California: State (7.25%) + City (1.25%) + District (1%). We itemize every tax so you know exactly what goes where."
                     )
 
-                    // Platform Fee - FLAT $1 for food
+                    // Platform Fee - FLAT $1 from customer
                     FeeExplanationCard(
                         icon: "app.connected.to.app.below.fill",
-                        title: "Platform Fee ($\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)))",
+                        title: "Your Platform Fee ($\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)))",
                         recipient: "Dollor.ai",
                         recipientColor: .orange,
-                        explanation: "This is how we make money - a simple flat $\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)) matchmaking fee per restaurant.\n\nNo hidden fees, no inflated prices. Competitors charge 15-30% commission!"
+                        explanation: "A simple flat $\(String(format: "%.0f", AppConfig.shared.foodCustomerFee)) matchmaking fee per restaurant - included in your total.\n\nNo hidden fees, no inflated prices!"
+                    )
+
+                    // Restaurant Platform Fee - FLAT $1 from restaurant
+                    FeeExplanationCard(
+                        icon: "storefront",
+                        title: "Restaurant Fee ($\(String(format: "%.0f", AppConfig.shared.foodRestaurantFee)))",
+                        recipient: "Dollor.ai (from restaurant)",
+                        recipientColor: .orange,
+                        explanation: "Restaurants pay $\(String(format: "%.0f", AppConfig.shared.foodRestaurantFee)) platform fee per order - deducted from their payout, NOT added to your bill.\n\nThis means Dollor earns $2 total per order ($1 from you + $1 from restaurant). Competitors charge restaurants 25-30%!"
                     )
 
                     // Processing Fee
