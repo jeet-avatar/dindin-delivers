@@ -601,6 +601,53 @@ struct MultiRestaurantCheckoutView: View {
                     }
                 }
 
+                // Restaurant Contribution - TRANSPARENCY (not charged to customer)
+                Divider().padding(.vertical, 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Restaurant Contribution")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("Not in your total")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        HStack(spacing: 4) {
+                            Image(systemName: "storefront")
+                                .font(.caption2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Restaurant Platform Fee")
+                                    .font(.caption)
+                                Text("$1 per restaurant • Deducted from payout")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .foregroundColor(.gray)
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text("$\(String(format: "%.2f", Double(cartVM.restaurantCount) * 1.0))")
+                                .font(.caption)
+                            Text("→ Dollor.ai")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
+                    }
+
+                    // Explicit $1+$1=$2 summary
+                    HStack {
+                        Spacer()
+                        Text("Dollor earns $2 total per restaurant: $1 from you + $1 from restaurant")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .italic()
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
+
                 if discount > 0 {
                     HStack {
                         Text("Discount")
