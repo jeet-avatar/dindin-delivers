@@ -3953,25 +3953,28 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     elif not name:
         name = 'Apple User'
 
-    # For returning users without email, look up by apple_id hash
-    apple_id_hash = f"apple_oauth_{request.apple_id}"
-
-    # Check if user exists by email or by apple password hash
+    # For returning users, look up by apple_id first (most reliable)
+    # Then fall back to email lookup
+    customer = None
     user = None
-    if email:
+
+    # First: Try to find existing customer by apple_id (works for returning users without email)
+    customer = db.query(Customer).filter(Customer.apple_id == request.apple_id).first()
+    if customer:
+        print(f"Found existing customer by apple_id: {customer.email}")
+        email = customer.email
         user = db.query(User).filter(User.email == email).first()
 
-    if not user:
-        # Try to find by apple_id in password hash (for returning users)
-        users_with_apple = db.query(User).filter(User.password_hash.contains("apple_oauth_")).all()
-        for u in users_with_apple:
-            if verify_password(apple_id_hash, u.password_hash) or u.password_hash == get_password_hash(apple_id_hash):
-                user = u
-                email = u.email
-                break
+    # Second: Try to find by email if we have one
+    if not user and email:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Also check if customer exists with this email
+            customer = db.query(Customer).filter(Customer.email == email).first()
 
+    # If still no user and no email, we can't proceed (truly new user needs email)
     if not user and not email:
-        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In")
+        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove this app, and try again.")
 
     if not user:
         # Create new user - need email and name for new users
@@ -3989,8 +3992,9 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         db.refresh(user)
         print(f"Created new user for Apple auth: {email}")
 
-    # Check if customer record exists
-    customer = db.query(Customer).filter(Customer.email == email).first()
+    # Check if customer record exists (may have been found earlier by apple_id)
+    if not customer:
+        customer = db.query(Customer).filter(Customer.email == email).first()
 
     if not customer:
         # Parse name into first_name and last_name
@@ -4003,17 +4007,23 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         import random
         customer_id = f"CUST{random.randint(100000, 999999)}"
 
-        # Create customer record with first_name/last_name to match database schema
+        # Create customer record with apple_id for future lookups
         customer = Customer(
             customer_id=customer_id,
             first_name=first_name,
             last_name=last_name,
-            email=email
+            email=email,
+            apple_id=request.apple_id  # Store apple_id for returning user lookup
         )
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer record for: {email} with ID: {customer_id}")
+        print(f"Created new customer record for: {email} with ID: {customer_id}, apple_id stored")
+    elif not customer.apple_id:
+        # Update existing customer with apple_id if not set (for users who signed up before this change)
+        customer.apple_id = request.apple_id
+        db.commit()
+        print(f"Updated existing customer {customer.email} with apple_id")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
