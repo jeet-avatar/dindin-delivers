@@ -812,12 +812,21 @@ struct CheckoutView: View {
                 self.isLoadingPayment = false
                 switch result {
                 case .success(let keys):
+                    print("🔑 PaymentSheet keys received:")
+                    print("   - paymentIntent: \(keys.paymentIntent.prefix(20))...")
+                    print("   - publishableKey: \(keys.publishableKey.prefix(20))...")
+                    print("   - customer: \(keys.customer ?? "nil")")
+                    print("   - ephemeralKey: \(keys.ephemeralKey != nil ? "present" : "nil")")
+
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()
                     configuration.merchantDisplayName = "Dollor"
                     if let customerId = keys.customer, let ephemeralKey = keys.ephemeralKey {
                         configuration.customer = .init(id: customerId, ephemeralKeySecret: ephemeralKey)
+                        print("✅ Customer configured for saved cards")
+                    } else {
+                        print("⚠️ No customer/ephemeralKey - saved cards won't work")
                     }
                     configuration.allowsDelayedPaymentMethods = false
 
@@ -826,9 +835,11 @@ struct CheckoutView: View {
                         merchantId: "merchant.com.dolloraiai",
                         merchantCountryCode: "US"
                     )
+                    print("✅ Apple Pay configured with merchant: merchant.com.dolloraiai")
 
                     self.paymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
+                    print("✅ PaymentSheet ready")
 
                 case .failure(let error):
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
@@ -842,10 +853,14 @@ struct CheckoutView: View {
         self.paymentResult = result
         switch result {
         case .completed:
+            print("✅ Payment completed successfully")
             placeOrder()
         case .canceled:
+            print("⚠️ Payment canceled by user")
             break
         case .failed(let error):
+            print("❌ Payment failed: \(error.localizedDescription)")
+            print("❌ Full error: \(error)")
             errorMessage = "Payment failed: \(error.localizedDescription)"
             showingError = true
         }
