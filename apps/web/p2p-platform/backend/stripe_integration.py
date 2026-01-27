@@ -91,6 +91,66 @@ class OrderResponse(BaseModel):
     payment_status: str
     created_at: datetime
 
+# ===================== SIMPLE PAYMENT INTENT (for Apple Pay / Card) =====================
+
+class SimplePaymentIntentRequest(BaseModel):
+    """Request model for creating a simple PaymentIntent (Apple Pay, Google Pay, Card)"""
+    amount: int  # Amount in cents
+    currency: str = "usd"
+    customer_email: Optional[str] = None
+    order_id: Optional[str] = None
+
+class SimplePaymentIntentResponse(BaseModel):
+    """Response model matching iOS PaymentService expectations"""
+    clientSecret: str
+    publishableKey: str
+    paymentIntent: str  # Same as clientSecret for compatibility
+
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_key_here")
+
+@router.post("/payments/create-intent", response_model=SimplePaymentIntentResponse)
+async def create_simple_payment_intent(request: SimplePaymentIntentRequest):
+    """
+    Create a simple Stripe PaymentIntent for Apple Pay, Google Pay, or Card payments.
+
+    This endpoint is called by iOS/Android apps to get a client_secret for payment processing.
+    The publishable key is returned so the app can configure Stripe SDK.
+
+    Required for:
+    - Apple Pay via StripeApplePay
+    - Google Pay
+    - Card payments via PaymentSheet
+    """
+    # Validate amount
+    if request.amount < 50:  # Stripe minimum is $0.50
+        raise HTTPException(status_code=400, detail="Amount must be at least 50 cents")
+    if request.amount > 99999999:  # $999,999.99 max
+        raise HTTPException(status_code=400, detail="Amount exceeds maximum")
+
+    try:
+        # Create PaymentIntent with automatic payment methods (supports Apple Pay, Google Pay, Cards)
+        payment_intent = stripe.PaymentIntent.create(
+            amount=request.amount,
+            currency=request.currency.lower(),
+            automatic_payment_methods={"enabled": True},
+            metadata={
+                "order_id": request.order_id or "",
+                "source": "mobile_app",
+                "customer_email": request.customer_email or ""
+            },
+            receipt_email=request.customer_email if request.customer_email else None,
+            description=f"Order payment - {request.order_id}" if request.order_id else "Mobile app payment"
+        )
+
+        return SimplePaymentIntentResponse(
+            clientSecret=payment_intent.client_secret,
+            publishableKey=STRIPE_PUBLISHABLE_KEY,
+            paymentIntent=payment_intent.client_secret  # Alias for compatibility
+        )
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
+
 # ===================== ORDER CREATION =====================
 
 @router.post("/orders", response_model=PaymentIntentResponse)
