@@ -80,15 +80,24 @@ def send_push_notification(user_type: str, user_id: int, title: str, body: str, 
     Returns True if successful, False otherwise.
     """
     try:
+        # Build request payload with correct field name based on user_type
+        payload = {
+            "title": title,
+            "body": body,
+            "data": data or {}
+        }
+
+        # Map user_type to the correct field for notification service
+        if user_type == "driver":
+            payload["driver_id"] = user_id
+        elif user_type == "vendor":
+            payload["vendor_id"] = user_id
+        else:  # customer or user
+            payload["user_id"] = user_id
+
         response = requests.post(
             f"{NOTIFICATION_SERVICE_URL}/api/notifications/push/send",
-            json={
-                "user_type": user_type,
-                "user_id": user_id,
-                "title": title,
-                "body": body,
-                "data": data or {}
-            },
+            json=payload,
             timeout=5
         )
         if response.status_code == 200:
@@ -1148,6 +1157,32 @@ async def confirm_payment(
     order.sent_to_restaurant_at = datetime.now()
 
     db.commit()
+
+    # Send push notification to vendor/restaurant about new order
+    try:
+        # Parse items to get count
+        items_count = 0
+        if order.items:
+            import json
+            items_data = json.loads(order.items) if isinstance(order.items, str) else order.items
+            items_count = sum(item.get("quantity", 1) for item in items_data)
+
+        send_push_notification(
+            user_type="vendor",
+            user_id=order.vendor_id,
+            title="🔔 New Order!",
+            body=f"Order #{order.order_number} - {items_count} item(s) - ${order.total_amount:.2f}",
+            data={
+                "type": "new_order",
+                "order_id": str(order.id),
+                "order_number": order.order_number,
+                "total_amount": str(order.total_amount)
+            }
+        )
+        logger.info(f"Push notification sent to vendor {order.vendor_id} for order {order.order_number}")
+    except Exception as e:
+        # Don't fail the order if notification fails - restaurant can still poll
+        logger.warning(f"Failed to send push notification to vendor: {str(e)}")
 
     timeout_at = order.sent_to_restaurant_at + timedelta(seconds=RESTAURANT_ACCEPTANCE_WINDOW_SECONDS)
     window_minutes = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS // 60
