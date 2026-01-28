@@ -127,6 +127,7 @@ class EmailRequest(BaseModel):
 class PushRequest(BaseModel):
     user_id: Optional[int] = None
     driver_id: Optional[int] = None
+    vendor_id: Optional[int] = None  # For restaurant push notifications
     fcm_token: Optional[str] = None
     title: str
     body: str
@@ -670,7 +671,7 @@ async def send_push_notification(
     db: Session = Depends(get_db)
 ):
     """
-    Send push notification to a user or driver.
+    Send push notification to a user, driver, or vendor/restaurant.
 
     Error Codes:
     - NTF-201: User not found
@@ -685,6 +686,14 @@ async def send_push_notification(
             result = db.execute(
                 text("SELECT fcm_token FROM drivers WHERE id = :id"),
                 {"id": request.driver_id}
+            ).fetchone()
+            if result:
+                fcm_token = result[0]
+        elif request.vendor_id:
+            # Lookup vendor/restaurant FCM token (stored as push_token)
+            result = db.execute(
+                text("SELECT push_token FROM vendors WHERE id = :id"),
+                {"id": request.vendor_id}
             ).fetchone()
             if result:
                 fcm_token = result[0]
@@ -773,10 +782,12 @@ async def send_order_notification(
     # Get order details
     order = db.execute(
         text("""
-            SELECT o.id, o.order_id, o.customer_id, o.driver_id, o.vendor_id,
-                   c.email as customer_email, c.phone as customer_phone,
+            SELECT o.id, o.order_id, o.order_number, o.customer_id, o.driver_id, o.vendor_id,
+                   o.total_amount, o.items,
+                   c.email as customer_email, c.phone as customer_phone, c.push_token as customer_fcm,
                    d.email as driver_email, d.fcm_token as driver_fcm,
-                   v.contact_email as vendor_email
+                   v.contact_email as vendor_email, v.push_token as vendor_fcm,
+                   v.restaurant_name as vendor_name
             FROM orders o
             LEFT JOIN customers c ON o.customer_id = c.id
             LEFT JOIN drivers d ON o.driver_id = d.id
@@ -796,13 +807,24 @@ async def send_order_notification(
 
     # Determine what notifications to send based on type
     if request.notification_type == "new_order":
-        # Notify restaurant
+        # Notify restaurant via push notification
+        if order.vendor_fcm:
+            background_tasks.add_task(
+                push_service.send_push,
+                order.vendor_fcm,
+                "🔔 New Order!",
+                f"Order #{order.order_number or order.order_id} - ${order.total_amount:.2f}" if order.total_amount else f"Order #{order.order_number or order.order_id}",
+                {"order_id": str(order.id), "type": "new_order"}
+            )
+            notifications_sent.append("push:restaurant")
+
+        # Also notify restaurant via email
         if order.vendor_email:
             background_tasks.add_task(
                 email_service.send_email,
                 order.vendor_email,
-                f"New Order #{order.order_id}",
-                f"<p>You have a new order!</p>",
+                f"New Order #{order.order_number or order.order_id}",
+                f"<p>You have a new order! Please check your Dollor Business app.</p>",
                 "You have a new order!"
             )
             notifications_sent.append("email:restaurant")

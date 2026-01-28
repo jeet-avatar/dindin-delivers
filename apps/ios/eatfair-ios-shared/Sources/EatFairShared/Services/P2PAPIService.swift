@@ -8812,7 +8812,8 @@ extension P2PAPIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = ["token": token, "device_type": "ios"]
+        // Backend expects fcm_token and platform fields
+        let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -8841,7 +8842,8 @@ extension P2PAPIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = ["token": token, "device_type": "ios"]
+        // Backend expects fcm_token and platform fields
+        let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         URLSession.shared.dataTask(with: request) { data, response, error in
@@ -8870,7 +8872,8 @@ extension P2PAPIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = ["token": token, "device_type": "ios"]
+        // Backend expects fcm_token and platform fields
+        let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         URLSession.shared.dataTask(with: request) { data, response, error in
