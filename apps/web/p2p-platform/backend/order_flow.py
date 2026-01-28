@@ -19,6 +19,7 @@ AI Employees:
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
@@ -32,6 +33,64 @@ from database import get_db, SessionLocal
 # Service URLs
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8008")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")
+
+# Firebase Admin SDK for direct push notifications
+_firebase_initialized = False
+_firebase_app = None
+
+def _init_firebase():
+    """Initialize Firebase Admin SDK for direct push notifications."""
+    global _firebase_initialized, _firebase_app
+    if _firebase_initialized:
+        return _firebase_app is not None
+
+    _firebase_initialized = True
+    firebase_creds_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        if firebase_creds_path and os.path.exists(firebase_creds_path):
+            cred = credentials.Certificate(firebase_creds_path)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized from credentials file")
+            return True
+        elif firebase_creds_json:
+            import json as json_mod
+            cred_dict = json_mod.loads(firebase_creds_json)
+            cred = credentials.Certificate(cred_dict)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized from JSON env var")
+            return True
+        else:
+            logging.warning("No Firebase credentials configured - push notifications disabled")
+            return False
+    except Exception as e:
+        logging.error(f"Failed to initialize Firebase: {e}")
+        return False
+
+
+def _send_fcm_direct(fcm_token: str, title: str, body: str, data: dict = None) -> bool:
+    """Send FCM push notification directly using Firebase Admin SDK."""
+    if not _init_firebase():
+        return False
+
+    try:
+        from firebase_admin import messaging
+
+        message = messaging.Message(
+            notification=messaging.Notification(title=title, body=body),
+            data={k: str(v) for k, v in (data or {}).items()},
+            token=fcm_token
+        )
+        messaging.send(message)
+        logging.info(f"Direct FCM push sent: {title}")
+        return True
+    except Exception as e:
+        logging.error(f"Direct FCM push failed: {e}")
+        return False
 
 # Background scheduler for automatic timeout checks
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -73,14 +132,16 @@ def trigger_refund(order: "Order", reason: str = "Restaurant timeout") -> bool:
         return False
 
 
-def send_push_notification(user_type: str, user_id: int, title: str, body: str, data: dict = None) -> bool:
+def send_push_notification(user_type: str, user_id: int, title: str, body: str, data: dict = None, db: Session = None) -> bool:
     """
-    Send push notification via notification service.
+    Send push notification via notification service or direct FCM.
     user_type: 'customer', 'driver', or 'vendor'
     Returns True if successful, False otherwise.
+
+    Falls back to direct FCM if notification service is unavailable.
     """
+    # First, try notification service
     try:
-        # Build request payload with correct field name based on user_type
         payload = {
             "title": title,
             "body": body,
@@ -101,13 +162,62 @@ def send_push_notification(user_type: str, user_id: int, title: str, body: str, 
             timeout=5
         )
         if response.status_code == 200:
-            logger.info(f"Push notification sent to {user_type} {user_id}")
+            logger.info(f"Push notification sent via service to {user_type} {user_id}")
             return True
         else:
-            logger.warning(f"Failed to send push notification: {response.text}")
-            return False
+            logger.warning(f"Notification service returned error: {response.text}")
+            # Fall through to direct FCM
     except requests.RequestException as e:
-        logger.warning(f"Notification service unavailable: {e}")
+        logger.warning(f"Notification service unavailable: {e}, trying direct FCM...")
+
+    # Fallback: Direct FCM push notification
+    try:
+        # Get FCM token from database
+        fcm_token = None
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+        else:
+            should_close = False
+
+        try:
+            if user_type == "driver":
+                result = db.execute(
+                    text("SELECT fcm_token FROM drivers WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+            elif user_type == "vendor":
+                result = db.execute(
+                    text("SELECT push_token FROM vendors WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+            else:  # customer
+                result = db.execute(
+                    text("SELECT push_token FROM customers WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+        finally:
+            if should_close:
+                db.close()
+
+        if fcm_token:
+            if _send_fcm_direct(fcm_token, title, body, data):
+                logger.info(f"Direct FCM push sent to {user_type} {user_id}")
+                return True
+            else:
+                logger.error(f"Direct FCM push failed for {user_type} {user_id}")
+                return False
+        else:
+            logger.warning(f"No FCM token found for {user_type} {user_id}")
+            return False
+    except Exception as e:
+        logger.error(f"Direct FCM fallback failed: {e}")
         return False
 
 
@@ -2952,83 +3062,9 @@ async def broadcast_order_to_drivers(
     }
 
 
-# ==================== FCM TOKEN MANAGEMENT ====================
-
-class FCMTokenRequest(BaseModel):
-    token: str
-    device_type: str = "ios"  # ios, android, web
-
-
-@router.post("/drivers/{driver_id}/fcm-token")
-async def save_driver_fcm_token(
-    driver_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for driver push notifications"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    driver.fcm_token = request.token
-    driver.device_type = request.device_type
-    driver.fcm_token_updated_at = datetime.now()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "driver_id": driver.id,
-        "message": "FCM token saved"
-    }
-
-
-@router.post("/vendors/{vendor_id}/fcm-token")
-async def save_vendor_fcm_token(
-    vendor_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for restaurant push notifications"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    vendor.push_token = request.token
-    vendor.device_type = request.device_type
-
-    db.commit()
-
-    return {
-        "success": True,
-        "vendor_id": vendor.id,
-        "message": "FCM token saved"
-    }
-
-
-@router.post("/customers/{customer_id}/fcm-token")
-async def save_customer_fcm_token(
-    customer_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for customer push notifications"""
-    from models import Customer
-
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    customer.push_token = request.token
-    customer.device_type = request.device_type
-
-    db.commit()
-
-    return {
-        "success": True,
-        "customer_id": customer.id,
-        "message": "FCM token saved"
-    }
+# FCM Token Management endpoints are in main_new.py (single source of truth)
+# iOS Customer app sends: {"fcm_token": "...", "platform": "ios"}
+# All apps (iOS, Android, web) should use /erp/*/fcm-token endpoints from main_new.py
 
 
 # ==================== DRIVER LOCATION TRACKING ====================
