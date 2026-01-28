@@ -882,6 +882,72 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - AI Insights API
+
+    /// Fetch AI-powered insights for a vendor's restaurant
+    /// - Parameters:
+    ///   - vendorId: The vendor's ID
+    ///   - period: Time period - "today", "week", "month", "year"
+    ///   - completion: Callback with AI insights or error
+    public func getAIInsights(
+        vendorId: Int,
+        period: String = "today",
+        completion: @escaping (Result<P2PAIInsightsResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/ai-insights?period=\(period)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        #if DEBUG
+        print("[P2PAPI] Fetching AI Insights for vendor \(vendorId), period: \(period)")
+        #endif
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    #if DEBUG
+                    print("[P2PAPI] AI Insights error: \(error.localizedDescription)")
+                    #endif
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                #if DEBUG
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("[P2PAPI] AI Insights response: \(jsonString.prefix(500))...")
+                }
+                #endif
+
+                do {
+                    let decoder = JSONDecoder()
+                    let insights = try decoder.decode(P2PAIInsightsResponse.self, from: data)
+                    #if DEBUG
+                    print("[P2PAPI] AI Insights decoded successfully - \(insights.totalOrders) orders")
+                    #endif
+                    completion(.success(insights))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPI] AI Insights decode error: \(error)")
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Quick-create a promotion by type
     public func quickCreatePromotion(
         vendorId: Int,
@@ -1257,7 +1323,11 @@ public class P2PAPIService: ObservableObject {
         googleId: String,
         completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/auth/vendor/google-auth") else {
+        let fullURL = "\(baseURL)/auth/vendor/google-auth"
+        print("DEBUG API vendorGoogleAuth: URL = \(fullURL)")
+
+        guard let url = URL(string: fullURL) else {
+            print("DEBUG API vendorGoogleAuth: FAILED - Invalid URL")
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1272,6 +1342,7 @@ public class P2PAPIService: ObservableObject {
             "google_id": googleId
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        print("DEBUG API vendorGoogleAuth: Request body = \(body)")
 
         isLoading = true
 
@@ -1280,35 +1351,51 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    print("DEBUG API vendorGoogleAuth: Network error = \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    print("DEBUG API vendorGoogleAuth: FAILED - No data received")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
-                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
-                    } else {
-                        completion(.failure(P2PAPIError.serverError("Google auth failed")))
+                // Log raw response
+                if let rawResponse = String(data: data, encoding: .utf8) {
+                    print("DEBUG API vendorGoogleAuth: Raw response = \(rawResponse.prefix(500))")
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("DEBUG API vendorGoogleAuth: HTTP status = \(httpResponse.statusCode)")
+
+                    if httpResponse.statusCode >= 400 {
+                        if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            print("DEBUG API vendorGoogleAuth: Server error = \(errorResponse.detail)")
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            print("DEBUG API vendorGoogleAuth: Unknown server error")
+                            completion(.failure(P2PAPIError.serverError("Google auth failed")))
+                        }
+                        return
                     }
-                    return
                 }
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
+                    print("DEBUG API vendorGoogleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     // Save vendor name and email for profile display
                     UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
                     UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
+                    print("DEBUG API vendorGoogleAuth: Saved to UserDefaults and Keychain")
                     completion(.success(loginResponse))
                 } catch {
+                    print("DEBUG API vendorGoogleAuth: DECODE FAILED - \(error)")
                     self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -1324,7 +1411,11 @@ public class P2PAPIService: ObservableObject {
         appleId: String,
         completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/auth/vendor/apple-auth") else {
+        let fullURL = "\(baseURL)/auth/vendor/apple-auth"
+        print("DEBUG API vendorAppleAuth: URL = \(fullURL)")
+
+        guard let url = URL(string: fullURL) else {
+            print("DEBUG API vendorAppleAuth: FAILED - Invalid URL")
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1339,6 +1430,7 @@ public class P2PAPIService: ObservableObject {
             "apple_id": appleId
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        print("DEBUG API vendorAppleAuth: Request body = \(body)")
 
         isLoading = true
 
@@ -1347,35 +1439,51 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    print("DEBUG API vendorAppleAuth: Network error = \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    print("DEBUG API vendorAppleAuth: FAILED - No data received")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
-                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
-                    } else {
-                        completion(.failure(P2PAPIError.serverError("Apple auth failed")))
+                // Log raw response
+                if let rawResponse = String(data: data, encoding: .utf8) {
+                    print("DEBUG API vendorAppleAuth: Raw response = \(rawResponse.prefix(500))")
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("DEBUG API vendorAppleAuth: HTTP status = \(httpResponse.statusCode)")
+
+                    if httpResponse.statusCode >= 400 {
+                        if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            print("DEBUG API vendorAppleAuth: Server error = \(errorResponse.detail)")
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            print("DEBUG API vendorAppleAuth: Unknown server error")
+                            completion(.failure(P2PAPIError.serverError("Apple auth failed")))
+                        }
+                        return
                     }
-                    return
                 }
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
+                    print("DEBUG API vendorAppleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     // Save vendor name and email for profile display
                     UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
                     UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
+                    print("DEBUG API vendorAppleAuth: Saved to UserDefaults and Keychain")
                     completion(.success(loginResponse))
                 } catch {
+                    print("DEBUG API vendorAppleAuth: DECODE FAILED - \(error)")
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -7058,6 +7166,146 @@ public struct P2PPromotionAnalytics: Codable {
     public let totalDiscountGiven: Double
     public let averageOrderValueWithPromo: Double?
     public let conversionRate: Double?
+}
+
+// MARK: - AI Insights Models
+
+/// Demand forecast data point
+public struct P2PDemandForecast: Codable, Identifiable {
+    public var id: String { hour }
+    public let hour: String
+    public let hour24: Int
+    public let predicted: Int
+    public let minOrders: Int
+    public let maxOrders: Int
+
+    enum CodingKeys: String, CodingKey {
+        case hour
+        case hour24 = "hour_24"
+        case predicted
+        case minOrders = "min_orders"
+        case maxOrders = "max_orders"
+    }
+}
+
+/// Popular item analytics
+public struct P2PPopularItem: Codable, Identifiable {
+    public var id: String { name }
+    public let name: String
+    public let quantity: Int
+    public let revenue: Double
+}
+
+/// Hourly distribution data
+public struct P2PHourlyData: Codable, Identifiable {
+    public var id: Int { hour24 }
+    public let hour: String
+    public let hour24: Int
+    public let orders: Int
+    public let revenue: Double
+    public let avgOrder: Double
+
+    enum CodingKeys: String, CodingKey {
+        case hour
+        case hour24 = "hour_24"
+        case orders
+        case revenue
+        case avgOrder = "avg_order"
+    }
+}
+
+/// Peak hours info
+public struct P2PPeakInfo: Codable {
+    public let time: String
+    public let orders: Int
+}
+
+/// Staffing recommendation
+public struct P2PStaffingRecommendation: Codable, Identifiable {
+    public var id: String { timeSlot }
+    public let timeSlot: String
+    public let recommendedStaff: Int
+    public let expectedOrders: Int
+    public let ordersPerHour: Double
+
+    enum CodingKeys: String, CodingKey {
+        case timeSlot = "time_slot"
+        case recommendedStaff = "recommended_staff"
+        case expectedOrders = "expected_orders"
+        case ordersPerHour = "orders_per_hour"
+    }
+}
+
+/// AI recommendation
+public struct P2PAIRecommendation: Codable, Identifiable {
+    public var id: String { type + title }
+    public let type: String
+    public let icon: String
+    public let title: String
+    public let description: String
+    public let impact: String
+    public let priority: String
+}
+
+/// Complete AI Insights response
+public struct P2PAIInsightsResponse: Codable {
+    public let success: Bool
+    public let vendorId: Int
+    public let period: String
+    public let generatedAt: String
+
+    // Demand Forecast
+    public let demandForecast: [P2PDemandForecast]
+    public let estimatedOrdersNextHour: Int
+    public let peakHour: String
+    public let peakHourOrders: Int
+    public let forecastConfidence: Double
+
+    // Popular Items
+    public let popularItems: [P2PPopularItem]
+
+    // Hourly Distribution
+    public let hourlyDistribution: [P2PHourlyData]
+
+    // Performance Metrics
+    public let totalOrders: Int
+    public let totalRevenue: Double
+    public let averageOrderValue: Double
+    public let orderCompletionRate: Double
+    public let averagePrepTimeMinutes: Int
+
+    // Peak Hours
+    public let lunchPeak: P2PPeakInfo
+    public let dinnerPeak: P2PPeakInfo
+
+    // Staffing
+    public let staffingRecommendations: [P2PStaffingRecommendation]
+
+    // Recommendations
+    public let recommendations: [P2PAIRecommendation]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case vendorId = "vendor_id"
+        case period
+        case generatedAt = "generated_at"
+        case demandForecast = "demand_forecast"
+        case estimatedOrdersNextHour = "estimated_orders_next_hour"
+        case peakHour = "peak_hour"
+        case peakHourOrders = "peak_hour_orders"
+        case forecastConfidence = "forecast_confidence"
+        case popularItems = "popular_items"
+        case hourlyDistribution = "hourly_distribution"
+        case totalOrders = "total_orders"
+        case totalRevenue = "total_revenue"
+        case averageOrderValue = "average_order_value"
+        case orderCompletionRate = "order_completion_rate"
+        case averagePrepTimeMinutes = "average_prep_time_minutes"
+        case lunchPeak = "lunch_peak"
+        case dinnerPeak = "dinner_peak"
+        case staffingRecommendations = "staffing_recommendations"
+        case recommendations
+    }
 }
 
 /// Customer-facing promotion with vendor name

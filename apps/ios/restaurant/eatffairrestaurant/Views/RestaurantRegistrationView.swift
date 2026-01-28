@@ -300,12 +300,13 @@ struct RestaurantRegistrationView: View {
         // Call P2P API for vendor registration
         p2pAPI.vendorPublicRegister(data: registrationData) { result in
             DispatchQueue.main.async {
-                isLoading = false
                 switch result {
                 case .success(let response):
                     registeredVendorId = response.id
-                    showSuccessView = true
+                    // Auto-login after successful registration
+                    autoLoginAfterRegistration()
                 case .failure(let error):
+                    isLoading = false
                     if let apiError = error as? P2PAPIError {
                         switch apiError {
                         case .serverError(let message):
@@ -316,6 +317,26 @@ struct RestaurantRegistrationView: View {
                     } else {
                         errorMessage = error.localizedDescription
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: - Auto Login After Registration
+
+    private func autoLoginAfterRegistration() {
+        // Use the same credentials to log in and get an access token
+        p2pAPI.vendorLogin(email: formData.contactEmail, password: formData.password) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success:
+                    // Successfully logged in with access token saved
+                    showSuccessView = true
+                case .failure:
+                    // Registration succeeded but auto-login failed
+                    // Still show success - user can log in manually
+                    showSuccessView = true
                 }
             }
         }
@@ -825,9 +846,19 @@ struct Step4ReviewView: View {
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .green))
 
-                Text("By submitting, you agree to our matchmaking platform terms. Dollor.AI connects restaurants with customers and independent delivery partners.")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Platform Disclosure")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+
+                    Text("Dollor.AI is a peer-to-platform matchmaking service that connects restaurants with customers and independent delivery partners. We are NOT a transportation network company (TNC). All delivery services are performed by independent contractors.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(8)
+                .background(Color.blue.opacity(0.05))
+                .cornerRadius(8)
             }
         }
     }

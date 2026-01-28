@@ -2,18 +2,17 @@ import SwiftUI
 import Charts
 import EatFairShared
 
-/// AI-Powered Insights Dashboard with predictive analytics and smart suggestions
+/// AI-Powered Insights Dashboard with real data from backend API
 struct AIInsightsView: View {
     @ObservedObject var ordersVM: OrdersViewModel
+    @StateObject private var viewModel = AIInsightsViewModel()
     @State private var selectedInsight: AIInsightType = .demand
-    @State private var showDetailSheet: AIInsightDetail?
-    @State private var showOrderInventoryAlert = false
-    @State private var showOptimizeAlert = false
+    @State private var selectedPeriod: String = "today"
 
     enum AIInsightType: String, CaseIterable {
         case demand = "Demand"
-        case inventory = "Inventory"
-        case pricing = "Pricing"
+        case performance = "Performance"
+        case items = "Top Items"
         case staff = "Staffing"
     }
 
@@ -24,39 +23,87 @@ struct AIInsightsView: View {
                     // AI Status Header
                     aiStatusHeader
 
+                    // Period Selector
+                    periodSelector
+
                     // Insight Type Selector
                     insightTypeSelector
 
-                    // Main Insight Card based on selection
-                    switch selectedInsight {
-                    case .demand:
-                        demandForecastCard
-                    case .inventory:
-                        inventoryInsightsCard
-                    case .pricing:
-                        pricingInsightsCard
-                    case .staff:
-                        staffingInsightsCard
+                    if viewModel.isLoading {
+                        loadingView
+                    } else if let error = viewModel.errorMessage {
+                        errorView(error)
+                    } else {
+                        // Main Insight Card based on selection
+                        switch selectedInsight {
+                        case .demand:
+                            demandForecastCard
+                        case .performance:
+                            performanceCard
+                        case .items:
+                            popularItemsCard
+                        case .staff:
+                            staffingInsightsCard
+                        }
+
+                        // Smart Recommendations (if available)
+                        if !viewModel.recommendations.isEmpty {
+                            smartRecommendationsCard
+                        }
+
+                        // Peak Hours Analysis
+                        peakHoursCard
                     }
-
-                    // Smart Recommendations
-                    smartRecommendationsCard
-
-                    // Real-time Alerts
-                    realTimeAlertsCard
-
-                    // AI Learning Progress
-                    aiLearningCard
                 }
                 .padding()
             }
             .background(RestaurantTheme.backgroundGrouped)
             .navigationTitle("AI Insights")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(item: $showDetailSheet) { detail in
-                AIInsightDetailSheet(detail: detail)
+            .onAppear {
+                viewModel.fetchInsights(period: selectedPeriod)
+            }
+            .onChange(of: selectedPeriod) { _, newPeriod in
+                viewModel.fetchInsights(period: newPeriod)
+            }
+            .refreshable {
+                viewModel.fetchInsights(period: selectedPeriod)
             }
         }
+    }
+
+    // MARK: - Loading View
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+            Text("Loading AI Insights...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
+    // MARK: - Error View
+    private func errorView(_ error: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundColor(.orange)
+            Text("Unable to load insights")
+                .font(.headline)
+            Text(error)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                viewModel.fetchInsights(period: selectedPeriod)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
     }
 
     // MARK: - AI Status Header
@@ -84,11 +131,11 @@ struct AIInsightsView: View {
                         .font(.headline)
 
                     Circle()
-                        .fill(.green)
+                        .fill(viewModel.insights != nil ? .green : .orange)
                         .frame(width: 8, height: 8)
                 }
 
-                Text("Analyzing \(ordersVM.allOrders.count) orders to optimize your restaurant")
+                Text("Analyzing \(viewModel.totalOrders) orders to optimize your restaurant")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -104,6 +151,30 @@ struct AIInsightsView: View {
             )
         )
         .cornerRadius(16)
+    }
+
+    // MARK: - Period Selector
+    private var periodSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(["today", "week", "month", "year"], id: \.self) { period in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3)) {
+                            selectedPeriod = period
+                        }
+                    }) {
+                        Text(period.capitalized)
+                            .font(.subheadline)
+                            .fontWeight(selectedPeriod == period ? .semibold : .regular)
+                            .foregroundColor(selectedPeriod == period ? .white : .secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(selectedPeriod == period ? RestaurantTheme.brandOrange : Color.gray.opacity(0.1))
+                            .cornerRadius(20)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Insight Type Selector
@@ -134,76 +205,136 @@ struct AIInsightsView: View {
                 Text("Demand Forecast")
                     .font(.headline)
                 Spacer()
-                Button("View Details") {
-                    showDetailSheet = AIInsightDetail(
-                        title: "Demand Forecast",
-                        description: "AI-powered prediction of order volume for the next 24 hours",
-                        icon: "chart.line.uptrend.xyaxis"
-                    )
-                }
-                .font(.caption)
-                .foregroundColor(.purple)
             }
 
-            // Forecast Chart
-            Chart {
-                ForEach(demandForecastData, id: \.hour) { data in
-                    AreaMark(
-                        x: .value("Hour", data.hour),
-                        yStart: .value("Min", data.minOrders),
-                        yEnd: .value("Max", data.maxOrders)
-                    )
-                    .foregroundStyle(Color.purple.opacity(0.2))
+            if viewModel.demandForecast.isEmpty {
+                Text("Not enough data for forecast. Keep processing orders!")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 20)
+            } else {
+                // Forecast Chart
+                Chart {
+                    ForEach(viewModel.demandForecast) { data in
+                        AreaMark(
+                            x: .value("Hour", data.hour),
+                            yStart: .value("Min", data.minOrders),
+                            yEnd: .value("Max", data.maxOrders)
+                        )
+                        .foregroundStyle(Color.purple.opacity(0.2))
 
-                    LineMark(
-                        x: .value("Hour", data.hour),
-                        y: .value("Predicted", data.predicted)
-                    )
-                    .foregroundStyle(Color.purple)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
+                        LineMark(
+                            x: .value("Hour", data.hour),
+                            y: .value("Predicted", data.predicted)
+                        )
+                        .foregroundStyle(Color.purple)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
 
-                    PointMark(
-                        x: .value("Hour", data.hour),
-                        y: .value("Predicted", data.predicted)
-                    )
-                    .foregroundStyle(Color.purple)
+                        PointMark(
+                            x: .value("Hour", data.hour),
+                            y: .value("Predicted", data.predicted)
+                        )
+                        .foregroundStyle(Color.purple)
+                    }
                 }
-            }
-            .frame(height: 180)
-            .chartXAxis {
-                AxisMarks(values: .stride(by: 2)) { value in
-                    AxisValueLabel {
-                        if let hour = value.as(String.self) {
-                            Text(hour)
-                                .font(.caption2)
+                .frame(height: 180)
+                .chartXAxis {
+                    AxisMarks(values: .automatic) { value in
+                        AxisValueLabel {
+                            if let hour = value.as(String.self) {
+                                Text(hour)
+                                    .font(.caption2)
+                            }
                         }
                     }
                 }
+
+                // Key Predictions
+                HStack(spacing: 16) {
+                    PredictionBadge(
+                        label: "Next Hour",
+                        value: "\(viewModel.estimatedOrdersNextHour)",
+                        sublabel: "orders expected",
+                        color: .purple
+                    )
+
+                    PredictionBadge(
+                        label: "Peak Time",
+                        value: viewModel.peakHour,
+                        sublabel: "\(viewModel.peakHourOrders) orders",
+                        color: .orange
+                    )
+
+                    PredictionBadge(
+                        label: "Confidence",
+                        value: "\(Int(viewModel.forecastConfidence * 100))%",
+                        sublabel: "accuracy",
+                        color: .green
+                    )
+                }
+            }
+        }
+        .padding()
+        .background(RestaurantTheme.backgroundPrimary)
+        .cornerRadius(16)
+        .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
+    }
+
+    // MARK: - Performance Card
+    private var performanceCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundColor(.green)
+                Text("Performance Metrics")
+                    .font(.headline)
+                Spacer()
             }
 
-            // Key Predictions
-            HStack(spacing: 16) {
-                PredictionBadge(
-                    label: "Next Hour",
-                    value: "\(ordersVM.estimatedOrdersNextHour)",
-                    sublabel: "orders expected",
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                MetricTile(
+                    title: "Total Orders",
+                    value: "\(viewModel.totalOrders)",
+                    icon: "bag.fill",
+                    color: .blue
+                )
+
+                MetricTile(
+                    title: "Revenue",
+                    value: "$\(Int(viewModel.totalRevenue))",
+                    icon: "dollarsign.circle.fill",
+                    color: .green
+                )
+
+                MetricTile(
+                    title: "Avg Order",
+                    value: "$\(Int(viewModel.averageOrderValue))",
+                    icon: "chart.line.uptrend.xyaxis",
                     color: .purple
                 )
 
-                PredictionBadge(
-                    label: "Peak Time",
-                    value: "7:00 PM",
-                    sublabel: "prepare extra staff",
+                MetricTile(
+                    title: "Completion Rate",
+                    value: "\(Int(viewModel.orderCompletionRate * 100))%",
+                    icon: "checkmark.circle.fill",
                     color: .orange
                 )
-
-                PredictionBadge(
-                    label: "Confidence",
-                    value: "87%",
-                    sublabel: "prediction accuracy",
-                    color: .green
-                )
             }
+
+            // Prep Time
+            HStack {
+                Image(systemName: "clock.fill")
+                    .foregroundColor(.blue)
+                Text("Avg Prep Time")
+                    .font(.subheadline)
+                Spacer()
+                Text("\(viewModel.averagePrepTime) min")
+                    .font(.headline)
+                    .foregroundColor(viewModel.averagePrepTime > 25 ? .red : .green)
+            }
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(10)
         }
         .padding()
         .background(RestaurantTheme.backgroundPrimary)
@@ -211,128 +342,58 @@ struct AIInsightsView: View {
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
     }
 
-    // MARK: - Inventory Insights Card
-    private var inventoryInsightsCard: some View {
+    // MARK: - Popular Items Card
+    private var popularItemsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "cube.box.fill")
+                Image(systemName: "star.fill")
                     .foregroundColor(.orange)
-                Text("Inventory Insights")
+                Text("Top Selling Items")
                     .font(.headline)
                 Spacer()
-            }
-
-            // Low Stock Alerts
-            VStack(spacing: 12) {
-                InventoryAlertRow(
-                    item: "Chicken Breast",
-                    status: .critical,
-                    remaining: "~8 servings",
-                    action: "Order now"
-                )
-
-                InventoryAlertRow(
-                    item: "Mozzarella Cheese",
-                    status: .warning,
-                    remaining: "~20 servings",
-                    action: "Order soon"
-                )
-
-                InventoryAlertRow(
-                    item: "Olive Oil",
-                    status: .good,
-                    remaining: "~50 servings",
-                    action: "Well stocked"
-                )
-            }
-
-            Divider()
-
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("AI Suggestion")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Based on tonight's forecast, order extra chicken and cheese before 3 PM")
-                        .font(.subheadline)
-                }
-
-                Spacer()
-
-                Button(action: { showOrderInventoryAlert = true }) {
-                    Text("Order")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(RestaurantTheme.brandOrange)
-                        .cornerRadius(20)
-                }
-            }
-        }
-        .padding()
-        .background(RestaurantTheme.backgroundPrimary)
-        .cornerRadius(16)
-        .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
-        .alert("Order Inventory", isPresented: $showOrderInventoryAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Contact Supplier") {
-                // Use configured support phone from AppConfig
-                let phone = AppConfig.shared.supportPhone.replacingOccurrences(of: "-", with: "")
-                if let url = URL(string: "tel:\(phone)") {
-                    UIApplication.shared.open(url)
-                }
-            }
-        } message: {
-            Text("AI recommends ordering extra chicken and cheese before 3 PM based on tonight's forecast.")
-        }
-    }
-
-    // MARK: - Pricing Insights Card
-    private var pricingInsightsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "dollarsign.circle.fill")
-                    .foregroundColor(.green)
-                Text("Dynamic Pricing Insights")
-                    .font(.headline)
-                Spacer()
-            }
-
-            // Pricing Recommendations
-            VStack(spacing: 12) {
-                PricingRecommendation(
-                    item: "Margherita Pizza",
-                    currentPrice: 14.99,
-                    suggestedPrice: 16.99,
-                    reason: "High demand during dinner hours",
-                    impact: "+$45/day revenue"
-                )
-
-                PricingRecommendation(
-                    item: "Caesar Salad",
-                    currentPrice: 11.99,
-                    suggestedPrice: 9.99,
-                    reason: "Low order volume, price sensitivity detected",
-                    impact: "+12 orders/day"
-                )
-            }
-
-            Divider()
-
-            HStack {
-                Image(systemName: "lightbulb.fill")
-                    .foregroundColor(.yellow)
-
-                Text("Enable dynamic pricing to automatically adjust prices based on demand, time, and competition")
+                Text(selectedPeriod.capitalized)
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
 
-                Spacer()
+            if viewModel.popularItems.isEmpty {
+                Text("No order data available yet")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(Array(viewModel.popularItems.enumerated()), id: \.element.id) { index, item in
+                    HStack(spacing: 12) {
+                        Text("\(index + 1)")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .frame(width: 24, height: 24)
+                            .background(index < 3 ? RestaurantTheme.brandOrange : Color.gray)
+                            .clipShape(Circle())
 
-                Toggle("", isOn: .constant(false))
-                    .labelsHidden()
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("\(item.quantity) orders")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text("$\(Int(item.revenue))")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                    }
+                    .padding(.vertical, 4)
+
+                    if index < viewModel.popularItems.count - 1 {
+                        Divider()
+                    }
+                }
             }
         }
         .padding()
@@ -347,80 +408,62 @@ struct AIInsightsView: View {
             HStack {
                 Image(systemName: "person.3.fill")
                     .foregroundColor(.blue)
-                Text("Staffing Optimization")
+                Text("Staffing Recommendations")
                     .font(.headline)
                 Spacer()
             }
 
-            // Staffing Schedule
-            VStack(spacing: 8) {
-                StaffingTimeSlot(
-                    time: "11 AM - 2 PM",
-                    recommended: 3,
-                    current: 2,
-                    status: .understaffed
-                )
+            if viewModel.staffingRecommendations.isEmpty {
+                Text("Not enough data for staffing recommendations")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(viewModel.staffingRecommendations) { slot in
+                    HStack {
+                        Text(slot.timeSlot)
+                            .font(.subheadline)
+                            .frame(width: 110, alignment: .leading)
 
-                StaffingTimeSlot(
-                    time: "2 PM - 5 PM",
-                    recommended: 2,
-                    current: 2,
-                    status: .optimal
-                )
+                        Spacer()
 
-                StaffingTimeSlot(
-                    time: "5 PM - 9 PM",
-                    recommended: 4,
-                    current: 3,
-                    status: .understaffed
-                )
+                        HStack(spacing: 4) {
+                            ForEach(0..<slot.recommendedStaff, id: \.self) { _ in
+                                Image(systemName: "person.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
 
-                StaffingTimeSlot(
-                    time: "9 PM - Close",
-                    recommended: 2,
-                    current: 3,
-                    status: .overstaffed
-                )
+                        Spacer()
+
+                        VStack(alignment: .trailing) {
+                            Text("\(slot.recommendedStaff) staff")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Text("\(slot.expectedOrders) orders")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
             }
 
             Divider()
 
             HStack {
-                VStack(alignment: .leading) {
-                    Text("Weekly Labor Cost Optimization")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Potential savings: $320/week")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.green)
-                }
-
-                Spacer()
-
-                Button("Optimize Schedule") {
-                    // AI-powered schedule optimization would connect to backend
-                    // For now, show an info alert
-                    showOptimizeAlert = true
-                }
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.yellow)
+                Text("Based on \(selectedPeriod) order patterns")
                     .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(RestaurantTheme.brandBlue)
-                    .cornerRadius(16)
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
-        .alert("Schedule Optimization", isPresented: $showOptimizeAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Based on AI analysis, we recommend having 3 staff during lunch (11AM-2PM) and 4 staff during dinner (5PM-9PM) for optimal service. This could increase efficiency by 15%.")
-        }
     }
 
     // MARK: - Smart Recommendations Card
@@ -434,30 +477,33 @@ struct AIInsightsView: View {
                 Spacer()
             }
 
-            VStack(spacing: 12) {
-                RecommendationRow(
-                    icon: "clock.badge.checkmark",
-                    title: "Reduce Prep Time",
-                    description: "Pre-prep pizza dough 30 min before dinner rush",
-                    impact: "Save 5 min per order",
-                    color: .blue
-                )
+            ForEach(viewModel.recommendations) { rec in
+                HStack(spacing: 12) {
+                    Image(systemName: rec.icon)
+                        .font(.title3)
+                        .foregroundColor(colorForPriority(rec.priority))
+                        .frame(width: 40)
 
-                RecommendationRow(
-                    icon: "bag.badge.plus",
-                    title: "Bundle Suggestion",
-                    description: "Create 'Family Meal Deal' - projected +15% order value",
-                    impact: "+$180/day revenue",
-                    color: .green
-                )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(rec.title)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
 
-                RecommendationRow(
-                    icon: "star.fill",
-                    title: "Trending Item",
-                    description: "Chicken Tikka orders up 45% - feature on homepage",
-                    impact: "Increase visibility",
-                    color: .orange
-                )
+                        Text(rec.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text(rec.impact)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.green)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+                .background(colorForPriority(rec.priority).opacity(0.05))
+                .cornerRadius(10)
             }
         }
         .padding()
@@ -466,94 +512,57 @@ struct AIInsightsView: View {
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
     }
 
-    // MARK: - Real-time Alerts Card
-    private var realTimeAlertsCard: some View {
+    // MARK: - Peak Hours Card
+    private var peakHoursCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "bell.badge.fill")
-                    .foregroundColor(.red)
-                Text("Real-time Alerts")
-                    .font(.headline)
-                Spacer()
-
-                Text("3 active")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.red)
-                    .cornerRadius(10)
-            }
-
-            VStack(spacing: 8) {
-                AlertRow(
-                    type: .warning,
-                    message: "Prep time above average (28 min vs 20 min target)",
-                    time: "2 min ago"
-                )
-
-                AlertRow(
-                    type: .info,
-                    message: "Unusual spike in orders from Downtown area",
-                    time: "15 min ago"
-                )
-
-                AlertRow(
-                    type: .success,
-                    message: "Customer rating improved to 4.8 this week",
-                    time: "1 hour ago"
-                )
-            }
-        }
-        .padding()
-        .background(RestaurantTheme.backgroundPrimary)
-        .cornerRadius(16)
-        .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
-    }
-
-    // MARK: - AI Learning Card
-    private var aiLearningCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "brain")
-                    .foregroundColor(.purple)
-                Text("AI Learning Progress")
-                    .font(.headline)
-                Spacer()
-            }
-
-            VStack(spacing: 12) {
-                LearningProgressRow(
-                    label: "Order Pattern Recognition",
-                    progress: 0.92,
-                    status: "Excellent"
-                )
-
-                LearningProgressRow(
-                    label: "Customer Preference Model",
-                    progress: 0.78,
-                    status: "Good"
-                )
-
-                LearningProgressRow(
-                    label: "Prep Time Optimization",
-                    progress: 0.85,
-                    status: "Very Good"
-                )
-
-                LearningProgressRow(
-                    label: "Demand Forecasting",
-                    progress: 0.67,
-                    status: "Learning"
-                )
-            }
-
-            HStack {
-                Image(systemName: "info.circle")
+                Image(systemName: "clock.fill")
                     .foregroundColor(.blue)
-                Text("AI accuracy improves as more orders are processed. Current dataset: \(ordersVM.allOrders.count) orders")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("Peak Hours")
+                    .font(.headline)
+                Spacer()
+            }
+
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Lunch Peak")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(viewModel.lunchPeakTime)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    HStack(spacing: 4) {
+                        Image(systemName: "bag.fill")
+                            .font(.caption)
+                        Text("\(viewModel.lunchPeakOrders) orders")
+                            .font(.caption)
+                    }
+                    .foregroundColor(RestaurantTheme.brandBlue)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(RestaurantTheme.brandBlue.opacity(0.1))
+                .cornerRadius(12)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Dinner Peak")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(viewModel.dinnerPeakTime)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    HStack(spacing: 4) {
+                        Image(systemName: "bag.fill")
+                            .font(.caption)
+                        Text("\(viewModel.dinnerPeakOrders) orders")
+                            .font(.caption)
+                    }
+                    .foregroundColor(RestaurantTheme.brandOrange)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(RestaurantTheme.brandOrange.opacity(0.1))
+                .cornerRadius(12)
             }
         }
         .padding()
@@ -562,36 +571,18 @@ struct AIInsightsView: View {
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
     }
 
-    // MARK: - Sample Data
-    private var demandForecastData: [DemandForecast] {
-        [
-            DemandForecast(hour: "Now", predicted: 5, minOrders: 3, maxOrders: 7),
-            DemandForecast(hour: "4PM", predicted: 8, minOrders: 6, maxOrders: 11),
-            DemandForecast(hour: "5PM", predicted: 15, minOrders: 12, maxOrders: 18),
-            DemandForecast(hour: "6PM", predicted: 25, minOrders: 20, maxOrders: 30),
-            DemandForecast(hour: "7PM", predicted: 35, minOrders: 28, maxOrders: 42),
-            DemandForecast(hour: "8PM", predicted: 30, minOrders: 25, maxOrders: 36),
-            DemandForecast(hour: "9PM", predicted: 20, minOrders: 15, maxOrders: 25)
-        ]
+    // MARK: - Helper Functions
+    private func colorForPriority(_ priority: String) -> Color {
+        switch priority {
+        case "high": return .red
+        case "medium": return .orange
+        default: return .blue
+        }
     }
-}
-
-// MARK: - Supporting Types
-struct DemandForecast {
-    let hour: String
-    let predicted: Int
-    let minOrders: Int
-    let maxOrders: Int
-}
-
-struct AIInsightDetail: Identifiable {
-    let id = UUID()
-    let title: String
-    let description: String
-    let icon: String
 }
 
 // MARK: - Supporting Views
+
 struct InsightTypeButton: View {
     let type: AIInsightsView.AIInsightType
     let isSelected: Bool
@@ -600,8 +591,8 @@ struct InsightTypeButton: View {
     var icon: String {
         switch type {
         case .demand: return "chart.line.uptrend.xyaxis"
-        case .inventory: return "cube.box.fill"
-        case .pricing: return "dollarsign.circle.fill"
+        case .performance: return "chart.bar.fill"
+        case .items: return "star.fill"
         case .staff: return "person.3.fill"
         }
     }
@@ -609,8 +600,8 @@ struct InsightTypeButton: View {
     var color: Color {
         switch type {
         case .demand: return .purple
-        case .inventory: return .orange
-        case .pricing: return .green
+        case .performance: return .green
+        case .items: return .orange
         case .staff: return .blue
         }
     }
@@ -662,340 +653,31 @@ struct PredictionBadge: View {
     }
 }
 
-struct InventoryAlertRow: View {
-    let item: String
-    let status: InventoryStatus
-    let remaining: String
-    let action: String
-
-    enum InventoryStatus {
-        case critical, warning, good
-
-        var color: Color {
-            switch self {
-            case .critical: return .red
-            case .warning: return .orange
-            case .good: return .green
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .critical: return "exclamationmark.triangle.fill"
-            case .warning: return "exclamationmark.circle.fill"
-            case .good: return "checkmark.circle.fill"
-            }
-        }
-    }
-
-    var body: some View {
-        HStack {
-            Image(systemName: status.icon)
-                .foregroundColor(status.color)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(remaining)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Text(action)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(status.color)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(status.color.opacity(0.1))
-                .cornerRadius(8)
-        }
-    }
-}
-
-struct PricingRecommendation: View {
-    let item: String
-    let currentPrice: Double
-    let suggestedPrice: Double
-    let reason: String
-    let impact: String
+struct MetricTile: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(item)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
+                Image(systemName: icon)
+                    .foregroundColor(color)
                 Spacer()
-
-                HStack(spacing: 4) {
-                    Text("$\(String(format: "%.2f", currentPrice))")
-                        .strikethrough()
-                        .foregroundColor(.secondary)
-
-                    Image(systemName: "arrow.right")
-                        .font(.caption)
-
-                    Text("$\(String(format: "%.2f", suggestedPrice))")
-                        .fontWeight(.bold)
-                        .foregroundColor(suggestedPrice > currentPrice ? .green : .orange)
-                }
-                .font(.caption)
             }
 
-            Text(reason)
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
-
-            Text(impact)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.green)
         }
         .padding()
         .background(Color.gray.opacity(0.05))
-        .cornerRadius(10)
-    }
-}
-
-struct StaffingTimeSlot: View {
-    let time: String
-    let recommended: Int
-    let current: Int
-    let status: StaffingStatus
-
-    enum StaffingStatus {
-        case understaffed, optimal, overstaffed
-
-        var color: Color {
-            switch self {
-            case .understaffed: return .red
-            case .optimal: return .green
-            case .overstaffed: return .orange
-            }
-        }
-
-        var label: String {
-            switch self {
-            case .understaffed: return "Need +\(abs(0)) more"
-            case .optimal: return "Optimal"
-            case .overstaffed: return "Overstaffed"
-            }
-        }
-    }
-
-    var body: some View {
-        HStack {
-            Text(time)
-                .font(.subheadline)
-                .frame(width: 100, alignment: .leading)
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                ForEach(0..<max(recommended, current), id: \.self) { i in
-                    Image(systemName: "person.fill")
-                        .font(.caption)
-                        .foregroundColor(i < current ? (i < recommended ? .green : .orange) : .gray.opacity(0.3))
-                }
-            }
-
-            Spacer()
-
-            Text(status == .understaffed ? "Need +\(recommended - current)" : status.label)
-                .font(.caption)
-                .foregroundColor(status.color)
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-struct RecommendationRow: View {
-    let icon: String
-    let title: String
-    let description: String
-    let impact: String
-    let color: Color
-    var onTap: (() -> Void)? = nil
-
-    @State private var showDetails = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(color)
-                .frame(width: 40)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Text(impact)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.green)
-            }
-
-            Spacer()
-
-            Button(action: {
-                if let onTap = onTap {
-                    onTap()
-                } else {
-                    showDetails = true
-                }
-            }) {
-                Image(systemName: "arrow.right.circle.fill")
-                    .foregroundColor(color)
-            }
-        }
-        .padding()
-        .background(color.opacity(0.05))
-        .cornerRadius(10)
-        .alert("AI Recommendation", isPresented: $showDetails) {
-            Button("Got it", role: .cancel) { }
-        } message: {
-            Text("\(title)\n\n\(description)\n\nExpected impact: \(impact)")
-        }
-    }
-}
-
-struct AlertRow: View {
-    let type: AlertType
-    let message: String
-    let time: String
-
-    enum AlertType {
-        case warning, info, success
-
-        var color: Color {
-            switch self {
-            case .warning: return .orange
-            case .info: return .blue
-            case .success: return .green
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .warning: return "exclamationmark.triangle.fill"
-            case .info: return "info.circle.fill"
-            case .success: return "checkmark.circle.fill"
-            }
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: type.icon)
-                .foregroundColor(type.color)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(message)
-                    .font(.caption)
-                Text(time)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(10)
-        .background(type.color.opacity(0.1))
-        .cornerRadius(8)
-    }
-}
-
-struct LearningProgressRow: View {
-    let label: String
-    let progress: Double
-    let status: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(label)
-                    .font(.caption)
-                Spacer()
-                Text("\(Int(progress * 100))%")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.purple)
-            }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.purple.opacity(0.2))
-                        .frame(height: 6)
-                        .cornerRadius(3)
-
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.purple, .blue],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * progress, height: 6)
-                        .cornerRadius(3)
-                }
-            }
-            .frame(height: 6)
-        }
-    }
-}
-
-struct AIInsightDetailSheet: View {
-    let detail: AIInsightDetail
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    Image(systemName: detail.icon)
-                        .font(.system(size: 60))
-                        .foregroundColor(.purple)
-                        .padding()
-
-                    Text(detail.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(detail.description)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-
-                    // Placeholder for detailed content
-                    Text("Detailed analytics and insights coming soon...")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .padding(.top, 40)
-                }
-                .padding()
-            }
-            .navigationTitle("Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
+        .cornerRadius(12)
     }
 }
 
