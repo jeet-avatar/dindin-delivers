@@ -16603,8 +16603,299 @@ def get_duplicate_routes():
     }
 
 
+# =============================================================================
+# AI INSIGHTS API - Restaurant Analytics & Predictions
+# =============================================================================
+
+class AIInsightsResponse(BaseModel):
+    """AI-powered insights for restaurant dashboard"""
+    success: bool
+    vendor_id: int
+    period: str
+    generated_at: str
+
+    # Demand Forecast
+    demand_forecast: List[dict]
+    estimated_orders_next_hour: int
+    peak_hour: str
+    peak_hour_orders: int
+    forecast_confidence: float
+
+    # Popular Items
+    popular_items: List[dict]
+
+    # Hourly Distribution
+    hourly_distribution: List[dict]
+
+    # Performance Metrics
+    total_orders: int
+    total_revenue: float
+    average_order_value: float
+    order_completion_rate: float
+    average_prep_time_minutes: int
+
+    # Peak Hours Analysis
+    lunch_peak: dict
+    dinner_peak: dict
+
+    # Staffing Recommendations
+    staffing_recommendations: List[dict]
+
+    # Smart Recommendations
+    recommendations: List[dict]
+
+
+@app.get("/api/vendors/{vendor_id}/ai-insights")
+@app.get("/vendors/{vendor_id}/ai-insights")  # Alias for mobile apps
+def get_vendor_ai_insights(
+    vendor_id: int,
+    period: str = Query("today", description="today, week, month, year"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get AI-powered insights for a vendor's restaurant.
+    Analyzes order history to provide demand forecasts, popular items,
+    staffing recommendations, and performance metrics.
+    """
+    from collections import defaultdict
+    import statistics
+
+    # Verify vendor exists
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Calculate date range based on period
+    now = datetime.utcnow()
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    elif period == "year":
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Fetch orders for this vendor in the period
+    orders = db.query(Order).filter(
+        Order.vendor_id == vendor_id,
+        Order.created_at >= start_date
+    ).all()
+
+    # Fetch previous period for comparison
+    period_duration = now - start_date
+    prev_start = start_date - period_duration
+    prev_orders = db.query(Order).filter(
+        Order.vendor_id == vendor_id,
+        Order.created_at >= prev_start,
+        Order.created_at < start_date
+    ).all()
+
+    # Calculate metrics
+    completed_statuses = ['delivered', 'ready_for_pickup', 'preparing', 'confirmed']
+    completed_orders = [o for o in orders if o.status.value in completed_statuses]
+
+    total_orders = len(orders)
+    total_revenue = sum(o.total_amount or 0 for o in completed_orders)
+    avg_order_value = total_revenue / total_orders if total_orders > 0 else 0
+
+    # Order completion rate
+    cancelled_orders = [o for o in orders if o.status.value == 'cancelled']
+    completion_rate = len(completed_orders) / (len(completed_orders) + len(cancelled_orders)) if (len(completed_orders) + len(cancelled_orders)) > 0 else 1.0
+
+    # Average prep time (from confirmed to ready)
+    prep_times = []
+    for o in completed_orders:
+        if o.confirmed_at and o.preparing_at:
+            prep_time = (o.preparing_at - o.confirmed_at).total_seconds() / 60
+            if 0 < prep_time < 120:  # Filter outliers
+                prep_times.append(prep_time)
+    avg_prep_time = int(statistics.mean(prep_times)) if prep_times else 0
+
+    # Hourly distribution
+    hourly_counts = defaultdict(lambda: {"orders": 0, "revenue": 0})
+    for o in orders:
+        hour = o.created_at.hour
+        hourly_counts[hour]["orders"] += 1
+        hourly_counts[hour]["revenue"] += o.total_amount or 0
+
+    hourly_distribution = []
+    for hour in range(9, 23):  # 9 AM to 10 PM
+        data = hourly_counts[hour]
+        hourly_distribution.append({
+            "hour": f"{hour}:00" if hour < 12 else f"{hour-12 if hour > 12 else 12}:00 PM" if hour >= 12 else f"{hour}:00 AM",
+            "hour_24": hour,
+            "orders": data["orders"],
+            "revenue": round(data["revenue"], 2),
+            "avg_order": round(data["revenue"] / data["orders"], 2) if data["orders"] > 0 else 0
+        })
+
+    # Popular items analysis
+    item_stats = defaultdict(lambda: {"quantity": 0, "revenue": 0})
+    for o in orders:
+        if o.items:
+            try:
+                items = json.loads(o.items) if isinstance(o.items, str) else o.items
+                for item in items:
+                    name = item.get("name", "Unknown")
+                    qty = item.get("quantity", 1)
+                    price = item.get("price", 0) * qty
+                    item_stats[name]["quantity"] += qty
+                    item_stats[name]["revenue"] += price
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    popular_items = sorted(
+        [{"name": k, "quantity": v["quantity"], "revenue": round(v["revenue"], 2)}
+         for k, v in item_stats.items()],
+        key=lambda x: x["quantity"],
+        reverse=True
+    )[:10]
+
+    # Peak hours analysis
+    lunch_hours = [h for h in hourly_distribution if 11 <= h["hour_24"] <= 14]
+    dinner_hours = [h for h in hourly_distribution if 17 <= h["hour_24"] <= 21]
+
+    lunch_peak_hour = max(lunch_hours, key=lambda x: x["orders"]) if lunch_hours else {"hour": "--", "orders": 0}
+    dinner_peak_hour = max(dinner_hours, key=lambda x: x["orders"]) if dinner_hours else {"hour": "--", "orders": 0}
+
+    lunch_total = sum(h["orders"] for h in lunch_hours)
+    dinner_total = sum(h["orders"] for h in dinner_hours)
+
+    # Demand forecast (simple prediction based on historical patterns)
+    # Use average of same hour across available data
+    current_hour = now.hour
+    forecast = []
+    for i in range(7):  # Next 7 hours
+        forecast_hour = (current_hour + i) % 24
+        if 9 <= forecast_hour <= 22:
+            historical = hourly_counts[forecast_hour]
+            # Simple prediction: use historical average with some variance
+            predicted = historical["orders"]
+            min_orders = max(0, predicted - 3) if predicted > 0 else 0
+            max_orders = predicted + 5 if predicted > 0 else 0
+            forecast.append({
+                "hour": f"{forecast_hour}:00" if forecast_hour < 12 else f"{forecast_hour-12 if forecast_hour > 12 else 12}:00 PM",
+                "hour_24": forecast_hour,
+                "predicted": predicted,
+                "min_orders": min_orders,
+                "max_orders": max_orders
+            })
+
+    # Calculate forecast confidence based on data volume (0 if no orders)
+    confidence = min(0.95, total_orders / 200) if total_orders > 0 else 0
+
+    # Find overall peak
+    overall_peak = max(hourly_distribution, key=lambda x: x["orders"]) if hourly_distribution else {"hour": "--", "orders": 0}
+
+    # Estimated orders next hour (use actual data, no fake fallback)
+    next_hour = (current_hour + 1) % 24
+    estimated_next_hour = hourly_counts[next_hour]["orders"]
+
+    # Staffing recommendations based on order volume
+    staffing_recommendations = []
+    time_slots = [
+        {"label": "11 AM - 2 PM", "start": 11, "end": 14},
+        {"label": "2 PM - 5 PM", "start": 14, "end": 17},
+        {"label": "5 PM - 9 PM", "start": 17, "end": 21},
+        {"label": "9 PM - Close", "start": 21, "end": 23}
+    ]
+
+    for slot in time_slots:
+        slot_orders = sum(hourly_counts[h]["orders"] for h in range(slot["start"], slot["end"]))
+        # Recommend 1 staff per 5 orders per hour (minimum 1 if any orders, 0 if no data)
+        avg_orders_per_hour = slot_orders / (slot["end"] - slot["start"]) if slot_orders > 0 else 0
+        recommended = max(1, int(avg_orders_per_hour / 5) + 1) if slot_orders > 0 else 0
+        staffing_recommendations.append({
+            "time_slot": slot["label"],
+            "recommended_staff": recommended,
+            "expected_orders": slot_orders,
+            "orders_per_hour": round(avg_orders_per_hour, 1)
+        })
+
+    # Smart recommendations based on data analysis
+    recommendations = []
+
+    # Check for prep time issues
+    if avg_prep_time > 25:
+        recommendations.append({
+            "type": "prep_time",
+            "icon": "clock.badge.exclamationmark",
+            "title": "Reduce Prep Time",
+            "description": f"Average prep time is {avg_prep_time} min. Consider pre-prepping popular items.",
+            "impact": f"Could save {avg_prep_time - 20} min per order",
+            "priority": "high"
+        })
+
+    # Check for popular item trending
+    if popular_items:
+        top_item = popular_items[0]
+        recommendations.append({
+            "type": "trending",
+            "icon": "star.fill",
+            "title": f"Feature {top_item['name']}",
+            "description": f"Your top seller with {top_item['quantity']} orders. Feature it prominently.",
+            "impact": "Increase visibility",
+            "priority": "medium"
+        })
+
+    # Check for slow periods
+    slow_hours = [h for h in hourly_distribution if h["orders"] < 2]
+    if slow_hours:
+        recommendations.append({
+            "type": "promotion",
+            "icon": "tag.fill",
+            "title": "Slow Period Promotion",
+            "description": f"Consider offering discounts during {slow_hours[0]['hour']} to boost orders.",
+            "impact": "Fill slow periods",
+            "priority": "medium"
+        })
+
+    # Bundle suggestion if avg order value is low
+    if avg_order_value < 25 and total_orders > 5:
+        recommendations.append({
+            "type": "bundle",
+            "icon": "bag.badge.plus",
+            "title": "Create Meal Bundles",
+            "description": "Average order is ${:.2f}. Bundles could increase order value.".format(avg_order_value),
+            "impact": "+$5-10 per order",
+            "priority": "medium"
+        })
+
+    return AIInsightsResponse(
+        success=True,
+        vendor_id=vendor_id,
+        period=period,
+        generated_at=now.isoformat(),
+        demand_forecast=forecast,
+        estimated_orders_next_hour=estimated_next_hour,
+        peak_hour=overall_peak["hour"],
+        peak_hour_orders=overall_peak["orders"],
+        forecast_confidence=round(confidence, 2),
+        popular_items=popular_items,
+        hourly_distribution=hourly_distribution,
+        total_orders=total_orders,
+        total_revenue=round(total_revenue, 2),
+        average_order_value=round(avg_order_value, 2),
+        order_completion_rate=round(completion_rate, 2),
+        average_prep_time_minutes=avg_prep_time,
+        lunch_peak={
+            "time": lunch_peak_hour["hour"],
+            "orders": lunch_total
+        },
+        dinner_peak={
+            "time": dinner_peak_hour["hour"],
+            "orders": dinner_total
+        },
+        staffing_recommendations=staffing_recommendations,
+        recommendations=recommendations
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
 # Backend rebuild trigger - 20260106081348
-# Backend deploy 20260106085657
+# Backend deploy 20260128-ai-insights
