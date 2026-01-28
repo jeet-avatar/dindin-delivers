@@ -1501,6 +1501,7 @@ def decode_google_jwt(token: str) -> dict:
         return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
+@app.post("/auth/vendor/google-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
     from models import VendorStatus
@@ -1591,6 +1592,7 @@ class VendorAppleAuthRequest(BaseModel):
     apple_id: str
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
+@app.post("/auth/vendor/apple-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
     from models import VendorStatus
@@ -3927,6 +3929,7 @@ class CustomerAppleAuthRequest(BaseModel):
 @app.post("/api/customer/apple-auth")
 @app.post("/api/auth/customer/apple-auth")  # Alias for Android compatibility
 @app.post("/auth/customer/apple-auth")  # Alias for mobile apps without /api prefix
+@app.post("/customer/apple-auth")  # Alias for iOS Customer app (calls without /api or /auth prefix)
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for customers - handles both login and registration"""
     print(f"Customer Apple auth - apple_id: {request.apple_id[:20] if request.apple_id else 'None'}...")
