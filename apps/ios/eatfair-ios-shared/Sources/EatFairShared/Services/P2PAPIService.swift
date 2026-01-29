@@ -8267,11 +8267,13 @@ public struct P2PCreateOrderResponse: Codable {
     public let status: String
     public let subtotal: Double
     public let tax: Double
+    public let serviceFee: Double?
     public let deliveryFee: Double
+    public let tip: Double?
     public let platformFee: Double
     public let total: Double
-    public let estimatedDeliveryTime: String?
-    public let createdAt: String
+    public let processedBy: String?
+    public let restaurant: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -8279,12 +8281,14 @@ public struct P2PCreateOrderResponse: Codable {
         case orderNumber = "order_number"
         case status
         case subtotal
-        case tax = "tax_amount"
+        case tax
+        case serviceFee = "service_fee"
         case deliveryFee = "delivery_fee"
+        case tip
         case platformFee = "platform_fee"
-        case total = "total_amount"
-        case estimatedDeliveryTime = "estimated_delivery_time"
-        case createdAt = "created_at"
+        case total
+        case processedBy = "processed_by"
+        case restaurant
     }
 }
 

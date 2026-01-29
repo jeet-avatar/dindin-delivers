@@ -23,11 +23,21 @@ struct OrderSuccessView: View {
                     // Success Animation
                     successHeader
 
-                    // Order Details Card (or placeholder if no order from Firebase)
-                    if let order = viewModel.latestOrder {
+                    // Order Details Card - use cart ViewModel data first, then Firebase
+                    if let orderNumber = multiCartViewModel.lastOrderNumber {
+                        // Show order from just-placed order data
+                        lastOrderDetailsCard(
+                            orderNumber: orderNumber,
+                            restaurantName: multiCartViewModel.lastOrderRestaurantName ?? "Restaurant",
+                            itemCount: multiCartViewModel.lastOrderItemCount ?? 1,
+                            total: multiCartViewModel.lastOrderTotal ?? 0,
+                            deliveryAddress: multiCartViewModel.lastOrderDeliveryAddress ?? ""
+                        )
+                    } else if let order = viewModel.latestOrder {
+                        // Fallback to Firebase order
                         orderDetailsCard(order: order)
                     } else {
-                        // Show placeholder for dummy mode
+                        // Show placeholder while loading
                         dummyOrderCard
                     }
 
@@ -223,6 +233,72 @@ struct OrderSuccessView: View {
                     Text(order.deliveryAddress.fullAddress)
                         .font(.subheadline)
                         .lineLimit(2)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Last Order Details Card (from cart ViewModel)
+    private func lastOrderDetailsCard(orderNumber: String, restaurantName: String, itemCount: Int, total: Double, deliveryAddress: String) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "receipt")
+                    .foregroundColor(Theme.brandGreen)
+                Text("Order Details")
+                    .font(.headline)
+                Spacer()
+                Text("#\(orderNumber)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+
+            // Restaurant info
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Theme.brandGreen.opacity(0.2))
+                        .frame(width: 50, height: 50)
+                    Image(systemName: "fork.knife")
+                        .foregroundColor(Theme.brandGreen)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(restaurantName)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text("\(itemCount) item\(itemCount > 1 ? "s" : "")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Text("$\(String(format: "%.2f", total))")
+                    .font(.headline)
+                    .foregroundColor(Theme.brandGreen)
+            }
+
+            // Delivery address
+            if !deliveryAddress.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(.orange)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Delivering to")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(deliveryAddress)
+                            .font(.subheadline)
+                            .lineLimit(2)
+                    }
                 }
             }
         }

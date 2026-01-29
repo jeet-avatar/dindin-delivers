@@ -122,8 +122,21 @@ struct MultiRestaurantCartView: View {
         } message: {
             Text(cartVM.errorMessage ?? "An error occurred")
         }
-        .sheet(isPresented: $showCheckout) {
+        .sheet(isPresented: $showCheckout, onDismiss: {
+            #if DEBUG
+            print("[OrderFlow] Checkout sheet dismissed, orderPlaced = \(cartVM.orderPlaced)")
+            #endif
+        }) {
             MultiRestaurantCheckoutView(cartVM: cartVM, scheduledDate: scheduledDate)
+        }
+        .onChange(of: cartVM.orderPlaced) { _, newValue in
+            if newValue {
+                #if DEBUG
+                print("[OrderFlow] CartView detected orderPlaced = true, dismissing checkout")
+                #endif
+                // Dismiss checkout sheet when order is placed
+                showCheckout = false
+            }
         }
         .sheet(isPresented: $showScheduleDelivery) {
             ScheduleDeliveryView(
