@@ -504,6 +504,7 @@ struct AIRecommendationsSheet: View {
 
     struct AIRecommendation: Identifiable {
         let id = UUID()
+        let restaurant: Restaurant
         let restaurantName: String
         let reason: String
         let matchScore: Int
@@ -598,7 +599,10 @@ struct AIRecommendationsSheet: View {
                             .padding(.horizontal)
 
                         ForEach(recommendations) { rec in
-                            AIRecommendationCard(recommendation: rec)
+                            NavigationLink(destination: RestaurantDetailView(restaurant: rec.restaurant)) {
+                                AIRecommendationCard(recommendation: rec)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -635,6 +639,7 @@ struct AIRecommendationsSheet: View {
                         "Great selection of dishes that match what you're looking for"
                     ]
                     return AIRecommendation(
+                        restaurant: restaurant,
                         restaurantName: restaurant.name,
                         reason: reasons[index % reasons.count],
                         matchScore: max(75, 95 - (index * 8))
