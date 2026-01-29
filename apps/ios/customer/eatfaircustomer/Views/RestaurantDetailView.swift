@@ -39,9 +39,11 @@ struct RestaurantDetailView: View {
                         Button(action: { presentationMode.wrappedValue.dismiss() }) {
                             Image(systemName: "arrow.left")
                                 .font(.title2)
+                                .fontWeight(.bold)
                                 .foregroundColor(.white)
-                                .padding()
-                                .background(Circle().fill(Theme.brandBlack.opacity(0.5)))
+                                .padding(12)
+                                .background(Circle().fill(Theme.brandBlack.opacity(0.7)))
+                                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                         }
                         Spacer()
                         Button(action: { showMenuSearch = true }) {
@@ -192,53 +194,8 @@ struct RestaurantDetailView: View {
                 }
             }
             
-            // Floating Cart Button - Multi-restaurant cart takes priority
-            if !multiCartViewModel.items.isEmpty {
-                VStack(spacing: 0) {
-                    // Multi-restaurant badge if ordering from multiple places
-                    if multiCartViewModel.restaurantCount > 1 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                            Text("Multi-Restaurant Order")
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(8, corners: [.topLeft, .topRight])
-                    }
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(multiCartViewModel.totalItemCount) Items")
-                                .fontWeight(.bold)
-                            if multiCartViewModel.restaurantCount > 1 {
-                                Text("\(multiCartViewModel.restaurantCount) restaurants")
-                                    .font(.caption2)
-                                    .opacity(0.9)
-                            }
-                        }
-                        Spacer()
-                        Text("View Cart")
-                            .fontWeight(.bold)
-                        Spacer()
-                        Text("$\(String(format: "%.2f", multiCartViewModel.subtotal))")
-                            .fontWeight(.bold)
-                    }
-                    .padding()
-                    .background(Theme.brandGreen)
-                    .foregroundColor(.white)
-                }
-                .cornerRadius(12)
-                .padding()
-                .shadow(radius: 5)
-                .onTapGesture {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            }
+            // Floating Cart Button removed - MainAppView's floating cart handles this
+            // to avoid duplicate overlapping cart buttons
         }
         .navigationBarHidden(true)
         .edgesIgnoringSafeArea(.top)
