@@ -7830,7 +7830,8 @@ def get_published_vendors(
     Used by iOS, Android, and Web customer apps to list restaurants.
     This endpoint is PUBLIC - no authentication required.
     """
-    from models import Vendor, VendorStatus, Promotion
+    from models import Vendor, VendorStatus
+    from models_extended import Promotion
     from stock_images import get_stock_image_for_restaurant
 
     query = db.query(Vendor).filter(
@@ -11283,8 +11284,7 @@ def apply_promotion_code(
         promo = builtin_codes[code]
     else:
         # Check database for dynamic promos
-        from models import Promotion
-        from models_extended import PromotionStatus
+        from models_extended import Promotion, PromotionStatus
         db_promo = db.query(Promotion).filter(
             Promotion.promotion_code == code,
             Promotion.status == PromotionStatus.ACTIVE
