@@ -6382,6 +6382,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
     public let pickupAvailable: Bool
     public let averagePrepTime: Int?
     public let menuItemsCount: Int
+    public let imageUrl: String?  // Restaurant main image
     public let previewImages: [String]
     public let rating: Double
     public let isOpen: Bool
@@ -6401,6 +6402,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
         case pickupAvailable = "pickup_available"
         case averagePrepTime = "average_prep_time"
         case menuItemsCount = "menu_items_count"
+        case imageUrl = "image_url"
         case previewImages = "preview_images"
         case rating
         case isOpen = "is_open"
@@ -6437,6 +6439,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
         pickupAvailable = try container.decodeIfPresent(Bool.self, forKey: .pickupAvailable) ?? true
         averagePrepTime = try container.decodeIfPresent(Int.self, forKey: .averagePrepTime)
         menuItemsCount = try container.decodeIfPresent(Int.self, forKey: .menuItemsCount) ?? 0
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
         previewImages = try container.decodeIfPresent([String].self, forKey: .previewImages) ?? []
         rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
         isOpen = try container.decodeIfPresent(Bool.self, forKey: .isOpen) ?? true
@@ -7427,7 +7430,7 @@ public extension P2PRestaurant {
             cuisine: cuisineType ?? "General",
             rating: rating,
             deliveryTime: averagePrepTime.map { "\($0)-\($0 + 15) min" } ?? "30-45 min",
-            imageUrl: previewImages.first ?? "",
+            imageUrl: imageUrl ?? previewImages.first ?? "",
             address: address.fullAddress,
             latitude: location.latitude ?? 0,
             longitude: location.longitude ?? 0,
