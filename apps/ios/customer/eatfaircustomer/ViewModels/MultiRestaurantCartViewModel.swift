@@ -426,21 +426,18 @@ class MultiRestaurantCartViewModel: ObservableObject {
                 print("[OrderFlow] Order ID: \(p2pResponse.orderId)")
                 #endif
 
-                // STEP 2: Confirm payment - this sends order to restaurant
+                // STEP 2: Send order to restaurant (with retry logic)
+                // This notifies the restaurant about the new order
                 #if DEBUG
-                print("[OrderFlow] Calling confirm-payment for order \(p2pResponse.orderId)...")
+                print("[OrderFlow] Sending order to restaurant (order \(p2pResponse.orderId))...")
                 #endif
 
-                p2pService.confirmOrderPayment(orderId: p2pResponse.orderId) { confirmResult in
-                    #if DEBUG
-                    switch confirmResult {
-                    case .success:
-                        print("[OrderFlow] ✅ Payment confirmed - order sent to restaurant")
-                    case .failure(let error):
-                        print("[OrderFlow] ⚠️ Payment confirmation failed (non-blocking): \(error.localizedDescription)")
-                    }
-                    #endif
-                }
+                self?.sendOrderToRestaurantWithRetry(
+                    p2pService: p2pService,
+                    orderId: p2pResponse.orderId,
+                    maxRetries: 3,
+                    currentAttempt: 1
+                )
 
                 // Show success screen immediately (don't wait for confirm-payment)
                 DispatchQueue.main.async { [weak self] in
@@ -527,6 +524,58 @@ class MultiRestaurantCartViewModel: ObservableObject {
             #endif
             isLoading = false
             completion(.failure(error))
+        }
+    }
+
+    // MARK: - Restaurant Notification (with Retry)
+
+    /// Send order to restaurant with automatic retry on failure
+    /// - Parameters:
+    ///   - p2pService: The P2P API service
+    ///   - orderId: The order ID to confirm
+    ///   - maxRetries: Maximum number of retry attempts (default: 3)
+    ///   - currentAttempt: Current attempt number (starts at 1)
+    private func sendOrderToRestaurantWithRetry(
+        p2pService: P2PAPIService,
+        orderId: Int,
+        maxRetries: Int = 3,
+        currentAttempt: Int = 1
+    ) {
+        p2pService.confirmOrderPayment(orderId: orderId) { [weak self] result in
+            switch result {
+            case .success:
+                #if DEBUG
+                print("[OrderFlow] ✅ Order sent to restaurant successfully (attempt \(currentAttempt))")
+                #endif
+
+            case .failure(let error):
+                #if DEBUG
+                print("[OrderFlow] ⚠️ Failed to send order to restaurant (attempt \(currentAttempt)/\(maxRetries)): \(error.localizedDescription)")
+                #endif
+
+                // Retry if we haven't exhausted all attempts
+                if currentAttempt < maxRetries {
+                    // Exponential backoff: 2s, 4s, 8s...
+                    let delay = Double(pow(2.0, Double(currentAttempt)))
+                    #if DEBUG
+                    print("[OrderFlow] Retrying in \(delay) seconds...")
+                    #endif
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.sendOrderToRestaurantWithRetry(
+                            p2pService: p2pService,
+                            orderId: orderId,
+                            maxRetries: maxRetries,
+                            currentAttempt: currentAttempt + 1
+                        )
+                    }
+                } else {
+                    #if DEBUG
+                    print("[OrderFlow] ❌ All retry attempts exhausted. Order \(orderId) may not have reached restaurant.")
+                    print("[OrderFlow] The backend should have a fallback mechanism to detect unconfirmed orders.")
+                    #endif
+                }
+            }
         }
     }
 
