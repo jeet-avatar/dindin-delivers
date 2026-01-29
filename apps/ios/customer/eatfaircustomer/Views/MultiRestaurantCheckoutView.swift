@@ -863,16 +863,25 @@ struct MultiRestaurantCheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentData):
+                    #if DEBUG
+                    print("[ApplePay] PaymentIntent received successfully")
+                    print("[ApplePay] Publishable key prefix: \(String(paymentIntentData.publishableKey.prefix(20)))...")
+                    print("[ApplePay] Client secret prefix: \(String(paymentIntentData.clientSecret.prefix(20)))...")
+                    #endif
 
                     // Set the publishable key
                     STPAPIClient.shared.publishableKey = paymentIntentData.publishableKey
 
                     // Create payment request for Apple Pay
                     let request = StripeAPI.paymentRequest(
-                        withMerchantIdentifier: "merchant.com.dollorai.customer",
+                        withMerchantIdentifier: "merchant.com.dolloraiai",
                         country: "US",
                         currency: "USD"
                     )
+
+                    // Required: Set supported payment networks
+                    request.supportedNetworks = [.visa, .masterCard, .amex, .discover]
+                    request.merchantCapabilities = [.capability3DS, .capabilityCredit, .capabilityDebit]
 
                     // Helper to round Double to 2 decimal places for Apple Pay
                     func roundedAmount(_ value: Double) -> NSDecimalNumber {
@@ -895,12 +904,27 @@ struct MultiRestaurantCheckoutView: View {
                     request.paymentSummaryItems = paymentItems
 
                     // Check if Apple Pay is available
+                    #if DEBUG
+                    print("[ApplePay] Checking canSubmitPaymentRequest...")
+                    print("[ApplePay] Merchant ID: merchant.com.dolloraiai")
+                    print("[ApplePay] Supported networks: \(request.supportedNetworks)")
+                    print("[ApplePay] Total amount: \(self.finalTotal)")
+                    #endif
+
                     guard StripeAPI.canSubmitPaymentRequest(request) else {
+                        #if DEBUG
+                        print("[ApplePay] ERROR: canSubmitPaymentRequest returned false")
+                        print("[ApplePay] PKPaymentAuthorizationController.canMakePayments: \(PKPaymentAuthorizationController.canMakePayments())")
+                        #endif
                         self.isProcessing = false
-                        self.errorMessage = "Apple Pay is not available on this device"
+                        self.errorMessage = "Apple Pay is not available on this device. Please ensure you have a card added to your Wallet."
                         self.showError = true
                         return
                     }
+
+                    #if DEBUG
+                    print("[ApplePay] canSubmitPaymentRequest passed, presenting Apple Pay sheet...")
+                    #endif
 
                     // Create Stripe Apple Pay context
                     StripeApplePayHandler.shared.handleApplePay(
@@ -908,11 +932,17 @@ struct MultiRestaurantCheckoutView: View {
                         clientSecret: paymentIntentData.clientSecret
                     ) { success, error in
                         DispatchQueue.main.async {
+                            #if DEBUG
+                            print("[ApplePay] Payment result - success: \(success), error: \(String(describing: error))")
+                            #endif
                             if success {
                                 self.placeOrder()
                             } else {
                                 self.isProcessing = false
                                 if let error = error {
+                                    #if DEBUG
+                                    print("[ApplePay] ERROR: \(error.localizedDescription)")
+                                    #endif
                                     self.errorMessage = error.localizedDescription
                                 }
                                 self.showError = error != nil
@@ -921,6 +951,9 @@ struct MultiRestaurantCheckoutView: View {
                     }
 
                 case .failure(let error):
+                    #if DEBUG
+                    print("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
+                    #endif
                     self.isProcessing = false
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
@@ -957,7 +990,7 @@ struct MultiRestaurantCheckoutView: View {
 
                     // Enable Apple Pay
                     configuration.applePay = .init(
-                        merchantId: "merchant.com.dollorai.customer",
+                        merchantId: "merchant.com.dolloraiai",
                         merchantCountryCode: "US"
                     )
 
@@ -1021,7 +1054,7 @@ struct MultiRestaurantCheckoutView: View {
                 print("Total: $\(String(format: "%.2f", self.finalTotal))")
                 print("==========================")
 
-                // Signal order placed - MainAppView will show success screen
+                // Signal order placed - MainAppView will handle sheet dismissal and success screen
                 self.isProcessing = false
                 self.cartVM.orderPlaced = true
             }
@@ -1054,32 +1087,20 @@ struct MultiRestaurantCheckoutView: View {
 
                 switch result {
                 case .success:
-                    // Signal order placed - MainAppView will show success screen
+                    #if DEBUG
+                    print("[OrderFlow] ✅ Backend order placed successfully")
+                    print("[OrderFlow] Setting orderPlaced = true")
+                    #endif
+                    // Signal order placed - MainAppView will handle sheet dismissal and success screen
                     cartVM.orderPlaced = true
                 case .failure(let error):
+                    #if DEBUG
+                    print("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
+                    #endif
                     errorMessage = error.localizedDescription
                     showError = true
                 }
             }
-        }
-    }
-}
-
-// MARK: - Apple Pay Delegate
-class ApplePayDelegate: NSObject, PKPaymentAuthorizationControllerDelegate {
-    static let shared = ApplePayDelegate()
-    var onCompletion: ((Bool) -> Void)?
-
-    func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
-        // In production, send payment.token to your server for processing
-        // For now, simulate success
-        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
-        onCompletion?(true)
-    }
-
-    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
-        controller.dismiss {
-            // Payment sheet dismissed
         }
     }
 }

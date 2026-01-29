@@ -16,6 +16,9 @@ struct MainAppView: View {
     @State private var cancellationAlertMessage = ""
     @State private var navigateToOrderId: String?
 
+    // Order success screen state (separate from orderPlaced to avoid sheet/fullScreenCover race)
+    @State private var showOrderSuccess = false
+
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
@@ -70,22 +73,52 @@ struct MainAppView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .sheet(isPresented: $showCartSheet) {
+                .sheet(isPresented: $showCartSheet, onDismiss: {
+                    // Cart sheet fully dismissed - check if we need to show success screen
+                    #if DEBUG
+                    print("[OrderFlow] Cart sheet onDismiss called")
+                    print("[OrderFlow] orderPlaced = \(multiCartViewModel.orderPlaced)")
+                    #endif
+                    if multiCartViewModel.orderPlaced {
+                        #if DEBUG
+                        print("[OrderFlow] Showing success screen after 0.3s delay")
+                        #endif
+                        // Use slight delay to ensure SwiftUI is ready for fullScreenCover
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showOrderSuccess = true
+                            multiCartViewModel.orderPlaced = false
+                            #if DEBUG
+                            print("[OrderFlow] ✅ showOrderSuccess = true")
+                            #endif
+                        }
+                    }
+                }) {
                     NavigationStack {
                         MultiRestaurantCartView(cartVM: multiCartViewModel)
                             .environmentObject(addressViewModel)
                     }
                 }
-                .fullScreenCover(isPresented: $multiCartViewModel.orderPlaced) {
+                .fullScreenCover(isPresented: $showOrderSuccess) {
                     NavigationStack {
                         OrderSuccessView()
                             .environmentObject(multiCartViewModel)
                     }
                 }
                 .onChange(of: multiCartViewModel.orderPlaced) { _, newValue in
+                    #if DEBUG
+                    print("[OrderFlow] onChange(orderPlaced) fired: \(newValue)")
+                    #endif
                     if newValue {
-                        // Dismiss cart sheet when order is placed
-                        showCartSheet = false
+                        #if DEBUG
+                        print("[OrderFlow] Will dismiss cart sheet after 0.5s (let checkout dismiss first)")
+                        #endif
+                        // Wait for checkout sheet to dismiss first, then dismiss cart
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            #if DEBUG
+                            print("[OrderFlow] Now setting showCartSheet = false")
+                            #endif
+                            showCartSheet = false
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToOrder"))) { notification in
@@ -191,7 +224,6 @@ struct MainAppView: View {
 // MARK: - Search Restaurants View (New)
 struct SearchRestaurantsView: View {
     @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
-    @EnvironmentObject var cartViewModel: CartViewModel
     @State private var searchText = ""
     @State private var selectedCuisine: String?
     @State private var sortOption: SortOption = .recommended

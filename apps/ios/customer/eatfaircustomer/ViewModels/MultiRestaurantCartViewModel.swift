@@ -68,6 +68,13 @@ class MultiRestaurantCartViewModel: ObservableObject {
     @Published var showError = false
     @Published var orderPlaced = false // Triggers success view at app level
 
+    // MARK: - Last Order Info (for success screen)
+    @Published var lastOrderNumber: String?
+    @Published var lastOrderTotal: Double?
+    @Published var lastOrderRestaurantName: String?
+    @Published var lastOrderItemCount: Int?
+    @Published var lastOrderDeliveryAddress: String?
+
     // MARK: - Computed Properties
 
     /// Number of unique restaurants in cart
@@ -392,6 +399,10 @@ class MultiRestaurantCartViewModel: ObservableObject {
             "zip": deliveryAddress.zipCode
         ]
 
+        #if DEBUG
+        print("[OrderFlow] Calling P2P createOrder for vendor \(vendorId)...")
+        #endif
+
         p2pService.createOrder(
             vendorId: vendorId,
             customerName: customerName,
@@ -404,33 +415,62 @@ class MultiRestaurantCartViewModel: ObservableObject {
             scheduledFor: scheduledFor,
             promoCode: promoCode
         ) { [weak self] result in
+            #if DEBUG
+            print("[OrderFlow] P2P createOrder completed with result: \(result)")
+            #endif
+
             switch result {
             case .success(let p2pResponse):
-                // Use P2P-generated order number for Firebase too
-                var syncedOrder = order
-                syncedOrder.orderId = p2pResponse.orderNumber
+                #if DEBUG
+                print("[OrderFlow] ✅ P2P order created successfully: \(p2pResponse.orderNumber)")
+                print("[OrderFlow] Calling completion IMMEDIATELY (not waiting for Firebase)")
+                #endif
 
-                // STEP 2: Save to Firebase with the same order number
-                do {
-                    try db.collection("orders").addDocument(from: syncedOrder) { [weak self] error in
-                        DispatchQueue.main.async { [weak self] in
-                            self?.isLoading = false
-                            // P2P succeeded but Firebase may have failed - still return success
-                            // The order exists in P2P backend which is primary
-                            self?.clearCart()
-                            completion(.success(p2pResponse.orderNumber))
-                        }
-                    }
-                } catch {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.isLoading = false
-                        // P2P succeeded, Firebase encoding failed
-                        self?.clearCart()
-                        completion(.success(p2pResponse.orderNumber))
-                    }
+                // CRITICAL FIX: Call completion IMMEDIATELY when P2P succeeds
+                // Don't wait for Firebase - the order exists in backend, show success screen now
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+
+                    // Save order info for success screen BEFORE clearing cart
+                    self.lastOrderNumber = p2pResponse.orderNumber
+                    self.lastOrderTotal = p2pResponse.total
+                    self.lastOrderRestaurantName = self.orderedRestaurants.first?.name ?? p2pResponse.restaurant
+                    self.lastOrderItemCount = self.totalItemCount
+                    self.lastOrderDeliveryAddress = deliveryAddress.fullAddress
+
+                    #if DEBUG
+                    print("[OrderFlow] Saved last order info: \(p2pResponse.orderNumber), $\(p2pResponse.total)")
+                    #endif
+
+                    self.isLoading = false
+                    self.clearCart()
+                    completion(.success(p2pResponse.orderNumber))
                 }
 
-            case .failure:
+                // Fire-and-forget: Save to Firebase in background for legacy support
+                var syncedOrder = order
+                syncedOrder.orderId = p2pResponse.orderNumber
+                do {
+                    try db.collection("orders").addDocument(from: syncedOrder) { error in
+                        #if DEBUG
+                        if let error = error {
+                            print("[OrderFlow] Firebase save failed (non-blocking): \(error.localizedDescription)")
+                        } else {
+                            print("[OrderFlow] Firebase save completed (background)")
+                        }
+                        #endif
+                    }
+                } catch {
+                    #if DEBUG
+                    print("[OrderFlow] Firebase encoding failed (non-blocking): \(error.localizedDescription)")
+                    #endif
+                }
+
+            case .failure(let error):
+                #if DEBUG
+                print("[OrderFlow] ❌ P2P order failed: \(error.localizedDescription)")
+                print("[OrderFlow] Falling back to Firebase-only mode")
+                #endif
                 // Fallback: save to Firebase only (degraded mode)
                 self?.saveToFirebaseOnly(order: order, db: db, completion: completion)
             }
@@ -443,20 +483,33 @@ class MultiRestaurantCartViewModel: ObservableObject {
         db: Firestore,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
+        #if DEBUG
+        print("[OrderFlow] saveToFirebaseOnly called (P2P failed, using Firebase fallback)")
+        #endif
+
         do {
             try db.collection("orders").addDocument(from: order) { [weak self] error in
                 DispatchQueue.main.async { [weak self] in
                     self?.isLoading = false
 
                     if let error = error {
+                        #if DEBUG
+                        print("[OrderFlow] ❌ Firebase fallback failed: \(error.localizedDescription)")
+                        #endif
                         completion(.failure(error))
                     } else {
+                        #if DEBUG
+                        print("[OrderFlow] ✅ Firebase fallback succeeded: \(order.orderId)")
+                        #endif
                         self?.clearCart()
                         completion(.success(order.orderId))
                     }
                 }
             }
         } catch {
+            #if DEBUG
+            print("[OrderFlow] ❌ Firebase encoding error: \(error.localizedDescription)")
+            #endif
             isLoading = false
             completion(.failure(error))
         }
