@@ -1,6 +1,5 @@
 import SwiftUI
 import FirebaseAuth
-import FirebaseFirestore
 import Combine
 import EatFairShared
 
@@ -68,12 +67,23 @@ class MultiRestaurantCartViewModel: ObservableObject {
     @Published var showError = false
     @Published var orderPlaced = false // Triggers success view at app level
 
-    // MARK: - Last Order Info (for success screen)
-    @Published var lastOrderNumber: String?
+    // MARK: - Last Order Info (for success screen and actions)
+    @Published var lastOrderId: Int?              // Backend order ID (for API calls)
+    @Published var lastOrderNumber: String?       // Display order number (e.g., "EF-20260129-001")
     @Published var lastOrderTotal: Double?
     @Published var lastOrderRestaurantName: String?
     @Published var lastOrderItemCount: Int?
     @Published var lastOrderDeliveryAddress: String?
+
+    /// Clear last order info (call when user dismisses success screen)
+    func clearLastOrder() {
+        lastOrderId = nil
+        lastOrderNumber = nil
+        lastOrderTotal = nil
+        lastOrderRestaurantName = nil
+        lastOrderItemCount = nil
+        lastOrderDeliveryAddress = nil
+    }
 
     // MARK: - Computed Properties
 
@@ -319,7 +329,6 @@ class MultiRestaurantCartViewModel: ObservableObject {
         }
 
         isLoading = true
-        let db = Firestore.firestore()
 
         // Build restaurant info array
         let restaurantInfos = orderedRestaurants.map { restaurant in
@@ -376,8 +385,11 @@ class MultiRestaurantCartViewModel: ObservableObject {
         guard let firstRestaurant = orderedRestaurants.first,
               let vendorIdStr = firstRestaurant.id,
               let vendorId = Int(vendorIdStr) else {
-            // Fallback to Firebase-only if no valid vendor ID
-            saveToFirebaseOnly(order: order, db: db, completion: completion)
+            // No valid vendor ID - show error
+            isLoading = false
+            errorMessage = "Invalid restaurant. Please try again."
+            showError = true
+            completion(.failure(NSError(domain: "Cart", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid vendor ID"])))
             return
         }
 
@@ -444,6 +456,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     guard let self = self else { return }
 
                     // Save order info for success screen BEFORE clearing cart
+                    self.lastOrderId = p2pResponse.orderId
                     self.lastOrderNumber = p2pResponse.orderNumber
                     self.lastOrderTotal = p2pResponse.total
                     self.lastOrderRestaurantName = self.orderedRestaurants.first?.name ?? p2pResponse.restaurant
@@ -459,71 +472,18 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     completion(.success(p2pResponse.orderNumber))
                 }
 
-                // Fire-and-forget: Save to Firebase in background for legacy support
-                var syncedOrder = order
-                syncedOrder.orderId = p2pResponse.orderNumber
-                do {
-                    try db.collection("orders").addDocument(from: syncedOrder) { error in
-                        #if DEBUG
-                        if let error = error {
-                            print("[OrderFlow] Firebase save failed (non-blocking): \(error.localizedDescription)")
-                        } else {
-                            print("[OrderFlow] Firebase save completed (background)")
-                        }
-                        #endif
-                    }
-                } catch {
-                    #if DEBUG
-                    print("[OrderFlow] Firebase encoding failed (non-blocking): \(error.localizedDescription)")
-                    #endif
-                }
-
             case .failure(let error):
                 #if DEBUG
                 print("[OrderFlow] ❌ P2P order failed: \(error.localizedDescription)")
-                print("[OrderFlow] Falling back to Firebase-only mode")
                 #endif
-                // Fallback: save to Firebase only (degraded mode)
-                self?.saveToFirebaseOnly(order: order, db: db, completion: completion)
-            }
-        }
-    }
-
-    /// Fallback: Save order to Firebase only when P2P backend is unavailable
-    private func saveToFirebaseOnly(
-        order: MultiRestaurantOrder,
-        db: Firestore,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        #if DEBUG
-        print("[OrderFlow] saveToFirebaseOnly called (P2P failed, using Firebase fallback)")
-        #endif
-
-        do {
-            try db.collection("orders").addDocument(from: order) { [weak self] error in
+                // Show error to user - don't fake success
                 DispatchQueue.main.async { [weak self] in
                     self?.isLoading = false
-
-                    if let error = error {
-                        #if DEBUG
-                        print("[OrderFlow] ❌ Firebase fallback failed: \(error.localizedDescription)")
-                        #endif
-                        completion(.failure(error))
-                    } else {
-                        #if DEBUG
-                        print("[OrderFlow] ✅ Firebase fallback succeeded: \(order.orderId)")
-                        #endif
-                        self?.clearCart()
-                        completion(.success(order.orderId))
-                    }
+                    self?.errorMessage = "Failed to place order. Please try again."
+                    self?.showError = true
+                    completion(.failure(error))
                 }
             }
-        } catch {
-            #if DEBUG
-            print("[OrderFlow] ❌ Firebase encoding error: \(error.localizedDescription)")
-            #endif
-            isLoading = false
-            completion(.failure(error))
         }
     }
 
