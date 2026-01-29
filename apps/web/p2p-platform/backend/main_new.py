@@ -10897,8 +10897,13 @@ def get_public_restaurants(
                 "is_open": True  # Placeholder - implement actual hours check
             })
 
-        # Sort by menu_items_count DESC so restaurants with more items show first
-        result.sort(key=lambda x: x.get("menu_items_count", 0), reverse=True)
+        # Sort: Featured restaurants first (for App Store review), then by menu count
+        # Apple Test Restaurant (ID 40) shows at top for demo purposes
+        FEATURED_IDS = {40}  # Apple Test Restaurant for App Store review
+        result.sort(key=lambda x: (
+            0 if x.get("id") in FEATURED_IDS else 1,  # Featured first
+            -x.get("menu_items_count", 0)  # Then by menu count DESC
+        ))
 
         return {
             "success": True,
