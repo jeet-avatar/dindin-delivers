@@ -277,7 +277,8 @@ struct LoginView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 32)
 
-                    // Demo Login Button (for App Store Review & Testing)
+                    // Demo Login Button (DEBUG only - for testing)
+                    #if DEBUG
                     Button(action: {
                         email = "demo.customer@dollor.ai"
                         password = "DemoCustomer2025!"
@@ -286,7 +287,7 @@ struct LoginView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "play.circle.fill")
                                 .font(.system(size: 16))
-                            Text("Demo Login (App Store Review)")
+                            Text("Demo Login (Testing)")
                                 .font(.system(size: 14, weight: .medium))
                         }
                         .foregroundColor(.white)
@@ -297,18 +298,19 @@ struct LoginView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                    #endif
 
-                    // Footer Links
+                    // Footer Links - Clickable
                     HStack(spacing: 8) {
-                        Text("Terms of Use")
+                        Link("Terms of Use", destination: URL(string: "https://api.dollor.ai/terms")!)
                             .font(.system(size: 13))
-                            .foregroundColor(textSecondary)
+                            .foregroundColor(primaryGreen)
                         Text("·")
                             .font(.system(size: 13))
                             .foregroundColor(borderColor)
-                        Text("Privacy Policy")
+                        Link("Privacy Policy", destination: URL(string: "https://api.dollor.ai/privacy")!)
                             .font(.system(size: 13))
-                            .foregroundColor(textSecondary)
+                            .foregroundColor(primaryGreen)
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 24)
