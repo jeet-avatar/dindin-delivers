@@ -17,17 +17,20 @@ struct RestaurantDetailView: View {
     // Promotions state
     @State private var activePromotions: [P2PCustomerPromotion] = []
     @State private var isLoadingPromotions = false
-    
-    /*
-    // Mock Menu Items for now
-    let menuItems = [
-        MenuItem(name: "Garlic Naan", description: "Leavened white bread topped with garlic & cilantro", price: 5.0, imageUrl: "naan"),
-        MenuItem(name: "Chicken Tikka Masala", description: "Roasted breast of chicken in creamy sauce", price: 24.0, imageUrl: "tikka"),
-        MenuItem(name: "Saffron Rice", description: "Basmati rice cooked with saffron", price: 5.0, imageUrl: "rice"),
-        MenuItem(name: "Mixed Green Salad", description: "Fresh garden vegetables", price: 8.0, imageUrl: "salad")
-    ]
-    */
-    
+
+    // Placeholder for restaurant header image
+    private var restaurantPlaceholder: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .overlay(
+                Image(systemName: "fork.knife")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 60)
+                    .foregroundColor(.white.opacity(0.5))
+            )
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) { // Align content to bottom for the floating cart
             Color.white.edgesIgnoringSafeArea(.all)
@@ -58,16 +61,31 @@ struct RestaurantDetailView: View {
                     .padding(.horizontal)
                     .frame(height: 250)
                     .background(
-                        Rectangle()
-                            .fill(Color.gray)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 60)
-                                    .foregroundColor(.white)
-                            )
+                        Group {
+                            if !restaurant.imageUrl.isEmpty,
+                               let url = URL(string: restaurant.imageUrl) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    case .failure(_):
+                                        restaurantPlaceholder
+                                    case .empty:
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .background(Color.gray.opacity(0.3))
+                                    @unknown default:
+                                        restaurantPlaceholder
+                                    }
+                                }
+                            } else {
+                                restaurantPlaceholder
+                            }
+                        }
                     )
+                    .clipped()
                     
                     // Restaurant Info
                     VStack(alignment: .leading, spacing: 8) {

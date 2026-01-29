@@ -673,21 +673,48 @@ struct AIRecommendationCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Match Score Circle
+            // Restaurant Image
             ZStack {
-                Circle()
-                    .stroke(Color.purple.opacity(0.3), lineWidth: 3)
-                    .frame(width: 50, height: 50)
+                if !recommendation.restaurant.imageUrl.isEmpty,
+                   let url = URL(string: recommendation.restaurant.imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure(_):
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        case .empty:
+                            ProgressView()
+                        @unknown default:
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        )
+                }
 
-                Circle()
-                    .trim(from: 0, to: CGFloat(recommendation.matchScore) / 100)
-                    .stroke(Color.purple, lineWidth: 3)
-                    .frame(width: 50, height: 50)
-                    .rotationEffect(.degrees(-90))
-
+                // Match score badge
                 Text("\(recommendation.matchScore)%")
-                    .font(.caption)
+                    .font(.caption2)
                     .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.purple)
+                    .cornerRadius(8)
+                    .offset(x: 20, y: -25)
             }
 
             VStack(alignment: .leading, spacing: 4) {
