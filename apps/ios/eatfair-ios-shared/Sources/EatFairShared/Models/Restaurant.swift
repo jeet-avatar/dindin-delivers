@@ -20,6 +20,10 @@ public struct Restaurant: Identifiable, Codable, Sendable {
     public var state: String?
     public var zipCode: String?
     public var instructions: String?
+
+    // Active promotion/deal (e.g., "20% OFF", "BOGO", "FREE DELIVERY")
+    public var dealText: String?
+    public var promoCode: String?
     
     public init(id: String? = nil, name: String, cuisine: String, rating: Double, deliveryTime: String, imageUrl: String, address: String, latitude: Double, longitude: Double, phone: String) {
         self.id = id

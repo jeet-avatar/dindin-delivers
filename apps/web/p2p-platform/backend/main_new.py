@@ -7830,7 +7830,7 @@ def get_published_vendors(
     Used by iOS, Android, and Web customer apps to list restaurants.
     This endpoint is PUBLIC - no authentication required.
     """
-    from models import Vendor, VendorStatus
+    from models import Vendor, VendorStatus, Promotion
     from stock_images import get_stock_image_for_restaurant
 
     query = db.query(Vendor).filter(
@@ -7849,9 +7849,51 @@ def get_published_vendors(
     total = query.count()
     vendors = query.order_by(Vendor.restaurant_name).offset(offset).limit(limit).all()
 
+    # Get all active promotions for these vendors
+    vendor_ids = [v.id for v in vendors]
+    promos = db.query(Promotion).filter(
+        Promotion.vendor_id.in_(vendor_ids),
+        Promotion.status == "active"
+    ).all()
+
+    # Map vendor_id to best promotion (prefer BOGO, then percentage, then flat)
+    vendor_promos = {}
+    for promo in promos:
+        existing = vendor_promos.get(promo.vendor_id)
+        # Priority: bogo > percentage > flat > free_delivery
+        priority = {"bogo": 4, "percentage": 3, "flat": 2, "flat_amount": 2, "free_delivery": 1}
+        if not existing or priority.get(promo.type, 0) > priority.get(existing.type, 0):
+            vendor_promos[promo.vendor_id] = promo
+
     # Format restaurants to match iOS/Android expected response structure
-    restaurants = [
-        {
+    restaurants = []
+    for v in vendors:
+        promo = vendor_promos.get(v.id)
+        active_promo = None
+        if promo:
+            # Generate deal text based on promo type
+            if promo.type == "percentage":
+                deal_text = f"{int(promo.value)}% OFF"
+            elif promo.type in ("flat", "flat_amount"):
+                deal_text = f"${int(promo.value)} OFF"
+            elif promo.type == "bogo":
+                deal_text = "BOGO"
+            elif promo.type == "free_delivery":
+                deal_text = "FREE DELIVERY"
+            else:
+                deal_text = "DEAL"
+
+            active_promo = {
+                "id": promo.id,
+                "code": promo.promotion_code,
+                "name": promo.name,
+                "type": promo.type,
+                "value": promo.value,
+                "deal_text": deal_text,
+                "min_order": promo.min_order_amount or 0
+            }
+
+        restaurants.append({
             "id": v.id,
             "vendor_id": str(v.id),
             "name": v.restaurant_name or v.company_name,
@@ -7884,10 +7926,10 @@ def get_published_vendors(
             "published_at": v.published_at.isoformat() if v.published_at else None,
             "published_platforms": v.published_platforms,
             # Restaurant image - stock image based on cuisine type
-            "image_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or "")
-        }
-        for v in vendors
-    ]
+            "image_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or ""),
+            # Active promotion if any
+            "active_promotion": active_promo
+        })
 
     return {
         # iOS compatibility
@@ -11212,42 +11254,76 @@ def apply_promotion_code(
     """
     Apply a promo code to an order (Promotions API).
     Request: { "code": "WELCOME20", "order_total": 30.00 }
+    Or: { "promotion_code": "WELCOME20", "order_total": 30.00 }
     Response: { "success": true, "discount": 6.00, "message": "..." }
     """
-    code = request.get("code", "").upper().strip()
+    # Accept both "code" and "promotion_code" field names
+    code = request.get("code", request.get("promotion_code", "")).upper().strip()
     order_total = float(request.get("order_total", 0))
 
-    # Simple promo code validation (would be database-driven in production)
-    promo_codes = {
+    # Built-in promo codes (always available)
+    builtin_codes = {
         "WELCOME20": {"type": "percentage", "value": 20, "min_order": 15, "max_discount": 10},
         "SAVE5": {"type": "flat", "value": 5, "min_order": 25, "max_discount": 5},
         "FREEDELIVERY": {"type": "free_delivery", "value": 0, "min_order": 20, "max_discount": 5},
+        "APPLE15": {"type": "percentage", "value": 15, "min_order": 10, "max_discount": 10},
+        "DOLLOR10": {"type": "percentage", "value": 10, "min_order": 10, "max_discount": 8},
+        "FIRST5": {"type": "flat", "value": 5, "min_order": 15, "max_discount": 5},
     }
 
-    if code not in promo_codes:
-        return {"success": False, "discount": 0, "message": "Invalid promo code"}
+    promo = None
 
-    promo = promo_codes[code]
+    # First check built-in codes
+    if code in builtin_codes:
+        promo = builtin_codes[code]
+    else:
+        # Check database for dynamic promos
+        from models import Promotion
+        db_promo = db.query(Promotion).filter(
+            Promotion.promotion_code == code,
+            Promotion.status == "active"
+        ).first()
+
+        if db_promo:
+            promo = {
+                "type": db_promo.type,
+                "value": db_promo.value,
+                "min_order": db_promo.min_order_amount or 0,
+                "max_discount": db_promo.max_discount or db_promo.value
+            }
+
+    if not promo:
+        return {"success": False, "discount": 0, "message": "Invalid promo code"}
 
     if order_total < promo["min_order"]:
         return {
             "success": False,
-            "discount": 0,
-            "message": f"Minimum order of ${promo['min_order']:.2f} required"
+            "discount_amount": 0,
+            "message": f"Minimum order of ${promo['min_order']:.2f} required",
+            "promotion_code": code,
+            "promotion_name": "",
+            "original_total": order_total,
+            "final_total": order_total
         }
 
     if promo["type"] == "percentage":
         discount = min(order_total * (promo["value"] / 100), promo["max_discount"])
-    elif promo["type"] == "flat":
+        promo_name = f"{int(promo['value'])}% Off"
+    elif promo["type"] in ("flat", "flat_amount"):
         discount = min(promo["value"], promo["max_discount"])
+        promo_name = f"${int(promo['value'])} Off"
     else:  # free_delivery
         discount = promo["max_discount"]
+        promo_name = "Free Delivery"
 
     return {
         "success": True,
-        "discount": round(discount, 2),
-        "message": f"Promo code applied! You saved ${discount:.2f}",
-        "new_total": round(order_total - discount, 2)
+        "promotion_code": code,
+        "promotion_name": promo_name,
+        "discount_amount": round(discount, 2),
+        "original_total": round(order_total, 2),
+        "final_total": round(order_total - discount, 2),
+        "message": f"Promo code applied! You saved ${discount:.2f}"
     }
 
 

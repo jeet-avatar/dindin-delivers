@@ -42,20 +42,12 @@ struct MainAppView: View {
                         .tag(1)
 
                         NavigationStack {
-                            DealsView()
-                        }
-                        .tabItem {
-                            Label("Deals", systemImage: "tag.fill")
-                        }
-                        .tag(2)
-
-                        NavigationStack {
                             OrderHistoryView()
                         }
                         .tabItem {
                             Label("Orders", systemImage: "clock.fill")
                         }
-                        .tag(3)
+                        .tag(2)
 
                         NavigationStack {
                             ProfileView()
@@ -63,7 +55,7 @@ struct MainAppView: View {
                         .tabItem {
                             Label("Profile", systemImage: "person.fill")
                         }
-                        .tag(4)
+                        .tag(3)
                     }
                     .accentColor(Theme.brandGreen)
 

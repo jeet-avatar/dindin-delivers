@@ -4,8 +4,7 @@ import EatFairShared
 struct RestaurantDetailView: View {
     let restaurant: Restaurant
     @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var cartViewModel: CartViewModel // Legacy single-restaurant cart
-    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel // Multi-restaurant cart
+    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
 
     @StateObject var menuViewModel = MenuViewModel()
     @State private var selectedItem: MenuItem? = nil

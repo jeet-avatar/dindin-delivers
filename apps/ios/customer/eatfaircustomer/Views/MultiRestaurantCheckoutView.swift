@@ -77,6 +77,9 @@ struct MultiRestaurantCheckoutView: View {
                             // Order Summary Header
                             orderSummaryHeader
 
+                            // Promo Code (moved up for visibility)
+                            promoCodeSection
+
                             // Delivery Address
                             deliveryAddressSection
 
@@ -88,9 +91,6 @@ struct MultiRestaurantCheckoutView: View {
 
                             // Tip Selection
                             tipSelectionSection
-
-                            // Promo Code
-                            promoCodeSection
 
                             // Price Breakdown
                             priceBreakdownSection

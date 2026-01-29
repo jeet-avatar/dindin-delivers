@@ -832,10 +832,10 @@ struct CheckoutView: View {
 
                     // Enable Apple Pay
                     configuration.applePay = .init(
-                        merchantId: "merchant.com.dolloraiai",
+                        merchantId: "merchant.com.dollorai.customer",
                         merchantCountryCode: "US"
                     )
-                    print("✅ Apple Pay configured with merchant: merchant.com.dolloraiai")
+                    print("✅ Apple Pay configured with merchant: merchant.com.dollorai.customer")
 
                     self.paymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
