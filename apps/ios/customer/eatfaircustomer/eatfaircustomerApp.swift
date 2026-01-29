@@ -109,6 +109,28 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     userInfo: ["orderId": orderId]
                 )
             }
+        case .orderCancelled:
+            // Handle restaurant cancellation - show alert and navigate to orders
+            if let orderId = payload.orderId {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("OrderCancelled"),
+                    object: nil,
+                    userInfo: [
+                        "orderId": orderId,
+                        "title": payload.title,
+                        "body": payload.body
+                    ]
+                )
+            }
+        case .driverAssigned:
+            // Navigate to order tracking with driver info
+            if let orderId = payload.orderId {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToOrder"),
+                    object: nil,
+                    userInfo: ["orderId": orderId, "showDriver": true]
+                )
+            }
         case .promotion:
             // Navigate to promotions/offers
             NotificationCenter.default.post(
