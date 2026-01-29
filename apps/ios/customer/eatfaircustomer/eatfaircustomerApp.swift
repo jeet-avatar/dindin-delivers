@@ -1,3 +1,31 @@
+//
+//  eatfaircustomerApp.swift
+//  Dollor Customer App
+//
+//  Main entry point for the Dollor Customer iOS application.
+//
+//  ARCHITECTURE OVERVIEW:
+//  ----------------------
+//  This app uses SwiftUI with MVVM architecture:
+//  - Views: UI components in /Views folder
+//  - ViewModels: Business logic in /ViewModels folder
+//  - Services: API & external integrations in /Services folder
+//  - Models: Data models in /Models and EatFairShared package
+//
+//  KEY DEPENDENCIES:
+//  - Firebase: Authentication, Firestore database, Push notifications
+//  - Stripe: Payment processing (Apple Pay, Card payments)
+//  - Google Maps/Places: Location services and address search
+//  - EatFairShared: Shared models and services across all Dollor apps
+//
+//  ENVIRONMENT OBJECTS (App-wide state):
+//  - AddressViewModel: User's delivery addresses
+//  - MultiRestaurantCartViewModel: Shopping cart (supports multiple restaurants)
+//
+//  Created by Dollor.ai Team
+//  Copyright © 2024-2026 Dollor.ai. All rights reserved.
+//
+
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
@@ -9,6 +37,9 @@ import GoogleMaps
 import GooglePlaces
 import GoogleSignIn
 
+// MARK: - App Delegate
+/// Handles app lifecycle events, push notifications, and SDK initialization.
+/// Uses UIApplicationDelegateAdaptor to bridge UIKit delegate with SwiftUI App.
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication,
@@ -185,14 +216,12 @@ struct EatfaircustomerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @StateObject var addressViewModel = AddressViewModel()
-    @StateObject var cartViewModel = CartViewModel()
     @StateObject var multiCartViewModel = MultiRestaurantCartViewModel()
 
     var body: some Scene {
         WindowGroup {
             MainAppView()
                 .environmentObject(addressViewModel)
-                .environmentObject(cartViewModel)
                 .environmentObject(multiCartViewModel)
                 .onAppear {
                     // Clear badge on app launch

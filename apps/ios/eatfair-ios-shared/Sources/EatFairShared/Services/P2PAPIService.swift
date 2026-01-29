@@ -2946,6 +2946,45 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Confirm Order Payment (Customer App)
+
+    /// Confirm payment for an order - called after Stripe payment succeeds
+    /// This sends the order to the restaurant for acceptance
+    public func confirmOrderPayment(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/confirm-payment") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let data = data,
+                       let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Payment confirmation failed")))
+                    }
+                    return
+                }
+
+                completion(.success(true))
+            }
+        }.resume()
+    }
+
     // MARK: - Promo Code Validation API (Customer App)
 
     /// Validate and apply a promo code to get discount amount
@@ -6369,6 +6408,23 @@ public struct P2PRestaurantsResponse: Decodable {
     }
 }
 
+/// Active promotion for a restaurant
+public struct P2PActivePromotion: Decodable {
+    public let id: Int
+    public let code: String
+    public let name: String
+    public let type: String
+    public let value: Double
+    public let dealText: String
+    public let minOrder: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id, code, name, type, value
+        case dealText = "deal_text"
+        case minOrder = "min_order"
+    }
+}
+
 public struct P2PRestaurant: Identifiable, Decodable {
     public let id: Int
     public let vendorId: String
@@ -6386,6 +6442,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
     public let previewImages: [String]
     public let rating: Double
     public let isOpen: Bool
+    public let activePromotion: P2PActivePromotion?  // Active deal if any
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -6406,6 +6463,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
         case previewImages = "preview_images"
         case rating
         case isOpen = "is_open"
+        case activePromotion = "active_promotion"
     }
 
     public init(from decoder: Decoder) throws {
@@ -6443,6 +6501,7 @@ public struct P2PRestaurant: Identifiable, Decodable {
         previewImages = try container.decodeIfPresent([String].self, forKey: .previewImages) ?? []
         rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
         isOpen = try container.decodeIfPresent(Bool.self, forKey: .isOpen) ?? true
+        activePromotion = try container.decodeIfPresent(P2PActivePromotion.self, forKey: .activePromotion)
     }
 }
 
@@ -7424,7 +7483,7 @@ public struct P2PApprovalResponse: Codable {
 public extension P2PRestaurant {
     /// Convert to the shared Restaurant model for compatibility with existing code
     func toRestaurant() -> Restaurant {
-        Restaurant(
+        var restaurant = Restaurant(
             id: String(id),  // Use numeric ID so MenuViewModel can fetch from P2P
             name: name,
             cuisine: cuisineType ?? "General",
@@ -7436,6 +7495,12 @@ public extension P2PRestaurant {
             longitude: location.longitude ?? 0,
             phone: contact.phone ?? ""
         )
+        // Add deal info if restaurant has active promotion
+        if let promo = activePromotion {
+            restaurant.dealText = promo.dealText
+            restaurant.promoCode = promo.code
+        }
+        return restaurant
     }
 }
 

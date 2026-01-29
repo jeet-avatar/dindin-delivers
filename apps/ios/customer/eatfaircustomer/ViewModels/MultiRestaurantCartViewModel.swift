@@ -423,11 +423,26 @@ class MultiRestaurantCartViewModel: ObservableObject {
             case .success(let p2pResponse):
                 #if DEBUG
                 print("[OrderFlow] ✅ P2P order created successfully: \(p2pResponse.orderNumber)")
-                print("[OrderFlow] Calling completion IMMEDIATELY (not waiting for Firebase)")
+                print("[OrderFlow] Order ID: \(p2pResponse.orderId)")
                 #endif
 
-                // CRITICAL FIX: Call completion IMMEDIATELY when P2P succeeds
-                // Don't wait for Firebase - the order exists in backend, show success screen now
+                // STEP 2: Confirm payment - this sends order to restaurant
+                #if DEBUG
+                print("[OrderFlow] Calling confirm-payment for order \(p2pResponse.orderId)...")
+                #endif
+
+                p2pService.confirmOrderPayment(orderId: p2pResponse.orderId) { confirmResult in
+                    #if DEBUG
+                    switch confirmResult {
+                    case .success:
+                        print("[OrderFlow] ✅ Payment confirmed - order sent to restaurant")
+                    case .failure(let error):
+                        print("[OrderFlow] ⚠️ Payment confirmation failed (non-blocking): \(error.localizedDescription)")
+                    }
+                    #endif
+                }
+
+                // Show success screen immediately (don't wait for confirm-payment)
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
 
