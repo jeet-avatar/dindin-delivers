@@ -10866,11 +10866,20 @@ def get_public_restaurants(
                 )
                 preview_images = [restaurant_img]
 
+            # Get restaurant main image (from DB or stock)
+            restaurant_image = getattr(vendor, 'image_url', None)
+            if not restaurant_image:
+                restaurant_image = get_stock_image_for_restaurant(
+                    vendor.cuisine_type or "default",
+                    vendor.restaurant_name or vendor.company_name or ""
+                )
+
             result.append({
                 "id": vendor.id,
                 "vendor_id": vendor.vendor_id,
                 "name": vendor.restaurant_name or vendor.company_name,
                 "cuisine_type": vendor.cuisine_type,
+                "image_url": restaurant_image,
                 "address": {
                     "street": vendor.street,
                     "city": vendor.city,
@@ -10930,7 +10939,7 @@ def get_public_restaurant_detail(
     Menu items include stock images if no custom image is provided.
     """
     from models import Vendor, VendorStatus, VendorMenuItem
-    from stock_images import get_stock_image_for_dish
+    from stock_images import get_stock_image_for_dish, get_stock_image_for_restaurant
 
     vendor = db.query(Vendor).filter(
         Vendor.id == vendor_id,
@@ -10988,12 +10997,21 @@ def get_public_restaurant_detail(
             "customizations": item.customizations or []
         })
 
+    # Get restaurant image (from DB or stock)
+    restaurant_image = getattr(vendor, 'image_url', None)
+    if not restaurant_image:
+        restaurant_image = get_stock_image_for_restaurant(
+            vendor.cuisine_type or "default",
+            vendor.restaurant_name or vendor.company_name or ""
+        )
+
     return {
         "success": True,
         "restaurant": {
             "id": vendor.id,
             "vendor_id": vendor.vendor_id,
             "name": vendor.restaurant_name or vendor.company_name,
+            "image_url": restaurant_image,
             "cuisine_type": vendor.cuisine_type,
             "address": {
                 "street": vendor.street,
