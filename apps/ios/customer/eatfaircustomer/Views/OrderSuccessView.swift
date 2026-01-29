@@ -1,16 +1,10 @@
 import SwiftUI
-import Combine
-import FirebaseFirestore
-import FirebaseAuth
 import EatFairShared
 
 struct OrderSuccessView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
-    @StateObject private var viewModel = OrderSuccessViewModel()
 
-    @State private var showingRating = false
-    @State private var showingTip = false
     @State private var showConfetti = true
 
     var body: some View {
@@ -23,9 +17,8 @@ struct OrderSuccessView: View {
                     // Success Animation
                     successHeader
 
-                    // Order Details Card - use cart ViewModel data first, then Firebase
+                    // Order Details Card - use cart ViewModel data (P2P backend is source of truth)
                     if let orderNumber = multiCartViewModel.lastOrderNumber {
-                        // Show order from just-placed order data
                         lastOrderDetailsCard(
                             orderNumber: orderNumber,
                             restaurantName: multiCartViewModel.lastOrderRestaurantName ?? "Restaurant",
@@ -33,11 +26,8 @@ struct OrderSuccessView: View {
                             total: multiCartViewModel.lastOrderTotal ?? 0,
                             deliveryAddress: multiCartViewModel.lastOrderDeliveryAddress ?? ""
                         )
-                    } else if let order = viewModel.latestOrder {
-                        // Fallback to Firebase order
-                        orderDetailsCard(order: order)
                     } else {
-                        // Show placeholder while loading
+                        // Show placeholder if order info not available
                         dummyOrderCard
                     }
 
@@ -49,7 +39,8 @@ struct OrderSuccessView: View {
 
                     // Continue Shopping
                     Button(action: {
-                        // Reset orderPlaced and dismiss
+                        // Clear last order info and reset state
+                        multiCartViewModel.clearLastOrder()
                         multiCartViewModel.orderPlaced = false
                         dismiss()
                     }) {
@@ -70,27 +61,12 @@ struct OrderSuccessView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            // Clear cart when success view appears
-            multiCartViewModel.clearCart()
-
-            // Fetch latest order from Firebase (if logged in)
-            viewModel.fetchLatestOrder()
-
-            // Hide confetti after animation
+            // Cart is already cleared in placeOrder success handler
+            // Just hide confetti after animation
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 withAnimation {
                     showConfetti = false
                 }
-            }
-        }
-        .sheet(isPresented: $showingRating) {
-            if let order = viewModel.latestOrder {
-                RateDriverView(order: order)
-            }
-        }
-        .sheet(isPresented: $showingTip) {
-            if let order = viewModel.latestOrder {
-                TipDriverView(order: order)
             }
         }
     }
@@ -178,71 +154,7 @@ struct OrderSuccessView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
-    // MARK: - Order Details Card
-    private func orderDetailsCard(order: Order) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "receipt")
-                    .foregroundColor(Theme.brandGreen)
-                Text("Order Details")
-                    .font(.headline)
-                Spacer()
-                Text("#\(order.orderId)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Divider()
-
-            // Restaurant info
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: 50, height: 50)
-                    Image(systemName: "fork.knife")
-                        .foregroundColor(.gray)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(order.restaurant.name)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Text("\(order.itemsCount) item\(order.itemsCount > 1 ? "s" : "")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Text("$\(String(format: "%.2f", order.total))")
-                    .font(.headline)
-                    .foregroundColor(Theme.brandGreen)
-            }
-
-            // Delivery address
-            HStack(spacing: 12) {
-                Image(systemName: "location.fill")
-                    .foregroundColor(.orange)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Delivering to")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(order.deliveryAddress.fullAddress)
-                        .font(.subheadline)
-                        .lineLimit(2)
-                }
-            }
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-    }
-
-    // MARK: - Last Order Details Card (from cart ViewModel)
+    // MARK: - Order Details Card (from cart ViewModel - P2P backend is source of truth)
     private func lastOrderDetailsCard(orderNumber: String, restaurantName: String, itemCount: Int, total: Double, deliveryAddress: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -335,7 +247,7 @@ struct OrderSuccessView: View {
                     Text("Arriving in")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(formatDeliveryTime(viewModel.latestOrder?.estimatedDeliveryTime))
+                    Text("25-35 min")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Theme.brandGreen)
@@ -364,64 +276,9 @@ struct OrderSuccessView: View {
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
-    /// Format delivery time from timestamp
-    private func formatDeliveryTime(_ estimatedTime: Int64?) -> String {
-        guard let timestamp = estimatedTime else {
-            return "20-30 min"
-        }
-
-        // Calculate minutes until delivery
-        let deliveryDate = Date(timeIntervalSince1970: TimeInterval(timestamp))
-        let minutesRemaining = Int(deliveryDate.timeIntervalSinceNow / 60)
-
-        if minutesRemaining <= 0 {
-            return "Any moment"
-        } else if minutesRemaining < 5 {
-            return "< 5 min"
-        } else if minutesRemaining <= 60 {
-            // Show range
-            let minTime = max(5, minutesRemaining - 5)
-            let maxTime = minutesRemaining + 10
-            return "\(minTime)-\(maxTime) min"
-        } else {
-            return DateTimeFormatter.shared.formattedETA(etaMinutes: minutesRemaining, showArrivalTime: true)
-        }
-    }
-
     // MARK: - Action Buttons
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            // These would typically show after delivery, but shown for demo
-            HStack(spacing: 12) {
-                Button(action: { showingRating = true }) {
-                    HStack {
-                        Image(systemName: "star.fill")
-                        Text("Rate")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(12)
-                }
-
-                Button(action: { showingTip = true }) {
-                    HStack {
-                        Image(systemName: "heart.fill")
-                        Text("Tip Driver")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.pink)
-                    .cornerRadius(12)
-                }
-            }
-
             // Contact support
             NavigationLink(destination: HelpSupportView()) {
                 HStack {
@@ -514,51 +371,5 @@ struct ConfettiPiece: View {
             .fill(color)
             .frame(width: size, height: size * 1.5)
             .rotationEffect(.degrees(Double.random(in: 0...360)))
-    }
-}
-
-// MARK: - Order Success ViewModel
-class OrderSuccessViewModel: ObservableObject {
-    @Published var latestOrder: Order?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-
-    private let db = Firestore.firestore()
-
-    deinit {
-        // Clean up any resources if needed
-    }
-
-    func fetchLatestOrder() {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            // No user logged in - this is expected in test mode
-            return
-        }
-
-        isLoading = true
-
-        // Simple query without ordering to avoid index requirement
-        db.collection("orders")
-            .whereField("customerId", isEqualTo: userId)
-            .limit(to: 1)
-            .getDocuments { [weak self] snapshot, error in
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-
-                    if let error = error {
-                        // Don't crash - just log and continue with dummy order card
-                        #if DEBUG
-                        print("[OrderSuccess] Failed to fetch order: \(error.localizedDescription)")
-                        #endif
-                        self?.errorMessage = error.localizedDescription
-                        return
-                    }
-
-                    if let document = snapshot?.documents.first,
-                       let order = try? document.data(as: Order.self) {
-                        self?.latestOrder = order
-                    }
-                }
-            }
     }
 }
