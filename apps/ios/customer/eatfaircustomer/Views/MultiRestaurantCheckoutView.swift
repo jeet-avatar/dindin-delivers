@@ -53,6 +53,7 @@ struct MultiRestaurantCheckoutView: View {
     @State private var stripePaymentSheet: PaymentSheet?
     @State private var stripePaymentReady = false
     @State private var isLoadingStripe = false
+    @State private var showStripePaymentSheet = false
 
     private var currentTip: Double {
         if useCustomTip, let tip = Double(customTip) {
@@ -120,6 +121,22 @@ struct MultiRestaurantCheckoutView: View {
             }
             .sheet(isPresented: $showFeeBreakdown) {
                 FeeBreakdownDetailView()
+            }
+            .onChange(of: showStripePaymentSheet) { _, shouldShow in
+                if shouldShow, let sheet = stripePaymentSheet {
+                    // Get the topmost view controller to present from
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootVC = windowScene.windows.first?.rootViewController {
+                        var topVC = rootVC
+                        while let presented = topVC.presentedViewController {
+                            topVC = presented
+                        }
+                        sheet.present(from: topVC) { result in
+                            showStripePaymentSheet = false
+                            onStripePaymentCompletion(result: result)
+                        }
+                    }
+                }
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
@@ -947,6 +964,11 @@ struct MultiRestaurantCheckoutView: View {
                     self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
 
+                    // If we're processing, present the sheet now that it's ready
+                    if self.isProcessing {
+                        self.showStripePaymentSheet = true
+                    }
+
                 case .failure(let error):
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
@@ -969,10 +991,13 @@ struct MultiRestaurantCheckoutView: View {
     }
 
     private func processStripePayment() {
-        // Stripe PaymentSheet is handled via PaymentSheet.PaymentButton
-        // This is a fallback for manual trigger if needed
         isProcessing = true
-        if stripePaymentSheet == nil {
+
+        if stripePaymentSheet != nil && stripePaymentReady {
+            // PaymentSheet is ready, present it
+            showStripePaymentSheet = true
+        } else if !isLoadingStripe {
+            // Prepare the payment sheet first, then present when ready
             prepareStripePaymentSheet()
         }
     }

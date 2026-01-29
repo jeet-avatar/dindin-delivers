@@ -10,6 +10,12 @@ struct MainAppView: View {
     @State private var selectedTab = 0
     @State private var showCartSheet = false
 
+    // Notification handling states
+    @State private var showCancellationAlert = false
+    @State private var cancellationAlertTitle = ""
+    @State private var cancellationAlertMessage = ""
+    @State private var navigateToOrderId: String?
+
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
@@ -81,6 +87,35 @@ struct MainAppView: View {
                         // Dismiss cart sheet when order is placed
                         showCartSheet = false
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToOrder"))) { notification in
+                    // Handle navigation to order details
+                    if let orderId = notification.userInfo?["orderId"] as? String {
+                        navigateToOrderId = orderId
+                        selectedTab = 3 // Switch to Orders tab
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OrderCancelled"))) { notification in
+                    // Handle order cancellation alert
+                    if let title = notification.userInfo?["title"] as? String,
+                       let body = notification.userInfo?["body"] as? String {
+                        cancellationAlertTitle = title.isEmpty ? "Order Cancelled" : title
+                        cancellationAlertMessage = body.isEmpty ? "Your order has been cancelled by the restaurant. A refund will be processed if applicable." : body
+                        showCancellationAlert = true
+                        selectedTab = 3 // Switch to Orders tab
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToPromotions"))) { _ in
+                    // Navigate to deals tab
+                    selectedTab = 2
+                }
+                .alert("Order Cancelled", isPresented: $showCancellationAlert) {
+                    Button("View Orders") {
+                        selectedTab = 3
+                    }
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(cancellationAlertMessage)
                 }
                 .environmentObject(authViewModel)
             } else {

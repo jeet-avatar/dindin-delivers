@@ -92,6 +92,10 @@ const OrderTracking: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
+  // Cancellation modal state
+  const [cancellationModalVisible, setCancellationModalVisible] = useState(false);
+  const [cancellationMessage, setCancellationMessage] = useState('');
+
   // WebSocket ref
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,12 +129,34 @@ const OrderTracking: React.FC = () => {
           if (data.type === 'order_status' || data.type === 'order:status') {
             const statusData = data.data || data;
             if (statusData.order_id?.toString() === orderId) {
+              const newStatus = statusData.status;
+
               // Update order status in real-time
               setOrder(prev => prev ? {
                 ...prev,
-                status: statusData.status,
+                status: newStatus,
                 driver: statusData.driver || prev.driver
               } : null);
+
+              // Show cancellation modal if order was cancelled
+              if (newStatus === 'cancelled' || newStatus === 'declined_by_restaurant') {
+                const cancelMessage = statusData.message || statusData.reason ||
+                  'Your order has been cancelled by the restaurant. A refund will be processed if applicable.';
+                setCancellationMessage(cancelMessage);
+                setCancellationModalVisible(true);
+              }
+            }
+          }
+
+          // Handle explicit order cancellation event
+          if (data.type === 'order_cancelled' || data.type === 'order:cancelled') {
+            const cancelData = data.data || data;
+            if (cancelData.order_id?.toString() === orderId) {
+              setOrder(prev => prev ? { ...prev, status: 'cancelled' } : null);
+              const cancelMessage = cancelData.message || cancelData.reason ||
+                'Your order has been cancelled by the restaurant. A refund will be processed if applicable.';
+              setCancellationMessage(cancelMessage);
+              setCancellationModalVisible(true);
             }
           }
 
@@ -553,6 +579,39 @@ const OrderTracking: React.FC = () => {
           onUnreadCountChange={setUnreadMessages}
         />
       )}
+
+      {/* Order Cancellation Modal */}
+      <Modal
+        title="Order Cancelled"
+        open={cancellationModalVisible}
+        onCancel={() => setCancellationModalVisible(false)}
+        footer={[
+          <Button key="orders" type="primary" onClick={() => navigate('/customer/orders')}>
+            View Orders
+          </Button>,
+          <Button key="ok" onClick={() => setCancellationModalVisible(false)}>
+            OK
+          </Button>
+        ]}
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{
+            width: 60,
+            height: 60,
+            borderRadius: '50%',
+            backgroundColor: '#FEE2E2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <ClockCircleOutlined style={{ fontSize: 28, color: '#EF4444' }} />
+          </div>
+          <Paragraph style={{ fontSize: 16, marginBottom: 0 }}>
+            {cancellationMessage || 'Your order has been cancelled by the restaurant. A refund will be processed if applicable.'}
+          </Paragraph>
+        </div>
+      </Modal>
 
       {/* Rating Modal */}
       <Modal

@@ -374,9 +374,10 @@ struct RideBottomSheet: View {
                 Divider()
             }
 
-            // Price Summary - World Class Fare Breakdown
+            // Price Summary - World Class Fare Breakdown (Scrollable to ensure buttons visible)
             if viewModel.canRequestRide {
-                VStack(spacing: 12) {
+                ScrollView {
+                    VStack(spacing: 12) {
                     // Trip Estimate Header
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -528,8 +529,10 @@ struct RideBottomSheet: View {
                         .padding(.top, 2)
                     }
                     .padding(.vertical, 4)
+                    }
+                    .padding()
                 }
-                .padding()
+                .frame(maxHeight: 320) // Limit height to ensure action buttons remain visible
             }
 
             // Action Buttons
