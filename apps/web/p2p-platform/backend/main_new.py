@@ -10813,11 +10813,13 @@ def get_public_restaurants(
     """
     try:
         from models import Vendor, VendorStatus, VendorMenuItem
-        from stock_images import get_stock_image_for_dish
+        from stock_images import get_stock_image_for_dish, get_stock_image_for_restaurant
     except ImportError:
         # Fallback if stock_images not available
         def get_stock_image_for_dish(name, category, is_veg):
             return None
+        def get_stock_image_for_restaurant(cuisine, name=""):
+            return "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600"
 
     try:
         query = db.query(Vendor).filter(
@@ -10856,6 +10858,14 @@ def get_public_restaurants(
                 )
                 preview_images.append(img)
 
+            # If no menu images, use restaurant stock image based on cuisine
+            if not preview_images or not any(preview_images):
+                restaurant_img = get_stock_image_for_restaurant(
+                    vendor.cuisine_type or "default",
+                    vendor.restaurant_name or vendor.company_name or ""
+                )
+                preview_images = [restaurant_img]
+
             result.append({
                 "id": vendor.id,
                 "vendor_id": vendor.vendor_id,
@@ -10886,6 +10896,9 @@ def get_public_restaurants(
                 "rating": 4.5,  # Placeholder - implement actual ratings
                 "is_open": True  # Placeholder - implement actual hours check
             })
+
+        # Sort by menu_items_count DESC so restaurants with more items show first
+        result.sort(key=lambda x: x.get("menu_items_count", 0), reverse=True)
 
         return {
             "success": True,
