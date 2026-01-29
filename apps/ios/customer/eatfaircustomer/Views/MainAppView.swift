@@ -131,8 +131,8 @@ struct MainAppView: View {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToPromotions"))) { _ in
-                    // Navigate to deals tab
-                    selectedTab = 2
+                    // Navigate to home tab (Hot Deals section is now on Home)
+                    selectedTab = 0
                 }
                 .alert("Order Cancelled", isPresented: $showCancellationAlert) {
                     Button("View Orders") {
