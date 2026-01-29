@@ -7850,10 +7850,11 @@ def get_published_vendors(
     vendors = query.order_by(Vendor.restaurant_name).offset(offset).limit(limit).all()
 
     # Get all active promotions for these vendors
+    from models_extended import PromotionStatus
     vendor_ids = [v.id for v in vendors]
     promos = db.query(Promotion).filter(
         Promotion.vendor_id.in_(vendor_ids),
-        Promotion.status == "active"
+        Promotion.status == PromotionStatus.ACTIVE
     ).all()
 
     # Map vendor_id to best promotion (prefer BOGO, then percentage, then flat)
@@ -7862,7 +7863,10 @@ def get_published_vendors(
         existing = vendor_promos.get(promo.vendor_id)
         # Priority: bogo > percentage > flat > free_delivery
         priority = {"bogo": 4, "percentage": 3, "flat": 2, "flat_amount": 2, "free_delivery": 1}
-        if not existing or priority.get(promo.type, 0) > priority.get(existing.type, 0):
+        # Get promo type as string (handle enum)
+        promo_type_str = promo.type.value if hasattr(promo.type, 'value') else str(promo.type)
+        existing_type_str = existing.type.value if existing and hasattr(existing.type, 'value') else (str(existing.type) if existing else "")
+        if not existing or priority.get(promo_type_str, 0) > priority.get(existing_type_str, 0):
             vendor_promos[promo.vendor_id] = promo
 
     # Format restaurants to match iOS/Android expected response structure
@@ -7871,14 +7875,15 @@ def get_published_vendors(
         promo = vendor_promos.get(v.id)
         active_promo = None
         if promo:
-            # Generate deal text based on promo type
-            if promo.type == "percentage":
+            # Generate deal text based on promo type (use .value for enum comparison)
+            promo_type = promo.type.value if hasattr(promo.type, 'value') else str(promo.type)
+            if promo_type == "percentage":
                 deal_text = f"{int(promo.value)}% OFF"
-            elif promo.type in ("flat", "flat_amount"):
+            elif promo_type in ("flat", "flat_amount"):
                 deal_text = f"${int(promo.value)} OFF"
-            elif promo.type == "bogo":
+            elif promo_type == "bogo":
                 deal_text = "BOGO"
-            elif promo.type == "free_delivery":
+            elif promo_type == "free_delivery":
                 deal_text = "FREE DELIVERY"
             else:
                 deal_text = "DEAL"
@@ -7887,7 +7892,7 @@ def get_published_vendors(
                 "id": promo.id,
                 "code": promo.promotion_code,
                 "name": promo.name,
-                "type": promo.type,
+                "type": promo_type,
                 "value": promo.value,
                 "deal_text": deal_text,
                 "min_order": promo.min_order_amount or 0
@@ -11279,14 +11284,17 @@ def apply_promotion_code(
     else:
         # Check database for dynamic promos
         from models import Promotion
+        from models_extended import PromotionStatus
         db_promo = db.query(Promotion).filter(
             Promotion.promotion_code == code,
-            Promotion.status == "active"
+            Promotion.status == PromotionStatus.ACTIVE
         ).first()
 
         if db_promo:
+            # Get type as string value for enum
+            promo_type = db_promo.type.value if hasattr(db_promo.type, 'value') else str(db_promo.type)
             promo = {
-                "type": db_promo.type,
+                "type": promo_type,
                 "value": db_promo.value,
                 "min_order": db_promo.min_order_amount or 0,
                 "max_discount": db_promo.max_discount or db_promo.value
