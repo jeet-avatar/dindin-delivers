@@ -74,6 +74,8 @@ class MultiRestaurantCartViewModel: ObservableObject {
     @Published var lastOrderRestaurantName: String?
     @Published var lastOrderItemCount: Int?
     @Published var lastOrderDeliveryAddress: String?
+    @Published var lastOrderItems: [CartItem] = []  // Ordered items (saved before cart clear)
+    @Published var lastOrderPromoName: String?      // Promo name (e.g., "Buy One Get One Free")
 
     /// Clear last order info (call when user dismisses success screen)
     func clearLastOrder() {
@@ -83,6 +85,8 @@ class MultiRestaurantCartViewModel: ObservableObject {
         lastOrderRestaurantName = nil
         lastOrderItemCount = nil
         lastOrderDeliveryAddress = nil
+        lastOrderItems = []
+        lastOrderPromoName = nil
     }
 
     // MARK: - Computed Properties
@@ -462,9 +466,11 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     self.lastOrderRestaurantName = self.orderedRestaurants.first?.name ?? p2pResponse.restaurant
                     self.lastOrderItemCount = self.totalItemCount
                     self.lastOrderDeliveryAddress = deliveryAddress.fullAddress
+                    self.lastOrderItems = self.items  // Save items before clearing
 
                     #if DEBUG
                     print("[OrderFlow] Saved last order info: \(p2pResponse.orderNumber), $\(p2pResponse.total)")
+                    print("[OrderFlow] Saved \(self.items.count) items for success screen")
                     #endif
 
                     self.isLoading = false

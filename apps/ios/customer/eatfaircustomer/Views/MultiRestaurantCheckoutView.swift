@@ -31,6 +31,7 @@ struct MultiRestaurantCheckoutView: View {
     @State private var promotionCode = ""
     @State private var discount: Double = 0.0
     @State private var appliedPromoCode: String?
+    @State private var appliedPromoName: String?  // Promo name (e.g., "Buy One Get One Free")
     @State private var deliveryInstructions = ""
 
     // UI State
@@ -491,16 +492,31 @@ struct MultiRestaurantCheckoutView: View {
             }
 
             if discount > 0, let code = appliedPromoCode {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("'\(code)' applied!")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    Spacer()
-                    Text("-$\(String(format: "%.2f", discount))")
-                        .fontWeight(.bold)
-                        .foregroundColor(.green)
+                VStack(spacing: 4) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("'\(code)' applied!")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Spacer()
+                        Text("-$\(String(format: "%.2f", discount))")
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
+                    // Show promo name (e.g., "Buy One Get One Free")
+                    if let promoName = appliedPromoName {
+                        HStack {
+                            Image(systemName: "tag.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption2)
+                            Text(promoName)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                    }
                 }
                 .padding(.horizontal)
             }
@@ -817,7 +833,9 @@ struct MultiRestaurantCheckoutView: View {
                 case .success(let response):
                     discount = response.discountAmount
                     appliedPromoCode = response.promotionCode
-                    // Show success feedback
+                    appliedPromoName = response.promotionName
+                    // Save promo name to cart VM for success screen
+                    cartVM.lastOrderPromoName = response.promotionName
                 case .failure(let error):
                     let errorMsg = (error as? P2PAPIError)?.localizedDescription ?? error.localizedDescription
                     errorMessage = errorMsg.contains("Invalid") || errorMsg.contains("not active") ? errorMsg : "Invalid or expired promo code"

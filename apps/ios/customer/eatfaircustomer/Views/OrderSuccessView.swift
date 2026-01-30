@@ -170,6 +170,23 @@ struct OrderSuccessView: View {
 
             Divider()
 
+            // Promo badge (if applicable)
+            if let promoName = multiCartViewModel.lastOrderPromoName {
+                HStack(spacing: 8) {
+                    Image(systemName: "tag.fill")
+                        .foregroundColor(.orange)
+                        .font(.caption)
+                    Text(promoName)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+
             // Restaurant info
             HStack(spacing: 12) {
                 ZStack {
@@ -194,6 +211,31 @@ struct OrderSuccessView: View {
                 Text("$\(String(format: "%.2f", total))")
                     .font(.headline)
                     .foregroundColor(Theme.brandGreen)
+            }
+
+            // Ordered Items
+            if !multiCartViewModel.lastOrderItems.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Items Ordered")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 4)
+
+                    ForEach(multiCartViewModel.lastOrderItems, id: \.id) { item in
+                        HStack {
+                            Text("\(item.quantity)x")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 24, alignment: .leading)
+                            Text(item.name)
+                                .font(.subheadline)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", item.totalPrice * Double(item.quantity)))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
 
             // Delivery address

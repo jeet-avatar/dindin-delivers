@@ -36,10 +36,20 @@ struct MultiRestaurantCartView: View {
 
     var body: some View {
         Group {
-            if cartVM.items.isEmpty {
+            // Don't show empty cart if order was just placed (cart sheet is dismissing)
+            if cartVM.items.isEmpty && !cartVM.orderPlaced {
                 emptyCartView
-            } else {
+            } else if !cartVM.items.isEmpty {
                 cartContentView
+            } else {
+                // Order just placed, show processing message briefly
+                VStack {
+                    ProgressView()
+                    Text("Processing order...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                }
             }
         }
         .navigationTitle("Your Cart")
