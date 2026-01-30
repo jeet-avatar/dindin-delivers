@@ -14,11 +14,15 @@ platform :ios do
       try_repo_update_on_error: true
     )
 
-    # Increment build number
-    increment_build_number(
-      build_number: ENV["CI_BUILD_NUMBER"] || Time.now.to_i.to_s,
-      xcodeproj: "eatffairrestaurant.xcodeproj"
-    )
+    # Build number is managed manually in project.pbxproj
+    # To bump: sed -i '' 's/CURRENT_PROJECT_VERSION = X;/CURRENT_PROJECT_VERSION = Y;/g' eatffairrestaurant.xcodeproj/project.pbxproj
+    # Only override if CI_BUILD_NUMBER is explicitly set
+    if ENV["CI_BUILD_NUMBER"]
+      increment_build_number(
+        build_number: ENV["CI_BUILD_NUMBER"],
+        xcodeproj: "eatffairrestaurant.xcodeproj"
+      )
+    end
 
     # Build the app
     build_app(
