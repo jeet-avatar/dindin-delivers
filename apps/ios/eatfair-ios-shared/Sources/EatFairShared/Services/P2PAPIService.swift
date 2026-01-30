@@ -1625,6 +1625,7 @@ public class P2PAPIService: ObservableObject {
         email: String,
         name: String,
         appleId: String,
+        identityToken: String? = nil,
         completion: @escaping (Result<P2PCustomerLoginResponse, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/customer/apple-auth") else {
@@ -1636,11 +1637,15 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "email": email,
             "name": name,
             "apple_id": appleId
         ]
+        // Send identity token if available (contains real email for returning users)
+        if let token = identityToken {
+            body["identity_token"] = token
+        }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         isLoading = true
