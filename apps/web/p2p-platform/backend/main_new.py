@@ -1189,7 +1189,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 # Vendor Login
-@app.post("/api/auth/vendor/login", response_model=Token)
+@app.post("/api/auth/vendor/login")
+@app.post("/auth/vendor/login")  # Alias for mobile apps without /api prefix
 def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     print(f"Vendor login attempt for: {form_data.username}")
     
@@ -1238,7 +1239,13 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendorId": user.vendor_id
+        },
         # Top-level fields for Android compatibility
         "vendor_id": user.vendor_id,
         "business_name": business_name,
@@ -1312,7 +1319,13 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendorId": user.vendor_id
+        },
         "vendor_id": user.vendor_id,
         "business_name": business_name,
         "email": user.email
@@ -1448,9 +1461,9 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,
-                "full_name": new_user.full_name,
+                "fullName": new_user.full_name,
                 "role": "vendor",
-                "vendor_id": new_vendor.id
+                "vendorId": new_vendor.id
             },
             # Top-level fields for Android/iOS compatibility
             "vendor_id": new_vendor.id,
@@ -1579,7 +1592,13 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendorId": user.vendor_id
+        },
         "vendor_id": user.vendor_id,
         "business_name": business_name,
         "email": user.email
@@ -1678,7 +1697,13 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "fullName": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendorId": user.vendor_id
+        },
         "vendor_id": user.vendor_id,
         "business_name": business_name,
         "email": user.email
