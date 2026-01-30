@@ -8507,18 +8507,21 @@ public struct P2PVendorOrder: Codable, Identifiable {
         )
 
         // Map P2P status to Firebase status
+        // TODO: Upgrade when app goes live - restaurant self-delivery vs driver delivery
         let mappedStatus: String
         switch status.lowercased() {
         case "pending", "pending_payment":
             mappedStatus = "Placed"
-        case "confirmed":
+        case "confirmed", "restaurant_timeout":
             mappedStatus = "Accepted"
         case "preparing":
             mappedStatus = "Preparing"
         case "ready", "ready_for_pickup":
             mappedStatus = "Ready"
-        case "picked_up", "out_for_delivery":
+        case "picked_up":
             mappedStatus = "PickedUp"
+        case "out_for_delivery":
+            mappedStatus = "OnTheWay"
         case "delivered":
             mappedStatus = "Delivered"
         case "cancelled":
@@ -8720,18 +8723,19 @@ public struct P2PCustomerOrder: Codable, Identifiable {
     }
 
     /// Map P2P status to display status
+    /// TODO: Upgrade when app goes live - restaurant self-delivery vs driver delivery
     public var displayStatus: String {
         switch status.lowercased() {
         case "pending", "pending_payment":
             return "Placed"
-        case "confirmed":
-            return "Confirmed"
+        case "confirmed", "restaurant_timeout":
+            return "Accepted"
         case "preparing":
             return "Preparing"
         case "ready", "ready_for_pickup":
             return "Ready"
         case "out_for_delivery":
-            return "Out for Delivery"
+            return "OnTheWay"
         case "delivered":
             return "Delivered"
         case "cancelled":
@@ -8865,18 +8869,19 @@ public struct P2POrderTracking: Codable {
     }
 
     /// Map P2P status to display status
+    /// TODO: Upgrade when app goes live
     public var displayStatus: String {
         switch status.lowercased() {
         case "pending", "pending_payment":
             return "Placed"
-        case "confirmed":
-            return "Confirmed"
+        case "confirmed", "restaurant_timeout":
+            return "Accepted"
         case "preparing":
             return "Preparing"
         case "ready", "ready_for_pickup":
             return "Ready"
         case "out_for_delivery":
-            return "Out for Delivery"
+            return "OnTheWay"
         case "delivered":
             return "Delivered"
         case "cancelled":
