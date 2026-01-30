@@ -18,7 +18,11 @@ struct OrderSuccessView: View {
                     successHeader
 
                     // Order Details Card - use cart ViewModel data (P2P backend is source of truth)
-                    if let orderNumber = multiCartViewModel.lastOrderNumber {
+                    if !multiCartViewModel.lastOrderNumbers.isEmpty {
+                        // Multi-restaurant orders - show each order
+                        multiOrderDetailsCard
+                    } else if let orderNumber = multiCartViewModel.lastOrderNumber {
+                        // Single order fallback
                         lastOrderDetailsCard(
                             orderNumber: orderNumber,
                             restaurantName: multiCartViewModel.lastOrderRestaurantName ?? "Restaurant",
@@ -98,6 +102,130 @@ struct OrderSuccessView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(.top, 20)
+    }
+
+    // MARK: - Multi-Order Details Card (for multi-restaurant orders)
+    private var multiOrderDetailsCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "receipt")
+                    .foregroundColor(Theme.brandGreen)
+                Text("Order Details")
+                    .font(.headline)
+                Spacer()
+                Text("\(multiCartViewModel.lastOrderNumbers.count) orders")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+
+            // Promo badge (if applicable)
+            if let promoName = multiCartViewModel.lastOrderPromoName {
+                HStack(spacing: 8) {
+                    Image(systemName: "tag.fill")
+                        .foregroundColor(.orange)
+                        .font(.caption)
+                    Text(promoName)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            // Show each restaurant order
+            ForEach(Array(zip(multiCartViewModel.lastOrderNumbers, multiCartViewModel.lastOrderRestaurantNames).enumerated()), id: \.offset) { index, orderInfo in
+                let (orderNumber, restaurantName) = orderInfo
+                let restaurantItems = multiCartViewModel.lastOrderItems.filter { $0.restaurantName == restaurantName }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Theme.brandGreen.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            Text("\(index + 1)")
+                                .font(.headline)
+                                .foregroundColor(Theme.brandGreen)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(restaurantName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("#\(orderNumber)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text("\(restaurantItems.count) item\(restaurantItems.count > 1 ? "s" : "")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    // Show items for this restaurant
+                    ForEach(restaurantItems, id: \.id) { item in
+                        HStack {
+                            Text("\(item.quantity)x")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .frame(width: 20, alignment: .leading)
+                            Text(item.name)
+                                .font(.caption)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", item.totalPrice * Double(item.quantity)))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 52)
+                    }
+                }
+                .padding(.vertical, 8)
+
+                if index < multiCartViewModel.lastOrderNumbers.count - 1 {
+                    Divider()
+                }
+            }
+
+            // Total
+            HStack {
+                Text("Total")
+                    .font(.headline)
+                Spacer()
+                Text("$\(String(format: "%.2f", multiCartViewModel.lastOrderTotal ?? 0))")
+                    .font(.headline)
+                    .foregroundColor(Theme.brandGreen)
+            }
+            .padding(.top, 8)
+
+            // Delivery address
+            if let deliveryAddress = multiCartViewModel.lastOrderDeliveryAddress, !deliveryAddress.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(.orange)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Delivering to")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(deliveryAddress)
+                            .font(.subheadline)
+                            .lineLimit(2)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
     // MARK: - Placeholder Order Card (when order details not yet loaded)
