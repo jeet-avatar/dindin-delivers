@@ -1286,8 +1286,8 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
     hint = request.email_hint or request.email or ""
     print(f"Vendor demo login attempt with hint: {hint}")
 
-    demo_email = "demobusiness@dollor.ai"
-    demo_password = "DemoVendor2025!"
+    demo_email = "demo.restaurant@dollor.ai"
+    demo_password = "DemoRestaurant2025!"
 
     # Check if demo vendor exists
     user = db.query(User).filter(
@@ -1302,8 +1302,8 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         # Create vendor record first
         from models import VendorStatus
         demo_vendor = Vendor(
-            restaurant_name="Demo Restaurant",
-            company_name="Demo Restaurant LLC",
+            restaurant_name="Apple Test Restaurant",
+            company_name="Apple Test Restaurant LLC",
             contact_email=demo_email,
             contact_phone="+14155551234",
             contact_name="Demo Owner",
@@ -1331,10 +1331,26 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.commit()
         db.refresh(user)
         print(f"Created demo vendor: {demo_email}")
+    else:
+        # Demo user exists - ensure password and vendor info are correct
+        from models import VendorStatus
+        hashed_password = get_password_hash(demo_password)
+        user.password_hash = hashed_password
+
+        # Update vendor to "Apple Test Restaurant" if needed
+        if user.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+            if vendor:
+                vendor.restaurant_name = "Apple Test Restaurant"
+                vendor.company_name = "Apple Test Restaurant LLC"
+                vendor.onboarding_status = VendorStatus.APPROVED
+                vendor.is_published = True
+        db.commit()
+        print(f"Updated demo vendor credentials: {demo_email}")
 
     # Get vendor details
     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-    business_name = vendor.restaurant_name if vendor else "Demo Restaurant"
+    business_name = vendor.restaurant_name if vendor else "Apple Test Restaurant"
 
     # Generate token with vendor_id
     access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
