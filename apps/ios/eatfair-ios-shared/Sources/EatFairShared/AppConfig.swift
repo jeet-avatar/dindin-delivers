@@ -309,7 +309,8 @@ public class AppConfig: ObservableObject {
 
     /// Get rideshare fee tier description with distance (preferred method).
     public func getRideshareTierDescription(distanceMiles: Double) -> String {
-        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        let tier = getRideshareTier(fareAmount: estimatedFare)
         let fee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
         let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
         return "$\(Int(fee)) (Tier \(tier): \(tierDesc))"
