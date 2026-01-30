@@ -262,6 +262,19 @@ class Vendor(Base):
     stripe_account_id = Column(String(255))  # Stripe Connect account ID
     stripe_onboarding_complete = Column(Boolean, default=False)  # True when can receive payouts
 
+    # KOT (Kitchen Order Ticket) / POS Integration
+    # Supported types: 'none', 'square', 'clover', 'toast', 'star_cloud', 'epson_epos'
+    kot_integration_type = Column(String(50), default="none")
+    kot_enabled = Column(Boolean, default=False)
+    kot_api_key = Column(String(500))  # Encrypted API key for POS system
+    kot_api_secret = Column(String(500))  # For systems requiring secret (Toast)
+    kot_location_id = Column(String(255))  # Square Location ID
+    kot_merchant_id = Column(String(255))  # Clover Merchant ID
+    kot_restaurant_guid = Column(String(255))  # Toast Restaurant GUID
+    kot_printer_id = Column(String(255))  # For direct printer integrations
+    kot_webhook_url = Column(String(500))  # Custom webhook for notifications
+    kot_auto_print = Column(Boolean, default=True)  # Auto-print on order accept
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")

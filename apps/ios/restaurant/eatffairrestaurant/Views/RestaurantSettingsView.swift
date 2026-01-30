@@ -244,6 +244,29 @@ struct RestaurantSettingsView: View {
                     }
                 }
 
+                // Kitchen Printing / POS Integration Section
+                Section("Kitchen Printing") {
+                    NavigationLink(destination: KOTSettingsView()) {
+                        HStack {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("POS Integration")
+                                    Text("Auto-print orders to kitchen")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "printer.fill")
+                                    .foregroundColor(.purple)
+                            }
+                            Spacer()
+                            Text("Square, Clover")
+                                .font(.caption)
+                                .foregroundColor(.purple)
+                        }
+                    }
+                }
+
                 // Business Documents Section
                 Section("Business Documents") {
                     NavigationLink(destination: RestaurantDocumentsView()) {

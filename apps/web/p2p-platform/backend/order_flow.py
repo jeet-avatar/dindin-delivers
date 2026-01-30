@@ -1368,6 +1368,7 @@ async def restaurant_accept(
     """
     Restaurant accepts the order within acceptance window.
     Moves order to PREPARING status.
+    Triggers KOT (Kitchen Order Ticket) print to POS system if configured.
     AI Employee: KitchenBot Beta
     """
     ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
@@ -1400,6 +1401,18 @@ async def restaurant_accept(
 
     db.commit()
 
+    # Trigger KOT (Kitchen Order Ticket) print to POS system
+    kot_result = {"success": True, "pos_type": "none", "message": "No KOT integration"}
+    try:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        if vendor and getattr(vendor, 'kot_enabled', False) and getattr(vendor, 'kot_auto_print', True):
+            from kot_integrations import KOTService
+            kot_result = await KOTService.send_to_pos(order, vendor)
+            logger.info(f"KOT result for order {order.order_number}: {kot_result}")
+    except Exception as e:
+        logger.error(f"KOT integration error for order {order.order_number}: {e}")
+        kot_result = {"success": False, "pos_type": "unknown", "error": str(e)}
+
     return {
         "success": True,
         "order_id": order.id,
@@ -1407,7 +1420,8 @@ async def restaurant_accept(
         "status": "preparing",
         "accepted_at": order.restaurant_accepted_at.isoformat(),
         "processed_by": ai_employee["name"],
-        "message": "Restaurant accepted order. Now preparing."
+        "message": "Restaurant accepted order. Now preparing.",
+        "kot_print": kot_result
     }
 
 
