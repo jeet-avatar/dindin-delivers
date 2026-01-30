@@ -1278,6 +1278,7 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         hashed_password = get_password_hash(demo_password)
 
         # Create vendor record first
+        from models import VendorStatus
         demo_vendor = Vendor(
             restaurant_name="Demo Restaurant",
             company_name="Demo Restaurant LLC",
@@ -1289,7 +1290,7 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
             state="CA",
             zip_code="94102",
             cuisine_type="American",
-            onboarding_status="APPROVED",
+            onboarding_status=VendorStatus.APPROVED,
             created_at=datetime.utcnow()
         )
         db.add(demo_vendor)
