@@ -13139,17 +13139,29 @@ async def get_saved_cards(
         stripe_customer = stripe.Customer.retrieve(customer.stripe_customer_id)
         default_pm_id = stripe_customer.invoice_settings.default_payment_method
 
-        cards = []
+        # De-duplicate cards by (last4, brand, exp_month, exp_year)
+        # Keep the default card if duplicate, otherwise keep the first one
+        seen_cards = {}  # key: (last4, brand, exp_month, exp_year) -> card dict
+
         for pm in payment_methods.data:
-            cards.append({
+            card_key = (pm.card.last4, pm.card.brand, pm.card.exp_month, pm.card.exp_year)
+            card_data = {
                 "id": pm.id,
                 "brand": pm.card.brand,
                 "last4": pm.card.last4,
                 "exp_month": pm.card.exp_month,
                 "exp_year": pm.card.exp_year,
                 "is_default": pm.id == default_pm_id
-            })
+            }
 
+            # If we haven't seen this card, add it
+            # If we have seen it, only replace if this one is the default
+            if card_key not in seen_cards:
+                seen_cards[card_key] = card_data
+            elif card_data["is_default"]:
+                seen_cards[card_key] = card_data
+
+        cards = list(seen_cards.values())
         return {"cards": cards, "count": len(cards)}
 
     except stripe.error.StripeError as e:
