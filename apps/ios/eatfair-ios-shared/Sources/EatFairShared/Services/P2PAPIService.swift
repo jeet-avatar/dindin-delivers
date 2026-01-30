@@ -10740,8 +10740,8 @@ extension P2PAPIService {
         vendorId: Int,
         completion: @escaping (Result<KOTConfigResponse, Error>) -> Void
     ) {
-        guard let token = vendorAccessToken else {
-            completion(.failure(P2PAPIError.unauthorized))
+        guard let token = vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Unauthorized - please log in")))
             return
         }
 
@@ -10793,8 +10793,8 @@ extension P2PAPIService {
         config: KOTConfigUpdate,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let token = vendorAccessToken else {
-            completion(.failure(P2PAPIError.unauthorized))
+        guard let token = vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Unauthorized - please log in")))
             return
         }
 
@@ -10870,8 +10870,8 @@ extension P2PAPIService {
         vendorId: Int,
         completion: @escaping (Result<KOTTestResponse, Error>) -> Void
     ) {
-        guard let token = vendorAccessToken else {
-            completion(.failure(P2PAPIError.unauthorized))
+        guard let token = vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Unauthorized - please log in")))
             return
         }
 
