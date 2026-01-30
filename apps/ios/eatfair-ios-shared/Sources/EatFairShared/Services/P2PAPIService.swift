@@ -1117,7 +1117,10 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let bodyString = "username=\(email)&password=\(password)"
+        // URL-encode email and password to handle special characters like ! @ # etc.
+        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
+        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? password
+        let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
         isLoading = true
@@ -1405,10 +1408,12 @@ public class P2PAPIService: ObservableObject {
 
     /// Apple OAuth login/registration for vendors
     /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    /// identityToken is used to extract real email for returning users (Apple only provides email on first sign-in)
     public func vendorAppleAuth(
         email: String,
         name: String,
         appleId: String,
+        identityToken: String? = nil,
         completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
     ) {
         let fullURL = "\(baseURL)/auth/vendor/apple-auth"
@@ -1424,13 +1429,17 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "email": email,
             "name": name,
             "apple_id": appleId
         ]
+        // Add identity token if available - backend can decode real email from this
+        if let token = identityToken {
+            body["identity_token"] = token
+        }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        print("DEBUG API vendorAppleAuth: Request body = \(body)")
+        print("DEBUG API vendorAppleAuth: Request body (keys) = \(body.keys)")
 
         isLoading = true
 

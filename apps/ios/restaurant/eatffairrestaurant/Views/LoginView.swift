@@ -345,6 +345,14 @@ struct LoginView: View {
                         .compactMap { $0 }
                         .joined(separator: " ")
 
+                    // Extract identity token (contains real email for returning users)
+                    var identityTokenString: String?
+                    if let identityTokenData = appleIDCredential.identityToken,
+                       let tokenString = String(data: identityTokenData, encoding: .utf8) {
+                        identityTokenString = tokenString
+                        print("DEBUG APPLE: Got identity token (length: \(tokenString.count))")
+                    }
+
                     print("DEBUG APPLE: Raw data - userId: \(appleUserId.prefix(20))..., email: '\(appleEmail)', name: '\(fullName)'")
 
                     // IMPORTANT: Apple only provides name AND email on FIRST sign-in
@@ -382,20 +390,23 @@ struct LoginView: View {
                     let finalName = fullName.isEmpty ? "My Restaurant" : fullName
                     let finalEmail = appleEmail
                     print("DEBUG APPLE: Final values - email: '\(finalEmail)', name: '\(finalName)'")
-                    // Check if we have email - required for backend
-                    guard !finalEmail.isEmpty else {
-                        print("DEBUG APPLE: ERROR - No email available. User needs to remove app from Apple ID settings and re-authorize.")
+                    // If no email but we have identity token, backend can extract email from token
+                    // Only fail if we have neither email nor identity token
+                    guard !finalEmail.isEmpty || identityTokenString != nil else {
+                        print("DEBUG APPLE: ERROR - No email and no identity token available.")
                         self.isLoading = false
                         self.errorMessage = "Email not available. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again."
                         return
                     }
 
                     print("DEBUG APPLE: Calling P2P backend vendorAppleAuth...")
+                    print("DEBUG APPLE: Has identity token: \(identityTokenString != nil)")
 
                     self.p2pAPI.vendorAppleAuth(
                         email: finalEmail,
                         name: finalName,
-                        appleId: appleUserId
+                        appleId: appleUserId,
+                        identityToken: identityTokenString
                     ) { result in
                         DispatchQueue.main.async {
                             self.isLoading = false
