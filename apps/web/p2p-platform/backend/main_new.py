@@ -361,6 +361,17 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         ("stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
         # Restaurant image/logo
         ("image_url", "VARCHAR(500)"),
+        # KOT/POS Integration columns
+        ("kot_integration_type", "VARCHAR(50) DEFAULT 'none'"),
+        ("kot_enabled", "BOOLEAN DEFAULT FALSE"),
+        ("kot_api_key", "VARCHAR(500)"),
+        ("kot_api_secret", "VARCHAR(500)"),
+        ("kot_location_id", "VARCHAR(255)"),
+        ("kot_merchant_id", "VARCHAR(255)"),
+        ("kot_restaurant_guid", "VARCHAR(255)"),
+        ("kot_printer_id", "VARCHAR(255)"),
+        ("kot_webhook_url", "VARCHAR(500)"),
+        ("kot_auto_print", "BOOLEAN DEFAULT TRUE"),
     ]
 
     for col_name, col_type in vendor_columns:
@@ -839,6 +850,17 @@ def _run_startup_migrations():
         ("vendors", "onfido_applicant_id", "VARCHAR(255)"),
         ("vendors", "veriff_session_id", "VARCHAR(255)"),
         ("vendors", "verification_provider", "VARCHAR(50)"),
+        # KOT/POS Integration columns
+        ("vendors", "kot_integration_type", "VARCHAR(50) DEFAULT 'none'"),
+        ("vendors", "kot_enabled", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "kot_api_key", "VARCHAR(500)"),
+        ("vendors", "kot_api_secret", "VARCHAR(500)"),
+        ("vendors", "kot_location_id", "VARCHAR(255)"),
+        ("vendors", "kot_merchant_id", "VARCHAR(255)"),
+        ("vendors", "kot_restaurant_guid", "VARCHAR(255)"),
+        ("vendors", "kot_printer_id", "VARCHAR(255)"),
+        ("vendors", "kot_webhook_url", "VARCHAR(500)"),
+        ("vendors", "kot_auto_print", "BOOLEAN DEFAULT TRUE"),
         # Vendor menu items - admin review fields
         ("vendor_menu_items", "review_status", "VARCHAR(50) DEFAULT 'pending'"),
         ("vendor_menu_items", "needs_review", "BOOLEAN DEFAULT TRUE"),
