@@ -777,8 +777,8 @@ struct OrderDetailSheet: View {
     }
 
     private func reprintKOT() {
-        // Get the order ID (it's stored as string in the Order model but is an Int in the API)
-        guard let orderId = Int(order.id) else {
+        // Get the order ID (it's stored as optional string in the Order model but is an Int in the API)
+        guard let orderIdString = order.id, let orderId = Int(orderIdString) else {
             print("Invalid order ID for KOT reprint")
             return
         }

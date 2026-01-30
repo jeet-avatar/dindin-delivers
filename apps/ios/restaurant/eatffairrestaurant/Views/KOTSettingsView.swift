@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import EatFairShared
 
 /// KOT (Kitchen Order Ticket) / POS Integration Settings
