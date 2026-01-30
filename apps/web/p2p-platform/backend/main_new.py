@@ -1587,19 +1587,47 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
 
 # Vendor Apple OAuth
 class VendorAppleAuthRequest(BaseModel):
-    email: EmailStr
+    email: str = ""  # May be empty for returning users (Apple only provides on first sign-in)
     name: str
     apple_id: str
+    identity_token: Optional[str] = None  # JWT token containing real email for returning users
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
 @app.post("/auth/vendor/apple-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
     from models import VendorStatus
-    print(f"Vendor Apple auth for: {request.email}")
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
+    email = request.email
+    name = request.name
+
+    # Try to decode identity_token first (Apple JWT contains email for returning users)
+    if request.identity_token:
+        try:
+            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+            print(f"Decoded Apple token for vendor: {decoded.keys()}")
+            # Token email takes priority over request.email
+            token_email = decoded.get('email')
+            if token_email:
+                email = token_email
+            if not name and email:
+                name = email.split('@')[0]
+        except Exception as e:
+            print(f"Error decoding Apple identity token for vendor: {e}")
+
+    if not name and email:
+        name = email.split('@')[0]
+    elif not name:
+        name = 'Restaurant Owner'
+
+    print(f"Vendor Apple auth for: {email}")
+
+    # If still no email, we can't proceed
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
+
+    # Check if user exists by email
+    user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
     if user:
         # Existing vendor - check if approved
@@ -1614,9 +1642,9 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
         # Create new vendor and user
         # vendor_id is auto-computed from id in the database
         new_vendor = Vendor(
-            company_name=request.name,
-            contact_name=request.name,
-            contact_email=request.email,
+            company_name=name,
+            contact_name=name,
+            contact_email=email,
             onboarding_status=VendorStatus.PENDING,
             street="",
             city="",
@@ -1630,20 +1658,20 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
 
         hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
         user = User(
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
-            full_name=request.name,
+            full_name=name,
             role=UserRole.VENDOR,
             vendor_id=new_vendor.id
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new vendor via Apple auth: {request.email}")
+        print(f"Created new vendor via Apple auth: {email}")
 
     # Get vendor info
     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
+    business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
     print(f"Vendor Apple auth successful for: {user.email}")
     access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
