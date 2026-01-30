@@ -1118,8 +1118,11 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
         // URL-encode email and password to handle special characters like ! @ # etc.
-        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
-        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? password
+        // Note: .urlQueryAllowed does NOT encode ! so we use a custom set
+        var allowedCharacters = CharacterSet.alphanumerics
+        allowedCharacters.insert(charactersIn: "-._~")  // Safe URL characters only
+        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
+        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
@@ -10728,5 +10731,326 @@ extension P2PAPIService {
                 }
             }
         }.resume()
+    }
+
+    // MARK: - KOT (Kitchen Order Ticket) / POS Integration API
+
+    /// Get vendor's KOT/POS integration configuration
+    public func getKOTConfig(
+        vendorId: Int,
+        completion: @escaping (Result<KOTConfigResponse, Error>) -> Void
+    ) {
+        guard let token = vendorAccessToken else {
+            completion(.failure(P2PAPIError.unauthorized))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/vendor/kot-config") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for HTTP error
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to get KOT config")))
+                    }
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(KOTConfigResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Update vendor's KOT/POS integration configuration
+    public func updateKOTConfig(
+        vendorId: Int,
+        config: KOTConfigUpdate,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let token = vendorAccessToken else {
+            completion(.failure(P2PAPIError.unauthorized))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/vendor/kot-config") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Build request body
+        var body: [String: Any] = [
+            "integration_type": config.integrationType,
+            "enabled": config.enabled,
+            "auto_print": config.autoPrint
+        ]
+
+        if let apiKey = config.apiKey, !apiKey.isEmpty {
+            body["api_key"] = apiKey
+        }
+        if let apiSecret = config.apiSecret, !apiSecret.isEmpty {
+            body["api_secret"] = apiSecret
+        }
+        if let locationId = config.locationId, !locationId.isEmpty {
+            body["location_id"] = locationId
+        }
+        if let merchantId = config.merchantId, !merchantId.isEmpty {
+            body["merchant_id"] = merchantId
+        }
+        if let restaurantGuid = config.restaurantGuid, !restaurantGuid.isEmpty {
+            body["restaurant_guid"] = restaurantGuid
+        }
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                // Check for HTTP error
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to update KOT config")))
+                    }
+                    return
+                }
+
+                completion(.success(true))
+            }
+        }.resume()
+    }
+
+    /// Test vendor's KOT/POS integration by sending a test order
+    public func testKOTConnection(
+        vendorId: Int,
+        completion: @escaping (Result<KOTTestResponse, Error>) -> Void
+    ) {
+        guard let token = vendorAccessToken else {
+            completion(.failure(P2PAPIError.unauthorized))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/vendor/kot-test") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(KOTTestResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    // Even if parsing fails, try to extract error message
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let errorMsg = json["error"] as? String {
+                        let errorResult = KOTTestResponse(
+                            success: false,
+                            message: nil,
+                            posType: nil,
+                            posOrderId: nil,
+                            error: errorMsg
+                        )
+                        completion(.success(errorResult))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    /// Manually trigger KOT print for a specific order
+    public func printKOT(
+        orderId: Int,
+        completion: @escaping (Result<KOTTestResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/print-kot") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let result = try JSONDecoder().decode(KOTTestResponse.self, from: data)
+                    completion(.success(result))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - KOT Configuration Models
+
+/// Response from GET /api/vendor/kot-config
+public struct KOTConfigResponse: Codable {
+    public let vendorId: Int
+    public let integrationType: String
+    public let enabled: Bool
+    public let autoPrint: Bool
+    public let locationId: String?
+    public let merchantId: String?
+    public let restaurantGuid: String?
+    public let hasApiKey: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case vendorId = "vendor_id"
+        case integrationType = "integration_type"
+        case enabled
+        case autoPrint = "auto_print"
+        case locationId = "location_id"
+        case merchantId = "merchant_id"
+        case restaurantGuid = "restaurant_guid"
+        case hasApiKey = "has_api_key"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        vendorId = try container.decodeIfPresent(Int.self, forKey: .vendorId) ?? 0
+        integrationType = try container.decodeIfPresent(String.self, forKey: .integrationType) ?? "none"
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        autoPrint = try container.decodeIfPresent(Bool.self, forKey: .autoPrint) ?? true
+        locationId = try container.decodeIfPresent(String.self, forKey: .locationId)
+        merchantId = try container.decodeIfPresent(String.self, forKey: .merchantId)
+        restaurantGuid = try container.decodeIfPresent(String.self, forKey: .restaurantGuid)
+        hasApiKey = try container.decodeIfPresent(Bool.self, forKey: .hasApiKey) ?? false
+    }
+}
+
+/// Update request for PUT /api/vendor/kot-config
+public struct KOTConfigUpdate {
+    public var integrationType: String
+    public var enabled: Bool
+    public var autoPrint: Bool
+    public var apiKey: String?
+    public var apiSecret: String?
+    public var locationId: String?
+    public var merchantId: String?
+    public var restaurantGuid: String?
+
+    public init(
+        integrationType: String,
+        enabled: Bool,
+        autoPrint: Bool,
+        apiKey: String? = nil,
+        apiSecret: String? = nil,
+        locationId: String? = nil,
+        merchantId: String? = nil,
+        restaurantGuid: String? = nil
+    ) {
+        self.integrationType = integrationType
+        self.enabled = enabled
+        self.autoPrint = autoPrint
+        self.apiKey = apiKey
+        self.apiSecret = apiSecret
+        self.locationId = locationId
+        self.merchantId = merchantId
+        self.restaurantGuid = restaurantGuid
+    }
+}
+
+/// Response from POST /api/vendor/kot-test
+public struct KOTTestResponse: Codable {
+    public let success: Bool
+    public let message: String?
+    public let posType: String?
+    public let posOrderId: String?
+    public let error: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message, error
+        case posType = "pos_type"
+        case posOrderId = "pos_order_id"
+    }
+
+    public init(
+        success: Bool,
+        message: String?,
+        posType: String?,
+        posOrderId: String?,
+        error: String?
+    ) {
+        self.success = success
+        self.message = message
+        self.posType = posType
+        self.posOrderId = posOrderId
+        self.error = error
     }
 }

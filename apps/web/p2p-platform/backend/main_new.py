@@ -8068,6 +8068,248 @@ async def get_vendor_earnings(
     }
 
 
+# ==================== KOT (Kitchen Order Ticket) / POS Integration ====================
+
+class KOTConfigRequest(BaseModel):
+    """Request model for configuring KOT/POS integration"""
+    integration_type: str  # 'square', 'clover', 'toast', 'none'
+    enabled: bool = True
+    api_key: Optional[str] = None
+    api_secret: Optional[str] = None  # For Toast
+    location_id: Optional[str] = None  # Square
+    merchant_id: Optional[str] = None  # Clover
+    restaurant_guid: Optional[str] = None  # Toast
+    auto_print: bool = True
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "integration_type": "square",
+                "enabled": True,
+                "api_key": "sq0atp-XXXXX",
+                "location_id": "LXXXXXXXX",
+                "auto_print": True
+            }
+        }
+
+
+@app.get("/api/vendor/kot-config")
+async def get_vendor_kot_config(
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Get vendor's KOT/POS integration configuration.
+    Returns the current settings (API keys are masked).
+    """
+    return {
+        "vendor_id": vendor.id,
+        "integration_type": vendor.kot_integration_type or "none",
+        "enabled": vendor.kot_enabled or False,
+        "auto_print": vendor.kot_auto_print if hasattr(vendor, 'kot_auto_print') else True,
+        "location_id": vendor.kot_location_id or None,
+        "merchant_id": vendor.kot_merchant_id or None,
+        "restaurant_guid": vendor.kot_restaurant_guid or None,
+        "has_api_key": bool(vendor.kot_api_key),
+        "has_api_secret": bool(vendor.kot_api_secret) if hasattr(vendor, 'kot_api_secret') else False,
+        "supported_integrations": [
+            {"type": "square", "name": "Square POS", "status": "available"},
+            {"type": "clover", "name": "Clover POS", "status": "available"},
+            {"type": "toast", "name": "Toast POS", "status": "coming_soon"}
+        ]
+    }
+
+
+@app.put("/api/vendor/kot-config")
+async def update_vendor_kot_config(
+    config: KOTConfigRequest,
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor's KOT/POS integration configuration.
+
+    Supported integrations:
+    - square: Square POS (requires api_key, location_id)
+    - clover: Clover POS (requires api_key, merchant_id)
+    - toast: Toast POS (requires api_key, api_secret, restaurant_guid) - Coming soon
+    - none: Disable KOT integration
+    """
+    # Validate integration type
+    valid_types = ["none", "square", "clover", "toast"]
+    if config.integration_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid integration type. Must be one of: {', '.join(valid_types)}"
+        )
+
+    # Validate required fields based on integration type
+    if config.integration_type == "square":
+        if config.enabled and (not config.api_key or not config.location_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Square integration requires api_key and location_id"
+            )
+    elif config.integration_type == "clover":
+        if config.enabled and (not config.api_key or not config.merchant_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Clover integration requires api_key and merchant_id"
+            )
+    elif config.integration_type == "toast":
+        raise HTTPException(
+            status_code=400,
+            detail="Toast integration requires partner certification. Contact support@dollor.ai"
+        )
+
+    # Update vendor KOT settings
+    vendor.kot_integration_type = config.integration_type
+    vendor.kot_enabled = config.enabled
+    vendor.kot_auto_print = config.auto_print
+
+    if config.api_key:
+        vendor.kot_api_key = config.api_key
+    if config.api_secret:
+        vendor.kot_api_secret = config.api_secret
+    if config.location_id:
+        vendor.kot_location_id = config.location_id
+    if config.merchant_id:
+        vendor.kot_merchant_id = config.merchant_id
+    if config.restaurant_guid:
+        vendor.kot_restaurant_guid = config.restaurant_guid
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"KOT integration configured: {config.integration_type}",
+        "vendor_id": vendor.id,
+        "integration_type": vendor.kot_integration_type,
+        "enabled": vendor.kot_enabled,
+        "auto_print": vendor.kot_auto_print
+    }
+
+
+@app.post("/api/vendor/kot-test")
+async def test_vendor_kot_integration(
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Test the vendor's KOT/POS integration by sending a test order.
+    Creates a test ticket that should appear on their POS/kitchen printer.
+    """
+    if not vendor.kot_enabled or vendor.kot_integration_type == "none":
+        raise HTTPException(
+            status_code=400,
+            detail="KOT integration is not enabled. Configure it first via PUT /api/vendor/kot-config"
+        )
+
+    from kot_integrations import KOTService, KOTOrder, KOTItem
+
+    # Create test order
+    test_kot = KOTOrder(
+        order_id=0,
+        order_number=f"TEST-{datetime.now().strftime('%H%M%S')}",
+        customer_name="Test Customer (Dollor KOT Test)",
+        items=[
+            KOTItem(
+                name="Test Item 1",
+                quantity=2,
+                unit_price=9.99,
+                modifiers=["No onions", "Extra cheese"],
+                special_instructions="This is a test order"
+            ),
+            KOTItem(
+                name="Test Item 2",
+                quantity=1,
+                unit_price=14.99,
+                modifiers=None,
+                special_instructions=None
+            )
+        ],
+        subtotal=34.97,
+        tax=2.80,
+        total=37.77,
+        order_type="delivery",
+        special_instructions="*** TEST ORDER - PLEASE IGNORE ***",
+        created_at=datetime.now()
+    )
+
+    # Send to POS
+    try:
+        if vendor.kot_integration_type == "square":
+            from kot_integrations import SquareIntegration
+            integration = SquareIntegration(
+                vendor.kot_api_key,
+                vendor.kot_location_id
+            )
+            result = await integration.create_order(test_kot)
+        elif vendor.kot_integration_type == "clover":
+            from kot_integrations import CloverIntegration
+            integration = CloverIntegration(
+                vendor.kot_api_key,
+                vendor.kot_merchant_id
+            )
+            result = await integration.create_order(test_kot)
+        else:
+            result = {"success": False, "error": f"Unsupported integration: {vendor.kot_integration_type}"}
+
+        return {
+            "success": result.get("success", False),
+            "message": "Test order sent to POS" if result.get("success") else "Test failed",
+            "pos_type": vendor.kot_integration_type,
+            "pos_order_id": result.get("pos_order_id"),
+            "error": result.get("error")
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": "Test failed",
+            "pos_type": vendor.kot_integration_type,
+            "error": str(e)
+        }
+
+
+@app.post("/api/erp/orders/{order_id}/print-kot")
+async def manual_print_kot(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger KOT print for an order.
+    Used when auto-print is disabled or for reprints.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.kot_enabled or vendor.kot_integration_type == "none":
+        raise HTTPException(
+            status_code=400,
+            detail="KOT integration is not enabled for this vendor"
+        )
+
+    from kot_integrations import KOTService
+    result = await KOTService.send_to_pos(order, vendor)
+
+    return {
+        "success": result.get("success", False),
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "pos_type": result.get("pos_type"),
+        "pos_order_id": result.get("pos_order_id"),
+        "error": result.get("error")
+    }
+
+
+# ==================== End KOT Integration ====================
+
+
 @app.put("/api/vendors/{vendor_id}", response_model=VendorResponse)
 def update_vendor(
     vendor_id: int,

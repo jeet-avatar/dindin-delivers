@@ -754,8 +754,16 @@ struct OrderDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showInvoice = true }) {
-                        Label("Invoice", systemImage: "doc.text.fill")
+                    HStack(spacing: 16) {
+                        Button(action: { showInvoice = true }) {
+                            Label("Invoice", systemImage: "doc.text.fill")
+                        }
+                        // KOT Reprint Button (only show for preparing/ready orders)
+                        if order.status == "Preparing" || order.status == "Ready" {
+                            Button(action: { reprintKOT() }) {
+                                Label("Print", systemImage: "printer.fill")
+                            }
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -764,6 +772,27 @@ struct OrderDetailSheet: View {
             }
             .sheet(isPresented: $showInvoice) {
                 OrderInvoiceView(order: order)
+            }
+        }
+    }
+
+    private func reprintKOT() {
+        // Get the order ID (it's stored as string in the Order model but is an Int in the API)
+        guard let orderId = Int(order.id) else {
+            print("Invalid order ID for KOT reprint")
+            return
+        }
+
+        P2PAPIService.shared.printKOT(orderId: orderId) { result in
+            switch result {
+            case .success(let response):
+                if response.success {
+                    print("KOT reprinted successfully for order \(order.orderId)")
+                } else {
+                    print("KOT reprint failed: \(response.error ?? "Unknown error")")
+                }
+            case .failure(let error):
+                print("KOT reprint error: \(error.localizedDescription)")
             }
         }
     }
