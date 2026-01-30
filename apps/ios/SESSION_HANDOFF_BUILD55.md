@@ -5,6 +5,14 @@
 
 ---
 
+## GSD COMMAND (RUN THIS TO START)
+
+```
+/gsd:quick Fix GoogleMaps pod linking issue in Restaurant app and upload Build 55 to TestFlight. Backend is already fixed. See apps/ios/SESSION_HANDOFF_BUILD55.md for full context.
+```
+
+---
+
 ## NEXT SESSION GSD PROMPT (COPY THIS)
 
 ```
