@@ -150,6 +150,9 @@ struct OrderHistoryView: View {
     }
 
     // MARK: - Filtered Orders
+    // TODO: When app goes live, upgrade this to handle restaurant self-delivery vs driver delivery workflow
+    // Current flow: Restaurant can deliver OR order auto-assigns to nearby driver after timeout
+    // Orders stay active (Accepted status) for up to 30 minutes unless restaurant cancels
     private var filteredOrders: [Order] {
         switch selectedFilter {
         case .all:

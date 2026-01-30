@@ -1117,10 +1117,10 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        // URL-encode email and password to handle special characters like ! @ # etc.
-        // Note: .urlQueryAllowed does NOT encode ! so we use a custom set
+        // Custom CharacterSet - .urlQueryAllowed does NOT encode ! @ # $ etc.
+        // For form-urlencoded, only alphanumerics and -._~ are safe
         var allowedCharacters = CharacterSet.alphanumerics
-        allowedCharacters.insert(charactersIn: "-._~")  // Safe URL characters only
+        allowedCharacters.insert(charactersIn: "-._~")
         let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
         let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
@@ -1411,7 +1411,7 @@ public class P2PAPIService: ObservableObject {
 
     /// Apple OAuth login/registration for vendors
     /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
-    /// identityToken is used to extract real email for returning users (Apple only provides email on first sign-in)
+    /// - identityToken: JWT from Apple containing user's real email (required for returning users)
     public func vendorAppleAuth(
         email: String,
         name: String,
@@ -1437,12 +1437,12 @@ public class P2PAPIService: ObservableObject {
             "name": name,
             "apple_id": appleId
         ]
-        // Add identity token if available - backend can decode real email from this
+        // Include identity_token if available - backend can decode JWT to get real email
         if let token = identityToken {
             body["identity_token"] = token
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        print("DEBUG API vendorAppleAuth: Request body (keys) = \(body.keys)")
+        print("DEBUG API vendorAppleAuth: Request body = \(body)")
 
         isLoading = true
 
@@ -3133,6 +3133,11 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+
+        // Add authorization header - required for order status updates
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -8519,12 +8524,15 @@ public struct P2PVendorOrder: Codable, Identifiable {
         )
 
         // Map P2P status to Firebase status
-        // TODO: Upgrade when app goes live - restaurant self-delivery vs driver delivery
+        // TODO: When app goes live, upgrade this logic for production delivery workflow
         let mappedStatus: String
         switch status.lowercased() {
         case "pending", "pending_payment":
             mappedStatus = "Placed"
-        case "confirmed", "restaurant_timeout":
+        case "confirmed":
+            mappedStatus = "Accepted"
+        case "restaurant_timeout":
+            // Restaurant didn't respond - order still active, awaiting driver assignment
             mappedStatus = "Accepted"
         case "preparing":
             mappedStatus = "Preparing"
@@ -8735,12 +8743,17 @@ public struct P2PCustomerOrder: Codable, Identifiable {
     }
 
     /// Map P2P status to display status
-    /// TODO: Upgrade when app goes live - restaurant self-delivery vs driver delivery
+    /// TODO: When app goes live, upgrade this logic to handle restaurant self-delivery vs driver delivery
+    /// Current flow: Restaurant can deliver themselves OR order auto-assigns to nearby driver after timeout
+    /// Orders stay active for up to 30 minutes unless restaurant explicitly cancels
     public var displayStatus: String {
         switch status.lowercased() {
         case "pending", "pending_payment":
             return "Placed"
-        case "confirmed", "restaurant_timeout":
+        case "confirmed":
+            return "Accepted"
+        case "restaurant_timeout":
+            // Restaurant didn't respond yet - order is still active, awaiting driver assignment
             return "Accepted"
         case "preparing":
             return "Preparing"
@@ -8809,6 +8822,7 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         )
 
         return Order(
+            id: String(id),  // Database ID for API calls (cancel, refund, etc.)
             orderId: orderNumber,
             customerId: "",
             customerName: customerName,
@@ -8831,6 +8845,7 @@ public struct P2PCustomerOrder: Codable, Identifiable {
             priorityFee: 0,
             smallOrderFee: 0,
             tax: taxAmount,
+            tip: tip ?? 0,
             total: totalAmount,
             status: displayStatus,
             placedAt: timestamp,
@@ -8881,12 +8896,15 @@ public struct P2POrderTracking: Codable {
     }
 
     /// Map P2P status to display status
-    /// TODO: Upgrade when app goes live
+    /// TODO: When app goes live, upgrade this logic for production delivery workflow
     public var displayStatus: String {
         switch status.lowercased() {
         case "pending", "pending_payment":
             return "Placed"
-        case "confirmed", "restaurant_timeout":
+        case "confirmed":
+            return "Accepted"
+        case "restaurant_timeout":
+            // Restaurant didn't respond - order still active, awaiting driver assignment
             return "Accepted"
         case "preparing":
             return "Preparing"
@@ -10767,7 +10785,6 @@ extension P2PAPIService {
                     return
                 }
 
-                // Check for HTTP error
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -10808,28 +10825,17 @@ extension P2PAPIService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // Build request body
         var body: [String: Any] = [
             "integration_type": config.integrationType,
             "enabled": config.enabled,
             "auto_print": config.autoPrint
         ]
 
-        if let apiKey = config.apiKey, !apiKey.isEmpty {
-            body["api_key"] = apiKey
-        }
-        if let apiSecret = config.apiSecret, !apiSecret.isEmpty {
-            body["api_secret"] = apiSecret
-        }
-        if let locationId = config.locationId, !locationId.isEmpty {
-            body["location_id"] = locationId
-        }
-        if let merchantId = config.merchantId, !merchantId.isEmpty {
-            body["merchant_id"] = merchantId
-        }
-        if let restaurantGuid = config.restaurantGuid, !restaurantGuid.isEmpty {
-            body["restaurant_guid"] = restaurantGuid
-        }
+        if let apiKey = config.apiKey, !apiKey.isEmpty { body["api_key"] = apiKey }
+        if let apiSecret = config.apiSecret, !apiSecret.isEmpty { body["api_secret"] = apiSecret }
+        if let locationId = config.locationId, !locationId.isEmpty { body["location_id"] = locationId }
+        if let merchantId = config.merchantId, !merchantId.isEmpty { body["merchant_id"] = merchantId }
+        if let restaurantGuid = config.restaurantGuid, !restaurantGuid.isEmpty { body["restaurant_guid"] = restaurantGuid }
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -10845,14 +10851,8 @@ extension P2PAPIService {
                     return
                 }
 
-                guard let data = data else {
-                    completion(.failure(P2PAPIError.noData))
-                    return
-                }
-
-                // Check for HTTP error
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                    if let data = data, let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
                         completion(.failure(P2PAPIError.serverError("Failed to update KOT config")))
@@ -10865,7 +10865,7 @@ extension P2PAPIService {
         }.resume()
     }
 
-    /// Test vendor's KOT/POS integration by sending a test order
+    /// Test vendor's KOT/POS integration
     public func testKOTConnection(
         vendorId: Int,
         completion: @escaping (Result<KOTTestResponse, Error>) -> Void
@@ -10901,17 +10901,9 @@ extension P2PAPIService {
                     let result = try JSONDecoder().decode(KOTTestResponse.self, from: data)
                     completion(.success(result))
                 } catch {
-                    // Even if parsing fails, try to extract error message
                     if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let errorMsg = json["error"] as? String {
-                        let errorResult = KOTTestResponse(
-                            success: false,
-                            message: nil,
-                            posType: nil,
-                            posOrderId: nil,
-                            error: errorMsg
-                        )
-                        completion(.success(errorResult))
+                        completion(.success(KOTTestResponse(success: false, message: nil, posType: nil, posOrderId: nil, error: errorMsg)))
                     } else {
                         completion(.failure(error))
                     }
@@ -10959,7 +10951,6 @@ extension P2PAPIService {
 
 // MARK: - KOT Configuration Models
 
-/// Response from GET /api/vendor/kot-config
 public struct KOTConfigResponse: Codable {
     public let vendorId: Int
     public let integrationType: String
@@ -10994,7 +10985,6 @@ public struct KOTConfigResponse: Codable {
     }
 }
 
-/// Update request for PUT /api/vendor/kot-config
 public struct KOTConfigUpdate {
     public var integrationType: String
     public var enabled: Bool
@@ -11005,16 +10995,7 @@ public struct KOTConfigUpdate {
     public var merchantId: String?
     public var restaurantGuid: String?
 
-    public init(
-        integrationType: String,
-        enabled: Bool,
-        autoPrint: Bool,
-        apiKey: String? = nil,
-        apiSecret: String? = nil,
-        locationId: String? = nil,
-        merchantId: String? = nil,
-        restaurantGuid: String? = nil
-    ) {
+    public init(integrationType: String, enabled: Bool, autoPrint: Bool, apiKey: String? = nil, apiSecret: String? = nil, locationId: String? = nil, merchantId: String? = nil, restaurantGuid: String? = nil) {
         self.integrationType = integrationType
         self.enabled = enabled
         self.autoPrint = autoPrint
@@ -11026,7 +11007,6 @@ public struct KOTConfigUpdate {
     }
 }
 
-/// Response from POST /api/vendor/kot-test
 public struct KOTTestResponse: Codable {
     public let success: Bool
     public let message: String?
@@ -11040,13 +11020,7 @@ public struct KOTTestResponse: Codable {
         case posOrderId = "pos_order_id"
     }
 
-    public init(
-        success: Bool,
-        message: String?,
-        posType: String?,
-        posOrderId: String?,
-        error: String?
-    ) {
+    public init(success: Bool, message: String?, posType: String?, posOrderId: String?, error: String?) {
         self.success = success
         self.message = message
         self.posType = posType
