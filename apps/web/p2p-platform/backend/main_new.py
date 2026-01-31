@@ -1562,83 +1562,83 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
         # Get token from either field
         token = request.id_token or request.credential
 
-    # If token provided, decode it to get user info
-    if token:
-        decoded = decode_google_jwt(token)
-        email = decoded.get('email', request.email)
-        name = decoded.get('name', request.name)
-        google_id = decoded.get('sub', request.google_id)
-    else:
-        email = request.email
-        name = request.name
-        google_id = request.google_id
+        # If token provided, decode it to get user info
+        if token:
+            decoded = decode_google_jwt(token)
+            email = decoded.get('email', request.email)
+            name = decoded.get('name', request.name)
+            google_id = decoded.get('sub', request.google_id)
+        else:
+            email = request.email
+            name = request.name
+            google_id = request.google_id
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    if not name:
-        name = email.split('@')[0]  # Use email prefix as fallback name
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        if not name:
+            name = email.split('@')[0]  # Use email prefix as fallback name
 
-    print(f"Vendor Google auth for: {email}")
+        print(f"Vendor Google auth for: {email}")
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
+        # Check if user exists
+        user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
-    if user:
-        # Existing vendor - allow login regardless of approval status
-        # Restaurant visibility is controlled by is_published, not login access
-        pass
-    else:
-        # Create new vendor and user
-        # Auto-approve for login access, but keep is_published=False
-        # Restaurant goes live only after admin approval
-        new_vendor = Vendor(
-            company_name=name,
-            contact_name=name,
-            contact_email=email,
-            onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
-            street="",
-            city="",
-            state="",
-            zip_code="",
-            country="US"
-        )
-        db.add(new_vendor)
-        db.commit()
-        db.refresh(new_vendor)
+        if user:
+            # Existing vendor - allow login regardless of approval status
+            # Restaurant visibility is controlled by is_published, not login access
+            pass
+        else:
+            # Create new vendor and user
+            # Auto-approve for login access, but keep is_published=False
+            # Restaurant goes live only after admin approval
+            new_vendor = Vendor(
+                company_name=name,
+                contact_name=name,
+                contact_email=email,
+                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
+                street="",
+                city="",
+                state="",
+                zip_code="",
+                country="US"
+            )
+            db.add(new_vendor)
+            db.commit()
+            db.refresh(new_vendor)
 
-        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=name,
-            role=UserRole.VENDOR,
-            vendor_id=new_vendor.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new vendor via Google auth: {email}")
+            hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
+            user = User(
+                email=email,
+                password_hash=hashed_password,
+                full_name=name,
+                role=UserRole.VENDOR,
+                vendor_id=new_vendor.id
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            print(f"Created new vendor via Google auth: {email}")
 
-    # Get vendor info
-    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else name
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+        business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
-    print(f"Vendor Google auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "fullName": user.full_name,
-            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-            "vendorId": user.vendor_id
-        },
-        "vendor_id": user.vendor_id,
-        "business_name": business_name,
-        "email": user.email
-    }
+        print(f"Vendor Google auth successful for: {user.email}")
+        access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "fullName": user.full_name,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "vendorId": user.vendor_id
+            },
+            "vendor_id": user.vendor_id,
+            "business_name": business_name,
+            "email": user.email
+        }
     except HTTPException:
         raise
     except Exception as e:
