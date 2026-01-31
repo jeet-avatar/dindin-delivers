@@ -9553,6 +9553,76 @@ extension P2PAPIService {
         }.resume()
     }
 
+    /// Submit restaurant rating for an order
+    public func submitRestaurantRating(
+        orderId: Int,
+        restaurantId: Int,
+        rating: Int,
+        review: String? = nil,
+        foodQuality: Bool = false,
+        portionSize: Bool = false,
+        valueForMoney: Bool = false,
+        accuracy: Bool = false,
+        completion: @escaping (Result<P2PRestaurantRatingResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/rate-restaurant") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "order_id": orderId,
+            "restaurant_id": restaurantId,
+            "rating": rating,
+            "food_quality": foodQuality,
+            "portion_size": portionSize,
+            "value_for_money": valueForMoney,
+            "accuracy": accuracy
+        ]
+        if let review = review, !review.isEmpty {
+            body["review"] = review
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to submit restaurant rating")))
+                    }
+                    return
+                }
+
+                do {
+                    let ratingResponse = try JSONDecoder().decode(P2PRestaurantRatingResponse.self, from: data)
+                    completion(.success(ratingResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Submit tip for driver
     public func submitDriverTip(
         orderId: Int,
@@ -10145,6 +10215,19 @@ public struct P2PRatingResponse: Codable {
         case success, message
         case orderId = "order_id"
         case newDriverRating = "new_driver_rating"
+    }
+}
+
+public struct P2PRestaurantRatingResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let orderId: Int
+    public let newRestaurantRating: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case orderId = "order_id"
+        case newRestaurantRating = "new_restaurant_rating"
     }
 }
 

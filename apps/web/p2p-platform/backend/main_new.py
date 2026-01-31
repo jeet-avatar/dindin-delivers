@@ -13710,6 +13710,64 @@ async def rate_order_driver(
     return {"success": True, "message": "Driver rating submitted", "order_id": order_id, "rating": rating}
 
 
+@app.post("/api/customer/orders/{order_id}/rate-restaurant")
+async def rate_order_restaurant(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Rate the restaurant for an order.
+    Used by Android/iOS customer apps.
+
+    Request body:
+    {
+        "restaurant_id": int,
+        "rating": int (1-5),
+        "review": str (optional),
+        "food_quality": bool (optional),
+        "portion_size": bool (optional),
+        "value_for_money": bool (optional),
+        "accuracy": bool (optional)
+    }
+    """
+    from models import Order, Vendor
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    rating = request.get("rating", 5)
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    restaurant_id = request.get("restaurant_id")
+    review = request.get("review")
+    food_quality = request.get("food_quality", False)
+    portion_size = request.get("portion_size", False)
+    value_for_money = request.get("value_for_money", False)
+    accuracy = request.get("accuracy", False)
+
+    # In production, store the rating in a ratings table
+    # For now, we just acknowledge the rating
+    logger.info(f"Restaurant rating received: order={order_id}, restaurant={restaurant_id}, "
+                f"rating={rating}, review={review}, food_quality={food_quality}, "
+                f"portion_size={portion_size}, value_for_money={value_for_money}, accuracy={accuracy}")
+
+    # Mark order as restaurant-rated (if field exists)
+    if hasattr(order, 'is_restaurant_rated'):
+        order.is_restaurant_rated = True
+        db.commit()
+
+    return {
+        "success": True,
+        "message": "Restaurant rating submitted",
+        "order_id": order_id,
+        "new_restaurant_rating": None  # Would calculate aggregate in production
+    }
+
+
 # ==================== MICROSERVICE PROXY ENDPOINTS ====================
 # These endpoints forward requests to the appropriate microservices
 # In production, an API Gateway (Kong/NGINX) should handle this routing
