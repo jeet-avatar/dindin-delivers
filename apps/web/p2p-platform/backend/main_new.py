@@ -9422,8 +9422,10 @@ async def vendor_upload_document(
     """
     Vendor endpoint to upload their own documents.
     Requires vendor authentication.
+    Integrates with Persona for document verification.
     """
     from models import Vendor
+    from document_verification_service import get_verification_service, DocumentType
     import uuid
 
     if current_user.role != UserRole.VENDOR:
@@ -9469,37 +9471,85 @@ async def vendor_upload_document(
     print(f"📄 Vendor uploaded document: {document_type} for vendor {vendor.id}")
     print(f"   File: {unique_filename}")
 
-    # Map document type to DB fields
+    # Map document type to DB fields and Persona document types
     field_mapping = {
-        'food_license': ('food_license', 'food_license_url'),
-        'health_permit': ('health_permit', 'health_permit_url'),
-        'w9_form': ('w9_form', 'w9_form_url'),
-        'business_license': ('w9_form', 'w9_form_url'),
-        'insurance': ('insurance', 'insurance_url'),
-        'liability_insurance': ('insurance', 'insurance_url'),
-        'financial_statements': ('financial_statements', 'financial_statements_url'),
-        'compliance_certs': ('compliance_certs', 'compliance_certs_url'),
-        'security_policy': ('security_policy', 'security_policy_url'),
+        'food_license': ('food_license', 'food_license_url', DocumentType.FOOD_LICENSE),
+        'health_permit': ('health_permit', 'health_permit_url', DocumentType.HEALTH_PERMIT),
+        'w9_form': ('w9_form', 'w9_form_url', DocumentType.W9_FORM),
+        'business_license': ('w9_form', 'w9_form_url', DocumentType.BUSINESS_LICENSE),
+        'insurance': ('insurance', 'insurance_url', DocumentType.LIABILITY_INSURANCE),
+        'liability_insurance': ('insurance', 'insurance_url', DocumentType.LIABILITY_INSURANCE),
+        'financial_statements': ('financial_statements', 'financial_statements_url', None),
+        'compliance_certs': ('compliance_certs', 'compliance_certs_url', None),
+        'security_policy': ('security_policy', 'security_policy_url', None),
     }
 
+    persona_inquiry_url = None
+
     if document_type in field_mapping:
-        has_field, url_field = field_mapping[document_type]
-        setattr(vendor, has_field, True)
+        has_field, url_field, persona_doc_type = field_mapping[document_type]
+        # Store URL but set document as NOT verified yet (False)
+        setattr(vendor, has_field, False)  # Will be set True by Persona webhook
         setattr(vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+
+        # Create Persona verification inquiry for core documents
+        if persona_doc_type is not None:
+            persona_api_key = os.getenv("PERSONA_API_KEY")
+            if persona_api_key:
+                try:
+                    verifier = get_verification_service("persona")
+                    result = await verifier.create_persona_inquiry(
+                        reference_id=str(vendor.id),
+                        entity_type="vendor",
+                        email=vendor.contact_email or current_user.email,
+                        document_types=[persona_doc_type]
+                    )
+
+                    if result.get("success"):
+                        vendor.persona_inquiry_id = result.get("inquiry_id")
+                        vendor.verification_status = "pending"
+                        vendor.verification_provider = "persona"
+                        persona_inquiry_url = result.get("inquiry_url")
+                        logger.info(f"Persona inquiry created for vendor {vendor.id}: {result.get('inquiry_id')}")
+                    else:
+                        logger.warning(f"Persona inquiry creation failed for vendor {vendor.id}: {result.get('error')}")
+                        # Fall back to manual review if Persona fails
+                        vendor.verification_status = "pending_manual_review"
+                        # Still mark as uploaded so admin can manually verify
+                        setattr(vendor, has_field, True)
+                except Exception as e:
+                    logger.error(f"Persona integration error for vendor {vendor.id}: {str(e)}")
+                    vendor.verification_status = "pending_manual_review"
+                    setattr(vendor, has_field, True)
+            else:
+                # No Persona API key - use manual review (auto-approve for now)
+                logger.info(f"PERSONA_API_KEY not configured - vendor {vendor.id} document requires manual review")
+                vendor.verification_status = "pending_manual_review"
+                setattr(vendor, has_field, True)
+        else:
+            # Non-core documents (financial_statements, etc.) - auto-approve
+            setattr(vendor, has_field, True)
 
     vendor.last_activity = datetime.now()
     vendor.updated_at = datetime.now()
     db.commit()
 
-    # Check if all required documents are now uploaded
-    all_required = all([vendor.food_license, vendor.health_permit, vendor.w9_form, vendor.insurance])
+    # Check if all required documents are now uploaded (and verified if using Persona)
+    all_required_uploaded = all([
+        vendor.food_license_url, vendor.health_permit_url,
+        vendor.w9_form_url, vendor.insurance_url
+    ])
+    all_verified = vendor.documents_verified
 
     return {
         "success": True,
         "message": f"Document '{document_type}' uploaded successfully",
         "document_type": document_type,
         "file_path": f"/uploads/vendor_documents/{unique_filename}",
-        "all_required_complete": all_required
+        "all_required_uploaded": all_required_uploaded,
+        "all_verified": all_verified,
+        "verification_status": vendor.verification_status,
+        "persona_inquiry_url": persona_inquiry_url
     }
 
 # ============================================================================
@@ -10698,6 +10748,17 @@ async def persona_webhook(
                 vendor.verification_status = VerificationStatus.VERIFIED.value
                 vendor.documents_verified = True
                 vendor.documents_verified_at = datetime.now()
+
+                # Mark all uploaded documents as verified
+                if vendor.food_license_url:
+                    vendor.food_license = True
+                if vendor.health_permit_url:
+                    vendor.health_permit = True
+                if vendor.w9_form_url:
+                    vendor.w9_form = True
+                if vendor.insurance_url:
+                    vendor.insurance = True
+
                 print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents VERIFIED")
 
                 vendor.last_activity = datetime.now()
@@ -10739,11 +10800,18 @@ async def persona_webhook(
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 vendor.verification_status = VerificationStatus.REJECTED.value
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED")
+                vendor.documents_verified = False
+                # Keep documents as False (not verified) - vendor needs to re-upload
+                vendor.food_license = False
+                vendor.health_permit = False
+                vendor.w9_form = False
+                vendor.insurance = False
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED - must re-upload")
 
             elif event_type == "inquiry.needs_review":
                 vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS REVIEW")
+                # Keep documents as False until manual review completes
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS MANUAL REVIEW")
 
             vendor.last_activity = datetime.now()
             db.commit()
