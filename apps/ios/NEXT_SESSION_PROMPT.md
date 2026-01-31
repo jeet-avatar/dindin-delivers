@@ -1,4 +1,4 @@
-# Next Session Prompt - Build 57
+# Next Session Prompt - Build 59
 
 Copy and paste this into your next Claude Code session:
 
@@ -20,123 +20,167 @@ If that doesn't work or you're starting fresh, use:
 
 ## Context for New Session
 
-**Previous Build:** 56 - Restaurant Rating Feature (COMPLETED)
-**Current Build:** 57
+**Previous Build:** 58 - Rating Storage, Driver ID Fix, Vendor Route, Persona Integration
+**Current Build:** 59
 
-### What Was Just Completed (Build 56)
-- Restaurant rating UI (RateRestaurantView.swift)
-- Backend endpoint: POST /api/customer/orders/{order_id}/rate-restaurant
-- Order model: Added `isRestaurantRated` field
-- OrderHistoryView: "Rate Food" and "Rate Driver" buttons for delivered orders
+### What Was Deployed in Build 58
 
-### Commits
+1. **Rating Storage Complete**
+   - Changed 4 hardcoded `4.5` ratings to use actual `vendor.average_rating`
+   - Fallback to 4.5 if no ratings yet
+   - Commit: `78a595b1`
+
+2. **Driver ID Fix (Web App)**
+   - Fixed `getCurrentDriverId()` in api.ts
+   - Now reads both `driver_user` object AND direct `driver_id` key
+   - Commit: `f8704c63`
+
+3. **Vendor Documents Route**
+   - Added missing `/vendor/documents` route in App.tsx
+   - Commit: `5b9c2cd5`
+
+4. **Persona Integration for Driver Documents**
+   - Upload endpoint now creates Persona inquiry instead of hardcoding `True`
+   - Webhook handler sets `drivers_license = True` only when Persona approves
+   - Auto-approves driver when all docs verified
+   - Commit: `1a13c0ac`
+
+### Recent Commits
 ```
-364446d0 feat(rating): Add restaurant rating feature for customer app
-bdfccbdf fix(address): Include lat/lng coordinates in food delivery orders
-6a1b624c feat(vehicle): Add vehicle photo upload and display
+1a13c0ac feat(verification): Integrate Persona for driver document verification
+5b9c2cd5 fix(vendor): Add missing /vendor/documents route
+f8704c63 fix(driver): Fix getCurrentDriverId to read driver_id from localStorage
+78a595b1 feat(rating): Store and display actual restaurant ratings
+f8dd0bd9 fix(driver): Allow pending drivers to login and track approval status
 ```
 
 ---
 
-## Build 57 Options
+## Build 59 Priority Options
 
-Choose one of these priorities for the next session:
-
-### Option A: Backend Rating Storage (Recommended)
-```
-/gsd:plan-phase
-
-Phase: Implement persistent rating storage
-Goal: Store restaurant and driver ratings in database with aggregate calculation
-
-Requirements:
-1. Create restaurant_ratings table (order_id, restaurant_id, customer_id, rating, review, categories, created_at)
-2. Create driver_ratings table (similar structure)
-3. Update rate-restaurant endpoint to persist ratings
-4. Update rate-driver endpoint to persist ratings
-5. Calculate and update aggregate ratings on vendors/drivers
-6. Return new_restaurant_rating in API response
-```
-
-### Option B: Real-time Order Updates
-```
-/gsd:plan-phase
-
-Phase: Implement WebSocket for live order tracking
-Goal: Replace polling with real-time updates for order status
-
-Requirements:
-1. Add WebSocket support to backend (FastAPI WebSocket)
-2. Create order status change events
-3. Update iOS DeliveryTrackingView to use WebSocket
-4. Fallback to polling if WebSocket fails
-```
-
-### Option C: Push Notification Deep Links
-```
-/gsd:plan-phase
-
-Phase: Implement push notification deep linking
-Goal: Tap notification → open specific order/screen
-
-Requirements:
-1. Parse notification payload for order_id
-2. Navigate to DeliveryTrackingView or OrderHistoryView
-3. Handle app launch from notification
-4. Handle notification while app is open
-```
-
-### Option D: TestFlight Build
+### Option A: Verify Persona Integration (Recommended)
 ```
 /gsd:quick
 
-Task: Prepare Customer App Build 57 for TestFlight
-- Bump version to 1.0.57
+Task: Test Persona driver verification end-to-end
+1. Check PERSONA_API_KEY is set in production environment
+2. Upload a driver's license through web app
+3. Verify Persona inquiry is created
+4. Check webhook is received and processed
+5. Confirm driver status updates correctly
+```
+
+### Option B: Vendor Persona Integration
+```
+/gsd:plan-phase
+
+Phase: Integrate Persona for vendor document verification
+Goal: Verify vendor documents (health permit, business license) via Persona
+
+Requirements:
+1. Update vendor document upload endpoint to create Persona inquiry
+2. Handle vendor-specific document types in webhook
+3. Set documents_verified when all required docs approved
+4. Auto-approve vendor when verification complete
+```
+
+### Option C: Driver Status UI (iOS)
+```
+/gsd:plan-phase
+
+Phase: Driver approval status UI
+Goal: Show PENDING drivers what's needed and block order acceptance
+
+Requirements:
+1. Display driver status on profile screen
+2. Show checklist of required documents for PENDING drivers
+3. Disable "Go Online" button for non-approved drivers
+4. Add status banner at top of driver home screen
+```
+
+### Option D: Driver Ratings Storage
+```
+/gsd:plan-phase
+
+Phase: Implement driver rating storage
+Goal: Persist driver ratings like restaurant ratings
+
+Requirements:
+1. Create driver_ratings table (mirrors restaurant_ratings structure)
+2. Update rate-driver endpoint to persist ratings
+3. Add average_rating/total_ratings to Driver model
+4. Display driver ratings in customer app order history
+```
+
+### Option E: TestFlight Build
+```
+/gsd:quick
+
+Task: Prepare Customer App Build 59 for TestFlight
+- Bump version to 1.0.59
 - Run build validation
 - Archive and upload to App Store Connect
 ```
 
 ---
 
-## Quick Commands Reference
+## Document Verification Status
 
-| Command | Purpose |
-|---------|---------|
-| `/gsd:progress` | Check current state and next actions |
-| `/gsd:resume-work` | Resume from previous session |
-| `/gsd:plan-phase` | Plan a new phase of work |
-| `/gsd:quick` | Execute quick task with tracking |
-| `/gsd:verify-work` | Validate completed features |
+| Entity | Upload Endpoint | Persona Integration | Webhook Handler | Status |
+|--------|-----------------|---------------------|-----------------|--------|
+| Driver | `/api/drivers/{id}/upload-document` | Yes (Build 58) | Yes | Complete |
+| Vendor | `/api/vendor/upload-document` | No | No | Needs work |
+
+### Persona Environment Variable
+```bash
+# Check if set in production
+PERSONA_API_KEY=persona_sandbox_xxx  # or persona_production_xxx
+```
+
+---
+
+## Deployment Notes
+
+**IMPORTANT:** No staging environment exists. All deployments go to production.
+
+```bash
+# Local testing
+cd apps/web/p2p-platform/backend
+source venv/bin/activate
+uvicorn main_new:app --reload --port 8080
+
+# Production deployment
+git push origin main  # Triggers deploy-dollar-ai.yml
+```
 
 ---
 
 ## Key Files Reference
 
 ```
-# Rating Feature (just completed)
-apps/ios/customer/eatfaircustomer/Views/RateRestaurantView.swift
-apps/ios/customer/eatfaircustomer/Views/RateDriverView.swift
-apps/ios/customer/eatfaircustomer/Views/OrderHistoryView.swift
+# Persona Integration (Build 58)
+apps/web/p2p-platform/backend/main_new.py (lines 3773-3843, 10751-10780)
+apps/web/p2p-platform/backend/document_verification_service.py
 
-# Order Tracking
-apps/ios/customer/eatfaircustomer/Views/DeliveryTrackingView.swift
+# Driver ID Fix (Build 58)
+apps/web/p2p-platform/frontend/src/app/api/api.ts (getCurrentDriverId function)
 
-# Backend
-apps/web/p2p-platform/backend/main_new.py
+# Vendor Documents Route (Build 58)
+apps/web/p2p-platform/frontend/src/App.tsx
 
-# Session Handoff
-apps/ios/SESSION_HANDOFF_BUILD56.md
+# Models
+apps/web/p2p-platform/backend/models.py
 ```
 
 ---
 
 ## Environment
 
-- **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net
+- **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net (NOT DEPLOYED - no staging)
 - **Production API:** https://api.dollor.ai
 - **Branch:** main
 
 ---
 
 *Generated: January 31, 2026*
-*Build 56 Complete → Ready for Build 57*
+*Build 58 Complete → Ready for Build 59*
