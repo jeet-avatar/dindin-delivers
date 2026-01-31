@@ -521,22 +521,12 @@ struct VehicleDocumentsSection: View {
                         )
                     }
 
-                    HStack(spacing: 12) {
-                        ProfileField(
-                            label: "License Plate",
-                            value: $viewModel.licensePlate,
-                            isEditing: viewModel.isEditing,
-                            icon: "rectangle"
-                        )
-
-                        ProfileField(
-                            label: "State",
-                            value: $viewModel.plateState,
-                            isEditing: viewModel.isEditing,
-                            icon: "map"
-                        )
-                        .frame(width: 100)
-                    }
+                    ProfileField(
+                        label: "License Plate",
+                        value: $viewModel.licensePlate,
+                        isEditing: viewModel.isEditing,
+                        icon: "rectangle"
+                    )
 
                     if viewModel.isEditing {
                         VStack(alignment: .leading, spacing: 4) {

@@ -42,10 +42,6 @@ class DriverProfileViewModel: ObservableObject {
     @Published var vehicleColor = ""
     @Published var vehicleType = "Sedan"
     @Published var licensePlate = ""
-    @Published var plateState = ""
-    @Published var vehicleFrontUrl: String?
-    @Published var vehicleSideUrl: String?
-    @Published var vehicleBackUrl: String?
 
     // MARK: - Insurance
     @Published var insuranceProvider = ""
@@ -390,10 +386,6 @@ class DriverProfileViewModel: ObservableObject {
             vehicleColor = vehicleData["color"] as? String ?? ""
             vehicleType = vehicleData["vehicleType"] as? String ?? "Sedan"
             licensePlate = vehicleData["licensePlate"] as? String ?? ""
-            plateState = vehicleData["state"] as? String ?? ""
-            vehicleFrontUrl = vehicleData["frontImageUrl"] as? String
-            vehicleSideUrl = vehicleData["sideImageUrl"] as? String
-            vehicleBackUrl = vehicleData["backImageUrl"] as? String
         } else {
             // Fallback to top-level fields for backward compatibility
             vehicleType = data["vehicleType"] as? String ?? "Car"
@@ -526,11 +518,7 @@ class DriverProfileViewModel: ObservableObject {
                 year: vehicleYear,
                 color: vehicleColor,
                 licensePlate: licensePlate,
-                state: plateState,
                 vehicleType: vehicleType,
-                frontImageUrl: vehicleFrontUrl,
-                sideImageUrl: vehicleSideUrl,
-                backImageUrl: vehicleBackUrl,
                 isVerified: (data["vehicle"] as? [String: Any])?["isVerified"] as? Bool ?? false
             ),
             vehicleType: vehicleType,
@@ -786,12 +774,6 @@ class DriverProfileViewModel: ObservableObject {
                             self.licenseFrontUrl = fileUrl
                         case "license_back":
                             self.licenseBackUrl = fileUrl
-                        case "vehicle_front":
-                            self.vehicleFrontUrl = fileUrl
-                        case "vehicle_side":
-                            self.vehicleSideUrl = fileUrl
-                        case "vehicle_back":
-                            self.vehicleBackUrl = fileUrl
                         case "insurance_card":
                             self.insuranceCardUrl = fileUrl
                         default:
