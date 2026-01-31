@@ -1583,22 +1583,19 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
     user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
     if user:
-        # Existing vendor - check if approved
-        if user.vendor_id:
-            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
-                )
+        # Existing vendor - allow login regardless of approval status
+        # Restaurant visibility is controlled by is_published, not login access
+        pass
     else:
         # Create new vendor and user
-        # vendor_id is auto-computed from id in the database
+        # Auto-approve for login access, but keep is_published=False
+        # Restaurant goes live only after admin approval
         new_vendor = Vendor(
             company_name=name,
             contact_name=name,
             contact_email=email,
-            onboarding_status=VendorStatus.PENDING,
+            onboarding_status=VendorStatus.APPROVED,  # Approved for login
+            is_published=False,  # Not visible to customers until admin approves
             street="",
             city="",
             state="",
@@ -1688,22 +1685,19 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
     user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
     if user:
-        # Existing vendor - check if approved
-        if user.vendor_id:
-            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
-                )
+        # Existing vendor - allow login regardless of approval status
+        # Restaurant visibility is controlled by is_published, not login access
+        pass
     else:
         # Create new vendor and user
-        # vendor_id is auto-computed from id in the database
+        # Auto-approve for login access, but keep is_published=False
+        # Restaurant goes live only after admin approval
         new_vendor = Vendor(
             company_name=name,
             contact_name=name,
             contact_email=email,
-            onboarding_status=VendorStatus.PENDING,
+            onboarding_status=VendorStatus.APPROVED,  # Approved for login
+            is_published=False,  # Not visible to customers until admin approves
             street="",
             city="",
             state="",
