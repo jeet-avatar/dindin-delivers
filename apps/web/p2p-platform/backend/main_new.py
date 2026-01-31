@@ -1905,13 +1905,14 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             detail="Driver profile not found"
         )
 
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+    # Block only SUSPENDED drivers - allow PENDING so they can upload documents
+    if driver.status == DriverStatus.SUSPENDED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Driver account is not active. Status: {driver.status.value}"
+            detail="Driver account is suspended. Please contact support@dollor.ai"
         )
 
-    print(f"Driver login successful for: {user.email}")
+    print(f"Driver login successful for: {user.email} (status: {driver.status.value})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
     return {
         "access_token": access_token,
@@ -1919,7 +1920,10 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
-        "email": driver.email
+        "email": driver.email,
+        "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url)
     }
 
 
@@ -1937,10 +1941,11 @@ def driver_refresh_token(current_user: User = Depends(get_current_user), db: Ses
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+    # Block only SUSPENDED drivers - allow PENDING so they can upload documents
+    if driver.status == DriverStatus.SUSPENDED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Driver account is not active. Status: {driver.status.value}"
+            detail="Driver account is suspended. Please contact support@dollor.ai"
         )
 
     # Generate new token
@@ -1951,7 +1956,10 @@ def driver_refresh_token(current_user: User = Depends(get_current_user), db: Ses
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
-        "email": driver.email
+        "email": driver.email,
+        "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url)
     }
 
 
@@ -2041,7 +2049,9 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
             "name": f"{new_driver.first_name} {new_driver.last_name}",
             "email": new_driver.email,
             "status": new_driver.status.value if hasattr(new_driver.status, 'value') else str(new_driver.status),
-            "message": "Registration successful. Your account is pending approval."
+            "is_approved": False,
+            "requires_documents": True,
+            "message": "Registration successful. Please upload your driver's license and insurance documents to complete verification."
         }
     except HTTPException:
         raise
@@ -2094,13 +2104,13 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
     user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
 
     if user:
-        # Existing driver - check if approved
+        # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
             driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+            if driver and driver.status == DriverStatus.SUSPENDED:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                    detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
     else:
         # Create new driver and user
@@ -2148,7 +2158,7 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
 
-    print(f"Driver Google auth successful for: {user.email}")
+    print(f"Driver Google auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -2156,7 +2166,10 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
         "name": f"{driver.first_name} {driver.last_name}" if driver else name,
-        "email": user.email
+        "email": user.email,
+        "status": driver.status.value if driver and hasattr(driver.status, 'value') else "pending",
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED] if driver else False,
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url) if driver else True
     }
 
 
@@ -2176,13 +2189,13 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
 
     if user:
-        # Existing driver - check if approved
+        # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
             driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+            if driver and driver.status == DriverStatus.SUSPENDED:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                    detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
     else:
         # Create new driver and user
@@ -2230,7 +2243,7 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
 
-    print(f"Driver Apple auth successful for: {user.email}")
+    print(f"Driver Apple auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -2238,7 +2251,10 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
         "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
-        "email": user.email
+        "email": user.email,
+        "status": driver.status.value if driver and hasattr(driver.status, 'value') else "pending",
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED] if driver else False,
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url) if driver else True
     }
 
 

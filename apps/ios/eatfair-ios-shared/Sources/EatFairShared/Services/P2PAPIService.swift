@@ -27,6 +27,9 @@ public class P2PAPIService: ObservableObject {
         static let driverCode = "p2p_driver_code"
         static let driverName = "p2p_driver_name"
         static let driverEmail = "p2p_driver_email"
+        static let driverStatus = "p2p_driver_status"
+        static let driverIsApproved = "p2p_driver_is_approved"
+        static let driverRequiresDocuments = "p2p_driver_requires_documents"
         static let customerName = "p2p_customer_name"
         static let customerEmail = "p2p_customer_email"
     }
@@ -3390,6 +3393,10 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
                     UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
                     UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
+                    // Store driver status info for UI
+                    UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
+                    UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
+                    UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
@@ -3463,6 +3470,10 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
                     UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
                     UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
+                    // Store driver status info for UI
+                    UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
+                    UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
+                    UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode response: \(error.localizedDescription)"
@@ -3487,6 +3498,21 @@ public class P2PAPIService: ObservableObject {
         return UserDefaults.standard.string(forKey: UserDefaultsKey.driverCode)
     }
 
+    /// Get stored driver status (pending, approved, active, etc.)
+    public var currentDriverStatus: String {
+        return UserDefaults.standard.string(forKey: UserDefaultsKey.driverStatus) ?? "pending"
+    }
+
+    /// Check if driver is approved to accept jobs
+    public var isDriverApproved: Bool {
+        return UserDefaults.standard.bool(forKey: UserDefaultsKey.driverIsApproved)
+    }
+
+    /// Check if driver still needs to upload documents
+    public var driverRequiresDocuments: Bool {
+        return UserDefaults.standard.bool(forKey: UserDefaultsKey.driverRequiresDocuments)
+    }
+
     /// Check if driver is logged in
     public var isDriverLoggedIn: Bool {
         return driverToken != nil
@@ -3499,6 +3525,9 @@ public class P2PAPIService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverCode)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverName)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverEmail)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverStatus)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverIsApproved)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverRequiresDocuments)
     }
 
     /// Apple OAuth login/registration for drivers
@@ -3559,6 +3588,10 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
                     UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
                     UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
+                    // Store driver status info for UI
+                    UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
+                    UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
+                    UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
                     completion(.success(loginResponse))
                 } catch {
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
@@ -7599,7 +7632,9 @@ public struct P2PDriverLoginResponse: Codable {
     public let driverCode: String
     public let name: String  // Backend returns combined name
     public let email: String
-    public let status: String?  // Only present in registration response
+    public let status: String?  // Driver status: pending, approved, active, etc.
+    public let isApproved: Bool?  // True if driver is approved and can accept jobs
+    public let requiresDocuments: Bool?  // True if driver still needs to upload documents
     public let message: String?  // Only present in registration response
 
     enum CodingKeys: String, CodingKey {
@@ -7610,6 +7645,8 @@ public struct P2PDriverLoginResponse: Codable {
         case name
         case email
         case status
+        case isApproved = "is_approved"
+        case requiresDocuments = "requires_documents"
         case message
     }
 }
