@@ -1463,17 +1463,49 @@ struct RideStatusCard: View {
                 VStack(spacing: 12) {
                     // Driver Row
                     HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: 50, height: 50)
-                            Image(systemName: "person.fill")
-                                .foregroundColor(.gray)
+                        // Driver Photo
+                        if let photoUrl = tracking.driverPhotoUrl,
+                           let url = URL(string: photoUrl) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 50, height: 50)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 50, height: 50)
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 50, height: 50)
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                            }
                         }
 
                         VStack(alignment: .leading) {
-                            Text(driverName)
-                                .font(.headline)
+                            HStack(spacing: 4) {
+                                Text(driverName)
+                                    .font(.headline)
+                                if let rating = tracking.driverRating {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.yellow)
+                                        Text(String(format: "%.1f", rating))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
                             Text("Your driver")
                                 .font(.caption)
                                 .foregroundColor(.gray)
