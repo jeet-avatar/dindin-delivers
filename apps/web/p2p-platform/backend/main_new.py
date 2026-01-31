@@ -11329,7 +11329,7 @@ def get_public_restaurants(
                 "average_prep_time": vendor.average_prep_time,
                 "menu_items_count": menu_count,
                 "preview_images": preview_images,
-                "rating": 4.5,  # Placeholder - implement actual ratings
+                "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
                 "is_open": True  # Placeholder - implement actual hours check
             })
 
@@ -11460,8 +11460,8 @@ def get_public_restaurant_detail(
             "delivery_available": vendor.delivery_available,
             "pickup_available": vendor.pickup_available,
             "average_prep_time": vendor.average_prep_time,
-            "rating": 4.5,
-            "reviews_count": 0
+            "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
+            "reviews_count": vendor.total_ratings or 0
         },
         "menu": menu_by_category,
         "menu_items_count": len(menu_items),
@@ -12931,7 +12931,7 @@ async def get_customer_favorites(
             "id": v.id,
             "name": v.restaurant_name or v.company_name,
             "cuisine_type": v.cuisine_type,
-            "rating": 4.5,  # Default rating - can add rating column later
+            "rating": v.average_rating if v.average_rating and v.average_rating > 0 else 4.5,
             "is_open": getattr(v, 'is_online', False) or False
         } for v in vendors
     ]
@@ -13748,7 +13748,7 @@ async def rate_order_restaurant(
         "accuracy": bool (optional)
     }
     """
-    from models import Order, Vendor
+    from models import Order, Vendor, RestaurantRating, Customer
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -13758,29 +13758,71 @@ async def rate_order_restaurant(
     if rating < 1 or rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
 
-    restaurant_id = request.get("restaurant_id")
+    restaurant_id = request.get("restaurant_id") or order.vendor_id
     review = request.get("review")
     food_quality = request.get("food_quality", False)
     portion_size = request.get("portion_size", False)
     value_for_money = request.get("value_for_money", False)
     accuracy = request.get("accuracy", False)
 
-    # In production, store the rating in a ratings table
-    # For now, we just acknowledge the rating
-    logger.info(f"Restaurant rating received: order={order_id}, restaurant={restaurant_id}, "
-                f"rating={rating}, review={review}, food_quality={food_quality}, "
-                f"portion_size={portion_size}, value_for_money={value_for_money}, accuracy={accuracy}")
+    # Get vendor
+    vendor = db.query(Vendor).filter(Vendor.id == restaurant_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    # Mark order as restaurant-rated (if field exists)
+    # Get customer ID from current user
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer_id = customer.id if customer else None
+
+    # Check if already rated
+    existing_rating = db.query(RestaurantRating).filter(
+        RestaurantRating.order_id == order_id,
+        RestaurantRating.vendor_id == restaurant_id
+    ).first()
+
+    if existing_rating:
+        raise HTTPException(status_code=400, detail="Order already rated")
+
+    # Create rating record
+    new_rating = RestaurantRating(
+        vendor_id=restaurant_id,
+        order_id=order_id,
+        customer_id=customer_id,
+        rating=rating,
+        review=review,
+        food_quality=food_quality,
+        portion_size=portion_size,
+        value_for_money=value_for_money,
+        accuracy=accuracy
+    )
+    db.add(new_rating)
+
+    # Update vendor's aggregate rating
+    current_total = vendor.total_ratings or 0
+    current_avg = vendor.average_rating or 0.0
+
+    # Calculate new average: ((old_avg * old_count) + new_rating) / new_count
+    new_total = current_total + 1
+    new_avg = ((current_avg * current_total) + rating) / new_total
+
+    vendor.total_ratings = new_total
+    vendor.average_rating = round(new_avg, 2)
+
+    # Mark order as restaurant-rated
     if hasattr(order, 'is_restaurant_rated'):
         order.is_restaurant_rated = True
-        db.commit()
+
+    db.commit()
+
+    logger.info(f"Restaurant rating stored: order={order_id}, restaurant={restaurant_id}, "
+                f"rating={rating}, new_avg={new_avg:.2f}, total={new_total}")
 
     return {
         "success": True,
         "message": "Restaurant rating submitted",
         "order_id": order_id,
-        "new_restaurant_rating": None  # Would calculate aggregate in production
+        "new_restaurant_rating": round(new_avg, 1),
+        "total_ratings": new_total
     }
 
 
@@ -14086,8 +14128,8 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
         "delivery_available": bool(vendor.delivery_available) if vendor.delivery_available is not None else True,
         "pickup_available": True,
         "average_prep_time": vendor.average_prep_time or 25,
-        "rating": 4.5,  # Default rating - Vendor model doesn't have rating field yet
-        "reviews_count": 0  # Default - Vendor model doesn't have reviews field yet
+        "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
+        "reviews_count": vendor.total_ratings or 0
     }
 
     # Fetch menu items (only available and in-stock items for customer view)

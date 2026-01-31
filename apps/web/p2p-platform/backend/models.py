@@ -275,9 +275,43 @@ class Vendor(Base):
     kot_webhook_url = Column(String(500))  # Custom webhook for notifications
     kot_auto_print = Column(Boolean, default=True)  # Auto-print on order accept
 
+    # Customer Ratings (aggregated from RestaurantRating table)
+    average_rating = Column(Float, default=0.0)  # 0-5 stars
+    total_ratings = Column(Integer, default=0)  # Number of ratings received
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")
+    ratings = relationship("RestaurantRating", back_populates="vendor", cascade="all, delete-orphan")
+
+
+class RestaurantRating(Base):
+    """Individual customer ratings for restaurants"""
+    __tablename__ = "restaurant_ratings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign Keys
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+
+    # Rating Details
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    review = Column(Text)  # Optional text review
+
+    # Category Feedback (what was good)
+    food_quality = Column(Boolean, default=False)
+    portion_size = Column(Boolean, default=False)
+    value_for_money = Column(Boolean, default=False)
+    accuracy = Column(Boolean, default=False)  # Order accuracy
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    vendor = relationship("Vendor", back_populates="ratings")
+
 
 class VendorPurchaseOrder(Base):
     __tablename__ = "vendor_purchase_orders"
