@@ -12358,19 +12358,120 @@ async def track_ride(
     """
     Track a ride's current status and driver location.
     Used by Android/iOS customer apps.
+    Returns full driver details including name, photo, vehicle, license plate.
     """
-    import random
-    return {
-        "ride_id": ride_id,
-        "status": "in_progress",
-        "driver_location": {
-            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
-            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
-        },
-        "eta_minutes": random.randint(5, 15),
-        "driver_name": "John D.",
-        "vehicle": "Toyota Camry - ABC 123"
+    from models import RideRequest, Driver
+
+    # Query ride request with driver relationship
+    ride = db.query(RideRequest).filter(
+        (RideRequest.id == ride_id) | (RideRequest.request_id == str(ride_id))
+    ).first()
+
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Base response matching iOS RideTrackingInfo struct
+    response = {
+        "success": True,
+        "order_id": ride.id,
+        "order_number": ride.request_id or f"RR-{ride.id}",
+        "status": ride.status.value if ride.status else "pending",
+        "driver_name": None,
+        "driver_phone": None,
+        "driver_photo_url": None,
+        "driver_latitude": None,
+        "driver_longitude": None,
+        "estimated_arrival": None,
+        "driver_vehicle": None,
+        "driver_vehicle_color": None,
+        "driver_license_plate": None,
+        "driver_vehicle_photo_url": None,
+        "driver_rating": None
     }
+
+    # If driver is assigned, include full driver details
+    if ride.matched_driver_id:
+        driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+        if driver:
+            # Driver name (first name + last initial for privacy)
+            driver_name = f"{driver.first_name} {driver.last_name[0]}." if driver.first_name and driver.last_name else "Driver"
+
+            # Vehicle info as combined string
+            vehicle_parts = []
+            if driver.vehicle_year:
+                vehicle_parts.append(str(driver.vehicle_year))
+            if driver.vehicle_make:
+                vehicle_parts.append(driver.vehicle_make)
+            if driver.vehicle_model:
+                vehicle_parts.append(driver.vehicle_model)
+            driver_vehicle = " ".join(vehicle_parts) if vehicle_parts else None
+
+            # Calculate ETA based on distance (simple estimate)
+            eta_minutes = None
+            if driver.current_latitude and driver.current_longitude and ride.pickup_latitude and ride.pickup_longitude:
+                # Simple distance calculation for ETA
+                import math
+                lat_diff = abs(driver.current_latitude - ride.pickup_latitude)
+                lng_diff = abs(driver.current_longitude - ride.pickup_longitude)
+                distance_deg = math.sqrt(lat_diff**2 + lng_diff**2)
+                # Rough estimate: 1 degree ≈ 111km, average speed 30km/h in city
+                distance_km = distance_deg * 111
+                eta_minutes = max(1, int((distance_km / 30) * 60))
+
+            # iOS flat fields
+            response.update({
+                "driver_name": driver_name,
+                "driver_phone": driver.phone,
+                "driver_photo_url": driver.photo_url,
+                "driver_latitude": driver.current_latitude,
+                "driver_longitude": driver.current_longitude,
+                "estimated_arrival": f"{eta_minutes} min" if eta_minutes else None,
+                "driver_vehicle": driver_vehicle,
+                "driver_vehicle_color": driver.vehicle_color,
+                "driver_license_plate": driver.license_plate,
+                "driver_vehicle_photo_url": None,  # Vehicle photo not stored separately
+                "driver_rating": driver.rating,
+                "eta_minutes": eta_minutes
+            })
+
+            # Android nested driver object (for CustomerRideTracking compatibility)
+            response["driver"] = {
+                "id": driver.id,
+                "name": driver_name,
+                "phone": driver.phone,
+                "rating": driver.rating,
+                "photo_url": driver.photo_url,
+                "latitude": driver.current_latitude,
+                "longitude": driver.current_longitude,
+                "vehicle_make": driver.vehicle_make,
+                "vehicle_model": driver.vehicle_model,
+                "vehicle_color": driver.vehicle_color,
+                "vehicle_plate": driver.license_plate
+            }
+
+            # Android driver_location object
+            if driver.current_latitude and driver.current_longitude:
+                response["driver_location"] = {
+                    "latitude": driver.current_latitude,
+                    "longitude": driver.current_longitude
+                }
+
+    # Add ride location info for Android
+    response["ride_request_id"] = ride.id
+    response["ride_number"] = ride.request_id
+    response["pickup"] = {
+        "latitude": ride.pickup_latitude,
+        "longitude": ride.pickup_longitude,
+        "address": ride.pickup_address
+    }
+    response["dropoff"] = {
+        "latitude": ride.dropoff_latitude,
+        "longitude": ride.dropoff_longitude,
+        "address": ride.dropoff_address
+    }
+    response["final_price"] = ride.final_price
+
+    return response
 
 
 @app.post("/api/rides/{ride_id}/cancel")
