@@ -2884,7 +2884,7 @@ public class P2PAPIService: ObservableObject {
         customerName: String,
         customerEmail: String,
         customerPhone: String,
-        deliveryAddress: [String: String],
+        deliveryAddress: [String: Any],
         deliveryInstructions: String?,
         items: [[String: Any]],
         tip: Double = 0.0,
@@ -8417,6 +8417,8 @@ public struct P2PVendorDeliveryAddress: Codable {
     public let state: String?
     public let zip: String?
     public let zipCode: String?
+    public let latitude: Double?
+    public let longitude: Double?
 
     enum CodingKeys: String, CodingKey {
         case street
@@ -8424,6 +8426,8 @@ public struct P2PVendorDeliveryAddress: Codable {
         case state
         case zip
         case zipCode = "zip_code"
+        case latitude
+        case longitude
     }
 
     /// Get the zip code (supports both "zip" and "zip_code" keys)
@@ -8528,8 +8532,8 @@ public struct P2PVendorOrder: Codable, Identifiable {
             city: addr?.city ?? "",
             state: addr?.state ?? "",
             zipCode: addr?.resolvedZip ?? "",
-            latitude: 0,
-            longitude: 0,
+            latitude: addr?.latitude ?? 0,
+            longitude: addr?.longitude ?? 0,
             landmark: deliveryInstructions
         )
 
