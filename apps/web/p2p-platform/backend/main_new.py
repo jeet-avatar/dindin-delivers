@@ -12561,6 +12561,46 @@ async def restaurant_delivery_decision(
     order.delivery_decision_at = datetime.utcnow()
     db.commit()
 
+    # Send push notification to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            # Get restaurant name
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+
+            if decision == "self_deliver":
+                notification_title = "Your order is on the way!"
+                notification_body = f"{restaurant_name} is delivering your order directly. Track your delivery in the app."
+            else:
+                notification_title = "Driver assigned soon"
+                notification_body = f"Your order from {restaurant_name} is ready. A driver will pick it up shortly."
+
+            # Send via notification service
+            import httpx
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/notifications/push/send",
+                        json={
+                            "token": customer.push_token,
+                            "title": notification_title,
+                            "body": notification_body,
+                            "data": {
+                                "type": "delivery_update",
+                                "order_id": str(order.id),
+                                "order_number": order.order_number,
+                                "status": order.status.value,
+                                "restaurant_delivering": str(decision == "self_deliver")
+                            }
+                        }
+                    )
+                print(f"Sent delivery notification to customer {customer.id} for order {order.id}")
+            except Exception as notify_err:
+                print(f"Failed to send push notification: {notify_err}")
+    except Exception as e:
+        print(f"Error preparing customer notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
