@@ -1264,9 +1264,9 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         "user": {
             "id": user.id,
             "email": user.email,
-            "fullName": user.full_name,
+            "full_name": user.full_name,
             "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-            "vendorId": user.vendor_id
+            "vendor_id": user.vendor_id
         },
         # Top-level fields for Android compatibility
         "vendor_id": user.vendor_id,
@@ -1362,9 +1362,9 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         "user": {
             "id": user.id,
             "email": user.email,
-            "fullName": user.full_name,
+            "full_name": user.full_name,
             "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-            "vendorId": user.vendor_id
+            "vendor_id": user.vendor_id
         },
         "vendor_id": user.vendor_id,
         "business_name": business_name,
@@ -1501,9 +1501,9 @@ def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,
-                "fullName": new_user.full_name,
+                "full_name": new_user.full_name,
                 "role": "vendor",
-                "vendorId": new_vendor.id
+                "vendor_id": new_vendor.id
             },
             # Top-level fields for Android/iOS compatibility
             "vendor_id": new_vendor.id,
