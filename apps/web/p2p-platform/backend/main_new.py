@@ -1280,6 +1280,7 @@ class VendorDemoLoginRequest(BaseModel):
     email: Optional[str] = None  # Android sends 'email' field
 
 @app.post("/api/auth/vendor/demo-login")
+@app.post("/auth/vendor/demo-login")  # Alias for iOS mobile apps without /api prefix
 def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db)):
     """Demo login for vendor - creates or finds demo vendor account for App Store review"""
     # Accept both email_hint (iOS) and email (Android)
@@ -1580,13 +1581,19 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
 
         print(f"Vendor Google auth for: {email}")
 
-        # Check if user exists
-        user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
+        # Check if user exists with this email (any role)
+        existing_user = db.query(User).filter(User.email == email).first()
 
-        if user:
-            # Existing vendor - allow login regardless of approval status
-            # Restaurant visibility is controlled by is_published, not login access
-            pass
+        if existing_user:
+            if existing_user.role == UserRole.VENDOR:
+                # Existing vendor - allow login
+                user = existing_user
+            else:
+                # Email already registered with different role
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
+                )
         else:
             # Create new vendor and user
             # Auto-approve for login access, but keep is_published=False
@@ -1693,13 +1700,19 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
         if not email:
             raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
 
-        # Check if user exists by email
-        user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
+        # Check if user exists with this email (any role)
+        existing_user = db.query(User).filter(User.email == email).first()
 
-        if user:
-            # Existing vendor - allow login regardless of approval status
-            # Restaurant visibility is controlled by is_published, not login access
-            pass
+        if existing_user:
+            if existing_user.role == UserRole.VENDOR:
+                # Existing vendor - allow login
+                user = existing_user
+            else:
+                # Email already registered with different role
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
+                )
         else:
             # Create new vendor and user
             # Auto-approve for login access, but keep is_published=False
