@@ -1556,10 +1556,11 @@ def decode_google_jwt(token: str) -> dict:
 @app.post("/auth/vendor/google-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
-    from models import VendorStatus
+    try:
+        from models import VendorStatus
 
-    # Get token from either field
-    token = request.id_token or request.credential
+        # Get token from either field
+        token = request.id_token or request.credential
 
     # If token provided, decode it to get user info
     if token:
@@ -1638,6 +1639,17 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
         "business_name": business_name,
         "email": user.email
     }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Vendor Google auth error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google auth failed: {str(e)}"
+        )
 
 # Vendor Apple OAuth
 class VendorAppleAuthRequest(BaseModel):
@@ -1650,95 +1662,107 @@ class VendorAppleAuthRequest(BaseModel):
 @app.post("/auth/vendor/apple-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
-    from models import VendorStatus
+    try:
+        from models import VendorStatus
 
-    email = request.email
-    name = request.name
+        email = request.email
+        name = request.name
 
-    # Try to decode identity_token first (Apple JWT contains email for returning users)
-    if request.identity_token:
-        try:
-            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
-            print(f"Decoded Apple token for vendor: {decoded.keys()}")
-            # Token email takes priority over request.email
-            token_email = decoded.get('email')
-            if token_email:
-                email = token_email
-            if not name and email:
-                name = email.split('@')[0]
-        except Exception as e:
-            print(f"Error decoding Apple identity token for vendor: {e}")
+        # Try to decode identity_token first (Apple JWT contains email for returning users)
+        if request.identity_token:
+            try:
+                decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+                print(f"Decoded Apple token for vendor: {decoded.keys()}")
+                # Token email takes priority over request.email
+                token_email = decoded.get('email')
+                if token_email:
+                    email = token_email
+                if not name and email:
+                    name = email.split('@')[0]
+            except Exception as e:
+                print(f"Error decoding Apple identity token for vendor: {e}")
 
-    if not name and email:
-        name = email.split('@')[0]
-    elif not name:
-        name = 'Restaurant Owner'
+        if not name and email:
+            name = email.split('@')[0]
+        elif not name:
+            name = 'Restaurant Owner'
 
-    print(f"Vendor Apple auth for: {email}")
+        print(f"Vendor Apple auth for: {email}")
 
-    # If still no email, we can't proceed
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
+        # If still no email, we can't proceed
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
 
-    # Check if user exists by email
-    user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
+        # Check if user exists by email
+        user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
 
-    if user:
-        # Existing vendor - allow login regardless of approval status
-        # Restaurant visibility is controlled by is_published, not login access
-        pass
-    else:
-        # Create new vendor and user
-        # Auto-approve for login access, but keep is_published=False
-        # Restaurant goes live only after admin approval
-        new_vendor = Vendor(
-            company_name=name,
-            contact_name=name,
-            contact_email=email,
-            onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
-            street="",
-            city="",
-            state="",
-            zip_code="",
-            country="US"
+        if user:
+            # Existing vendor - allow login regardless of approval status
+            # Restaurant visibility is controlled by is_published, not login access
+            pass
+        else:
+            # Create new vendor and user
+            # Auto-approve for login access, but keep is_published=False
+            # Restaurant goes live only after admin approval
+            new_vendor = Vendor(
+                company_name=name,
+                contact_name=name,
+                contact_email=email,
+                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
+                street="",
+                city="",
+                state="",
+                zip_code="",
+                country="US"
+            )
+            db.add(new_vendor)
+            db.commit()
+            db.refresh(new_vendor)
+
+            hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+            user = User(
+                email=email,
+                password_hash=hashed_password,
+                full_name=name,
+                role=UserRole.VENDOR,
+                vendor_id=new_vendor.id
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            print(f"Created new vendor via Apple auth: {email}")
+
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+        business_name = vendor.restaurant_name or vendor.company_name if vendor else name
+
+        print(f"Vendor Apple auth successful for: {user.email}")
+        access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "fullName": user.full_name,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "vendorId": user.vendor_id
+            },
+            "vendor_id": user.vendor_id,
+            "business_name": business_name,
+            "email": user.email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Vendor Apple auth error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Apple auth failed: {str(e)}"
         )
-        db.add(new_vendor)
-        db.commit()
-        db.refresh(new_vendor)
-
-        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=name,
-            role=UserRole.VENDOR,
-            vendor_id=new_vendor.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new vendor via Apple auth: {email}")
-
-    # Get vendor info
-    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else name
-
-    print(f"Vendor Apple auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "fullName": user.full_name,
-            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-            "vendorId": user.vendor_id
-        },
-        "vendor_id": user.vendor_id,
-        "business_name": business_name,
-        "email": user.email
-    }
 
 # Password Reset Request
 @app.post("/api/auth/password-reset/request")
