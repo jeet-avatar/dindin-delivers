@@ -1631,9 +1631,9 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "fullName": user.full_name,
+                "full_name": user.full_name,
                 "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                "vendorId": user.vendor_id
+                "vendor_id": user.vendor_id
             },
             "vendor_id": user.vendor_id,
             "business_name": business_name,
@@ -1744,9 +1744,9 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
             "user": {
                 "id": user.id,
                 "email": user.email,
-                "fullName": user.full_name,
+                "full_name": user.full_name,
                 "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                "vendorId": user.vendor_id
+                "vendor_id": user.vendor_id
             },
             "vendor_id": user.vendor_id,
             "business_name": business_name,
