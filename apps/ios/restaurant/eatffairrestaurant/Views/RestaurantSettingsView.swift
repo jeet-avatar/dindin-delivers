@@ -269,25 +269,35 @@ struct RestaurantSettingsView: View {
 
                 // Business Documents Section
                 Section("Business Documents") {
-                    NavigationLink(destination: RestaurantDocumentsView()) {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Label {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Verification Documents")
-                                    Text("License, Tax ID, Health Permit")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            } icon: {
-                                Image(systemName: "doc.badge.checkmark")
-                                    .foregroundColor(.blue)
+                            Image(systemName: "doc.badge.checkmark")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Documents Managed Online")
+                                    .font(.headline)
+                                Text("Business documents are reviewed and approved through our web portal for security.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
-                            Spacer()
-                            Text("Required")
-                                .font(.caption)
-                                .foregroundColor(.orange)
+                        }
+
+                        Link(destination: URL(string: "https://admin.dollor.ai")!) {
+                            HStack {
+                                Image(systemName: "globe")
+                                Text("Go to Admin Portal")
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(RestaurantTheme.brandOrange)
+                            .cornerRadius(10)
                         }
                     }
+                    .padding(.vertical, 8)
                 }
 
                 // Payment Section

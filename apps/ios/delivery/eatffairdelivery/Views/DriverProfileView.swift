@@ -554,14 +554,7 @@ struct VehicleDocumentsSection: View {
                         .padding(.vertical, 8)
                     }
 
-                    // Vehicle Photo Upload
-                    VehiclePhotoUploadView(
-                        imageUrl: viewModel.vehiclePhotoUrl,
-                        isEditing: viewModel.isEditing,
-                        onUpload: { data in
-                            Task { await viewModel.uploadDocument(data, type: "vehicle_photo") }
-                        }
-                    )
+                    // Vehicle photo is managed via web portal
                 }
             }
 
