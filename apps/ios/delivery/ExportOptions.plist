@@ -3,25 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store</string>
+    <string>app-store-connect</string>
+    <key>destination</key>
+    <string>upload</string>
     <key>teamID</key>
-    <string>${DEVELOPMENT_TEAM}</string>
+    <string>PRKZ4UVCD7</string>
     <key>uploadSymbols</key>
     <true/>
-    <key>uploadBitcode</key>
-    <false/>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>signingCertificate</key>
-    <string>iPhone Distribution</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.dollor.driver</key>
-        <string>${PROVISIONING_PROFILE_NAME}</string>
-    </dict>
-    <key>destination</key>
-    <string>export</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
+    <string>automatic</string>
 </dict>
 </plist>
