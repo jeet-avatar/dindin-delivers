@@ -1626,6 +1626,18 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
             db.refresh(user)
             print(f"Created new vendor via Google auth: {email}")
 
+            # Send registration confirmation for new vendor
+            try:
+                send_vendor_registration_confirmation(
+                    to_email=email,
+                    restaurant_name=name,
+                    contact_name=name,
+                    vendor_id=new_vendor.vendor_id
+                )
+                print(f"Vendor registration email sent to Google signup: {email}")
+            except Exception as e:
+                print(f"Failed to send vendor registration email to Google signup: {str(e)}")
+
         # Get vendor info
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
         business_name = vendor.restaurant_name or vendor.company_name if vendor else name
@@ -1744,6 +1756,18 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
             db.commit()
             db.refresh(user)
             print(f"Created new vendor via Apple auth: {email}")
+
+            # Send registration confirmation for new vendor
+            try:
+                send_vendor_registration_confirmation(
+                    to_email=email,
+                    restaurant_name=name,
+                    contact_name=name,
+                    vendor_id=new_vendor.vendor_id
+                )
+                print(f"Vendor registration email sent to Apple signup: {email}")
+            except Exception as e:
+                print(f"Failed to send vendor registration email to Apple signup: {str(e)}")
 
         # Get vendor info
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
@@ -2642,6 +2666,16 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
         db.commit()
         db.refresh(customer)
         print(f"Created new customer via Google auth: {email}")
+
+        # Send welcome email for new Google signup
+        try:
+            send_customer_welcome_email(
+                to_email=email,
+                customer_name=name
+            )
+            print(f"Welcome email sent to Google signup: {email}")
+        except Exception as e:
+            print(f"Failed to send welcome email to Google signup: {str(e)}")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
     print(f"Customer Google auth successful for: {customer.email}")
@@ -4202,6 +4236,17 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         db.commit()
         db.refresh(customer)
         print(f"Created new customer record for: {email} with ID: {customer_id}, apple_id stored")
+
+        # Send welcome email for new Apple signup
+        try:
+            send_customer_welcome_email(
+                to_email=email,
+                customer_name=display_name
+            )
+            print(f"Welcome email sent to Apple signup: {email}")
+        except Exception as e:
+            print(f"Failed to send welcome email to Apple signup: {str(e)}")
+
     elif not customer.apple_id:
         # Update existing customer with apple_id if not set (for users who signed up before this change)
         customer.apple_id = request.apple_id
