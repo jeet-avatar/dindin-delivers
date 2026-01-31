@@ -368,6 +368,8 @@ struct EnhancedOrderCard: View {
     var onTap: () -> Void
 
     @State private var isExpanded = false
+    @State private var deliveryDecisionSeconds: Int = 180
+    @State private var deliveryTimer: Timer? = nil
 
     private var orderStatus: OrderStatus {
         OrderStatus(rawValue: order.status) ?? .placed
@@ -376,6 +378,31 @@ struct EnhancedOrderCard: View {
     private var timeElapsed: String {
         let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
         return DateTimeFormatter.shared.orderedTime(from: orderDate)
+    }
+
+    // MARK: - Delivery Timer Functions
+
+    private func formatTime(_ seconds: Int) -> String {
+        let mins = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
+    private func startDeliveryTimer() {
+        deliveryDecisionSeconds = 180
+        deliveryTimer?.invalidate()
+        deliveryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+            if deliveryDecisionSeconds > 0 {
+                deliveryDecisionSeconds -= 1
+            } else {
+                timer.invalidate()
+                // Auto-send to driver when time runs out
+                #if DEBUG
+                print("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
+                #endif
+                onSendToDriver?()
+            }
+        }
     }
 
     var body: some View {
@@ -545,25 +572,33 @@ struct EnhancedOrderCard: View {
                 Divider()
 
                 VStack(spacing: 8) {
-                    // Timer indicator
+                    // Timer countdown
                     HStack {
                         Image(systemName: "timer")
-                            .foregroundColor(.orange)
-                        Text("Delivery decision window (3 min)")
-                            .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(deliveryDecisionSeconds <= 30 ? .red : .orange)
+                        Text("Decide in: \(formatTime(deliveryDecisionSeconds))")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(deliveryDecisionSeconds <= 30 ? .red : .orange)
                         Spacer()
+                        if deliveryDecisionSeconds <= 30 {
+                            Text("Auto-sending to drivers...")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
 
                     HStack(spacing: 12) {
-                        Button {
+                        // Send to Driver button
+                        Button(action: {
                             #if DEBUG
                             print("🚗 Send to Driver tapped for order \(order.orderId)")
                             #endif
+                            deliveryTimer?.invalidate()
                             onSendToDriver?()
-                        } label: {
+                        }) {
                             HStack {
                                 Image(systemName: "car.fill")
                                 Text("Send to Driver")
@@ -572,18 +607,20 @@ struct EnhancedOrderCard: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .background(RestaurantTheme.brandBlue)
                             .cornerRadius(10)
                         }
-                        .buttonStyle(.borderless)
+                        .contentShape(Rectangle())
 
-                        Button {
+                        // I'll Deliver button
+                        Button(action: {
                             #if DEBUG
                             print("🏃 I'll Deliver tapped for order \(order.orderId)")
                             #endif
+                            deliveryTimer?.invalidate()
                             onSelfDeliver?()
-                        } label: {
+                        }) {
                             HStack {
                                 Image(systemName: "figure.walk")
                                 Text("I'll Deliver")
@@ -592,14 +629,20 @@ struct EnhancedOrderCard: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .background(RestaurantTheme.brandGreen)
                             .cornerRadius(10)
                         }
-                        .buttonStyle(.borderless)
+                        .contentShape(Rectangle())
                     }
                     .padding(.horizontal)
                     .padding(.bottom)
+                }
+                .onAppear {
+                    startDeliveryTimer()
+                }
+                .onDisappear {
+                    deliveryTimer?.invalidate()
                 }
             }
         }
