@@ -153,6 +153,31 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     userInfo: ["orderId": orderId]
                 )
             }
+        case .driverApproved:
+            // Driver has been approved - refresh status and navigate to dashboard
+            deliveryLogger.info("Driver approved notification received")
+            // Update UserDefaults to reflect approval
+            UserDefaults.standard.set(true, forKey: "p2p_driver_is_approved")
+            UserDefaults.standard.set("approved", forKey: "p2p_driver_status")
+            UserDefaults.standard.set(false, forKey: "p2p_driver_requires_documents")
+            // Post notification to refresh UI
+            NotificationCenter.default.post(
+                name: NSNotification.Name("DriverApprovalStatusChanged"),
+                object: nil,
+                userInfo: ["approved": true]
+            )
+        case .driverRejected:
+            // Driver documents were rejected - navigate to profile to re-upload
+            deliveryLogger.info("Driver rejected notification received")
+            // Update UserDefaults to reflect rejection
+            UserDefaults.standard.set(false, forKey: "p2p_driver_is_approved")
+            UserDefaults.standard.set("rejected", forKey: "p2p_driver_status")
+            // Post notification to refresh UI and prompt re-upload
+            NotificationCenter.default.post(
+                name: NSNotification.Name("DriverApprovalStatusChanged"),
+                object: nil,
+                userInfo: ["approved": false, "rejected": true]
+            )
         default:
             break
         }
