@@ -239,7 +239,7 @@ class RateRestaurantViewModel: ObservableObject {
             return
         }
 
-        guard let restaurantIdString = order.restaurant.id, let restaurantId = Int(restaurantIdString) else {
+        guard let restaurantId = Int(order.restaurant.id) else {
             errorMessage = "Invalid restaurant info"
             return
         }
