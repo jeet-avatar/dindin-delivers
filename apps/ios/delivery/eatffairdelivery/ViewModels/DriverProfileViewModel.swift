@@ -42,6 +42,7 @@ class DriverProfileViewModel: ObservableObject {
     @Published var vehicleColor = ""
     @Published var vehicleType = "Sedan"
     @Published var licensePlate = ""
+    @Published var vehiclePhotoUrl: String?
 
     // MARK: - Insurance
     @Published var insuranceProvider = ""
@@ -386,6 +387,7 @@ class DriverProfileViewModel: ObservableObject {
             vehicleColor = vehicleData["color"] as? String ?? ""
             vehicleType = vehicleData["vehicleType"] as? String ?? "Sedan"
             licensePlate = vehicleData["licensePlate"] as? String ?? ""
+            vehiclePhotoUrl = vehicleData["vehiclePhotoUrl"] as? String
         } else {
             // Fallback to top-level fields for backward compatibility
             vehicleType = data["vehicleType"] as? String ?? "Car"
@@ -519,6 +521,7 @@ class DriverProfileViewModel: ObservableObject {
                 color: vehicleColor,
                 licensePlate: licensePlate,
                 vehicleType: vehicleType,
+                vehiclePhotoUrl: vehiclePhotoUrl,
                 isVerified: (data["vehicle"] as? [String: Any])?["isVerified"] as? Bool ?? false
             ),
             vehicleType: vehicleType,
@@ -776,6 +779,8 @@ class DriverProfileViewModel: ObservableObject {
                             self.licenseBackUrl = fileUrl
                         case "insurance_card":
                             self.insuranceCardUrl = fileUrl
+                        case "vehicle_photo":
+                            self.vehiclePhotoUrl = fileUrl
                         default:
                             break
                         }

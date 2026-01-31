@@ -199,6 +199,9 @@ public struct VehicleInfo: Codable {
     public var licensePlate: String
     public var vehicleType: String // Sedan, SUV, Truck, Motorcycle, Bicycle, Scooter
 
+    // Vehicle Photo (displayed to customers/riders)
+    public var vehiclePhotoUrl: String?
+
     // Registration
     public var registrationNumber: String?
     public var registrationExpirationDate: Int64?
@@ -213,6 +216,7 @@ public struct VehicleInfo: Codable {
         color: String = "",
         licensePlate: String = "",
         vehicleType: String = "Sedan",
+        vehiclePhotoUrl: String? = nil,
         registrationNumber: String? = nil,
         registrationExpirationDate: Int64? = nil,
         registrationImageUrl: String? = nil,
@@ -224,6 +228,7 @@ public struct VehicleInfo: Codable {
         self.color = color
         self.licensePlate = licensePlate
         self.vehicleType = vehicleType
+        self.vehiclePhotoUrl = vehiclePhotoUrl
         self.registrationNumber = registrationNumber
         self.registrationExpirationDate = registrationExpirationDate
         self.registrationImageUrl = registrationImageUrl

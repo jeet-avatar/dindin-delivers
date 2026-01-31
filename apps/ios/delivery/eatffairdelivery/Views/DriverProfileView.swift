@@ -553,6 +553,15 @@ struct VehicleDocumentsSection: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                     }
+
+                    // Vehicle Photo Upload
+                    VehiclePhotoUploadView(
+                        imageUrl: viewModel.vehiclePhotoUrl,
+                        isEditing: viewModel.isEditing,
+                        onUpload: { data in
+                            Task { await viewModel.uploadDocument(data, type: "vehicle_photo") }
+                        }
+                    )
                 }
             }
 
@@ -698,6 +707,132 @@ struct DocumentStatusRowItem: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textPrimary)
             Spacer()
+        }
+    }
+}
+
+// MARK: - Vehicle Photo Upload View
+struct VehiclePhotoUploadView: View {
+    let imageUrl: String?
+    let isEditing: Bool
+    let onUpload: (Data) -> Void
+
+    @State private var selectedItem: PhotosPickerItem?
+    @State private var isUploading = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Vehicle Photo")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+                Spacer()
+                Text("Visible to customers")
+                    .font(.caption2)
+                    .foregroundColor(Theme.textGrey)
+            }
+
+            if let imageUrl = imageUrl, !imageUrl.isEmpty {
+                // Show existing photo
+                AsyncImage(url: URL(string: imageUrl)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(height: 150)
+                            .frame(maxWidth: .infinity)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 150)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                            .cornerRadius(12)
+                    case .failure:
+                        placeholderView
+                    @unknown default:
+                        placeholderView
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if isEditing {
+                        PhotosPicker(selection: $selectedItem, matching: .images) {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .background(Circle().fill(Theme.brandRed))
+                                .padding(8)
+                        }
+                        .onChange(of: selectedItem) { _, newItem in
+                            handleImageSelection(newItem)
+                        }
+                    }
+                }
+            } else if isEditing {
+                // Upload prompt
+                PhotosPicker(selection: $selectedItem, matching: .images) {
+                    VStack(spacing: 12) {
+                        if isUploading {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(Theme.brandRed)
+                            Text("Add Vehicle Photo")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(Theme.brandRed)
+                            Text("Help customers identify your vehicle")
+                                .font(.caption)
+                                .foregroundColor(Theme.textGrey)
+                        }
+                    }
+                    .frame(height: 150)
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.backgroundGrey)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                            .foregroundColor(Theme.brandRed.opacity(0.3))
+                    )
+                }
+                .onChange(of: selectedItem) { _, newItem in
+                    handleImageSelection(newItem)
+                }
+            } else {
+                // Read-only empty state
+                placeholderView
+            }
+        }
+    }
+
+    private var placeholderView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "car.fill")
+                .font(.system(size: 32))
+                .foregroundColor(Theme.textGrey)
+            Text("No photo uploaded")
+                .font(.caption)
+                .foregroundColor(Theme.textGrey)
+        }
+        .frame(height: 150)
+        .frame(maxWidth: .infinity)
+        .background(Theme.backgroundGrey)
+        .cornerRadius(12)
+    }
+
+    private func handleImageSelection(_ item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        isUploading = true
+
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                onUpload(data)
+            }
+            isUploading = false
+            selectedItem = nil
         }
     }
 }
