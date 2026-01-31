@@ -8159,6 +8159,7 @@ public struct RideRequestForBidding: Identifiable, Codable {
     public let request_id: String
     public let customer_id: Int
     public let customer_name: String?
+    public let customer_phone: String?  // Available after ride is matched/accepted
     public let pickup: RideLocation
     public let dropoff: RideLocation
     public let estimated_distance_km: Double?
