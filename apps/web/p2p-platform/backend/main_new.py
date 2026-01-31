@@ -2346,8 +2346,35 @@ def set_driver_online(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
+    # Block unapproved drivers from going online
+    if online_status:  # Only check when trying to go online
+        approved_statuses = [DriverStatus.APPROVED, DriverStatus.ACTIVE]
+        driver_status = driver.status if isinstance(driver.status, DriverStatus) else DriverStatus(driver.status) if driver.status else None
+
+        if driver_status not in approved_statuses:
+            # Check what's missing
+            missing_docs = []
+            if not driver.drivers_license:
+                missing_docs.append("driver's license")
+            if not driver.insurance:
+                missing_docs.append("insurance")
+            if not driver.photo_url:
+                missing_docs.append("profile photo")
+
+            if missing_docs:
+                detail = f"Please upload and verify: {', '.join(missing_docs)}"
+            else:
+                detail = "Your documents are pending verification. You'll be notified when approved."
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail
+            )
+
     driver.is_online = online_status
     driver.location_updated_at = datetime.utcnow()
+    if online_status:
+        driver.went_online_at = datetime.utcnow()
     db.commit()
 
     return {"success": True, "is_online": driver.is_online}
@@ -10809,6 +10836,21 @@ async def persona_webhook(
                 vendor.last_activity = datetime.now()
                 db.commit()
 
+                # Send push notification to vendor about verification
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="vendor",
+                        user_id=vendor_id,
+                        title="Documents Verified! 🎉",
+                        body="Your documents have been verified. Your restaurant is being reviewed for publishing.",
+                        data={"type": "vendor_verified", "vendor_id": vendor_id},
+                        db=db
+                    )
+                    print(f"Push notification sent to vendor {vendor_id} about verification")
+                except Exception as e:
+                    print(f"Failed to send verification push notification to vendor {vendor_id}: {e}")
+
                 # AI Auto-Processing: ComplianceBot triggers full AI workflow
                 print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Triggering AI auto-processing for vendor {vendor_id}")
                 try:
@@ -10853,6 +10895,20 @@ async def persona_webhook(
                 vendor.insurance = False
                 print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED - must re-upload")
 
+                # Send push notification about rejection
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="vendor",
+                        user_id=vendor_id,
+                        title="Document Verification Failed",
+                        body="Your documents could not be verified. Please upload clear photos and try again.",
+                        data={"type": "vendor_rejected", "vendor_id": vendor_id},
+                        db=db
+                    )
+                except Exception as e:
+                    print(f"Failed to send rejection push notification to vendor {vendor_id}: {e}")
+
             elif event_type == "inquiry.needs_review":
                 vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
                 # Keep documents as False until manual review completes
@@ -10875,17 +10931,57 @@ async def persona_webhook(
                 print(f"Driver {driver_id} documents VERIFIED via Persona")
 
                 # Check if driver can be auto-approved (all required docs verified)
+                was_pending = driver.status == DriverStatus.PENDING.value or driver.status == "pending"
                 if driver.drivers_license and driver.insurance:
                     from models import DriverStatus
-                    if driver.status == DriverStatus.PENDING.value or driver.status == "pending":
+                    if was_pending:
                         driver.status = DriverStatus.APPROVED.value
                         driver.approved_at = datetime.now()
                         print(f"Driver {driver_id} AUTO-APPROVED (all documents verified)")
+
+                        # Send push notification to driver about approval
+                        try:
+                            from order_flow import send_push_notification
+                            send_push_notification(
+                                user_type="driver",
+                                user_id=driver_id,
+                                title="You're Approved! 🎉",
+                                body="Your documents have been verified. You can now go online and start earning!",
+                                data={"type": "driver_approved", "driver_id": driver_id},
+                                db=db
+                            )
+                            print(f"Push notification sent to driver {driver_id} about approval")
+                        except Exception as e:
+                            print(f"Failed to send approval push notification to driver {driver_id}: {e}")
+
+                        # Also send email notification
+                        try:
+                            send_driver_approval_email(
+                                to_email=driver.email,
+                                driver_name=f"{driver.first_name} {driver.last_name}"
+                            )
+                            print(f"Approval email sent to driver {driver_id}")
+                        except Exception as e:
+                            print(f"Failed to send approval email to driver {driver_id}: {e}")
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 driver.verification_status = VerificationStatus.REJECTED.value
                 driver.drivers_license = False  # Mark as not verified
                 print(f"Driver {driver_id} documents REJECTED via Persona")
+
+                # Send push notification about rejection
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="driver",
+                        user_id=driver_id,
+                        title="Document Verification Failed",
+                        body="Your documents could not be verified. Please upload clear photos and try again.",
+                        data={"type": "driver_rejected", "driver_id": driver_id},
+                        db=db
+                    )
+                except Exception as e:
+                    print(f"Failed to send rejection push notification to driver {driver_id}: {e}")
 
             elif event_type == "inquiry.needs_review":
                 driver.verification_status = VerificationStatus.NEEDS_REVIEW.value
@@ -16847,11 +16943,23 @@ def accept_delivery(
 
     db.commit()
 
+    # Prepare full driver details for notifications and response
+    driver_name = f"{driver.first_name} {driver.last_name}"
+    driver_details = {
+        "driver_id": driver.id,
+        "driver_name": driver_name,
+        "driver_phone": driver.phone,
+        "driver_photo_url": driver.photo_url,
+        "driver_rating": driver.average_rating if hasattr(driver, 'average_rating') else None,
+        "driver_vehicle": f"{driver.vehicle_make or ''} {driver.vehicle_model or ''} {driver.vehicle_year or ''}".strip() if hasattr(driver, 'vehicle_make') else None,
+        "driver_vehicle_color": driver.vehicle_color if hasattr(driver, 'vehicle_color') else None,
+        "driver_license_plate": driver.license_plate if hasattr(driver, 'license_plate') else None
+    }
+
     # Send driver assigned email to customer
+    customer_email = order.customer_email
+    customer_name = order.customer_name or "Customer"
     try:
-        customer_email = order.customer_email
-        customer_name = order.customer_name or "Customer"
-        driver_name = f"{driver.first_name} {driver.last_name}"
         if customer_email:
             send_driver_assigned_email(
                 to_email=customer_email,
@@ -16863,11 +16971,54 @@ def accept_delivery(
     except Exception as e:
         print(f"Failed to send driver assigned email: {e}")
 
+    # Send push notification to customer
+    try:
+        from order_flow import send_push_notification
+        if order.customer_id:
+            send_push_notification(
+                user_type="customer",
+                user_id=order.customer_id,
+                title="Driver Assigned! 🚗",
+                body=f"{driver_name} is on the way to pick up your order",
+                data={
+                    "type": "driver_assigned",
+                    "order_id": order.id,
+                    "order_number": order.order_number,
+                    **driver_details
+                },
+                db=db
+            )
+            print(f"Push notification sent to customer {order.customer_id}")
+    except Exception as e:
+        print(f"Failed to send push notification to customer: {e}")
+
+    # Send push notification to restaurant/vendor
+    try:
+        from order_flow import send_push_notification
+        if order.vendor_id:
+            send_push_notification(
+                user_type="vendor",
+                user_id=order.vendor_id,
+                title="Driver Assigned",
+                body=f"{driver_name} will pick up order #{order.order_number or order.id}",
+                data={
+                    "type": "driver_assigned",
+                    "order_id": order.id,
+                    "order_number": order.order_number,
+                    **driver_details
+                },
+                db=db
+            )
+            print(f"Push notification sent to vendor {order.vendor_id}")
+    except Exception as e:
+        print(f"Failed to send push notification to vendor: {e}")
+
     return {
         "success": True,
         "message": "Delivery accepted",
         "order_id": order.id,
-        "order_number": order.order_number
+        "order_number": order.order_number,
+        "driver": driver_details
     }
 
 
