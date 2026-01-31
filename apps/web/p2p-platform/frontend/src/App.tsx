@@ -58,6 +58,7 @@ import DealsPage from './app/screens/customer/DealsPage';
 // Vendor Pages
 import VendorLogin from './app/screens/auth/VendorLogin';
 import VendorProfile from './app/screens/vendor/Profile';
+import VendorDocuments from './app/screens/vendor/Documents';
 
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
@@ -189,6 +190,7 @@ function App() {
         <Route path="/vendor/profile" element={<VendorProfile />} />
         <Route path="/vendor/settings" element={<VendorProfile />} />
         <Route path="/vendor/dashboard" element={<VendorProfile />} />
+        <Route path="/vendor/documents" element={<VendorDocuments />} />
 
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
         <Route path="/driver/login" element={<DriverLogin />} />
