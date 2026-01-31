@@ -40,12 +40,50 @@ class EarningsViewModel: ObservableObject {
     @Published var totalReviews: Int = 0
     @Published var onTimePercentage: Int = 0
 
+    // Driver approval status
+    @Published var isApproved: Bool = false
+    @Published var requiresDocuments: Bool = true
+    @Published var driverStatus: String = "pending"
+    @Published var cannotGoOnlineReason: String?
+
     private var db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
     private var locationManager = CLLocationManager()
     private var tipListener: ListenerRegistration?
+    private var approvalObserver: NSObjectProtocol?
 
     private let apiService = P2PAPIService.shared
+
+    init() {
+        // Listen for approval status changes from push notifications
+        approvalObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("DriverApprovalStatusChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            if let userInfo = notification.userInfo,
+               let approved = userInfo["approved"] as? Bool {
+                self.isApproved = approved
+                if approved {
+                    self.driverStatus = "approved"
+                    self.requiresDocuments = false
+                    self.cannotGoOnlineReason = nil
+                    self.errorMessage = nil
+                } else if userInfo["rejected"] as? Bool == true {
+                    self.driverStatus = "rejected"
+                    self.requiresDocuments = true
+                    self.cannotGoOnlineReason = "Your documents were rejected. Please upload new documents."
+                }
+                #if DEBUG
+                print("[EarningsVM] Approval status changed via notification: \(approved)")
+                #endif
+            }
+        }
+
+        // Initial status check
+        refreshDriverStatus()
+    }
 
     // Helper to get current driver ID (P2P or Firebase)
     private var currentDriverId: String? {
@@ -398,12 +436,51 @@ class EarningsViewModel: ObservableObject {
     }
     #endif
     
+    // MARK: - Driver Status
+    func refreshDriverStatus() {
+        // Get approval status from P2P service
+        isApproved = apiService.isDriverApproved
+        requiresDocuments = apiService.driverRequiresDocuments
+        driverStatus = apiService.currentDriverStatus
+
+        // Determine if driver can go online
+        if !isApproved {
+            if requiresDocuments {
+                cannotGoOnlineReason = "Please upload your documents to get approved"
+            } else {
+                cannotGoOnlineReason = "Your documents are pending verification"
+            }
+        } else {
+            cannotGoOnlineReason = nil
+        }
+
+        #if DEBUG
+        print("[EarningsVM] Driver status: \(driverStatus), approved: \(isApproved), requiresDocs: \(requiresDocuments)")
+        #endif
+    }
+
     // MARK: - Session Tracking
     func startSession() {
         guard let uid = currentDriverId else { return }
-        
+
+        // Refresh and check driver approval status
+        refreshDriverStatus()
+
+        // Block unapproved drivers from going online
+        if !isApproved {
+            errorMessage = cannotGoOnlineReason ?? "You must be approved before going online"
+            #if DEBUG
+            print("[EarningsVM] Cannot go online - driver not approved")
+            #endif
+            return
+        }
+
+        // Clear any previous error
+        errorMessage = nil
+        cannotGoOnlineReason = nil
+
         locationManager.requestWhenInUseAuthorization()
-        
+
         let currentLocation = locationManager.location?.coordinate
         let session = DriverSession(
             id: UUID().uuidString,
@@ -423,15 +500,15 @@ class EarningsViewModel: ObservableObject {
             deviceInfo: "\(UIDevice.current.model) - \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         )
-        
+
         guard let sessionId = session.id else { return }
-        
+
         do {
             try db.collection("driver_sessions").document(sessionId).setData(from: session)
             currentSessionId = sessionId
             sessionStartTime = Date()
             isOnline = true
-            
+
             // Update driver status
             db.collection("drivers").document(uid).updateData([
                 "currentSessionId": sessionId,

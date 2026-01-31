@@ -159,6 +159,12 @@ public enum NotificationType: String {
     case orderCancelled = "order_cancelled"
     case promotion = "promotion"
     case system = "system"
+    // Driver verification notifications
+    case driverApproved = "driver_approved"
+    case driverRejected = "driver_rejected"
+    // Vendor verification notifications
+    case vendorVerified = "vendor_verified"
+    case vendorRejected = "vendor_rejected"
 
     public var soundName: String {
         switch self {
@@ -166,6 +172,8 @@ public enum NotificationType: String {
             return "new_order.wav"
         case .orderReady:
             return "order_ready.wav"
+        case .driverApproved, .vendorVerified:
+            return "success.wav"
         default:
             return "default"
         }

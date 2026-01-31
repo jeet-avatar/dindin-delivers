@@ -90,6 +90,31 @@ struct HomeTabView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Pending Approval Banner
+                    if !earningsVM.isApproved {
+                        PendingApprovalBanner(
+                            status: earningsVM.driverStatus,
+                            requiresDocuments: earningsVM.requiresDocuments
+                        )
+                        .padding(.horizontal)
+                    }
+
+                    // Error Message (if any)
+                    if let errorMessage = earningsVM.errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(errorMessage)
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    }
+
                     // Go Online/Offline Button
                     Button {
                         if earningsVM.isOnline {
@@ -106,11 +131,12 @@ struct HomeTabView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(earningsVM.isOnline ? Color.red : Color.green)
+                        .background(earningsVM.isApproved ? (earningsVM.isOnline ? Color.red : Color.green) : Color.gray)
                         .cornerRadius(12)
                     }
+                    .disabled(!earningsVM.isApproved && !earningsVM.isOnline)
                     .padding(.horizontal)
-                    
+
                     // Driver Stats Card
                     DriverStatsCard()
                         .padding(.horizontal)
@@ -175,10 +201,73 @@ struct HomeTabView: View {
                 }
             }
             .onAppear {
+                earningsVM.refreshDriverStatus()
                 earningsVM.fetchEarnings()
                 earningsVM.fetchOnlineStatus()
             }
         }
+    }
+}
+
+// MARK: - Pending Approval Banner
+struct PendingApprovalBanner: View {
+    let status: String
+    let requiresDocuments: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: requiresDocuments ? "doc.badge.plus" : "clock.badge.checkmark")
+                    .font(.title2)
+                    .foregroundColor(requiresDocuments ? .orange : .blue)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(requiresDocuments ? "Documents Required" : "Verification Pending")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    Text(requiresDocuments
+                         ? "Upload your driver's license and insurance to get approved"
+                         : "Your documents are being reviewed. You'll be notified when approved.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            if requiresDocuments {
+                NavigationLink(destination: DriverProfileView()) {
+                    HStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                        Text("Upload Documents")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Theme.brandGreen)
+                    .cornerRadius(8)
+                }
+            } else {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Reviewing your documents...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(requiresDocuments ? Color.orange.opacity(0.1) : Color.blue.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(requiresDocuments ? Color.orange.opacity(0.3) : Color.blue.opacity(0.3), lineWidth: 1)
+        )
     }
 }
 
