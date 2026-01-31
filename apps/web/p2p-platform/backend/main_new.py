@@ -3779,8 +3779,10 @@ async def upload_driver_document_by_id(
     expiry_date: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Upload driver document (iOS app compatible endpoint) - supports S3 and local storage"""
+    """Upload driver document with Persona verification integration"""
     from s3_service import get_s3_service
+    from document_verification_service import get_verification_service, DocumentType
+    import os
 
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
@@ -3811,18 +3813,52 @@ async def upload_driver_document_by_id(
     if not success:
         raise HTTPException(status_code=500, detail=message)
 
-    # Update driver record
+    # Update driver record with document URL (but NOT verified yet)
+    persona_inquiry_url = None
+
     if document_type in ['drivers_license', 'license_front', 'license_back']:
-        driver.drivers_license = True
+        # Store URL but keep drivers_license = False until Persona verifies
         driver.drivers_license_url = url_path
+        driver.drivers_license = False  # Will be set True by Persona webhook
         if expiry_date:
             try:
                 driver.drivers_license_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
             except ValueError as e:
                 logger.warning(f"Invalid drivers license expiry date format: {expiry_date} - {e}")
+
+        # Create Persona verification inquiry for driver's license
+        persona_api_key = os.getenv("PERSONA_API_KEY")
+        if persona_api_key:
+            try:
+                verifier = get_verification_service("persona")
+                result = await verifier.create_persona_inquiry(
+                    reference_id=str(driver.id),
+                    entity_type="driver",
+                    email=driver.email,
+                    document_types=[DocumentType.DRIVERS_LICENSE]
+                )
+
+                if result.get("success"):
+                    driver.persona_inquiry_id = result.get("inquiry_id")
+                    driver.verification_status = "pending"
+                    driver.verification_provider = "persona"
+                    persona_inquiry_url = result.get("inquiry_url")
+                    logger.info(f"Persona inquiry created for driver {driver.id}: {result.get('inquiry_id')}")
+                else:
+                    logger.warning(f"Persona inquiry creation failed for driver {driver.id}: {result.get('error')}")
+                    # Fall back to manual review if Persona fails
+                    driver.verification_status = "pending_manual_review"
+            except Exception as e:
+                logger.error(f"Persona integration error for driver {driver.id}: {str(e)}")
+                driver.verification_status = "pending_manual_review"
+        else:
+            # No Persona API key - use manual review
+            logger.info(f"PERSONA_API_KEY not configured - driver {driver.id} document requires manual review")
+            driver.verification_status = "pending_manual_review"
+
     elif document_type in ['insurance', 'insurance_card']:
-        driver.insurance = True
         driver.insurance_url = url_path
+        driver.insurance = False  # Will be set True after admin review
         if expiry_date:
             try:
                 driver.insurance_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
@@ -3833,14 +3869,21 @@ async def upload_driver_document_by_id(
 
     db.commit()
 
-    return {
+    response = {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_url": url_path,
         "file_path": url_path,
         "document_type": document_type,
-        "verification_status": "pending"
+        "verification_status": driver.verification_status or "pending"
     }
+
+    # Include Persona inquiry URL if created
+    if persona_inquiry_url:
+        response["persona_inquiry_url"] = persona_inquiry_url
+        response["message"] = f"{document_type} uploaded. Please complete identity verification."
+
+    return response
 
 
 @app.post("/api/auth/driver/documents")
@@ -10714,15 +10757,26 @@ async def persona_webhook(
                 driver.verification_status = VerificationStatus.VERIFIED.value
                 driver.documents_verified = True
                 driver.documents_verified_at = datetime.now()
-                print(f"Driver {driver_id} documents VERIFIED")
+                # Mark driver's license as verified
+                driver.drivers_license = True
+                print(f"Driver {driver_id} documents VERIFIED via Persona")
+
+                # Check if driver can be auto-approved (all required docs verified)
+                if driver.drivers_license and driver.insurance:
+                    from models import DriverStatus
+                    if driver.status == DriverStatus.PENDING.value or driver.status == "pending":
+                        driver.status = DriverStatus.APPROVED.value
+                        driver.approved_at = datetime.now()
+                        print(f"Driver {driver_id} AUTO-APPROVED (all documents verified)")
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 driver.verification_status = VerificationStatus.REJECTED.value
-                print(f"Driver {driver_id} documents REJECTED")
+                driver.drivers_license = False  # Mark as not verified
+                print(f"Driver {driver_id} documents REJECTED via Persona")
 
             elif event_type == "inquiry.needs_review":
                 driver.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"Driver {driver_id} documents NEEDS REVIEW")
+                print(f"Driver {driver_id} documents NEEDS MANUAL REVIEW")
 
             driver.updated_at = datetime.now()
             db.commit()
