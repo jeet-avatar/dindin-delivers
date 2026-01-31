@@ -392,12 +392,14 @@ class MultiRestaurantCartViewModel: ObservableObject {
         // This ensures each restaurant receives their specific order
         let p2pService = P2PAPIService.shared
 
-        // Build delivery address for P2P
-        let addressDict: [String: String] = [
+        // Build delivery address for P2P (including coordinates for driver navigation)
+        let addressDict: [String: Any] = [
             "street": deliveryAddress.street,
             "city": deliveryAddress.city,
             "state": deliveryAddress.state,
-            "zip": deliveryAddress.zipCode
+            "zip": deliveryAddress.zipCode,
+            "latitude": deliveryAddress.latitude,
+            "longitude": deliveryAddress.longitude
         ]
 
         // Calculate total subtotal for tip splitting
