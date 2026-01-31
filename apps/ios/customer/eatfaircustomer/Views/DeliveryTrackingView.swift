@@ -624,6 +624,25 @@ struct DriverInfoRow: View {
 
             Spacer()
 
+            // Vehicle Photo (if available)
+            if let vehiclePhotoUrl = driver.vehiclePhotoUrl, let url = URL(string: vehiclePhotoUrl) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 45)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 60, height: 45)
+                        .overlay(
+                            Image(systemName: "car.fill")
+                                .foregroundColor(.gray)
+                        )
+                }
+            }
+
             // Call button
             if let phone = driver.phone, !phone.isEmpty {
                 Button(action: {

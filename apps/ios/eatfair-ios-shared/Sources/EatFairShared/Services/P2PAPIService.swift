@@ -6315,6 +6315,11 @@ public struct RideTrackingInfo: Codable {
     public let driverLatitude: Double?
     public let driverLongitude: Double?
     public let estimatedArrival: String?
+    // Vehicle info for customer display
+    public let driverVehicle: String?
+    public let driverVehicleColor: String?
+    public let driverLicensePlate: String?
+    public let driverVehiclePhotoUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -6326,6 +6331,10 @@ public struct RideTrackingInfo: Codable {
         case driverLatitude = "driver_latitude"
         case driverLongitude = "driver_longitude"
         case estimatedArrival = "estimated_arrival"
+        case driverVehicle = "driver_vehicle"
+        case driverVehicleColor = "driver_vehicle_color"
+        case driverLicensePlate = "driver_license_plate"
+        case driverVehiclePhotoUrl = "driver_vehicle_photo_url"
     }
 }
 
@@ -10301,6 +10310,8 @@ public struct P2PTrackingDriver: Codable {
     public let rating: Double?
     public let photoUrl: String?
     public let vehicle: String?
+    public let vehicleColor: String?
+    public let vehiclePhotoUrl: String?
     public let licensePlate: String?
     public let location: P2PLocation?
 
@@ -10308,6 +10319,8 @@ public struct P2PTrackingDriver: Codable {
         case id, name, phone, rating
         case photoUrl = "photo_url"
         case vehicle
+        case vehicleColor = "vehicle_color"
+        case vehiclePhotoUrl = "vehicle_photo_url"
         case licensePlate = "license_plate"
         case location
     }
