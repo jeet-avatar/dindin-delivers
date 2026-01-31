@@ -95,6 +95,8 @@ struct OrdersDashboardView: View {
                                 onAccept: { ordersVM.acceptOrder(order) },
                                 onReject: { ordersVM.rejectOrder(order) },
                                 onMarkReady: { ordersVM.markOrderReady(order) },
+                                onSelfDeliver: { ordersVM.acceptDelivery(order) },
+                                onSendToDriver: { ordersVM.declineDelivery(order) },
                                 onTap: { showOrderDetail = order }
                             )
                         }
@@ -361,6 +363,8 @@ struct EnhancedOrderCard: View {
     var onAccept: () -> Void
     var onReject: () -> Void
     var onMarkReady: () -> Void
+    var onSelfDeliver: (() -> Void)? = nil
+    var onSendToDriver: (() -> Void)? = nil
     var onTap: () -> Void
 
     @State private var isExpanded = false
@@ -534,6 +538,69 @@ struct EnhancedOrderCard: View {
                 }
                 .buttonStyle(.borderless)
                 .padding()
+            } else if order.status.lowercased() == "ready" ||
+                      order.status.lowercased() == "ready_for_pickup" ||
+                      order.status.lowercased() == "pending_delivery_decision" {
+                // Delivery Decision Flow - 3 minute window
+                Divider()
+
+                VStack(spacing: 8) {
+                    // Timer indicator
+                    HStack {
+                        Image(systemName: "timer")
+                            .foregroundColor(.orange)
+                        Text("Delivery decision window (3 min)")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            #if DEBUG
+                            print("🚗 Send to Driver tapped for order \(order.orderId)")
+                            #endif
+                            onSendToDriver?()
+                        } label: {
+                            HStack {
+                                Image(systemName: "car.fill")
+                                Text("Send to Driver")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(RestaurantTheme.brandBlue)
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(.borderless)
+
+                        Button {
+                            #if DEBUG
+                            print("🏃 I'll Deliver tapped for order \(order.orderId)")
+                            #endif
+                            onSelfDeliver?()
+                        } label: {
+                            HStack {
+                                Image(systemName: "figure.walk")
+                                Text("I'll Deliver")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(RestaurantTheme.brandGreen)
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
             }
         }
         .background(RestaurantTheme.backgroundPrimary)
