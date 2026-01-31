@@ -197,13 +197,7 @@ public struct VehicleInfo: Codable {
     public var year: Int
     public var color: String
     public var licensePlate: String
-    public var state: String // License plate state
     public var vehicleType: String // Sedan, SUV, Truck, Motorcycle, Bicycle, Scooter
-
-    // Vehicle Photos
-    public var frontImageUrl: String?
-    public var sideImageUrl: String?
-    public var backImageUrl: String?
 
     // Registration
     public var registrationNumber: String?
@@ -218,11 +212,7 @@ public struct VehicleInfo: Codable {
         year: Int = Calendar.current.component(.year, from: Date()),
         color: String = "",
         licensePlate: String = "",
-        state: String = "",
         vehicleType: String = "Sedan",
-        frontImageUrl: String? = nil,
-        sideImageUrl: String? = nil,
-        backImageUrl: String? = nil,
         registrationNumber: String? = nil,
         registrationExpirationDate: Int64? = nil,
         registrationImageUrl: String? = nil,
@@ -233,11 +223,7 @@ public struct VehicleInfo: Codable {
         self.year = year
         self.color = color
         self.licensePlate = licensePlate
-        self.state = state
         self.vehicleType = vehicleType
-        self.frontImageUrl = frontImageUrl
-        self.sideImageUrl = sideImageUrl
-        self.backImageUrl = backImageUrl
         self.registrationNumber = registrationNumber
         self.registrationExpirationDate = registrationExpirationDate
         self.registrationImageUrl = registrationImageUrl
