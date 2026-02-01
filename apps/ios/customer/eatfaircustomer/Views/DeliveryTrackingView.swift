@@ -477,26 +477,50 @@ struct DeliveryStatusTimeline: View {
         let status = order.status.lowercased()
         let events = timelineEventMap
 
+        // Determine current phase
+        let isConfirming = status == "confirming" || status == "pending_restaurant"
+        let isPlaced = status == "placed" || status == "pending"
+        let isPreparing = ["preparing", "accepted", "confirmed"].contains(status)
+        let isReady = status == "ready" || status == "pending_delivery_decision" || status == "ready_for_pickup"
+        let isOnTheWay = ["out for delivery", "ontheway", "restaurant_will_deliver"].contains(status)
+        let isDelivered = status == "delivered"
+
+        // Stage completion logic - each stage is complete when we've moved past it
+        let stage1Complete = !isPlaced && !isConfirming  // Past Placed/Confirming
+        let stage2Complete = isReady || isOnTheWay || isDelivered  // Past Preparing
+        let stage3Complete = isOnTheWay || isDelivered  // Past Ready
+        let stage4Complete = isDelivered  // Past On the Way
+
         return [
-            ("Placed", "checkmark.circle.fill",
-             status == "placed" || status == "pending",
-             true,
-             events["placed"] ?? events["pending"]),
+            // Stage 1: Placed/Confirming - shows "Confirming" with clock during restaurant acceptance
+            (isConfirming ? "Confirming" : "Placed",
+             isConfirming ? "clock.fill" : "checkmark.circle.fill",
+             isPlaced || isConfirming,
+             stage1Complete,
+             events["placed"] ?? events["confirming"] ?? events["pending"]),
+
+            // Stage 2: Preparing - restaurant is cooking
             ("Preparing", "flame.fill",
-             status == "preparing" || status == "confirmed",
-             ["preparing", "ready", "out for delivery", "ontheway", "delivered"].contains(status),
-             events["preparing"] ?? events["confirmed"]),
+             isPreparing,
+             stage2Complete,
+             events["preparing"] ?? events["confirmed"] ?? events["accepted"]),
+
+            // Stage 3: Ready - food ready, waiting for pickup (hides delivery decision complexity)
             ("Ready", "bag.fill",
-             status == "ready",
-             ["ready", "out for delivery", "ontheway", "delivered"].contains(status),
-             events["ready"]),
-            ("On the way", "car.fill",
-             status == "out for delivery" || status == "ontheway",
-             ["out for delivery", "ontheway", "delivered"].contains(status),
-             events["out for delivery"] ?? events["ontheway"] ?? events["picked_up"]),
+             isReady,
+             stage3Complete,
+             events["ready"] ?? events["pending_delivery_decision"] ?? events["ready_for_pickup"]),
+
+            // Stage 4: On the Way - driver or restaurant delivering
+            ("On the Way", "car.fill",
+             isOnTheWay,
+             stage4Complete,
+             events["picked_up"] ?? events["out for delivery"] ?? events["ontheway"] ?? events["restaurant_will_deliver"]),
+
+            // Stage 5: Delivered - complete
             ("Delivered", "house.fill",
-             status == "delivered",
-             status == "delivered",
+             isDelivered,
+             isDelivered,
              events["delivered"])
         ]
     }
