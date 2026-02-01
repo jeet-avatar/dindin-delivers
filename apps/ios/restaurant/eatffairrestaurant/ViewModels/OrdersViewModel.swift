@@ -354,6 +354,27 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
+    /// Restaurant marks self-delivery order as delivered
+    func markOrderDelivered(_ order: Order) {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantCompleteDelivery(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
     func markOrderReady(_ order: Order) {
         // API expects uppercase status: READY_FOR_PICKUP
         updateOrderStatus(order, newStatus: "READY_FOR_PICKUP")

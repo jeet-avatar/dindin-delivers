@@ -66,6 +66,7 @@ struct OrdersDashboardView: View {
         case new = "New"
         case preparing = "Preparing"
         case ready = "Ready"
+        case delivering = "Delivering"
     }
 
     var body: some View {
@@ -97,6 +98,7 @@ struct OrdersDashboardView: View {
                                 onMarkReady: { ordersVM.markOrderReady(order) },
                                 onSelfDeliver: { ordersVM.acceptDelivery(order) },
                                 onSendToDriver: { ordersVM.declineDelivery(order) },
+                                onMarkDelivered: { ordersVM.markOrderDelivered(order) },
                                 onTap: { showOrderDetail = order }
                             )
                         }
@@ -141,13 +143,15 @@ struct OrdersDashboardView: View {
     private var filteredOrders: [Order] {
         switch selectedFilter {
         case .all:
-            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders
+            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders + ordersVM.selfDeliveryOrders
         case .new:
             return ordersVM.newOrders
         case .preparing:
             return ordersVM.preparingOrders
         case .ready:
             return ordersVM.readyOrders
+        case .delivering:
+            return ordersVM.selfDeliveryOrders
         }
     }
 
@@ -243,10 +247,11 @@ struct OrdersDashboardView: View {
 
     private func countForFilter(_ filter: OrderFilter) -> Int {
         switch filter {
-        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count
+        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count + ordersVM.selfDeliveryOrders.count
         case .new: return ordersVM.newOrders.count
         case .preparing: return ordersVM.preparingOrders.count
         case .ready: return ordersVM.readyOrders.count
+        case .delivering: return ordersVM.selfDeliveryOrders.count
         }
     }
 }
@@ -365,6 +370,7 @@ struct EnhancedOrderCard: View {
     var onMarkReady: () -> Void
     var onSelfDeliver: (() -> Void)? = nil
     var onSendToDriver: (() -> Void)? = nil
+    var onMarkDelivered: (() -> Void)? = nil
     var onTap: () -> Void
 
     @State private var isExpanded = false
@@ -650,6 +656,62 @@ struct EnhancedOrderCard: View {
                 }
                 .buttonStyle(.borderless)
                 .padding()
+            } else if order.status.lowercased() == "restaurant_will_deliver" {
+                // Self-delivery in progress - show Mark Delivered button
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Status indicator
+                    HStack {
+                        Image(systemName: "car.fill")
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Text("You are delivering this order")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Delivery address reminder
+                    if !order.deliveryAddress.fullAddress.isEmpty {
+                        HStack {
+                            Image(systemName: "location.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(order.deliveryAddress.fullAddress)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Mark Delivered button
+                    Button {
+                        #if DEBUG
+                        print("✅ Mark Delivered button tapped for order \(order.orderId)")
+                        #endif
+                        onMarkDelivered?()
+                    } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Mark as Delivered")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RestaurantTheme.brandGreen)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
             }
         }
         .background(RestaurantTheme.backgroundPrimary)
