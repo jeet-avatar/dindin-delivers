@@ -1404,6 +1404,7 @@ async def restaurant_accept(
 
     # Trigger KOT (Kitchen Order Ticket) print to POS system
     kot_result = {"success": True, "pos_type": "none", "message": "No KOT integration"}
+    vendor = None
     try:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
         if vendor and getattr(vendor, 'kot_enabled', False) and getattr(vendor, 'kot_auto_print', True):
@@ -1414,12 +1415,36 @@ async def restaurant_accept(
         logger.error(f"KOT integration error for order {order.order_number}: {e}")
         kot_result = {"success": False, "pos_type": "unknown", "error": str(e)}
 
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Order Confirmed!",
+                body=f"{restaurant_name} is now preparing your order.",
+                data={
+                    "type": "order_accepted",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "preparing"
+                },
+                db=db
+            )
+            logging.info(f"Order accepted notification sent to customer {customer.id}")
+    except Exception as e:
+        logging.error(f"Failed to send order accepted notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "preparing",
         "accepted_at": order.restaurant_accepted_at.isoformat(),
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"],
         "message": "Restaurant accepted order. Now preparing.",
         "kot_print": kot_result
@@ -2158,6 +2183,7 @@ async def order_picked_up(
     """
     Driver picked up order - Called from iOS Driver App
     AI Employee: DispatchBot Gamma
+    Sends push notification to customer: "Your order is on the way!"
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
@@ -2166,14 +2192,41 @@ async def order_picked_up(
         raise HTTPException(status_code=404, detail="Order not found")
 
     order.status = OrderStatus.OUT_FOR_DELIVERY
+    order.picked_up_at = datetime.now()
 
     db.commit()
+
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        # Get customer for push token
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            driver_name = order.driver_name or "Your driver"
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Your order is on the way!",
+                body=f"{driver_name} picked up your order and is heading to you now.",
+                data={
+                    "type": "order_picked_up",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "out_for_delivery",
+                    "driver_name": driver_name
+                },
+                db=db
+            )
+            logging.info(f"Pickup notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send pickup notification: {e}")
 
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Out for Delivery",
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"]
     }
 
@@ -2330,6 +2383,28 @@ async def order_delivered(
 
     db.commit()
 
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Order Delivered!",
+                body=f"Your order from {vendor.restaurant_name if vendor else 'the restaurant'} has arrived. Enjoy your meal!",
+                data={
+                    "type": "order_delivered",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "delivered"
+                },
+                db=db
+            )
+            logging.info(f"Delivery notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send delivery push notification: {e}")
+
     # ==================== SEND THANK YOU EMAIL WITH RECEIPT ====================
     try:
         # Parse order items from JSON
@@ -2381,6 +2456,7 @@ async def order_delivered(
         "order_number": order.order_number,
         "status": "Delivered",
         "delivered_at": order.delivered_at.isoformat(),
+        "notification_sent": notification_sent,
         "email_sent": bool(order.customer_email),
         "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
         "accounting": {
