@@ -15,7 +15,7 @@ import uuid
 from dotenv import load_dotenv
 
 from database import get_db
-from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout
+from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer
 from order_flow import get_tax_rate, DEFAULT_TAX_RATE, calculate_delivery_fee, CUSTOMER_SERVICE_FEE
 from email_service import (
     send_order_confirmation_email,
@@ -245,10 +245,18 @@ async def create_order(
     # Generate order number
     order_count = db.query(Order).count()
     order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{order_count + 1:05d}"
-    
+
+    # Look up customer_id from email for order tracking
+    customer_id = None
+    if order_data.customer_email:
+        customer = db.query(Customer).filter(Customer.email == order_data.customer_email).first()
+        if customer:
+            customer_id = customer.id
+
     # Create order
     new_order = Order(
         order_number=order_number,
+        customer_id=customer_id,
         customer_name=order_data.customer_name,
         customer_email=order_data.customer_email,
         customer_phone=order_data.customer_phone,
