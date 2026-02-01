@@ -3338,6 +3338,40 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Restaurant marks self-delivery order as delivered
+    /// POST /api/erp/orders/{orderId}/delivered
+    public func restaurantCompleteDelivery(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/delivered") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to mark order as delivered")))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Authentication APIs
 
     /// Login as a driver
