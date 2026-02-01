@@ -12180,9 +12180,9 @@ def get_customer_orders(
     """
     Get orders for the authenticated customer.
     Used by Android/iOS customer apps.
+    Returns format matching P2PCustomerOrder model in iOS app.
     """
     from models import Order, Vendor
-    import json
 
     # Get orders for this customer
     query = db.query(Order).filter(Order.customer_email == current_user.email)
@@ -12193,29 +12193,33 @@ def get_customer_orders(
     for order in orders:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
 
-        items = []
-        if order.items:
-            try:
-                items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
-                items = []
-
         result.append({
             "id": order.id,
             "order_number": order.order_number,
+            "status": order.status.value if order.status else "pending_payment",
             "vendor_id": order.vendor_id,
             "vendor_name": vendor.restaurant_name if vendor else None,
-            "items": items,
-            "subtotal": order.subtotal,
-            "tax_amount": order.tax_amount,
-            "delivery_fee": order.delivery_fee,
-            "tip": order.tip,
+            "customer_name": order.customer_name or current_user.email.split('@')[0],
+            "customer_phone": order.customer_phone,
             "total_amount": order.total_amount,
-            "status": order.status.value if order.status else "pending_payment",
-            "payment_status": order.payment_status,
+            "subtotal": order.subtotal or 0,
+            "tax_amount": order.tax_amount or 0,
+            "delivery_fee": order.delivery_fee or 0,
+            "tip": order.tip,
+            "items": order.items or "[]",  # Keep as string for iOS parsing
             "delivery_address": order.delivery_address,
+            "delivery_instructions": order.delivery_instructions,
+            "driver_id": order.driver_id,
+            "driver_name": order.driver_name,
+            "driver_location": order.driver_location,
+            "pickup_latitude": vendor.latitude if vendor else None,
+            "pickup_longitude": vendor.longitude if vendor else None,
+            "delivery_latitude": order.delivery_latitude,
+            "delivery_longitude": order.delivery_longitude,
             "created_at": order.created_at.isoformat() if order.created_at else None,
+            "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
+            "preparing_at": order.preparing_at.isoformat() if order.preparing_at else None,
+            "dispatched_at": order.dispatched_at.isoformat() if order.dispatched_at else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
         })
 
