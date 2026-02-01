@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "104405802ED797EA00ED321A"
-               BuildableName = "EatFair Driver.app"
+               BuildableName = "Dollor Driver.app"
                BlueprintName = "eatffairdelivery"
                ReferencedContainer = "container:eatffairdelivery.xcodeproj">
             </BuildableReference>
@@ -69,7 +69,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "104405802ED797EA00ED321A"
-            BuildableName = "EatFair Driver.app"
+            BuildableName = "Dollor Driver.app"
             BlueprintName = "eatffairdelivery"
             ReferencedContainer = "container:eatffairdelivery.xcodeproj">
          </BuildableReference>
@@ -86,7 +86,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "104405802ED797EA00ED321A"
-            BuildableName = "EatFair Driver.app"
+            BuildableName = "Dollor Driver.app"
             BlueprintName = "eatffairdelivery"
             ReferencedContainer = "container:eatffairdelivery.xcodeproj">
          </BuildableReference>
