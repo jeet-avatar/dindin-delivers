@@ -14788,7 +14788,31 @@ async def proxy_create_payment_intent(
     Create payment intent - uses direct Stripe integration.
     Returns clientSecret, ephemeralKey, customer, and publishableKey for iOS/Android apps.
     With customer and ephemeralKey, users can save cards and use Apple Pay.
+
+    For demo accounts (App Store review), returns a demo payment response
+    that bypasses actual Stripe processing.
     """
+    # Check for demo account - bypass Stripe for App Store review
+    DEMO_CUSTOMER_EMAILS = [
+        "demo.customer@dollor.ai",
+        "demo.driver@dollor.ai",
+        "demo.restaurant@dollor.ai"
+    ]
+
+    customer = get_current_customer_from_token(authorization, db) if authorization else None
+    if customer and customer.email and customer.email.lower() in [e.lower() for e in DEMO_CUSTOMER_EMAILS]:
+        logger.info(f"Demo account detected: {customer.email} - bypassing Stripe payment")
+        # Return demo payment response - app will detect 'demo' flag and skip actual payment
+        return {
+            "clientSecret": "demo_pi_appstore_review_secret",
+            "paymentIntent": "demo_pi_appstore_review_secret",
+            "publishableKey": STRIPE_PUBLISHABLE_KEY or "pk_demo_appstore_review",
+            "ephemeralKey": "demo_ek_appstore_review",
+            "customer": "demo_cus_appstore_review",
+            "demo": True,  # Flag for app to detect demo mode
+            "message": "Demo account - payment will be simulated"
+        }
+
     # Try microservice first
     result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/intent", method="POST", json_data=request)
     if result:

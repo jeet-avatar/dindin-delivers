@@ -1,4 +1,4 @@
-# Next Session Prompt - Build 59
+# Next Session Prompt - Build 61
 
 Copy and paste this into your next Claude Code session:
 
@@ -20,167 +20,238 @@ If that doesn't work or you're starting fresh, use:
 
 ## Context for New Session
 
-**Previous Build:** 58 - Rating Storage, Driver ID Fix, Vendor Route, Persona Integration
-**Current Build:** 59
+**Previous Build:** 60 - Ride Tracking Fix, Document Upload Removal
+**Current Build:** 61
 
-### What Was Deployed in Build 58
+### What Was Deployed in Build 60
 
-1. **Rating Storage Complete**
-   - Changed 4 hardcoded `4.5` ratings to use actual `vendor.average_rating`
-   - Fallback to 4.5 if no ratings yet
-   - Commit: `78a595b1`
+1. **Critical Fix: Ride Tracking API Returns Real Driver Details**
+   - `/api/rides/{ride_id}/track` was returning hardcoded "John D." and "Toyota Camry - ABC 123"
+   - Now queries real RideRequest and Driver from database
+   - Returns both iOS flat fields AND Android nested driver object for cross-platform support
+   - File: `main_new.py` (lines ~12353-12473)
+   ```python
+   # Response includes:
+   driver_name, driver_phone, driver_photo_url, driver_rating,
+   driver_vehicle, driver_vehicle_color, driver_license_plate
+   # Plus nested "driver" object for Android
+   ```
 
-2. **Driver ID Fix (Web App)**
-   - Fixed `getCurrentDriverId()` in api.ts
-   - Now reads both `driver_user` object AND direct `driver_id` key
-   - Commit: `f8704c63`
+2. **iOS Customer App - Driver Details Display**
+   - Added `driverPhotoUrl` and `driverRating` to RideTrackingInfo struct
+   - RideRequestView shows driver photo (AsyncImage), rating (star icon), vehicle info
+   - File: `P2PAPIService.swift` (RideTrackingInfo struct)
+   - File: `RideRequestView.swift` (lines ~1458-1526)
 
-3. **Vendor Documents Route**
-   - Added missing `/vendor/documents` route in App.tsx
-   - Commit: `5b9c2cd5`
+3. **Document Upload Removed from iOS Apps (Web Portal Only)**
+   - **Restaurant App:** RestaurantSettingsView replaced NavigationLink with "Go to Admin Portal" button
+   - **Driver App:** VehiclePhotoUploadView removed from DriverProfileView
+   - Approval workflow now happens exclusively via web portal
 
-4. **Persona Integration for Driver Documents**
-   - Upload endpoint now creates Persona inquiry instead of hardcoding `True`
-   - Webhook handler sets `drivers_license = True` only when Persona approves
-   - Auto-approves driver when all docs verified
-   - Commit: `1a13c0ac`
+4. **Document Upload Removed from Android Apps (Web Portal Only)**
+   - **Driver App:** DocumentsScreen.kt updated with web portal info and redirect button
+   - **Restaurant App:** RestaurantDocumentsScreen.kt updated with web portal info
+   - Both apps show document status but upload via web only
 
-### Recent Commits
-```
-1a13c0ac feat(verification): Integrate Persona for driver document verification
-5b9c2cd5 fix(vendor): Add missing /vendor/documents route
-f8704c63 fix(driver): Fix getCurrentDriverId to read driver_id from localStorage
-78a595b1 feat(rating): Store and display actual restaurant ratings
-f8dd0bd9 fix(driver): Allow pending drivers to login and track approval status
-```
+5. **Bug Fix: RateRestaurantView.swift**
+   - Line 242 had error: "initializer for conditional binding must have Optional type"
+   - Fixed: `guard let restaurantId = Int(order.restaurant.id)` (id is String, not Optional)
 
----
+### Git Status (All Pushed)
 
-## Build 59 Priority Options
+iOS Repo (eatfair-ios):
+- Branch: main (up to date with origin/main)
+- Key commits: `4e77c7f7`, `d8ac47d1`, `e490773b`, `db113140`
 
-### Option A: Verify Persona Integration (Recommended)
-```
-/gsd:quick
+Android Repo (eatfair-android):
+- Branch: main
+- Key commit: `7974661b`
 
-Task: Test Persona driver verification end-to-end
-1. Check PERSONA_API_KEY is set in production environment
-2. Upload a driver's license through web app
-3. Verify Persona inquiry is created
-4. Check webhook is received and processed
-5. Confirm driver status updates correctly
-```
-
-### Option B: Vendor Persona Integration
-```
-/gsd:plan-phase
-
-Phase: Integrate Persona for vendor document verification
-Goal: Verify vendor documents (health permit, business license) via Persona
-
-Requirements:
-1. Update vendor document upload endpoint to create Persona inquiry
-2. Handle vendor-specific document types in webhook
-3. Set documents_verified when all required docs approved
-4. Auto-approve vendor when verification complete
-```
-
-### Option C: Driver Status UI (iOS)
-```
-/gsd:plan-phase
-
-Phase: Driver approval status UI
-Goal: Show PENDING drivers what's needed and block order acceptance
-
-Requirements:
-1. Display driver status on profile screen
-2. Show checklist of required documents for PENDING drivers
-3. Disable "Go Online" button for non-approved drivers
-4. Add status banner at top of driver home screen
-```
-
-### Option D: Driver Ratings Storage
-```
-/gsd:plan-phase
-
-Phase: Implement driver rating storage
-Goal: Persist driver ratings like restaurant ratings
-
-Requirements:
-1. Create driver_ratings table (mirrors restaurant_ratings structure)
-2. Update rate-driver endpoint to persist ratings
-3. Add average_rating/total_ratings to Driver model
-4. Display driver ratings in customer app order history
-```
-
-### Option E: TestFlight Build
-```
-/gsd:quick
-
-Task: Prepare Customer App Build 59 for TestFlight
-- Bump version to 1.0.59
-- Run build validation
-- Archive and upload to App Store Connect
-```
+Backend: Auto-deployed to production via GitHub Actions
 
 ---
 
-## Document Verification Status
+## Build 60 TestFlight Status
 
-| Entity | Upload Endpoint | Persona Integration | Webhook Handler | Status |
-|--------|-----------------|---------------------|-----------------|--------|
-| Driver | `/api/drivers/{id}/upload-document` | Yes (Build 58) | Yes | Complete |
-| Vendor | `/api/vendor/upload-document` | No | No | Needs work |
+**Uploaded via Xcode Organizer** (fastlane MATCH_PASSWORD issue bypassed):
 
-### Persona Environment Variable
+| App | Build | Status |
+|-----|-------|--------|
+| Customer | 1008 | Uploading to TestFlight |
+| Restaurant | 69 | Ready to upload |
+| Driver | 60 | Ready to upload (bumped from 5) |
+
+All using Team **PRKZ4UVCD7** with automatic signing.
+
+### Play Store Build (Android)
 ```bash
-# Check if set in production
-PERSONA_API_KEY=persona_sandbox_xxx  # or persona_production_xxx
+cd /Users/jeet/StudioProjects/eatfair-android
+
+# Build production AAB for Play Store
+./gradlew :app:bundleProductionRelease        # Customer AAB
+./gradlew :orderapp:assembleProductionRelease # Driver APK
+./gradlew :partner:assembleProductionRelease  # Restaurant APK
 ```
+
+---
+
+## Build 61 Priority: Driver Document Email Upload (Web Portal)
+
+**Feature Request:** Allow drivers to upload documents via mobile when they don't have files on computer.
+
+### Flow:
+1. Driver logs into web portal on computer
+2. Click "Send upload link to my email/phone"
+3. Backend generates secure temporary upload link
+4. Email/SMS sent with link to driver's registered email/phone
+5. Driver opens link on mobile → Camera + Gallery upload options
+6. Takes photo or uploads from gallery
+7. Document syncs back to web portal
+8. Driver continues onboarding on web
+
+### Requirements:
+- **Backend:**
+  - `POST /api/drivers/{id}/send-document-link` - Generate secure temp link, send email/SMS
+  - `POST /api/drivers/upload-mobile/{token}` - Mobile upload endpoint with token validation
+  - Document type validation (only accept valid document types)
+- **Mobile Web Page:**
+  - Camera access via HTML5 `<input type="file" capture="camera">`
+  - File upload from gallery
+  - Show upload progress
+  - Sync status confirmation
+- **Web Portal:**
+  - "Send to my phone" button
+  - Real-time sync status
+  - Refresh when document uploaded
+
+---
+
+## Other Build 61 Tasks
+
+### Option A: Complete TestFlight Upload
+```
+/gsd:quick
+
+Task: Upload iOS apps to TestFlight
+1. Fix MATCH_PASSWORD or use Xcode Organizer
+2. Export and upload Customer app
+3. Export and upload Driver app
+4. Export and upload Restaurant app
+5. Verify all 3 apps available in TestFlight
+```
+
+### Option B: Play Store Build & Upload
+```
+/gsd:quick
+
+Task: Build and upload Android apps to Play Store
+1. Build production AABs for all 3 apps
+2. Upload to Play Console
+3. Submit for review
+```
+
+### Option C: End-to-End Rideshare Test
+```
+/gsd:quick
+
+Task: Test complete rideshare flow with real driver details
+1. Customer requests ride
+2. Driver accepts ride
+3. Verify customer sees real driver: name, photo, rating, vehicle, plate
+4. Test call button functionality
+5. Complete ride and verify rating flow
+```
+
+### Option D: Food Delivery Driver Details
+```
+/gsd:plan-phase
+
+Phase: Verify food delivery shows driver details to customer
+Goal: When driver accepts food order, customer sees driver info
+
+Check:
+1. Does customer app show driver photo, name, vehicle when order accepted?
+2. Does restaurant app show driver info?
+3. Is the push notification payload correct?
+```
+
+---
+
+## Key Files Modified in Build 60
+
+| File | Changes |
+|------|---------|
+| `main_new.py` (~12353-12473) | Fixed `/api/rides/{ride_id}/track` to return real driver data |
+| `P2PAPIService.swift` (RideTrackingInfo) | Added `driverPhotoUrl`, `driverRating` |
+| `RideRequestView.swift` (~1458-1526) | AsyncImage for driver photo, star rating display |
+| `RestaurantSettingsView.swift` (~270-291) | Replaced document upload with web portal link |
+| `DriverProfileView.swift` (~557) | Removed VehiclePhotoUploadView |
+| `RateRestaurantView.swift` (line 242) | Fixed optional binding error |
+| `DocumentsScreen.kt` (Android driver) | Added web portal redirect, disabled upload |
+| `RestaurantDocumentsScreen.kt` (Android partner) | Added web portal redirect, disabled upload |
+
+---
+
+## API Response Format (Ride Tracking)
+
+The `/api/rides/{ride_id}/track` endpoint now returns:
+
+```json
+{
+  "ride_id": 123,
+  "status": "driver_assigned",
+  "driver_name": "John Smith",
+  "driver_phone": "+1234567890",
+  "driver_photo_url": "https://...",
+  "driver_rating": 4.8,
+  "driver_vehicle": "Toyota Camry",
+  "driver_vehicle_color": "Silver",
+  "driver_license_plate": "ABC123",
+  "pickup_location": {...},
+  "dropoff_location": {...},
+  "driver": {
+    "id": 1,
+    "name": "John Smith",
+    "phone": "+1234567890",
+    "photo_url": "https://...",
+    "rating": 4.8,
+    "vehicle": "Toyota Camry",
+    "vehicle_color": "Silver",
+    "license_plate": "ABC123"
+  }
+}
+```
+
+Note: Both flat fields (iOS) and nested `driver` object (Android) are included for cross-platform compatibility.
 
 ---
 
 ## Deployment Notes
 
-**IMPORTANT:** No staging environment exists. All deployments go to production.
+**Production API:** https://api.dollor.ai
+**Branch:** main
+
+All code changes pushed to main trigger auto-deployment via GitHub Actions.
 
 ```bash
-# Local testing
-cd apps/web/p2p-platform/backend
-source venv/bin/activate
-uvicorn main_new:app --reload --port 8080
+# Verify deployment
+curl https://api.dollor.ai/api/health
 
-# Production deployment
-git push origin main  # Triggers deploy-dollar-ai.yml
-```
-
----
-
-## Key Files Reference
-
-```
-# Persona Integration (Build 58)
-apps/web/p2p-platform/backend/main_new.py (lines 3773-3843, 10751-10780)
-apps/web/p2p-platform/backend/document_verification_service.py
-
-# Driver ID Fix (Build 58)
-apps/web/p2p-platform/frontend/src/app/api/api.ts (getCurrentDriverId function)
-
-# Vendor Documents Route (Build 58)
-apps/web/p2p-platform/frontend/src/App.tsx
-
-# Models
-apps/web/p2p-platform/backend/models.py
+# Check ride tracking (example)
+curl https://api.dollor.ai/api/rides/123/track
 ```
 
 ---
 
 ## Environment
 
-- **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net (NOT DEPLOYED - no staging)
 - **Production API:** https://api.dollor.ai
+- **Admin Portal:** https://admin.dollor.ai
 - **Branch:** main
+- **iOS Archive:** Ready for export/upload
+- **Android:** Needs production build
 
 ---
 
 *Generated: January 31, 2026*
-*Build 58 Complete → Ready for Build 59*
+*Build 60 Complete → Ready for Build 61*
