@@ -299,7 +299,8 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
-    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus
+    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
+    Customer
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -1173,11 +1174,19 @@ async def create_order(
     order_count = db.query(Order).count()
     order_number = f"EF{datetime.now().strftime('%m%d')}{order_count + 1:05d}"
 
+    # Look up customer_id from email for order tracking
+    customer_id = None
+    if order_data.customer_email:
+        customer = db.query(Customer).filter(Customer.email == order_data.customer_email).first()
+        if customer:
+            customer_id = customer.id
+
     # Create order
     # platform_fee stores customer service fee (charged to customer)
     # restaurant_platform_fee is deducted from restaurant payout during settlement
     new_order = Order(
         order_number=order_number,
+        customer_id=customer_id,
         customer_name=order_data.customer_name,
         customer_email=order_data.customer_email,
         customer_phone=order_data.customer_phone,
