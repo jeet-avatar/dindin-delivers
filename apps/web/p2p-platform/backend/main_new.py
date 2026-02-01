@@ -12505,20 +12505,24 @@ async def get_customer_active_orders(
     Returns full order details needed for tracking view.
     """
     from models import Order, OrderStatus, Vendor, Customer
-    from sqlalchemy import or_
+    from sqlalchemy import or_, and_
 
     # Get customer email for fallback lookup (for orders created before customer_id was set)
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     customer_email = customer.email if customer else None
 
     # Query by customer_id OR customer_email (for backward compatibility)
-    query_filter = Order.customer_id == customer_id
+    # Use and_() to combine with status filter for proper SQL generation
     if customer_email:
-        query_filter = or_(Order.customer_id == customer_id, Order.customer_email == customer_email)
+        customer_filter = or_(Order.customer_id == customer_id, Order.customer_email == customer_email)
+    else:
+        customer_filter = Order.customer_id == customer_id
 
     orders = db.query(Order).filter(
-        query_filter,
-        Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+        and_(
+            customer_filter,
+            Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+        )
     ).order_by(Order.created_at.desc()).limit(10).all()
 
     result_orders = []
