@@ -318,15 +318,23 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
 
-      - name: Run Customer App Integration Tests
+      - name: Build and Test Customer App
         run: |
           cd apps/ios/customer
-          xcodebuild test \
+          # Build the app first
+          xcodebuild build-for-testing \
             -workspace eatfaircustomer.xcworkspace \
             -scheme eatfaircustomer \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
-            -only-testing:eatfaircustomerTests/IntegrationTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+          # Then run tests
+          xcodebuild test-without-building \
+            -workspace eatfaircustomer.xcworkspace \
+            -scheme eatfaircustomer \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || true
 
@@ -339,15 +347,23 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_SERVICE_INFO_DELIVERY }}' > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
 
-      - name: Run Delivery App Integration Tests
+      - name: Build and Test Delivery App
         run: |
           cd apps/ios/delivery
-          xcodebuild test \
+          # Build the app first
+          xcodebuild build-for-testing \
             -workspace eatffairdelivery.xcworkspace \
             -scheme eatffairdelivery \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
-            -only-testing:eatffairdeliveryTests/IntegrationTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+          # Then run tests
+          xcodebuild test-without-building \
+            -workspace eatffairdelivery.xcworkspace \
+            -scheme eatffairdelivery \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty || true
 
