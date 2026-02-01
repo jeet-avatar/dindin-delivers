@@ -655,6 +655,14 @@ class RideRequestViewModel: ObservableObject {
 
                 switch result {
                 case .success(let response):
+                    // Check for demo mode (App Store review) - skip payment sheet
+                    if response.clientSecret.hasPrefix("demo_") {
+                        print("[RidePayment] Demo account detected - bypassing Stripe payment")
+                        // Directly confirm payment with demo payment intent
+                        self?.confirmPayment(paymentIntentId: response.paymentIntentId)
+                        return
+                    }
+
                     self?.paymentIntentClientSecret = response.clientSecret
                     self?.showPaymentSheet = true
 

@@ -997,6 +997,17 @@ struct MultiRestaurantCheckoutView: View {
                 self.isLoadingStripe = false
                 switch result {
                 case .success(let keys):
+                    // Check for demo mode (App Store review) - skip Stripe and place order directly
+                    if keys.isDemoPayment {
+                        print("[Checkout] Demo account detected - bypassing Stripe payment")
+                        self.stripePaymentReady = true
+                        // If we're processing, skip payment and place order directly
+                        if self.isProcessing {
+                            self.placeOrder()
+                        }
+                        return
+                    }
+
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()

@@ -8,20 +8,29 @@ Tiered Fee Model (based on fare):
 - Tier 3 (fare > $70): $3 from customer + $3 from driver = $6 platform
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from pydantic import BaseModel
 from typing import Optional
 import stripe
 import os
+import logging
 
 from database import get_db
-from models import RideRequest, RideRequestStatus, Driver
+from models import RideRequest, RideRequestStatus, Driver, Customer
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payments/ride", tags=["Rideshare Payments"])
+
+# Demo account emails for App Store review
+DEMO_CUSTOMER_EMAILS = [
+    "demo.customer@dollor.ai",
+    "demo.driver@dollor.ai",
+    "demo.restaurant@dollor.ai"
+]
 
 
 def get_tier_fee(fare: float) -> float:
@@ -51,7 +60,11 @@ class PaymentResponse(BaseModel):
 
 @router.post("/create-intent", response_model=PaymentResponse)
 async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends(get_db)):
-    """Create Stripe payment for completed ride with tiered pricing."""
+    """Create Stripe payment for completed ride with tiered pricing.
+
+    For demo accounts (App Store review), returns a demo payment response
+    that bypasses actual Stripe processing.
+    """
     ride = db.query(RideRequest).filter(RideRequest.id == data.ride_request_id).first()
 
     if not ride:
@@ -65,6 +78,28 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
     customer_pays = fare + tier_fee
     driver_receives = fare - tier_fee
     platform_earns = tier_fee * 2
+
+    # Check for demo account - bypass Stripe for App Store review
+    if ride.customer_id:
+        customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+        if customer and customer.email and customer.email.lower() in [e.lower() for e in DEMO_CUSTOMER_EMAILS]:
+            logger.info(f"Demo account detected for ride {ride.id}: {customer.email} - bypassing Stripe payment")
+            # Mark ride as demo paid
+            ride.stripe_payment_intent_id = "demo_pi_appstore_review"
+            ride.platform_fee = platform_earns
+            ride.driver_payout = driver_receives
+            db.commit()
+
+            return PaymentResponse(
+                success=True,
+                fare=fare,
+                tier_fee=tier_fee,
+                customer_pays=customer_pays,
+                driver_receives=driver_receives,
+                platform_earns=platform_earns,
+                payment_intent_id="demo_pi_appstore_review",
+                client_secret="demo_pi_appstore_review_secret"
+            )
 
     try:
         payment_intent = stripe.PaymentIntent.create(
