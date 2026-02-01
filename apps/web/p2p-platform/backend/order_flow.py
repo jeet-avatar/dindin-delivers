@@ -1686,6 +1686,33 @@ async def restaurant_accept_delivery(
 
     db.commit()
 
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        from models import Customer, Vendor
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+
+        if customer:
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Your order is on its way!",
+                body=f"{restaurant_name} is delivering your order directly to you.",
+                data={
+                    "type": "order_status",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "restaurant_will_deliver",
+                    "action": "track_order"
+                },
+                db=db
+            )
+            logger.info(f"Self-delivery notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logger.error(f"Failed to send self-delivery push notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
@@ -1693,6 +1720,7 @@ async def restaurant_accept_delivery(
         "status": "restaurant_will_deliver",
         "decided_at": order.delivery_decision_at.isoformat(),
         "self_delivery": True,
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"],
         "message": "Restaurant will self-deliver this order."
     }
