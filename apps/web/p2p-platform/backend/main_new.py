@@ -12502,24 +12502,51 @@ async def get_customer_active_orders(
     """
     Get active orders for a customer.
     Used by Android/iOS customer apps.
+    Returns full order details needed for tracking view.
     """
-    from models import Order, OrderStatus
+    from models import Order, OrderStatus, Vendor
     orders = db.query(Order).filter(
         Order.customer_id == customer_id,
         Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
     ).order_by(Order.created_at.desc()).limit(10).all()
 
-    return {
-        "orders": [
-            {
-                "id": o.id,
-                "order_number": o.order_number,
-                "status": o.status.value if o.status else "pending",
-                "total_amount": o.total_amount,
-                "created_at": o.created_at.isoformat() if o.created_at else None
-            } for o in orders
-        ]
-    }
+    result_orders = []
+    for o in orders:
+        # Get vendor info for restaurant name and location
+        vendor = db.query(Vendor).filter(Vendor.id == o.vendor_id).first() if o.vendor_id else None
+
+        result_orders.append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "status": o.status.value if o.status else "pending",
+            "vendor_id": o.vendor_id,
+            "vendor_name": vendor.restaurant_name if vendor else o.vendor_name,
+            "customer_name": o.customer_name or "Customer",
+            "customer_phone": o.customer_phone,
+            "total_amount": o.total_amount,
+            "subtotal": o.subtotal or 0,
+            "tax_amount": o.tax_amount or 0,
+            "delivery_fee": o.delivery_fee or 0,
+            "tip": o.tip,
+            "items": o.items or "[]",
+            "delivery_address": o.delivery_address,
+            "delivery_instructions": o.delivery_instructions,
+            "driver_id": o.driver_id,
+            "driver_name": o.driver_name,
+            "driver_location": None,  # Will be populated by tracking endpoint
+            "pickup_latitude": vendor.latitude if vendor else None,
+            "pickup_longitude": vendor.longitude if vendor else None,
+            "delivery_latitude": o.delivery_latitude,
+            "delivery_longitude": o.delivery_longitude,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "confirmed_at": o.confirmed_at.isoformat() if o.confirmed_at else None,
+            "preparing_at": o.preparing_at.isoformat() if o.preparing_at else None,
+            "ready_at": o.ready_at.isoformat() if o.ready_at else None,
+            "picked_up_at": o.picked_up_at.isoformat() if o.picked_up_at else None,
+            "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None
+        })
+
+    return {"orders": result_orders}
 
 
 @app.get("/api/customer/orders/{order_id}/track")
