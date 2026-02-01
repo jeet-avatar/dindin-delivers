@@ -14694,6 +14694,20 @@ async def proxy_list_orders(
     return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
 
 
+@app.get("/api/erp/orders/vendor/{vendor_id}")
+@app.get("/erp/orders/vendor/{vendor_id}")  # Alias for iOS app
+async def get_vendor_orders(vendor_id: int, status: Optional[str] = None, limit: int = 50):
+    """Get orders for a specific vendor - RESTful path style for iOS Restaurant app"""
+    params = {"restaurant_id": vendor_id, "limit": limit}
+    if status:
+        params["status"] = status
+
+    result = await proxy_request(ORDER_SERVICE_URL, "/api/orders", params=params)
+    if result:
+        return result
+    return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
+
+
 @app.post("/api/erp/orders")
 async def proxy_create_order(request: dict):
     """Proxy to order-service: Create new order"""
