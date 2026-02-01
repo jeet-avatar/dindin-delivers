@@ -9,6 +9,8 @@ struct DeliveryTrackingView: View {
     @StateObject private var viewModel = OrderTrackingViewModel()
     @State private var mapPosition: MapCameraPosition = .automatic
     @State private var isMapExpanded = false
+    @State private var showThankYou = false
+    @State private var previousStatus: String = ""
 
     var body: some View {
         ZStack {
@@ -20,6 +22,15 @@ struct DeliveryTrackingView: View {
                     mapPosition: $mapPosition,
                     isMapExpanded: $isMapExpanded
                 )
+
+                // Thank You overlay when delivered
+                if showThankYou {
+                    OrderDeliveredCelebrationView(
+                        order: order,
+                        onDismiss: { showThankYou = false }
+                    )
+                    .transition(.opacity.combined(with: .scale))
+                }
             } else if viewModel.isLoading {
                 LoadingView()
             } else {
@@ -33,6 +44,16 @@ struct DeliveryTrackingView: View {
         }
         .onDisappear {
             viewModel.stopPolling()
+        }
+        .onChange(of: viewModel.currentOrder?.status) { oldStatus, newStatus in
+            // Show thank you when status changes to Delivered
+            if let newStatus = newStatus,
+               newStatus.lowercased() == "delivered",
+               oldStatus?.lowercased() != "delivered" {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    showThankYou = true
+                }
+            }
         }
     }
 }
@@ -771,6 +792,144 @@ struct NoActiveDeliveryView: View {
             .padding(.bottom, 40)
         }
         .padding()
+    }
+}
+
+// MARK: - Order Delivered Celebration View
+struct OrderDeliveredCelebrationView: View {
+    let order: Order
+    let onDismiss: () -> Void
+    @State private var showConfetti = false
+    @State private var showContent = false
+
+    var body: some View {
+        ZStack {
+            // Semi-transparent background
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+
+            // Celebration card
+            VStack(spacing: 24) {
+                // Checkmark animation
+                ZStack {
+                    Circle()
+                        .fill(Theme.brandGreen)
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(showContent ? 1 : 0)
+
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 50, weight: .bold))
+                        .foregroundColor(.white)
+                        .scaleEffect(showContent ? 1 : 0)
+                }
+                .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.2), value: showContent)
+
+                // Thank you message
+                VStack(spacing: 8) {
+                    Text("Order Delivered!")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.brandGreen)
+
+                    Text("Thank you for ordering with Dollor!")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 20)
+                .animation(.easeOut(duration: 0.4).delay(0.4), value: showContent)
+
+                // Order summary
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Order #")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(order.orderId)
+                            .fontWeight(.semibold)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("From")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(order.restaurant.name)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("Total")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "$%.2f", order.total))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.5), value: showContent)
+
+                // Receipt note
+                HStack(spacing: 8) {
+                    Image(systemName: "envelope.fill")
+                        .foregroundColor(Theme.brandGreen)
+                    Text("Receipt sent to your email")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.6), value: showContent)
+
+                // Rate & Close buttons
+                VStack(spacing: 12) {
+                    NavigationLink(destination: RateRestaurantView(order: order)) {
+                        HStack {
+                            Image(systemName: "star.fill")
+                            Text("Rate Your Experience")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandGreen)
+                        .cornerRadius(12)
+                    }
+
+                    Button(action: onDismiss) {
+                        Text("Close")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.7), value: showContent)
+            }
+            .padding(24)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
+            )
+            .padding(.horizontal, 24)
+            .scaleEffect(showContent ? 1 : 0.8)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showContent)
+        }
+        .onAppear {
+            showContent = true
+        }
     }
 }
 

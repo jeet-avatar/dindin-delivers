@@ -8805,6 +8805,9 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         switch status.lowercased() {
         case "pending", "pending_payment":
             return "Placed"
+        case "pending_restaurant":
+            // Order sent to restaurant, waiting for acceptance (3-min window)
+            return "Confirming"
         case "confirmed":
             return "Accepted"
         case "restaurant_timeout":
@@ -8812,12 +8815,20 @@ public struct P2PCustomerOrder: Codable, Identifiable {
             return "Accepted"
         case "preparing":
             return "Preparing"
+        case "pending_delivery_decision":
+            // Order ready, restaurant deciding delivery method (3-min window)
+            return "Ready"
         case "ready", "ready_for_pickup":
             return "Ready"
+        case "restaurant_will_deliver":
+            // Restaurant is self-delivering
+            return "OnTheWay"
         case "out_for_delivery":
             return "OnTheWay"
         case "delivered":
             return "Delivered"
+        case "declined_by_restaurant":
+            return "Cancelled"
         case "cancelled":
             return "Cancelled"
         default:
