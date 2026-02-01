@@ -1542,6 +1542,205 @@ def send_order_delivered_email(
     return send_email(to_email, subject, html_body, text_body)
 
 
+def send_order_delivered_with_receipt_email(
+    to_email: str,
+    customer_name: str,
+    order_number: str,
+    restaurant_name: str,
+    order_items: list,
+    subtotal: float,
+    delivery_fee: float,
+    service_fee: float,
+    tax_amount: float,
+    tip: float,
+    order_total: float,
+    driver_name: str,
+    delivery_address: str,
+    order_date: str
+) -> bool:
+    """
+    Send thank you email with full receipt when order is delivered.
+    """
+    subject = f"Thank You! Your Order #{order_number} Has Been Delivered"
+
+    # Build items table rows
+    items_html = ""
+    for item in order_items:
+        item_name = item.get("name", "Item")
+        item_qty = item.get("quantity", 1)
+        item_price = item.get("price", 0) or item.get("unit_price", 0)
+        item_total = item_qty * item_price
+        items_html += f"""
+        <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">{item_name}</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; text-align: center;">{item_qty}</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; text-align: right;">${item_total:.2f}</td>
+        </tr>
+        """
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 40px 20px; text-align: center; color: white; }}
+            .header h1 {{ margin: 0 0 10px 0; font-size: 28px; }}
+            .header p {{ margin: 0; opacity: 0.9; }}
+            .checkmark {{ font-size: 60px; margin-bottom: 15px; }}
+            .content {{ padding: 30px; }}
+            .receipt-box {{ background: #f8fafc; border-radius: 12px; padding: 20px; margin: 20px 0; }}
+            .receipt-header {{ font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 15px; border-bottom: 2px solid #22c55e; padding-bottom: 10px; }}
+            .info-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
+            .info-label {{ color: #64748b; }}
+            .info-value {{ font-weight: 500; color: #1e293b; }}
+            .items-table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+            .items-table th {{ text-align: left; padding: 12px 0; border-bottom: 2px solid #e2e8f0; color: #64748b; font-weight: 500; }}
+            .items-table th:last-child {{ text-align: right; }}
+            .totals-section {{ margin-top: 20px; padding-top: 15px; border-top: 2px solid #e2e8f0; }}
+            .total-row {{ display: flex; justify-content: space-between; padding: 6px 0; }}
+            .total-row.grand-total {{ font-size: 18px; font-weight: bold; color: #22c55e; padding-top: 12px; border-top: 2px solid #22c55e; margin-top: 10px; }}
+            .tip-box {{ background: #fef3c7; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: center; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+            .cta-button {{ display: inline-block; background: #22c55e; color: white; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: 600; margin: 10px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="checkmark">&#10004;</div>
+                <h1>Thank You!</h1>
+                <p>Your order has been delivered</p>
+            </div>
+            <div class="content">
+                <p style="font-size: 16px; color: #1e293b;">Hi {customer_name},</p>
+                <p style="color: #64748b;">We hope you enjoy your meal! Here's your receipt for order <strong>#{order_number}</strong>.</p>
+
+                <div class="receipt-box">
+                    <div class="receipt-header">Order Receipt</div>
+
+                    <div style="margin-bottom: 15px;">
+                        <div class="info-row">
+                            <span class="info-label">Order Date:</span>
+                            <span class="info-value">{order_date}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Restaurant:</span>
+                            <span class="info-value">{restaurant_name}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Delivered To:</span>
+                            <span class="info-value">{delivery_address}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Driver:</span>
+                            <span class="info-value">{driver_name}</span>
+                        </div>
+                    </div>
+
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th style="text-align: center;">Qty</th>
+                                <th style="text-align: right;">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items_html}
+                        </tbody>
+                    </table>
+
+                    <div class="totals-section">
+                        <div class="total-row">
+                            <span>Subtotal</span>
+                            <span>${subtotal:.2f}</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Delivery Fee</span>
+                            <span>${delivery_fee:.2f}</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Service Fee</span>
+                            <span>${service_fee:.2f}</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Tax</span>
+                            <span>${tax_amount:.2f}</span>
+                        </div>
+                        {"<div class='total-row'><span>Tip</span><span>$" + f"{tip:.2f}</span></div>" if tip > 0 else ""}
+                        <div class="total-row grand-total">
+                            <span>Total</span>
+                            <span>${order_total:.2f}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-box">
+                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #92400e;">Enjoyed your delivery?</p>
+                    <p style="margin: 0; color: #92400e;">Rate your experience in the app!</p>
+                    <p style="margin: 10px 0 0 0; font-size: 12px; color: #b45309;">Drivers keep 100% of tips on Dollor.AI</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <p style="color: #64748b;">Thank you for choosing Dollor!</p>
+                    <p style="font-size: 24px; margin: 10px 0;">&#127829; &#128663; &#127881;</p>
+                </div>
+            </div>
+            <div class="footer">
+                <p>Questions about your order? Contact us at support@dollor.ai</p>
+                <p>&copy; 2026 Dollor.AI by Zietra Technologies Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Plain text version
+    items_text = "\n".join([
+        f"  {item.get('name', 'Item')} x{item.get('quantity', 1)} - ${(item.get('quantity', 1) * (item.get('price', 0) or item.get('unit_price', 0))):.2f}"
+        for item in order_items
+    ])
+
+    text_body = f"""
+    Thank You! Your Order Has Been Delivered
+
+    Hi {customer_name},
+
+    We hope you enjoy your meal! Here's your receipt for order #{order_number}.
+
+    ORDER RECEIPT
+    =============
+    Order Date: {order_date}
+    Restaurant: {restaurant_name}
+    Delivered To: {delivery_address}
+    Driver: {driver_name}
+
+    ITEMS:
+    {items_text}
+
+    TOTALS:
+    Subtotal: ${subtotal:.2f}
+    Delivery Fee: ${delivery_fee:.2f}
+    Service Fee: ${service_fee:.2f}
+    Tax: ${tax_amount:.2f}
+    {"Tip: $" + f"{tip:.2f}" if tip > 0 else ""}
+    -------------------
+    TOTAL: ${order_total:.2f}
+
+    Enjoyed your delivery? Rate your experience in the app!
+    Drivers keep 100% of tips on Dollor.AI.
+
+    Thank you for choosing Dollor!
+
+    Questions? support@dollor.ai
+    — The Dollor.AI Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
 def send_order_cancelled_email(
     to_email: str,
     customer_name: str,

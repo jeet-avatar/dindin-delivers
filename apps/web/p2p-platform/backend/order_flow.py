@@ -29,6 +29,7 @@ import os
 import requests
 
 from database import get_db, SessionLocal
+from email_service import send_order_delivered_with_receipt_email
 
 # Service URLs
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8008")
@@ -2329,12 +2330,58 @@ async def order_delivered(
 
     db.commit()
 
+    # ==================== SEND THANK YOU EMAIL WITH RECEIPT ====================
+    try:
+        # Parse order items from JSON
+        order_items = []
+        if order.items:
+            if isinstance(order.items, str):
+                order_items = json.loads(order.items)
+            elif isinstance(order.items, list):
+                order_items = order.items
+
+        # Get delivery address
+        delivery_address = ""
+        if order.delivery_address:
+            if isinstance(order.delivery_address, str):
+                try:
+                    addr = json.loads(order.delivery_address)
+                    delivery_address = f"{addr.get('street', '')}, {addr.get('city', '')} {addr.get('state', '')} {addr.get('zip', '')}"
+                except json.JSONDecodeError:
+                    delivery_address = order.delivery_address
+            elif isinstance(order.delivery_address, dict):
+                delivery_address = f"{order.delivery_address.get('street', '')}, {order.delivery_address.get('city', '')} {order.delivery_address.get('state', '')} {order.delivery_address.get('zip', '')}"
+
+        # Send thank you email with receipt
+        if order.customer_email:
+            send_order_delivered_with_receipt_email(
+                to_email=order.customer_email,
+                customer_name=order.customer_name or "Valued Customer",
+                order_number=order.order_number,
+                restaurant_name=vendor.restaurant_name if vendor else "Restaurant",
+                order_items=order_items,
+                subtotal=float(order.subtotal or 0),
+                delivery_fee=float(order.delivery_fee or 0),
+                service_fee=float(CUSTOMER_SERVICE_FEE),
+                tax_amount=float(order.tax_amount or 0),
+                tip=float(order.tip or 0),
+                order_total=float(order.total_amount or 0),
+                driver_name=order.driver_name or "Your Driver",
+                delivery_address=delivery_address,
+                order_date=order.created_at.strftime("%B %d, %Y at %I:%M %p") if order.created_at else ""
+            )
+            logging.info(f"Thank you email sent to {order.customer_email} for order {order.order_number}")
+    except Exception as e:
+        # Don't fail the delivery if email fails
+        logging.error(f"Failed to send thank you email for order {order.order_number}: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Delivered",
         "delivered_at": order.delivered_at.isoformat(),
+        "email_sent": bool(order.customer_email),
         "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
         "accounting": {
             "journal_entry": entry_number,
