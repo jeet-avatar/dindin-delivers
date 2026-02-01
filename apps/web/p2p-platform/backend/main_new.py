@@ -12556,8 +12556,7 @@ async def get_customer_active_orders(
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "confirmed_at": o.confirmed_at.isoformat() if o.confirmed_at else None,
             "preparing_at": o.preparing_at.isoformat() if o.preparing_at else None,
-            "ready_at": o.ready_at.isoformat() if o.ready_at else None,
-            "picked_up_at": o.picked_up_at.isoformat() if o.picked_up_at else None,
+            "dispatched_at": o.dispatched_at.isoformat() if o.dispatched_at else None,
             "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None
         })
 
