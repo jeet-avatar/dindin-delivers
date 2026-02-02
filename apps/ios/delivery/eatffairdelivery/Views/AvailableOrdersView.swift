@@ -7,6 +7,7 @@ import EatFairShared
 /// Rideshare: Drivers are independent contractors who set their own prices
 struct AvailableOrdersView: View {
     @ObservedObject var viewModel: DeliveryViewModel
+    @Binding var selectedTab: Int  // Binding to switch tabs after accepting order
     @StateObject private var locationManager = LocationManager.shared
     @State private var selectedFilter: OrderFilter = .all
     @State private var viewMode: ViewMode = .list
@@ -90,7 +91,9 @@ struct AvailableOrdersView: View {
             }
             .sheet(isPresented: $showOrderDetail) {
                 if let order = selectedOrder {
-                    OrderDetailSheet(order: order, viewModel: viewModel, locationManager: locationManager)
+                    OrderDetailSheet(order: order, viewModel: viewModel, locationManager: locationManager, onAccepted: {
+                        selectedTab = 2  // Switch to Active tab
+                    })
                 }
             }
             .sheet(isPresented: $showRideDetail) {
@@ -272,6 +275,10 @@ struct AvailableOrdersView: View {
                         },
                         onAccept: {
                             viewModel.acceptOrder(order)
+                            // Switch to Active tab to show pickup/dropoff
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                selectedTab = 2
+                            }
                         }
                     )
                 }
@@ -836,6 +843,7 @@ struct OrderDetailSheet: View {
     let order: Order
     @ObservedObject var viewModel: DeliveryViewModel
     let locationManager: LocationManager
+    var onAccepted: (() -> Void)?  // Callback to switch tabs
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -963,6 +971,10 @@ struct OrderDetailSheet: View {
                 Button(action: {
                     viewModel.acceptOrder(order)
                     dismiss()
+                    // Switch to Active tab after accepting
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        onAccepted?()
+                    }
                 }) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
