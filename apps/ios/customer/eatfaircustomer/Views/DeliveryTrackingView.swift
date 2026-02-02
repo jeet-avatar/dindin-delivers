@@ -127,49 +127,123 @@ struct DeliveryTrackingMapView: View {
     // Store the timer publisher to allow proper cancellation
     private let mapUpdateTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
+    /// Check if coordinate is valid (not at 0,0 which is Atlantic Ocean)
+    private func isValidCoordinate(_ lat: Double, _ lng: Double) -> Bool {
+        // Valid if not at origin and within reasonable bounds
+        return abs(lat) > 0.01 && abs(lng) > 0.01 &&
+               lat >= -90 && lat <= 90 &&
+               lng >= -180 && lng <= 180
+    }
+
+    private var hasValidRestaurantLocation: Bool {
+        isValidCoordinate(order.restaurant.latitude, order.restaurant.longitude)
+    }
+
+    private var hasValidDeliveryLocation: Bool {
+        isValidCoordinate(order.deliveryAddress.latitude, order.deliveryAddress.longitude)
+    }
+
+    private var hasAnyValidLocation: Bool {
+        hasValidRestaurantLocation || hasValidDeliveryLocation || driverLocation != nil
+    }
+
     var body: some View {
-        Map(position: $mapPosition) {
-            // Restaurant (Pickup) Marker
-            Annotation("Pickup", coordinate: CLLocationCoordinate2D(
-                latitude: order.restaurant.latitude,
-                longitude: order.restaurant.longitude
-            )) {
-                PickupMarker(name: order.restaurant.name)
-            }
+        ZStack {
+            if hasAnyValidLocation {
+                Map(position: $mapPosition) {
+                    // Restaurant (Pickup) Marker - only show if valid
+                    if hasValidRestaurantLocation {
+                        Annotation("Pickup", coordinate: CLLocationCoordinate2D(
+                            latitude: order.restaurant.latitude,
+                            longitude: order.restaurant.longitude
+                        )) {
+                            PickupMarker(name: order.restaurant.name)
+                        }
+                    }
 
-            // Customer (Dropoff) Marker
-            Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
-                latitude: order.deliveryAddress.latitude,
-                longitude: order.deliveryAddress.longitude
-            )) {
-                DropoffMarker()
-            }
+                    // Customer (Dropoff) Marker - only show if valid
+                    if hasValidDeliveryLocation {
+                        Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
+                            latitude: order.deliveryAddress.latitude,
+                            longitude: order.deliveryAddress.longitude
+                        )) {
+                            DropoffMarker()
+                        }
+                    }
 
-            // Driver Marker (if available)
-            if let driverLoc = driverLocation {
-                Annotation("Driver", coordinate: driverLoc) {
-                    DriverMarker()
+                    // Driver Marker (if available)
+                    if let driverLoc = driverLocation {
+                        Annotation("Driver", coordinate: driverLoc) {
+                            DriverMarker()
+                        }
+                    }
                 }
+                .mapStyle(.standard)
+                .onAppear {
+                    updateMapRegion()
+                }
+                .onReceive(mapUpdateTimer) { _ in
+                    updateMapRegion()
+                }
+            } else {
+                // Fallback when no valid coordinates - show status message
+                VStack(spacing: 16) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(Theme.brandGreen.opacity(0.5))
+
+                    Text("Tracking Your Order")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Map will update when driver location is available")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    // Show current status
+                    HStack {
+                        Circle()
+                            .fill(Theme.brandGreen)
+                            .frame(width: 12, height: 12)
+                        Text("Status: \(order.status)")
+                            .font(.headline)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                    .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGray6))
             }
-        }
-        .mapStyle(.standard)
-        .onAppear {
-            updateMapRegion()
-        }
-        .onReceive(mapUpdateTimer) { _ in
-            updateMapRegion()
         }
     }
 
     private func updateMapRegion() {
-        var coordinates: [CLLocationCoordinate2D] = [
-            CLLocationCoordinate2D(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude),
-            CLLocationCoordinate2D(latitude: order.deliveryAddress.latitude, longitude: order.deliveryAddress.longitude)
-        ]
+        var coordinates: [CLLocationCoordinate2D] = []
 
-        if let driverLoc = driverLocation {
+        // Only add valid coordinates
+        if hasValidRestaurantLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.restaurant.latitude,
+                longitude: order.restaurant.longitude
+            ))
+        }
+
+        if hasValidDeliveryLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.deliveryAddress.latitude,
+                longitude: order.deliveryAddress.longitude
+            ))
+        }
+
+        if let driverLoc = driverLocation,
+           isValidCoordinate(driverLoc.latitude, driverLoc.longitude) {
             coordinates.append(driverLoc)
         }
+
+        // Need at least one valid coordinate
+        guard !coordinates.isEmpty else { return }
 
         // Calculate center and span to fit all markers
         let latitudes = coordinates.map { $0.latitude }
