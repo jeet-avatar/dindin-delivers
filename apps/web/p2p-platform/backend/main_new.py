@@ -12216,11 +12216,11 @@ def get_customer_orders(
             "pickup_longitude": vendor.longitude if vendor else None,
             "delivery_latitude": order.delivery_latitude,
             "delivery_longitude": order.delivery_longitude,
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "preparing_at": order.preparing_at.isoformat() if order.preparing_at else None,
-            "dispatched_at": order.dispatched_at.isoformat() if order.dispatched_at else None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "preparing_at": (order.preparing_at.isoformat() + "Z") if order.preparing_at else None,
+            "dispatched_at": (order.dispatched_at.isoformat() + "Z") if order.dispatched_at else None,
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
         })
 
     return result
@@ -12557,11 +12557,11 @@ async def get_customer_active_orders(
             "pickup_longitude": vendor.longitude if vendor else None,
             "delivery_latitude": o.delivery_latitude,
             "delivery_longitude": o.delivery_longitude,
-            "created_at": o.created_at.isoformat() if o.created_at else None,
-            "confirmed_at": o.confirmed_at.isoformat() if o.confirmed_at else None,
-            "preparing_at": o.preparing_at.isoformat() if o.preparing_at else None,
-            "dispatched_at": o.dispatched_at.isoformat() if o.dispatched_at else None,
-            "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None
+            "created_at": (o.created_at.isoformat() + "Z") if o.created_at else None,
+            "confirmed_at": (o.confirmed_at.isoformat() + "Z") if o.confirmed_at else None,
+            "preparing_at": (o.preparing_at.isoformat() + "Z") if o.preparing_at else None,
+            "dispatched_at": (o.dispatched_at.isoformat() + "Z") if o.dispatched_at else None,
+            "delivered_at": (o.delivered_at.isoformat() + "Z") if o.delivered_at else None
         })
 
     return {"orders": result_orders}
