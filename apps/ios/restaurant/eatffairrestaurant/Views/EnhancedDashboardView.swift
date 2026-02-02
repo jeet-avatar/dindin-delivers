@@ -454,7 +454,7 @@ struct EnhancedOrderCard: View {
                             .font(.headline)
                             .fontWeight(.bold)
 
-                        if order.status == "Placed" {
+                        if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                             Text("NEW")
                                 .font(.caption2)
                                 .fontWeight(.bold)
@@ -489,7 +489,7 @@ struct EnhancedOrderCard: View {
             .onTapGesture { onTap() }
 
             // Expandable Items Preview
-            if order.status == "Placed" || order.status == "Preparing" {
+            if order.status.lowercased() == "placed" || order.status.lowercased() == "preparing" || order.status.lowercased() == "pending_restaurant" {
                 Divider()
                     .padding(.horizontal)
 
@@ -525,7 +525,7 @@ struct EnhancedOrderCard: View {
             }
 
             // Action Buttons - New Order with Delivery Decision (3 min window)
-            if order.status == "Placed" || order.status.lowercased() == "pending_restaurant" {
+            if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                 Divider()
 
                 VStack(spacing: 8) {
@@ -633,7 +633,8 @@ struct EnhancedOrderCard: View {
                 .onDisappear {
                     deliveryTimer?.invalidate()
                 }
-            } else if order.status == "Preparing" {
+            } else if order.status.lowercased() == "preparing" || order.status.lowercased() == "accepted" {
+                // Order is being prepared - show Mark Ready button
                 Divider()
 
                 Button {
@@ -656,6 +657,76 @@ struct EnhancedOrderCard: View {
                 }
                 .buttonStyle(.borderless)
                 .padding()
+            } else if order.status.lowercased() == "ready_for_pickup" || order.status.lowercased() == "ready" || order.status.lowercased() == "pending_delivery_decision" {
+                // Order is ready - show delivery decision buttons
+                Divider()
+
+                VStack(spacing: 8) {
+                    // Info text
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Text("Order Ready - Choose delivery option")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Delivery decision buttons
+                    HStack(spacing: 12) {
+                        // Send to Driver
+                        Button(action: {
+                            #if DEBUG
+                            print("🚗 Send to Driver for order \(order.orderId)")
+                            #endif
+                            onSendToDriver?()
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "car.fill")
+                                    .font(.title3)
+                                Text("Send to")
+                                    .font(.caption2)
+                                Text("Driver Pool")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandBlue)
+                            .cornerRadius(10)
+                        }
+                        .contentShape(Rectangle())
+
+                        // I'll Deliver
+                        Button(action: {
+                            #if DEBUG
+                            print("🏃 I'll Deliver for order \(order.orderId)")
+                            #endif
+                            onSelfDeliver?()
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "figure.walk")
+                                    .font(.title3)
+                                Text("I'll")
+                                    .font(.caption2)
+                                Text("Deliver")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandGreen)
+                            .cornerRadius(10)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
             } else if order.status.lowercased() == "restaurant_will_deliver" {
                 // Self-delivery in progress - show Mark Delivered button
                 Divider()
@@ -895,7 +966,7 @@ struct OrderDetailSheet: View {
                     .cardStyle()
 
                     // Actions based on status
-                    if order.status == "Placed" {
+                    if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                         HStack(spacing: 12) {
                             Button(action: {
                                 ordersVM.rejectOrder(order)
@@ -914,7 +985,7 @@ struct OrderDetailSheet: View {
                             .buttonStyle(SuccessButtonStyle())
                         }
                         .padding()
-                    } else if order.status == "Preparing" {
+                    } else if order.status.lowercased() == "preparing" || order.status.lowercased() == "accepted" {
                         Button(action: {
                             ordersVM.markOrderReady(order)
                             dismiss()
@@ -922,6 +993,41 @@ struct OrderDetailSheet: View {
                             Text("Mark Ready for Pickup")
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .padding()
+                    } else if order.status.lowercased() == "ready_for_pickup" || order.status.lowercased() == "ready" || order.status.lowercased() == "pending_delivery_decision" {
+                        // Delivery decision buttons
+                        VStack(spacing: 12) {
+                            Text("Order Ready - Choose delivery option")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    ordersVM.declineDelivery(order) // Send to driver pool
+                                    dismiss()
+                                }) {
+                                    Text("Send to Driver")
+                                }
+                                .buttonStyle(SecondaryButtonStyle())
+
+                                Button(action: {
+                                    ordersVM.acceptDelivery(order) // Self deliver
+                                    dismiss()
+                                }) {
+                                    Text("I'll Deliver")
+                                }
+                                .buttonStyle(SuccessButtonStyle())
+                            }
+                        }
+                        .padding()
+                    } else if order.status.lowercased() == "restaurant_will_deliver" {
+                        Button(action: {
+                            ordersVM.markOrderDelivered(order)
+                            dismiss()
+                        }) {
+                            Text("Mark as Delivered")
+                        }
+                        .buttonStyle(SuccessButtonStyle())
                         .padding()
                     }
                 }
