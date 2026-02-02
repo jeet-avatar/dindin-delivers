@@ -84,7 +84,9 @@ struct ActiveDeliveryTrackingView: View {
                         driverLocation: viewModel.driverLocation,
                         onExpandMap: { isMapExpanded = true },
                         timelineEvents: viewModel.timelineEvents,
-                        driverInfo: viewModel.driverInfo
+                        driverInfo: viewModel.driverInfo,
+                        isTrafficAwareETA: viewModel.isTrafficAwareETA,
+                        etaDistanceMiles: viewModel.etaDistanceMiles
                     )
                     .transition(.move(edge: .bottom))
                 }
@@ -294,6 +296,8 @@ struct DeliveryBottomSheet: View {
     let onExpandMap: () -> Void
     var timelineEvents: [P2PTimelineEvent] = []
     var driverInfo: P2PTrackingDriver?
+    var isTrafficAwareETA: Bool = false
+    var etaDistanceMiles: Double? = nil
 
     /// Format ETA using world-class time formatting
     private var formattedETA: String {
@@ -335,13 +339,38 @@ struct DeliveryBottomSheet: View {
             // ETA Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(estimatedTime == "Arrived" ? "Status" : "Arriving in")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 6) {
+                        Text(estimatedTime == "Arrived" ? "Status" : "Arriving in")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        // Traffic indicator when using real traffic data
+                        if isTrafficAwareETA {
+                            HStack(spacing: 2) {
+                                Image(systemName: "car.fill")
+                                    .font(.caption2)
+                                Text("Live")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.brandGreen)
+                            .cornerRadius(4)
+                        }
+                    }
 
                     Text(formattedETA)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Theme.brandGreen)
+
+                    // Show distance when available
+                    if let distance = etaDistanceMiles, distance > 0 {
+                        Text(String(format: "%.1f mi away", distance))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Spacer()
