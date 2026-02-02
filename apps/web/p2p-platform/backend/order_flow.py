@@ -2158,15 +2158,29 @@ async def get_available_orders(
             except (json.JSONDecodeError, TypeError):
                 delivery_addr = {"address": str(order.delivery_address)}
         result.append({
+            "id": order.id,
             "order_id": order.id,
             "order_number": order.order_number,
+            "status": order.status.value,
+            # iOS Driver app expects "restaurant" and "pickup_address" keys
             "restaurant": vendor.restaurant_name if vendor else "Unknown",
-            "pickup_address": f"{vendor.street}, {vendor.city}" if vendor else "",
-            "delivery_address": delivery_addr,
+            "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+            "customer_name": order.customer_name,
+            "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
+            "customer_phone": order.customer_phone,
+            "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
+            "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
+            "dropoff_latitude": delivery_addr.get("latitude"),
+            "dropoff_longitude": delivery_addr.get("longitude"),
+            "estimated_distance": None,
+            "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
-            "total_earnings": order.delivery_fee + order.tip,
-            "created_at": order.created_at.isoformat()
+            "total_earnings": (order.delivery_fee or 0) + (order.tip or 0),
+            "created_at": order.created_at.isoformat(),
+            "assigned_at": None,
+            "picked_up_at": None,
+            "delivered_at": None
         })
 
     return {"success": True, "orders": result}
@@ -2847,6 +2861,10 @@ async def get_driver_active_orders(
             "order_id": order.id,
             "order_number": order.order_number,
             "status": order.status.value,
+            # iOS Driver app expects "restaurant" and "pickup_address" keys
+            "restaurant": vendor.restaurant_name if vendor else "Unknown",
+            "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+            # Also include restaurant_name/restaurant_address for backward compatibility
             "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
             "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
             "customer_name": order.customer_name,
@@ -2862,7 +2880,7 @@ async def get_driver_active_orders(
             "tip": order.tip,
             "created_at": order.created_at.isoformat(),
             "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": None,
+            "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
@@ -2909,6 +2927,10 @@ async def get_driver_pending_orders(
                 "order_id": order.id,
                 "order_number": order.order_number,
                 "status": order.status.value,
+                # iOS Driver app expects "restaurant" and "pickup_address" keys
+                "restaurant": vendor.restaurant_name if vendor else "Unknown",
+                "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+                # Also include restaurant_name/restaurant_address for backward compatibility
                 "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
                 "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
                 "customer_name": order.customer_name,
@@ -2924,7 +2946,7 @@ async def get_driver_pending_orders(
                 "tip": order.tip,
                 "created_at": order.created_at.isoformat(),
                 "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-                "picked_up_at": order.dispatched_at.isoformat() if order.dispatched_at else None,
+                "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
                 "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
             })
 
