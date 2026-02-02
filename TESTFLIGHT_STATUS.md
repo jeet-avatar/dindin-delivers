@@ -8,7 +8,7 @@
 - ✅ Delivery app: `apps/ios/delivery/fastlane/`
 - ✅ P8 API Key: `AuthKey_JFVA7628SX.p8` (in all 3 apps)
 - ✅ Apple ID: `jeetnair.in@gmail.com`
-- ✅ Team ID: `YRHVAY595K`
+- ✅ Team ID: `PRKZ4UVCD7`
 
 ### 2. GitHub Secrets (All Added)
 | Secret | Status | Date Added |
