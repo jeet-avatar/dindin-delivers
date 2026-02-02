@@ -3677,7 +3677,7 @@ async def get_full_order_tracking(
             estimated_delivery = "10-15 mins"
     elif order.status == OrderStatus.DELIVERED:
         estimated_delivery = "Delivered"
-    elif order.status in [OrderStatus.READY, OrderStatus.PENDING_DELIVERY_DECISION]:
+    elif order.status in [OrderStatus.READY_FOR_PICKUP, OrderStatus.PENDING_DELIVERY_DECISION]:
         estimated_delivery = "15-20 mins"
     elif order.status == OrderStatus.PREPARING:
         estimated_delivery = "20-30 mins"
