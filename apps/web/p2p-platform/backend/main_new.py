@@ -3420,11 +3420,13 @@ def estimate_fare_frontend(
     }
 
 
-# Full tracking endpoint for frontend polling
-@app.get("/api/erp/orders/{ride_id}/full-tracking")
+# Full tracking endpoint for RIDES (rideshare) - frontend polling
+# NOTE: Use /api/erp/rides/ path to avoid conflict with order tracking in order_flow.py
+@app.get("/api/erp/rides/{ride_id}/full-tracking")
 def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     """
-    Full tracking endpoint for frontend - queries real data from database
+    Full tracking endpoint for RIDESHARE - queries real data from database
+    For FOOD ORDER tracking, use /api/erp/orders/{order_id}/full-tracking (in order_flow.py)
     """
     try:
         from sqlalchemy import text
