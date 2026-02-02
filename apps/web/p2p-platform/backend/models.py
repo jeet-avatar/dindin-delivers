@@ -475,6 +475,7 @@ class Order(Base):
     delivery_decision_timeout_at = Column(DateTime)  # When 3-min timeout occurred
 
     preparing_at = Column(DateTime)
+    picked_up_at = Column(DateTime)  # When driver picked up from restaurant
     delivered_at = Column(DateTime)
     dispatched_at = Column(DateTime)  # When driver was assigned
     cancelled_at = Column(DateTime)  # When order was cancelled
