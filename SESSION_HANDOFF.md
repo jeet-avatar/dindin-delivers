@@ -1,70 +1,150 @@
 # Session Handoff - Dollor iOS Apps
 
-> **Date:** 2026-01-28
-> **Previous Session:** Customer App Build 32 Documentation Complete
+> **Date:** 2026-02-01
+> **Previous Session:** Customer Order History & API Fixes
 
 ---
 
 ## Current State
 
-### Customer App (Build 32)
-- **Status:** Submitted for App Store Review
-- **Bundle ID:** `com.dollorai.customer`
-- **Team ID:** `PRKZ4UVCD7` (support2dollorai account)
-- **Archive:** `~/Library/Developer/Xcode/Archives/2026-01-27/Dollor-Build32.xcarchive`
+### iOS Apps (All on TestFlight)
 
-### Restaurant App (Build 17)
-- **Status:** TestFlight
-- **Bundle ID:** `com.dollor.restaurant`
-- **Team ID:** `YRHVAY595K` (needs verification)
+| App | Build | Status | Bundle ID |
+|-----|-------|--------|-----------|
+| Customer | 1027 | TestFlight | `com.dollorai.customer` |
+| Driver | 101 | TestFlight | `com.dollorai.delivery` |
+| Restaurant | 102 | TestFlight | `com.dollorai.restaurant` |
+
+**Team ID:** `PRKZ4UVCD7`
+
+### Demo Accounts (App Store Review)
+
+| App | Email | Password |
+|-----|-------|----------|
+| Customer | `demo.customer@dollor.ai` | `DemoCustomer2025!` |
+| Driver | `demo.driver@dollor.ai` | `DemoDriver2025!` |
+| Restaurant | `demo.restaurant@dollor.ai` | `DemoRestaurant2025!` |
 
 ---
 
 ## Completed This Session
 
-### 1. Customer App Source of Truth Documents Created
-Two comprehensive documents created (both gitignored):
+### 1. Customer App Order History Fixed
+- Orders now show in "All My Orders" page
+- Each order displays correct timestamp (not same time)
+- Full order details visible with items, pricing, status
 
-| Document | Path |
-|----------|------|
-| Config & Keys | `apps/ios/CUSTOMER_APP_SOURCE_OF_TRUTH.md` |
-| API Workflow | `apps/ios/CUSTOMER_APP_API_WORKFLOW.md` |
+### 2. Backend API Fixes
 
-### 2. Configuration Files Fixed (Customer App)
-All files updated to match Build 32:
+| Commit | Fix |
+|--------|-----|
+| `54a9656a` | Add timezone suffix (Z) to timestamps for iOS parsing |
+| `3524a795` | Match `/api/customer/orders` response to iOS P2PCustomerOrder model |
+| `bb2f5266` | Remove non-existent `ready_at`/`picked_up_at` fields from active-orders |
+| `7d4ac22a` | Use explicit `and_()` in active-orders query |
 
-| File | Fixed |
-|------|-------|
-| `Info.plist` | URL scheme, Google Maps API key, all permissions |
-| `GoogleService-Info.plist` | Client ID, API key, Bundle ID, App ID |
-| `Appfile` | Bundle ID, Team ID, Apple ID |
-| `project.pbxproj` | Team ID, Bundle ID |
-| `ExportOptions.plist` | Team ID, Bundle ID |
-| `*.entitlements` | Merchant ID |
+### 3. Driver App Setup for App Review
+- Added vehicle details: Toyota Camry 2022, Silver, ABC1234
+- Set all documents as verified (`requires_documents: false`)
+- Disabled broken Xcode Cloud workflow
 
-### 3. Old/Wrong Values Removed
-- Deleted test files with test Stripe tokens
-- Removed old Team ID (`YRHVAY595K`) from customer app
-- Removed old Bundle ID (`com.dollor.customer`)
-- Removed old Google Client IDs
+### 4. Restaurant App - Mark Delivered Feature
+- Added "Delivering" filter tab for self-delivery orders
+- Added "Mark as Delivered" button for `RESTAURANT_WILL_DELIVER` status
+- Restaurant can now complete self-delivery orders
 
-### 4. Stripe Keys Retrieved
-Production keys retrieved from AWS Secrets Manager (`dollor/production/stripe`) and added to source of truth document.
+### 5. Documentation Created
+- `apps/ios/TESTFLIGHT_MANUAL_BUILD.md` - Manual build commands for all 3 apps
+- `apps/ios/ExportOptions.plist` - Reusable export configuration
 
 ---
 
-## Key Configuration (Build 32 - Customer App)
+## Key API Endpoints Fixed
 
+### Customer Orders
 ```
-Bundle ID:        com.dollorai.customer
-Team ID:          PRKZ4UVCD7
-Google Client ID: 65740760476-0cnsrucn1tvadbf193cgio2siosnjg02
-Google App ID:    1:65740760476:ios:973eaffa167f09b142d459
-Google Maps Key:  AIzaSyCELfWMuckt-Bbx5tyuiOSS3sYNywxVTXc
-Merchant ID:      merchant.com.dollorai.customer
-Stripe Account:   acct_1SoXl3ReyIzV18V4
-API Base URL:     https://api.dollor.ai
+GET /api/customer/orders          - Order history (with auth)
+GET /api/customer/{id}/active-orders - Active orders for tracking
 ```
+
+**Response now includes:**
+- `customer_name`, `customer_phone`
+- `items` as JSON string (not array)
+- `pickup_latitude`, `pickup_longitude`
+- All timestamps with `Z` suffix for iOS parsing
+
+### Restaurant Self-Delivery
+```
+POST /api/erp/orders/{id}/restaurant-accept-delivery - Accept self-delivery
+POST /api/erp/orders/{id}/delivered                  - Mark as delivered
+```
+
+---
+
+## Manual TestFlight Build Commands
+
+```bash
+# Customer App
+cd apps/ios/customer
+xcodebuild -workspace eatfaircustomer.xcworkspace \
+  -scheme eatfaircustomer -configuration Release \
+  -archivePath /tmp/eatfaircustomer.xcarchive \
+  archive DEVELOPMENT_TEAM=PRKZ4UVCD7
+
+xcodebuild -exportArchive \
+  -archivePath /tmp/eatfaircustomer.xcarchive \
+  -exportPath /tmp/eatfaircustomer-export \
+  -exportOptionsPlist apps/ios/ExportOptions.plist
+
+# Driver App
+cd apps/ios/delivery
+xcodebuild -workspace eatffairdelivery.xcworkspace \
+  -scheme eatffairdelivery -configuration Release \
+  -archivePath /tmp/eatffairdelivery.xcarchive \
+  archive DEVELOPMENT_TEAM=PRKZ4UVCD7
+
+# Restaurant App
+cd apps/ios/restaurant
+xcodebuild -workspace eatffairrestaurant.xcworkspace \
+  -scheme eatffairrestaurant -configuration Release \
+  -archivePath /tmp/eatffairrestaurant.xcarchive \
+  archive DEVELOPMENT_TEAM=PRKZ4UVCD7
+```
+
+---
+
+## Production URLs
+
+| Service | URL |
+|---------|-----|
+| API | `https://api.dollor.ai` |
+| Staging | `https://d3kuu45w6kl8hr.cloudfront.net` |
+
+---
+
+## Known Issues
+
+1. **Xcode Cloud for Driver App** - Disabled (was misconfigured with wrong scheme)
+2. **Deploy workflow sometimes fails** - But changes still deploy to production
+
+---
+
+## Next Session Tasks
+
+### Priority 1: End-to-End Testing
+- [ ] Place order with Customer app → Accept in Restaurant app → Complete delivery
+- [ ] Test self-delivery flow: Restaurant "I Will Deliver" → "Mark as Delivered"
+- [ ] Verify customer receives push notifications for order status changes
+
+### Priority 2: App Store Submission
+- [ ] Submit Customer App for review
+- [ ] Submit Driver App for review
+- [ ] Submit Restaurant App for review
+
+### Priority 3: Outstanding Features
+- [ ] Order tracking map view
+- [ ] Driver location updates
+- [ ] Chat between customer and driver
 
 ---
 
@@ -73,157 +153,15 @@ API Base URL:     https://api.dollor.ai
 ```
 /Users/jeet/StudioProjects/eatfair-ios/
 ├── apps/ios/
-│   ├── CUSTOMER_APP_SOURCE_OF_TRUTH.md  (gitignored - has all keys)
-│   ├── CUSTOMER_APP_API_WORKFLOW.md     (gitignored - all API endpoints)
-│   ├── RESTAURANT_APP_SOURCE_OF_TRUTH.md (needs update for Build 17)
-│   ├── customer/                         (Customer App)
-│   └── restaurant/                       (Restaurant App)
-└── apps/web/p2p-platform/backend/        (Backend - 405 API routes)
+│   ├── customer/                    # Customer App (Build 1027)
+│   ├── delivery/                    # Driver App (Build 101)
+│   ├── restaurant/                  # Restaurant App (Build 102)
+│   ├── eatfair-ios-shared/          # Shared Swift package
+│   ├── TESTFLIGHT_MANUAL_BUILD.md   # Build commands
+│   └── ExportOptions.plist          # Export config
+└── apps/web/p2p-platform/backend/   # Python FastAPI backend
+    └── main_new.py                  # Main API file
 ```
-
----
-
-## Next Session Tasks
-
-### Priority 1: Restaurant App (Build 17)
-- [ ] Verify Build 17 archive configuration
-- [ ] Update `RESTAURANT_APP_SOURCE_OF_TRUTH.md` with actual Build 17 values
-- [ ] Fix any mismatched config files
-- [ ] Create `RESTAURANT_APP_API_WORKFLOW.md`
-
-### Priority 2: App Store Review
-- [ ] Monitor Customer App Build 32 review status
-- [ ] Prepare for any rejection feedback
-
-### Priority 3: Verification
-- [ ] Test Google Sign-In with new config
-- [ ] Test Apple Sign-In
-- [ ] Test Stripe payments
-- [ ] Verify all API endpoints working
-
----
-
-## Important Notes
-
-1. **Two Different Team IDs:**
-   - Customer App: `PRKZ4UVCD7` (support2dollorai)
-   - Restaurant App: `YRHVAY595K` (jeetnair.in@gmail.com) - VERIFY
-
-2. **Two Different Bundle ID Patterns:**
-   - Customer: `com.dollorai.customer` (with "ai")
-   - Restaurant: `com.dollor.restaurant` (without "ai")
-
-3. **Source of Truth Files are PRIVATE:**
-   - Added to `.gitignore`
-   - Contain production Stripe keys
-   - Never commit to git
-
-4. **Backend has 405 API routes** - only ~50 used by Customer App
-
----
-
-## Commands Reference
-
-```bash
-# Customer App location
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
-
-# Restaurant App location
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
-
-# Build 32 Archive
-open ~/Library/Developer/Xcode/Archives/2026-01-27/
-
-# Check Stripe keys from AWS
-aws secretsmanager get-secret-value --secret-id "dollor/production/stripe"
-
-# Fastlane build
-bundle exec fastlane beta
-```
-
----
-
-# Phase 5: AI Employee CI/CD Pipeline
-
-> **Date:** January 28, 2026
-> **Status:** COMPLETED
-
----
-
-## Overview
-
-Implemented CI/CD pipeline for deploying individual AI employees independently without requiring a full backend restart.
-
----
-
-## Files Created
-
-| File | Purpose |
-|------|---------|
-| `.github/workflows/deploy-employee.yml` | GitHub Actions workflow |
-| `backend/scripts/validate-employee.js` | Module validation |
-| `backend/scripts/test-employee.js` | Test runner |
-| `backend/scripts/rollback-employee.js` | Version management |
-| `backend/src/routes/adminEmployeeRoutes.js` | Admin REST API |
-| `backend/src/services/metricsService.js` | Prometheus metrics |
-| `backend/src/employees/sarah/index.js` | Sample employee |
-| `backend/src/employees/sarah/__tests__/sarah.test.js` | Employee tests |
-
----
-
-## Test Commands
-
-```bash
-# Validate employee
-cd backend && node scripts/validate-employee.js sarah
-
-# Test employee
-cd backend && node scripts/test-employee.js sarah
-
-# Backup/Rollback
-node scripts/rollback-employee.js backup sarah
-node scripts/rollback-employee.js list sarah
-node scripts/rollback-employee.js rollback sarah previous
-
-# GitHub Actions (manual trigger)
-gh workflow run deploy-employee.yml -f employee=sarah
-```
-
----
-
-## Admin API Endpoints
-
-```bash
-TOKEN="1901c3a4a058b70c2e43ab4bbd65cf9001f35c7e18088489559da344462573d8"
-
-# Deploy
-curl -X POST -H "x-admin-token: $TOKEN" \
-  -F "file=@backend/src/employees/sarah/index.js" \
-  https://api.vibingticket.com/admin/employees/sarah/deploy
-
-# Hot-reload
-curl -X POST -H "x-admin-token: $TOKEN" \
-  https://api.vibingticket.com/admin/employees/sarah/reload
-
-# Health check
-curl -H "x-admin-token: $TOKEN" \
-  https://api.vibingticket.com/admin/employees/sarah/health
-
-# Metrics
-curl -H "x-admin-token: $TOKEN" \
-  https://api.vibingticket.com/admin/metrics
-```
-
----
-
-## GitHub Secrets Required
-
-| Secret | Value |
-|--------|-------|
-| `EC2_SSH_KEY` | Private SSH key |
-| `EC2_HOST` | 54.173.113.128 |
-| `EC2_USER` | ubuntu |
-| `ADMIN_API_TOKEN` | (see above) |
 
 ---
 
