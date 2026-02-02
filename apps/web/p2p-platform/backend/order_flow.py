@@ -2099,7 +2099,7 @@ async def get_vendor_orders(
             "driver": driver_info,
             "created_at": order.created_at.isoformat() if order.created_at else None,
             "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
+            "picked_up_at": getattr(order, 'picked_up_at', None).isoformat() if getattr(order, 'picked_up_at', None) else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
