@@ -806,6 +806,7 @@ def _run_startup_migrations():
     migrations = [
         # Orders table columns
         ("orders", "dispatched_at", "TIMESTAMP"),
+        ("orders", "picked_up_at", "TIMESTAMP"),  # When driver picked up from restaurant
         ("orders", "cancelled_at", "TIMESTAMP"),
         ("orders", "auto_dispatched", "BOOLEAN DEFAULT FALSE"),
         ("orders", "broadcast_to_drivers", "BOOLEAN DEFAULT FALSE"),
