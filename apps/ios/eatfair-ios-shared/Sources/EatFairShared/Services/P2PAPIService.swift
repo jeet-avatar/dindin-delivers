@@ -8511,6 +8511,33 @@ public struct P2PVendorDeliveryAddress: Codable {
     }
 }
 
+/// Driver information for pickup/delivery coordination
+public struct P2PDriverInfo: Codable {
+    public let id: Int?
+    public let name: String?
+    public let phone: String?
+    public let photoUrl: String?
+    public let rating: Double?
+    public let vehicle: String?          // "Silver Toyota Camry"
+    public let vehicleMake: String?
+    public let vehicleModel: String?
+    public let vehicleColor: String?
+    public let licensePlate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case phone
+        case photoUrl = "photo_url"
+        case rating
+        case vehicle
+        case vehicleMake = "vehicle_make"
+        case vehicleModel = "vehicle_model"
+        case vehicleColor = "vehicle_color"
+        case licensePlate = "license_plate"
+    }
+}
+
 /// Order model as returned by the vendor orders endpoint
 public struct P2PVendorOrder: Codable, Identifiable {
     public let id: Int
@@ -8526,6 +8553,11 @@ public struct P2PVendorOrder: Codable, Identifiable {
     public let deliveryAddress: P2PVendorDeliveryAddress?  // Object from backend
     public let deliveryInstructions: String?
     public let createdAt: String?
+    // Driver info for pickup coordination
+    public let driverId: Int?
+    public let driverName: String?
+    public let driver: P2PDriverInfo?
+    public let pickedUpAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -8541,6 +8573,10 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case deliveryAddress = "delivery_address"
         case deliveryInstructions = "delivery_instructions"
         case createdAt = "created_at"
+        case driverId = "driver_id"
+        case driverName = "driver_name"
+        case driver
+        case pickedUpAt = "picked_up_at"
     }
 
     /// Get items as dictionary array for compatibility
