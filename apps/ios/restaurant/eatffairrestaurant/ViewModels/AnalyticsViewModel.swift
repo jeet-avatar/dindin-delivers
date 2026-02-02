@@ -30,11 +30,9 @@ class AnalyticsViewModel: ObservableObject {
     @Published var dinnerPeakTime: String = "6:00 - 9:00 PM"
     @Published var dinnerPeakOrders: Int = 0
 
-    // Performance metrics
-    @Published var orderCompletionRate: Double = 0.98
-    @Published var onTimeDeliveryRate: Double = 0.94
-    @Published var customerRating: Double = 4.8
-    @Published var repeatCustomerRate: Double = 0.67
+    // Performance metrics (calculated from real order data)
+    @Published var orderCompletionRate: Double = 0.0
+    @Published var onTimeDeliveryRate: Double = 0.0
 
     // Promotion Analytics
     @Published var promotionAnalytics: P2PPromotionAnalytics?
@@ -328,12 +326,6 @@ class AnalyticsViewModel: ObservableObject {
         if deliveredCount > 0 {
             onTimeDeliveryRate = Double(onTimeCount) / Double(deliveredCount)
         }
-
-        // Customer rating - would come from reviews API, use placeholder
-        // customerRating stays at default 4.8
-
-        // Repeat customer rate - would need customer history, use placeholder
-        // repeatCustomerRate stays at default 0.67
     }
 
     private func formatHour(_ hour: Int) -> String {

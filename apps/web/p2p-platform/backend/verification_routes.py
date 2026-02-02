@@ -205,58 +205,9 @@ async def get_persona_status(inquiry_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/webhook/persona")
-async def persona_webhook(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Webhook endpoint for Persona verification events.
-    Verifies signature and processes verification results.
-    """
-    # Get raw body for signature verification
-    body = await request.body()
-    signature = request.headers.get("Persona-Signature", "")
-
-    service = get_verification_service("persona")
-
-    # Verify webhook signature in production
-    if _IS_PRODUCTION:
-        if not service.verify_persona_webhook(body, signature):
-            logger.warning("Invalid Persona webhook signature received")
-            raise HTTPException(status_code=401, detail="Invalid signature")
-
-    try:
-        payload = json.loads(body)
-        event_type = payload.get("data", {}).get("attributes", {}).get("name", "")
-        inquiry_id = payload.get("data", {}).get("attributes", {}).get("payload", {}).get("data", {}).get("id")
-
-        log_verification_event(
-            event_type=f"webhook_{event_type}",
-            entity_type="unknown",
-            entity_id=0,
-            provider="persona",
-            details={"inquiry_id": inquiry_id, "event": event_type}
-        )
-
-        # Process based on event type
-        if event_type in ["inquiry.completed", "inquiry.approved"]:
-            # Update entity verification status in database
-            background_tasks.add_task(
-                process_verification_complete,
-                db, "persona", inquiry_id, "verified"
-            )
-        elif event_type == "inquiry.failed":
-            background_tasks.add_task(
-                process_verification_complete,
-                db, "persona", inquiry_id, "rejected"
-            )
-
-        return {"status": "processed", "event": event_type}
-
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+# NOTE: Persona webhook is implemented in main_new.py at /api/verification/webhook/persona
+# That implementation handles vendor/driver verification with AI auto-processing.
+# Do not duplicate here to avoid route conflicts.
 
 
 # =============================================================================
@@ -361,48 +312,9 @@ async def create_onfido_check(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/webhook/onfido")
-async def onfido_webhook(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Webhook endpoint for Onfido verification events.
-    Processes check completion and updates entity verification status.
-    """
-    body = await request.body()
-    signature = request.headers.get("X-SHA2-Signature", "")
-
-    try:
-        payload = json.loads(body)
-        action = payload.get("payload", {}).get("action", "")
-        resource_type = payload.get("payload", {}).get("resource_type", "")
-
-        log_verification_event(
-            event_type=f"webhook_{action}",
-            entity_type="unknown",
-            entity_id=0,
-            provider="onfido",
-            details={"action": action, "resource_type": resource_type}
-        )
-
-        if resource_type == "check" and action == "check.completed":
-            check_id = payload.get("payload", {}).get("object", {}).get("id")
-            result = payload.get("payload", {}).get("object", {}).get("result")
-
-            status = "verified" if result == "clear" else "rejected"
-            background_tasks.add_task(
-                process_verification_complete,
-                db, "onfido", check_id, status
-            )
-
-            return {"status": "processed", "check_id": check_id, "result": result}
-
-        return {"status": "ignored", "reason": f"Unhandled event: {action}"}
-
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+# NOTE: Onfido webhook is implemented in main_new.py at /api/verification/webhook/onfido
+# That implementation actually updates Driver verification status.
+# Do not duplicate here to avoid route conflicts.
 
 
 # =============================================================================
@@ -503,63 +415,9 @@ async def get_veriff_decision(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/webhook/veriff")
-async def veriff_webhook(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Webhook endpoint for Veriff verification events.
-    Verifies HMAC signature and processes verification results.
-    """
-    body = await request.body()
-    signature = request.headers.get("X-HMAC-SIGNATURE", "")
-
-    service = get_verification_service("veriff")
-
-    # Verify webhook signature in production
-    if _IS_PRODUCTION:
-        if not service.verify_veriff_webhook(body, signature):
-            logger.warning("Invalid Veriff webhook signature received")
-            raise HTTPException(status_code=401, detail="Invalid signature")
-
-    try:
-        payload = json.loads(body)
-        verification = payload.get("verification", {})
-        session_id = verification.get("id")
-        status = verification.get("status")
-        vendor_data = verification.get("vendorData", "")
-
-        # Parse entity info from vendor data
-        entity_parts = vendor_data.split("_") if vendor_data else []
-        entity_type = entity_parts[0] if len(entity_parts) > 0 else "unknown"
-        entity_id = int(entity_parts[1]) if len(entity_parts) > 1 else 0
-
-        log_verification_event(
-            event_type=f"webhook_{status}",
-            entity_type=entity_type,
-            entity_id=entity_id,
-            provider="veriff",
-            details={"session_id": session_id, "status": status}
-        )
-
-        # Process verification result
-        if status == "approved":
-            background_tasks.add_task(
-                process_verification_complete,
-                db, "veriff", session_id, "verified"
-            )
-        elif status in ["declined", "resubmission_requested"]:
-            background_tasks.add_task(
-                process_verification_complete,
-                db, "veriff", session_id, "rejected"
-            )
-
-        return {"status": "processed", "session_id": session_id, "verification_status": status}
-
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+# NOTE: Veriff webhook is implemented in main_new.py at /api/verification/webhook/veriff
+# That implementation handles actual Driver/Vendor status updates.
+# Do not duplicate here to avoid route conflicts.
 
 
 # =============================================================================
@@ -639,29 +497,5 @@ async def get_required_documents(entity_type: str):
 # =============================================================================
 # BACKGROUND TASKS
 # =============================================================================
-
-async def process_verification_complete(
-    db: Session,
-    provider: str,
-    verification_id: str,
-    status: str
-):
-    """
-    Background task to update entity verification status after webhook.
-    """
-    from models import Driver, Vendor
-
-    logger.info(f"Processing verification complete: provider={provider}, id={verification_id}, status={status}")
-
-    # TODO: Look up entity by verification_id stored during creation
-    # For now, log the event for manual processing
-    log_verification_event(
-        event_type="verification_complete",
-        entity_type="unknown",
-        entity_id=0,
-        provider=provider,
-        details={
-            "verification_id": verification_id,
-            "status": status
-        }
-    )
+# NOTE: Webhook processing is handled in main_new.py which has the complete
+# implementation for updating Driver/Vendor verification status.

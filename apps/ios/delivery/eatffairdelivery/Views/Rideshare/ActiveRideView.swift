@@ -53,6 +53,11 @@ struct ActiveRideView: View {
         max(0, finalPrice - AppConfig.shared.rideshareTier1Fee)
     }
 
+    private var hasRiderPhone: Bool {
+        guard let phone = request?.customer_phone, !phone.isEmpty else { return false }
+        return true
+    }
+
     var body: some View {
         ZStack {
             // Full-screen Map
@@ -86,7 +91,8 @@ struct ActiveRideView: View {
             if let request = request {
                 RiderChatView(
                     rideRequestId: request.id,
-                    riderName: request.customer_name ?? "Rider"
+                    riderName: request.customer_name ?? "Rider",
+                    riderPhone: request.customer_phone
                 )
             }
         }
@@ -247,11 +253,12 @@ struct ActiveRideView: View {
                         Button(action: callRider) {
                             Image(systemName: "phone.fill")
                                 .font(.title3)
-                                .foregroundColor(.green)
+                                .foregroundColor(hasRiderPhone ? .green : .gray)
                                 .frame(width: 44, height: 44)
-                                .background(Color.green.opacity(0.1))
+                                .background(hasRiderPhone ? Color.green.opacity(0.1) : Color.gray.opacity(0.1))
                                 .cornerRadius(12)
                         }
+                        .disabled(!hasRiderPhone)
                     }
                 }
             }
@@ -405,8 +412,14 @@ struct ActiveRideView: View {
     }
 
     private func callRider() {
-        // Placeholder - would integrate with customer phone
-        guard let url = URL(string: "tel://") else { return }
+        guard let request = request,
+              let phone = request.customer_phone,
+              !phone.isEmpty else {
+            // Phone not available - show alert
+            return
+        }
+        let cleanPhone = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+        guard let url = URL(string: "tel://\(cleanPhone)") else { return }
         UIApplication.shared.open(url)
     }
 

@@ -244,27 +244,60 @@ struct RestaurantSettingsView: View {
                     }
                 }
 
-                // Business Documents Section
-                Section("Business Documents") {
-                    NavigationLink(destination: RestaurantDocumentsView()) {
+                // Kitchen Printing / POS Integration Section
+                Section("Kitchen Printing") {
+                    NavigationLink(destination: KOTSettingsView()) {
                         HStack {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Verification Documents")
-                                    Text("License, Tax ID, Health Permit")
+                                    Text("POS Integration")
+                                    Text("Auto-print orders to kitchen")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
                             } icon: {
-                                Image(systemName: "doc.badge.checkmark")
-                                    .foregroundColor(.blue)
+                                Image(systemName: "printer.fill")
+                                    .foregroundColor(.purple)
                             }
                             Spacer()
-                            Text("Required")
+                            Text("Square, Clover")
                                 .font(.caption)
-                                .foregroundColor(.orange)
+                                .foregroundColor(.purple)
                         }
                     }
+                }
+
+                // Business Documents Section
+                Section("Business Documents") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "doc.badge.checkmark")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Documents Managed Online")
+                                    .font(.headline)
+                                Text("Business documents are reviewed and approved through our web portal for security.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        Link(destination: URL(string: "https://admin.dollor.ai")!) {
+                            HStack {
+                                Image(systemName: "globe")
+                                Text("Go to Admin Portal")
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(RestaurantTheme.brandOrange)
+                            .cornerRadius(10)
+                        }
+                    }
+                    .padding(.vertical, 8)
                 }
 
                 // Payment Section
@@ -855,6 +888,13 @@ class SettingsViewModel: ObservableObject {
         P2PAPIService.shared.logout()
         // Sign out from Firebase
         try? Auth.auth().signOut()
+        // Clear any Apple Sign-In stored data
+        UserDefaults.standard.removeObject(forKey: "vendor_apple_user_name")
+        UserDefaults.standard.removeObject(forKey: "vendor_apple_user_id")
+        UserDefaults.standard.removeObject(forKey: "vendor_apple_user_email")
+        UserDefaults.standard.synchronize()
+        // Post notification to update UI
+        NotificationCenter.default.post(name: NSNotification.Name("UserDidLogout"), object: nil)
     }
 }
 
@@ -1237,45 +1277,126 @@ struct LegalDocumentView: View {
             case .privacy:
                 return URL(string: AppConstants.privacyPolicyURL)
             case .agreement:
-                return URL(string: AppConstants.termsOfServiceURL) // Same as terms for now
+                return URL(string: AppConstants.termsOfServiceURL)
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .terms:
+                return """
+                Dollor.AI is a peer-to-platform matchmaking service that connects restaurants with customers and independent delivery partners.
+
+                IMPORTANT: Dollor.AI is NOT a transportation network company (TNC). We do not:
+                • Employ or control delivery drivers
+                • Set delivery routes or schedules
+                • Provide transportation services directly
+
+                Dollor.AI operates as a technology platform that:
+                • Facilitates connections between restaurants and customers
+                • Enables independent contractors to accept delivery requests
+                • Provides order management tools for restaurant partners
+                • Charges a flat $1 per order platform fee
+
+                All delivery services are performed by independent contractors who maintain their own schedules, use their own vehicles, and operate their own businesses.
+                """
+            case .privacy:
+                return """
+                Your privacy is important to us. Dollor.AI collects and processes data necessary to provide our matchmaking services.
+
+                We collect:
+                • Restaurant business information
+                • Order and transaction data
+                • Communication preferences
+
+                We use this data to:
+                • Facilitate orders between customers and restaurants
+                • Match delivery requests with available independent contractors
+                • Improve our platform services
+                • Send relevant notifications
+
+                We do not sell your personal information to third parties.
+                """
+            case .agreement:
+                return """
+                As a Restaurant Partner on Dollor.AI:
+
+                • You maintain full control of your menu, pricing, and operations
+                • You agree to fulfill orders placed through our platform
+                • You understand Dollor.AI is a matchmaking platform only
+                • You acknowledge delivery partners are independent contractors
+                • You agree to the flat $1 per order platform fee
+
+                Dollor.AI provides the technology platform to connect you with customers. We do not control your business operations, employment decisions, or food preparation.
+                """
             }
         }
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: iconName)
-                .font(.system(size: 60))
-                .foregroundColor(Theme.brandGreen)
-                .padding(.top, 40)
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: iconName)
+                    .font(.system(size: 60))
+                    .foregroundColor(Theme.brandGreen)
+                    .padding(.top, 40)
 
-            Text(title)
-                .font(.title2)
-                .fontWeight(.bold)
+                Text(title)
+                    .font(.title2)
+                    .fontWeight(.bold)
 
-            Text("View the complete \(title.lowercased()) on our website.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                // In-app summary
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Summary")
+                        .font(.headline)
+                        .foregroundColor(.primary)
 
-            if let url = type.url {
-                Button(action: { openURL(url) }) {
-                    HStack {
-                        Image(systemName: "safari")
-                        Text("Open in Browser")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.brandGreen)
-                    .cornerRadius(12)
+                    Text(type.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 40)
-            }
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
 
-            Spacer()
+                // Platform Disclosure
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Platform Disclosure")
+                            .font(.headline)
+                    }
+
+                    Text("Dollor.AI operates as a peer-to-platform matchmaking service. We are not a transportation network company (TNC) and do not directly provide delivery or transportation services.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
+
+                if let url = type.url {
+                    Button(action: { openURL(url) }) {
+                        HStack {
+                            Image(systemName: "safari")
+                            Text("View Full Document")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandGreen)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Spacer(minLength: 40)
+            }
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)

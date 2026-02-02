@@ -14,10 +14,6 @@ struct HomeView: View {
     @State private var sortOption: SortOption = .recommended
     @State private var showVoiceSearch = false
 
-    // Featured Deals State
-    @State private var featuredDeals: [P2PFeaturedDeal] = []
-    @State private var isLoadingDeals = false
-
     enum SortOption: String, CaseIterable {
         case recommended = "Recommended"
         case topRated = "Top Rated"
@@ -43,9 +39,9 @@ struct HomeView: View {
                     // MARK: - AI Recommendation Banner
                     aiRecommendationBanner
 
-                    // MARK: - Featured Deals Section
-                    if !featuredDeals.isEmpty {
-                        featuredDealsSection
+                    // MARK: - Hot Deals Section (Restaurants with active promotions)
+                    if !restaurantsWithDeals.isEmpty {
+                        hotDealsSection
                     }
 
                     // MARK: - Multi-Restaurant Promo
@@ -76,7 +72,6 @@ struct HomeView: View {
         .onAppear {
             viewModel.fetchRestaurants()
             viewModel.checkActiveOrders()
-            fetchFeaturedDeals()
         }
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerView(viewModel: addressViewModel, isPresented: $showLocationPicker)
@@ -281,8 +276,13 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Featured Deals Section
-    private var featuredDealsSection: some View {
+    // MARK: - Restaurants with Active Deals
+    private var restaurantsWithDeals: [Restaurant] {
+        viewModel.allRestaurants.filter { $0.dealText != nil }
+    }
+
+    // MARK: - Hot Deals Section (Restaurants with promotions)
+    private var hotDealsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "flame.fill")
@@ -291,39 +291,26 @@ struct HomeView: View {
                     .font(.headline)
                     .fontWeight(.bold)
                 Spacer()
+                Text("\(restaurantsWithDeals.count) offers")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             .padding(.horizontal)
             .padding(.top)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(featuredDeals) { deal in
-                        HomeFeaturedDealCard(deal: deal)
+                    ForEach(restaurantsWithDeals) { restaurant in
+                        NavigationLink(destination: RestaurantDetailView(restaurant: restaurant)) {
+                            HotDealRestaurantCard(restaurant: restaurant)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal)
             }
         }
         .padding(.bottom, 8)
-    }
-
-    // MARK: - Fetch Featured Deals
-    private func fetchFeaturedDeals() {
-        isLoadingDeals = true
-
-        P2PAPIService.shared.getFeaturedDeals { result in
-            isLoadingDeals = false
-
-            switch result {
-            case .success(let response):
-                featuredDeals = response.featured
-            case .failure(let error):
-                #if DEBUG
-                print("[HomeView] Failed to fetch featured deals: \(error)")
-                #endif
-                featuredDeals = []
-            }
-        }
     }
 
     // MARK: - Multi-Restaurant Promo Banner
@@ -813,10 +800,23 @@ struct RestaurantCard: View {
 
             // Restaurant Info
             VStack(alignment: .leading, spacing: 4) {
-                Text(restaurant.name)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
+                HStack {
+                    Text(restaurant.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    // Deal badge if restaurant has active promotion
+                    if let dealText = restaurant.dealText {
+                        Text(dealText)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(dealText.contains("BOGO") ? Color.orange : (dealText.contains("FREE") ? Theme.brandGreen : Color.purple))
+                            .cornerRadius(4)
+                    }
+                }
 
                 Text(restaurant.cuisine)
                     .font(.system(size: 14))
@@ -947,9 +947,22 @@ struct RestaurantRowView: View {
             .cornerRadius(10)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(restaurant.name)
-                    .font(.headline)
-                    .lineLimit(1)
+                HStack {
+                    Text(restaurant.name)
+                        .font(.headline)
+                        .lineLimit(1)
+
+                    // Deal badge
+                    if let dealText = restaurant.dealText {
+                        Text(dealText)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(dealText.contains("BOGO") ? Color.orange : (dealText.contains("FREE") ? Theme.brandGreen : Color.purple))
+                            .cornerRadius(4)
+                    }
+                }
 
                 Text(restaurant.cuisine)
                     .font(.subheadline)
@@ -974,6 +987,96 @@ struct RestaurantRowView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Hot Deal Restaurant Card
+struct HotDealRestaurantCard: View {
+    let restaurant: Restaurant
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Image with deal badge overlay
+            ZStack(alignment: .topLeading) {
+                if let url = URL(string: restaurant.imageUrl), !restaurant.imageUrl.isEmpty {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure(_), .empty:
+                            Rectangle()
+                                .fill(Color(.systemGray5))
+                                .overlay(
+                                    Image(systemName: "fork.knife")
+                                        .font(.title)
+                                        .foregroundColor(.gray)
+                                )
+                        @unknown default:
+                            Rectangle().fill(Color(.systemGray5))
+                        }
+                    }
+                } else {
+                    Rectangle()
+                        .fill(Color(.systemGray5))
+                        .overlay(
+                            Image(systemName: "fork.knife")
+                                .font(.title)
+                                .foregroundColor(.gray)
+                        )
+                }
+
+                // Deal badge
+                if let dealText = restaurant.dealText {
+                    Text(dealText)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            dealText.contains("BOGO") ? Color.orange :
+                            dealText.contains("FREE") ? Theme.brandGreen : Color.purple
+                        )
+                        .cornerRadius(0)
+                        .cornerRadius(8, corners: [.bottomRight])
+                }
+            }
+            .frame(width: 160, height: 100)
+            .clipped()
+
+            // Restaurant info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(restaurant.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+
+                Text(restaurant.cuisine)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.orange)
+                    Text(String(format: "%.1f", restaurant.rating))
+                        .font(.system(size: 11))
+                    Text("•")
+                        .font(.system(size: 8))
+                        .foregroundColor(.gray)
+                    Text(restaurant.deliveryTime)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+        .frame(width: 160)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
     }
 }
 

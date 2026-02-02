@@ -6,7 +6,7 @@ import AuthenticationServices
 import CryptoKit
 import os.log
 
-private let logger = Logger(subsystem: "com.dollor.customer", category: "AuthViewModel")
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "AuthViewModel")
 
 /// Customer Authentication ViewModel
 /// Uses Google Sign-In SDK directly + P2P backend (no Firebase)
@@ -402,6 +402,13 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
             .compactMap { $0 }
             .joined(separator: " ")
 
+        // Extract identity token (contains real email for backend verification)
+        var identityTokenString: String?
+        if let identityTokenData = appleIDCredential.identityToken,
+           let tokenString = String(data: identityTokenData, encoding: .utf8) {
+            identityTokenString = tokenString
+        }
+
         // IMPORTANT: Apple only provides name on FIRST sign-in
         // Save name locally if provided, or retrieve saved name for subsequent logins
         if !fullName.isEmpty {
@@ -417,11 +424,12 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
         }
 
         // Call P2P backend for Apple auth
-        // Send empty string if no name available - backend will preserve existing name
+        // Send identity token so backend can extract real email for returning users
         p2pService.customerAppleAuth(
             email: appleEmail,
             name: fullName,
-            appleId: appleUserId
+            appleId: appleUserId,
+            identityToken: identityTokenString
         ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false

@@ -150,6 +150,9 @@ struct OrderHistoryView: View {
     }
 
     // MARK: - Filtered Orders
+    // TODO: When app goes live, upgrade this to handle restaurant self-delivery vs driver delivery workflow
+    // Current flow: Restaurant can deliver OR order auto-assigns to nearby driver after timeout
+    // Orders stay active (Accepted status) for up to 30 minutes unless restaurant cancels
     private var filteredOrders: [Order] {
         switch selectedFilter {
         case .all:
@@ -236,6 +239,8 @@ struct OrderCard: View {
 
     @State private var isExpanded = false
     @State private var showCancelConfirmation = false
+    @State private var showRateRestaurant = false
+    @State private var showRateDriver = false
 
     init(order: Order, onReorder: @escaping () -> Void, onTrack: @escaping () -> Void, onCancel: (() -> Void)? = nil, canCancel: Bool = false, refundStatus: P2PRefundStatusResponse? = nil, onFetchRefundStatus: (() -> Void)? = nil) {
         self.order = order
@@ -471,8 +476,43 @@ struct OrderCard: View {
                     }
                 }
 
-                // Reorder Button (for completed orders)
+                // Rate Buttons (for delivered orders)
                 if order.status == "Delivered" {
+                    // Rate Restaurant button (if not rated)
+                    if !order.isRestaurantRated {
+                        Button(action: { showRateRestaurant = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "star")
+                                Text("Rate Food")
+                            }
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Theme.brandOrange)
+                            .cornerRadius(8)
+                        }
+                    }
+
+                    // Rate Driver button (if not rated and has driver)
+                    if !order.isRated && order.driverId != nil {
+                        Button(action: { showRateDriver = true }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "person.fill")
+                                Text("Rate Driver")
+                            }
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Theme.brandGreen)
+                            .cornerRadius(8)
+                        }
+                    }
+
+                    // Reorder Button
                     Button(action: onReorder) {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.clockwise")
@@ -480,10 +520,10 @@ struct OrderCard: View {
                         }
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.brandOrange)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Theme.brandOrange)
+                        .background(Theme.brandOrange.opacity(0.1))
                         .cornerRadius(8)
                     }
                 }
@@ -493,6 +533,12 @@ struct OrderCard: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .sheet(isPresented: $showRateRestaurant) {
+            RateRestaurantView(order: order)
+        }
+        .sheet(isPresented: $showRateDriver) {
+            RateDriverView(order: order)
+        }
         .alert("Cancel Order", isPresented: $showCancelConfirmation) {
             Button("Keep Order", role: .cancel) {}
             Button("Cancel Order", role: .destructive) {

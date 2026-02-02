@@ -31,6 +31,7 @@ struct MultiRestaurantCheckoutView: View {
     @State private var promotionCode = ""
     @State private var discount: Double = 0.0
     @State private var appliedPromoCode: String?
+    @State private var appliedPromoName: String?  // Promo name (e.g., "Buy One Get One Free")
     @State private var deliveryInstructions = ""
 
     // UI State
@@ -53,6 +54,7 @@ struct MultiRestaurantCheckoutView: View {
     @State private var stripePaymentSheet: PaymentSheet?
     @State private var stripePaymentReady = false
     @State private var isLoadingStripe = false
+    @State private var showStripePaymentSheet = false
 
     private var currentTip: Double {
         if useCustomTip, let tip = Double(customTip) {
@@ -76,6 +78,9 @@ struct MultiRestaurantCheckoutView: View {
                             // Order Summary Header
                             orderSummaryHeader
 
+                            // Promo Code (moved up for visibility)
+                            promoCodeSection
+
                             // Delivery Address
                             deliveryAddressSection
 
@@ -87,9 +92,6 @@ struct MultiRestaurantCheckoutView: View {
 
                             // Tip Selection
                             tipSelectionSection
-
-                            // Promo Code
-                            promoCodeSection
 
                             // Price Breakdown
                             priceBreakdownSection
@@ -120,6 +122,22 @@ struct MultiRestaurantCheckoutView: View {
             }
             .sheet(isPresented: $showFeeBreakdown) {
                 FeeBreakdownDetailView()
+            }
+            .onChange(of: showStripePaymentSheet) { _, shouldShow in
+                if shouldShow, let sheet = stripePaymentSheet {
+                    // Get the topmost view controller to present from
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootVC = windowScene.windows.first?.rootViewController {
+                        var topVC = rootVC
+                        while let presented = topVC.presentedViewController {
+                            topVC = presented
+                        }
+                        sheet.present(from: topVC) { result in
+                            showStripePaymentSheet = false
+                            onStripePaymentCompletion(result: result)
+                        }
+                    }
+                }
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
@@ -474,16 +492,31 @@ struct MultiRestaurantCheckoutView: View {
             }
 
             if discount > 0, let code = appliedPromoCode {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("'\(code)' applied!")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    Spacer()
-                    Text("-$\(String(format: "%.2f", discount))")
-                        .fontWeight(.bold)
-                        .foregroundColor(.green)
+                VStack(spacing: 4) {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("'\(code)' applied!")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Spacer()
+                        Text("-$\(String(format: "%.2f", discount))")
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
+                    // Show promo name (e.g., "Buy One Get One Free")
+                    if let promoName = appliedPromoName {
+                        HStack {
+                            Image(systemName: "tag.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption2)
+                            Text(promoName)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                    }
                 }
                 .padding(.horizontal)
             }
@@ -599,6 +632,53 @@ struct MultiRestaurantCheckoutView: View {
                             .font(.caption2)
                             .foregroundColor(.purple)
                     }
+                }
+
+                // Restaurant Contribution - TRANSPARENCY (not charged to customer)
+                Divider().padding(.vertical, 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Restaurant Contribution")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("Not in your total")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        HStack(spacing: 4) {
+                            Image(systemName: "storefront")
+                                .font(.caption2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Restaurant Platform Fee")
+                                    .font(.caption)
+                                Text("$1 per restaurant • Deducted from payout")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .foregroundColor(.gray)
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text("$\(String(format: "%.2f", Double(cartVM.restaurantCount) * 1.0))")
+                                .font(.caption)
+                            Text("→ Dollor.ai")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
+                    }
+
+                    // Explicit $1+$1=$2 summary
+                    HStack {
+                        Spacer()
+                        Text("Dollor earns $2 total per restaurant: $1 from you + $1 from restaurant")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .italic()
+                        Spacer()
+                    }
+                    .padding(.top, 4)
                 }
 
                 if discount > 0 {
@@ -753,7 +833,9 @@ struct MultiRestaurantCheckoutView: View {
                 case .success(let response):
                     discount = response.discountAmount
                     appliedPromoCode = response.promotionCode
-                    // Show success feedback
+                    appliedPromoName = response.promotionName
+                    // Save promo name to cart VM for success screen
+                    cartVM.lastOrderPromoName = response.promotionName
                 case .failure(let error):
                     let errorMsg = (error as? P2PAPIError)?.localizedDescription ?? error.localizedDescription
                     errorMessage = errorMsg.contains("Invalid") || errorMsg.contains("not active") ? errorMsg : "Invalid or expired promo code"
@@ -799,16 +881,25 @@ struct MultiRestaurantCheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentData):
+                    #if DEBUG
+                    print("[ApplePay] PaymentIntent received successfully")
+                    print("[ApplePay] Publishable key prefix: \(String(paymentIntentData.publishableKey.prefix(20)))...")
+                    print("[ApplePay] Client secret prefix: \(String(paymentIntentData.clientSecret.prefix(20)))...")
+                    #endif
 
                     // Set the publishable key
                     STPAPIClient.shared.publishableKey = paymentIntentData.publishableKey
 
                     // Create payment request for Apple Pay
                     let request = StripeAPI.paymentRequest(
-                        withMerchantIdentifier: "merchant.com.dollor.customer",
+                        withMerchantIdentifier: "merchant.com.dolloraiai",
                         country: "US",
                         currency: "USD"
                     )
+
+                    // Required: Set supported payment networks
+                    request.supportedNetworks = [.visa, .masterCard, .amex, .discover]
+                    request.merchantCapabilities = [.capability3DS, .capabilityCredit, .capabilityDebit]
 
                     // Helper to round Double to 2 decimal places for Apple Pay
                     func roundedAmount(_ value: Double) -> NSDecimalNumber {
@@ -831,12 +922,27 @@ struct MultiRestaurantCheckoutView: View {
                     request.paymentSummaryItems = paymentItems
 
                     // Check if Apple Pay is available
+                    #if DEBUG
+                    print("[ApplePay] Checking canSubmitPaymentRequest...")
+                    print("[ApplePay] Merchant ID: merchant.com.dolloraiai")
+                    print("[ApplePay] Supported networks: \(request.supportedNetworks)")
+                    print("[ApplePay] Total amount: \(self.finalTotal)")
+                    #endif
+
                     guard StripeAPI.canSubmitPaymentRequest(request) else {
+                        #if DEBUG
+                        print("[ApplePay] ERROR: canSubmitPaymentRequest returned false")
+                        print("[ApplePay] PKPaymentAuthorizationController.canMakePayments: \(PKPaymentAuthorizationController.canMakePayments())")
+                        #endif
                         self.isProcessing = false
-                        self.errorMessage = "Apple Pay is not available on this device"
+                        self.errorMessage = "Apple Pay is not available on this device. Please ensure you have a card added to your Wallet."
                         self.showError = true
                         return
                     }
+
+                    #if DEBUG
+                    print("[ApplePay] canSubmitPaymentRequest passed, presenting Apple Pay sheet...")
+                    #endif
 
                     // Create Stripe Apple Pay context
                     StripeApplePayHandler.shared.handleApplePay(
@@ -844,11 +950,17 @@ struct MultiRestaurantCheckoutView: View {
                         clientSecret: paymentIntentData.clientSecret
                     ) { success, error in
                         DispatchQueue.main.async {
+                            #if DEBUG
+                            print("[ApplePay] Payment result - success: \(success), error: \(String(describing: error))")
+                            #endif
                             if success {
                                 self.placeOrder()
                             } else {
                                 self.isProcessing = false
                                 if let error = error {
+                                    #if DEBUG
+                                    print("[ApplePay] ERROR: \(error.localizedDescription)")
+                                    #endif
                                     self.errorMessage = error.localizedDescription
                                 }
                                 self.showError = error != nil
@@ -857,6 +969,9 @@ struct MultiRestaurantCheckoutView: View {
                     }
 
                 case .failure(let error):
+                    #if DEBUG
+                    print("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
+                    #endif
                     self.isProcessing = false
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
@@ -882,17 +997,39 @@ struct MultiRestaurantCheckoutView: View {
                 self.isLoadingStripe = false
                 switch result {
                 case .success(let keys):
+                    // Check for demo mode (App Store review) - skip Stripe and place order directly
+                    if keys.isDemoPayment {
+                        print("[Checkout] Demo account detected - bypassing Stripe payment")
+                        self.stripePaymentReady = true
+                        // If we're processing, skip payment and place order directly
+                        if self.isProcessing {
+                            self.placeOrder()
+                        }
+                        return
+                    }
+
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()
-                    configuration.merchantDisplayName = "EatFair"
+                    configuration.merchantDisplayName = "Dollor"
                     if let customerId = keys.customer, let ephemeralKey = keys.ephemeralKey {
                         configuration.customer = .init(id: customerId, ephemeralKeySecret: ephemeralKey)
                     }
                     configuration.allowsDelayedPaymentMethods = false
 
+                    // Enable Apple Pay
+                    configuration.applePay = .init(
+                        merchantId: "merchant.com.dolloraiai",
+                        merchantCountryCode: "US"
+                    )
+
                     self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
+
+                    // If we're processing, present the sheet now that it's ready
+                    if self.isProcessing {
+                        self.showStripePaymentSheet = true
+                    }
 
                 case .failure(let error):
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
@@ -916,10 +1053,13 @@ struct MultiRestaurantCheckoutView: View {
     }
 
     private func processStripePayment() {
-        // Stripe PaymentSheet is handled via PaymentSheet.PaymentButton
-        // This is a fallback for manual trigger if needed
         isProcessing = true
-        if stripePaymentSheet == nil {
+
+        if stripePaymentSheet != nil && stripePaymentReady {
+            // PaymentSheet is ready, present it
+            showStripePaymentSheet = true
+        } else if !isLoadingStripe {
+            // Prepare the payment sheet first, then present when ready
             prepareStripePaymentSheet()
         }
     }
@@ -943,7 +1083,7 @@ struct MultiRestaurantCheckoutView: View {
                 print("Total: $\(String(format: "%.2f", self.finalTotal))")
                 print("==========================")
 
-                // Signal order placed - MainAppView will show success screen
+                // Signal order placed - MainAppView will handle sheet dismissal and success screen
                 self.isProcessing = false
                 self.cartVM.orderPlaced = true
             }
@@ -976,32 +1116,20 @@ struct MultiRestaurantCheckoutView: View {
 
                 switch result {
                 case .success:
-                    // Signal order placed - MainAppView will show success screen
+                    #if DEBUG
+                    print("[OrderFlow] ✅ Backend order placed successfully")
+                    print("[OrderFlow] Setting orderPlaced = true")
+                    #endif
+                    // Signal order placed - MainAppView will handle sheet dismissal and success screen
                     cartVM.orderPlaced = true
                 case .failure(let error):
+                    #if DEBUG
+                    print("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
+                    #endif
                     errorMessage = error.localizedDescription
                     showError = true
                 }
             }
-        }
-    }
-}
-
-// MARK: - Apple Pay Delegate
-class ApplePayDelegate: NSObject, PKPaymentAuthorizationControllerDelegate {
-    static let shared = ApplePayDelegate()
-    var onCompletion: ((Bool) -> Void)?
-
-    func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
-        // In production, send payment.token to your server for processing
-        // For now, simulate success
-        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
-        onCompletion?(true)
-    }
-
-    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
-        controller.dismiss {
-            // Payment sheet dismissed
         }
     }
 }

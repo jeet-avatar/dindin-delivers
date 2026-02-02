@@ -361,6 +361,17 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         ("stripe_onboarding_complete", "BOOLEAN DEFAULT FALSE"),
         # Restaurant image/logo
         ("image_url", "VARCHAR(500)"),
+        # KOT/POS Integration columns
+        ("kot_integration_type", "VARCHAR(50) DEFAULT 'none'"),
+        ("kot_enabled", "BOOLEAN DEFAULT FALSE"),
+        ("kot_api_key", "VARCHAR(500)"),
+        ("kot_api_secret", "VARCHAR(500)"),
+        ("kot_location_id", "VARCHAR(255)"),
+        ("kot_merchant_id", "VARCHAR(255)"),
+        ("kot_restaurant_guid", "VARCHAR(255)"),
+        ("kot_printer_id", "VARCHAR(255)"),
+        ("kot_webhook_url", "VARCHAR(500)"),
+        ("kot_auto_print", "BOOLEAN DEFAULT TRUE"),
     ]
 
     for col_name, col_type in vendor_columns:
@@ -795,6 +806,7 @@ def _run_startup_migrations():
     migrations = [
         # Orders table columns
         ("orders", "dispatched_at", "TIMESTAMP"),
+        ("orders", "picked_up_at", "TIMESTAMP"),  # When driver picked up from restaurant
         ("orders", "cancelled_at", "TIMESTAMP"),
         ("orders", "auto_dispatched", "BOOLEAN DEFAULT FALSE"),
         ("orders", "broadcast_to_drivers", "BOOLEAN DEFAULT FALSE"),
@@ -839,6 +851,17 @@ def _run_startup_migrations():
         ("vendors", "onfido_applicant_id", "VARCHAR(255)"),
         ("vendors", "veriff_session_id", "VARCHAR(255)"),
         ("vendors", "verification_provider", "VARCHAR(50)"),
+        # KOT/POS Integration columns
+        ("vendors", "kot_integration_type", "VARCHAR(50) DEFAULT 'none'"),
+        ("vendors", "kot_enabled", "BOOLEAN DEFAULT FALSE"),
+        ("vendors", "kot_api_key", "VARCHAR(500)"),
+        ("vendors", "kot_api_secret", "VARCHAR(500)"),
+        ("vendors", "kot_location_id", "VARCHAR(255)"),
+        ("vendors", "kot_merchant_id", "VARCHAR(255)"),
+        ("vendors", "kot_restaurant_guid", "VARCHAR(255)"),
+        ("vendors", "kot_printer_id", "VARCHAR(255)"),
+        ("vendors", "kot_webhook_url", "VARCHAR(500)"),
+        ("vendors", "kot_auto_print", "BOOLEAN DEFAULT TRUE"),
         # Vendor menu items - admin review fields
         ("vendor_menu_items", "review_status", "VARCHAR(50) DEFAULT 'pending'"),
         ("vendor_menu_items", "needs_review", "BOOLEAN DEFAULT TRUE"),
@@ -1189,7 +1212,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 # Vendor Login
-@app.post("/api/auth/vendor/login", response_model=Token)
+@app.post("/api/auth/vendor/login")
+@app.post("/auth/vendor/login")  # Alias for mobile apps without /api prefix
 def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     print(f"Vendor login attempt for: {form_data.username}")
     
@@ -1238,7 +1262,13 @@ def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendor_id": user.vendor_id
+        },
         # Top-level fields for Android compatibility
         "vendor_id": user.vendor_id,
         "business_name": business_name,
@@ -1251,14 +1281,15 @@ class VendorDemoLoginRequest(BaseModel):
     email: Optional[str] = None  # Android sends 'email' field
 
 @app.post("/api/auth/vendor/demo-login")
+@app.post("/auth/vendor/demo-login")  # Alias for iOS mobile apps without /api prefix
 def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db)):
     """Demo login for vendor - creates or finds demo vendor account for App Store review"""
     # Accept both email_hint (iOS) and email (Android)
     hint = request.email_hint or request.email or ""
     print(f"Vendor demo login attempt with hint: {hint}")
 
-    demo_email = "demobusiness@dollor.ai"
-    demo_password = "DemoVendor2025!"
+    demo_email = "demo.restaurant@dollor.ai"
+    demo_password = "DemoRestaurant2025!"
 
     # Check if demo vendor exists
     user = db.query(User).filter(
@@ -1271,9 +1302,10 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         hashed_password = get_password_hash(demo_password)
 
         # Create vendor record first
+        from models import VendorStatus
         demo_vendor = Vendor(
-            restaurant_name="Demo Restaurant",
-            company_name="Demo Restaurant LLC",
+            restaurant_name="Apple Test Restaurant",
+            company_name="Apple Test Restaurant LLC",
             contact_email=demo_email,
             contact_phone="+14155551234",
             contact_name="Demo Owner",
@@ -1282,7 +1314,7 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
             state="CA",
             zip_code="94102",
             cuisine_type="American",
-            onboarding_status="APPROVED",
+            onboarding_status=VendorStatus.APPROVED,
             created_at=datetime.utcnow()
         )
         db.add(demo_vendor)
@@ -1301,10 +1333,26 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.commit()
         db.refresh(user)
         print(f"Created demo vendor: {demo_email}")
+    else:
+        # Demo user exists - ensure password and vendor info are correct
+        from models import VendorStatus
+        hashed_password = get_password_hash(demo_password)
+        user.password_hash = hashed_password
+
+        # Update vendor to "Apple Test Restaurant" if needed
+        if user.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+            if vendor:
+                vendor.restaurant_name = "Apple Test Restaurant"
+                vendor.company_name = "Apple Test Restaurant LLC"
+                vendor.onboarding_status = VendorStatus.APPROVED
+                vendor.is_published = True
+        db.commit()
+        print(f"Updated demo vendor credentials: {demo_email}")
 
     # Get vendor details
     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-    business_name = vendor.restaurant_name if vendor else "Demo Restaurant"
+    business_name = vendor.restaurant_name if vendor else "Apple Test Restaurant"
 
     # Generate token with vendor_id
     access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
@@ -1312,7 +1360,13 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "vendor_id": user.vendor_id
+        },
         "vendor_id": user.vendor_id,
         "business_name": business_name,
         "email": user.email
@@ -1501,158 +1555,252 @@ def decode_google_jwt(token: str) -> dict:
         return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
+@app.post("/auth/vendor/google-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
-    from models import VendorStatus
+    try:
+        from models import VendorStatus
 
-    # Get token from either field
-    token = request.id_token or request.credential
+        # Get token from either field
+        token = request.id_token or request.credential
 
-    # If token provided, decode it to get user info
-    if token:
-        decoded = decode_google_jwt(token)
-        email = decoded.get('email', request.email)
-        name = decoded.get('name', request.name)
-        google_id = decoded.get('sub', request.google_id)
-    else:
-        email = request.email
-        name = request.name
-        google_id = request.google_id
+        # If token provided, decode it to get user info
+        if token:
+            decoded = decode_google_jwt(token)
+            email = decoded.get('email', request.email)
+            name = decoded.get('name', request.name)
+            google_id = decoded.get('sub', request.google_id)
+        else:
+            email = request.email
+            name = request.name
+            google_id = request.google_id
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    if not name:
-        name = email.split('@')[0]  # Use email prefix as fallback name
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        if not name:
+            name = email.split('@')[0]  # Use email prefix as fallback name
 
-    print(f"Vendor Google auth for: {email}")
+        print(f"Vendor Google auth for: {email}")
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == email, User.role == UserRole.VENDOR).first()
+        # Check if user exists with this email (any role)
+        existing_user = db.query(User).filter(User.email == email).first()
 
-    if user:
-        # Existing vendor - check if approved
-        if user.vendor_id:
-            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
+        if existing_user:
+            if existing_user.role == UserRole.VENDOR:
+                # Existing vendor - allow login
+                user = existing_user
+            else:
+                # Email already registered with different role
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+                    status_code=400,
+                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
                 )
-    else:
-        # Create new vendor and user
-        # vendor_id is auto-computed from id in the database
-        new_vendor = Vendor(
-            company_name=name,
-            contact_name=name,
-            contact_email=email,
-            onboarding_status=VendorStatus.PENDING,
-            street="",
-            city="",
-            state="",
-            zip_code="",
-            country="US"
+        else:
+            # Create new vendor and user
+            # Auto-approve for login access, but keep is_published=False
+            # Restaurant goes live only after admin approval
+            new_vendor = Vendor(
+                company_name=name,
+                contact_name=name,
+                contact_email=email,
+                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
+                street="",
+                city="",
+                state="",
+                zip_code="",
+                country="US"
+            )
+            db.add(new_vendor)
+            db.commit()
+            db.refresh(new_vendor)
+
+            hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
+            user = User(
+                email=email,
+                password_hash=hashed_password,
+                full_name=name,
+                role=UserRole.VENDOR,
+                vendor_id=new_vendor.id
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            print(f"Created new vendor via Google auth: {email}")
+
+            # Send registration confirmation for new vendor
+            try:
+                send_vendor_registration_confirmation(
+                    to_email=email,
+                    restaurant_name=name,
+                    contact_name=name,
+                    vendor_id=new_vendor.vendor_id
+                )
+                print(f"Vendor registration email sent to Google signup: {email}")
+            except Exception as e:
+                print(f"Failed to send vendor registration email to Google signup: {str(e)}")
+
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+        business_name = vendor.restaurant_name or vendor.company_name if vendor else name
+
+        print(f"Vendor Google auth successful for: {user.email}")
+        access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "vendor_id": user.vendor_id
+            },
+            "vendor_id": user.vendor_id,
+            "business_name": business_name,
+            "email": user.email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Vendor Google auth error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google auth failed: {str(e)}"
         )
-        db.add(new_vendor)
-        db.commit()
-        db.refresh(new_vendor)
-
-        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=name,
-            role=UserRole.VENDOR,
-            vendor_id=new_vendor.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new vendor via Google auth: {email}")
-
-    # Get vendor info
-    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else name
-
-    print(f"Vendor Google auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user,
-        "vendor_id": user.vendor_id,
-        "business_name": business_name,
-        "email": user.email
-    }
 
 # Vendor Apple OAuth
 class VendorAppleAuthRequest(BaseModel):
-    email: EmailStr
+    email: str = ""  # May be empty for returning users (Apple only provides on first sign-in)
     name: str
     apple_id: str
+    identity_token: Optional[str] = None  # JWT token containing real email for returning users
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
+@app.post("/auth/vendor/apple-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
-    from models import VendorStatus
-    print(f"Vendor Apple auth for: {request.email}")
+    try:
+        from models import VendorStatus
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
+        email = request.email
+        name = request.name
 
-    if user:
-        # Existing vendor - check if approved
-        if user.vendor_id:
-            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
-            if vendor and str(vendor.onboarding_status).upper() not in ["APPROVED", "VENDORSTATUS.APPROVED"]:
+        # Try to decode identity_token first (Apple JWT contains email for returning users)
+        if request.identity_token:
+            try:
+                decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+                print(f"Decoded Apple token for vendor: {decoded.keys()}")
+                # Token email takes priority over request.email
+                token_email = decoded.get('email')
+                if token_email:
+                    email = token_email
+                if not name and email:
+                    name = email.split('@')[0]
+            except Exception as e:
+                print(f"Error decoding Apple identity token for vendor: {e}")
+
+        if not name and email:
+            name = email.split('@')[0]
+        elif not name:
+            name = 'Restaurant Owner'
+
+        print(f"Vendor Apple auth for: {email}")
+
+        # If still no email, we can't proceed
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
+
+        # Check if user exists with this email (any role)
+        existing_user = db.query(User).filter(User.email == email).first()
+
+        if existing_user:
+            if existing_user.role == UserRole.VENDOR:
+                # Existing vendor - allow login
+                user = existing_user
+            else:
+                # Email already registered with different role
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
+                    status_code=400,
+                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
                 )
-    else:
-        # Create new vendor and user
-        # vendor_id is auto-computed from id in the database
-        new_vendor = Vendor(
-            company_name=request.name,
-            contact_name=request.name,
-            contact_email=request.email,
-            onboarding_status=VendorStatus.PENDING,
-            street="",
-            city="",
-            state="",
-            zip_code="",
-            country="US"
+        else:
+            # Create new vendor and user
+            # Auto-approve for login access, but keep is_published=False
+            # Restaurant goes live only after admin approval
+            new_vendor = Vendor(
+                company_name=name,
+                contact_name=name,
+                contact_email=email,
+                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
+                street="",
+                city="",
+                state="",
+                zip_code="",
+                country="US"
+            )
+            db.add(new_vendor)
+            db.commit()
+            db.refresh(new_vendor)
+
+            hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
+            user = User(
+                email=email,
+                password_hash=hashed_password,
+                full_name=name,
+                role=UserRole.VENDOR,
+                vendor_id=new_vendor.id
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            print(f"Created new vendor via Apple auth: {email}")
+
+            # Send registration confirmation for new vendor
+            try:
+                send_vendor_registration_confirmation(
+                    to_email=email,
+                    restaurant_name=name,
+                    contact_name=name,
+                    vendor_id=new_vendor.vendor_id
+                )
+                print(f"Vendor registration email sent to Apple signup: {email}")
+            except Exception as e:
+                print(f"Failed to send vendor registration email to Apple signup: {str(e)}")
+
+        # Get vendor info
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+        business_name = vendor.restaurant_name or vendor.company_name if vendor else name
+
+        print(f"Vendor Apple auth successful for: {user.email}")
+        access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "vendor_id": user.vendor_id
+            },
+            "vendor_id": user.vendor_id,
+            "business_name": business_name,
+            "email": user.email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Vendor Apple auth error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Apple auth failed: {str(e)}"
         )
-        db.add(new_vendor)
-        db.commit()
-        db.refresh(new_vendor)
-
-        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
-        user = User(
-            email=request.email,
-            password_hash=hashed_password,
-            full_name=request.name,
-            role=UserRole.VENDOR,
-            vendor_id=new_vendor.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new vendor via Apple auth: {request.email}")
-
-    # Get vendor info
-    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
-    business_name = vendor.restaurant_name or vendor.company_name if vendor else request.name
-
-    print(f"Vendor Apple auth successful for: {user.email}")
-    access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user,
-        "vendor_id": user.vendor_id,
-        "business_name": business_name,
-        "email": user.email
-    }
 
 # Password Reset Request
 @app.post("/api/auth/password-reset/request")
@@ -1782,13 +1930,14 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             detail="Driver profile not found"
         )
 
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+    # Block only SUSPENDED drivers - allow PENDING so they can upload documents
+    if driver.status == DriverStatus.SUSPENDED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Driver account is not active. Status: {driver.status.value}"
+            detail="Driver account is suspended. Please contact support@dollor.ai"
         )
 
-    print(f"Driver login successful for: {user.email}")
+    print(f"Driver login successful for: {user.email} (status: {driver.status.value})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
     return {
         "access_token": access_token,
@@ -1796,7 +1945,10 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
-        "email": driver.email
+        "email": driver.email,
+        "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url)
     }
 
 
@@ -1814,10 +1966,11 @@ def driver_refresh_token(current_user: User = Depends(get_current_user), db: Ses
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+    # Block only SUSPENDED drivers - allow PENDING so they can upload documents
+    if driver.status == DriverStatus.SUSPENDED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Driver account is not active. Status: {driver.status.value}"
+            detail="Driver account is suspended. Please contact support@dollor.ai"
         )
 
     # Generate new token
@@ -1828,7 +1981,10 @@ def driver_refresh_token(current_user: User = Depends(get_current_user), db: Ses
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
-        "email": driver.email
+        "email": driver.email,
+        "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url)
     }
 
 
@@ -1918,7 +2074,9 @@ def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db
             "name": f"{new_driver.first_name} {new_driver.last_name}",
             "email": new_driver.email,
             "status": new_driver.status.value if hasattr(new_driver.status, 'value') else str(new_driver.status),
-            "message": "Registration successful. Your account is pending approval."
+            "is_approved": False,
+            "requires_documents": True,
+            "message": "Registration successful. Please upload your driver's license and insurance documents to complete verification."
         }
     except HTTPException:
         raise
@@ -1971,13 +2129,13 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
     user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
 
     if user:
-        # Existing driver - check if approved
+        # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
             driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+            if driver and driver.status == DriverStatus.SUSPENDED:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                    detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
     else:
         # Create new driver and user
@@ -2025,7 +2183,7 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
 
-    print(f"Driver Google auth successful for: {user.email}")
+    print(f"Driver Google auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -2033,7 +2191,10 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
         "name": f"{driver.first_name} {driver.last_name}" if driver else name,
-        "email": user.email
+        "email": user.email,
+        "status": driver.status.value if driver and hasattr(driver.status, 'value') else "pending",
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED] if driver else False,
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url) if driver else True
     }
 
 
@@ -2053,13 +2214,13 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
 
     if user:
-        # Existing driver - check if approved
+        # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
             driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-            if driver and driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+            if driver and driver.status == DriverStatus.SUSPENDED:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Driver account is not active. Status: {driver.status.value}"
+                    detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
     else:
         # Create new driver and user
@@ -2107,7 +2268,7 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
 
-    print(f"Driver Apple auth successful for: {user.email}")
+    print(f"Driver Apple auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -2115,7 +2276,10 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
         "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
-        "email": user.email
+        "email": user.email,
+        "status": driver.status.value if driver and hasattr(driver.status, 'value') else "pending",
+        "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED] if driver else False,
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url) if driver else True
     }
 
 
@@ -2183,8 +2347,35 @@ def set_driver_online(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
+    # Block unapproved drivers from going online
+    if online_status:  # Only check when trying to go online
+        approved_statuses = [DriverStatus.APPROVED, DriverStatus.ACTIVE]
+        driver_status = driver.status if isinstance(driver.status, DriverStatus) else DriverStatus(driver.status) if driver.status else None
+
+        if driver_status not in approved_statuses:
+            # Check what's missing
+            missing_docs = []
+            if not driver.drivers_license:
+                missing_docs.append("driver's license")
+            if not driver.insurance:
+                missing_docs.append("insurance")
+            if not driver.photo_url:
+                missing_docs.append("profile photo")
+
+            if missing_docs:
+                detail = f"Please upload and verify: {', '.join(missing_docs)}"
+            else:
+                detail = "Your documents are pending verification. You'll be notified when approved."
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=detail
+            )
+
     driver.is_online = online_status
     driver.location_updated_at = datetime.utcnow()
+    if online_status:
+        driver.went_online_at = datetime.utcnow()
     db.commit()
 
     return {"success": True, "is_online": driver.is_online}
@@ -2503,6 +2694,16 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
         db.commit()
         db.refresh(customer)
         print(f"Created new customer via Google auth: {email}")
+
+        # Send welcome email for new Google signup
+        try:
+            send_customer_welcome_email(
+                to_email=email,
+                customer_name=name
+            )
+            print(f"Welcome email sent to Google signup: {email}")
+        except Exception as e:
+            print(f"Failed to send welcome email to Google signup: {str(e)}")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
     print(f"Customer Google auth successful for: {customer.email}")
@@ -3219,11 +3420,13 @@ def estimate_fare_frontend(
     }
 
 
-# Full tracking endpoint for frontend polling
-@app.get("/api/erp/orders/{ride_id}/full-tracking")
+# Full tracking endpoint for RIDES (rideshare) - frontend polling
+# NOTE: Use /api/erp/rides/ path to avoid conflict with order tracking in order_flow.py
+@app.get("/api/erp/rides/{ride_id}/full-tracking")
 def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     """
-    Full tracking endpoint for frontend - queries real data from database
+    Full tracking endpoint for RIDESHARE - queries real data from database
+    For FOOD ORDER tracking, use /api/erp/orders/{order_id}/full-tracking (in order_flow.py)
     """
     try:
         from sqlalchemy import text
@@ -3640,8 +3843,10 @@ async def upload_driver_document_by_id(
     expiry_date: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Upload driver document (iOS app compatible endpoint) - supports S3 and local storage"""
+    """Upload driver document with Persona verification integration"""
     from s3_service import get_s3_service
+    from document_verification_service import get_verification_service, DocumentType
+    import os
 
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
@@ -3672,18 +3877,52 @@ async def upload_driver_document_by_id(
     if not success:
         raise HTTPException(status_code=500, detail=message)
 
-    # Update driver record
+    # Update driver record with document URL (but NOT verified yet)
+    persona_inquiry_url = None
+
     if document_type in ['drivers_license', 'license_front', 'license_back']:
-        driver.drivers_license = True
+        # Store URL but keep drivers_license = False until Persona verifies
         driver.drivers_license_url = url_path
+        driver.drivers_license = False  # Will be set True by Persona webhook
         if expiry_date:
             try:
                 driver.drivers_license_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
             except ValueError as e:
                 logger.warning(f"Invalid drivers license expiry date format: {expiry_date} - {e}")
+
+        # Create Persona verification inquiry for driver's license
+        persona_api_key = os.getenv("PERSONA_API_KEY")
+        if persona_api_key:
+            try:
+                verifier = get_verification_service("persona")
+                result = await verifier.create_persona_inquiry(
+                    reference_id=str(driver.id),
+                    entity_type="driver",
+                    email=driver.email,
+                    document_types=[DocumentType.DRIVERS_LICENSE]
+                )
+
+                if result.get("success"):
+                    driver.persona_inquiry_id = result.get("inquiry_id")
+                    driver.verification_status = "pending"
+                    driver.verification_provider = "persona"
+                    persona_inquiry_url = result.get("inquiry_url")
+                    logger.info(f"Persona inquiry created for driver {driver.id}: {result.get('inquiry_id')}")
+                else:
+                    logger.warning(f"Persona inquiry creation failed for driver {driver.id}: {result.get('error')}")
+                    # Fall back to manual review if Persona fails
+                    driver.verification_status = "pending_manual_review"
+            except Exception as e:
+                logger.error(f"Persona integration error for driver {driver.id}: {str(e)}")
+                driver.verification_status = "pending_manual_review"
+        else:
+            # No Persona API key - use manual review
+            logger.info(f"PERSONA_API_KEY not configured - driver {driver.id} document requires manual review")
+            driver.verification_status = "pending_manual_review"
+
     elif document_type in ['insurance', 'insurance_card']:
-        driver.insurance = True
         driver.insurance_url = url_path
+        driver.insurance = False  # Will be set True after admin review
         if expiry_date:
             try:
                 driver.insurance_expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
@@ -3694,14 +3933,21 @@ async def upload_driver_document_by_id(
 
     db.commit()
 
-    return {
+    response = {
         "success": True,
         "message": f"{document_type} uploaded successfully",
         "file_url": url_path,
         "file_path": url_path,
         "document_type": document_type,
-        "verification_status": "pending"
+        "verification_status": driver.verification_status or "pending"
     }
+
+    # Include Persona inquiry URL if created
+    if persona_inquiry_url:
+        response["persona_inquiry_url"] = persona_inquiry_url
+        response["message"] = f"{document_type} uploaded. Please complete identity verification."
+
+    return response
 
 
 @app.post("/api/auth/driver/documents")
@@ -3927,6 +4173,7 @@ class CustomerAppleAuthRequest(BaseModel):
 @app.post("/api/customer/apple-auth")
 @app.post("/api/auth/customer/apple-auth")  # Alias for Android compatibility
 @app.post("/auth/customer/apple-auth")  # Alias for mobile apps without /api prefix
+@app.post("/customer/apple-auth")  # Alias for iOS Customer app (calls without /api or /auth prefix)
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for customers - handles both login and registration"""
     print(f"Customer Apple auth - apple_id: {request.apple_id[:20] if request.apple_id else 'None'}...")
@@ -3953,25 +4200,28 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     elif not name:
         name = 'Apple User'
 
-    # For returning users without email, look up by apple_id hash
-    apple_id_hash = f"apple_oauth_{request.apple_id}"
-
-    # Check if user exists by email or by apple password hash
+    # For returning users, look up by apple_id first (most reliable)
+    # Then fall back to email lookup
+    customer = None
     user = None
-    if email:
+
+    # First: Try to find existing customer by apple_id (works for returning users without email)
+    customer = db.query(Customer).filter(Customer.apple_id == request.apple_id).first()
+    if customer:
+        print(f"Found existing customer by apple_id: {customer.email}")
+        email = customer.email
         user = db.query(User).filter(User.email == email).first()
 
-    if not user:
-        # Try to find by apple_id in password hash (for returning users)
-        users_with_apple = db.query(User).filter(User.password_hash.contains("apple_oauth_")).all()
-        for u in users_with_apple:
-            if verify_password(apple_id_hash, u.password_hash) or u.password_hash == get_password_hash(apple_id_hash):
-                user = u
-                email = u.email
-                break
+    # Second: Try to find by email if we have one
+    if not user and email:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Also check if customer exists with this email
+            customer = db.query(Customer).filter(Customer.email == email).first()
 
+    # If still no user and no email, we can't proceed (truly new user needs email)
     if not user and not email:
-        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In")
+        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove this app, and try again.")
 
     if not user:
         # Create new user - need email and name for new users
@@ -3989,8 +4239,9 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         db.refresh(user)
         print(f"Created new user for Apple auth: {email}")
 
-    # Check if customer record exists
-    customer = db.query(Customer).filter(Customer.email == email).first()
+    # Check if customer record exists (may have been found earlier by apple_id)
+    if not customer:
+        customer = db.query(Customer).filter(Customer.email == email).first()
 
     if not customer:
         # Parse name into first_name and last_name
@@ -4003,17 +4254,34 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         import random
         customer_id = f"CUST{random.randint(100000, 999999)}"
 
-        # Create customer record with first_name/last_name to match database schema
+        # Create customer record with apple_id for future lookups
         customer = Customer(
             customer_id=customer_id,
             first_name=first_name,
             last_name=last_name,
-            email=email
+            email=email,
+            apple_id=request.apple_id  # Store apple_id for returning user lookup
         )
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer record for: {email} with ID: {customer_id}")
+        print(f"Created new customer record for: {email} with ID: {customer_id}, apple_id stored")
+
+        # Send welcome email for new Apple signup
+        try:
+            send_customer_welcome_email(
+                to_email=email,
+                customer_name=display_name
+            )
+            print(f"Welcome email sent to Apple signup: {email}")
+        except Exception as e:
+            print(f"Failed to send welcome email to Apple signup: {str(e)}")
+
+    elif not customer.apple_id:
+        # Update existing customer with apple_id if not set (for users who signed up before this change)
+        customer.apple_id = request.apple_id
+        db.commit()
+        print(f"Updated existing customer {customer.email} with apple_id")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
@@ -7818,6 +8086,7 @@ def get_published_vendors(
     This endpoint is PUBLIC - no authentication required.
     """
     from models import Vendor, VendorStatus
+    from models_extended import Promotion
     from stock_images import get_stock_image_for_restaurant
 
     query = db.query(Vendor).filter(
@@ -7836,9 +8105,56 @@ def get_published_vendors(
     total = query.count()
     vendors = query.order_by(Vendor.restaurant_name).offset(offset).limit(limit).all()
 
+    # Get all active promotions for these vendors
+    from models_extended import PromotionStatus
+    vendor_ids = [v.id for v in vendors]
+    promos = db.query(Promotion).filter(
+        Promotion.vendor_id.in_(vendor_ids),
+        Promotion.status == PromotionStatus.ACTIVE
+    ).all()
+
+    # Map vendor_id to best promotion (prefer BOGO, then percentage, then flat)
+    vendor_promos = {}
+    for promo in promos:
+        existing = vendor_promos.get(promo.vendor_id)
+        # Priority: bogo > percentage > flat > free_delivery
+        priority = {"bogo": 4, "percentage": 3, "flat": 2, "flat_amount": 2, "free_delivery": 1}
+        # Get promo type as string (handle enum)
+        promo_type_str = promo.type.value if hasattr(promo.type, 'value') else str(promo.type)
+        existing_type_str = existing.type.value if existing and hasattr(existing.type, 'value') else (str(existing.type) if existing else "")
+        if not existing or priority.get(promo_type_str, 0) > priority.get(existing_type_str, 0):
+            vendor_promos[promo.vendor_id] = promo
+
     # Format restaurants to match iOS/Android expected response structure
-    restaurants = [
-        {
+    restaurants = []
+    for v in vendors:
+        promo = vendor_promos.get(v.id)
+        active_promo = None
+        if promo:
+            # Generate deal text based on promo type (use .value for enum comparison)
+            promo_type = promo.type.value if hasattr(promo.type, 'value') else str(promo.type)
+            if promo_type == "percentage":
+                deal_text = f"{int(promo.value)}% OFF"
+            elif promo_type in ("flat", "flat_amount"):
+                deal_text = f"${int(promo.value)} OFF"
+            elif promo_type == "bogo":
+                deal_text = "BOGO"
+            elif promo_type == "free_delivery":
+                deal_text = "FREE DELIVERY"
+            else:
+                deal_text = "DEAL"
+
+            active_promo = {
+                "id": promo.id,
+                "code": promo.promotion_code,
+                "name": promo.name,
+                "type": promo_type,
+                "value": promo.value,
+                "deal_text": deal_text,
+                "min_order": promo.min_order_amount or 0
+            }
+
+        restaurants.append({
             "id": v.id,
             "vendor_id": str(v.id),
             "name": v.restaurant_name or v.company_name,
@@ -7871,10 +8187,10 @@ def get_published_vendors(
             "published_at": v.published_at.isoformat() if v.published_at else None,
             "published_platforms": v.published_platforms,
             # Restaurant image - stock image based on cuisine type
-            "image_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or "")
-        }
-        for v in vendors
-    ]
+            "image_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or ""),
+            # Active promotion if any
+            "active_promotion": active_promo
+        })
 
     return {
         # iOS compatibility
@@ -7977,6 +8293,248 @@ async def get_vendor_earnings(
         "month": round(net_earnings, 2) if period == "month" else 0,
         "pending_payout": 0.0  # Pending payout amount
     }
+
+
+# ==================== KOT (Kitchen Order Ticket) / POS Integration ====================
+
+class KOTConfigRequest(BaseModel):
+    """Request model for configuring KOT/POS integration"""
+    integration_type: str  # 'square', 'clover', 'toast', 'none'
+    enabled: bool = True
+    api_key: Optional[str] = None
+    api_secret: Optional[str] = None  # For Toast
+    location_id: Optional[str] = None  # Square
+    merchant_id: Optional[str] = None  # Clover
+    restaurant_guid: Optional[str] = None  # Toast
+    auto_print: bool = True
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "integration_type": "square",
+                "enabled": True,
+                "api_key": "sq0atp-XXXXX",
+                "location_id": "LXXXXXXXX",
+                "auto_print": True
+            }
+        }
+
+
+@app.get("/api/vendor/kot-config")
+async def get_vendor_kot_config(
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Get vendor's KOT/POS integration configuration.
+    Returns the current settings (API keys are masked).
+    """
+    return {
+        "vendor_id": vendor.id,
+        "integration_type": vendor.kot_integration_type or "none",
+        "enabled": vendor.kot_enabled or False,
+        "auto_print": vendor.kot_auto_print if hasattr(vendor, 'kot_auto_print') else True,
+        "location_id": vendor.kot_location_id or None,
+        "merchant_id": vendor.kot_merchant_id or None,
+        "restaurant_guid": vendor.kot_restaurant_guid or None,
+        "has_api_key": bool(vendor.kot_api_key),
+        "has_api_secret": bool(vendor.kot_api_secret) if hasattr(vendor, 'kot_api_secret') else False,
+        "supported_integrations": [
+            {"type": "square", "name": "Square POS", "status": "available"},
+            {"type": "clover", "name": "Clover POS", "status": "available"},
+            {"type": "toast", "name": "Toast POS", "status": "coming_soon"}
+        ]
+    }
+
+
+@app.put("/api/vendor/kot-config")
+async def update_vendor_kot_config(
+    config: KOTConfigRequest,
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Update vendor's KOT/POS integration configuration.
+
+    Supported integrations:
+    - square: Square POS (requires api_key, location_id)
+    - clover: Clover POS (requires api_key, merchant_id)
+    - toast: Toast POS (requires api_key, api_secret, restaurant_guid) - Coming soon
+    - none: Disable KOT integration
+    """
+    # Validate integration type
+    valid_types = ["none", "square", "clover", "toast"]
+    if config.integration_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid integration type. Must be one of: {', '.join(valid_types)}"
+        )
+
+    # Validate required fields based on integration type
+    if config.integration_type == "square":
+        if config.enabled and (not config.api_key or not config.location_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Square integration requires api_key and location_id"
+            )
+    elif config.integration_type == "clover":
+        if config.enabled and (not config.api_key or not config.merchant_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Clover integration requires api_key and merchant_id"
+            )
+    elif config.integration_type == "toast":
+        raise HTTPException(
+            status_code=400,
+            detail="Toast integration requires partner certification. Contact support@dollor.ai"
+        )
+
+    # Update vendor KOT settings
+    vendor.kot_integration_type = config.integration_type
+    vendor.kot_enabled = config.enabled
+    vendor.kot_auto_print = config.auto_print
+
+    if config.api_key:
+        vendor.kot_api_key = config.api_key
+    if config.api_secret:
+        vendor.kot_api_secret = config.api_secret
+    if config.location_id:
+        vendor.kot_location_id = config.location_id
+    if config.merchant_id:
+        vendor.kot_merchant_id = config.merchant_id
+    if config.restaurant_guid:
+        vendor.kot_restaurant_guid = config.restaurant_guid
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"KOT integration configured: {config.integration_type}",
+        "vendor_id": vendor.id,
+        "integration_type": vendor.kot_integration_type,
+        "enabled": vendor.kot_enabled,
+        "auto_print": vendor.kot_auto_print
+    }
+
+
+@app.post("/api/vendor/kot-test")
+async def test_vendor_kot_integration(
+    vendor: Vendor = Depends(get_current_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Test the vendor's KOT/POS integration by sending a test order.
+    Creates a test ticket that should appear on their POS/kitchen printer.
+    """
+    if not vendor.kot_enabled or vendor.kot_integration_type == "none":
+        raise HTTPException(
+            status_code=400,
+            detail="KOT integration is not enabled. Configure it first via PUT /api/vendor/kot-config"
+        )
+
+    from kot_integrations import KOTService, KOTOrder, KOTItem
+
+    # Create test order
+    test_kot = KOTOrder(
+        order_id=0,
+        order_number=f"TEST-{datetime.now().strftime('%H%M%S')}",
+        customer_name="Test Customer (Dollor KOT Test)",
+        items=[
+            KOTItem(
+                name="Test Item 1",
+                quantity=2,
+                unit_price=9.99,
+                modifiers=["No onions", "Extra cheese"],
+                special_instructions="This is a test order"
+            ),
+            KOTItem(
+                name="Test Item 2",
+                quantity=1,
+                unit_price=14.99,
+                modifiers=None,
+                special_instructions=None
+            )
+        ],
+        subtotal=34.97,
+        tax=2.80,
+        total=37.77,
+        order_type="delivery",
+        special_instructions="*** TEST ORDER - PLEASE IGNORE ***",
+        created_at=datetime.now()
+    )
+
+    # Send to POS
+    try:
+        if vendor.kot_integration_type == "square":
+            from kot_integrations import SquareIntegration
+            integration = SquareIntegration(
+                vendor.kot_api_key,
+                vendor.kot_location_id
+            )
+            result = await integration.create_order(test_kot)
+        elif vendor.kot_integration_type == "clover":
+            from kot_integrations import CloverIntegration
+            integration = CloverIntegration(
+                vendor.kot_api_key,
+                vendor.kot_merchant_id
+            )
+            result = await integration.create_order(test_kot)
+        else:
+            result = {"success": False, "error": f"Unsupported integration: {vendor.kot_integration_type}"}
+
+        return {
+            "success": result.get("success", False),
+            "message": "Test order sent to POS" if result.get("success") else "Test failed",
+            "pos_type": vendor.kot_integration_type,
+            "pos_order_id": result.get("pos_order_id"),
+            "error": result.get("error")
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": "Test failed",
+            "pos_type": vendor.kot_integration_type,
+            "error": str(e)
+        }
+
+
+@app.post("/api/erp/orders/{order_id}/print-kot")
+async def manual_print_kot(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger KOT print for an order.
+    Used when auto-print is disabled or for reprints.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.kot_enabled or vendor.kot_integration_type == "none":
+        raise HTTPException(
+            status_code=400,
+            detail="KOT integration is not enabled for this vendor"
+        )
+
+    from kot_integrations import KOTService
+    result = await KOTService.send_to_pos(order, vendor)
+
+    return {
+        "success": result.get("success", False),
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "pos_type": result.get("pos_type"),
+        "pos_order_id": result.get("pos_order_id"),
+        "error": result.get("error")
+    }
+
+
+# ==================== End KOT Integration ====================
 
 
 @app.put("/api/vendors/{vendor_id}", response_model=VendorResponse)
@@ -8939,8 +9497,10 @@ async def vendor_upload_document(
     """
     Vendor endpoint to upload their own documents.
     Requires vendor authentication.
+    Integrates with Persona for document verification.
     """
     from models import Vendor
+    from document_verification_service import get_verification_service, DocumentType
     import uuid
 
     if current_user.role != UserRole.VENDOR:
@@ -8986,37 +9546,85 @@ async def vendor_upload_document(
     print(f"📄 Vendor uploaded document: {document_type} for vendor {vendor.id}")
     print(f"   File: {unique_filename}")
 
-    # Map document type to DB fields
+    # Map document type to DB fields and Persona document types
     field_mapping = {
-        'food_license': ('food_license', 'food_license_url'),
-        'health_permit': ('health_permit', 'health_permit_url'),
-        'w9_form': ('w9_form', 'w9_form_url'),
-        'business_license': ('w9_form', 'w9_form_url'),
-        'insurance': ('insurance', 'insurance_url'),
-        'liability_insurance': ('insurance', 'insurance_url'),
-        'financial_statements': ('financial_statements', 'financial_statements_url'),
-        'compliance_certs': ('compliance_certs', 'compliance_certs_url'),
-        'security_policy': ('security_policy', 'security_policy_url'),
+        'food_license': ('food_license', 'food_license_url', DocumentType.FOOD_LICENSE),
+        'health_permit': ('health_permit', 'health_permit_url', DocumentType.HEALTH_PERMIT),
+        'w9_form': ('w9_form', 'w9_form_url', DocumentType.W9_FORM),
+        'business_license': ('w9_form', 'w9_form_url', DocumentType.BUSINESS_LICENSE),
+        'insurance': ('insurance', 'insurance_url', DocumentType.LIABILITY_INSURANCE),
+        'liability_insurance': ('insurance', 'insurance_url', DocumentType.LIABILITY_INSURANCE),
+        'financial_statements': ('financial_statements', 'financial_statements_url', None),
+        'compliance_certs': ('compliance_certs', 'compliance_certs_url', None),
+        'security_policy': ('security_policy', 'security_policy_url', None),
     }
 
+    persona_inquiry_url = None
+
     if document_type in field_mapping:
-        has_field, url_field = field_mapping[document_type]
-        setattr(vendor, has_field, True)
+        has_field, url_field, persona_doc_type = field_mapping[document_type]
+        # Store URL but set document as NOT verified yet (False)
+        setattr(vendor, has_field, False)  # Will be set True by Persona webhook
         setattr(vendor, url_field, f"/uploads/vendor_documents/{unique_filename}")
+
+        # Create Persona verification inquiry for core documents
+        if persona_doc_type is not None:
+            persona_api_key = os.getenv("PERSONA_API_KEY")
+            if persona_api_key:
+                try:
+                    verifier = get_verification_service("persona")
+                    result = await verifier.create_persona_inquiry(
+                        reference_id=str(vendor.id),
+                        entity_type="vendor",
+                        email=vendor.contact_email or current_user.email,
+                        document_types=[persona_doc_type]
+                    )
+
+                    if result.get("success"):
+                        vendor.persona_inquiry_id = result.get("inquiry_id")
+                        vendor.verification_status = "pending"
+                        vendor.verification_provider = "persona"
+                        persona_inquiry_url = result.get("inquiry_url")
+                        logger.info(f"Persona inquiry created for vendor {vendor.id}: {result.get('inquiry_id')}")
+                    else:
+                        logger.warning(f"Persona inquiry creation failed for vendor {vendor.id}: {result.get('error')}")
+                        # Fall back to manual review if Persona fails
+                        vendor.verification_status = "pending_manual_review"
+                        # Still mark as uploaded so admin can manually verify
+                        setattr(vendor, has_field, True)
+                except Exception as e:
+                    logger.error(f"Persona integration error for vendor {vendor.id}: {str(e)}")
+                    vendor.verification_status = "pending_manual_review"
+                    setattr(vendor, has_field, True)
+            else:
+                # No Persona API key - use manual review (auto-approve for now)
+                logger.info(f"PERSONA_API_KEY not configured - vendor {vendor.id} document requires manual review")
+                vendor.verification_status = "pending_manual_review"
+                setattr(vendor, has_field, True)
+        else:
+            # Non-core documents (financial_statements, etc.) - auto-approve
+            setattr(vendor, has_field, True)
 
     vendor.last_activity = datetime.now()
     vendor.updated_at = datetime.now()
     db.commit()
 
-    # Check if all required documents are now uploaded
-    all_required = all([vendor.food_license, vendor.health_permit, vendor.w9_form, vendor.insurance])
+    # Check if all required documents are now uploaded (and verified if using Persona)
+    all_required_uploaded = all([
+        vendor.food_license_url, vendor.health_permit_url,
+        vendor.w9_form_url, vendor.insurance_url
+    ])
+    all_verified = vendor.documents_verified
 
     return {
         "success": True,
         "message": f"Document '{document_type}' uploaded successfully",
         "document_type": document_type,
         "file_path": f"/uploads/vendor_documents/{unique_filename}",
-        "all_required_complete": all_required
+        "all_required_uploaded": all_required_uploaded,
+        "all_verified": all_verified,
+        "verification_status": vendor.verification_status,
+        "persona_inquiry_url": persona_inquiry_url
     }
 
 # ============================================================================
@@ -10215,10 +10823,36 @@ async def persona_webhook(
                 vendor.verification_status = VerificationStatus.VERIFIED.value
                 vendor.documents_verified = True
                 vendor.documents_verified_at = datetime.now()
+
+                # Mark all uploaded documents as verified
+                if vendor.food_license_url:
+                    vendor.food_license = True
+                if vendor.health_permit_url:
+                    vendor.health_permit = True
+                if vendor.w9_form_url:
+                    vendor.w9_form = True
+                if vendor.insurance_url:
+                    vendor.insurance = True
+
                 print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents VERIFIED")
 
                 vendor.last_activity = datetime.now()
                 db.commit()
+
+                # Send push notification to vendor about verification
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="vendor",
+                        user_id=vendor_id,
+                        title="Documents Verified! 🎉",
+                        body="Your documents have been verified. Your restaurant is being reviewed for publishing.",
+                        data={"type": "vendor_verified", "vendor_id": vendor_id},
+                        db=db
+                    )
+                    print(f"Push notification sent to vendor {vendor_id} about verification")
+                except Exception as e:
+                    print(f"Failed to send verification push notification to vendor {vendor_id}: {e}")
 
                 # AI Auto-Processing: ComplianceBot triggers full AI workflow
                 print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Triggering AI auto-processing for vendor {vendor_id}")
@@ -10256,11 +10890,32 @@ async def persona_webhook(
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 vendor.verification_status = VerificationStatus.REJECTED.value
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED")
+                vendor.documents_verified = False
+                # Keep documents as False (not verified) - vendor needs to re-upload
+                vendor.food_license = False
+                vendor.health_permit = False
+                vendor.w9_form = False
+                vendor.insurance = False
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents REJECTED - must re-upload")
+
+                # Send push notification about rejection
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="vendor",
+                        user_id=vendor_id,
+                        title="Document Verification Failed",
+                        body="Your documents could not be verified. Please upload clear photos and try again.",
+                        data={"type": "vendor_rejected", "vendor_id": vendor_id},
+                        db=db
+                    )
+                except Exception as e:
+                    print(f"Failed to send rejection push notification to vendor {vendor_id}: {e}")
 
             elif event_type == "inquiry.needs_review":
                 vendor.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS REVIEW")
+                # Keep documents as False until manual review completes
+                print(f"[{AI_COMPLIANCE_REVIEWER['avatar']} {AI_COMPLIANCE_REVIEWER['name']}] Vendor {vendor_id} documents NEEDS MANUAL REVIEW")
 
             vendor.last_activity = datetime.now()
             db.commit()
@@ -10274,15 +10929,66 @@ async def persona_webhook(
                 driver.verification_status = VerificationStatus.VERIFIED.value
                 driver.documents_verified = True
                 driver.documents_verified_at = datetime.now()
-                print(f"Driver {driver_id} documents VERIFIED")
+                # Mark driver's license as verified
+                driver.drivers_license = True
+                print(f"Driver {driver_id} documents VERIFIED via Persona")
+
+                # Check if driver can be auto-approved (all required docs verified)
+                was_pending = driver.status == DriverStatus.PENDING.value or driver.status == "pending"
+                if driver.drivers_license and driver.insurance:
+                    from models import DriverStatus
+                    if was_pending:
+                        driver.status = DriverStatus.APPROVED.value
+                        driver.approved_at = datetime.now()
+                        print(f"Driver {driver_id} AUTO-APPROVED (all documents verified)")
+
+                        # Send push notification to driver about approval
+                        try:
+                            from order_flow import send_push_notification
+                            send_push_notification(
+                                user_type="driver",
+                                user_id=driver_id,
+                                title="You're Approved! 🎉",
+                                body="Your documents have been verified. You can now go online and start earning!",
+                                data={"type": "driver_approved", "driver_id": driver_id},
+                                db=db
+                            )
+                            print(f"Push notification sent to driver {driver_id} about approval")
+                        except Exception as e:
+                            print(f"Failed to send approval push notification to driver {driver_id}: {e}")
+
+                        # Also send email notification
+                        try:
+                            send_driver_approval_email(
+                                to_email=driver.email,
+                                driver_name=f"{driver.first_name} {driver.last_name}"
+                            )
+                            print(f"Approval email sent to driver {driver_id}")
+                        except Exception as e:
+                            print(f"Failed to send approval email to driver {driver_id}: {e}")
 
             elif event_type in ["inquiry.failed", "inquiry.declined"]:
                 driver.verification_status = VerificationStatus.REJECTED.value
-                print(f"Driver {driver_id} documents REJECTED")
+                driver.drivers_license = False  # Mark as not verified
+                print(f"Driver {driver_id} documents REJECTED via Persona")
+
+                # Send push notification about rejection
+                try:
+                    from order_flow import send_push_notification
+                    send_push_notification(
+                        user_type="driver",
+                        user_id=driver_id,
+                        title="Document Verification Failed",
+                        body="Your documents could not be verified. Please upload clear photos and try again.",
+                        data={"type": "driver_rejected", "driver_id": driver_id},
+                        db=db
+                    )
+                except Exception as e:
+                    print(f"Failed to send rejection push notification to driver {driver_id}: {e}")
 
             elif event_type == "inquiry.needs_review":
                 driver.verification_status = VerificationStatus.NEEDS_REVIEW.value
-                print(f"Driver {driver_id} documents NEEDS REVIEW")
+                print(f"Driver {driver_id} documents NEEDS MANUAL REVIEW")
 
             driver.updated_at = datetime.now()
             db.commit()
@@ -10800,11 +11506,13 @@ def get_public_restaurants(
     """
     try:
         from models import Vendor, VendorStatus, VendorMenuItem
-        from stock_images import get_stock_image_for_dish
+        from stock_images import get_stock_image_for_dish, get_stock_image_for_restaurant
     except ImportError:
         # Fallback if stock_images not available
         def get_stock_image_for_dish(name, category, is_veg):
             return None
+        def get_stock_image_for_restaurant(cuisine, name=""):
+            return "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600"
 
     try:
         query = db.query(Vendor).filter(
@@ -10843,11 +11551,28 @@ def get_public_restaurants(
                 )
                 preview_images.append(img)
 
+            # If no menu images, use restaurant stock image based on cuisine
+            if not preview_images or not any(preview_images):
+                restaurant_img = get_stock_image_for_restaurant(
+                    vendor.cuisine_type or "default",
+                    vendor.restaurant_name or vendor.company_name or ""
+                )
+                preview_images = [restaurant_img]
+
+            # Get restaurant main image (from DB or stock)
+            restaurant_image = getattr(vendor, 'image_url', None)
+            if not restaurant_image:
+                restaurant_image = get_stock_image_for_restaurant(
+                    vendor.cuisine_type or "default",
+                    vendor.restaurant_name or vendor.company_name or ""
+                )
+
             result.append({
                 "id": vendor.id,
                 "vendor_id": vendor.vendor_id,
                 "name": vendor.restaurant_name or vendor.company_name,
                 "cuisine_type": vendor.cuisine_type,
+                "image_url": restaurant_image,
                 "address": {
                     "street": vendor.street,
                     "city": vendor.city,
@@ -10870,9 +11595,17 @@ def get_public_restaurants(
                 "average_prep_time": vendor.average_prep_time,
                 "menu_items_count": menu_count,
                 "preview_images": preview_images,
-                "rating": 4.5,  # Placeholder - implement actual ratings
+                "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
                 "is_open": True  # Placeholder - implement actual hours check
             })
+
+        # Sort: Featured restaurants first (for App Store review), then by menu count
+        # Apple Test Restaurant (ID 40) shows at top for demo purposes
+        FEATURED_IDS = {40}  # Apple Test Restaurant for App Store review
+        result.sort(key=lambda x: (
+            0 if x.get("id") in FEATURED_IDS else 1,  # Featured first
+            -x.get("menu_items_count", 0)  # Then by menu count DESC
+        ))
 
         return {
             "success": True,
@@ -10899,7 +11632,7 @@ def get_public_restaurant_detail(
     Menu items include stock images if no custom image is provided.
     """
     from models import Vendor, VendorStatus, VendorMenuItem
-    from stock_images import get_stock_image_for_dish
+    from stock_images import get_stock_image_for_dish, get_stock_image_for_restaurant
 
     vendor = db.query(Vendor).filter(
         Vendor.id == vendor_id,
@@ -10957,12 +11690,21 @@ def get_public_restaurant_detail(
             "customizations": item.customizations or []
         })
 
+    # Get restaurant image (from DB or stock)
+    restaurant_image = getattr(vendor, 'image_url', None)
+    if not restaurant_image:
+        restaurant_image = get_stock_image_for_restaurant(
+            vendor.cuisine_type or "default",
+            vendor.restaurant_name or vendor.company_name or ""
+        )
+
     return {
         "success": True,
         "restaurant": {
             "id": vendor.id,
             "vendor_id": vendor.vendor_id,
             "name": vendor.restaurant_name or vendor.company_name,
+            "image_url": restaurant_image,
             "cuisine_type": vendor.cuisine_type,
             "address": {
                 "street": vendor.street,
@@ -10984,8 +11726,8 @@ def get_public_restaurant_detail(
             "delivery_available": vendor.delivery_available,
             "pickup_available": vendor.pickup_available,
             "average_prep_time": vendor.average_prep_time,
-            "rating": 4.5,
-            "reviews_count": 0
+            "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
+            "reviews_count": vendor.total_ratings or 0
         },
         "menu": menu_by_category,
         "menu_items_count": len(menu_items),
@@ -11163,42 +11905,78 @@ def apply_promotion_code(
     """
     Apply a promo code to an order (Promotions API).
     Request: { "code": "WELCOME20", "order_total": 30.00 }
+    Or: { "promotion_code": "WELCOME20", "order_total": 30.00 }
     Response: { "success": true, "discount": 6.00, "message": "..." }
     """
-    code = request.get("code", "").upper().strip()
+    # Accept both "code" and "promotion_code" field names
+    code = request.get("code", request.get("promotion_code", "")).upper().strip()
     order_total = float(request.get("order_total", 0))
 
-    # Simple promo code validation (would be database-driven in production)
-    promo_codes = {
+    # Built-in promo codes (always available)
+    builtin_codes = {
         "WELCOME20": {"type": "percentage", "value": 20, "min_order": 15, "max_discount": 10},
         "SAVE5": {"type": "flat", "value": 5, "min_order": 25, "max_discount": 5},
         "FREEDELIVERY": {"type": "free_delivery", "value": 0, "min_order": 20, "max_discount": 5},
+        "APPLE15": {"type": "percentage", "value": 15, "min_order": 10, "max_discount": 10},
+        "DOLLOR10": {"type": "percentage", "value": 10, "min_order": 10, "max_discount": 8},
+        "FIRST5": {"type": "flat", "value": 5, "min_order": 15, "max_discount": 5},
     }
 
-    if code not in promo_codes:
-        return {"success": False, "discount": 0, "message": "Invalid promo code"}
+    promo = None
 
-    promo = promo_codes[code]
+    # First check built-in codes
+    if code in builtin_codes:
+        promo = builtin_codes[code]
+    else:
+        # Check database for dynamic promos
+        from models_extended import Promotion, PromotionStatus
+        db_promo = db.query(Promotion).filter(
+            Promotion.promotion_code == code,
+            Promotion.status == PromotionStatus.ACTIVE
+        ).first()
+
+        if db_promo:
+            # Get type as string value for enum
+            promo_type = db_promo.type.value if hasattr(db_promo.type, 'value') else str(db_promo.type)
+            promo = {
+                "type": promo_type,
+                "value": db_promo.value,
+                "min_order": db_promo.min_order_amount or 0,
+                "max_discount": db_promo.max_discount or db_promo.value
+            }
+
+    if not promo:
+        return {"success": False, "discount": 0, "message": "Invalid promo code"}
 
     if order_total < promo["min_order"]:
         return {
             "success": False,
-            "discount": 0,
-            "message": f"Minimum order of ${promo['min_order']:.2f} required"
+            "discount_amount": 0,
+            "message": f"Minimum order of ${promo['min_order']:.2f} required",
+            "promotion_code": code,
+            "promotion_name": "",
+            "original_total": order_total,
+            "final_total": order_total
         }
 
     if promo["type"] == "percentage":
         discount = min(order_total * (promo["value"] / 100), promo["max_discount"])
-    elif promo["type"] == "flat":
+        promo_name = f"{int(promo['value'])}% Off"
+    elif promo["type"] in ("flat", "flat_amount"):
         discount = min(promo["value"], promo["max_discount"])
+        promo_name = f"${int(promo['value'])} Off"
     else:  # free_delivery
         discount = promo["max_discount"]
+        promo_name = "Free Delivery"
 
     return {
         "success": True,
-        "discount": round(discount, 2),
-        "message": f"Promo code applied! You saved ${discount:.2f}",
-        "new_total": round(order_total - discount, 2)
+        "promotion_code": code,
+        "promotion_name": promo_name,
+        "discount_amount": round(discount, 2),
+        "original_total": round(order_total, 2),
+        "final_total": round(order_total - discount, 2),
+        "message": f"Promo code applied! You saved ${discount:.2f}"
     }
 
 
@@ -11405,9 +12183,9 @@ def get_customer_orders(
     """
     Get orders for the authenticated customer.
     Used by Android/iOS customer apps.
+    Returns format matching P2PCustomerOrder model in iOS app.
     """
     from models import Order, Vendor
-    import json
 
     # Get orders for this customer
     query = db.query(Order).filter(Order.customer_email == current_user.email)
@@ -11418,30 +12196,54 @@ def get_customer_orders(
     for order in orders:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
 
-        items = []
-        if order.items:
-            try:
-                items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
-                items = []
+        # Get driver details including vehicle info for customer tracking
+        driver_info = None
+        if order.driver_id:
+            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+            if driver:
+                driver_info = {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}",
+                    "phone": driver.phone,
+                    "photo_url": driver.photo_url,
+                    "rating": driver.rating,
+                    "vehicle": f"{driver.vehicle_color or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() or None,
+                    "vehicle_make": driver.vehicle_make,
+                    "vehicle_model": driver.vehicle_model,
+                    "vehicle_color": driver.vehicle_color,
+                    "license_plate": driver.license_plate
+                }
 
         result.append({
             "id": order.id,
             "order_number": order.order_number,
+            "status": order.status.value if order.status else "pending_payment",
             "vendor_id": order.vendor_id,
             "vendor_name": vendor.restaurant_name if vendor else None,
-            "items": items,
-            "subtotal": order.subtotal,
-            "tax_amount": order.tax_amount,
-            "delivery_fee": order.delivery_fee,
-            "tip": order.tip,
+            "customer_name": order.customer_name or current_user.email.split('@')[0],
+            "customer_phone": order.customer_phone,
             "total_amount": order.total_amount,
-            "status": order.status.value if order.status else "pending_payment",
-            "payment_status": order.payment_status,
+            "subtotal": order.subtotal or 0,
+            "tax_amount": order.tax_amount or 0,
+            "delivery_fee": order.delivery_fee or 0,
+            "tip": order.tip,
+            "items": order.items or "[]",  # Keep as string for iOS parsing
             "delivery_address": order.delivery_address,
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+            "delivery_instructions": order.delivery_instructions,
+            "driver_id": order.driver_id,
+            "driver_name": order.driver_name,
+            "driver": driver_info,  # Full driver details with vehicle
+            "driver_location": order.driver_location,
+            "pickup_latitude": vendor.latitude if vendor else None,
+            "pickup_longitude": vendor.longitude if vendor else None,
+            "delivery_latitude": order.delivery_latitude,
+            "delivery_longitude": order.delivery_longitude,
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "preparing_at": (order.preparing_at.isoformat() + "Z") if order.preparing_at else None,
+            "dispatched_at": (order.dispatched_at.isoformat() + "Z") if order.dispatched_at else None,
+            "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
         })
 
     return result
@@ -11583,19 +12385,120 @@ async def track_ride(
     """
     Track a ride's current status and driver location.
     Used by Android/iOS customer apps.
+    Returns full driver details including name, photo, vehicle, license plate.
     """
-    import random
-    return {
-        "ride_id": ride_id,
-        "status": "in_progress",
-        "driver_location": {
-            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
-            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
-        },
-        "eta_minutes": random.randint(5, 15),
-        "driver_name": "John D.",
-        "vehicle": "Toyota Camry - ABC 123"
+    from models import RideRequest, Driver
+
+    # Query ride request with driver relationship
+    ride = db.query(RideRequest).filter(
+        (RideRequest.id == ride_id) | (RideRequest.request_id == str(ride_id))
+    ).first()
+
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Base response matching iOS RideTrackingInfo struct
+    response = {
+        "success": True,
+        "order_id": ride.id,
+        "order_number": ride.request_id or f"RR-{ride.id}",
+        "status": ride.status.value if ride.status else "pending",
+        "driver_name": None,
+        "driver_phone": None,
+        "driver_photo_url": None,
+        "driver_latitude": None,
+        "driver_longitude": None,
+        "estimated_arrival": None,
+        "driver_vehicle": None,
+        "driver_vehicle_color": None,
+        "driver_license_plate": None,
+        "driver_vehicle_photo_url": None,
+        "driver_rating": None
     }
+
+    # If driver is assigned, include full driver details
+    if ride.matched_driver_id:
+        driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+        if driver:
+            # Driver name (first name + last initial for privacy)
+            driver_name = f"{driver.first_name} {driver.last_name[0]}." if driver.first_name and driver.last_name else "Driver"
+
+            # Vehicle info as combined string
+            vehicle_parts = []
+            if driver.vehicle_year:
+                vehicle_parts.append(str(driver.vehicle_year))
+            if driver.vehicle_make:
+                vehicle_parts.append(driver.vehicle_make)
+            if driver.vehicle_model:
+                vehicle_parts.append(driver.vehicle_model)
+            driver_vehicle = " ".join(vehicle_parts) if vehicle_parts else None
+
+            # Calculate ETA based on distance (simple estimate)
+            eta_minutes = None
+            if driver.current_latitude and driver.current_longitude and ride.pickup_latitude and ride.pickup_longitude:
+                # Simple distance calculation for ETA
+                import math
+                lat_diff = abs(driver.current_latitude - ride.pickup_latitude)
+                lng_diff = abs(driver.current_longitude - ride.pickup_longitude)
+                distance_deg = math.sqrt(lat_diff**2 + lng_diff**2)
+                # Rough estimate: 1 degree ≈ 111km, average speed 30km/h in city
+                distance_km = distance_deg * 111
+                eta_minutes = max(1, int((distance_km / 30) * 60))
+
+            # iOS flat fields
+            response.update({
+                "driver_name": driver_name,
+                "driver_phone": driver.phone,
+                "driver_photo_url": driver.photo_url,
+                "driver_latitude": driver.current_latitude,
+                "driver_longitude": driver.current_longitude,
+                "estimated_arrival": f"{eta_minutes} min" if eta_minutes else None,
+                "driver_vehicle": driver_vehicle,
+                "driver_vehicle_color": driver.vehicle_color,
+                "driver_license_plate": driver.license_plate,
+                "driver_vehicle_photo_url": None,  # Vehicle photo not stored separately
+                "driver_rating": driver.rating,
+                "eta_minutes": eta_minutes
+            })
+
+            # Android nested driver object (for CustomerRideTracking compatibility)
+            response["driver"] = {
+                "id": driver.id,
+                "name": driver_name,
+                "phone": driver.phone,
+                "rating": driver.rating,
+                "photo_url": driver.photo_url,
+                "latitude": driver.current_latitude,
+                "longitude": driver.current_longitude,
+                "vehicle_make": driver.vehicle_make,
+                "vehicle_model": driver.vehicle_model,
+                "vehicle_color": driver.vehicle_color,
+                "vehicle_plate": driver.license_plate
+            }
+
+            # Android driver_location object
+            if driver.current_latitude and driver.current_longitude:
+                response["driver_location"] = {
+                    "latitude": driver.current_latitude,
+                    "longitude": driver.current_longitude
+                }
+
+    # Add ride location info for Android
+    response["ride_request_id"] = ride.id
+    response["ride_number"] = ride.request_id
+    response["pickup"] = {
+        "latitude": ride.pickup_latitude,
+        "longitude": ride.pickup_longitude,
+        "address": ride.pickup_address
+    }
+    response["dropoff"] = {
+        "latitude": ride.dropoff_latitude,
+        "longitude": ride.dropoff_longitude,
+        "address": ride.dropoff_address
+    }
+    response["final_price"] = ride.final_price
+
+    return response
 
 
 @app.post("/api/rides/{ride_id}/cancel")
@@ -11626,24 +12529,65 @@ async def get_customer_active_orders(
     """
     Get active orders for a customer.
     Used by Android/iOS customer apps.
+    Returns full order details needed for tracking view.
     """
-    from models import Order, OrderStatus
+    from models import Order, OrderStatus, Vendor, Customer
+    from sqlalchemy import or_, and_
+
+    # Get customer email for fallback lookup (for orders created before customer_id was set)
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    customer_email = customer.email if customer else None
+
+    # Query by customer_id OR customer_email (for backward compatibility)
+    # Use and_() to combine with status filter for proper SQL generation
+    if customer_email:
+        customer_filter = or_(Order.customer_id == customer_id, Order.customer_email == customer_email)
+    else:
+        customer_filter = Order.customer_id == customer_id
+
     orders = db.query(Order).filter(
-        Order.customer_id == customer_id,
-        Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+        and_(
+            customer_filter,
+            Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+        )
     ).order_by(Order.created_at.desc()).limit(10).all()
 
-    return {
-        "orders": [
-            {
-                "id": o.id,
-                "order_number": o.order_number,
-                "status": o.status.value if o.status else "pending",
-                "total_amount": o.total_amount,
-                "created_at": o.created_at.isoformat() if o.created_at else None
-            } for o in orders
-        ]
-    }
+    result_orders = []
+    for o in orders:
+        # Get vendor info for restaurant name and location
+        vendor = db.query(Vendor).filter(Vendor.id == o.vendor_id).first() if o.vendor_id else None
+
+        result_orders.append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "status": o.status.value if o.status else "pending",
+            "vendor_id": o.vendor_id,
+            "vendor_name": vendor.restaurant_name if vendor else o.vendor_name,
+            "customer_name": o.customer_name or "Customer",
+            "customer_phone": o.customer_phone,
+            "total_amount": o.total_amount,
+            "subtotal": o.subtotal or 0,
+            "tax_amount": o.tax_amount or 0,
+            "delivery_fee": o.delivery_fee or 0,
+            "tip": o.tip,
+            "items": o.items or "[]",
+            "delivery_address": o.delivery_address,
+            "delivery_instructions": o.delivery_instructions,
+            "driver_id": o.driver_id,
+            "driver_name": o.driver_name,
+            "driver_location": None,  # Will be populated by tracking endpoint
+            "pickup_latitude": vendor.latitude if vendor else None,
+            "pickup_longitude": vendor.longitude if vendor else None,
+            "delivery_latitude": o.delivery_latitude,
+            "delivery_longitude": o.delivery_longitude,
+            "created_at": (o.created_at.isoformat() + "Z") if o.created_at else None,
+            "confirmed_at": (o.confirmed_at.isoformat() + "Z") if o.confirmed_at else None,
+            "preparing_at": (o.preparing_at.isoformat() + "Z") if o.preparing_at else None,
+            "dispatched_at": (o.dispatched_at.isoformat() + "Z") if o.dispatched_at else None,
+            "delivered_at": (o.delivered_at.isoformat() + "Z") if o.delivered_at else None
+        })
+
+    return {"orders": result_orders}
 
 
 @app.get("/api/customer/orders/{order_id}/track")
@@ -12065,6 +13009,46 @@ async def restaurant_delivery_decision(
     order.delivery_decision_at = datetime.utcnow()
     db.commit()
 
+    # Send push notification to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            # Get restaurant name
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+
+            if decision == "self_deliver":
+                notification_title = "Your order is on the way!"
+                notification_body = f"{restaurant_name} is delivering your order directly. Track your delivery in the app."
+            else:
+                notification_title = "Driver assigned soon"
+                notification_body = f"Your order from {restaurant_name} is ready. A driver will pick it up shortly."
+
+            # Send via notification service
+            import httpx
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        f"{NOTIFICATION_SERVICE_URL}/api/notifications/push/send",
+                        json={
+                            "token": customer.push_token,
+                            "title": notification_title,
+                            "body": notification_body,
+                            "data": {
+                                "type": "delivery_update",
+                                "order_id": str(order.id),
+                                "order_number": order.order_number,
+                                "status": order.status.value,
+                                "restaurant_delivering": str(decision == "self_deliver")
+                            }
+                        }
+                    )
+                print(f"Sent delivery notification to customer {customer.id} for order {order.id}")
+            except Exception as notify_err:
+                print(f"Failed to send push notification: {notify_err}")
+    except Exception as e:
+        print(f"Error preparing customer notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
@@ -12379,7 +13363,7 @@ async def get_customer_favorites(
             "id": v.id,
             "name": v.restaurant_name or v.company_name,
             "cuisine_type": v.cuisine_type,
-            "rating": 4.5,  # Default rating - can add rating column later
+            "rating": v.average_rating if v.average_rating and v.average_rating > 0 else 4.5,
             "is_open": getattr(v, 'is_online', False) or False
         } for v in vendors
     ]
@@ -12974,7 +13958,8 @@ async def mark_items_unavailable(
 
 
 # ==================== P19: PAYMENT CARDS ENDPOINTS ====================
-# Endpoints for managing saved payment cards (Stripe integration)
+# PCI-COMPLIANT: All card data stored BY STRIPE, not in our database
+# We only store stripe_customer_id and fetch card info from Stripe API
 
 @app.get("/api/customers/{customer_id}/cards")
 async def get_saved_cards(
@@ -12982,16 +13967,57 @@ async def get_saved_cards(
     db: Session = Depends(get_db)
 ):
     """
-    Get all saved payment cards for a customer.
-    Used by Android/iOS customer apps.
+    Get all saved payment cards for a customer FROM STRIPE.
+    PCI Compliant: Card data is stored by Stripe, not in our database.
     """
     from models import Customer
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    return {"cards": saved_cards, "count": len(saved_cards)}
+    # If no Stripe customer, return empty list
+    if not customer.stripe_customer_id:
+        return {"cards": [], "count": 0}
+
+    try:
+        # Fetch payment methods FROM STRIPE (PCI compliant)
+        payment_methods = stripe.PaymentMethod.list(
+            customer=customer.stripe_customer_id,
+            type="card"
+        )
+
+        # Get default payment method
+        stripe_customer = stripe.Customer.retrieve(customer.stripe_customer_id)
+        default_pm_id = stripe_customer.invoice_settings.default_payment_method
+
+        # De-duplicate cards by (last4, brand, exp_month, exp_year)
+        # Keep the default card if duplicate, otherwise keep the first one
+        seen_cards = {}  # key: (last4, brand, exp_month, exp_year) -> card dict
+
+        for pm in payment_methods.data:
+            card_key = (pm.card.last4, pm.card.brand, pm.card.exp_month, pm.card.exp_year)
+            card_data = {
+                "id": pm.id,
+                "brand": pm.card.brand,
+                "last4": pm.card.last4,
+                "exp_month": pm.card.exp_month,
+                "exp_year": pm.card.exp_year,
+                "is_default": pm.id == default_pm_id
+            }
+
+            # If we haven't seen this card, add it
+            # If we have seen it, only replace if this one is the default
+            if card_key not in seen_cards:
+                seen_cards[card_key] = card_data
+            elif card_data["is_default"]:
+                seen_cards[card_key] = card_data
+
+        cards = list(seen_cards.values())
+        return {"cards": cards, "count": len(cards)}
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error fetching cards: {str(e)}")
+        return {"cards": [], "count": 0, "error": str(e)}
 
 
 @app.post("/api/customers/{customer_id}/cards")
@@ -13001,47 +14027,54 @@ async def add_payment_card(
     db: Session = Depends(get_db)
 ):
     """
-    Add a new payment card for a customer.
-    In production, this would use Stripe's PaymentMethod API.
+    Attach a payment method to customer IN STRIPE.
+    PCI Compliant: Card tokenization happens on client, we only receive payment_method_id.
     """
     from models import Customer
-    import uuid
 
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    # Extract card details from request
-    card_token = request.get("card_token")  # Stripe token from client
-    brand = request.get("brand", "visa")
-    last4 = request.get("last4", "4242")
-    exp_month = request.get("exp_month", 12)
-    exp_year = request.get("exp_year", 2025)
+    payment_method_id = request.get("payment_method_id")
+    if not payment_method_id:
+        raise HTTPException(status_code=400, detail="payment_method_id is required")
 
-    # Generate card ID (in production, this comes from Stripe)
-    card_id = f"card_{uuid.uuid4().hex[:16]}"
+    try:
+        # Create Stripe customer if needed
+        if not customer.stripe_customer_id:
+            stripe_customer = stripe.Customer.create(
+                email=customer.email,
+                name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or None,
+                metadata={"dollor_customer_id": str(customer.id)}
+            )
+            customer.stripe_customer_id = stripe_customer.id
+            db.commit()
 
-    saved_cards = customer.saved_cards or []
-    is_default = len(saved_cards) == 0  # First card is default
+        # Attach payment method to customer IN STRIPE
+        stripe.PaymentMethod.attach(
+            payment_method_id,
+            customer=customer.stripe_customer_id
+        )
 
-    new_card = {
-        "id": card_id,
-        "brand": brand,
-        "last4": last4,
-        "exp_month": exp_month,
-        "exp_year": exp_year,
-        "is_default": is_default
-    }
+        # Get the payment method details to return
+        pm = stripe.PaymentMethod.retrieve(payment_method_id)
 
-    saved_cards.append(new_card)
-    customer.saved_cards = saved_cards
-    db.commit()
+        return {
+            "success": True,
+            "card": {
+                "id": pm.id,
+                "brand": pm.card.brand,
+                "last4": pm.card.last4,
+                "exp_month": pm.card.exp_month,
+                "exp_year": pm.card.exp_year
+            },
+            "message": "Card added successfully"
+        }
 
-    return {
-        "success": True,
-        "card": new_card,
-        "message": "Card added successfully"
-    }
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error adding card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.delete("/api/customers/{customer_id}/cards/{card_id}")
@@ -13051,7 +14084,8 @@ async def delete_payment_card(
     db: Session = Depends(get_db)
 ):
     """
-    Delete a saved payment card.
+    Detach a payment method FROM STRIPE.
+    PCI Compliant: Card deletion happens in Stripe, not our database.
     """
     from models import Customer
 
@@ -13059,23 +14093,17 @@ async def delete_payment_card(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    original_count = len(saved_cards)
+    if not customer.stripe_customer_id:
+        raise HTTPException(status_code=404, detail="No payment methods found")
 
-    # Remove the card
-    saved_cards = [c for c in saved_cards if c.get("id") != card_id]
+    try:
+        # Detach payment method FROM STRIPE
+        stripe.PaymentMethod.detach(card_id)
+        return {"success": True, "message": "Card deleted successfully"}
 
-    if len(saved_cards) == original_count:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    # If deleted card was default, make first remaining card default
-    if saved_cards and not any(c.get("is_default") for c in saved_cards):
-        saved_cards[0]["is_default"] = True
-
-    customer.saved_cards = saved_cards
-    db.commit()
-
-    return {"success": True, "message": "Card deleted successfully"}
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error deleting card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/customers/{customer_id}/cards/{card_id}/default")
@@ -13085,7 +14113,8 @@ async def set_default_card(
     db: Session = Depends(get_db)
 ):
     """
-    Set a payment card as the default card.
+    Set default payment method IN STRIPE.
+    PCI Compliant: Default card setting stored in Stripe, not our database.
     """
     from models import Customer
 
@@ -13093,23 +14122,20 @@ async def set_default_card(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_cards = customer.saved_cards or []
-    card_found = False
+    if not customer.stripe_customer_id:
+        raise HTTPException(status_code=404, detail="No payment methods found")
 
-    for card in saved_cards:
-        if card.get("id") == card_id:
-            card["is_default"] = True
-            card_found = True
-        else:
-            card["is_default"] = False
+    try:
+        # Set default payment method IN STRIPE
+        stripe.Customer.modify(
+            customer.stripe_customer_id,
+            invoice_settings={"default_payment_method": card_id}
+        )
+        return {"success": True, "message": "Default card updated", "card_id": card_id}
 
-    if not card_found:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    customer.saved_cards = saved_cards
-    db.commit()
-
-    return {"success": True, "message": "Default card updated", "card_id": card_id}
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error setting default card: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/customer/orders/{order_id}/rate-driver")
@@ -13130,6 +14156,106 @@ async def rate_order_driver(
         raise HTTPException(status_code=404, detail="Order not found")
 
     return {"success": True, "message": "Driver rating submitted", "order_id": order_id, "rating": rating}
+
+
+@app.post("/api/customer/orders/{order_id}/rate-restaurant")
+async def rate_order_restaurant(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Rate the restaurant for an order.
+    Used by Android/iOS customer apps.
+
+    Request body:
+    {
+        "restaurant_id": int,
+        "rating": int (1-5),
+        "review": str (optional),
+        "food_quality": bool (optional),
+        "portion_size": bool (optional),
+        "value_for_money": bool (optional),
+        "accuracy": bool (optional)
+    }
+    """
+    from models import Order, Vendor, RestaurantRating, Customer
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    rating = request.get("rating", 5)
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    restaurant_id = request.get("restaurant_id") or order.vendor_id
+    review = request.get("review")
+    food_quality = request.get("food_quality", False)
+    portion_size = request.get("portion_size", False)
+    value_for_money = request.get("value_for_money", False)
+    accuracy = request.get("accuracy", False)
+
+    # Get vendor
+    vendor = db.query(Vendor).filter(Vendor.id == restaurant_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Restaurant not found")
+
+    # Get customer ID from current user
+    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
+    customer_id = customer.id if customer else None
+
+    # Check if already rated
+    existing_rating = db.query(RestaurantRating).filter(
+        RestaurantRating.order_id == order_id,
+        RestaurantRating.vendor_id == restaurant_id
+    ).first()
+
+    if existing_rating:
+        raise HTTPException(status_code=400, detail="Order already rated")
+
+    # Create rating record
+    new_rating = RestaurantRating(
+        vendor_id=restaurant_id,
+        order_id=order_id,
+        customer_id=customer_id,
+        rating=rating,
+        review=review,
+        food_quality=food_quality,
+        portion_size=portion_size,
+        value_for_money=value_for_money,
+        accuracy=accuracy
+    )
+    db.add(new_rating)
+
+    # Update vendor's aggregate rating
+    current_total = vendor.total_ratings or 0
+    current_avg = vendor.average_rating or 0.0
+
+    # Calculate new average: ((old_avg * old_count) + new_rating) / new_count
+    new_total = current_total + 1
+    new_avg = ((current_avg * current_total) + rating) / new_total
+
+    vendor.total_ratings = new_total
+    vendor.average_rating = round(new_avg, 2)
+
+    # Mark order as restaurant-rated
+    if hasattr(order, 'is_restaurant_rated'):
+        order.is_restaurant_rated = True
+
+    db.commit()
+
+    logger.info(f"Restaurant rating stored: order={order_id}, restaurant={restaurant_id}, "
+                f"rating={rating}, new_avg={new_avg:.2f}, total={new_total}")
+
+    return {
+        "success": True,
+        "message": "Restaurant rating submitted",
+        "order_id": order_id,
+        "new_restaurant_rating": round(new_avg, 1),
+        "total_ratings": new_total
+    }
 
 
 # ==================== MICROSERVICE PROXY ENDPOINTS ====================
@@ -13434,8 +14560,8 @@ def get_restaurant_detail_with_menu(restaurant_id: int, db: Session = Depends(ge
         "delivery_available": bool(vendor.delivery_available) if vendor.delivery_available is not None else True,
         "pickup_available": True,
         "average_prep_time": vendor.average_prep_time or 25,
-        "rating": 4.5,  # Default rating - Vendor model doesn't have rating field yet
-        "reviews_count": 0  # Default - Vendor model doesn't have reviews field yet
+        "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
+        "reviews_count": vendor.total_ratings or 0
     }
 
     # Fetch menu items (only available and in-stock items for customer view)
@@ -13636,6 +14762,20 @@ async def proxy_list_orders(
     return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
 
 
+@app.get("/api/erp/orders/vendor/{vendor_id}")
+@app.get("/erp/orders/vendor/{vendor_id}")  # Alias for iOS app
+async def get_vendor_orders(vendor_id: int, status: Optional[str] = None, limit: int = 50):
+    """Get orders for a specific vendor - RESTful path style for iOS Restaurant app"""
+    params = {"restaurant_id": vendor_id, "limit": limit}
+    if status:
+        params["status"] = status
+
+    result = await proxy_request(ORDER_SERVICE_URL, "/api/orders", params=params)
+    if result:
+        return result
+    return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
+
+
 @app.post("/api/erp/orders")
 async def proxy_create_order(request: dict):
     """Proxy to order-service: Create new order"""
@@ -13715,13 +14855,132 @@ async def proxy_order_stats():
 
 # ==================== PAYMENT SERVICE PROXY ====================
 
+# Import Stripe for direct payment processing (fallback when microservice unavailable)
+import stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+
 @app.post("/api/erp/payments/intent")
-async def proxy_create_payment_intent(request: dict):
-    """Proxy to payment-service: Create payment intent"""
+async def proxy_create_payment_intent(
+    request: dict,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Create payment intent - uses direct Stripe integration.
+    Returns clientSecret, ephemeralKey, customer, and publishableKey for iOS/Android apps.
+    With customer and ephemeralKey, users can save cards and use Apple Pay.
+
+    For demo accounts (App Store review), returns a demo payment response
+    that bypasses actual Stripe processing.
+    """
+    # Check for demo account - bypass Stripe for App Store review
+    DEMO_CUSTOMER_EMAILS = [
+        "demo.customer@dollor.ai",
+        "demo.driver@dollor.ai",
+        "demo.restaurant@dollor.ai"
+    ]
+
+    customer = get_current_customer_from_token(authorization, db) if authorization else None
+    if customer and customer.email and customer.email.lower() in [e.lower() for e in DEMO_CUSTOMER_EMAILS]:
+        logger.info(f"Demo account detected: {customer.email} - bypassing Stripe payment")
+        # Return demo payment response - app will detect 'demo' flag and skip actual payment
+        return {
+            "clientSecret": "demo_pi_appstore_review_secret",
+            "paymentIntent": "demo_pi_appstore_review_secret",
+            "publishableKey": STRIPE_PUBLISHABLE_KEY or "pk_demo_appstore_review",
+            "ephemeralKey": "demo_ek_appstore_review",
+            "customer": "demo_cus_appstore_review",
+            "demo": True,  # Flag for app to detect demo mode
+            "message": "Demo account - payment will be simulated"
+        }
+
+    # Try microservice first
     result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/intent", method="POST", json_data=request)
     if result:
         return result
-    return {"error": "Payment service unavailable", "fallback": True}
+
+    # Direct Stripe integration (fallback or primary)
+    if not stripe.api_key:
+        logger.error("STRIPE_SECRET_KEY not configured")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Payment service not configured", "message": "Stripe keys are missing"}
+        )
+
+    try:
+        amount = request.get("amount", 0)  # Amount in cents
+        currency = request.get("currency", "usd")
+        order_id = request.get("order_id")
+        customer_email = request.get("customer_email")
+
+        # Get current customer from token (if authenticated)
+        customer = get_current_customer_from_token(authorization, db) if authorization else None
+        stripe_customer_id = None
+        ephemeral_key = None
+
+        if customer:
+            # Get or create Stripe customer
+            if customer.stripe_customer_id:
+                stripe_customer_id = customer.stripe_customer_id
+                logger.info(f"Using existing Stripe customer: {stripe_customer_id}")
+            else:
+                # Create new Stripe customer
+                stripe_customer = stripe.Customer.create(
+                    email=customer.email,
+                    name=f"{customer.first_name or ''} {customer.last_name or ''}".strip() or None,
+                    phone=customer.phone,
+                    metadata={"dollor_customer_id": str(customer.id)}
+                )
+                stripe_customer_id = stripe_customer.id
+                # Save to database
+                customer.stripe_customer_id = stripe_customer_id
+                db.commit()
+                logger.info(f"Created new Stripe customer: {stripe_customer_id}")
+
+            # Create ephemeral key for the customer (allows saving/retrieving payment methods)
+            ephemeral_key_obj = stripe.EphemeralKey.create(
+                customer=stripe_customer_id,
+                stripe_version="2023-10-16"  # Use a stable API version
+            )
+            ephemeral_key = ephemeral_key_obj.secret
+
+        # Create Stripe PaymentIntent
+        payment_intent_params = {
+            "amount": int(amount),
+            "currency": currency,
+            "automatic_payment_methods": {"enabled": True},
+        }
+
+        # Attach customer to payment intent (enables saved cards)
+        if stripe_customer_id:
+            payment_intent_params["customer"] = stripe_customer_id
+            # Allow saving payment method for future use
+            payment_intent_params["setup_future_usage"] = "off_session"
+
+        if customer_email or (customer and customer.email):
+            payment_intent_params["receipt_email"] = customer_email or customer.email
+
+        if order_id:
+            payment_intent_params["metadata"] = {"order_id": order_id}
+
+        payment_intent = stripe.PaymentIntent.create(**payment_intent_params)
+
+        # Return format expected by iOS PaymentService (with customer for saved cards)
+        return {
+            "clientSecret": payment_intent.client_secret,
+            "paymentIntent": payment_intent.client_secret,  # iOS compatibility
+            "publishableKey": STRIPE_PUBLISHABLE_KEY,
+            "ephemeralKey": ephemeral_key,
+            "customer": stripe_customer_id
+        }
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating payment intent: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Payment processing failed", "message": str(e)}
+        )
 
 
 @app.get("/api/erp/payments/intent/{payment_intent_id}")
@@ -15891,11 +17150,23 @@ def accept_delivery(
 
     db.commit()
 
+    # Prepare full driver details for notifications and response
+    driver_name = f"{driver.first_name} {driver.last_name}"
+    driver_details = {
+        "driver_id": driver.id,
+        "driver_name": driver_name,
+        "driver_phone": driver.phone,
+        "driver_photo_url": driver.photo_url,
+        "driver_rating": driver.average_rating if hasattr(driver, 'average_rating') else None,
+        "driver_vehicle": f"{driver.vehicle_make or ''} {driver.vehicle_model or ''} {driver.vehicle_year or ''}".strip() if hasattr(driver, 'vehicle_make') else None,
+        "driver_vehicle_color": driver.vehicle_color if hasattr(driver, 'vehicle_color') else None,
+        "driver_license_plate": driver.license_plate if hasattr(driver, 'license_plate') else None
+    }
+
     # Send driver assigned email to customer
+    customer_email = order.customer_email
+    customer_name = order.customer_name or "Customer"
     try:
-        customer_email = order.customer_email
-        customer_name = order.customer_name or "Customer"
-        driver_name = f"{driver.first_name} {driver.last_name}"
         if customer_email:
             send_driver_assigned_email(
                 to_email=customer_email,
@@ -15907,11 +17178,54 @@ def accept_delivery(
     except Exception as e:
         print(f"Failed to send driver assigned email: {e}")
 
+    # Send push notification to customer
+    try:
+        from order_flow import send_push_notification
+        if order.customer_id:
+            send_push_notification(
+                user_type="customer",
+                user_id=order.customer_id,
+                title="Driver Assigned! 🚗",
+                body=f"{driver_name} is on the way to pick up your order",
+                data={
+                    "type": "driver_assigned",
+                    "order_id": order.id,
+                    "order_number": order.order_number,
+                    **driver_details
+                },
+                db=db
+            )
+            print(f"Push notification sent to customer {order.customer_id}")
+    except Exception as e:
+        print(f"Failed to send push notification to customer: {e}")
+
+    # Send push notification to restaurant/vendor
+    try:
+        from order_flow import send_push_notification
+        if order.vendor_id:
+            send_push_notification(
+                user_type="vendor",
+                user_id=order.vendor_id,
+                title="Driver Assigned",
+                body=f"{driver_name} will pick up order #{order.order_number or order.id}",
+                data={
+                    "type": "driver_assigned",
+                    "order_id": order.id,
+                    "order_number": order.order_number,
+                    **driver_details
+                },
+                db=db
+            )
+            print(f"Push notification sent to vendor {order.vendor_id}")
+    except Exception as e:
+        print(f"Failed to send push notification to vendor: {e}")
+
     return {
         "success": True,
         "message": "Delivery accepted",
         "order_id": order.id,
-        "order_number": order.order_number
+        "order_number": order.order_number,
+        "driver": driver_details
     }
 
 
@@ -16465,8 +17779,299 @@ def get_duplicate_routes():
     }
 
 
+# =============================================================================
+# AI INSIGHTS API - Restaurant Analytics & Predictions
+# =============================================================================
+
+class AIInsightsResponse(BaseModel):
+    """AI-powered insights for restaurant dashboard"""
+    success: bool
+    vendor_id: int
+    period: str
+    generated_at: str
+
+    # Demand Forecast
+    demand_forecast: List[dict]
+    estimated_orders_next_hour: int
+    peak_hour: str
+    peak_hour_orders: int
+    forecast_confidence: float
+
+    # Popular Items
+    popular_items: List[dict]
+
+    # Hourly Distribution
+    hourly_distribution: List[dict]
+
+    # Performance Metrics
+    total_orders: int
+    total_revenue: float
+    average_order_value: float
+    order_completion_rate: float
+    average_prep_time_minutes: int
+
+    # Peak Hours Analysis
+    lunch_peak: dict
+    dinner_peak: dict
+
+    # Staffing Recommendations
+    staffing_recommendations: List[dict]
+
+    # Smart Recommendations
+    recommendations: List[dict]
+
+
+@app.get("/api/vendors/{vendor_id}/ai-insights")
+@app.get("/vendors/{vendor_id}/ai-insights")  # Alias for mobile apps
+def get_vendor_ai_insights(
+    vendor_id: int,
+    period: str = Query("today", description="today, week, month, year"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get AI-powered insights for a vendor's restaurant.
+    Analyzes order history to provide demand forecasts, popular items,
+    staffing recommendations, and performance metrics.
+    """
+    from collections import defaultdict
+    import statistics
+
+    # Verify vendor exists
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Calculate date range based on period
+    now = datetime.utcnow()
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "month":
+        start_date = now - timedelta(days=30)
+    elif period == "year":
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Fetch orders for this vendor in the period
+    orders = db.query(Order).filter(
+        Order.vendor_id == vendor_id,
+        Order.created_at >= start_date
+    ).all()
+
+    # Fetch previous period for comparison
+    period_duration = now - start_date
+    prev_start = start_date - period_duration
+    prev_orders = db.query(Order).filter(
+        Order.vendor_id == vendor_id,
+        Order.created_at >= prev_start,
+        Order.created_at < start_date
+    ).all()
+
+    # Calculate metrics
+    completed_statuses = ['delivered', 'ready_for_pickup', 'preparing', 'confirmed']
+    completed_orders = [o for o in orders if o.status.value in completed_statuses]
+
+    total_orders = len(orders)
+    total_revenue = sum(o.total_amount or 0 for o in completed_orders)
+    avg_order_value = total_revenue / total_orders if total_orders > 0 else 0
+
+    # Order completion rate
+    cancelled_orders = [o for o in orders if o.status.value == 'cancelled']
+    completion_rate = len(completed_orders) / (len(completed_orders) + len(cancelled_orders)) if (len(completed_orders) + len(cancelled_orders)) > 0 else 1.0
+
+    # Average prep time (from confirmed to ready)
+    prep_times = []
+    for o in completed_orders:
+        if o.confirmed_at and o.preparing_at:
+            prep_time = (o.preparing_at - o.confirmed_at).total_seconds() / 60
+            if 0 < prep_time < 120:  # Filter outliers
+                prep_times.append(prep_time)
+    avg_prep_time = int(statistics.mean(prep_times)) if prep_times else 0
+
+    # Hourly distribution
+    hourly_counts = defaultdict(lambda: {"orders": 0, "revenue": 0})
+    for o in orders:
+        hour = o.created_at.hour
+        hourly_counts[hour]["orders"] += 1
+        hourly_counts[hour]["revenue"] += o.total_amount or 0
+
+    hourly_distribution = []
+    for hour in range(9, 23):  # 9 AM to 10 PM
+        data = hourly_counts[hour]
+        hourly_distribution.append({
+            "hour": f"{hour}:00" if hour < 12 else f"{hour-12 if hour > 12 else 12}:00 PM" if hour >= 12 else f"{hour}:00 AM",
+            "hour_24": hour,
+            "orders": data["orders"],
+            "revenue": round(data["revenue"], 2),
+            "avg_order": round(data["revenue"] / data["orders"], 2) if data["orders"] > 0 else 0
+        })
+
+    # Popular items analysis
+    item_stats = defaultdict(lambda: {"quantity": 0, "revenue": 0})
+    for o in orders:
+        if o.items:
+            try:
+                items = json.loads(o.items) if isinstance(o.items, str) else o.items
+                for item in items:
+                    name = item.get("name", "Unknown")
+                    qty = item.get("quantity", 1)
+                    price = item.get("price", 0) * qty
+                    item_stats[name]["quantity"] += qty
+                    item_stats[name]["revenue"] += price
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    popular_items = sorted(
+        [{"name": k, "quantity": v["quantity"], "revenue": round(v["revenue"], 2)}
+         for k, v in item_stats.items()],
+        key=lambda x: x["quantity"],
+        reverse=True
+    )[:10]
+
+    # Peak hours analysis
+    lunch_hours = [h for h in hourly_distribution if 11 <= h["hour_24"] <= 14]
+    dinner_hours = [h for h in hourly_distribution if 17 <= h["hour_24"] <= 21]
+
+    lunch_peak_hour = max(lunch_hours, key=lambda x: x["orders"]) if lunch_hours else {"hour": "--", "orders": 0}
+    dinner_peak_hour = max(dinner_hours, key=lambda x: x["orders"]) if dinner_hours else {"hour": "--", "orders": 0}
+
+    lunch_total = sum(h["orders"] for h in lunch_hours)
+    dinner_total = sum(h["orders"] for h in dinner_hours)
+
+    # Demand forecast (simple prediction based on historical patterns)
+    # Use average of same hour across available data
+    current_hour = now.hour
+    forecast = []
+    for i in range(7):  # Next 7 hours
+        forecast_hour = (current_hour + i) % 24
+        if 9 <= forecast_hour <= 22:
+            historical = hourly_counts[forecast_hour]
+            # Simple prediction: use historical average with some variance
+            predicted = historical["orders"]
+            min_orders = max(0, predicted - 3) if predicted > 0 else 0
+            max_orders = predicted + 5 if predicted > 0 else 0
+            forecast.append({
+                "hour": f"{forecast_hour}:00" if forecast_hour < 12 else f"{forecast_hour-12 if forecast_hour > 12 else 12}:00 PM",
+                "hour_24": forecast_hour,
+                "predicted": predicted,
+                "min_orders": min_orders,
+                "max_orders": max_orders
+            })
+
+    # Calculate forecast confidence based on data volume (0 if no orders)
+    confidence = min(0.95, total_orders / 200) if total_orders > 0 else 0
+
+    # Find overall peak
+    overall_peak = max(hourly_distribution, key=lambda x: x["orders"]) if hourly_distribution else {"hour": "--", "orders": 0}
+
+    # Estimated orders next hour (use actual data, no fake fallback)
+    next_hour = (current_hour + 1) % 24
+    estimated_next_hour = hourly_counts[next_hour]["orders"]
+
+    # Staffing recommendations based on order volume
+    staffing_recommendations = []
+    time_slots = [
+        {"label": "11 AM - 2 PM", "start": 11, "end": 14},
+        {"label": "2 PM - 5 PM", "start": 14, "end": 17},
+        {"label": "5 PM - 9 PM", "start": 17, "end": 21},
+        {"label": "9 PM - Close", "start": 21, "end": 23}
+    ]
+
+    for slot in time_slots:
+        slot_orders = sum(hourly_counts[h]["orders"] for h in range(slot["start"], slot["end"]))
+        # Recommend 1 staff per 5 orders per hour (minimum 1 if any orders, 0 if no data)
+        avg_orders_per_hour = slot_orders / (slot["end"] - slot["start"]) if slot_orders > 0 else 0
+        recommended = max(1, int(avg_orders_per_hour / 5) + 1) if slot_orders > 0 else 0
+        staffing_recommendations.append({
+            "time_slot": slot["label"],
+            "recommended_staff": recommended,
+            "expected_orders": slot_orders,
+            "orders_per_hour": round(avg_orders_per_hour, 1)
+        })
+
+    # Smart recommendations based on data analysis
+    recommendations = []
+
+    # Check for prep time issues
+    if avg_prep_time > 25:
+        recommendations.append({
+            "type": "prep_time",
+            "icon": "clock.badge.exclamationmark",
+            "title": "Reduce Prep Time",
+            "description": f"Average prep time is {avg_prep_time} min. Consider pre-prepping popular items.",
+            "impact": f"Could save {avg_prep_time - 20} min per order",
+            "priority": "high"
+        })
+
+    # Check for popular item trending
+    if popular_items:
+        top_item = popular_items[0]
+        recommendations.append({
+            "type": "trending",
+            "icon": "star.fill",
+            "title": f"Feature {top_item['name']}",
+            "description": f"Your top seller with {top_item['quantity']} orders. Feature it prominently.",
+            "impact": "Increase visibility",
+            "priority": "medium"
+        })
+
+    # Check for slow periods
+    slow_hours = [h for h in hourly_distribution if h["orders"] < 2]
+    if slow_hours:
+        recommendations.append({
+            "type": "promotion",
+            "icon": "tag.fill",
+            "title": "Slow Period Promotion",
+            "description": f"Consider offering discounts during {slow_hours[0]['hour']} to boost orders.",
+            "impact": "Fill slow periods",
+            "priority": "medium"
+        })
+
+    # Bundle suggestion if avg order value is low
+    if avg_order_value < 25 and total_orders > 5:
+        recommendations.append({
+            "type": "bundle",
+            "icon": "bag.badge.plus",
+            "title": "Create Meal Bundles",
+            "description": "Average order is ${:.2f}. Bundles could increase order value.".format(avg_order_value),
+            "impact": "+$5-10 per order",
+            "priority": "medium"
+        })
+
+    return AIInsightsResponse(
+        success=True,
+        vendor_id=vendor_id,
+        period=period,
+        generated_at=now.isoformat(),
+        demand_forecast=forecast,
+        estimated_orders_next_hour=estimated_next_hour,
+        peak_hour=overall_peak["hour"],
+        peak_hour_orders=overall_peak["orders"],
+        forecast_confidence=round(confidence, 2),
+        popular_items=popular_items,
+        hourly_distribution=hourly_distribution,
+        total_orders=total_orders,
+        total_revenue=round(total_revenue, 2),
+        average_order_value=round(avg_order_value, 2),
+        order_completion_rate=round(completion_rate, 2),
+        average_prep_time_minutes=avg_prep_time,
+        lunch_peak={
+            "time": lunch_peak_hour["hour"],
+            "orders": lunch_total
+        },
+        dinner_peak={
+            "time": dinner_peak_hour["hour"],
+            "orders": dinner_total
+        },
+        staffing_recommendations=staffing_recommendations,
+        recommendations=recommendations
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
 # Backend rebuild trigger - 20260106081348
-# Backend deploy 20260106085657
+# Backend deploy 20260128-ai-insights

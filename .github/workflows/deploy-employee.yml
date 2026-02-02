@@ -1,0 +1,364 @@
+name: Deploy AI Employee
+
+on:
+  # Trigger on push to employee modules
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'backend/src/employees/**/index.js'
+      - 'backend/src/employees/**/config.js'
+
+  # Manual dispatch with employee ID parameter
+  workflow_dispatch:
+    inputs:
+      employee:
+        description: 'Employee ID to deploy (e.g., sarah)'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip tests (use with caution)'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry run - validate only, do not deploy'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  EMPLOYEES_PATH: backend/src/employees
+
+jobs:
+  # Detect which employees changed
+  detect-changes:
+    name: Detect Changed Employees
+    runs-on: ubuntu-latest
+    outputs:
+      employees: ${{ steps.detect.outputs.employees }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed employees
+        id: detect
+        run: |
+          # For manual dispatch, use the provided employee ID
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            EMPLOYEES='["${{ github.event.inputs.employee }}"]'
+            echo "employees=$EMPLOYEES" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Manual deploy for: ${{ github.event.inputs.employee }}"
+            exit 0
+          fi
+
+          # For push events, detect changed employee directories
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed files detected"
+            echo "employees=[]" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract unique employee IDs from changed paths
+          EMPLOYEES=$(echo "$CHANGED_FILES" | \
+            grep "^${{ env.EMPLOYEES_PATH }}/" | \
+            sed "s|${{ env.EMPLOYEES_PATH }}/||" | \
+            cut -d'/' -f1 | \
+            sort -u | \
+            jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+          if [ "$EMPLOYEES" == "[]" ] || [ -z "$EMPLOYEES" ]; then
+            echo "No employee changes detected"
+            echo "employees=[]" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changed employees: $EMPLOYEES"
+            echo "employees=$EMPLOYEES" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  # Validate employee modules
+  validate:
+    name: Validate Employee
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        employee: ${{ fromJson(needs.detect-changes.outputs.employees) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install
+          fi
+
+      - name: Validate employee module
+        id: validate
+        working-directory: backend
+        run: |
+          echo "Validating employee: ${{ matrix.employee }}"
+          node scripts/validate-employee.js ${{ matrix.employee }} --json > validation.json 2>&1 || true
+
+          # Check validation result
+          if [ -f validation.json ]; then
+            cat validation.json
+            VALID=$(cat validation.json | jq -r '.valid // false')
+            if [ "$VALID" != "true" ]; then
+              echo "::error::Validation failed for ${{ matrix.employee }}"
+              exit 1
+            fi
+          fi
+
+          echo "validation_passed=true" >> $GITHUB_OUTPUT
+
+      - name: Check syntax
+        working-directory: backend
+        run: |
+          echo "Checking JavaScript syntax..."
+          node -c src/employees/${{ matrix.employee }}/index.js
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-${{ matrix.employee }}
+          path: backend/validation.json
+          retention-days: 7
+
+  # Run employee-specific tests
+  test:
+    name: Test Employee
+    needs: [detect-changes, validate]
+    if: |
+      needs.detect-changes.outputs.has_changes == 'true' &&
+      (github.event.inputs.skip_tests != 'true')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        employee: ${{ fromJson(needs.detect-changes.outputs.employees) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f package.json ]; then
+            npm install
+          fi
+          npm install -g jest 2>/dev/null || true
+
+      - name: Run employee tests
+        id: test
+        working-directory: backend
+        run: |
+          echo "Testing employee: ${{ matrix.employee }}"
+          node scripts/test-employee.js ${{ matrix.employee }} --json > test-results.json 2>&1 || true
+
+          if [ -f test-results.json ]; then
+            cat test-results.json
+            SUCCESS=$(cat test-results.json | jq -r '.success // false')
+            if [ "$SUCCESS" != "true" ]; then
+              echo "::warning::Tests failed for ${{ matrix.employee }}"
+              # Don't fail the workflow, but record the result
+            fi
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.employee }}
+          path: backend/test-results.json
+          retention-days: 7
+
+  # Deploy to EC2
+  deploy:
+    name: Deploy to EC2
+    needs: [detect-changes, validate, test]
+    if: |
+      needs.detect-changes.outputs.has_changes == 'true' &&
+      (github.event.inputs.dry_run != 'true') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      matrix:
+        employee: ${{ fromJson(needs.detect-changes.outputs.employees) }}
+      max-parallel: 1  # Deploy one at a time for safety
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Add EC2 to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create backup on EC2
+        run: |
+          echo "Creating backup of ${{ matrix.employee }} on EC2..."
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /app/backend
+            if [ -f scripts/rollback-employee.js ]; then
+              node scripts/rollback-employee.js backup ${{ matrix.employee }} || echo "Backup warning (may not exist yet)"
+            fi
+          EOF
+
+      - name: Deploy employee files
+        run: |
+          echo "Deploying ${{ matrix.employee }} to EC2..."
+
+          # Create directory if it doesn't exist
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "mkdir -p /app/backend/src/employees/${{ matrix.employee }}"
+
+          # Copy employee files
+          scp -r ${{ env.EMPLOYEES_PATH }}/${{ matrix.employee }}/* \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/app/backend/src/employees/${{ matrix.employee }}/
+
+      - name: Validate deployment on EC2
+        run: |
+          echo "Validating deployment..."
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /app/backend
+            node scripts/validate-employee.js ${{ matrix.employee }}
+          EOF
+
+      - name: Trigger hot-reload
+        id: reload
+        run: |
+          echo "Triggering hot-reload..."
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "x-admin-token: ${{ secrets.ADMIN_API_TOKEN }}" \
+            "https://api.vibingticket.com/admin/employees/${{ matrix.employee }}/reload")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Hot-reload failed with code $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "reload_success=true" >> $GITHUB_OUTPUT
+
+      - name: Verify deployment health
+        run: |
+          echo "Verifying deployment health..."
+
+          HEALTH=$(curl -s -H "x-admin-token: ${{ secrets.ADMIN_API_TOKEN }}" \
+            "https://api.vibingticket.com/admin/employees/${{ matrix.employee }}/health")
+
+          echo "Health check response: $HEALTH"
+
+          HEALTHY=$(echo "$HEALTH" | jq -r '.healthy // false')
+          if [ "$HEALTHY" != "true" ]; then
+            echo "::error::Health check failed for ${{ matrix.employee }}"
+
+            # Trigger rollback
+            echo "Attempting rollback..."
+            curl -s -X POST \
+              -H "x-admin-token: ${{ secrets.ADMIN_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"version": "previous"}' \
+              "https://api.vibingticket.com/admin/employees/${{ matrix.employee }}/rollback"
+
+            exit 1
+          fi
+
+          echo "Deployment verified successfully!"
+
+      - name: Post deployment metrics
+        if: always()
+        run: |
+          # Record deployment result in Prometheus
+          STATUS="${{ steps.reload.outputs.reload_success == 'true' && 'success' || 'failure' }}"
+
+          echo "Posting metrics: employee=${{ matrix.employee }}, status=$STATUS"
+
+          # This would post to Prometheus Pushgateway if configured
+          # For now, we log the result
+          echo "deployment_timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          echo "deployment_status=$STATUS" >> $GITHUB_OUTPUT
+
+  # Notify on completion
+  notify:
+    name: Notify Deployment Status
+    needs: [detect-changes, validate, test, deploy]
+    if: always() && needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "========================================"
+          echo "AI Employee Deployment Summary"
+          echo "========================================"
+          echo ""
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "Employees: ${{ needs.detect-changes.outputs.employees }}"
+          echo ""
+          echo "Job Results:"
+          echo "  - Validate: ${{ needs.validate.result }}"
+          echo "  - Test: ${{ needs.test.result }}"
+          echo "  - Deploy: ${{ needs.deploy.result }}"
+          echo ""
+
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "Status: SUCCESS - All employees deployed successfully"
+          elif [ "${{ needs.deploy.result }}" == "skipped" ]; then
+            echo "Status: SKIPPED - Deployment skipped (dry run or non-main branch)"
+          else
+            echo "Status: FAILED - Deployment failed, check logs"
+          fi
+
+          echo ""
+          echo "========================================"

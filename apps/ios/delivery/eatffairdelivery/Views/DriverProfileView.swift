@@ -5,6 +5,18 @@ import FirebaseStorage
 import PhotosUI
 import MapKit
 import EatFairShared
+import SafariServices
+
+// MARK: - Safari View for Persona Verification
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        return SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+}
 
 // MARK: - Main Profile View
 struct DriverProfileView: View {
@@ -65,6 +77,13 @@ struct DriverProfileView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(viewModel.errorMessage)
+            }
+            .sheet(isPresented: $viewModel.showVerificationWebView) {
+                if let urlString = viewModel.pendingVerificationUrl,
+                   let url = URL(string: urlString) {
+                    SafariView(url: url)
+                        .ignoresSafeArea()
+                }
             }
         }
     }
@@ -443,91 +462,13 @@ struct PersonalInfoSection: View {
 // MARK: - Vehicle & Documents Section
 struct VehicleDocumentsSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
+    @State private var showWebVerification = false
+
+    private let webVerificationURL = "https://dollor.ai/driver-application"
 
     var body: some View {
         VStack(spacing: 16) {
-            // Document Verification Status (from P2P API)
-            DocumentVerificationCard(viewModel: viewModel)
-
-            // Driver's License
-            ProfileCard(title: "Driver's License", icon: "creditcard.fill") {
-                VStack(spacing: 12) {
-                    ProfileField(
-                        label: "License Number",
-                        value: $viewModel.licenseNumber,
-                        isEditing: viewModel.isEditing,
-                        icon: "number"
-                    )
-
-                    HStack(spacing: 12) {
-                        ProfileField(
-                            label: "State",
-                            value: $viewModel.licenseState,
-                            isEditing: viewModel.isEditing,
-                            icon: "map"
-                        )
-
-                        if viewModel.isEditing {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Class")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.textSecondary)
-                                Picker("Class", selection: $viewModel.licenseClass) {
-                                    ForEach(["A", "B", "C", "D", "M"], id: \.self) { cls in
-                                        Text(cls).tag(cls)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Theme.backgroundGrey)
-                                .cornerRadius(8)
-                            }
-                        }
-                    }
-
-                    if viewModel.isEditing {
-                        DatePicker(
-                            "Expiration Date",
-                            selection: Binding(
-                                get: { viewModel.licenseExpiration ?? Date() },
-                                set: { viewModel.licenseExpiration = $0 }
-                            ),
-                            displayedComponents: .date
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Theme.backgroundGrey)
-                        .cornerRadius(8)
-                    }
-
-                    // License Images
-                    DocumentUploadSection(
-                        title: "License Front",
-                        imageUrl: viewModel.licenseFrontUrl,
-                        isEditing: viewModel.isEditing,
-                        onUpload: { data in
-                            Task { await viewModel.uploadDocument(data, type: "license_front") }
-                        }
-                    )
-
-                    DocumentUploadSection(
-                        title: "License Back",
-                        imageUrl: viewModel.licenseBackUrl,
-                        isEditing: viewModel.isEditing,
-                        onUpload: { data in
-                            Task { await viewModel.uploadDocument(data, type: "license_back") }
-                        }
-                    )
-
-                    // Verification Status
-                    VerificationStatusBadge(
-                        isVerified: viewModel.driver?.driversLicense?.isVerified ?? false
-                    )
-                }
-            }
-
-            // Vehicle Information
+            // Vehicle Information (Editable)
             ProfileCard(title: "Vehicle Information", icon: "car.fill") {
                 VStack(spacing: 12) {
                     HStack(spacing: 12) {
@@ -580,22 +521,12 @@ struct VehicleDocumentsSection: View {
                         )
                     }
 
-                    HStack(spacing: 12) {
-                        ProfileField(
-                            label: "License Plate",
-                            value: $viewModel.licensePlate,
-                            isEditing: viewModel.isEditing,
-                            icon: "rectangle"
-                        )
-
-                        ProfileField(
-                            label: "State",
-                            value: $viewModel.plateState,
-                            isEditing: viewModel.isEditing,
-                            icon: "map"
-                        )
-                        .frame(width: 100)
-                    }
+                    ProfileField(
+                        label: "License Plate",
+                        value: $viewModel.licensePlate,
+                        isEditing: viewModel.isEditing,
+                        icon: "rectangle"
+                    )
 
                     if viewModel.isEditing {
                         VStack(alignment: .leading, spacing: 4) {
@@ -609,90 +540,118 @@ struct VehicleDocumentsSection: View {
                             }
                             .pickerStyle(.segmented)
                         }
-                    }
-
-                    // Vehicle Photos
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Vehicle Photos")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
-
-                        HStack(spacing: 12) {
-                            VehiclePhotoUpload(
-                                title: "Front",
-                                imageUrl: viewModel.vehicleFrontUrl,
-                                isEditing: viewModel.isEditing,
-                                onUpload: { data in
-                                    Task { await viewModel.uploadDocument(data, type: "vehicle_front") }
-                                }
-                            )
-
-                            VehiclePhotoUpload(
-                                title: "Side",
-                                imageUrl: viewModel.vehicleSideUrl,
-                                isEditing: viewModel.isEditing,
-                                onUpload: { data in
-                                    Task { await viewModel.uploadDocument(data, type: "vehicle_side") }
-                                }
-                            )
-
-                            VehiclePhotoUpload(
-                                title: "Back",
-                                imageUrl: viewModel.vehicleBackUrl,
-                                isEditing: viewModel.isEditing,
-                                onUpload: { data in
-                                    Task { await viewModel.uploadDocument(data, type: "vehicle_back") }
-                                }
-                            )
+                    } else if !viewModel.vehicleType.isEmpty {
+                        HStack {
+                            Image(systemName: "car.2.fill")
+                                .foregroundColor(Theme.textGrey)
+                            Text("Vehicle Type")
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text(viewModel.vehicleType)
+                                .foregroundColor(Theme.textPrimary)
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                     }
+
+                    // Vehicle photo is managed via web portal
                 }
             }
 
-            // Insurance
-            ProfileCard(title: "Insurance", icon: "shield.fill") {
-                VStack(spacing: 12) {
-                    ProfileField(
-                        label: "Insurance Provider",
-                        value: $viewModel.insuranceProvider,
-                        isEditing: viewModel.isEditing,
-                        icon: "building.columns"
-                    )
+            // Document Verification Status Card
+            ProfileCard(title: "Document Verification", icon: "doc.text.magnifyingglass") {
+                VStack(spacing: 16) {
+                    // Status Summary
+                    if let response = viewModel.documentsResponse {
+                        HStack {
+                            if response.allVerified {
+                                Image(systemName: "checkmark.shield.fill")
+                                    .font(.title2)
+                                    .foregroundColor(Theme.statusActive)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("All Documents Verified")
+                                        .font(.headline)
+                                        .foregroundColor(Theme.statusActive)
+                                    Text("Your account is fully verified")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textSecondary)
+                                }
+                            } else {
+                                Image(systemName: "exclamationmark.shield.fill")
+                                    .font(.title2)
+                                    .foregroundColor(Theme.statusWarning)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Verification Incomplete")
+                                        .font(.headline)
+                                        .foregroundColor(Theme.statusWarning)
+                                    Text("\(response.documents.filter { $0.verified }.count)/\(response.count) documents verified")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textSecondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .background((response.allVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
+                        .cornerRadius(12)
 
-                    ProfileField(
-                        label: "Policy Number",
-                        value: $viewModel.insurancePolicyNumber,
-                        isEditing: viewModel.isEditing,
-                        icon: "number"
-                    )
-
-                    if viewModel.isEditing {
-                        DatePicker(
-                            "Expiration Date",
-                            selection: Binding(
-                                get: { viewModel.insuranceExpiration ?? Date() },
-                                set: { viewModel.insuranceExpiration = $0 }
-                            ),
-                            displayedComponents: .date
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Theme.backgroundGrey)
-                        .cornerRadius(8)
+                        // Document Status List (Read-only)
+                        if !response.documents.isEmpty {
+                            VStack(spacing: 8) {
+                                ForEach(response.documents) { doc in
+                                    DocumentStatusRow(document: doc)
+                                }
+                            }
+                        }
+                    } else if viewModel.isLoadingDocuments {
+                        HStack {
+                            ProgressView()
+                            Text("Loading verification status...")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    } else {
+                        // No documents yet
+                        VStack(spacing: 12) {
+                            Image(systemName: "doc.badge.plus")
+                                .font(.system(size: 40))
+                                .foregroundColor(Theme.textGrey)
+                            Text("No Documents Submitted")
+                                .font(.headline)
+                                .foregroundColor(Theme.textPrimary)
+                            Text("Complete your verification on the web portal")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
                     }
 
-                    DocumentUploadSection(
-                        title: "Insurance Card",
-                        imageUrl: viewModel.insuranceCardUrl,
-                        isEditing: viewModel.isEditing,
-                        onUpload: { data in
-                            Task { await viewModel.uploadDocument(data, type: "insurance_card") }
-                        }
-                    )
+                    Divider()
 
-                    VerificationStatusBadge(
-                        isVerified: viewModel.driver?.insurance?.isVerified ?? false
-                    )
+                    // Web Verification Button
+                    VStack(spacing: 8) {
+                        Text("Upload documents through our secure web portal:")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+
+                        Button(action: { showWebVerification = true }) {
+                            HStack {
+                                Image(systemName: "safari.fill")
+                                Text("Upload Documents on Web")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Theme.brandRed)
+                            .cornerRadius(10)
+                        }
+                    }
                 }
             }
 
@@ -717,6 +676,157 @@ struct VehicleDocumentsSection: View {
             }
         }
         .padding(.bottom, 24)
+        .sheet(isPresented: $showWebVerification) {
+            if let url = URL(string: webVerificationURL) {
+                SafariView(url: url)
+                    .ignoresSafeArea()
+            }
+        }
+    }
+}
+
+// MARK: - Document Status Row (Read-only display)
+struct DocumentStatusRowItem: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(Theme.brandRed)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(Theme.textPrimary)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Vehicle Photo Upload View
+struct VehiclePhotoUploadView: View {
+    let imageUrl: String?
+    let isEditing: Bool
+    let onUpload: (Data) -> Void
+
+    @State private var selectedItem: PhotosPickerItem?
+    @State private var isUploading = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Vehicle Photo")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+                Spacer()
+                Text("Visible to customers")
+                    .font(.caption2)
+                    .foregroundColor(Theme.textGrey)
+            }
+
+            if let imageUrl = imageUrl, !imageUrl.isEmpty {
+                // Show existing photo
+                AsyncImage(url: URL(string: imageUrl)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(height: 150)
+                            .frame(maxWidth: .infinity)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 150)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                            .cornerRadius(12)
+                    case .failure:
+                        placeholderView
+                    @unknown default:
+                        placeholderView
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if isEditing {
+                        PhotosPicker(selection: $selectedItem, matching: .images) {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .background(Circle().fill(Theme.brandRed))
+                                .padding(8)
+                        }
+                        .onChange(of: selectedItem) { _, newItem in
+                            handleImageSelection(newItem)
+                        }
+                    }
+                }
+            } else if isEditing {
+                // Upload prompt
+                PhotosPicker(selection: $selectedItem, matching: .images) {
+                    VStack(spacing: 12) {
+                        if isUploading {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(Theme.brandRed)
+                            Text("Add Vehicle Photo")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(Theme.brandRed)
+                            Text("Help customers identify your vehicle")
+                                .font(.caption)
+                                .foregroundColor(Theme.textGrey)
+                        }
+                    }
+                    .frame(height: 150)
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.backgroundGrey)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                            .foregroundColor(Theme.brandRed.opacity(0.3))
+                    )
+                }
+                .onChange(of: selectedItem) { _, newItem in
+                    handleImageSelection(newItem)
+                }
+            } else {
+                // Read-only empty state
+                placeholderView
+            }
+        }
+    }
+
+    private var placeholderView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "car.fill")
+                .font(.system(size: 32))
+                .foregroundColor(Theme.textGrey)
+            Text("No photo uploaded")
+                .font(.caption)
+                .foregroundColor(Theme.textGrey)
+        }
+        .frame(height: 150)
+        .frame(maxWidth: .infinity)
+        .background(Theme.backgroundGrey)
+        .cornerRadius(12)
+    }
+
+    private func handleImageSelection(_ item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        isUploading = true
+
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                onUpload(data)
+            }
+            isUploading = false
+            selectedItem = nil
+        }
     }
 }
 
@@ -1203,121 +1313,6 @@ struct ProfileField: View {
     }
 }
 
-struct DocumentUploadSection: View {
-    let title: String
-    let imageUrl: String?
-    let isEditing: Bool
-    let onUpload: (Data) -> Void
-
-    @State private var selectedItem: PhotosPickerItem?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(Theme.textSecondary)
-
-            if let imageUrl = imageUrl, !imageUrl.isEmpty {
-                AsyncImage(url: URL(string: imageUrl)) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                } placeholder: {
-                    ProgressView()
-                }
-                .frame(height: 120)
-                .frame(maxWidth: .infinity)
-                .background(Theme.backgroundGrey)
-                .cornerRadius(8)
-            } else if isEditing {
-                PhotosPicker(selection: $selectedItem, matching: .images) {
-                    HStack {
-                        Image(systemName: "camera.fill")
-                        Text("Upload \(title)")
-                    }
-                    .foregroundColor(Theme.brandRed)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.backgroundGrey)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(style: StrokeStyle(lineWidth: 1, dash: [5]))
-                            .foregroundColor(Theme.brandRed.opacity(0.5))
-                    )
-                }
-                .onChange(of: selectedItem) { _, newItem in
-                    Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                            onUpload(data)
-                        }
-                    }
-                }
-            } else {
-                HStack {
-                    Image(systemName: "doc.text")
-                        .foregroundColor(Theme.textGrey)
-                    Text("Not uploaded")
-                        .foregroundColor(Theme.textGrey)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Theme.backgroundGrey)
-                .cornerRadius(8)
-            }
-        }
-    }
-}
-
-struct VehiclePhotoUpload: View {
-    let title: String
-    let imageUrl: String?
-    let isEditing: Bool
-    let onUpload: (Data) -> Void
-
-    @State private var selectedItem: PhotosPickerItem?
-
-    var body: some View {
-        VStack(spacing: 4) {
-            if let imageUrl = imageUrl, !imageUrl.isEmpty {
-                AsyncImage(url: URL(string: imageUrl)) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    ProgressView()
-                }
-                .frame(width: 80, height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else if isEditing {
-                PhotosPicker(selection: $selectedItem, matching: .images) {
-                    Image(systemName: "camera.fill")
-                        .foregroundColor(Theme.brandRed)
-                        .frame(width: 80, height: 60)
-                        .background(Theme.backgroundGrey)
-                        .cornerRadius(8)
-                }
-                .onChange(of: selectedItem) { _, newItem in
-                    Task {
-                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                            onUpload(data)
-                        }
-                    }
-                }
-            } else {
-                Image(systemName: "car")
-                    .foregroundColor(Theme.textGrey)
-                    .frame(width: 80, height: 60)
-                    .background(Theme.backgroundGrey)
-                    .cornerRadius(8)
-            }
-
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(Theme.textSecondary)
-        }
-    }
-}
 
 struct VerificationStatusBadge: View {
     let isVerified: Bool
@@ -1333,83 +1328,6 @@ struct VerificationStatusBadge: View {
         .padding(.vertical, 6)
         .background((isVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
         .cornerRadius(8)
-    }
-}
-
-// MARK: - Document Verification Status Card (P2P API)
-struct DocumentVerificationCard: View {
-    @ObservedObject var viewModel: DriverProfileViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "doc.text.magnifyingglass")
-                    .foregroundColor(Theme.brandRed)
-                Text("Document Verification Status")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-                if viewModel.isLoadingDocuments {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                }
-            }
-
-            if let response = viewModel.documentsResponse {
-                // Overall status
-                HStack {
-                    if response.allVerified {
-                        Image(systemName: "checkmark.shield.fill")
-                            .foregroundColor(Theme.statusActive)
-                        Text("All Documents Verified")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(Theme.statusActive)
-                    } else {
-                        Image(systemName: "exclamationmark.shield.fill")
-                            .foregroundColor(Theme.statusWarning)
-                        Text("\(response.documents.filter { $0.verified }.count)/\(response.count) Documents Verified")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(Theme.statusWarning)
-                    }
-                    Spacer()
-                }
-                .padding()
-                .background((response.allVerified ? Theme.statusActive : Theme.statusWarning).opacity(0.1))
-                .cornerRadius(8)
-
-                // Individual document statuses
-                VStack(spacing: 8) {
-                    ForEach(response.documents) { doc in
-                        DocumentStatusRow(document: doc)
-                    }
-                }
-
-                if response.documents.isEmpty {
-                    Text("No documents uploaded yet")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-                        .padding()
-                }
-            } else if !viewModel.isLoadingDocuments {
-                VStack(spacing: 8) {
-                    Image(systemName: "doc.badge.plus")
-                        .font(.title2)
-                        .foregroundColor(Theme.textGrey)
-                    Text("Upload documents to get started")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-            }
-        }
-        .padding()
-        .background(Theme.cardBackground)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal)
     }
 }
 

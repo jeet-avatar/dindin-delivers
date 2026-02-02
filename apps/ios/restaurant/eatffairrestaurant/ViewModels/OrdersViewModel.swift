@@ -245,8 +245,8 @@ class OrdersViewModel: ObservableObject {
     }
 
     func rejectOrder(_ order: Order, reason: String = "") {
-        // Extract order ID from orderId (e.g., "EF123" -> 123)
-        guard let orderIdInt = extractOrderId(from: order.orderId) else {
+        // Use order.id (database ID) not order.orderId (display number)
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
             errorMessage = "Invalid order ID"
             showError = true
             return
@@ -354,6 +354,27 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
+    /// Restaurant marks self-delivery order as delivered
+    func markOrderDelivered(_ order: Order) {
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Invalid order ID"
+            showError = true
+            return
+        }
+
+        p2pAPI.restaurantCompleteDelivery(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh orders
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
     func markOrderReady(_ order: Order) {
         // API expects uppercase status: READY_FOR_PICKUP
         updateOrderStatus(order, newStatus: "READY_FOR_PICKUP")
@@ -379,13 +400,6 @@ class OrdersViewModel: ObservableObject {
                 }
             }
         }
-    }
-
-
-    private func extractOrderId(from orderId: String) -> Int? {
-        // Handle formats like "EF123" or just "123"
-        let digits = orderId.filter { $0.isNumber }
-        return Int(digits)
     }
 
     // MARK: - AI Features

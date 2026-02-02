@@ -1,0 +1,527 @@
+name: iOS CI/CD
+
+on:
+  push:
+    branches: [ main, develop, staging, feature/* ]
+  pull_request:
+    branches: [ main, develop, staging ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - release
+
+env:
+  XCODE_VERSION: '16.1'
+
+jobs:
+  lint:
+    name: SwiftLint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging --config .swiftlint.yml || true
+
+  build-shared:
+    name: Build Shared Module
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Build EatFairShared
+        run: |
+          cd apps/ios/eatfair-ios-shared
+          xcodebuild -scheme EatFairShared -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' build
+
+  build-customer:
+    name: Build Customer App
+    runs-on: macos-14
+    needs: build-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/customer
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
+
+          # Verify the plist is valid and show bundle ID
+          echo "=== Verifying GoogleService-Info.plist ==="
+          PLIST_PATH="apps/ios/customer/eatfaircustomer/GoogleService-Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$PLIST_PATH" 2>/dev/null || echo "MISSING")
+          echo "Bundle ID in GoogleService-Info.plist: $BUNDLE_ID"
+          if [ "$BUNDLE_ID" != "com.dollorai.customer" ]; then
+            echo "ERROR: Bundle ID mismatch! Expected: com.dollorai.customer, Got: $BUNDLE_ID"
+            echo "Please update GOOGLE_SERVICE_INFO_CUSTOMER GitHub secret!"
+            exit 1
+          fi
+          echo "Bundle ID verified: $BUNDLE_ID ✓"
+
+      - name: Inject Google Maps API Key
+        run: |
+          PLIST_PATH="apps/ios/customer/eatfaircustomer/Info.plist"
+          echo "Injecting API key into: $PLIST_PATH"
+
+          # Show current value
+          echo "Current value:"
+          /usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH" || echo "Key not found"
+
+          # Set the new value
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" "$PLIST_PATH"
+
+          # Verify it was set
+          NEW_VALUE=$(/usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH")
+          if [ "$NEW_VALUE" = "REPLACE_WITH_GOOGLE_MAPS_API_KEY" ]; then
+            echo "ERROR: API key was not injected!"
+            exit 1
+          fi
+          echo "API key injected successfully"
+
+      - name: Build Customer App
+        run: |
+          cd apps/ios/customer
+          xcodebuild build \
+            -workspace eatfaircustomer.xcworkspace \
+            -scheme eatfaircustomer \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatfaircustomer.xcodeproj \
+              -scheme eatfaircustomer \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  # Restaurant app build - disabled until app created in App Store Connect
+  build-restaurant:
+    name: Build Restaurant App
+    runs-on: macos-14
+    needs: build-shared
+    if: false  # Disabled
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/restaurant
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_RESTAURANT }}' > apps/ios/restaurant/eatffairrestaurant/GoogleService-Info.plist
+
+      - name: Build Restaurant App
+        run: |
+          cd apps/ios/restaurant
+          xcodebuild build \
+            -workspace eatffairrestaurant.xcworkspace \
+            -scheme eatffairrestaurant \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatffairrestaurant.xcodeproj \
+              -scheme eatffairrestaurant \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  # Delivery app build - disabled until app created in App Store Connect
+  build-delivery:
+    name: Build Delivery App
+    runs-on: macos-14
+    needs: build-shared
+    if: false  # Disabled
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/delivery
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_DELIVERY }}' > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
+
+      - name: Build Delivery App
+        run: |
+          cd apps/ios/delivery
+          xcodebuild build \
+            -workspace eatffairdelivery.xcworkspace \
+            -scheme eatffairdelivery \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || xcodebuild build \
+              -project eatffairdelivery.xcodeproj \
+              -scheme eatffairdelivery \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO
+
+  test:
+    name: Run Tests
+    runs-on: macos-14
+    needs: build-customer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods (Customer)
+        run: |
+          cd apps/ios/customer
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist (Customer)
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
+
+      - name: Run Customer App Tests
+        run: |
+          cd apps/ios/customer
+          xcodebuild test \
+            -workspace eatfaircustomer.xcworkspace \
+            -scheme eatfaircustomer \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.1' \
+            -resultBundlePath TestResults/customer \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --report junit --output TestResults/customer-junit.xml || true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            apps/ios/*/TestResults/**
+            apps/ios/*/*.xml
+
+  # Staging build - No code signing required
+  # Builds .app bundles for simulator testing
+  build-staging:
+    name: Build Staging Apps
+    runs-on: macos-14
+    needs: build-customer
+    if: github.event.inputs.build_type == 'staging' || github.event.inputs.build_type == ''
+    strategy:
+      matrix:
+        include:
+          - app: customer
+            workspace: eatfaircustomer.xcworkspace
+            scheme: eatfaircustomer
+            dir: customer
+          # Restaurant and Delivery - uncomment when created in App Store Connect
+          # - app: restaurant
+          #   workspace: eatffairrestaurant.xcworkspace
+          #   scheme: eatffairrestaurant
+          #   dir: restaurant
+          # - app: delivery
+          #   workspace: eatffairdelivery.xcworkspace
+          #   scheme: eatffairdelivery
+          #   dir: delivery
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          # Create placeholder if secret not set
+          PLIST_CONTENT='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>AIzaSyAepfv31h7GlkJE3oWT-hfrfkQZQAAq13M</string><key>GCM_SENDER_ID</key><string>107524350806</string><key>PLIST_VERSION</key><string>1</string><key>BUNDLE_ID</key><string>ai.dollor.${{ matrix.app }}</string><key>PROJECT_ID</key><string>eatfair-app</string><key>STORAGE_BUCKET</key><string>eatfair-app.firebasestorage.app</string><key>IS_GCM_ENABLED</key><true/><key>IS_ANALYTICS_ENABLED</key><false/><key>IS_APPINVITE_ENABLED</key><true/><key>IS_SIGNIN_ENABLED</key><true/><key>GOOGLE_APP_ID</key><string>1:107524350806:ios:0bd156d8e81170ac83ecf7</string></dict></plist>'
+          if [ "${{ matrix.app }}" = "customer" ]; then
+            echo "$PLIST_CONTENT" > apps/ios/customer/eatfaircustomer/GoogleService-Info.plist
+          elif [ "${{ matrix.app }}" = "restaurant" ]; then
+            echo "$PLIST_CONTENT" > apps/ios/restaurant/eatffairrestaurant/GoogleService-Info.plist
+          elif [ "${{ matrix.app }}" = "delivery" ]; then
+            echo "$PLIST_CONTENT" > apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist
+          fi
+
+      - name: Build Staging App
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          # Build for generic iOS device (creates .app that can be archived)
+          xcodebuild build \
+            -workspace ${{ matrix.workspace }} \
+            -scheme ${{ matrix.scheme }} \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty || xcodebuild build \
+              -project $(echo ${{ matrix.workspace }} | sed 's/.xcworkspace/.xcodeproj/') \
+              -scheme ${{ matrix.scheme }} \
+              -sdk iphoneos \
+              -configuration Debug \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO
+
+      - name: Package App Bundle
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          # Find and zip the .app bundle
+          APP_PATH=$(find build -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            zip -r ${{ matrix.app }}-staging.zip "$APP_PATH"
+            mv ${{ matrix.app }}-staging.zip $RUNNER_TEMP/
+          fi
+
+      - name: Upload Staging App
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-staging-app
+          path: ${{ runner.temp }}/${{ matrix.app }}-staging.zip
+
+  # Production archive - Disabled until BUILD_CERTIFICATE_BASE64 is configured
+  # Uses manual certificate approach instead of Fastlane match
+  archive:
+    name: Archive for App Store
+    runs-on: macos-14
+    needs: test
+    # Disabled - use deploy-testflight with Fastlane match instead
+    if: false && github.ref == 'refs/heads/main' && github.event.inputs.build_type == 'release'
+    strategy:
+      matrix:
+        app: [customer, restaurant, delivery]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Check Certificate Secrets
+        run: |
+          if [ -z "${{ secrets.BUILD_CERTIFICATE_BASE64 }}" ]; then
+            echo "::error::BUILD_CERTIFICATE_BASE64 secret is not set. Please configure iOS signing certificates."
+            exit 1
+          fi
+
+      - name: Install Apple Certificate
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Install Provisioning Profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: Archive App
+        run: |
+          cd apps/ios/${{ matrix.app }}
+          xcodebuild archive \
+            -project eatfair${{ matrix.app }}.xcodeproj \
+            -scheme eatfair${{ matrix.app }} \
+            -archivePath $RUNNER_TEMP/eatfair${{ matrix.app }}.xcarchive \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.PROVISIONING_PROFILE_NAME }}"
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/eatfair${{ matrix.app }}.xcarchive \
+            -exportPath $RUNNER_TEMP/export \
+            -exportOptionsPlist apps/ios/${{ matrix.app }}/ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-ipa
+          path: $RUNNER_TEMP/export/*.ipa
+
+  # Fastlane-based TestFlight deployment
+  deploy-testflight:
+    name: Deploy to TestFlight
+    runs-on: macos-14
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event.inputs.build_type == 'release'
+    strategy:
+      matrix:
+        include:
+          - app: customer
+            lane: customer_testflight
+            dir: customer
+          # Restaurant and Delivery apps - uncomment when created in App Store Connect
+          # - app: restaurant
+          #   lane: restaurant_testflight
+          #   dir: restaurant
+          # - app: driver
+          #   lane: driver_testflight
+          #   dir: delivery
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: apps/ios
+
+      - name: Install CocoaPods
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          pod install --repo-update || echo "Pods may not be configured"
+
+      - name: Create GoogleService-Info.plist
+        run: |
+          cd apps/ios/${{ matrix.dir }}
+          APP_DIR=$(ls -d */ | head -1 | tr -d '/')
+          echo '${{ secrets.GOOGLE_SERVICE_INFO_CUSTOMER }}' > ${APP_DIR}/GoogleService-Info.plist
+
+          # Verify the plist is valid and show bundle ID
+          echo "=== Verifying GoogleService-Info.plist ==="
+          PLIST_PATH="${APP_DIR}/GoogleService-Info.plist"
+          if [ -f "$PLIST_PATH" ]; then
+            echo "File exists: $PLIST_PATH"
+            BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$PLIST_PATH" 2>/dev/null || echo "MISSING")
+            echo "Bundle ID in GoogleService-Info.plist: $BUNDLE_ID"
+            if [ "$BUNDLE_ID" != "com.dollorai.customer" ]; then
+              echo "ERROR: Bundle ID mismatch! Expected: com.dollorai.customer, Got: $BUNDLE_ID"
+              echo "Please update the GOOGLE_SERVICE_INFO_CUSTOMER GitHub secret with the correct Firebase config!"
+              exit 1
+            fi
+            echo "Bundle ID verified: $BUNDLE_ID ✓"
+          else
+            echo "ERROR: GoogleService-Info.plist not created!"
+            exit 1
+          fi
+
+      - name: Inject Google Maps API Key
+        run: |
+          PLIST_PATH="apps/ios/${{ matrix.dir }}/eatfaircustomer/Info.plist"
+          echo "Injecting API key into: $PLIST_PATH"
+
+          # Verify file exists
+          if [ ! -f "$PLIST_PATH" ]; then
+            echo "ERROR: Info.plist not found at $PLIST_PATH"
+            exit 1
+          fi
+
+          # Show current value (will show placeholder)
+          echo "Current value:"
+          /usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH" || echo "Key not found"
+
+          # Set the new value
+          /usr/libexec/PlistBuddy -c "Set :GOOGLE_MAPS_API_KEY ${{ secrets.GOOGLE_MAPS_API_KEY }}" "$PLIST_PATH"
+
+          # Verify it was set (check it's not the placeholder)
+          NEW_VALUE=$(/usr/libexec/PlistBuddy -c "Print :GOOGLE_MAPS_API_KEY" "$PLIST_PATH")
+          if [ "$NEW_VALUE" = "REPLACE_WITH_GOOGLE_MAPS_API_KEY" ]; then
+            echo "ERROR: API key was not injected properly!"
+            exit 1
+          fi
+          echo "API key injected successfully (value masked)"
+
+      - name: Setup Keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create a temporary keychain for code signing
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH login.keychain-db
+          security default-keychain -s $KEYCHAIN_PATH
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+
+      - name: Setup Fastlane Match
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          cd apps/ios
+          # Create API key JSON file
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_KEY_ID}.p8
+
+      - name: Deploy to TestFlight
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_KEYCHAIN_NAME: ${{ env.KEYCHAIN_PATH }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
+        run: |
+          cd apps/ios
+          bundle exec fastlane ${{ matrix.lane }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-testflight-ipa
+          path: apps/ios/build/*.ipa

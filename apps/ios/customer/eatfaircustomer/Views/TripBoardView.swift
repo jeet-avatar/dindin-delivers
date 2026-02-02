@@ -56,17 +56,17 @@ struct TripBoardView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     disclaimerSection(
                         title: "NOT A RIDESHARE SERVICE",
-                        content: "Dollor.ai Trip Board is a CLASSIFIED ADVERTISING service, like Craigslist. We are NOT a Transportation Network Company (TNC) like Uber or Lyft."
+                        content: "Dollor.AI Trip Board is a CLASSIFIED ADVERTISING service, like Craigslist. We are NOT a Transportation Network Company (TNC) like Uber or Lyft."
                     )
 
                     disclaimerSection(
                         title: "USER-GENERATED CONTENT",
-                        content: "All trip listings are created by users. Dollor.ai does not verify, endorse, or guarantee any listing content."
+                        content: "All trip listings are created by users. Dollor.AI does not verify, endorse, or guarantee any listing content."
                     )
 
                     disclaimerSection(
                         title: "NO FARE CALCULATION",
-                        content: "Dollor.ai does NOT calculate, suggest, or set prices. All prices are set entirely by users."
+                        content: "Dollor.AI does NOT calculate, suggest, or set prices. All prices are set entirely by users."
                     )
 
                     disclaimerSection(
@@ -81,7 +81,7 @@ struct TripBoardView: View {
 
                     disclaimerSection(
                         title: "PRIVATE ARRANGEMENTS",
-                        content: "Any transportation arranged is a private matter between individuals. Dollor.ai is not a party to any arrangement."
+                        content: "Any transportation arranged is a private matter between individuals. Dollor.AI is not a party to any arrangement."
                     )
                 }
                 .padding(.horizontal)
@@ -267,7 +267,7 @@ struct TripBoardView: View {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.blue)
 
-                Text("This is a bulletin board service. All listings are user-generated. Dollor.ai does not verify or endorse any listing.")
+                Text("This is a bulletin board service. All listings are user-generated. Dollor.AI does not verify or endorse any listing.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -558,7 +558,7 @@ struct TripListingDetailView: View {
                     TextField("Enter the agreed price", text: $agreedPrice)
                         .keyboardType(.decimalPad)
 
-                    Text("This is the price YOU and the poster agreed on. Dollor.ai does NOT set prices.")
+                    Text("This is the price YOU and the poster agreed on. Dollor.AI does NOT set prices.")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -743,7 +743,7 @@ struct TripListingDetailView: View {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.orange)
-                Text("This price was set by the poster. Dollor.ai does NOT calculate or suggest prices.")
+                Text("This price was set by the poster. Dollor.AI does NOT calculate or suggest prices.")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -855,7 +855,7 @@ struct TripListingDetailView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
-                            Toggle("I understand Dollor.ai is not a party to any arrangement I make", isOn: $hasAcknowledgedContact)
+                            Toggle("I understand Dollor.AI is not a party to any arrangement I make", isOn: $hasAcknowledgedContact)
                                 .font(.subheadline)
                         }
                     }
@@ -940,7 +940,7 @@ struct PostTripListingView: View {
                 }
             }
 
-            Section(header: Text("Price"), footer: Text("YOU set the price. Dollor.ai does NOT calculate or suggest prices.")) {
+            Section(header: Text("Price"), footer: Text("YOU set the price. Dollor.AI does NOT calculate or suggest prices.")) {
                 TextField("Your asking price (optional)", text: $askingPrice)
                     .keyboardType(.decimalPad)
 
@@ -964,7 +964,7 @@ struct PostTripListingView: View {
                             .fontWeight(.semibold)
                     }
 
-                    Text("By posting, you confirm this is YOUR listing. Dollor.ai only hosts user-generated content and is not a party to any arrangement.")
+                    Text("By posting, you confirm this is YOUR listing. Dollor.AI only hosts user-generated content and is not a party to any arrangement.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1604,7 +1604,7 @@ struct TripSafetyView: View {
                 }
             }
 
-            Text("This is a private agreement. Dollor.ai does NOT record or store recordings.")
+            Text("This is a private agreement. Dollor.AI does NOT record or store recordings.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .italic()
@@ -1690,7 +1690,7 @@ struct TripSafetyView: View {
                 }
             }
 
-            Text("Dollor.ai does NOT process payments. This is for your records only.")
+            Text("Dollor.AI does NOT process payments. This is for your records only.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .italic()
@@ -1885,7 +1885,7 @@ struct TripSafetyView: View {
                     .fontWeight(.bold)
             }
 
-            Text("These safety features are VOLUNTARY tools to help protect yourself. Dollor.ai does NOT verify users, guarantee safety, or monitor trips. You are responsible for your own safety. Exercise caution when meeting strangers.")
+            Text("These safety features are VOLUNTARY tools to help protect yourself. Dollor.AI does NOT verify users, guarantee safety, or monitor trips. You are responsible for your own safety. Exercise caution when meeting strangers.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }

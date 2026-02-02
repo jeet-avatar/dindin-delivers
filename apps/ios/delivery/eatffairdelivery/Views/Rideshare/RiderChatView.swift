@@ -7,6 +7,7 @@ import EatFairShared
 struct RiderChatView: View {
     let rideRequestId: Int
     let riderName: String
+    let riderPhone: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var messageText = ""
@@ -47,9 +48,11 @@ struct RiderChatView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: callRider) {
-                        Image(systemName: "phone.fill")
-                            .foregroundColor(.green)
+                    if let phone = riderPhone, !phone.isEmpty {
+                        Button(action: callRider) {
+                            Image(systemName: "phone.fill")
+                                .foregroundColor(.green)
+                        }
                     }
                 }
             }
@@ -245,8 +248,9 @@ struct RiderChatView: View {
     }
 
     private func callRider() {
-        // Placeholder - would get rider phone from request
-        guard let url = URL(string: "tel://") else { return }
+        guard let phone = riderPhone, !phone.isEmpty else { return }
+        let cleanPhone = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+        guard let url = URL(string: "tel://\(cleanPhone)") else { return }
         UIApplication.shared.open(url)
     }
 
@@ -331,7 +335,7 @@ private struct RideChatBubble: View {
 #if DEBUG
 struct RiderChatView_Previews: PreviewProvider {
     static var previews: some View {
-        RiderChatView(rideRequestId: 1, riderName: "John")
+        RiderChatView(rideRequestId: 1, riderName: "John", riderPhone: nil)
     }
 }
 #endif

@@ -11,6 +11,7 @@ struct PaymentSheetKeys: Decodable, Sendable {
     let ephemeralKey: String?  // Optional - only returned when customer has saved payment methods
     let customer: String?      // Optional - customer ID in Stripe
     let publishableKey: String
+    let demo: Bool?  // Demo mode flag for App Store review - bypasses actual payment
 
     // Alternative field names from API
     enum CodingKeys: String, CodingKey {
@@ -19,6 +20,12 @@ struct PaymentSheetKeys: Decodable, Sendable {
         case ephemeralKey
         case customer
         case publishableKey
+        case demo
+    }
+
+    /// Check if this is a demo payment (for App Store review)
+    var isDemoPayment: Bool {
+        demo == true
     }
 
     init(from decoder: Decoder) throws {
@@ -34,6 +41,7 @@ struct PaymentSheetKeys: Decodable, Sendable {
         ephemeralKey = try container.decodeIfPresent(String.self, forKey: .ephemeralKey)
         customer = try container.decodeIfPresent(String.self, forKey: .customer)
         publishableKey = try container.decode(String.self, forKey: .publishableKey)
+        demo = try container.decodeIfPresent(Bool.self, forKey: .demo)
     }
 
     /// Check if this response has all keys needed for Payment Sheet with saved cards
@@ -77,14 +85,9 @@ struct PaymentIntentData: Decodable, Sendable {
 class PaymentService {
     static let shared = PaymentService()
 
-    /// Payment endpoint - uses P2P backend in production, demo in debug
+    /// Payment endpoint - uses P2P backend ERP payments API
     private var paymentEndpoint: String {
-        #if DEBUG
-        // Demo endpoint for testing - replace with P2P backend endpoint for production
-        return "\(AppConfig.shared.p2pAPIBaseURL)/api/payments/create-intent"
-        #else
-        return "\(AppConfig.shared.p2pAPIBaseURL)/api/payments/create-intent"
-        #endif
+        return "\(AppConfig.shared.p2pAPIBaseURL)/api/erp/payments/intent"
     }
 
     /// Create a PaymentIntent for Apple Pay (simple endpoint - just returns clientSecret and publishableKey)

@@ -10,7 +10,8 @@ import {
   EnvironmentOutlined,
   StarOutlined,
   ClockCircleOutlined,
-  DollarOutlined
+  DollarOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -83,6 +84,11 @@ const DriverLayout: React.FC = () => {
       key: '/driver/profile',
       icon: <UserOutlined />,
       label: 'Profile',
+    },
+    {
+      key: '/driver/documents',
+      icon: <FileTextOutlined />,
+      label: 'Documents',
     },
   ];
 

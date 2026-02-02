@@ -167,7 +167,7 @@ const VendorLogin: React.FC = () => {
         <div className="brand-content">
           <div className="logo-container">
             <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
+            <span className="logo-text">Dollor.AI</span>
           </div>
 
           <h1 className="brand-headline">
@@ -212,7 +212,7 @@ const VendorLogin: React.FC = () => {
         </div>
 
         <div className="brand-footer">
-          <p>© 2024 Dollor.ai — Empowering Local Businesses</p>
+          <p>© 2024 Dollor.AI — Empowering Local Businesses</p>
         </div>
       </div>
 
@@ -261,7 +261,7 @@ const VendorLogin: React.FC = () => {
 
             <div className="form-options">
               <Checkbox>Remember me</Checkbox>
-              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
+              <Link to="/forgot-password?return=/vendor/login" className="forgot-link">Forgot password?</Link>
             </div>
 
             <Form.Item>

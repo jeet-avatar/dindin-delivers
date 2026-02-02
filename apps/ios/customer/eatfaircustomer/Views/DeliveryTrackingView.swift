@@ -9,6 +9,8 @@ struct DeliveryTrackingView: View {
     @StateObject private var viewModel = OrderTrackingViewModel()
     @State private var mapPosition: MapCameraPosition = .automatic
     @State private var isMapExpanded = false
+    @State private var showThankYou = false
+    @State private var previousStatus: String = ""
 
     var body: some View {
         ZStack {
@@ -20,6 +22,15 @@ struct DeliveryTrackingView: View {
                     mapPosition: $mapPosition,
                     isMapExpanded: $isMapExpanded
                 )
+
+                // Thank You overlay when delivered
+                if showThankYou {
+                    OrderDeliveredCelebrationView(
+                        order: order,
+                        onDismiss: { showThankYou = false }
+                    )
+                    .transition(.opacity.combined(with: .scale))
+                }
             } else if viewModel.isLoading {
                 LoadingView()
             } else {
@@ -33,6 +44,16 @@ struct DeliveryTrackingView: View {
         }
         .onDisappear {
             viewModel.stopPolling()
+        }
+        .onChange(of: viewModel.currentOrder?.status) { oldStatus, newStatus in
+            // Show thank you when status changes to Delivered
+            if let newStatus = newStatus,
+               newStatus.lowercased() == "delivered",
+               oldStatus?.lowercased() != "delivered" {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    showThankYou = true
+                }
+            }
         }
     }
 }
@@ -63,7 +84,9 @@ struct ActiveDeliveryTrackingView: View {
                         driverLocation: viewModel.driverLocation,
                         onExpandMap: { isMapExpanded = true },
                         timelineEvents: viewModel.timelineEvents,
-                        driverInfo: viewModel.driverInfo
+                        driverInfo: viewModel.driverInfo,
+                        isTrafficAwareETA: viewModel.isTrafficAwareETA,
+                        etaDistanceMiles: viewModel.etaDistanceMiles
                     )
                     .transition(.move(edge: .bottom))
                 }
@@ -104,49 +127,123 @@ struct DeliveryTrackingMapView: View {
     // Store the timer publisher to allow proper cancellation
     private let mapUpdateTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
+    /// Check if coordinate is valid (not at 0,0 which is Atlantic Ocean)
+    private func isValidCoordinate(_ lat: Double, _ lng: Double) -> Bool {
+        // Valid if not at origin and within reasonable bounds
+        return abs(lat) > 0.01 && abs(lng) > 0.01 &&
+               lat >= -90 && lat <= 90 &&
+               lng >= -180 && lng <= 180
+    }
+
+    private var hasValidRestaurantLocation: Bool {
+        isValidCoordinate(order.restaurant.latitude, order.restaurant.longitude)
+    }
+
+    private var hasValidDeliveryLocation: Bool {
+        isValidCoordinate(order.deliveryAddress.latitude, order.deliveryAddress.longitude)
+    }
+
+    private var hasAnyValidLocation: Bool {
+        hasValidRestaurantLocation || hasValidDeliveryLocation || driverLocation != nil
+    }
+
     var body: some View {
-        Map(position: $mapPosition) {
-            // Restaurant (Pickup) Marker
-            Annotation("Pickup", coordinate: CLLocationCoordinate2D(
-                latitude: order.restaurant.latitude,
-                longitude: order.restaurant.longitude
-            )) {
-                PickupMarker(name: order.restaurant.name)
-            }
+        ZStack {
+            if hasAnyValidLocation {
+                Map(position: $mapPosition) {
+                    // Restaurant (Pickup) Marker - only show if valid
+                    if hasValidRestaurantLocation {
+                        Annotation("Pickup", coordinate: CLLocationCoordinate2D(
+                            latitude: order.restaurant.latitude,
+                            longitude: order.restaurant.longitude
+                        )) {
+                            PickupMarker(name: order.restaurant.name)
+                        }
+                    }
 
-            // Customer (Dropoff) Marker
-            Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
-                latitude: order.deliveryAddress.latitude,
-                longitude: order.deliveryAddress.longitude
-            )) {
-                DropoffMarker()
-            }
+                    // Customer (Dropoff) Marker - only show if valid
+                    if hasValidDeliveryLocation {
+                        Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
+                            latitude: order.deliveryAddress.latitude,
+                            longitude: order.deliveryAddress.longitude
+                        )) {
+                            DropoffMarker()
+                        }
+                    }
 
-            // Driver Marker (if available)
-            if let driverLoc = driverLocation {
-                Annotation("Driver", coordinate: driverLoc) {
-                    DriverMarker()
+                    // Driver Marker (if available)
+                    if let driverLoc = driverLocation {
+                        Annotation("Driver", coordinate: driverLoc) {
+                            DriverMarker()
+                        }
+                    }
                 }
+                .mapStyle(.standard)
+                .onAppear {
+                    updateMapRegion()
+                }
+                .onReceive(mapUpdateTimer) { _ in
+                    updateMapRegion()
+                }
+            } else {
+                // Fallback when no valid coordinates - show status message
+                VStack(spacing: 16) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(Theme.brandGreen.opacity(0.5))
+
+                    Text("Tracking Your Order")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Map will update when driver location is available")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    // Show current status
+                    HStack {
+                        Circle()
+                            .fill(Theme.brandGreen)
+                            .frame(width: 12, height: 12)
+                        Text("Status: \(order.status)")
+                            .font(.headline)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                    .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGray6))
             }
-        }
-        .mapStyle(.standard)
-        .onAppear {
-            updateMapRegion()
-        }
-        .onReceive(mapUpdateTimer) { _ in
-            updateMapRegion()
         }
     }
 
     private func updateMapRegion() {
-        var coordinates: [CLLocationCoordinate2D] = [
-            CLLocationCoordinate2D(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude),
-            CLLocationCoordinate2D(latitude: order.deliveryAddress.latitude, longitude: order.deliveryAddress.longitude)
-        ]
+        var coordinates: [CLLocationCoordinate2D] = []
 
-        if let driverLoc = driverLocation {
+        // Only add valid coordinates
+        if hasValidRestaurantLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.restaurant.latitude,
+                longitude: order.restaurant.longitude
+            ))
+        }
+
+        if hasValidDeliveryLocation {
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: order.deliveryAddress.latitude,
+                longitude: order.deliveryAddress.longitude
+            ))
+        }
+
+        if let driverLoc = driverLocation,
+           isValidCoordinate(driverLoc.latitude, driverLoc.longitude) {
             coordinates.append(driverLoc)
         }
+
+        // Need at least one valid coordinate
+        guard !coordinates.isEmpty else { return }
 
         // Calculate center and span to fit all markers
         let latitudes = coordinates.map { $0.latitude }
@@ -273,6 +370,8 @@ struct DeliveryBottomSheet: View {
     let onExpandMap: () -> Void
     var timelineEvents: [P2PTimelineEvent] = []
     var driverInfo: P2PTrackingDriver?
+    var isTrafficAwareETA: Bool = false
+    var etaDistanceMiles: Double? = nil
 
     /// Format ETA using world-class time formatting
     private var formattedETA: String {
@@ -314,13 +413,38 @@ struct DeliveryBottomSheet: View {
             // ETA Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(estimatedTime == "Arrived" ? "Status" : "Arriving in")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 6) {
+                        Text(estimatedTime == "Arrived" ? "Status" : "Arriving in")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        // Traffic indicator when using real traffic data
+                        if isTrafficAwareETA {
+                            HStack(spacing: 2) {
+                                Image(systemName: "car.fill")
+                                    .font(.caption2)
+                                Text("Live")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.brandGreen)
+                            .cornerRadius(4)
+                        }
+                    }
 
                     Text(formattedETA)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Theme.brandGreen)
+
+                    // Show distance when available
+                    if let distance = etaDistanceMiles, distance > 0 {
+                        Text(String(format: "%.1f mi away", distance))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Spacer()
@@ -456,26 +580,50 @@ struct DeliveryStatusTimeline: View {
         let status = order.status.lowercased()
         let events = timelineEventMap
 
+        // Determine current phase
+        let isConfirming = status == "confirming" || status == "pending_restaurant"
+        let isPlaced = status == "placed" || status == "pending"
+        let isPreparing = ["preparing", "accepted", "confirmed"].contains(status)
+        let isReady = status == "ready" || status == "pending_delivery_decision" || status == "ready_for_pickup"
+        let isOnTheWay = ["out for delivery", "ontheway", "restaurant_will_deliver"].contains(status)
+        let isDelivered = status == "delivered"
+
+        // Stage completion logic - each stage is complete when we've moved past it
+        let stage1Complete = !isPlaced && !isConfirming  // Past Placed/Confirming
+        let stage2Complete = isReady || isOnTheWay || isDelivered  // Past Preparing
+        let stage3Complete = isOnTheWay || isDelivered  // Past Ready
+        let stage4Complete = isDelivered  // Past On the Way
+
         return [
-            ("Placed", "checkmark.circle.fill",
-             status == "placed" || status == "pending",
-             true,
-             events["placed"] ?? events["pending"]),
+            // Stage 1: Placed/Confirming - shows "Confirming" with clock during restaurant acceptance
+            (isConfirming ? "Confirming" : "Placed",
+             isConfirming ? "clock.fill" : "checkmark.circle.fill",
+             isPlaced || isConfirming,
+             stage1Complete,
+             events["placed"] ?? events["confirming"] ?? events["pending"]),
+
+            // Stage 2: Preparing - restaurant is cooking
             ("Preparing", "flame.fill",
-             status == "preparing" || status == "confirmed",
-             ["preparing", "ready", "out for delivery", "ontheway", "delivered"].contains(status),
-             events["preparing"] ?? events["confirmed"]),
+             isPreparing,
+             stage2Complete,
+             events["preparing"] ?? events["confirmed"] ?? events["accepted"]),
+
+            // Stage 3: Ready - food ready, waiting for pickup (hides delivery decision complexity)
             ("Ready", "bag.fill",
-             status == "ready",
-             ["ready", "out for delivery", "ontheway", "delivered"].contains(status),
-             events["ready"]),
-            ("On the way", "car.fill",
-             status == "out for delivery" || status == "ontheway",
-             ["out for delivery", "ontheway", "delivered"].contains(status),
-             events["out for delivery"] ?? events["ontheway"] ?? events["picked_up"]),
+             isReady,
+             stage3Complete,
+             events["ready"] ?? events["pending_delivery_decision"] ?? events["ready_for_pickup"]),
+
+            // Stage 4: On the Way - driver or restaurant delivering
+            ("On the Way", "car.fill",
+             isOnTheWay,
+             stage4Complete,
+             events["picked_up"] ?? events["out for delivery"] ?? events["ontheway"] ?? events["restaurant_will_deliver"]),
+
+            // Stage 5: Delivered - complete
             ("Delivered", "house.fill",
-             status == "delivered",
-             status == "delivered",
+             isDelivered,
+             isDelivered,
              events["delivered"])
         ]
     }
@@ -624,6 +772,25 @@ struct DriverInfoRow: View {
 
             Spacer()
 
+            // Vehicle Photo (if available)
+            if let vehiclePhotoUrl = driver.vehiclePhotoUrl, let url = URL(string: vehiclePhotoUrl) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 45)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 60, height: 45)
+                        .overlay(
+                            Image(systemName: "car.fill")
+                                .foregroundColor(.gray)
+                        )
+                }
+            }
+
             // Call button
             if let phone = driver.phone, !phone.isEmpty {
                 Button(action: {
@@ -752,6 +919,144 @@ struct NoActiveDeliveryView: View {
             .padding(.bottom, 40)
         }
         .padding()
+    }
+}
+
+// MARK: - Order Delivered Celebration View
+struct OrderDeliveredCelebrationView: View {
+    let order: Order
+    let onDismiss: () -> Void
+    @State private var showConfetti = false
+    @State private var showContent = false
+
+    var body: some View {
+        ZStack {
+            // Semi-transparent background
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+
+            // Celebration card
+            VStack(spacing: 24) {
+                // Checkmark animation
+                ZStack {
+                    Circle()
+                        .fill(Theme.brandGreen)
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(showContent ? 1 : 0)
+
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 50, weight: .bold))
+                        .foregroundColor(.white)
+                        .scaleEffect(showContent ? 1 : 0)
+                }
+                .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.2), value: showContent)
+
+                // Thank you message
+                VStack(spacing: 8) {
+                    Text("Order Delivered!")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.brandGreen)
+
+                    Text("Thank you for ordering with Dollor!")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 20)
+                .animation(.easeOut(duration: 0.4).delay(0.4), value: showContent)
+
+                // Order summary
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Order #")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(order.orderId)
+                            .fontWeight(.semibold)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("From")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(order.restaurant.name)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("Total")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "$%.2f", order.total))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.5), value: showContent)
+
+                // Receipt note
+                HStack(spacing: 8) {
+                    Image(systemName: "envelope.fill")
+                        .foregroundColor(Theme.brandGreen)
+                    Text("Receipt sent to your email")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.6), value: showContent)
+
+                // Rate & Close buttons
+                VStack(spacing: 12) {
+                    NavigationLink(destination: RateRestaurantView(order: order)) {
+                        HStack {
+                            Image(systemName: "star.fill")
+                            Text("Rate Your Experience")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandGreen)
+                        .cornerRadius(12)
+                    }
+
+                    Button(action: onDismiss) {
+                        Text("Close")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .opacity(showContent ? 1 : 0)
+                .animation(.easeOut(duration: 0.4).delay(0.7), value: showContent)
+            }
+            .padding(24)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
+            )
+            .padding(.horizontal, 24)
+            .scaleEffect(showContent ? 1 : 0.8)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showContent)
+        }
+        .onAppear {
+            showContent = true
+        }
     }
 }
 

@@ -1,0 +1,88 @@
+{
+  "family": "dollor-api",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskRole",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "dollor-api",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "PORT", "value": "8080"},
+        {"name": "DUMMY_PAYMENT_MODE", "value": "false"},
+        {"name": "ENVIRONMENT", "value": "production"},
+        {"name": "SMTP_HOST", "value": "email-smtp.us-east-1.amazonaws.com"},
+        {"name": "SMTP_PORT", "value": "587"},
+        {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"},
+        {"name": "DOCUMENT_VERIFICATION_PROVIDER", "value": "persona"}
+      ],
+      "secrets": [
+        {
+          "name": "PERSONA_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/persona-aqEOSX:PERSONA_API_KEY::"
+        },
+        {
+          "name": "PERSONA_TEMPLATE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/persona-aqEOSX:PERSONA_TEMPLATE_ID::"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/database-v2-gd1oKf:DATABASE_URL::"
+        },
+        {
+          "name": "ADMIN_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/admin-yCDIFY:ADMIN_SECRET_KEY::"
+        },
+        {
+          "name": "DASHBOARD_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/admin-yCDIFY:DASHBOARD_SECRET::"
+        },
+        {
+          "name": "JWT_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/staging/jwt-secret-AptxQn"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/stripe-vT8WRA:STRIPE_SECRET_KEY::"
+        },
+        {
+          "name": "STRIPE_PUBLISHABLE_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/stripe-vT8WRA:STRIPE_PUBLISHABLE_KEY::"
+        },
+        {
+          "name": "SMTP_USER",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_USER::"
+        },
+        {
+          "name": "SMTP_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_PASSWORD::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/dollor-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

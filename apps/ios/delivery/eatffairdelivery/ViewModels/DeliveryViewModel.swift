@@ -199,8 +199,8 @@ class DeliveryViewModel: ObservableObject {
                             // Sort: Out for Delivery first, then Ready
                             let status1 = DeliveryOrderStatus.from(order1.status)
                             let status2 = DeliveryOrderStatus.from(order2.status)
-                            let isOutForDelivery1 = status1 == .outForDelivery || status1 == .pickedUp
-                            let isOutForDelivery2 = status2 == .outForDelivery || status2 == .pickedUp
+                            let isOutForDelivery1 = status1 == .outForDelivery || status1 == .restaurantWillDeliver
+                            let isOutForDelivery2 = status2 == .outForDelivery || status2 == .restaurantWillDeliver
                             if isOutForDelivery1 && !isOutForDelivery2 {
                                 return true
                             }

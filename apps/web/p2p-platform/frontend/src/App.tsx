@@ -58,6 +58,7 @@ import DealsPage from './app/screens/customer/DealsPage';
 // Vendor Pages
 import VendorLogin from './app/screens/auth/VendorLogin';
 import VendorProfile from './app/screens/vendor/Profile';
+import VendorDocuments from './app/screens/vendor/Documents';
 
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
@@ -70,6 +71,7 @@ import DriverProfile from './app/screens/driver/Profile';
 import DriverDashboard from './app/screens/driver/Dashboard';
 import DriverEarnings from './app/screens/driver/Earnings';
 import RideBidding from './app/screens/driver/RideBidding';
+import DriverDocuments from './app/screens/driver/Documents';
 import RideBids from './app/screens/customer/RideBids';
 
 // Wrapper to provide dynamic customerId from localStorage
@@ -188,6 +190,7 @@ function App() {
         <Route path="/vendor/profile" element={<VendorProfile />} />
         <Route path="/vendor/settings" element={<VendorProfile />} />
         <Route path="/vendor/dashboard" element={<VendorProfile />} />
+        <Route path="/vendor/documents" element={<VendorDocuments />} />
 
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
         <Route path="/driver/login" element={<DriverLogin />} />
@@ -199,6 +202,7 @@ function App() {
           <Route path="history" element={<DriverDeliveries />} />
           <Route path="messages" element={<DriverMessages />} />
           <Route path="profile" element={<DriverProfile />} />
+          <Route path="documents" element={<DriverDocuments />} />
           <Route path="dashboard" element={<DriverDashboard />} />
           <Route path="earnings" element={<DriverEarnings />} />
         </Route>

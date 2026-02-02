@@ -374,9 +374,10 @@ struct RideBottomSheet: View {
                 Divider()
             }
 
-            // Price Summary - World Class Fare Breakdown
+            // Price Summary - World Class Fare Breakdown (Scrollable to ensure buttons visible)
             if viewModel.canRequestRide {
-                VStack(spacing: 12) {
+                ScrollView {
+                    VStack(spacing: 12) {
                     // Trip Estimate Header
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -528,8 +529,10 @@ struct RideBottomSheet: View {
                         .padding(.top, 2)
                     }
                     .padding(.vertical, 4)
+                    }
+                    .padding()
                 }
-                .padding()
+                .frame(maxHeight: 320) // Limit height to ensure action buttons remain visible
             }
 
             // Action Buttons
@@ -1457,34 +1460,128 @@ struct RideStatusCard: View {
                let driverName = tracking.driverName {
                 Divider()
 
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(width: 50, height: 50)
-                        Image(systemName: "person.fill")
-                            .foregroundColor(.gray)
-                    }
-
-                    VStack(alignment: .leading) {
-                        Text(driverName)
-                            .font(.headline)
-                        Text("Your driver")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-
-                    Spacer()
-
-                    if let phone = tracking.driverPhone {
-                        Button(action: { callDriver(phone) }) {
-                            Image(systemName: "phone.fill")
-                                .font(.title3)
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Color.green)
-                                .clipShape(Circle())
+                VStack(spacing: 12) {
+                    // Driver Row
+                    HStack(spacing: 12) {
+                        // Driver Photo
+                        if let photoUrl = tracking.driverPhotoUrl,
+                           let url = URL(string: photoUrl) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 50, height: 50)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 50, height: 50)
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 50, height: 50)
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.gray)
+                            }
                         }
+
+                        VStack(alignment: .leading) {
+                            HStack(spacing: 4) {
+                                Text(driverName)
+                                    .font(.headline)
+                                if let rating = tracking.driverRating {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.yellow)
+                                        Text(String(format: "%.1f", rating))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            Text("Your driver")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+
+                        Spacer()
+
+                        if let phone = tracking.driverPhone {
+                            Button(action: { callDriver(phone) }) {
+                                Image(systemName: "phone.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.green)
+                                    .clipShape(Circle())
+                            }
+                        }
+                    }
+
+                    // Vehicle Info Row
+                    if tracking.driverVehicle != nil || tracking.driverLicensePlate != nil {
+                        HStack(spacing: 12) {
+                            // Vehicle Photo
+                            if let vehiclePhotoUrl = tracking.driverVehiclePhotoUrl,
+                               let url = URL(string: vehiclePhotoUrl) {
+                                AsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 80, height: 60)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                } placeholder: {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 80, height: 60)
+                                        .overlay(
+                                            Image(systemName: "car.fill")
+                                                .foregroundColor(.gray)
+                                        )
+                                }
+                            } else {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 80, height: 60)
+                                    .overlay(
+                                        Image(systemName: "car.fill")
+                                            .foregroundColor(.gray)
+                                    )
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                if let vehicle = tracking.driverVehicle {
+                                    HStack(spacing: 4) {
+                                        if let color = tracking.driverVehicleColor {
+                                            Text(color)
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Text(vehicle)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                if let plate = tracking.driverLicensePlate {
+                                    Text(plate)
+                                        .font(.headline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
                     }
                 }
                 .padding(.horizontal)

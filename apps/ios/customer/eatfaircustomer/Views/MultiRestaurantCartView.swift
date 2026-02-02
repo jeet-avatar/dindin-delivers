@@ -36,10 +36,20 @@ struct MultiRestaurantCartView: View {
 
     var body: some View {
         Group {
-            if cartVM.items.isEmpty {
+            // Don't show empty cart if order was just placed (cart sheet is dismissing)
+            if cartVM.items.isEmpty && !cartVM.orderPlaced {
                 emptyCartView
-            } else {
+            } else if !cartVM.items.isEmpty {
                 cartContentView
+            } else {
+                // Order just placed, show processing message briefly
+                VStack {
+                    ProgressView()
+                    Text("Processing order...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                }
             }
         }
         .navigationTitle("Your Cart")
@@ -122,8 +132,21 @@ struct MultiRestaurantCartView: View {
         } message: {
             Text(cartVM.errorMessage ?? "An error occurred")
         }
-        .sheet(isPresented: $showCheckout) {
+        .sheet(isPresented: $showCheckout, onDismiss: {
+            #if DEBUG
+            print("[OrderFlow] Checkout sheet dismissed, orderPlaced = \(cartVM.orderPlaced)")
+            #endif
+        }) {
             MultiRestaurantCheckoutView(cartVM: cartVM, scheduledDate: scheduledDate)
+        }
+        .onChange(of: cartVM.orderPlaced) { _, newValue in
+            if newValue {
+                #if DEBUG
+                print("[OrderFlow] CartView detected orderPlaced = true, dismissing checkout")
+                #endif
+                // Dismiss checkout sheet when order is placed
+                showCheckout = false
+            }
         }
         .sheet(isPresented: $showScheduleDelivery) {
             ScheduleDeliveryView(

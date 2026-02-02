@@ -19,6 +19,7 @@ AI Employees:
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
@@ -28,10 +29,70 @@ import os
 import requests
 
 from database import get_db, SessionLocal
+from email_service import send_order_delivered_with_receipt_email
+from google_maps_service import get_traffic_eta, ETAResult
 
 # Service URLs
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8008")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8009")
+
+# Firebase Admin SDK for direct push notifications
+_firebase_initialized = False
+_firebase_app = None
+
+def _init_firebase():
+    """Initialize Firebase Admin SDK for direct push notifications."""
+    global _firebase_initialized, _firebase_app
+    if _firebase_initialized:
+        return _firebase_app is not None
+
+    _firebase_initialized = True
+    firebase_creds_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        if firebase_creds_path and os.path.exists(firebase_creds_path):
+            cred = credentials.Certificate(firebase_creds_path)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized from credentials file")
+            return True
+        elif firebase_creds_json:
+            import json as json_mod
+            cred_dict = json_mod.loads(firebase_creds_json)
+            cred = credentials.Certificate(cred_dict)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized from JSON env var")
+            return True
+        else:
+            logging.warning("No Firebase credentials configured - push notifications disabled")
+            return False
+    except Exception as e:
+        logging.error(f"Failed to initialize Firebase: {e}")
+        return False
+
+
+def _send_fcm_direct(fcm_token: str, title: str, body: str, data: dict = None) -> bool:
+    """Send FCM push notification directly using Firebase Admin SDK."""
+    if not _init_firebase():
+        return False
+
+    try:
+        from firebase_admin import messaging
+
+        message = messaging.Message(
+            notification=messaging.Notification(title=title, body=body),
+            data={k: str(v) for k, v in (data or {}).items()},
+            token=fcm_token
+        )
+        messaging.send(message)
+        logging.info(f"Direct FCM push sent: {title}")
+        return True
+    except Exception as e:
+        logging.error(f"Direct FCM push failed: {e}")
+        return False
 
 # Background scheduler for automatic timeout checks
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -73,32 +134,92 @@ def trigger_refund(order: "Order", reason: str = "Restaurant timeout") -> bool:
         return False
 
 
-def send_push_notification(user_type: str, user_id: int, title: str, body: str, data: dict = None) -> bool:
+def send_push_notification(user_type: str, user_id: int, title: str, body: str, data: dict = None, db: Session = None) -> bool:
     """
-    Send push notification via notification service.
+    Send push notification via notification service or direct FCM.
     user_type: 'customer', 'driver', or 'vendor'
     Returns True if successful, False otherwise.
+
+    Falls back to direct FCM if notification service is unavailable.
     """
+    # First, try notification service
     try:
+        payload = {
+            "title": title,
+            "body": body,
+            "data": data or {}
+        }
+
+        # Map user_type to the correct field for notification service
+        if user_type == "driver":
+            payload["driver_id"] = user_id
+        elif user_type == "vendor":
+            payload["vendor_id"] = user_id
+        else:  # customer or user
+            payload["user_id"] = user_id
+
         response = requests.post(
             f"{NOTIFICATION_SERVICE_URL}/api/notifications/push/send",
-            json={
-                "user_type": user_type,
-                "user_id": user_id,
-                "title": title,
-                "body": body,
-                "data": data or {}
-            },
+            json=payload,
             timeout=5
         )
         if response.status_code == 200:
-            logger.info(f"Push notification sent to {user_type} {user_id}")
+            logger.info(f"Push notification sent via service to {user_type} {user_id}")
             return True
         else:
-            logger.warning(f"Failed to send push notification: {response.text}")
-            return False
+            logger.warning(f"Notification service returned error: {response.text}")
+            # Fall through to direct FCM
     except requests.RequestException as e:
-        logger.warning(f"Notification service unavailable: {e}")
+        logger.warning(f"Notification service unavailable: {e}, trying direct FCM...")
+
+    # Fallback: Direct FCM push notification
+    try:
+        # Get FCM token from database
+        fcm_token = None
+        if db is None:
+            db = SessionLocal()
+            should_close = True
+        else:
+            should_close = False
+
+        try:
+            if user_type == "driver":
+                result = db.execute(
+                    text("SELECT fcm_token FROM drivers WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+            elif user_type == "vendor":
+                result = db.execute(
+                    text("SELECT push_token FROM vendors WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+            else:  # customer
+                result = db.execute(
+                    text("SELECT push_token FROM customers WHERE id = :id"),
+                    {"id": user_id}
+                ).fetchone()
+                if result:
+                    fcm_token = result[0]
+        finally:
+            if should_close:
+                db.close()
+
+        if fcm_token:
+            if _send_fcm_direct(fcm_token, title, body, data):
+                logger.info(f"Direct FCM push sent to {user_type} {user_id}")
+                return True
+            else:
+                logger.error(f"Direct FCM push failed for {user_type} {user_id}")
+                return False
+        else:
+            logger.warning(f"No FCM token found for {user_type} {user_id}")
+            return False
+    except Exception as e:
+        logger.error(f"Direct FCM fallback failed: {e}")
         return False
 
 
@@ -179,7 +300,8 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
-    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus
+    VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
+    Customer
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -1053,11 +1175,19 @@ async def create_order(
     order_count = db.query(Order).count()
     order_number = f"EF{datetime.now().strftime('%m%d')}{order_count + 1:05d}"
 
+    # Look up customer_id from email for order tracking
+    customer_id = None
+    if order_data.customer_email:
+        customer = db.query(Customer).filter(Customer.email == order_data.customer_email).first()
+        if customer:
+            customer_id = customer.id
+
     # Create order
     # platform_fee stores customer service fee (charged to customer)
     # restaurant_platform_fee is deducted from restaurant payout during settlement
     new_order = Order(
         order_number=order_number,
+        customer_id=customer_id,
         customer_name=order_data.customer_name,
         customer_email=order_data.customer_email,
         customer_phone=order_data.customer_phone,
@@ -1149,6 +1279,32 @@ async def confirm_payment(
 
     db.commit()
 
+    # Send push notification to vendor/restaurant about new order
+    try:
+        # Parse items to get count
+        items_count = 0
+        if order.items:
+            import json
+            items_data = json.loads(order.items) if isinstance(order.items, str) else order.items
+            items_count = sum(item.get("quantity", 1) for item in items_data)
+
+        send_push_notification(
+            user_type="vendor",
+            user_id=order.vendor_id,
+            title="🔔 New Order!",
+            body=f"Order #{order.order_number} - {items_count} item(s) - ${order.total_amount:.2f}",
+            data={
+                "type": "new_order",
+                "order_id": str(order.id),
+                "order_number": order.order_number,
+                "total_amount": str(order.total_amount)
+            }
+        )
+        logger.info(f"Push notification sent to vendor {order.vendor_id} for order {order.order_number}")
+    except Exception as e:
+        # Don't fail the order if notification fails - restaurant can still poll
+        logger.warning(f"Failed to send push notification to vendor: {str(e)}")
+
     timeout_at = order.sent_to_restaurant_at + timedelta(seconds=RESTAURANT_ACCEPTANCE_WINDOW_SECONDS)
     window_minutes = RESTAURANT_ACCEPTANCE_WINDOW_SECONDS // 60
 
@@ -1223,6 +1379,7 @@ async def restaurant_accept(
     """
     Restaurant accepts the order within acceptance window.
     Moves order to PREPARING status.
+    Triggers KOT (Kitchen Order Ticket) print to POS system if configured.
     AI Employee: KitchenBot Beta
     """
     ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
@@ -1255,14 +1412,52 @@ async def restaurant_accept(
 
     db.commit()
 
+    # Trigger KOT (Kitchen Order Ticket) print to POS system
+    kot_result = {"success": True, "pos_type": "none", "message": "No KOT integration"}
+    vendor = None
+    try:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        if vendor and getattr(vendor, 'kot_enabled', False) and getattr(vendor, 'kot_auto_print', True):
+            from kot_integrations import KOTService
+            kot_result = await KOTService.send_to_pos(order, vendor)
+            logger.info(f"KOT result for order {order.order_number}: {kot_result}")
+    except Exception as e:
+        logger.error(f"KOT integration error for order {order.order_number}: {e}")
+        kot_result = {"success": False, "pos_type": "unknown", "error": str(e)}
+
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Order Confirmed!",
+                body=f"{restaurant_name} is now preparing your order.",
+                data={
+                    "type": "order_accepted",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "preparing"
+                },
+                db=db
+            )
+            logging.info(f"Order accepted notification sent to customer {customer.id}")
+    except Exception as e:
+        logging.error(f"Failed to send order accepted notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "preparing",
         "accepted_at": order.restaurant_accepted_at.isoformat(),
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"],
-        "message": "Restaurant accepted order. Now preparing."
+        "message": "Restaurant accepted order. Now preparing.",
+        "kot_print": kot_result
     }
 
 
@@ -1501,6 +1696,33 @@ async def restaurant_accept_delivery(
 
     db.commit()
 
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        from models import Customer, Vendor
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+
+        if customer:
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Your order is on its way!",
+                body=f"{restaurant_name} is delivering your order directly to you.",
+                data={
+                    "type": "order_status",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "restaurant_will_deliver",
+                    "action": "track_order"
+                },
+                db=db
+            )
+            logger.info(f"Self-delivery notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logger.error(f"Failed to send self-delivery push notification: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
@@ -1508,6 +1730,7 @@ async def restaurant_accept_delivery(
         "status": "restaurant_will_deliver",
         "decided_at": order.delivery_decision_at.isoformat(),
         "self_delivery": True,
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"],
         "message": "Restaurant will self-deliver this order."
     }
@@ -1812,6 +2035,7 @@ async def get_vendor_orders(
 ):
     """
     Get all orders for a vendor - Called from iOS Restaurant App
+    Includes driver details (name, phone, vehicle) for pickup coordination
     """
     orders = db.query(Order).filter(
         Order.vendor_id == vendor_id
@@ -1836,6 +2060,24 @@ async def get_vendor_orders(
                 # If not valid JSON, treat as string address
                 delivery_addr = {"address": str(order.delivery_address)}
 
+        # Get driver details if assigned
+        driver_info = None
+        if order.driver_id:
+            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+            if driver:
+                driver_info = {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}",
+                    "phone": driver.phone,
+                    "photo_url": driver.photo_url,
+                    "rating": driver.rating,
+                    "vehicle": f"{driver.vehicle_color or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() or None,
+                    "vehicle_make": driver.vehicle_make,
+                    "vehicle_model": driver.vehicle_model,
+                    "vehicle_color": driver.vehicle_color,
+                    "license_plate": driver.license_plate
+                }
+
         result.append({
             "id": order.id,
             "order_number": order.order_number,
@@ -1851,9 +2093,13 @@ async def get_vendor_orders(
             "total": order.total_amount,
             "delivery_address": delivery_addr,
             "delivery_instructions": order.delivery_instructions,
+            # Driver info for pickup coordination
+            "driver_id": order.driver_id,
             "driver_name": order.driver_name,
+            "driver": driver_info,
             "created_at": order.created_at.isoformat() if order.created_at else None,
             "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
+            "picked_up_at": getattr(order, 'picked_up_at', None).isoformat() if getattr(order, 'picked_up_at', None) else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
@@ -1935,15 +2181,29 @@ async def get_available_orders(
             except (json.JSONDecodeError, TypeError):
                 delivery_addr = {"address": str(order.delivery_address)}
         result.append({
+            "id": order.id,
             "order_id": order.id,
             "order_number": order.order_number,
+            "status": order.status.value,
+            # iOS Driver app expects "restaurant" and "pickup_address" keys
             "restaurant": vendor.restaurant_name if vendor else "Unknown",
-            "pickup_address": f"{vendor.street}, {vendor.city}" if vendor else "",
-            "delivery_address": delivery_addr,
+            "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+            "customer_name": order.customer_name,
+            "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
+            "customer_phone": order.customer_phone,
+            "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
+            "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
+            "dropoff_latitude": delivery_addr.get("latitude"),
+            "dropoff_longitude": delivery_addr.get("longitude"),
+            "estimated_distance": None,
+            "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
-            "total_earnings": order.delivery_fee + order.tip,
-            "created_at": order.created_at.isoformat()
+            "total_earnings": (order.delivery_fee or 0) + (order.tip or 0),
+            "created_at": order.created_at.isoformat(),
+            "assigned_at": None,
+            "picked_up_at": None,
+            "delivered_at": None
         })
 
     return {"success": True, "orders": result}
@@ -1998,6 +2258,7 @@ async def order_picked_up(
     """
     Driver picked up order - Called from iOS Driver App
     AI Employee: DispatchBot Gamma
+    Sends push notification to customer: "Your order is on the way!"
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
@@ -2006,14 +2267,41 @@ async def order_picked_up(
         raise HTTPException(status_code=404, detail="Order not found")
 
     order.status = OrderStatus.OUT_FOR_DELIVERY
+    order.picked_up_at = datetime.now()
 
     db.commit()
+
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        # Get customer for push token
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            driver_name = order.driver_name or "Your driver"
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Your order is on the way!",
+                body=f"{driver_name} picked up your order and is heading to you now.",
+                data={
+                    "type": "order_picked_up",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "out_for_delivery",
+                    "driver_name": driver_name
+                },
+                db=db
+            )
+            logging.info(f"Pickup notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send pickup notification: {e}")
 
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Out for Delivery",
+        "notification_sent": notification_sent,
         "processed_by": ai_employee["name"]
     }
 
@@ -2170,12 +2458,81 @@ async def order_delivered(
 
     db.commit()
 
+    # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
+    notification_sent = False
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            notification_sent = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Order Delivered!",
+                body=f"Your order from {vendor.restaurant_name if vendor else 'the restaurant'} has arrived. Enjoy your meal!",
+                data={
+                    "type": "order_delivered",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "delivered"
+                },
+                db=db
+            )
+            logging.info(f"Delivery notification sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send delivery push notification: {e}")
+
+    # ==================== SEND THANK YOU EMAIL WITH RECEIPT ====================
+    try:
+        # Parse order items from JSON
+        order_items = []
+        if order.items:
+            if isinstance(order.items, str):
+                order_items = json.loads(order.items)
+            elif isinstance(order.items, list):
+                order_items = order.items
+
+        # Get delivery address
+        delivery_address = ""
+        if order.delivery_address:
+            if isinstance(order.delivery_address, str):
+                try:
+                    addr = json.loads(order.delivery_address)
+                    delivery_address = f"{addr.get('street', '')}, {addr.get('city', '')} {addr.get('state', '')} {addr.get('zip', '')}"
+                except json.JSONDecodeError:
+                    delivery_address = order.delivery_address
+            elif isinstance(order.delivery_address, dict):
+                delivery_address = f"{order.delivery_address.get('street', '')}, {order.delivery_address.get('city', '')} {order.delivery_address.get('state', '')} {order.delivery_address.get('zip', '')}"
+
+        # Send thank you email with receipt
+        if order.customer_email:
+            send_order_delivered_with_receipt_email(
+                to_email=order.customer_email,
+                customer_name=order.customer_name or "Valued Customer",
+                order_number=order.order_number,
+                restaurant_name=vendor.restaurant_name if vendor else "Restaurant",
+                order_items=order_items,
+                subtotal=float(order.subtotal or 0),
+                delivery_fee=float(order.delivery_fee or 0),
+                service_fee=float(CUSTOMER_SERVICE_FEE),
+                tax_amount=float(order.tax_amount or 0),
+                tip=float(order.tip or 0),
+                order_total=float(order.total_amount or 0),
+                driver_name=order.driver_name or "Your Driver",
+                delivery_address=delivery_address,
+                order_date=order.created_at.strftime("%B %d, %Y at %I:%M %p") if order.created_at else ""
+            )
+            logging.info(f"Thank you email sent to {order.customer_email} for order {order.order_number}")
+    except Exception as e:
+        # Don't fail the delivery if email fails
+        logging.error(f"Failed to send thank you email for order {order.order_number}: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Delivered",
         "delivered_at": order.delivered_at.isoformat(),
+        "notification_sent": notification_sent,
+        "email_sent": bool(order.customer_email),
         "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
         "accounting": {
             "journal_entry": entry_number,
@@ -2527,6 +2884,10 @@ async def get_driver_active_orders(
             "order_id": order.id,
             "order_number": order.order_number,
             "status": order.status.value,
+            # iOS Driver app expects "restaurant" and "pickup_address" keys
+            "restaurant": vendor.restaurant_name if vendor else "Unknown",
+            "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+            # Also include restaurant_name/restaurant_address for backward compatibility
             "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
             "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
             "customer_name": order.customer_name,
@@ -2542,7 +2903,7 @@ async def get_driver_active_orders(
             "tip": order.tip,
             "created_at": order.created_at.isoformat(),
             "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": None,
+            "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
@@ -2589,6 +2950,10 @@ async def get_driver_pending_orders(
                 "order_id": order.id,
                 "order_number": order.order_number,
                 "status": order.status.value,
+                # iOS Driver app expects "restaurant" and "pickup_address" keys
+                "restaurant": vendor.restaurant_name if vendor else "Unknown",
+                "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
+                # Also include restaurant_name/restaurant_address for backward compatibility
                 "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
                 "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
                 "customer_name": order.customer_name,
@@ -2604,7 +2969,7 @@ async def get_driver_pending_orders(
                 "tip": order.tip,
                 "created_at": order.created_at.isoformat(),
                 "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-                "picked_up_at": order.dispatched_at.isoformat() if order.dispatched_at else None,
+                "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
                 "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
             })
 
@@ -2917,83 +3282,9 @@ async def broadcast_order_to_drivers(
     }
 
 
-# ==================== FCM TOKEN MANAGEMENT ====================
-
-class FCMTokenRequest(BaseModel):
-    token: str
-    device_type: str = "ios"  # ios, android, web
-
-
-@router.post("/drivers/{driver_id}/fcm-token")
-async def save_driver_fcm_token(
-    driver_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for driver push notifications"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    driver.fcm_token = request.token
-    driver.device_type = request.device_type
-    driver.fcm_token_updated_at = datetime.now()
-
-    db.commit()
-
-    return {
-        "success": True,
-        "driver_id": driver.id,
-        "message": "FCM token saved"
-    }
-
-
-@router.post("/vendors/{vendor_id}/fcm-token")
-async def save_vendor_fcm_token(
-    vendor_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for restaurant push notifications"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    vendor.push_token = request.token
-    vendor.device_type = request.device_type
-
-    db.commit()
-
-    return {
-        "success": True,
-        "vendor_id": vendor.id,
-        "message": "FCM token saved"
-    }
-
-
-@router.post("/customers/{customer_id}/fcm-token")
-async def save_customer_fcm_token(
-    customer_id: int,
-    request: FCMTokenRequest,
-    db: Session = Depends(get_db)
-):
-    """Save FCM token for customer push notifications"""
-    from models import Customer
-
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    customer.push_token = request.token
-    customer.device_type = request.device_type
-
-    db.commit()
-
-    return {
-        "success": True,
-        "customer_id": customer.id,
-        "message": "FCM token saved"
-    }
+# FCM Token Management endpoints are in main_new.py (single source of truth)
+# iOS Customer app sends: {"fcm_token": "...", "platform": "ios"}
+# All apps (iOS, Android, web) should use /erp/*/fcm-token endpoints from main_new.py
 
 
 # ==================== DRIVER LOCATION TRACKING ====================
@@ -3287,7 +3578,10 @@ async def get_full_order_tracking(
 ):
     """
     Complete order tracking for customer app
-    Includes order details, restaurant info, driver info, and location
+    Includes order details, restaurant info, driver info, location, and traffic-aware ETA
+
+    Full path: /api/erp/orders/{order_id}/full-tracking (router prefix is /api/erp)
+    Used by: iOS/Android customer apps for delivery tracking
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -3298,19 +3592,40 @@ async def get_full_order_tracking(
 
     # Parse delivery address
     delivery_addr = {}
+    delivery_lat = None
+    delivery_lng = None
     if order.delivery_address:
         try:
             delivery_addr = json.loads(order.delivery_address)
+            delivery_lat = delivery_addr.get("latitude") or delivery_addr.get("lat")
+            delivery_lng = delivery_addr.get("longitude") or delivery_addr.get("lng")
         except:
             delivery_addr = {"address": str(order.delivery_address)}
 
+    # Fallback to order-level delivery coordinates
+    if not delivery_lat:
+        delivery_lat = order.delivery_latitude
+    if not delivery_lng:
+        delivery_lng = order.delivery_longitude
+
     # Parse driver location
     driver_location = None
+    driver_lat = None
+    driver_lng = None
     if order.driver_location:
         try:
             driver_location = json.loads(order.driver_location)
+            driver_lat = driver_location.get("latitude") or driver_location.get("lat")
+            driver_lng = driver_location.get("longitude") or driver_location.get("lng")
         except:
             pass
+
+    # Fallback to driver's current location from driver record
+    if driver and not driver_lat:
+        driver_lat = driver.current_latitude
+        driver_lng = driver.current_longitude
+        if driver_lat and driver_lng:
+            driver_location = {"latitude": driver_lat, "longitude": driver_lng}
 
     # Parse items
     items = []
@@ -3334,6 +3649,42 @@ async def get_full_order_tracking(
         timeline.append({"status": "Out for Delivery", "time": datetime.now().isoformat()})
     if order.delivered_at:
         timeline.append({"status": "Delivered", "time": order.delivered_at.isoformat()})
+
+    # Calculate traffic-aware ETA when driver is out for delivery
+    estimated_delivery = None
+    eta_data = None
+
+    if (order.status == OrderStatus.OUT_FOR_DELIVERY and
+        driver_lat and driver_lng and delivery_lat and delivery_lng):
+        try:
+            eta_result = await get_traffic_eta(
+                origin_lat=driver_lat,
+                origin_lng=driver_lng,
+                dest_lat=delivery_lat,
+                dest_lng=delivery_lng
+            )
+            estimated_delivery = f"{eta_result.eta_minutes} mins"
+            eta_data = {
+                "minutes": eta_result.eta_minutes,
+                "distance_miles": eta_result.distance_miles,
+                "distance_meters": eta_result.distance_meters,
+                "is_traffic_aware": eta_result.is_traffic_aware,
+                "route_polyline": eta_result.route_polyline
+            }
+        except Exception as e:
+            logging.warning(f"ETA calculation failed for order {order_id}: {e}")
+            # Fallback: status-based estimate
+            estimated_delivery = "10-15 mins"
+    elif order.status == OrderStatus.DELIVERED:
+        estimated_delivery = "Delivered"
+    elif order.status in [OrderStatus.READY, OrderStatus.PENDING_DELIVERY_DECISION]:
+        estimated_delivery = "15-20 mins"
+    elif order.status == OrderStatus.PREPARING:
+        estimated_delivery = "20-30 mins"
+    elif order.status == OrderStatus.CONFIRMED:
+        estimated_delivery = "25-35 mins"
+    else:
+        estimated_delivery = "30-40 mins"
 
     return {
         "success": True,
@@ -3365,9 +3716,12 @@ async def get_full_order_tracking(
             "rating": driver.rating if driver else None,
             "photo_url": driver.photo_url if driver else None,
             "vehicle": f"{driver.vehicle_make} {driver.vehicle_model}" if driver else None,
+            "vehicle_color": driver.vehicle_color if driver else None,
+            "vehicle_photo_url": driver.vehicle_photo_url if driver and hasattr(driver, 'vehicle_photo_url') else None,
             "license_plate": driver.license_plate if driver else None,
             "location": driver_location
         },
         "timeline": timeline,
-        "estimated_delivery": None  # TODO: Calculate ETA
+        "estimated_delivery": estimated_delivery,
+        "eta": eta_data
     }

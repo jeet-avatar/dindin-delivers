@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, Input, Select, Button, Space, Card, Statistic, Row, Col, message, Avatar, Badge, Modal, Descriptions } from 'antd';
-import { SearchOutlined, UserOutlined, CarOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, PhoneOutlined, MailOutlined, StarFilled } from '@ant-design/icons';
+import { Table, Tag, Input, Select, Button, Space, Card, Statistic, Row, Col, message, Avatar, Badge, Modal, Descriptions, Popconfirm, Image, Tabs, Alert, Divider } from 'antd';
+import { SearchOutlined, UserOutlined, CarOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, PhoneOutlined, MailOutlined, StarFilled, CheckOutlined, CloseOutlined, StopOutlined, FileImageOutlined, SafetyCertificateOutlined, IdcardOutlined, CameraOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../../api/api';
 
@@ -27,15 +27,31 @@ interface Driver {
   stripe_onboarded: boolean;
   created_at: string;
   photo_url?: string;
+  // Document URLs
+  drivers_license_url?: string;
+  insurance_url?: string;
+  drivers_license?: boolean;
+  insurance?: boolean;
+}
+
+interface DriverDocument {
+  document_type: string;
+  uploaded: boolean;
+  url?: string;
+  expiry_date?: string;
+  status: string;
 }
 
 const DriversAdmin: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [driverDocuments, setDriverDocuments] = useState<DriverDocument[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   const [stats, setStats] = useState({
     totalDrivers: 0,
@@ -47,6 +63,27 @@ const DriversAdmin: React.FC = () => {
   useEffect(() => {
     fetchDrivers();
   }, [statusFilter]);
+
+  // Fetch driver documents when a driver is selected
+  const fetchDriverDocuments = async (driverId: number) => {
+    setLoadingDocuments(true);
+    try {
+      const response = await api.get(`/drivers/${driverId}/documents`);
+      setDriverDocuments(response.data.documents || []);
+    } catch (error) {
+      console.error('Failed to fetch driver documents:', error);
+      setDriverDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  // Open driver detail modal and fetch documents
+  const openDriverDetail = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setDetailModalVisible(true);
+    fetchDriverDocuments(driver.id);
+  };
 
   const fetchDrivers = async () => {
     setLoading(true);
@@ -78,6 +115,40 @@ const DriversAdmin: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateDriverStatus = async (driverId: number, newStatus: string) => {
+    setUpdating(true);
+    try {
+      await api.patch(`/drivers/${driverId}/status`, null, { params: { status: newStatus } });
+      const statusMessages: Record<string, string> = {
+        'approved': 'Driver approved! Activation email has been sent.',
+        'rejected': 'Driver has been rejected.',
+        'suspended': 'Driver has been suspended.',
+        'active': 'Driver is now active.'
+      };
+      message.success(statusMessages[newStatus] || `Driver status updated to ${newStatus}`);
+      fetchDrivers();
+      setDetailModalVisible(false);
+      setSelectedDriver(null);
+    } catch (error: any) {
+      console.error('Failed to update driver status:', error);
+      const detail = error.response?.data?.detail;
+      if (typeof detail === 'object' && detail !== null) {
+        // Handle structured error (e.g., missing documents)
+        const errorMsg = detail.message || 'Failed to update driver status';
+        const missingDocs = detail.missing_documents?.join(', ');
+        if (missingDocs) {
+          message.error(`${errorMsg}: ${missingDocs}`, 8);
+        } else {
+          message.error(errorMsg, 5);
+        }
+      } else {
+        message.error(detail || 'Failed to update driver status');
+      }
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -209,18 +280,44 @@ const DriversAdmin: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 200,
       fixed: 'right' as const,
       render: (_: any, record: Driver) => (
-        <Button
-          type="link"
-          onClick={() => {
-            setSelectedDriver(record);
-            setDetailModalVisible(true);
-          }}
-        >
-          View
-        </Button>
+        <Space size="small">
+          <Button
+            type="link"
+            onClick={() => openDriverDetail(record)}
+          >
+            View
+          </Button>
+          {record.status === 'pending' && (
+            <>
+              <Popconfirm
+                title="Approve this driver?"
+                description="An activation email will be sent to the driver."
+                onConfirm={() => updateDriverStatus(record.id, 'approved')}
+                okText="Approve"
+                cancelText="Cancel"
+              >
+                <Button type="primary" size="small" icon={<CheckOutlined />} loading={updating}>
+                  Approve
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title="Reject this driver?"
+                description="This action cannot be undone."
+                onConfirm={() => updateDriverStatus(record.id, 'rejected')}
+                okText="Reject"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+              >
+                <Button danger size="small" icon={<CloseOutlined />} loading={updating}>
+                  Reject
+                </Button>
+              </Popconfirm>
+            </>
+          )}
+        </Space>
       )
     }
   ];
@@ -365,45 +462,209 @@ const DriversAdmin: React.FC = () => {
           setDetailModalVisible(false);
           setSelectedDriver(null);
         }}
-        footer={null}
-        width={700}
+        footer={selectedDriver ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button onClick={() => { setDetailModalVisible(false); setSelectedDriver(null); }}>
+              Close
+            </Button>
+            <Space>
+              {selectedDriver.status === 'pending' && (
+                <>
+                  <Popconfirm
+                    title="Approve this driver?"
+                    description="An activation email will be sent to the driver."
+                    onConfirm={() => updateDriverStatus(selectedDriver.id, 'approved')}
+                    okText="Approve"
+                    cancelText="Cancel"
+                  >
+                    <Button type="primary" icon={<CheckOutlined />} loading={updating}>
+                      Approve Driver
+                    </Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title="Reject this driver?"
+                    description="This action cannot be undone."
+                    onConfirm={() => updateDriverStatus(selectedDriver.id, 'rejected')}
+                    okText="Reject"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger icon={<CloseOutlined />} loading={updating}>
+                      Reject
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
+              {(selectedDriver.status === 'approved' || selectedDriver.status === 'active') && (
+                <Popconfirm
+                  title="Suspend this driver?"
+                  description="Driver will not be able to accept new requests."
+                  onConfirm={() => updateDriverStatus(selectedDriver.id, 'suspended')}
+                  okText="Suspend"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button danger icon={<StopOutlined />} loading={updating}>
+                    Suspend Driver
+                  </Button>
+                </Popconfirm>
+              )}
+              {selectedDriver.status === 'suspended' && (
+                <Popconfirm
+                  title="Reactivate this driver?"
+                  description="Driver will be able to accept requests again."
+                  onConfirm={() => updateDriverStatus(selectedDriver.id, 'active')}
+                  okText="Reactivate"
+                  cancelText="Cancel"
+                >
+                  <Button type="primary" icon={<CheckOutlined />} loading={updating}>
+                    Reactivate Driver
+                  </Button>
+                </Popconfirm>
+              )}
+            </Space>
+          </div>
+        ) : null}
+        width={800}
       >
         {selectedDriver && (
-          <Descriptions bordered column={2}>
-            <Descriptions.Item label="Driver ID">{selectedDriver.driver_id}</Descriptions.Item>
-            <Descriptions.Item label="Status">
-              <Tag color={getStatusColor(selectedDriver.status)}>
-                {selectedDriver.status?.toUpperCase()}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Name">
-              {selectedDriver.first_name} {selectedDriver.last_name}
-            </Descriptions.Item>
-            <Descriptions.Item label="Online">
-              <Badge status={selectedDriver.is_online ? 'success' : 'default'} text={selectedDriver.is_online ? 'Yes' : 'No'} />
-            </Descriptions.Item>
-            <Descriptions.Item label="Email">{selectedDriver.email}</Descriptions.Item>
-            <Descriptions.Item label="Phone">{selectedDriver.phone}</Descriptions.Item>
-            <Descriptions.Item label="Vehicle" span={2}>
-              {selectedDriver.vehicle_year} {selectedDriver.vehicle_make} {selectedDriver.vehicle_model} ({selectedDriver.vehicle_color})
-            </Descriptions.Item>
-            <Descriptions.Item label="License Plate">{selectedDriver.license_plate}</Descriptions.Item>
-            <Descriptions.Item label="Vehicle Type">{selectedDriver.vehicle_type}</Descriptions.Item>
-            <Descriptions.Item label="Rating">
-              <StarFilled style={{ color: '#faad14', marginRight: 4 }} />
-              {selectedDriver.rating?.toFixed(1) || '5.0'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Total Deliveries">{selectedDriver.total_deliveries || 0}</Descriptions.Item>
-            <Descriptions.Item label="Documents Verified">
-              {selectedDriver.documents_verified ? <Tag color="green">Yes</Tag> : <Tag color="orange">No</Tag>}
-            </Descriptions.Item>
-            <Descriptions.Item label="Stripe Onboarded">
-              {selectedDriver.stripe_onboarded ? <Tag color="green">Yes</Tag> : <Tag color="orange">No</Tag>}
-            </Descriptions.Item>
-            <Descriptions.Item label="Joined" span={2}>
-              {selectedDriver.created_at ? moment(selectedDriver.created_at).format('MMMM DD, YYYY HH:mm') : '-'}
-            </Descriptions.Item>
-          </Descriptions>
+          <Tabs defaultActiveKey="info" items={[
+            {
+              key: 'info',
+              label: <span><UserOutlined /> Info</span>,
+              children: (
+                <Descriptions bordered column={2} size="small">
+                  <Descriptions.Item label="Driver ID">{selectedDriver.driver_id}</Descriptions.Item>
+                  <Descriptions.Item label="Status">
+                    <Tag color={getStatusColor(selectedDriver.status)}>
+                      {selectedDriver.status?.toUpperCase()}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Name">
+                    {selectedDriver.first_name} {selectedDriver.last_name}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Online">
+                    <Badge status={selectedDriver.is_online ? 'success' : 'default'} text={selectedDriver.is_online ? 'Yes' : 'No'} />
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Email">{selectedDriver.email}</Descriptions.Item>
+                  <Descriptions.Item label="Phone">{selectedDriver.phone}</Descriptions.Item>
+                  <Descriptions.Item label="Vehicle" span={2}>
+                    {selectedDriver.vehicle_year} {selectedDriver.vehicle_make} {selectedDriver.vehicle_model} ({selectedDriver.vehicle_color})
+                  </Descriptions.Item>
+                  <Descriptions.Item label="License Plate">{selectedDriver.license_plate}</Descriptions.Item>
+                  <Descriptions.Item label="Vehicle Type">{selectedDriver.vehicle_type}</Descriptions.Item>
+                  <Descriptions.Item label="Rating">
+                    <StarFilled style={{ color: '#faad14', marginRight: 4 }} />
+                    {selectedDriver.rating?.toFixed(1) || '5.0'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Total Deliveries">{selectedDriver.total_deliveries || 0}</Descriptions.Item>
+                  <Descriptions.Item label="Joined" span={2}>
+                    {selectedDriver.created_at ? moment(selectedDriver.created_at).format('MMMM DD, YYYY HH:mm') : '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+              )
+            },
+            {
+              key: 'documents',
+              label: <span><FileImageOutlined /> Documents {!selectedDriver.documents_verified && <Badge count="!" style={{ backgroundColor: '#faad14' }} />}</span>,
+              children: (
+                <div>
+                  {selectedDriver.status === 'pending' && !selectedDriver.documents_verified && (
+                    <Alert
+                      message="Documents Required for Approval"
+                      description="The following documents must be uploaded before the driver can be approved: Driver's License, Vehicle Insurance, and Profile Photo."
+                      type="warning"
+                      icon={<ExclamationCircleOutlined />}
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                    />
+                  )}
+
+                  <Row gutter={[16, 16]}>
+                    {/* Profile Photo */}
+                    <Col span={8}>
+                      <Card
+                        title={<><CameraOutlined /> Profile Photo</>}
+                        size="small"
+                        extra={selectedDriver.photo_url ? <Tag color="green">Uploaded</Tag> : <Tag color="red">Missing</Tag>}
+                      >
+                        {selectedDriver.photo_url ? (
+                          <Image
+                            src={selectedDriver.photo_url}
+                            alt="Profile Photo"
+                            style={{ width: '100%', maxHeight: 150, objectFit: 'cover' }}
+                            fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgesAHlMNoBQAAABsZVhJZk1NACoAAAAIAAQBGgAFAAAAAQAAAD4BGwAFAAAAAQAAAEYBKAADAAAAAQACAACHaQAEAAAAAQAAAE4AAAAAAAAAkAAAAAEAAACQAAAAAQACoAIABAAAAAEAAADCoAMABAAAAAEAAADDAAA=="
+                          />
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                            <CameraOutlined style={{ fontSize: 40 }} />
+                            <p>No photo uploaded</p>
+                          </div>
+                        )}
+                      </Card>
+                    </Col>
+
+                    {/* Driver's License */}
+                    <Col span={8}>
+                      <Card
+                        title={<><IdcardOutlined /> Driver's License</>}
+                        size="small"
+                        extra={selectedDriver.drivers_license_url ? <Tag color="green">Uploaded</Tag> : <Tag color="red">Missing</Tag>}
+                      >
+                        {selectedDriver.drivers_license_url ? (
+                          <Image
+                            src={selectedDriver.drivers_license_url}
+                            alt="Driver's License"
+                            style={{ width: '100%', maxHeight: 150, objectFit: 'cover' }}
+                            fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHAHlMNoBQAAABsZVhJZk1NACoAAAAIAAQBGgAFAAAAAQAAAD4BGwAFAAAAAQAAAEYBKAADAAAAAQACAACHaQAEAAAAAQAAAE4AAAAAAAAAkAAAAAEAAACQAAAAAQACoAIABAAAAAEAAADCoAMABAAAAAEAAADDAAA="
+                          />
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                            <IdcardOutlined style={{ fontSize: 40 }} />
+                            <p>No license uploaded</p>
+                          </div>
+                        )}
+                      </Card>
+                    </Col>
+
+                    {/* Vehicle Insurance */}
+                    <Col span={8}>
+                      <Card
+                        title={<><SafetyCertificateOutlined /> Insurance</>}
+                        size="small"
+                        extra={selectedDriver.insurance_url ? <Tag color="green">Uploaded</Tag> : <Tag color="red">Missing</Tag>}
+                      >
+                        {selectedDriver.insurance_url ? (
+                          <Image
+                            src={selectedDriver.insurance_url}
+                            alt="Insurance"
+                            style={{ width: '100%', maxHeight: 150, objectFit: 'cover' }}
+                            fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHAHlMNoBQAAABsZVhJZk1NACoAAAAIAAQBGgAFAAAAAQAAAD4BGwAFAAAAAQAAAEYBKAADAAAAAQACAACHaQAEAAAAAQAAAE4AAAAAAAAAkAAAAAEAAACQAAAAAQACoAIABAAAAAEAAADCoAMABAAAAAEAAADDAAA="
+                          />
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                            <SafetyCertificateOutlined style={{ fontSize: 40 }} />
+                            <p>No insurance uploaded</p>
+                          </div>
+                        )}
+                      </Card>
+                    </Col>
+                  </Row>
+
+                  <Divider />
+
+                  <Descriptions bordered column={2} size="small">
+                    <Descriptions.Item label="Documents Verified">
+                      {selectedDriver.documents_verified ? <Tag color="green">Yes</Tag> : <Tag color="orange">No</Tag>}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Stripe Onboarded">
+                      {selectedDriver.stripe_onboarded ? <Tag color="green">Yes</Tag> : <Tag color="orange">No</Tag>}
+                    </Descriptions.Item>
+                  </Descriptions>
+                </div>
+              )
+            }
+          ]} />
         )}
       </Modal>
     </div>

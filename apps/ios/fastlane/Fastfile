@@ -1,4 +1,5 @@
 # Fastfile - Fastlane lanes for Dollor iOS apps
+# Production account: support@dollor.ai
 
 default_platform(:ios)
 
@@ -20,145 +21,128 @@ platform :ios do
 
   # ==================== MATCH LANES ====================
 
-  desc "Sync all development certificates and profiles"
-  lane :sync_dev_certs do
-    setup_api_key
-    match(
-      type: "development",
-      app_identifier: ["com.dollor.customer", "com.dollor.restaurant", "com.dollor.driver"],
-      readonly: is_ci
-    )
-  end
-
   desc "Sync all app store certificates and profiles"
   lane :sync_appstore_certs do
     setup_api_key
     match(
       type: "appstore",
-      app_identifier: ["com.dollor.customer", "com.dollor.restaurant", "com.dollor.driver"],
+      app_identifier: ["com.dollorai.customer", "com.dollorai.restaurant", "com.dollorai.delivery"],
       readonly: is_ci
     )
   end
 
   # ==================== CUSTOMER APP ====================
 
-  desc "Build Customer app for development"
-  lane :customer_dev do
-    sync_dev_certs
-    Dir.chdir("../customer") do
-      build_app(
-        workspace: "eatfaircustomer.xcworkspace",
-        scheme: "eatfaircustomer",
-        configuration: "Debug",
-        export_method: "development",
-        output_directory: "../build",
-        output_name: "DollorCustomer-Dev.ipa"
-      )
-    end
-  end
-
   desc "Build Customer app for TestFlight"
   lane :customer_testflight do
     setup_api_key
-    sync_appstore_certs
-    Dir.chdir("../customer") do
-      build_app(
-        workspace: "eatfaircustomer.xcworkspace",
-        scheme: "eatfaircustomer",
-        configuration: "Release",
-        export_method: "app-store",
-        output_directory: "../build",
-        output_name: "DollorCustomer.ipa"
-      )
-    end
+    match(
+      type: "appstore",
+      app_identifier: "com.dollorai.customer",
+      readonly: is_ci
+    )
+
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "customer/eatfaircustomer.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.customer",
+      targets: ["eatfaircustomer"]
+    )
+
+    build_app(
+      workspace: "customer/eatfaircustomer.xcworkspace",
+      scheme: "eatfaircustomer",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "DollorCustomer.ipa",
+      clean: true
+    )
+
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorCustomer.ipa"
+      ipa: "build/DollorCustomer.ipa"
     )
   end
 
   # ==================== RESTAURANT APP ====================
 
-  desc "Build Restaurant app for development"
-  lane :restaurant_dev do
-    sync_dev_certs
-    Dir.chdir("../restaurant") do
-      build_app(
-        workspace: "eatffairrestaurant.xcworkspace",
-        scheme: "eatffairrestaurant",
-        configuration: "Debug",
-        export_method: "development",
-        output_directory: "../build",
-        output_name: "DollorRestaurant-Dev.ipa"
-      )
-    end
-  end
-
   desc "Build Restaurant app for TestFlight"
   lane :restaurant_testflight do
     setup_api_key
-    sync_appstore_certs
-    Dir.chdir("../restaurant") do
-      build_app(
-        workspace: "eatffairrestaurant.xcworkspace",
-        scheme: "eatffairrestaurant",
-        configuration: "Release",
-        export_method: "app-store",
-        output_directory: "../build",
-        output_name: "DollorRestaurant.ipa"
-      )
-    end
+    match(
+      type: "appstore",
+      app_identifier: "com.dollorai.restaurant",
+      readonly: is_ci
+    )
+
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "restaurant/eatffairrestaurant.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.restaurant",
+      targets: ["eatffairrestaurant"]
+    )
+
+    build_app(
+      workspace: "restaurant/eatffairrestaurant.xcworkspace",
+      scheme: "eatffairrestaurant",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "DollorRestaurant.ipa",
+      clean: true
+    )
+
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorRestaurant.ipa"
+      ipa: "build/DollorRestaurant.ipa"
     )
   end
 
-  # ==================== DRIVER APP ====================
-
-  desc "Build Driver app for development"
-  lane :driver_dev do
-    sync_dev_certs
-    Dir.chdir("../delivery") do
-      build_app(
-        workspace: "eatffairdelivery.xcworkspace",
-        scheme: "eatffairdelivery",
-        configuration: "Debug",
-        export_method: "development",
-        output_directory: "../build",
-        output_name: "DollorDriver-Dev.ipa"
-      )
-    end
-  end
+  # ==================== DRIVER/DELIVERY APP ====================
 
   desc "Build Driver app for TestFlight"
   lane :driver_testflight do
     setup_api_key
-    sync_appstore_certs
-    Dir.chdir("../delivery") do
-      build_app(
-        workspace: "eatffairdelivery.xcworkspace",
-        scheme: "eatffairdelivery",
-        configuration: "Release",
-        export_method: "app-store",
-        output_directory: "../build",
-        output_name: "DollorDriver.ipa"
-      )
-    end
+    match(
+      type: "appstore",
+      app_identifier: "com.dollorai.delivery",
+      readonly: is_ci
+    )
+
+    # Update code signing for main target only
+    update_code_signing_settings(
+      path: "delivery/eatffairdelivery.xcodeproj",
+      use_automatic_signing: false,
+      team_id: "PRKZ4UVCD7",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dollorai.delivery",
+      targets: ["eatffairdelivery"]
+    )
+
+    build_app(
+      workspace: "delivery/eatffairdelivery.xcworkspace",
+      scheme: "eatffairdelivery",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "DollorDriver.ipa",
+      clean: true
+    )
+
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: "../build/DollorDriver.ipa"
+      ipa: "build/DollorDriver.ipa"
     )
   end
 
   # ==================== ALL APPS ====================
-
-  desc "Build all apps for development"
-  lane :all_dev do
-    customer_dev
-    restaurant_dev
-    driver_dev
-  end
 
   desc "Deploy all apps to TestFlight"
   lane :all_testflight do

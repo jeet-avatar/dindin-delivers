@@ -23,7 +23,18 @@ from websocket_server import (
     broadcast_bid_update, broadcast_bid_withdrawn, broadcast_counter_offer_response
 )
 from pricing_config import pricing_engine, get_fare_estimate, get_bid_label
+from email_service import (
+    send_ride_request_confirmation_email,
+    send_ride_bid_received_email,
+    send_ride_matched_email,
+    send_ride_started_email,
+    send_ride_completed_email,
+    send_ride_cancelled_email
+)
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/rides", tags=["Ride Bidding"])
 
@@ -259,6 +270,23 @@ async def create_ride_request(data: CreateRideRequestInput, db: Session = Depend
     except Exception as e:
         print(f"WebSocket broadcast error: {e}")
 
+    # Send confirmation email to customer
+    try:
+        distance_miles = round(distance_km * 0.621371, 1)  # Convert km to miles
+        send_ride_request_confirmation_email(
+            to_email=customer.email,
+            customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+            request_id=ride_request.request_id,
+            pickup_address=data.pickup_address,
+            dropoff_address=data.dropoff_address,
+            estimated_price=suggested_price,
+            estimated_distance_miles=distance_miles,
+            estimated_duration_minutes=duration_minutes
+        )
+        logger.info(f"Ride request confirmation email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send ride request confirmation email: {e}")
+
     return {
         "success": True,
         "message": "Ride request created - waiting for driver bids",
@@ -388,6 +416,26 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         except Exception as e:
             print(f"WebSocket broadcast error: {e}")
 
+        # Send ride matched email to customer
+        try:
+            customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+            driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+            if customer and customer.email and driver:
+                send_ride_matched_email(
+                    to_email=customer.email,
+                    customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                    request_id=ride_request.request_id,
+                    driver_name=f"{driver.first_name} {driver.last_name}",
+                    driver_phone=driver.phone or "",
+                    driver_vehicle=bid.driver_vehicle or "",
+                    final_price=ride_request.final_price,
+                    eta_minutes=bid.estimated_arrival_minutes or 10,
+                    pickup_address=ride_request.pickup_address
+                )
+                logger.info(f"Ride matched email sent to {customer.email}")
+        except Exception as e:
+            logger.error(f"Failed to send ride matched email: {e}")
+
         return {
             "success": True,
             "message": f"Bid accepted! Ride matched with {bid.driver_name}",
@@ -481,6 +529,22 @@ async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
         bid.customer_response = "Ride request cancelled by customer"
 
     db.commit()
+
+    # Send cancellation email to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        if customer and customer.email:
+            send_ride_cancelled_email(
+                to_email=customer.email,
+                customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                request_id=ride_request.request_id,
+                cancelled_by="Customer",
+                reason="Cancelled by customer request",
+                refund_amount=ride_request.final_price if ride_request.final_price else None
+            )
+            logger.info(f"Ride cancellation email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send ride cancellation email: {e}")
 
     return {
         "success": True,
@@ -629,6 +693,30 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
         ))
     except Exception as e:
         print(f"WebSocket broadcast error: {e}")
+
+    # Send email notification to customer about new bid
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        if customer and customer.email:
+            # Count total pending bids
+            total_bids = db.query(RideBid).filter(
+                RideBid.ride_request_id == request_id,
+                RideBid.status == BidStatus.PENDING
+            ).count()
+
+            send_ride_bid_received_email(
+                to_email=customer.email,
+                customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                request_id=ride_request.request_id,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                driver_rating=driver.rating or 0.0,
+                proposed_price=data.proposed_price,
+                eta_minutes=data.estimated_arrival_minutes or 10,
+                total_bids=total_bids
+            )
+            logger.info(f"Bid notification email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send bid notification email: {e}")
 
     return {
         "success": True,
@@ -804,6 +892,25 @@ async def start_ride(request_id: int, db: Session = Depends(get_db)):
     ride_request.status = RideRequestStatus.IN_PROGRESS
     db.commit()
 
+    # Send ride started email to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer and customer.email and driver:
+            send_ride_started_email(
+                to_email=customer.email,
+                customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                request_id=ride_request.request_id,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                pickup_address=ride_request.pickup_address,
+                dropoff_address=ride_request.dropoff_address,
+                estimated_duration_minutes=ride_request.estimated_duration_minutes or 15,
+                final_price=ride_request.final_price
+            )
+            logger.info(f"Ride started email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send ride started email: {e}")
+
     return {
         "success": True,
         "message": "Ride started",
@@ -824,6 +931,39 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
     ride_request.status = RideRequestStatus.COMPLETED
     ride_request.completed_at = datetime.utcnow()
     db.commit()
+
+    # Send ride completed email with receipt to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer and customer.email and driver:
+            # Calculate platform fee based on fare tier
+            final_price = ride_request.final_price or 0
+            if final_price <= 35:
+                platform_fee = 1.00
+            elif final_price <= 70:
+                platform_fee = 2.00
+            else:
+                platform_fee = 3.00
+
+            # Convert km to miles for receipt
+            distance_miles = (ride_request.estimated_distance_km or 0) * 0.621371
+
+            send_ride_completed_email(
+                to_email=customer.email,
+                customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                request_id=ride_request.request_id,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                pickup_address=ride_request.pickup_address,
+                dropoff_address=ride_request.dropoff_address,
+                final_price=final_price,
+                platform_fee=platform_fee,
+                distance_miles=round(distance_miles, 1),
+                duration_minutes=ride_request.estimated_duration_minutes or 15
+            )
+            logger.info(f"Ride completed email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send ride completed email: {e}")
 
     return {
         "success": True,

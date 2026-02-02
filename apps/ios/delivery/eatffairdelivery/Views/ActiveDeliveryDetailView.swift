@@ -274,7 +274,7 @@ struct ActiveDeliveryDetailView: View {
                     
                     // Primary Action Button
                     Button(action: {
-                        if orderStatus == .outForDelivery || orderStatus == .pickedUp {
+                        if orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver {
                             showingCompleteAlert = true
                         } else {
                             viewModel.markAsPickedUp(order)
@@ -331,44 +331,44 @@ struct ActiveDeliveryDetailView: View {
 
     var statusText: String {
         switch orderStatus {
-        case .ready, .readyForPickup: return "Pickup Order"
-        case .pickedUp, .outForDelivery: return "Deliver to Customer"
+        case .readyForPickup: return "Pickup Order"
+        case .outForDelivery, .restaurantWillDeliver: return "Deliver to Customer"
         case .delivered: return "Order Completed"
         case .cancelled: return "Order Cancelled"
-        case .pendingModification: return "Order Pending"
+        default: return "Order Pending"
         }
     }
 
     var statusIcon: String {
         switch orderStatus {
-        case .ready, .readyForPickup: return "bag"
-        case .pickedUp, .outForDelivery: return "shippingbox"
+        case .readyForPickup: return "bag"
+        case .outForDelivery, .restaurantWillDeliver: return "shippingbox"
         case .delivered: return "checkmark.circle"
         case .cancelled: return "xmark.circle"
-        case .pendingModification: return "clock"
+        default: return "clock"
         }
     }
 
     var statusColor: Color {
         switch orderStatus {
-        case .ready, .readyForPickup: return Theme.brandOrange
-        case .pickedUp, .outForDelivery: return Theme.statusInfo
+        case .readyForPickup: return Theme.brandOrange
+        case .outForDelivery, .restaurantWillDeliver: return Theme.statusInfo
         case .delivered: return Theme.statusActive
         case .cancelled: return Theme.statusError
-        case .pendingModification: return Theme.brandOrange
+        default: return Theme.brandOrange
         }
     }
 
     var actionText: String {
-        orderStatus == .outForDelivery || orderStatus == .pickedUp ? "Complete Delivery" : "Start Delivery"
+        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? "Complete Delivery" : "Start Delivery"
     }
 
     var actionIcon: String {
-        orderStatus == .outForDelivery || orderStatus == .pickedUp ? "checkmark.circle.fill" : "arrow.right.circle.fill"
+        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? "checkmark.circle.fill" : "arrow.right.circle.fill"
     }
 
     var actionColor: Color {
-        orderStatus == .outForDelivery || orderStatus == .pickedUp ? Theme.statusActive : Theme.statusInfo
+        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? Theme.statusActive : Theme.statusInfo
     }
 
     // MARK: - Helper Functions
@@ -612,7 +612,7 @@ struct DeliveryTimelineView: View {
     }
 
     private var isPickedUp: Bool {
-        orderStatus == .pickedUp || orderStatus == .outForDelivery || orderStatus == .delivered
+        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver || orderStatus == .delivered
     }
 
     private var isDelivered: Bool {

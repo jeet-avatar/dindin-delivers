@@ -62,7 +62,7 @@ struct RegisterView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Text("Join EatFair")
+            Text("Join Dollor")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
 
@@ -87,7 +87,7 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedTextFieldStyle(hasError: emailError != nil))
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
-                .onChange(of: email) { _ in emailError = nil }
+                .onChange(of: email) { emailError = nil }
 
             if let error = emailError {
                 Text(error)
@@ -105,7 +105,7 @@ struct RegisterView: View {
 
             SecureField("Minimum 6 characters", text: $password)
                 .textFieldStyle(RoundedTextFieldStyle(hasError: passwordError != nil))
-                .onChange(of: password) { _ in passwordError = nil }
+                .onChange(of: password) { passwordError = nil }
 
             if let error = passwordError {
                 Text(error)
@@ -123,7 +123,7 @@ struct RegisterView: View {
 
             TextField("John Doe", text: $name)
                 .textFieldStyle(RoundedTextFieldStyle(hasError: nameError != nil))
-                .onChange(of: name) { _ in nameError = nil }
+                .onChange(of: name) { nameError = nil }
 
             if let error = nameError {
                 Text(error)
@@ -142,7 +142,7 @@ struct RegisterView: View {
             TextField("(555) 123-4567", text: $phoneNumber)
                 .textFieldStyle(RoundedTextFieldStyle(hasError: phoneError != nil))
                 .keyboardType(.phonePad)
-                .onChange(of: phoneNumber) { _ in phoneError = nil }
+                .onChange(of: phoneNumber) { phoneError = nil }
 
             if let error = phoneError {
                 Text(error)
@@ -161,7 +161,7 @@ struct RegisterView: View {
             TextField("12345", text: $zipCode)
                 .textFieldStyle(RoundedTextFieldStyle(hasError: zipCodeError != nil))
                 .keyboardType(.numberPad)
-                .onChange(of: zipCode) { _ in zipCodeError = nil }
+                .onChange(of: zipCode) { zipCodeError = nil }
 
             if let error = zipCodeError {
                 Text(error)
@@ -174,7 +174,7 @@ struct RegisterView: View {
     // MARK: - Benefits Card
     private var benefitsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Why Join EatFair?")
+            Text("Why Join Dollor?")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.black)
 
@@ -196,7 +196,7 @@ struct RegisterView: View {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
             } else {
-                Text("Join EatFair")
+                Text("Join Dollor")
                     .font(.system(size: 18, weight: .semibold))
             }
         }
@@ -233,15 +233,10 @@ struct RegisterView: View {
 
     // MARK: - Validation
     private func validateEmail() -> String? {
-        if email.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "Email is required"
-        }
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        if !emailPredicate.evaluate(with: email) {
-            return "Invalid email format"
-        }
-        return nil
+        // Use shared EmailValidator for consistent validation across all apps
+        // This blocks disposable emails and validates format strictly
+        let result = EmailValidator.validate(email)
+        return result.errorMessage
     }
 
     private func validatePassword() -> String? {

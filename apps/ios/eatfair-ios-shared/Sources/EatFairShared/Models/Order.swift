@@ -324,9 +324,10 @@ public struct Order: Identifiable, Codable {
     public var restaurantToCustomerDistance: Double? // miles
     
     // Rating & Tip Status
-    public var isRated: Bool
+    public var isRated: Bool  // Driver rated
+    public var isRestaurantRated: Bool  // Restaurant rated
     public var isTipped: Bool
-    
+
     enum CodingKeys: String, CodingKey {
         case id, orderId, customerId, customerName, customerPhone, customerEmail
         case deliveryAddress, deliveryInstructions, restaurant, items, itemsCount
@@ -337,7 +338,7 @@ public struct Order: Identifiable, Codable {
         case total
         case status, placedAt, acceptedAt, preparedAt, pickedUpAt, deliveredAt
         case estimatedDeliveryTime, driverId, driverName, driverPhone, driverRating
-        case restaurantToCustomerDistance, isRated, isTipped
+        case restaurantToCustomerDistance, isRated, isRestaurantRated, isTipped
     }
     
     public init(from decoder: Decoder) throws {
@@ -399,10 +400,11 @@ public struct Order: Identifiable, Codable {
         
         restaurantToCustomerDistance = try container.decodeIfPresent(Double.self, forKey: .restaurantToCustomerDistance)
         isRated = try container.decodeIfPresent(Bool.self, forKey: .isRated) ?? false
+        isRestaurantRated = try container.decodeIfPresent(Bool.self, forKey: .isRestaurantRated) ?? false
         isTipped = try container.decodeIfPresent(Bool.self, forKey: .isTipped) ?? false
     }
     
-    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isTipped: Bool = false) {
+    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isRestaurantRated: Bool = false, isTipped: Bool = false) {
         self.id = id
         self.orderId = orderId
         self.customerId = customerId
@@ -442,6 +444,7 @@ public struct Order: Identifiable, Codable {
         self.driverRating = driverRating
         self.restaurantToCustomerDistance = restaurantToCustomerDistance
         self.isRated = isRated
+        self.isRestaurantRated = isRestaurantRated
         self.isTipped = isTipped
     }
     
@@ -475,6 +478,7 @@ public struct Order: Identifiable, Codable {
         self.driverRating = nil
         self.restaurantToCustomerDistance = nil
         self.isRated = false
+        self.isRestaurantRated = false
         self.isTipped = false
     }
 }
@@ -610,7 +614,8 @@ public struct MultiRestaurantOrder: Identifiable, Codable {
     public var isHighTicket: Bool // True for multi-restaurant orders
 
     // Rating
-    public var isRated: Bool
+    public var isRated: Bool  // Driver rated
+    public var isRestaurantRated: Bool  // Restaurant rated
     public var isTipped: Bool
 
     public init(
@@ -676,6 +681,7 @@ public struct MultiRestaurantOrder: Identifiable, Codable {
         self.isHighTicket = restaurants.count > 1
 
         self.isRated = false
+        self.isRestaurantRated = false
         self.isTipped = false
     }
 

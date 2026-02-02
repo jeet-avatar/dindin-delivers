@@ -520,7 +520,7 @@ const RestaurantApplicationForm: React.FC = () => {
             <AIValidationStatus
               vendorId={parseInt(applicationId)}
               onActivate={() => {
-                message.success('Congratulations! Your restaurant is now live on ' + 'Dollor.ai');
+                message.success('Congratulations! Your restaurant is now live on Dollor.AI!');
               }}
             />
           </div>

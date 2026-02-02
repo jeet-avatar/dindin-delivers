@@ -465,3 +465,178 @@ class VendorAnalytics(Base):
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ==================== EMAIL TEMPLATE ENUMS ====================
+
+class EmailTemplateType(enum.Enum):
+    TRANSACTIONAL = "transactional"  # Order confirmations, password reset
+    MARKETING = "marketing"          # Promotions, newsletters
+    SYSTEM = "system"                # Account notifications
+    ONBOARDING = "onboarding"        # Welcome, registration confirmation
+
+
+class EmailTemplateStatus(enum.Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class EmailScheduleStatus(enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SENT = "sent"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+# ==================== EMAIL TEMPLATE MODELS ====================
+
+class EmailTemplate(Base):
+    """
+    Email templates stored in database for easy updates without code deployment.
+    Supports A/B testing with variant support.
+    """
+    __tablename__ = "email_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(String(100), unique=True, nullable=False, index=True)  # e.g., "order_confirmation"
+
+    # Template Info
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    type = Column(SQLEnum(EmailTemplateType), default=EmailTemplateType.TRANSACTIONAL)
+    status = Column(SQLEnum(EmailTemplateStatus), default=EmailTemplateStatus.DRAFT)
+
+    # Email Content
+    subject = Column(String(500), nullable=False)
+    html_body = Column(Text, nullable=False)
+    text_body = Column(Text)  # Plain text fallback
+
+    # Template Variables (for documentation)
+    variables = Column(JSON)  # ["customer_name", "order_id", "restaurant_name"]
+
+    # A/B Testing Support
+    is_variant = Column(Boolean, default=False)
+    parent_template_id = Column(Integer, ForeignKey("email_templates.id"), nullable=True)
+    variant_name = Column(String(50))  # "A", "B", "C" or descriptive name
+    variant_weight = Column(Integer, default=50)  # Percentage weight for A/B split (0-100)
+
+    # A/B Testing Metrics
+    times_sent = Column(Integer, default=0)
+    times_opened = Column(Integer, default=0)
+    times_clicked = Column(Integer, default=0)
+    open_rate = Column(Float, default=0.0)
+    click_rate = Column(Float, default=0.0)
+
+    # Targeting
+    recipient_types = Column(JSON)  # ["customer", "vendor", "driver"]
+
+    # Metadata
+    created_by = Column(String(100))
+    updated_by = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship for variants
+    variants = relationship("EmailTemplate", backref="parent_template", remote_side=[id])
+
+
+class EmailSchedule(Base):
+    """
+    Scheduled emails for delayed sending.
+    Supports one-time and recurring schedules.
+    """
+    __tablename__ = "email_schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    schedule_id = Column(String(100), unique=True, nullable=False, index=True)
+
+    # Template Reference
+    template_id = Column(Integer, ForeignKey("email_templates.id"), nullable=True)
+    template_name = Column(String(100))  # Fallback if not using DB template
+
+    # Recipient
+    recipient_type = Column(SQLEnum(RecipientType), nullable=False)
+    recipient_id = Column(Integer, nullable=False)
+    recipient_email = Column(String(255), nullable=False)
+
+    # Email Content (can override template)
+    subject = Column(String(500))
+    html_body = Column(Text)
+    text_body = Column(Text)
+
+    # Template Variables
+    template_variables = Column(JSON)  # {"customer_name": "John", "order_id": "123"}
+
+    # Scheduling
+    scheduled_for = Column(DateTime, nullable=False, index=True)
+    timezone = Column(String(50), default="UTC")
+
+    # Recurring Schedule (optional)
+    is_recurring = Column(Boolean, default=False)
+    recurrence_rule = Column(String(255))  # iCal RRULE format: "FREQ=WEEKLY;BYDAY=MO"
+    recurrence_end = Column(DateTime)
+    last_sent_at = Column(DateTime)
+    next_run_at = Column(DateTime)
+
+    # Status
+    status = Column(SQLEnum(EmailScheduleStatus), default=EmailScheduleStatus.PENDING)
+    attempts = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=3)
+
+    # Result
+    sent_at = Column(DateTime)
+    failed_at = Column(DateTime)
+    failure_reason = Column(Text)
+    communication_id = Column(String(100))  # Links to Communication record
+
+    # Related Entities
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    promotion_id = Column(Integer, ForeignKey("promotions.id"), nullable=True)
+
+    # Metadata
+    created_by = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EmailABTest(Base):
+    """
+    A/B test campaigns for email optimization.
+    Tracks performance across template variants.
+    """
+    __tablename__ = "email_ab_tests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    test_id = Column(String(100), unique=True, nullable=False, index=True)
+
+    # Test Configuration
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    base_template_id = Column(Integer, ForeignKey("email_templates.id"), nullable=False)
+
+    # Variants (references to EmailTemplate with is_variant=True)
+    variant_ids = Column(JSON)  # [template_id_1, template_id_2]
+
+    # Test Parameters
+    sample_size = Column(Integer)  # Number of recipients per variant
+    confidence_level = Column(Float, default=0.95)  # 95% confidence
+    minimum_sample = Column(Integer, default=100)  # Min sends before declaring winner
+
+    # Status
+    status = Column(String(50), default="draft")  # draft, running, completed, cancelled
+    started_at = Column(DateTime)
+    ended_at = Column(DateTime)
+    auto_select_winner = Column(Boolean, default=True)
+
+    # Results
+    winning_variant_id = Column(Integer, ForeignKey("email_templates.id"), nullable=True)
+    winning_metric = Column(String(50))  # "open_rate", "click_rate", "conversion"
+    statistical_significance = Column(Float)  # p-value
+
+    # Metadata
+    created_by = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

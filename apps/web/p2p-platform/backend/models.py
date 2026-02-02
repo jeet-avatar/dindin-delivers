@@ -262,9 +262,56 @@ class Vendor(Base):
     stripe_account_id = Column(String(255))  # Stripe Connect account ID
     stripe_onboarding_complete = Column(Boolean, default=False)  # True when can receive payouts
 
+    # KOT (Kitchen Order Ticket) / POS Integration
+    # Supported types: 'none', 'square', 'clover', 'toast', 'star_cloud', 'epson_epos'
+    kot_integration_type = Column(String(50), default="none")
+    kot_enabled = Column(Boolean, default=False)
+    kot_api_key = Column(String(500))  # Encrypted API key for POS system
+    kot_api_secret = Column(String(500))  # For systems requiring secret (Toast)
+    kot_location_id = Column(String(255))  # Square Location ID
+    kot_merchant_id = Column(String(255))  # Clover Merchant ID
+    kot_restaurant_guid = Column(String(255))  # Toast Restaurant GUID
+    kot_printer_id = Column(String(255))  # For direct printer integrations
+    kot_webhook_url = Column(String(500))  # Custom webhook for notifications
+    kot_auto_print = Column(Boolean, default=True)  # Auto-print on order accept
+
+    # Customer Ratings (aggregated from RestaurantRating table)
+    average_rating = Column(Float, default=0.0)  # 0-5 stars
+    total_ratings = Column(Integer, default=0)  # Number of ratings received
+
     # Relationships
     purchase_orders = relationship("VendorPurchaseOrder", back_populates="vendor", cascade="all, delete-orphan")
     menu_items = relationship("VendorMenuItem", back_populates="vendor", cascade="all, delete-orphan")
+    ratings = relationship("RestaurantRating", back_populates="vendor", cascade="all, delete-orphan")
+
+
+class RestaurantRating(Base):
+    """Individual customer ratings for restaurants"""
+    __tablename__ = "restaurant_ratings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign Keys
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+
+    # Rating Details
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    review = Column(Text)  # Optional text review
+
+    # Category Feedback (what was good)
+    food_quality = Column(Boolean, default=False)
+    portion_size = Column(Boolean, default=False)
+    value_for_money = Column(Boolean, default=False)
+    accuracy = Column(Boolean, default=False)  # Order accuracy
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    vendor = relationship("Vendor", back_populates="ratings")
+
 
 class VendorPurchaseOrder(Base):
     __tablename__ = "vendor_purchase_orders"
@@ -428,6 +475,7 @@ class Order(Base):
     delivery_decision_timeout_at = Column(DateTime)  # When 3-min timeout occurred
 
     preparing_at = Column(DateTime)
+    picked_up_at = Column(DateTime)  # When driver picked up from restaurant
     delivered_at = Column(DateTime)
     dispatched_at = Column(DateTime)  # When driver was assigned
     cancelled_at = Column(DateTime)  # When order was cancelled
@@ -558,6 +606,10 @@ class Customer(Base):
     # Stripe
     stripe_customer_id = Column(String(255))
     saved_cards = Column(JSON)  # Array of payment cards [{id, brand, last4, exp_month, exp_year, is_default}]
+
+    # OAuth identifiers for social login
+    apple_id = Column(String(255), unique=True, nullable=True, index=True)  # Apple Sign In user ID
+    google_id = Column(String(255), unique=True, nullable=True, index=True)  # Google Sign In user ID
 
     # Status
     is_active = Column(Boolean, default=True)
@@ -705,6 +757,10 @@ class Driver(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # NOTE: approved_at should be set when driver status changes to APPROVED - currently unused
     approved_at = Column(DateTime)
+
+    # Activation & Terms Acceptance (Legal Compliance)
+    activation_token = Column(String(64), unique=True, index=True)  # Token sent via email for activation
+    terms_accepted_at = Column(DateTime)  # When driver accepted Independent Contractor Agreement
 
     # Document Verification (Third-Party Integration - Persona/Onfido)
     verification_id = Column(String(255))  # Persona/Onfido inquiry ID
@@ -1545,3 +1601,84 @@ class CoupaRequisition(Base):
     department = relationship("CoupaDepartment")
     cost_center = relationship("CoupaCostCenter")
     purchase_order = relationship("CoupaPurchaseOrder")
+
+
+# =============================================================================
+# RATE LIMITING - Distributed rate limit tracking for security
+# =============================================================================
+
+class RateLimitEntry(Base):
+    """
+    Database-backed rate limiting for distributed environments (ECS/K8s).
+    Stores rate limit attempts per client IP and endpoint to enforce
+    limits across multiple container instances.
+    """
+    __tablename__ = "rate_limit_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Composite key: IP + endpoint type (e.g., "192.168.1.1:customer_login")
+    client_key = Column(String(255), nullable=False, index=True)
+    # Timestamp of the request attempt
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Index for efficient cleanup of old entries
+    __table_args__ = (
+        # Composite index for fast lookups by key + time window
+        # This enables efficient sliding window queries
+    )
+
+
+# =============================================================================
+# PASSWORD RESET TOKENS - Database-backed for distributed environments
+# =============================================================================
+
+class PasswordResetToken(Base):
+    """
+    Database-backed password reset tokens.
+
+    CRITICAL: This replaces in-memory storage to work across multiple
+    container instances (App Runner, ECS, K8s scaling).
+
+    Features:
+    - Secure hashed code storage (not plaintext)
+    - Expiration tracking
+    - Delivery status tracking
+    - Audit trail (IP, user agent, timestamps)
+    - Failed attempt tracking to prevent brute force
+    """
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # User identification
+    email = Column(String(255), nullable=False, index=True)
+    user_type = Column(String(50), nullable=False)  # 'customer', 'driver', 'vendor'
+    user_id = Column(Integer, nullable=False)
+
+    # Secure code storage (hashed, not plaintext)
+    code_hash = Column(String(255), nullable=False)
+
+    # Expiration
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+    # Usage tracking
+    used = Column(Boolean, default=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    failed_attempts = Column(Integer, default=0)
+
+    # Delivery tracking
+    delivery_status = Column(String(50), default='pending')  # pending, sent, delivered, failed, bounced
+    delivery_provider = Column(String(50), nullable=True)  # smtp, aws_ses, sendgrid, twilio_sms
+    delivery_message_id = Column(String(255), nullable=True)
+    delivery_error = Column(Text, nullable=True)
+
+    # Audit trail
+    ip_address = Column(String(45), nullable=True)  # IPv6 compatible
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for finding active tokens by email
+        # Index for cleanup of expired tokens
+    )

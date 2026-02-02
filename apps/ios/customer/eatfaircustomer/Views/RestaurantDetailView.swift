@@ -4,8 +4,7 @@ import EatFairShared
 struct RestaurantDetailView: View {
     let restaurant: Restaurant
     @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var cartViewModel: CartViewModel // Legacy single-restaurant cart
-    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel // Multi-restaurant cart
+    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
 
     @StateObject var menuViewModel = MenuViewModel()
     @State private var selectedItem: MenuItem? = nil
@@ -17,17 +16,20 @@ struct RestaurantDetailView: View {
     // Promotions state
     @State private var activePromotions: [P2PCustomerPromotion] = []
     @State private var isLoadingPromotions = false
-    
-    /*
-    // Mock Menu Items for now
-    let menuItems = [
-        MenuItem(name: "Garlic Naan", description: "Leavened white bread topped with garlic & cilantro", price: 5.0, imageUrl: "naan"),
-        MenuItem(name: "Chicken Tikka Masala", description: "Roasted breast of chicken in creamy sauce", price: 24.0, imageUrl: "tikka"),
-        MenuItem(name: "Saffron Rice", description: "Basmati rice cooked with saffron", price: 5.0, imageUrl: "rice"),
-        MenuItem(name: "Mixed Green Salad", description: "Fresh garden vegetables", price: 8.0, imageUrl: "salad")
-    ]
-    */
-    
+
+    // Placeholder for restaurant header image
+    private var restaurantPlaceholder: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .overlay(
+                Image(systemName: "fork.knife")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 60)
+                    .foregroundColor(.white.opacity(0.5))
+            )
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) { // Align content to bottom for the floating cart
             Color.white.edgesIgnoringSafeArea(.all)
@@ -39,9 +41,11 @@ struct RestaurantDetailView: View {
                         Button(action: { presentationMode.wrappedValue.dismiss() }) {
                             Image(systemName: "arrow.left")
                                 .font(.title2)
+                                .fontWeight(.bold)
                                 .foregroundColor(.white)
-                                .padding()
-                                .background(Circle().fill(Theme.brandBlack.opacity(0.5)))
+                                .padding(12)
+                                .background(Circle().fill(Theme.brandBlack.opacity(0.7)))
+                                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                         }
                         Spacer()
                         Button(action: { showMenuSearch = true }) {
@@ -56,16 +60,31 @@ struct RestaurantDetailView: View {
                     .padding(.horizontal)
                     .frame(height: 250)
                     .background(
-                        Rectangle()
-                            .fill(Color.gray)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 60)
-                                    .foregroundColor(.white)
-                            )
+                        Group {
+                            if !restaurant.imageUrl.isEmpty,
+                               let url = URL(string: restaurant.imageUrl) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    case .failure(_):
+                                        restaurantPlaceholder
+                                    case .empty:
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .background(Color.gray.opacity(0.3))
+                                    @unknown default:
+                                        restaurantPlaceholder
+                                    }
+                                }
+                            } else {
+                                restaurantPlaceholder
+                            }
+                        }
                     )
+                    .clipped()
                     
                     // Restaurant Info
                     VStack(alignment: .leading, spacing: 8) {
@@ -192,53 +211,8 @@ struct RestaurantDetailView: View {
                 }
             }
             
-            // Floating Cart Button - Multi-restaurant cart takes priority
-            if !multiCartViewModel.items.isEmpty {
-                VStack(spacing: 0) {
-                    // Multi-restaurant badge if ordering from multiple places
-                    if multiCartViewModel.restaurantCount > 1 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                            Text("Multi-Restaurant Order")
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(8, corners: [.topLeft, .topRight])
-                    }
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(multiCartViewModel.totalItemCount) Items")
-                                .fontWeight(.bold)
-                            if multiCartViewModel.restaurantCount > 1 {
-                                Text("\(multiCartViewModel.restaurantCount) restaurants")
-                                    .font(.caption2)
-                                    .opacity(0.9)
-                            }
-                        }
-                        Spacer()
-                        Text("View Cart")
-                            .fontWeight(.bold)
-                        Spacer()
-                        Text("$\(String(format: "%.2f", multiCartViewModel.subtotal))")
-                            .fontWeight(.bold)
-                    }
-                    .padding()
-                    .background(Theme.brandGreen)
-                    .foregroundColor(.white)
-                }
-                .cornerRadius(12)
-                .padding()
-                .shadow(radius: 5)
-                .onTapGesture {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            }
+            // Floating Cart Button removed - MainAppView's floating cart handles this
+            // to avoid duplicate overlapping cart buttons
         }
         .navigationBarHidden(true)
         .edgesIgnoringSafeArea(.top)

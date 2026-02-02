@@ -1,6 +1,5 @@
 import SwiftUI
 import FirebaseAuth
-import FirebaseFirestore
 import Combine
 import EatFairShared
 
@@ -67,6 +66,36 @@ class MultiRestaurantCartViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var orderPlaced = false // Triggers success view at app level
+
+    // MARK: - Last Order Info (for success screen and actions)
+    @Published var lastOrderId: Int?              // Backend order ID (for API calls) - first order for single, primary for multi
+    @Published var lastOrderNumber: String?       // Display order number (e.g., "EF-20260129-001") - first/combined
+    @Published var lastOrderTotal: Double?
+    @Published var lastOrderRestaurantName: String?
+    @Published var lastOrderItemCount: Int?
+    @Published var lastOrderDeliveryAddress: String?
+    @Published var lastOrderItems: [CartItem] = []  // Ordered items (saved before cart clear)
+    @Published var lastOrderPromoName: String?      // Promo name (e.g., "Buy One Get One Free")
+
+    // Multi-restaurant order tracking
+    @Published var lastOrderIds: [Int] = []           // All order IDs (one per restaurant)
+    @Published var lastOrderNumbers: [String] = []    // All order numbers (one per restaurant)
+    @Published var lastOrderRestaurantNames: [String] = []  // Restaurant names for each order
+
+    /// Clear last order info (call when user dismisses success screen)
+    func clearLastOrder() {
+        lastOrderId = nil
+        lastOrderNumber = nil
+        lastOrderTotal = nil
+        lastOrderRestaurantName = nil
+        lastOrderItemCount = nil
+        lastOrderDeliveryAddress = nil
+        lastOrderItems = []
+        lastOrderPromoName = nil
+        lastOrderIds = []
+        lastOrderNumbers = []
+        lastOrderRestaurantNames = []
+    }
 
     // MARK: - Computed Properties
 
@@ -312,7 +341,6 @@ class MultiRestaurantCartViewModel: ObservableObject {
         }
 
         isLoading = true
-        let db = Firestore.firestore()
 
         // Build restaurant info array
         let restaurantInfos = orderedRestaurants.map { restaurant in
@@ -360,105 +388,220 @@ class MultiRestaurantCartViewModel: ObservableObject {
         // Ensure pricing is calculated
         order.recalculatePricing()
 
-        // STEP 1: Create order in P2P backend first to get synced order number
-        // This ensures Restaurant App and Driver App can see the order
+        // STEP 1: Create orders in P2P backend - one per restaurant
+        // This ensures each restaurant receives their specific order
         let p2pService = P2PAPIService.shared
 
-        // For multi-restaurant, create separate orders for each restaurant in P2P backend
-        // Use the first restaurant for now (P2P backend handles single vendor per order)
-        guard let firstRestaurant = orderedRestaurants.first,
-              let vendorIdStr = firstRestaurant.id,
-              let vendorId = Int(vendorIdStr) else {
-            // Fallback to Firebase-only if no valid vendor ID
-            saveToFirebaseOnly(order: order, db: db, completion: completion)
-            return
-        }
-
-        // Convert items to P2P format
-        let p2pItems: [[String: Any]] = items.map { item in
-            [
-                "menu_item_id": Int(item.menuItemId) ?? 0,
-                "name": item.name,
-                "price": item.price,
-                "quantity": item.quantity
-            ]
-        }
-
-        // Build delivery address for P2P
-        let addressDict: [String: String] = [
+        // Build delivery address for P2P (including coordinates for driver navigation)
+        let addressDict: [String: Any] = [
             "street": deliveryAddress.street,
             "city": deliveryAddress.city,
             "state": deliveryAddress.state,
-            "zip": deliveryAddress.zipCode
+            "zip": deliveryAddress.zipCode,
+            "latitude": deliveryAddress.latitude,
+            "longitude": deliveryAddress.longitude
         ]
 
-        p2pService.createOrder(
-            vendorId: vendorId,
-            customerName: customerName,
-            customerEmail: customerEmail,
-            customerPhone: customerPhone ?? "",
-            deliveryAddress: addressDict,
-            deliveryInstructions: deliveryInstructions,
-            items: p2pItems,
-            tip: tip,
-            scheduledFor: scheduledFor,
-            promoCode: promoCode
-        ) { [weak self] result in
-            switch result {
-            case .success(let p2pResponse):
-                // Use P2P-generated order number for Firebase too
-                var syncedOrder = order
-                syncedOrder.orderId = p2pResponse.orderNumber
+        // Calculate total subtotal for tip splitting
+        let totalSubtotal = subtotal
 
-                // STEP 2: Save to Firebase with the same order number
-                do {
-                    try db.collection("orders").addDocument(from: syncedOrder) { [weak self] error in
-                        DispatchQueue.main.async { [weak self] in
-                            self?.isLoading = false
-                            // P2P succeeded but Firebase may have failed - still return success
-                            // The order exists in P2P backend which is primary
-                            self?.clearCart()
-                            completion(.success(p2pResponse.orderNumber))
-                        }
+        // Track results from all restaurant orders
+        var completedOrders: [(orderId: Int, orderNumber: String, total: Double, restaurantName: String)] = []
+        var failedOrders: [String] = []
+        let orderGroup = DispatchGroup()
+
+        #if DEBUG
+        print("[OrderFlow] Creating orders for \(orderedRestaurants.count) restaurant(s)...")
+        #endif
+
+        // Create a separate order for each restaurant
+        for restaurant in orderedRestaurants {
+            guard let vendorIdStr = restaurant.id,
+                  let vendorId = Int(vendorIdStr) else {
+                #if DEBUG
+                print("[OrderFlow] ⚠️ Skipping restaurant with invalid ID: \(restaurant.name)")
+                #endif
+                failedOrders.append(restaurant.name)
+                continue
+            }
+
+            // Get items for this restaurant only
+            let restaurantItems = items.filter { $0.restaurantId == vendorIdStr }
+            guard !restaurantItems.isEmpty else {
+                #if DEBUG
+                print("[OrderFlow] ⚠️ No items for restaurant: \(restaurant.name)")
+                #endif
+                continue
+            }
+
+            // Convert items to P2P format
+            let p2pItems: [[String: Any]] = restaurantItems.map { item in
+                [
+                    "menu_item_id": Int(item.menuItemId) ?? 0,
+                    "name": item.name,
+                    "price": item.price,
+                    "quantity": item.quantity
+                ]
+            }
+
+            // Calculate proportional tip for this restaurant
+            let restaurantSubtotal = restaurantItems.reduce(0) { $0 + ($1.totalPrice * Double($1.quantity)) }
+            let tipProportion = totalSubtotal > 0 ? restaurantSubtotal / totalSubtotal : 1.0
+            let restaurantTip = tip * tipProportion
+
+            #if DEBUG
+            print("[OrderFlow] Creating order for \(restaurant.name) (vendor \(vendorId))")
+            print("[OrderFlow]   Items: \(restaurantItems.count), Subtotal: $\(restaurantSubtotal), Tip: $\(restaurantTip)")
+            #endif
+
+            orderGroup.enter()
+
+            p2pService.createOrder(
+                vendorId: vendorId,
+                customerName: customerName,
+                customerEmail: customerEmail,
+                customerPhone: customerPhone ?? "",
+                deliveryAddress: addressDict,
+                deliveryInstructions: deliveryInstructions,
+                items: p2pItems,
+                tip: restaurantTip,
+                scheduledFor: scheduledFor,
+                promoCode: promoCode
+            ) { [weak self] result in
+                switch result {
+                case .success(let p2pResponse):
+                    #if DEBUG
+                    print("[OrderFlow] ✅ Order created for \(restaurant.name): \(p2pResponse.orderNumber)")
+                    #endif
+
+                    // Send order to restaurant (with retry logic)
+                    self?.sendOrderToRestaurantWithRetry(
+                        p2pService: p2pService,
+                        orderId: p2pResponse.orderId,
+                        maxRetries: 3,
+                        currentAttempt: 1
+                    )
+
+                    DispatchQueue.main.async {
+                        completedOrders.append((
+                            orderId: p2pResponse.orderId,
+                            orderNumber: p2pResponse.orderNumber,
+                            total: p2pResponse.total,
+                            restaurantName: restaurant.name
+                        ))
+                        orderGroup.leave()
                     }
-                } catch {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.isLoading = false
-                        // P2P succeeded, Firebase encoding failed
-                        self?.clearCart()
-                        completion(.success(p2pResponse.orderNumber))
+
+                case .failure(let error):
+                    #if DEBUG
+                    print("[OrderFlow] ❌ Order failed for \(restaurant.name): \(error.localizedDescription)")
+                    #endif
+                    DispatchQueue.main.async {
+                        failedOrders.append(restaurant.name)
+                        orderGroup.leave()
                     }
                 }
-
-            case .failure:
-                // Fallback: save to Firebase only (degraded mode)
-                self?.saveToFirebaseOnly(order: order, db: db, completion: completion)
             }
+        }
+
+        // Wait for all orders to complete
+        orderGroup.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+
+            self.isLoading = false
+
+            // Check if any orders succeeded
+            if completedOrders.isEmpty {
+                self.errorMessage = "Failed to place order. Please try again."
+                self.showError = true
+                completion(.failure(NSError(domain: "Cart", code: 500, userInfo: [NSLocalizedDescriptionKey: "All orders failed"])))
+                return
+            }
+
+            // Save order info for success screen BEFORE clearing cart
+            self.lastOrderIds = completedOrders.map { $0.orderId }
+            self.lastOrderNumbers = completedOrders.map { $0.orderNumber }
+            self.lastOrderRestaurantNames = completedOrders.map { $0.restaurantName }
+
+            // Use first order as primary for backward compatibility
+            self.lastOrderId = completedOrders.first?.orderId
+            self.lastOrderNumber = completedOrders.count == 1
+                ? completedOrders.first?.orderNumber
+                : completedOrders.map { $0.orderNumber }.joined(separator: ", ")
+            self.lastOrderTotal = completedOrders.reduce(0) { $0 + $1.total }
+            self.lastOrderRestaurantName = completedOrders.count == 1
+                ? completedOrders.first?.restaurantName
+                : "\(completedOrders.count) restaurants"
+            self.lastOrderItemCount = self.totalItemCount
+            self.lastOrderDeliveryAddress = deliveryAddress.fullAddress
+            self.lastOrderItems = self.items  // Save items before clearing
+
+            #if DEBUG
+            print("[OrderFlow] ✅ All orders completed: \(completedOrders.count) succeeded, \(failedOrders.count) failed")
+            print("[OrderFlow] Order numbers: \(self.lastOrderNumbers)")
+            print("[OrderFlow] Total: $\(self.lastOrderTotal ?? 0)")
+            #endif
+
+            // Show warning if some orders failed
+            if !failedOrders.isEmpty {
+                self.errorMessage = "Order placed for some restaurants. Failed: \(failedOrders.joined(separator: ", "))"
+                self.showError = true
+            }
+
+            self.clearCart()
+            completion(.success(self.lastOrderNumber ?? ""))
         }
     }
 
-    /// Fallback: Save order to Firebase only when P2P backend is unavailable
-    private func saveToFirebaseOnly(
-        order: MultiRestaurantOrder,
-        db: Firestore,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        do {
-            try db.collection("orders").addDocument(from: order) { [weak self] error in
-                DispatchQueue.main.async { [weak self] in
-                    self?.isLoading = false
+    // MARK: - Restaurant Notification (with Retry)
 
-                    if let error = error {
-                        completion(.failure(error))
-                    } else {
-                        self?.clearCart()
-                        completion(.success(order.orderId))
+    /// Send order to restaurant with automatic retry on failure
+    /// - Parameters:
+    ///   - p2pService: The P2P API service
+    ///   - orderId: The order ID to confirm
+    ///   - maxRetries: Maximum number of retry attempts (default: 3)
+    ///   - currentAttempt: Current attempt number (starts at 1)
+    private func sendOrderToRestaurantWithRetry(
+        p2pService: P2PAPIService,
+        orderId: Int,
+        maxRetries: Int = 3,
+        currentAttempt: Int = 1
+    ) {
+        p2pService.confirmOrderPayment(orderId: orderId) { [weak self] result in
+            switch result {
+            case .success:
+                #if DEBUG
+                print("[OrderFlow] ✅ Order sent to restaurant successfully (attempt \(currentAttempt))")
+                #endif
+
+            case .failure(let error):
+                #if DEBUG
+                print("[OrderFlow] ⚠️ Failed to send order to restaurant (attempt \(currentAttempt)/\(maxRetries)): \(error.localizedDescription)")
+                #endif
+
+                // Retry if we haven't exhausted all attempts
+                if currentAttempt < maxRetries {
+                    // Exponential backoff: 2s, 4s, 8s...
+                    let delay = Double(pow(2.0, Double(currentAttempt)))
+                    #if DEBUG
+                    print("[OrderFlow] Retrying in \(delay) seconds...")
+                    #endif
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.sendOrderToRestaurantWithRetry(
+                            p2pService: p2pService,
+                            orderId: orderId,
+                            maxRetries: maxRetries,
+                            currentAttempt: currentAttempt + 1
+                        )
                     }
+                } else {
+                    #if DEBUG
+                    print("[OrderFlow] ❌ All retry attempts exhausted. Order \(orderId) may not have reached restaurant.")
+                    print("[OrderFlow] The backend should have a fallback mechanism to detect unconfirmed orders.")
+                    #endif
                 }
             }
-        } catch {
-            isLoading = false
-            completion(.failure(error))
         }
     }
 

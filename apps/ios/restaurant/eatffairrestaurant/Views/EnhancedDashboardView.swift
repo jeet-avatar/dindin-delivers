@@ -1,5 +1,4 @@
 import SwiftUI
-import FirebaseAuth
 import EatFairShared
 
 /// World-class Restaurant Dashboard with AI-powered insights
@@ -67,6 +66,7 @@ struct OrdersDashboardView: View {
         case new = "New"
         case preparing = "Preparing"
         case ready = "Ready"
+        case delivering = "Delivering"
     }
 
     var body: some View {
@@ -96,6 +96,9 @@ struct OrdersDashboardView: View {
                                 onAccept: { ordersVM.acceptOrder(order) },
                                 onReject: { ordersVM.rejectOrder(order) },
                                 onMarkReady: { ordersVM.markOrderReady(order) },
+                                onSelfDeliver: { ordersVM.acceptDelivery(order) },
+                                onSendToDriver: { ordersVM.declineDelivery(order) },
+                                onMarkDelivered: { ordersVM.markOrderDelivered(order) },
                                 onTap: { showOrderDetail = order }
                             )
                         }
@@ -140,13 +143,15 @@ struct OrdersDashboardView: View {
     private var filteredOrders: [Order] {
         switch selectedFilter {
         case .all:
-            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders
+            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders + ordersVM.selfDeliveryOrders
         case .new:
             return ordersVM.newOrders
         case .preparing:
             return ordersVM.preparingOrders
         case .ready:
             return ordersVM.readyOrders
+        case .delivering:
+            return ordersVM.selfDeliveryOrders
         }
     }
 
@@ -242,10 +247,11 @@ struct OrdersDashboardView: View {
 
     private func countForFilter(_ filter: OrderFilter) -> Int {
         switch filter {
-        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count
+        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count + ordersVM.selfDeliveryOrders.count
         case .new: return ordersVM.newOrders.count
         case .preparing: return ordersVM.preparingOrders.count
         case .ready: return ordersVM.readyOrders.count
+        case .delivering: return ordersVM.selfDeliveryOrders.count
         }
     }
 }
@@ -362,9 +368,14 @@ struct EnhancedOrderCard: View {
     var onAccept: () -> Void
     var onReject: () -> Void
     var onMarkReady: () -> Void
+    var onSelfDeliver: (() -> Void)? = nil
+    var onSendToDriver: (() -> Void)? = nil
+    var onMarkDelivered: (() -> Void)? = nil
     var onTap: () -> Void
 
     @State private var isExpanded = false
+    @State private var deliveryDecisionSeconds: Int = 180
+    @State private var deliveryTimer: Timer? = nil
 
     private var orderStatus: OrderStatus {
         OrderStatus(rawValue: order.status) ?? .placed
@@ -373,6 +384,53 @@ struct EnhancedOrderCard: View {
     private var timeElapsed: String {
         let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
         return DateTimeFormatter.shared.orderedTime(from: orderDate)
+    }
+
+    // MARK: - Delivery Timer Functions
+
+    private func formatTime(_ seconds: Int) -> String {
+        let mins = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
+    private func calculateRemainingSeconds() -> Int {
+        // Calculate remaining time based on when order was placed
+        let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
+        let elapsed = Date().timeIntervalSince(orderDate)
+        let remaining = 180 - Int(elapsed)
+        return max(0, remaining)
+    }
+
+    private func startDeliveryTimer() {
+        // Calculate remaining time based on order placed time
+        deliveryDecisionSeconds = calculateRemainingSeconds()
+
+        // If already expired, send to driver immediately
+        if deliveryDecisionSeconds <= 0 {
+            #if DEBUG
+            print("⏰ Timer already expired - auto-sending order \(order.orderId) to driver pool")
+            #endif
+            onAccept()  // Accept order first
+            onSendToDriver?()  // Then send to driver
+            return
+        }
+
+        deliveryTimer?.invalidate()
+        deliveryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [self] timer in
+            // Recalculate based on actual time (prevents drift)
+            deliveryDecisionSeconds = calculateRemainingSeconds()
+
+            if deliveryDecisionSeconds <= 0 {
+                timer.invalidate()
+                // Auto-send to driver when time runs out
+                #if DEBUG
+                print("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
+                #endif
+                onAccept()  // Accept order first
+                onSendToDriver?()  // Then send to driver
+            }
+        }
     }
 
     var body: some View {
@@ -396,7 +454,7 @@ struct EnhancedOrderCard: View {
                             .font(.headline)
                             .fontWeight(.bold)
 
-                        if order.status == "Placed" {
+                        if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                             Text("NEW")
                                 .font(.caption2)
                                 .fontWeight(.bold)
@@ -431,7 +489,7 @@ struct EnhancedOrderCard: View {
             .onTapGesture { onTap() }
 
             // Expandable Items Preview
-            if order.status == "Placed" || order.status == "Preparing" {
+            if order.status.lowercased() == "placed" || order.status.lowercased() == "preparing" || order.status.lowercased() == "pending_restaurant" {
                 Divider()
                     .padding(.horizontal)
 
@@ -466,20 +524,40 @@ struct EnhancedOrderCard: View {
                 .padding(.vertical, 8)
             }
 
-            // Action Buttons
-            if order.status == "Placed" {
+            // Action Buttons - New Order with Delivery Decision (3 min window)
+            if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                 Divider()
 
-                HStack(spacing: 12) {
-                    Button {
+                VStack(spacing: 8) {
+                    // Timer countdown - based on when order was placed
+                    HStack {
+                        Image(systemName: "timer")
+                            .foregroundColor(deliveryDecisionSeconds <= 30 ? .red : .orange)
+                        Text("Decide in: \(formatTime(deliveryDecisionSeconds))")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(deliveryDecisionSeconds <= 30 ? .red : .orange)
+                        Spacer()
+                        if deliveryDecisionSeconds <= 30 {
+                            Text("Auto-sending to drivers...")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Reject button
+                    Button(action: {
                         #if DEBUG
                         print("🟡 Reject button tapped for order \(order.orderId)")
                         #endif
+                        deliveryTimer?.invalidate()
                         onReject()
-                    } label: {
+                    }) {
                         HStack {
                             Image(systemName: "xmark")
-                            Text("Reject")
+                            Text("Reject Order")
                         }
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -489,30 +567,74 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandRed.opacity(0.1))
                         .cornerRadius(10)
                     }
-                    .buttonStyle(.borderless)
+                    .contentShape(Rectangle())
+                    .padding(.horizontal)
 
-                    Button {
-                        #if DEBUG
-                        print("🟡 Accept button tapped for order \(order.orderId)")
-                        #endif
-                        onAccept()
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark")
-                            Text("Accept")
+                    // Accept buttons - two options
+                    HStack(spacing: 12) {
+                        // Accept & Send to Driver
+                        Button(action: {
+                            #if DEBUG
+                            print("🚗 Accept & Send to Driver for order \(order.orderId)")
+                            #endif
+                            deliveryTimer?.invalidate()
+                            onAccept()  // Accept order
+                            onSendToDriver?()  // Send to driver pool
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "car.fill")
+                                    .font(.title3)
+                                Text("Accept &")
+                                    .font(.caption2)
+                                Text("Send to Driver")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandBlue)
+                            .cornerRadius(10)
                         }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(RestaurantTheme.brandGreen)
-                        .cornerRadius(10)
+                        .contentShape(Rectangle())
+
+                        // Accept & I'll Deliver
+                        Button(action: {
+                            #if DEBUG
+                            print("🏃 Accept & I'll Deliver for order \(order.orderId)")
+                            #endif
+                            deliveryTimer?.invalidate()
+                            onAccept()  // Accept order
+                            onSelfDeliver?()  // Restaurant will deliver
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "figure.walk")
+                                    .font(.title3)
+                                Text("Accept &")
+                                    .font(.caption2)
+                                Text("I'll Deliver")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandGreen)
+                            .cornerRadius(10)
+                        }
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
+                    .padding(.bottom)
                 }
-                .padding()
-            } else if order.status == "Preparing" {
+                .onAppear {
+                    startDeliveryTimer()
+                }
+                .onDisappear {
+                    deliveryTimer?.invalidate()
+                }
+            } else if order.status.lowercased() == "preparing" || order.status.lowercased() == "accepted" {
+                // Order is being prepared - show Mark Ready button
                 Divider()
 
                 Button {
@@ -535,6 +657,132 @@ struct EnhancedOrderCard: View {
                 }
                 .buttonStyle(.borderless)
                 .padding()
+            } else if order.status.lowercased() == "ready_for_pickup" || order.status.lowercased() == "ready" || order.status.lowercased() == "pending_delivery_decision" {
+                // Order is ready - show delivery decision buttons
+                Divider()
+
+                VStack(spacing: 8) {
+                    // Info text
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Text("Order Ready - Choose delivery option")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Delivery decision buttons
+                    HStack(spacing: 12) {
+                        // Send to Driver
+                        Button(action: {
+                            #if DEBUG
+                            print("🚗 Send to Driver for order \(order.orderId)")
+                            #endif
+                            onSendToDriver?()
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "car.fill")
+                                    .font(.title3)
+                                Text("Send to")
+                                    .font(.caption2)
+                                Text("Driver Pool")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandBlue)
+                            .cornerRadius(10)
+                        }
+                        .contentShape(Rectangle())
+
+                        // I'll Deliver
+                        Button(action: {
+                            #if DEBUG
+                            print("🏃 I'll Deliver for order \(order.orderId)")
+                            #endif
+                            onSelfDeliver?()
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "figure.walk")
+                                    .font(.title3)
+                                Text("I'll")
+                                    .font(.caption2)
+                                Text("Deliver")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(RestaurantTheme.brandGreen)
+                            .cornerRadius(10)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
+            } else if order.status.lowercased() == "restaurant_will_deliver" {
+                // Self-delivery in progress - show Mark Delivered button
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Status indicator
+                    HStack {
+                        Image(systemName: "car.fill")
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Text("You are delivering this order")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Delivery address reminder
+                    if !order.deliveryAddress.fullAddress.isEmpty {
+                        HStack {
+                            Image(systemName: "location.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(order.deliveryAddress.fullAddress)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Mark Delivered button
+                    Button {
+                        #if DEBUG
+                        print("✅ Mark Delivered button tapped for order \(order.orderId)")
+                        #endif
+                        onMarkDelivered?()
+                    } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Mark as Delivered")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RestaurantTheme.brandGreen)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
             }
         }
         .background(RestaurantTheme.backgroundPrimary)
@@ -718,7 +966,7 @@ struct OrderDetailSheet: View {
                     .cardStyle()
 
                     // Actions based on status
-                    if order.status == "Placed" {
+                    if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
                         HStack(spacing: 12) {
                             Button(action: {
                                 ordersVM.rejectOrder(order)
@@ -737,7 +985,7 @@ struct OrderDetailSheet: View {
                             .buttonStyle(SuccessButtonStyle())
                         }
                         .padding()
-                    } else if order.status == "Preparing" {
+                    } else if order.status.lowercased() == "preparing" || order.status.lowercased() == "accepted" {
                         Button(action: {
                             ordersVM.markOrderReady(order)
                             dismiss()
@@ -745,6 +993,41 @@ struct OrderDetailSheet: View {
                             Text("Mark Ready for Pickup")
                         }
                         .buttonStyle(PrimaryButtonStyle())
+                        .padding()
+                    } else if order.status.lowercased() == "ready_for_pickup" || order.status.lowercased() == "ready" || order.status.lowercased() == "pending_delivery_decision" {
+                        // Delivery decision buttons
+                        VStack(spacing: 12) {
+                            Text("Order Ready - Choose delivery option")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    ordersVM.declineDelivery(order) // Send to driver pool
+                                    dismiss()
+                                }) {
+                                    Text("Send to Driver")
+                                }
+                                .buttonStyle(SecondaryButtonStyle())
+
+                                Button(action: {
+                                    ordersVM.acceptDelivery(order) // Self deliver
+                                    dismiss()
+                                }) {
+                                    Text("I'll Deliver")
+                                }
+                                .buttonStyle(SuccessButtonStyle())
+                            }
+                        }
+                        .padding()
+                    } else if order.status.lowercased() == "restaurant_will_deliver" {
+                        Button(action: {
+                            ordersVM.markOrderDelivered(order)
+                            dismiss()
+                        }) {
+                            Text("Mark as Delivered")
+                        }
+                        .buttonStyle(SuccessButtonStyle())
                         .padding()
                     }
                 }
@@ -755,8 +1038,16 @@ struct OrderDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showInvoice = true }) {
-                        Label("Invoice", systemImage: "doc.text.fill")
+                    HStack(spacing: 16) {
+                        Button(action: { showInvoice = true }) {
+                            Label("Invoice", systemImage: "doc.text.fill")
+                        }
+                        // KOT Reprint Button (only show for preparing/ready orders)
+                        if order.status == "Preparing" || order.status == "Ready" {
+                            Button(action: { reprintKOT() }) {
+                                Label("Print", systemImage: "printer.fill")
+                            }
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -765,6 +1056,27 @@ struct OrderDetailSheet: View {
             }
             .sheet(isPresented: $showInvoice) {
                 OrderInvoiceView(order: order)
+            }
+        }
+    }
+
+    private func reprintKOT() {
+        // Get the order ID (it's stored as optional string in the Order model but is an Int in the API)
+        guard let orderIdString = order.id, let orderId = Int(orderIdString) else {
+            print("Invalid order ID for KOT reprint")
+            return
+        }
+
+        P2PAPIService.shared.printKOT(orderId: orderId) { result in
+            switch result {
+            case .success(let response):
+                if response.success {
+                    print("KOT reprinted successfully for order \(order.orderId)")
+                } else {
+                    print("KOT reprint failed: \(response.error ?? "Unknown error")")
+                }
+            case .failure(let error):
+                print("KOT reprint error: \(error.localizedDescription)")
             }
         }
     }
@@ -952,7 +1264,7 @@ struct OrderInvoiceView: View {
                         Text("Thank you for your order!")
                             .font(.headline)
 
-                        Text("Powered by Dollor.ai")
+                        Text("Powered by Dollor.AI")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1062,7 +1374,7 @@ struct InvoiceShareSheet: UIViewControllerRepresentable {
         ================================
 
         Thank you for your order!
-        Powered by Dollor.ai
+        Powered by Dollor.AI
         """
 
         return text

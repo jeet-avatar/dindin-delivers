@@ -40,6 +40,12 @@ struct ContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserDidLogout"))) { _ in
+            #if DEBUG
+            print("ContentView: Received logout notification")
+            #endif
+            isLoggedIn = false
+        }
     }
 }
 

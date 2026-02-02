@@ -17,6 +17,7 @@ struct LoginView: View {
     @State private var isSignUp = false
     @State private var fullName = ""
     @State private var phone = ""
+    @State private var emailError: String?
 
     var body: some View {
         ZStack {
@@ -144,13 +145,23 @@ struct LoginView: View {
                             )
                         }
 
-                        AuthTextField(
-                            text: $email,
-                            placeholder: "Email address",
-                            icon: "envelope",
-                            keyboardType: .emailAddress
-                        )
-                        .autocapitalization(.none)
+                        VStack(alignment: .leading, spacing: 4) {
+                            AuthTextField(
+                                text: $email,
+                                placeholder: "Email address",
+                                icon: "envelope",
+                                keyboardType: .emailAddress
+                            )
+                            .autocapitalization(.none)
+                            .onChange(of: email) { emailError = nil }
+
+                            if let error = emailError {
+                                Text(error)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(hex: "EF4444"))
+                                    .padding(.leading, 4)
+                            }
+                        }
 
                         AuthSecureField(
                             text: $password,
@@ -177,6 +188,13 @@ struct LoginView: View {
 
                     // Login/Sign Up Button
                     Button(action: {
+                        // Validate email first
+                        let validation = EmailValidator.validate(email)
+                        guard validation.isValid else {
+                            emailError = validation.errorMessage
+                            return
+                        }
+
                         if isSignUp {
                             authViewModel.register(email: email, password: password, fullName: fullName, phone: phone)
                         } else {
@@ -259,19 +277,42 @@ struct LoginView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 32)
 
-                    // Footer Links
+                    // Demo Login Button (DEBUG only - for testing)
+                    #if DEBUG
+                    Button(action: {
+                        email = "demo.customer@dollor.ai"
+                        password = "DemoCustomer2025!"
+                        authViewModel.login(email: email, password: password)
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 16))
+                            Text("Demo Login (Testing)")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color.orange)
+                        .cornerRadius(6)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    #endif
+
+                    // Footer Links - Clickable
                     HStack(spacing: 8) {
-                        Text("Terms of Use")
+                        Link("Terms of Use", destination: URL(string: "https://api.dollor.ai/terms")!)
                             .font(.system(size: 13))
-                            .foregroundColor(textSecondary)
+                            .foregroundColor(primaryGreen)
                         Text("·")
                             .font(.system(size: 13))
                             .foregroundColor(borderColor)
-                        Text("Privacy Policy")
+                        Link("Privacy Policy", destination: URL(string: "https://api.dollor.ai/privacy")!)
                             .font(.system(size: 13))
-                            .foregroundColor(textSecondary)
+                            .foregroundColor(primaryGreen)
                     }
-                    .padding(.top, 32)
+                    .padding(.top, 16)
                     .padding(.bottom, 24)
                 }
             }

@@ -20,7 +20,7 @@
 		104405172ED6BEE200ED321A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 104405162ED6BEE200ED321A /* GoogleSignInSwift */; };
 		104405E42ED7F2F700ED321A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 104405E32ED7F2F700ED321A /* FirebaseStorage */; };
 		104406A42ED8346800ED321A /* EatFairShared in Frameworks */ = {isa = PBXBuildFile; productRef = 104406A32ED8346800ED321A /* EatFairShared */; };
-		F3543ABB5B8817FC7D410A8B /* Pods_eatffairrestaurant.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 673CDF531CA2DD25CE5AC463 /* Pods_eatffairrestaurant.framework */; };
+		384D18880200734D5D2E1CAF /* Pods_eatffairrestaurant.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 493BFD8AFEED19B41D94ADF6 /* Pods_eatffairrestaurant.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,13 +41,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		04D29A9C4B77C0CD80856BE8 /* Pods-eatffairrestaurant.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairrestaurant.debug.xcconfig"; path = "Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.debug.xcconfig"; sourceTree = "<group>"; };
 		104404AD2ED6B25100ED321A /* eatffairrestaurant.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eatffairrestaurant.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		104404BF2ED6B25300ED321A /* eatffairrestaurantTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairrestaurantTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		104404C92ED6B25300ED321A /* eatffairrestaurantUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eatffairrestaurantUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		104406A92ED834F500ED321A /* eatfair-ios-shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "eatfair-ios-shared"; path = "../eatfair-ios-shared"; sourceTree = "<group>"; };
-		21286A2A1B89A99DBDE42F82 /* Pods-eatffairrestaurant.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairrestaurant.release.xcconfig"; path = "Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.release.xcconfig"; sourceTree = "<group>"; };
-		5B58F5F795AE89E5DDF7F0C4 /* Pods-eatffairrestaurant.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairrestaurant.debug.xcconfig"; path = "Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.debug.xcconfig"; sourceTree = "<group>"; };
-		673CDF531CA2DD25CE5AC463 /* Pods_eatffairrestaurant.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_eatffairrestaurant.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		493BFD8AFEED19B41D94ADF6 /* Pods_eatffairrestaurant.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_eatffairrestaurant.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC7E8A5F15DC4BCA77C153CD /* Pods-eatffairrestaurant.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-eatffairrestaurant.release.xcconfig"; path = "Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,7 +103,7 @@
 				1044050E2ED6BE9400ED321A /* FirebaseAuth in Frameworks */,
 				104405032ED6BC5B00ED321A /* StripeApplePay in Frameworks */,
 				104405172ED6BEE200ED321A /* GoogleSignInSwift in Frameworks */,
-				F3543ABB5B8817FC7D410A8B /* Pods_eatffairrestaurant.framework in Frameworks */,
+				384D18880200734D5D2E1CAF /* Pods_eatffairrestaurant.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,7 +150,7 @@
 			isa = PBXGroup;
 			children = (
 				104406A92ED834F500ED321A /* eatfair-ios-shared */,
-				673CDF531CA2DD25CE5AC463 /* Pods_eatffairrestaurant.framework */,
+				493BFD8AFEED19B41D94ADF6 /* Pods_eatffairrestaurant.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -158,8 +158,8 @@
 		4B6FAC94D232B42E01D75F56 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				5B58F5F795AE89E5DDF7F0C4 /* Pods-eatffairrestaurant.debug.xcconfig */,
-				21286A2A1B89A99DBDE42F82 /* Pods-eatffairrestaurant.release.xcconfig */,
+				04D29A9C4B77C0CD80856BE8 /* Pods-eatffairrestaurant.debug.xcconfig */,
+				CC7E8A5F15DC4BCA77C153CD /* Pods-eatffairrestaurant.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -171,11 +171,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 104404D32ED6B25300ED321A /* Build configuration list for PBXNativeTarget "eatffairrestaurant" */;
 			buildPhases = (
-				B9137051B1178FC41671708A /* [CP] Check Pods Manifest.lock */,
+				AD1C896900689021D0175680 /* [CP] Check Pods Manifest.lock */,
 				104404A92ED6B25100ED321A /* Sources */,
 				104404AA2ED6B25100ED321A /* Frameworks */,
 				104404AB2ED6B25100ED321A /* Resources */,
-				213D25D20BFA850A68FF8105 /* [CP] Copy Pods Resources */,
+				284628B48CB4811ED10F9EE2 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -254,7 +254,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2610;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					104404AC2ED6B25100ED321A = {
 						CreatedOnToolsVersion = 26.1.1;
@@ -321,7 +321,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		213D25D20BFA850A68FF8105 /* [CP] Copy Pods Resources */ = {
+		284628B48CB4811ED10F9EE2 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -338,7 +338,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		B9137051B1178FC41671708A /* [CP] Check Pods Manifest.lock */ = {
+		AD1C896900689021D0175680 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -435,7 +435,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -459,6 +459,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -499,7 +500,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -516,6 +517,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -523,14 +525,14 @@
 		};
 		104404D42ED6B25300ED321A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5B58F5F795AE89E5DDF7F0C4 /* Pods-eatffairrestaurant.debug.xcconfig */;
+			baseConfigurationReference = 04D29A9C4B77C0CD80856BE8 /* Pods-eatffairrestaurant.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = eatffairrestaurant/eatffairrestaurant.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairrestaurant/Info.plist;
@@ -544,7 +546,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurant;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurant;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -558,14 +560,14 @@
 		};
 		104404D52ED6B25300ED321A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 21286A2A1B89A99DBDE42F82 /* Pods-eatffairrestaurant.release.xcconfig */;
+			baseConfigurationReference = CC7E8A5F15DC4BCA77C153CD /* Pods-eatffairrestaurant.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = eatffairrestaurant/eatffairrestaurant.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = eatffairrestaurant/Info.plist;
@@ -579,7 +581,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurant;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurant;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -596,12 +598,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurantTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurantTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -618,12 +620,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurantTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurantTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -639,11 +641,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurantUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurantUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -659,11 +661,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = YRHVAY595K;
+				CURRENT_PROJECT_VERSION = 107;
+				DEVELOPMENT_TEAM = PRKZ4UVCD7;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dollor.restaurantUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dollorai.restaurantUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

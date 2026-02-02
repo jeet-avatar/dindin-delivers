@@ -309,7 +309,8 @@ public class AppConfig: ObservableObject {
 
     /// Get rideshare fee tier description with distance (preferred method).
     public func getRideshareTierDescription(distanceMiles: Double) -> String {
-        let tier = getRideshareDistanceTier(distanceMiles: distanceMiles)
+        let estimatedFare = 5.0 + (distanceMiles * 1.50)
+        let tier = getRideshareTier(fareAmount: estimatedFare)
         let fee = calculateRidesharePlatformFee(distanceMiles: distanceMiles)
         let tierDesc = tier == 1 ? "≤10mi" : tier == 2 ? "10-20mi" : ">20mi"
         return "$\(Int(fee)) (Tier \(tier): \(tierDesc))"
@@ -487,8 +488,8 @@ public struct APIEndpoints {
     // Customer endpoints
     public static let customerAuth = "/api/customer/google-auth"
     public static let customerOrders = "/api/customer/orders"
-    public static let restaurants = "/api/restaurants"
-    public static let restaurantMenu = "/api/restaurants"  // + /{id}/menu
+    public static let restaurants = "/api/erp/restaurants"
+    public static let restaurantMenu = "/api/erp/restaurants"  // + /{id}/menu
 
     // Vendor endpoints
     public static let vendorAuth = "/api/vendors/google-auth"
@@ -572,10 +573,17 @@ public struct AppConstants {
     // Current terms version - increment when terms change
     public static let termsVersion = "1.1"
 
+    // Company Information - Matches Android AppConfig.Legal
+    public static let companyName = "Zietra Technologies Inc"
+    public static let contactEmail = "support@dollor.ai"
+    public static let supportURL = "https://dollor.ai/support"
+
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
     // PRODUCTION ENVIRONMENT - api.dollor.ai
     public static let termsOfServiceURL = "https://api.dollor.ai/terms"
     public static let privacyPolicyURL = "https://api.dollor.ai/privacy"
+    public static let driverTermsURL = "https://dollor.ai/driver-terms"
+    public static let restaurantTermsURL = "https://dollor.ai/restaurant-terms"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)

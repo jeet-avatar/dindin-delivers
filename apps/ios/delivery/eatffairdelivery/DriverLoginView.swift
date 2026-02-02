@@ -113,6 +113,7 @@ struct DriverLoginView: View {
     @State private var showTerms = false
     @State private var agreedToTerms = false
     @State private var currentNonce: String?
+    @State private var showForgotPassword = false
     @Binding var isLoggedIn: Bool
 
     private let p2pService = P2PAPIService.shared
@@ -137,20 +138,15 @@ struct DriverLoginView: View {
 
     // MARK: - Input Validation (Issues #5-7 Fixed)
 
-    /// Issue #5 Fixed: RFC 5322 compliant email validation
+    /// Issue #5 Fixed: RFC 5322 compliant email validation using shared EmailValidator
+    /// Also blocks disposable/temporary email domains
     private var isValidEmail: Bool {
-        // More comprehensive email validation
-        let emailRegex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}$"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        return EmailValidator.isValid(email)
+    }
 
-        // Additional checks beyond regex
-        guard emailPredicate.evaluate(with: trimmedEmail) else { return false }
-        guard trimmedEmail.contains("@") else { return false }
-        guard !trimmedEmail.hasPrefix(".") && !trimmedEmail.hasSuffix(".") else { return false }
-        guard !trimmedEmail.contains("..") else { return false }
-
-        return true
+    /// Get email validation error message for display
+    private var emailValidationError: String? {
+        return EmailValidator.getErrorMessage(email)
     }
 
     /// Issue #6 Fixed: Added special character requirement for password
@@ -284,7 +280,7 @@ struct DriverLoginView: View {
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                     if !email.isEmpty && !isValidEmail {
-                        Text("Enter a valid email address")
+                        Text(emailValidationError ?? "Enter a valid email address")
                             .font(.caption2)
                             .foregroundColor(.red)
                     }
@@ -315,6 +311,18 @@ struct DriverLoginView: View {
                                 .font(.caption2)
                                 .foregroundColor(passwordStrength.level <= 2 ? .red :
                                                 passwordStrength.level <= 4 ? .orange : .green)
+                        }
+                    }
+                }
+
+                // Forgot Password Link (only show on login)
+                if !isSignUp {
+                    HStack {
+                        Spacer()
+                        Button(action: { showForgotPassword = true }) {
+                            Text("Forgot Password?")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.brandGreen)
                         }
                     }
                 }
@@ -425,6 +433,9 @@ struct DriverLoginView: View {
         }
         .sheet(isPresented: $showTerms) {
             DriverTermsSheet(agreedToTerms: $agreedToTerms)
+        }
+        .sheet(isPresented: $showForgotPassword) {
+            DriverForgotPasswordView(isPresented: $showForgotPassword)
         }
     }
 
@@ -842,6 +853,268 @@ struct DriverTermsSheet: View {
         Text(text)
             .font(.headline)
             .padding(.top, 8)
+    }
+}
+
+// MARK: - Driver Forgot Password View
+struct DriverForgotPasswordView: View {
+    @Binding var isPresented: Bool
+    @State private var email = ""
+    @State private var resetCode = ""
+    @State private var newPassword = ""
+    @State private var errorMessage = ""
+    @State private var successMessage = ""
+    @State private var isLoading = false
+    @State private var showCodeEntry = false
+    @State private var resetComplete = false
+
+    private let p2pService = P2PAPIService.shared
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Icon
+                Image(systemName: "lock.rotation")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .foregroundColor(Theme.brandGreen)
+                    .padding(.top, 40)
+
+                // Title
+                Text(showCodeEntry ? "Enter Reset Code" : "Reset Password")
+                    .font(.title)
+                    .fontWeight(.bold)
+
+                if resetComplete {
+                    // Success State
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(.green)
+
+                        Text("Password Reset Successful!")
+                            .font(.headline)
+                            .foregroundColor(.green)
+
+                        Text("You can now login with your new password.")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+
+                        Button(action: { isPresented = false }) {
+                            Text("Back to Login")
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Theme.brandGreen)
+                                .cornerRadius(12)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 20)
+                    }
+                } else if showCodeEntry {
+                    // Code Entry State
+                    VStack(spacing: 16) {
+                        Text("We sent a code to \(email). Enter it below with your new password.")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Reset Code")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray)
+
+                            TextField("Enter code", text: $resetCode)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .keyboardType(.numberPad)
+                        }
+                        .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("New Password")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray)
+
+                            SecureField("Enter new password", text: $newPassword)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .textContentType(.newPassword)
+                        }
+                        .padding(.horizontal)
+
+                        if !errorMessage.isEmpty {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                                .padding(.horizontal)
+                        }
+
+                        Button(action: confirmReset) {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text("Reset Password")
+                                        .fontWeight(.bold)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Theme.brandGreen)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isLoading || resetCode.isEmpty || newPassword.isEmpty)
+                        .opacity((resetCode.isEmpty || newPassword.isEmpty) ? 0.6 : 1.0)
+                        .padding(.horizontal)
+                    }
+                } else {
+                    // Email Entry State
+                    VStack(spacing: 16) {
+                        Text("Enter your email address and we'll send you a code to reset your password.")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Email")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray)
+
+                            TextField("Enter your email", text: $email)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .autocapitalization(.none)
+                                .keyboardType(.emailAddress)
+                                .textContentType(.emailAddress)
+                        }
+                        .padding(.horizontal)
+
+                        if !errorMessage.isEmpty {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.subheadline)
+                                .padding(.horizontal)
+                        }
+
+                        Button(action: sendResetEmail) {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text("Send Reset Code")
+                                        .fontWeight(.bold)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Theme.brandGreen)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isLoading || email.isEmpty)
+                        .opacity(email.isEmpty ? 0.6 : 1.0)
+                        .padding(.horizontal)
+                    }
+                }
+
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+        }
+    }
+
+    func sendResetEmail() {
+        guard !email.isEmpty else {
+            errorMessage = "Please enter your email"
+            return
+        }
+
+        // Validate email
+        guard EmailValidator.isValid(email) else {
+            errorMessage = EmailValidator.getErrorMessage(email) ?? "Invalid email address"
+            return
+        }
+
+        isLoading = true
+        errorMessage = ""
+
+        // Use driver password reset endpoint
+        p2pService.requestDriverPasswordReset(email: email) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success:
+                    showCodeEntry = true
+                case .failure(let error):
+                    if let apiError = error as? P2PAPIError {
+                        switch apiError {
+                        case .serverError(let message):
+                            errorMessage = message
+                        default:
+                            errorMessage = "Failed to send reset email. Please try again."
+                        }
+                    } else {
+                        errorMessage = "Failed to send reset email. Please try again."
+                    }
+                }
+            }
+        }
+    }
+
+    func confirmReset() {
+        guard !resetCode.isEmpty, !newPassword.isEmpty else {
+            errorMessage = "Please enter the code and new password"
+            return
+        }
+
+        guard newPassword.count >= 8 else {
+            errorMessage = "Password must be at least 8 characters"
+            return
+        }
+
+        isLoading = true
+        errorMessage = ""
+
+        // Use driver password reset confirm endpoint
+        p2pService.confirmDriverPasswordReset(email: email, code: resetCode, newPassword: newPassword) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success:
+                    resetComplete = true
+                case .failure(let error):
+                    if let apiError = error as? P2PAPIError {
+                        switch apiError {
+                        case .serverError(let message):
+                            errorMessage = message
+                        default:
+                            errorMessage = "Failed to reset password. Please try again."
+                        }
+                    } else {
+                        errorMessage = "Failed to reset password. Please try again."
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -10,6 +10,15 @@ struct MainAppView: View {
     @State private var selectedTab = 0
     @State private var showCartSheet = false
 
+    // Notification handling states
+    @State private var showCancellationAlert = false
+    @State private var cancellationAlertTitle = ""
+    @State private var cancellationAlertMessage = ""
+    @State private var navigateToOrderId: String?
+
+    // Order success screen state (separate from orderPlaced to avoid sheet/fullScreenCover race)
+    @State private var showOrderSuccess = false
+
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
@@ -33,20 +42,12 @@ struct MainAppView: View {
                         .tag(1)
 
                         NavigationStack {
-                            DealsView()
-                        }
-                        .tabItem {
-                            Label("Deals", systemImage: "tag.fill")
-                        }
-                        .tag(2)
-
-                        NavigationStack {
                             OrderHistoryView()
                         }
                         .tabItem {
                             Label("Orders", systemImage: "clock.fill")
                         }
-                        .tag(3)
+                        .tag(2)
 
                         NavigationStack {
                             ProfileView()
@@ -54,7 +55,7 @@ struct MainAppView: View {
                         .tabItem {
                             Label("Profile", systemImage: "person.fill")
                         }
-                        .tag(4)
+                        .tag(3)
                     }
                     .accentColor(Theme.brandGreen)
 
@@ -64,23 +65,82 @@ struct MainAppView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .sheet(isPresented: $showCartSheet) {
+                .sheet(isPresented: $showCartSheet, onDismiss: {
+                    // Cart sheet fully dismissed - check if we need to show success screen
+                    #if DEBUG
+                    print("[OrderFlow] Cart sheet onDismiss called")
+                    print("[OrderFlow] orderPlaced = \(multiCartViewModel.orderPlaced)")
+                    #endif
+                    if multiCartViewModel.orderPlaced {
+                        #if DEBUG
+                        print("[OrderFlow] Showing success screen after 0.3s delay")
+                        #endif
+                        // Use slight delay to ensure SwiftUI is ready for fullScreenCover
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showOrderSuccess = true
+                            multiCartViewModel.orderPlaced = false
+                            #if DEBUG
+                            print("[OrderFlow] ✅ showOrderSuccess = true")
+                            #endif
+                        }
+                    }
+                }) {
                     NavigationStack {
                         MultiRestaurantCartView(cartVM: multiCartViewModel)
                             .environmentObject(addressViewModel)
                     }
                 }
-                .fullScreenCover(isPresented: $multiCartViewModel.orderPlaced) {
+                .fullScreenCover(isPresented: $showOrderSuccess) {
                     NavigationStack {
                         OrderSuccessView()
                             .environmentObject(multiCartViewModel)
                     }
                 }
                 .onChange(of: multiCartViewModel.orderPlaced) { _, newValue in
+                    #if DEBUG
+                    print("[OrderFlow] onChange(orderPlaced) fired: \(newValue)")
+                    #endif
                     if newValue {
-                        // Dismiss cart sheet when order is placed
-                        showCartSheet = false
+                        #if DEBUG
+                        print("[OrderFlow] Will dismiss cart sheet after 0.5s (let checkout dismiss first)")
+                        #endif
+                        // Wait for checkout sheet to dismiss first, then dismiss cart
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            #if DEBUG
+                            print("[OrderFlow] Now setting showCartSheet = false")
+                            #endif
+                            showCartSheet = false
+                        }
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToOrder"))) { notification in
+                    // Handle navigation to order details
+                    if let orderId = notification.userInfo?["orderId"] as? String {
+                        navigateToOrderId = orderId
+                        selectedTab = 3 // Switch to Orders tab
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OrderCancelled"))) { notification in
+                    // Handle order cancellation alert
+                    if let title = notification.userInfo?["title"] as? String,
+                       let body = notification.userInfo?["body"] as? String {
+                        cancellationAlertTitle = title.isEmpty ? "Order Cancelled" : title
+                        cancellationAlertMessage = body.isEmpty ? "Your order has been cancelled by the restaurant. A refund will be processed if applicable." : body
+                        showCancellationAlert = true
+                        selectedTab = 3 // Switch to Orders tab
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToPromotions"))) { _ in
+                    // Navigate to home tab (Hot Deals section is now on Home)
+                    selectedTab = 0
+                }
+                .alert("Order Cancelled", isPresented: $showCancellationAlert) {
+                    Button("View Orders") {
+                        selectedTab = 3
+                    }
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(cancellationAlertMessage)
                 }
                 .environmentObject(authViewModel)
             } else {
@@ -156,7 +216,6 @@ struct MainAppView: View {
 // MARK: - Search Restaurants View (New)
 struct SearchRestaurantsView: View {
     @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
-    @EnvironmentObject var cartViewModel: CartViewModel
     @State private var searchText = ""
     @State private var selectedCuisine: String?
     @State private var sortOption: SortOption = .recommended
@@ -469,6 +528,7 @@ struct AIRecommendationsSheet: View {
 
     struct AIRecommendation: Identifiable {
         let id = UUID()
+        let restaurant: Restaurant
         let restaurantName: String
         let reason: String
         let matchScore: Int
@@ -563,7 +623,10 @@ struct AIRecommendationsSheet: View {
                             .padding(.horizontal)
 
                         ForEach(recommendations) { rec in
-                            AIRecommendationCard(recommendation: rec)
+                            NavigationLink(destination: RestaurantDetailView(restaurant: rec.restaurant)) {
+                                AIRecommendationCard(recommendation: rec)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -600,6 +663,7 @@ struct AIRecommendationsSheet: View {
                         "Great selection of dishes that match what you're looking for"
                     ]
                     return AIRecommendation(
+                        restaurant: restaurant,
                         restaurantName: restaurant.name,
                         reason: reasons[index % reasons.count],
                         matchScore: max(75, 95 - (index * 8))
@@ -633,21 +697,48 @@ struct AIRecommendationCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Match Score Circle
+            // Restaurant Image
             ZStack {
-                Circle()
-                    .stroke(Color.purple.opacity(0.3), lineWidth: 3)
-                    .frame(width: 50, height: 50)
+                if !recommendation.restaurant.imageUrl.isEmpty,
+                   let url = URL(string: recommendation.restaurant.imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        case .failure(_):
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        case .empty:
+                            ProgressView()
+                        @unknown default:
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.gray)
+                        )
+                }
 
-                Circle()
-                    .trim(from: 0, to: CGFloat(recommendation.matchScore) / 100)
-                    .stroke(Color.purple, lineWidth: 3)
-                    .frame(width: 50, height: 50)
-                    .rotationEffect(.degrees(-90))
-
+                // Match score badge
                 Text("\(recommendation.matchScore)%")
-                    .font(.caption)
+                    .font(.caption2)
                     .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.purple)
+                    .cornerRadius(8)
+                    .offset(x: 20, y: -25)
             }
 
             VStack(alignment: .leading, spacing: 4) {

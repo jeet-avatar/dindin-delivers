@@ -1,12 +1,10 @@
 import SwiftUI
 import Combine
-import FirebaseFirestore
-import FirebaseAuth
 import EatFairShared
 import CoreLocation
 import os.log
 
-private let logger = Logger(subsystem: "com.dollor.customer", category: "HomeViewModel")
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "HomeViewModel")
 
 class HomeViewModel: ObservableObject {
     @Published var restaurants: [Restaurant] = []
@@ -16,8 +14,6 @@ class HomeViewModel: ObservableObject {
     @Published var activeOrder: Order?
     @Published var errorMessage: String?
 
-    private var db = Firestore.firestore()
-    private var orderListener: ListenerRegistration?
     private let p2pAPI = P2PAPIService.shared
 
     // Featured restaurants (top rated) - combines both sources
@@ -116,36 +112,37 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Check Active Orders
+    // MARK: - Check Active Orders (P2P Backend - Source of Truth)
     func checkActiveOrders() {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            hasActiveOrder = false
-            return
-        }
+        // Use P2P backend as source of truth for active orders
+        p2pAPI.fetchActiveOrders { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let p2pOrders):
+                    // Filter for active statuses and get the most recent one
+                    // Status mapping happens in P2PCustomerOrder.displayStatus
+                    let activeStatuses = ["Placed", "Accepted", "Preparing", "Ready", "PickedUp", "OnTheWay"]
 
-        // Listen for active orders
-        orderListener = db.collection("orders")
-            .whereField("customerId", isEqualTo: userId)
-            .whereField("status", in: ["Placed", "Accepted", "Preparing", "Ready", "PickedUp", "OnTheWay"])
-            .order(by: "placedAt", descending: true)
-            .limit(to: 1)
-            .addSnapshotListener { [weak self] snapshot, error in
-                DispatchQueue.main.async {
-                    if error != nil {
-                        self?.hasActiveOrder = false
-                        return
-                    }
-
-                    if let document = snapshot?.documents.first,
-                       let order = try? document.data(as: Order.self) {
-                        self?.activeOrder = order
+                    if let latestActiveOrder = p2pOrders
+                        .filter({ activeStatuses.contains($0.displayStatus) })
+                        .sorted(by: { ($0.createdAt ?? "") > ($1.createdAt ?? "") })
+                        .first {
+                        self?.activeOrder = latestActiveOrder.toOrder()
                         self?.hasActiveOrder = true
+                        logger.info("✅ Found active order: #\(latestActiveOrder.orderNumber) status=\(latestActiveOrder.displayStatus)")
                     } else {
                         self?.activeOrder = nil
                         self?.hasActiveOrder = false
+                        logger.info("ℹ️ No active orders found")
                     }
+
+                case .failure(let error):
+                    logger.error("❌ Failed to fetch active orders: \(error.localizedDescription)")
+                    self?.hasActiveOrder = false
+                    self?.activeOrder = nil
                 }
             }
+        }
     }
 
     // MARK: - Search Restaurants
@@ -202,8 +199,4 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Cleanup
-    deinit {
-        orderListener?.remove()
-    }
 }

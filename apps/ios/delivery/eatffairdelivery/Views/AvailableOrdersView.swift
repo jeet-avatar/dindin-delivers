@@ -1810,10 +1810,7 @@ struct EarningStatCard: View {
 // MARK: - Messages List Sheet (for voice command)
 struct MessagesListSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var messages: [(id: String, from: String, preview: String, time: String, unread: Bool)] = [
-        (id: "1", from: "Support Team", preview: "Welcome to Dollor! Start accepting orders...", time: "2h ago", unread: true),
-        (id: "2", from: "System", preview: "Your earnings have been deposited.", time: "Yesterday", unread: false)
-    ]
+    @State private var messages: [(id: String, from: String, preview: String, time: String, unread: Bool)] = []
 
     var body: some View {
         NavigationView {

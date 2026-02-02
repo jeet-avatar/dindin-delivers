@@ -3,7 +3,7 @@ import Combine
 import EatFairShared
 import os.log
 
-private let orderLogger = Logger(subsystem: "com.dollor.customer", category: "OrderHistoryViewModel")
+private let orderLogger = Logger(subsystem: "com.dollorai.customer", category: "OrderHistoryViewModel")
 
 /// Order History ViewModel - Uses P2P API as primary source
 class OrderHistoryViewModel: ObservableObject {
@@ -37,9 +37,22 @@ class OrderHistoryViewModel: ObservableObject {
                 switch result {
                 case .success(let p2pOrders):
                     // Convert P2P orders to shared Order model
+                    orderLogger.info("Received \(p2pOrders.count) raw orders from API")
+
+                    // Debug: Log first few orders before conversion
+                    for (index, p2pOrder) in p2pOrders.prefix(3).enumerated() {
+                        orderLogger.info("Raw order \(index): #\(p2pOrder.orderNumber), status=\(p2pOrder.status), displayStatus=\(p2pOrder.displayStatus)")
+                    }
+
                     self.orders = p2pOrders
                         .map { $0.toOrder() }
                         .sorted(by: { $0.placedAt > $1.placedAt })
+
+                    // Debug: Log converted orders
+                    for (index, order) in self.orders.prefix(3).enumerated() {
+                        orderLogger.info("Converted order \(index): #\(order.orderId), status=\(order.status), id=\(order.id ?? "nil")")
+                    }
+
                     orderLogger.info("Fetched \(self.orders.count) orders from P2P backend")
 
                 case .failure(let error):

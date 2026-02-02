@@ -692,6 +692,7 @@ const getDriverToken = (): string | null => {
 // Get current driver ID from localStorage
 export const getCurrentDriverId = (): number | null => {
   try {
+    // First try driver_user object (if stored as JSON)
     const userData = globalThis.localStorage.getItem('driver_user');
     if (userData) {
       const user = JSON.parse(userData);
@@ -701,6 +702,12 @@ export const getCurrentDriverId = (): number | null => {
       if (user.driver_id) {
         return typeof user.driver_id === 'number' ? user.driver_id : parseInt(user.driver_id, 10);
       }
+    }
+
+    // Fallback to direct driver_id key (set by DriverLogin)
+    const driverId = globalThis.localStorage.getItem('driver_id');
+    if (driverId) {
+      return parseInt(driverId, 10);
     }
   } catch (error) {
     console.error('Failed to parse driver data from localStorage:', error);
@@ -772,7 +779,8 @@ export const getAvailableDeliveries = async (): Promise<AvailableDelivery[]> => 
   const response = await api.get('/v2/driver/deliveries/available', {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
-  return response.data;
+  // Backend returns {deliveries: [...], count: N}, extract the array
+  return response.data?.deliveries || response.data || [];
 };
 
 // Accept Delivery - uses order assign-driver endpoint

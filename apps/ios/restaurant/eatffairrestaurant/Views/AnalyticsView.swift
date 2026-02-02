@@ -366,20 +366,6 @@ struct AnalyticsView: View {
                     progress: analyticsVM.onTimeDeliveryRate,
                     color: RestaurantTheme.brandBlue
                 )
-
-                PerformanceRow(
-                    label: "Customer Rating",
-                    value: String(format: "%.1f/5", analyticsVM.customerRating),
-                    progress: analyticsVM.customerRating / 5.0,
-                    color: RestaurantTheme.brandOrange
-                )
-
-                PerformanceRow(
-                    label: "Repeat Customers",
-                    value: String(format: "%.0f%%", analyticsVM.repeatCustomerRate * 100),
-                    progress: analyticsVM.repeatCustomerRate,
-                    color: RestaurantTheme.brandPurple
-                )
             }
         }
         .padding()

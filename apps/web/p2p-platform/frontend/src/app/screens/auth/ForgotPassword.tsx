@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message, Steps } from 'antd';
 import { MailOutlined, LockOutlined, SafetyOutlined, DollarOutlined, ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { getApiUrl } from '../../api/api';
 
 const { Step } = Steps;
@@ -11,9 +11,12 @@ const ForgotPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [email, setEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const API_URL = getApiUrl();
+
+  // Get return URL from query params (e.g., /vendor/login for vendors)
+  const returnUrl = searchParams.get('return') || '/customer/login';
 
   // Step 1: Request password reset
   const onRequestReset = async (values: { email: string }) => {
@@ -36,30 +39,9 @@ const ForgotPassword: React.FC = () => {
     }
   };
 
-  // Step 2: Verify code
-  const onVerifyCode = async (values: { code: string }) => {
-    setLoading(true);
-    try {
-      await axios.post(`${API_URL}/api/customer/password-reset/verify`, {
-        email: email,
-        code: values.code,
-      });
-
-      setVerificationCode(values.code);
-      message.success('Code verified! Now set your new password.');
-      setCurrentStep(2);
-    } catch (error: any) {
-      console.error('Verification error:', error);
-      const detail = error.response?.data?.detail;
-      const errorMsg = typeof detail === 'string' ? detail : 'Invalid or expired code. Please try again.';
-      message.error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 3: Reset password
-  const onResetPassword = async (values: { password: string; confirmPassword: string }) => {
+  // Step 2: Reset password with code (matches iOS and Android flow)
+  // Uses /api/customer/password-reset/confirm which verifies code AND resets password in one step
+  const onResetPassword = async (values: { code: string; password: string; confirmPassword: string }) => {
     if (values.password !== values.confirmPassword) {
       message.error('Passwords do not match');
       return;
@@ -67,18 +49,18 @@ const ForgotPassword: React.FC = () => {
 
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/api/customer/password-reset/reset`, {
+      await axios.post(`${API_URL}/api/customer/password-reset/confirm`, {
         email: email,
-        code: verificationCode,
+        code: values.code,
         new_password: values.password,
       });
 
       message.success('Password reset successfully! Please sign in with your new password.');
-      navigate('/customer/login');
+      navigate(returnUrl);
     } catch (error: any) {
       console.error('Reset error:', error);
       const detail = error.response?.data?.detail;
-      const errorMsg = typeof detail === 'string' ? detail : 'Failed to reset password. Please try again.';
+      const errorMsg = typeof detail === 'string' ? detail : 'Invalid code or failed to reset password. Please try again.';
       message.error(errorMsg);
     } finally {
       setLoading(false);
@@ -127,10 +109,11 @@ const ForgotPassword: React.FC = () => {
         );
 
       case 1:
+        // Step 2: Enter code + new password together (matches iOS and Android flow)
         return (
           <Form
-            name="verify_code"
-            onFinish={onVerifyCode}
+            name="reset_password"
+            onFinish={onResetPassword}
             autoComplete="off"
             layout="vertical"
             className="reset-form"
@@ -156,36 +139,6 @@ const ForgotPassword: React.FC = () => {
               />
             </Form.Item>
 
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                size="large"
-                block
-                className="submit-button"
-              >
-                Verify Code
-              </Button>
-            </Form.Item>
-
-            <div className="resend-link">
-              <Button type="link" onClick={() => setCurrentStep(0)}>
-                Didn't receive the code? Try again
-              </Button>
-            </div>
-          </Form>
-        );
-
-      case 2:
-        return (
-          <Form
-            name="reset_password"
-            onFinish={onResetPassword}
-            autoComplete="off"
-            layout="vertical"
-            className="reset-form"
-          >
             <Form.Item
               name="password"
               label="New Password"
@@ -236,6 +189,12 @@ const ForgotPassword: React.FC = () => {
                 Reset Password
               </Button>
             </Form.Item>
+
+            <div className="resend-link">
+              <Button type="link" onClick={() => setCurrentStep(0)}>
+                Didn't receive the code? Try again
+              </Button>
+            </div>
           </Form>
         );
 
@@ -251,7 +210,7 @@ const ForgotPassword: React.FC = () => {
         <div className="brand-content">
           <div className="logo-container">
             <DollarOutlined className="logo-icon" />
-            <span className="logo-text">Dollor.ai</span>
+            <span className="logo-text">Dollor.AI</span>
           </div>
 
           <h1 className="brand-headline">
@@ -274,14 +233,14 @@ const ForgotPassword: React.FC = () => {
         </div>
 
         <div className="brand-footer">
-          <p>© 2024 Dollor.ai Matchmaking, Inc.</p>
+          <p>© 2024 Dollor.AI Matchmaking, Inc.</p>
         </div>
       </div>
 
       {/* Right Side - Reset Form */}
       <div className="form-section">
         <div className="form-container">
-          <Link to="/customer/login" className="back-link">
+          <Link to={returnUrl} className="back-link">
             <ArrowLeftOutlined /> Back to Sign In
           </Link>
 
@@ -292,7 +251,6 @@ const ForgotPassword: React.FC = () => {
 
           <Steps current={currentStep} size="small" className="reset-steps">
             <Step title="Email" icon={currentStep > 0 ? <CheckCircleOutlined /> : undefined} />
-            <Step title="Verify" icon={currentStep > 1 ? <CheckCircleOutlined /> : undefined} />
             <Step title="Reset" />
           </Steps>
 
@@ -301,7 +259,7 @@ const ForgotPassword: React.FC = () => {
           <div className="form-footer">
             <p>
               Remember your password?{' '}
-              <Link to="/customer/login">Sign In</Link>
+              <Link to={returnUrl}>Sign In</Link>
             </p>
           </div>
         </div>
