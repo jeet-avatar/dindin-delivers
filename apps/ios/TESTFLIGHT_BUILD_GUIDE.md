@@ -1,171 +1,150 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-## Build Summary - February 1, 2026
+## Current Build Numbers (February 1, 2026)
 
-### Current Build Numbers
 | App | Bundle ID | Build | Version |
 |-----|-----------|-------|---------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1030 | 1.0 |
-| **Dollor Driver** | `com.dollorai.delivery` | 104 | 1.0 |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 105 | 1.0 |
-
-### Account Configuration
-| Setting | Value |
-|---------|-------|
-| **Apple ID Account** | `support2dollorai` |
-| **Team ID** | `PRKZ4UVCD7` |
-| **Developer** | Jithesh Manoharan (GQ7PNUK7CZ) |
-| **API Key ID** | `JFVA7628SX` |
-| **Issuer ID** | `14d4d0a7-4fc9-4078-a8bc-e16f78e305a3` |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1031 | 1.0 |
+| **Dollor Driver** | `com.dollorai.delivery` | 105 | 1.0 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 106 | 1.0 |
 
 ---
 
-## How to Build Apps for TestFlight
+## App Store Connect Configuration (VERIFIED WORKING)
 
-### Prerequisites
-1. Xcode installed with valid Apple Developer account
-2. CocoaPods installed (`sudo gem install cocoapods`)
-3. API Key at `/Users/jeet/.appstoreconnect/private_keys/AuthKey_JFVA7628SX.p8`
+| Setting | Value |
+|---------|-------|
+| **Team ID** | `PRKZ4UVCD7` |
+| **API Key ID** | `9K626GB728` |
+| **Issuer ID** | `80d10e49-f379-462f-9668-5ea53016812e` |
+| **API Key File** | `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8` |
+| **API Key JSON** | `~/.appstoreconnect/private_keys/api_key.json` |
+
+### API Key JSON Format
+```json
+{
+  "key_id": "9K626GB728",
+  "issuer_id": "80d10e49-f379-462f-9668-5ea53016812e",
+  "key": "-----BEGIN PRIVATE KEY-----\n...(key content)...\n-----END PRIVATE KEY-----\n",
+  "in_house": false
+}
+```
+
+---
+
+## App Locations
+
+| App | Directory | Workspace | Scheme |
+|-----|-----------|-----------|--------|
+| **Customer** | `apps/ios/customer/` | `eatfaircustomer.xcworkspace` | `eatfaircustomer` |
+| **Driver** | `apps/ios/delivery/` | `eatffairdelivery.xcworkspace` | `eatffairdelivery` |
+| **Restaurant** | `apps/ios/restaurant/` | `eatffairrestaurant.xcworkspace` | `eatffairrestaurant` |
+
+---
+
+## Build & Upload Commands
 
 ### Step 1: Bump Build Numbers
-Update `CURRENT_PROJECT_VERSION` in each project's `project.pbxproj`:
-
 ```bash
 cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios
 
-# Customer - check current and increment
+# Check current
 grep "CURRENT_PROJECT_VERSION" customer/eatfaircustomer.xcodeproj/project.pbxproj | head -1
-
-# Use Edit tool or Xcode to increment all occurrences
+grep "CURRENT_PROJECT_VERSION" delivery/eatffairdelivery.xcodeproj/project.pbxproj | head -1
+grep "CURRENT_PROJECT_VERSION" restaurant/eatffairrestaurant.xcodeproj/project.pbxproj | head -1
 ```
 
 ### Step 2: Install Dependencies
 ```bash
-# Customer App
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
-pod install
-
-# Driver App
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
-pod install
-
-# Restaurant App
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
-pod install
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer && pod install
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery && pod install
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && pod install
 ```
 
-### Step 3: Archive Apps (Use Workspace, NOT Project)
+### Step 3: Archive All Apps
+```bash
+# Customer
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
+xcodebuild -workspace eatfaircustomer.xcworkspace -scheme eatfaircustomer -configuration Release -archivePath build/DollorCustomer.xcarchive archive -allowProvisioningUpdates
 
-**IMPORTANT**: Must use `.xcworkspace` (not `.xcodeproj`) because apps use CocoaPods for GoogleMaps/GooglePlaces.
+# Driver
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
+xcodebuild -workspace eatffairdelivery.xcworkspace -scheme eatffairdelivery -configuration Release -archivePath build/DollorDriver.xcarchive archive -allowProvisioningUpdates
+
+# Restaurant
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
+xcodebuild -workspace eatffairrestaurant.xcworkspace -scheme eatffairrestaurant -configuration Release -archivePath build/DollorRestaurant.xcarchive archive -allowProvisioningUpdates
+```
+
+### Step 4: Export IPAs
+```bash
+# Customer
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
+xcodebuild -exportArchive -archivePath build/DollorCustomer.xcarchive -exportPath build/export -exportOptionsPlist ExportOptionsLocal.plist
+
+# Driver
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
+xcodebuild -exportArchive -archivePath build/DollorDriver.xcarchive -exportPath build/export -exportOptionsPlist ../customer/ExportOptionsLocal.plist
+
+# Restaurant
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
+xcodebuild -exportArchive -archivePath build/DollorRestaurant.xcarchive -exportPath build/export -exportOptionsPlist ../customer/ExportOptionsLocal.plist
+```
+
+### Step 5: Upload to TestFlight
+
+**IMPORTANT:** Use absolute paths to avoid "file not found" errors from wrong directory.
 
 ```bash
-# Customer App (Build 1030)
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
-xcodebuild -workspace eatfaircustomer.xcworkspace \
-  -scheme eatfaircustomer \
-  -configuration Release \
-  -archivePath build/DollorCustomer.xcarchive \
-  archive -allowProvisioningUpdates
+# Customer
+fastlane run upload_to_testflight \
+  ipa:/Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer/build/export/Dollor.ipa \
+  api_key_path:/Users/jeet/.appstoreconnect/private_keys/api_key.json \
+  skip_waiting_for_build_processing:true
 
-# Driver App (Build 104)
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
-xcodebuild -workspace eatffairdelivery.xcworkspace \
-  -scheme eatffairdelivery \
-  -configuration Release \
-  -archivePath build/DollorDriver.xcarchive \
-  archive -allowProvisioningUpdates
+# Driver
+fastlane run upload_to_testflight \
+  ipa:"/Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery/build/export/Dollor Driver.ipa" \
+  api_key_path:/Users/jeet/.appstoreconnect/private_keys/api_key.json \
+  skip_waiting_for_build_processing:true
 
-# Restaurant App (Build 105)
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
-xcodebuild -workspace eatffairrestaurant.xcworkspace \
-  -scheme eatffairrestaurant \
-  -configuration Release \
-  -archivePath build/DollorRestaurant.xcarchive \
-  archive -allowProvisioningUpdates
+# Restaurant
+fastlane run upload_to_testflight \
+  ipa:/Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant/build/export/eatffairrestaurant.ipa \
+  api_key_path:/Users/jeet/.appstoreconnect/private_keys/api_key.json \
+  skip_waiting_for_build_processing:true
 ```
-
-### Step 4: Copy Archives to Xcode Organizer
-```bash
-ARCHIVE_DATE=$(date +%Y-%m-%d)
-mkdir -p "/Users/jeet/Library/Developer/Xcode/Archives/$ARCHIVE_DATE"
-
-cp -r apps/ios/customer/build/DollorCustomer.xcarchive \
-  "/Users/jeet/Library/Developer/Xcode/Archives/$ARCHIVE_DATE/"
-
-cp -r apps/ios/delivery/build/DollorDriver.xcarchive \
-  "/Users/jeet/Library/Developer/Xcode/Archives/$ARCHIVE_DATE/"
-
-cp -r apps/ios/restaurant/build/DollorRestaurant.xcarchive \
-  "/Users/jeet/Library/Developer/Xcode/Archives/$ARCHIVE_DATE/"
-```
-
-### Step 5: Upload via Xcode Organizer
-1. Open **Xcode → Window → Organizer** (Cmd+Shift+O)
-2. Select the archive (e.g., "DollorCustomer")
-3. Click **Distribute App**
-4. Choose **TestFlight & App Store**
-5. Select **Upload** (not Export)
-6. Sign in with `support2dollorai` account when prompted
-7. Wait for processing (~5-10 minutes)
-8. Repeat for Driver and Restaurant apps
-
-### Verification
-After upload, check App Store Connect:
-- https://appstoreconnect.apple.com → My Apps → [App Name] → TestFlight
-
----
-
-## Recent Fixes (Build 1030)
-
-### Map Tracking Blue Screen Fix
-**Issue**: Customer saw blue screen (ocean at 0,0) when viewing order tracking if restaurant hadn't set GPS coordinates.
-
-**Solution**: Added coordinate validation in `DeliveryTrackingView.swift`:
-- Validates coordinates aren't at (0,0) or out of range
-- Shows friendly placeholder with status message when no valid coordinates
-- Falls back to showing any available valid location (restaurant, delivery address, or driver)
-
-**File**: `apps/ios/customer/eatfaircustomer/Views/DeliveryTrackingView.swift`
 
 ---
 
 ## Troubleshooting
 
-### "Unable to find module dependency: GoogleMaps"
-**Cause**: Using `.xcodeproj` instead of `.xcworkspace`
-**Fix**: Always use `-workspace *.xcworkspace` for archive commands
-
-### "No accounts with App Store Connect"
-**Cause**: Not signed in with correct Apple ID
-**Fix**: In Xcode, go to Settings → Accounts → Add `support2dollorai`
-
-### Build number already used
-**Fix**: Increment `CURRENT_PROJECT_VERSION` in project.pbxproj (replace_all for all occurrences)
+| Error | Fix |
+|-------|-----|
+| "Could not find ipa file at path" | Use absolute paths for IPA files, not relative paths |
+| "Unable to find module dependency: GoogleMaps" | Use `.xcworkspace` not `.xcodeproj` |
+| "Couldn't find app on the account" | Check `api_key.json` has key_id `9K626GB728` and issuer_id `80d10e49-f379-462f-9668-5ea53016812e` |
+| "API key JSON is missing field: key" | JSON must contain actual key content, not filepath |
+| "Build number already used" | Increment `CURRENT_PROJECT_VERSION` in project.pbxproj |
 
 ---
 
 ## Next Session Prompt
 
-Copy and paste this to continue work in a new session:
-
 ```
-I'm continuing iOS TestFlight builds for Dollor.ai apps.
+Continuing iOS TestFlight builds for Dollor.ai apps.
 
-Current build numbers (update if you built newer):
-- Customer: 1030
-- Driver: 104
-- Restaurant: 105
+Build numbers:
+- Customer: 1031
+- Driver: 105
+- Restaurant: 106
 
-Key info:
+API Config (VERIFIED):
+- Key ID: 9K626GB728
+- Issuer ID: 80d10e49-f379-462f-9668-5ea53016812e
 - Team ID: PRKZ4UVCD7
-- Account: support2dollorai
-- Bundle IDs: com.dollorai.customer, com.dollorai.delivery, com.dollorai.restaurant
-- MUST use .xcworkspace (not .xcodeproj) due to CocoaPods
 
 Reference: apps/ios/TESTFLIGHT_BUILD_GUIDE.md
-Reference: apps/ios/CUSTOMER_APP_SOURCE_OF_TRUTH.md
-
-[Describe what you need help with]
 ```
 
 ---
