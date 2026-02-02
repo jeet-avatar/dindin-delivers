@@ -8,6 +8,7 @@ struct MyDeliveriesView: View {
     @StateObject private var locationManager = LocationManager.shared
     @State private var selectedDelivery: Order?
     @State private var showActiveDelivery = false
+    @State private var dummyTab: Int = 0  // Local state for standalone usage
 
     var body: some View {
         NavigationView {
@@ -101,7 +102,7 @@ struct MyDeliveriesView: View {
                     .multilineTextAlignment(.center)
             }
 
-            NavigationLink(destination: AvailableOrdersView(viewModel: viewModel)) {
+            NavigationLink(destination: AvailableOrdersView(viewModel: viewModel, selectedTab: $dummyTab)) {
                 HStack {
                     Image(systemName: "shippingbox.fill")
                     Text("Browse Available Orders")

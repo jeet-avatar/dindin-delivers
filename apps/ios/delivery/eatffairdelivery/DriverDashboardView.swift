@@ -14,7 +14,7 @@ struct DriverDashboardView: View {
             // Driver App - Food Delivery and Rideshare
             TabView(selection: $selectedTab) {
                 // Available Orders Tab (Food Delivery)
-                AvailableOrdersView(viewModel: deliveryViewModel)
+                AvailableOrdersView(viewModel: deliveryViewModel, selectedTab: $selectedTab)
                     .tabItem {
                         Label("Delivery", systemImage: "bag.fill")
                     }
