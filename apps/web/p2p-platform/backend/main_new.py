@@ -12193,6 +12193,24 @@ def get_customer_orders(
     for order in orders:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
 
+        # Get driver details including vehicle info for customer tracking
+        driver_info = None
+        if order.driver_id:
+            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+            if driver:
+                driver_info = {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}",
+                    "phone": driver.phone,
+                    "photo_url": driver.photo_url,
+                    "rating": driver.rating,
+                    "vehicle": f"{driver.vehicle_color or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() or None,
+                    "vehicle_make": driver.vehicle_make,
+                    "vehicle_model": driver.vehicle_model,
+                    "vehicle_color": driver.vehicle_color,
+                    "license_plate": driver.license_plate
+                }
+
         result.append({
             "id": order.id,
             "order_number": order.order_number,
@@ -12211,6 +12229,7 @@ def get_customer_orders(
             "delivery_instructions": order.delivery_instructions,
             "driver_id": order.driver_id,
             "driver_name": order.driver_name,
+            "driver": driver_info,  # Full driver details with vehicle
             "driver_location": order.driver_location,
             "pickup_latitude": vendor.latitude if vendor else None,
             "pickup_longitude": vendor.longitude if vendor else None,
@@ -12220,6 +12239,7 @@ def get_customer_orders(
             "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
             "preparing_at": (order.preparing_at.isoformat() + "Z") if order.preparing_at else None,
             "dispatched_at": (order.dispatched_at.isoformat() + "Z") if order.dispatched_at else None,
+            "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
             "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
         })
 

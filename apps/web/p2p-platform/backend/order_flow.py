@@ -2035,6 +2035,7 @@ async def get_vendor_orders(
 ):
     """
     Get all orders for a vendor - Called from iOS Restaurant App
+    Includes driver details (name, phone, vehicle) for pickup coordination
     """
     orders = db.query(Order).filter(
         Order.vendor_id == vendor_id
@@ -2059,6 +2060,24 @@ async def get_vendor_orders(
                 # If not valid JSON, treat as string address
                 delivery_addr = {"address": str(order.delivery_address)}
 
+        # Get driver details if assigned
+        driver_info = None
+        if order.driver_id:
+            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+            if driver:
+                driver_info = {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}",
+                    "phone": driver.phone,
+                    "photo_url": driver.photo_url,
+                    "rating": driver.rating,
+                    "vehicle": f"{driver.vehicle_color or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() or None,
+                    "vehicle_make": driver.vehicle_make,
+                    "vehicle_model": driver.vehicle_model,
+                    "vehicle_color": driver.vehicle_color,
+                    "license_plate": driver.license_plate
+                }
+
         result.append({
             "id": order.id,
             "order_number": order.order_number,
@@ -2074,9 +2093,13 @@ async def get_vendor_orders(
             "total": order.total_amount,
             "delivery_address": delivery_addr,
             "delivery_instructions": order.delivery_instructions,
+            # Driver info for pickup coordination
+            "driver_id": order.driver_id,
             "driver_name": order.driver_name,
+            "driver": driver_info,
             "created_at": order.created_at.isoformat() if order.created_at else None,
             "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
+            "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
             "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
         })
 
