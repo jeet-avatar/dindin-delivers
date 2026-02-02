@@ -3572,7 +3572,6 @@ async def get_ai_employee_stats(
 
 
 @router.get("/orders/{order_id}/full-tracking")
-@router.get("/erp/orders/{order_id}/full-tracking")
 async def get_full_order_tracking(
     order_id: int,
     db: Session = Depends(get_db)
@@ -3581,9 +3580,8 @@ async def get_full_order_tracking(
     Complete order tracking for customer app
     Includes order details, restaurant info, driver info, location, and traffic-aware ETA
 
-    Routes:
-    - /orders/{order_id}/full-tracking (web)
-    - /erp/orders/{order_id}/full-tracking (iOS/Android apps)
+    Full path: /api/erp/orders/{order_id}/full-tracking (router prefix is /api/erp)
+    Used by: iOS/Android customer apps for delivery tracking
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
