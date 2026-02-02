@@ -30,6 +30,7 @@ import requests
 
 from database import get_db, SessionLocal
 from email_service import send_order_delivered_with_receipt_email
+from google_maps_service import get_traffic_eta, ETAResult
 
 # Service URLs
 PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8008")
@@ -3532,7 +3533,7 @@ async def get_full_order_tracking(
 ):
     """
     Complete order tracking for customer app
-    Includes order details, restaurant info, driver info, and location
+    Includes order details, restaurant info, driver info, location, and traffic-aware ETA
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -3543,19 +3544,40 @@ async def get_full_order_tracking(
 
     # Parse delivery address
     delivery_addr = {}
+    delivery_lat = None
+    delivery_lng = None
     if order.delivery_address:
         try:
             delivery_addr = json.loads(order.delivery_address)
+            delivery_lat = delivery_addr.get("latitude") or delivery_addr.get("lat")
+            delivery_lng = delivery_addr.get("longitude") or delivery_addr.get("lng")
         except:
             delivery_addr = {"address": str(order.delivery_address)}
 
+    # Fallback to order-level delivery coordinates
+    if not delivery_lat:
+        delivery_lat = order.delivery_latitude
+    if not delivery_lng:
+        delivery_lng = order.delivery_longitude
+
     # Parse driver location
     driver_location = None
+    driver_lat = None
+    driver_lng = None
     if order.driver_location:
         try:
             driver_location = json.loads(order.driver_location)
+            driver_lat = driver_location.get("latitude") or driver_location.get("lat")
+            driver_lng = driver_location.get("longitude") or driver_location.get("lng")
         except:
             pass
+
+    # Fallback to driver's current location from driver record
+    if driver and not driver_lat:
+        driver_lat = driver.current_latitude
+        driver_lng = driver.current_longitude
+        if driver_lat and driver_lng:
+            driver_location = {"latitude": driver_lat, "longitude": driver_lng}
 
     # Parse items
     items = []
@@ -3579,6 +3601,42 @@ async def get_full_order_tracking(
         timeline.append({"status": "Out for Delivery", "time": datetime.now().isoformat()})
     if order.delivered_at:
         timeline.append({"status": "Delivered", "time": order.delivered_at.isoformat()})
+
+    # Calculate traffic-aware ETA when driver is out for delivery
+    estimated_delivery = None
+    eta_data = None
+
+    if (order.status == OrderStatus.OUT_FOR_DELIVERY and
+        driver_lat and driver_lng and delivery_lat and delivery_lng):
+        try:
+            eta_result = await get_traffic_eta(
+                origin_lat=driver_lat,
+                origin_lng=driver_lng,
+                dest_lat=delivery_lat,
+                dest_lng=delivery_lng
+            )
+            estimated_delivery = f"{eta_result.eta_minutes} mins"
+            eta_data = {
+                "minutes": eta_result.eta_minutes,
+                "distance_miles": eta_result.distance_miles,
+                "distance_meters": eta_result.distance_meters,
+                "is_traffic_aware": eta_result.is_traffic_aware,
+                "route_polyline": eta_result.route_polyline
+            }
+        except Exception as e:
+            logging.warning(f"ETA calculation failed for order {order_id}: {e}")
+            # Fallback: status-based estimate
+            estimated_delivery = "10-15 mins"
+    elif order.status == OrderStatus.DELIVERED:
+        estimated_delivery = "Delivered"
+    elif order.status in [OrderStatus.READY, OrderStatus.PENDING_DELIVERY_DECISION]:
+        estimated_delivery = "15-20 mins"
+    elif order.status == OrderStatus.PREPARING:
+        estimated_delivery = "20-30 mins"
+    elif order.status == OrderStatus.CONFIRMED:
+        estimated_delivery = "25-35 mins"
+    else:
+        estimated_delivery = "30-40 mins"
 
     return {
         "success": True,
@@ -3610,9 +3668,12 @@ async def get_full_order_tracking(
             "rating": driver.rating if driver else None,
             "photo_url": driver.photo_url if driver else None,
             "vehicle": f"{driver.vehicle_make} {driver.vehicle_model}" if driver else None,
+            "vehicle_color": driver.vehicle_color if driver else None,
+            "vehicle_photo_url": driver.vehicle_photo_url if driver and hasattr(driver, 'vehicle_photo_url') else None,
             "license_plate": driver.license_plate if driver else None,
             "location": driver_location
         },
         "timeline": timeline,
-        "estimated_delivery": None  # TODO: Calculate ETA
+        "estimated_delivery": estimated_delivery,
+        "eta": eta_data
     }

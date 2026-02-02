@@ -18,6 +18,11 @@ class OrderTrackingViewModel: ObservableObject {
     @Published var restaurantInfo: P2PTrackingRestaurant?
     @Published var driverInfo: P2PTrackingDriver?
 
+    // Traffic-aware ETA data
+    @Published var etaMinutes: Int?
+    @Published var etaDistanceMiles: Double?
+    @Published var isTrafficAwareETA: Bool = false
+
     private let p2pAPI = P2PAPIService.shared
     private var pollingTimer: Timer?
     private var trackingOrderId: Int?
@@ -138,9 +143,23 @@ class OrderTrackingViewModel: ObservableObject {
                         )
                     }
 
-                    // Update estimated time
-                    if let eta = tracking.estimatedDelivery {
+                    // Update ETA from server (traffic-aware when available)
+                    if let etaData = tracking.eta {
+                        // Use precise server ETA with traffic data
+                        self.etaMinutes = etaData.minutes
+                        self.etaDistanceMiles = etaData.distanceMiles
+                        self.isTrafficAwareETA = etaData.isTrafficAware
+                        self.estimatedTime = "\(etaData.minutes) mins"
+
+                        #if DEBUG
+                        print("[OrderTracking] Traffic-aware ETA: \(etaData.minutes) mins, \(etaData.distanceMiles) mi, traffic: \(etaData.isTrafficAware)")
+                        #endif
+                    } else if let eta = tracking.estimatedDelivery {
+                        // Fallback to string-based estimate
                         self.estimatedTime = eta
+                        self.isTrafficAwareETA = false
+                        self.etaMinutes = nil
+                        self.etaDistanceMiles = nil
                     }
 
                     #if DEBUG
@@ -236,18 +255,26 @@ class OrderTrackingViewModel: ObservableObject {
     }
 
     private func updateEstimatedTimeFromStatus(_ status: String) {
-        // Calculate actual ETA if we have driver location and delivery address
+        // If we have traffic-aware ETA from server, prefer that
+        if isTrafficAwareETA, let mins = etaMinutes, status == "Out for Delivery" {
+            estimatedTime = "\(mins) mins"
+            return
+        }
+
+        // Calculate local ETA if we have driver location and delivery address
+        // (only as fallback when server ETA is not available)
         if let driverLoc = driverLocation,
            let order = currentOrder,
-           status == "Out for Delivery" {
-            // Calculate real ETA based on driver distance to delivery
+           status == "Out for Delivery",
+           !isTrafficAwareETA {
+            // Calculate local ETA based on driver distance to delivery
             let deliveryCoord = CLLocationCoordinate2D(
                 latitude: order.deliveryAddress.latitude,
                 longitude: order.deliveryAddress.longitude
             )
             let distanceMeters = calculateDistance(from: driverLoc, to: deliveryCoord)
-            let etaMinutes = calculateETAMinutes(distanceMeters: distanceMeters)
-            estimatedTime = "\(etaMinutes) mins"
+            let localEtaMinutes = calculateETAMinutes(distanceMeters: distanceMeters)
+            estimatedTime = "\(localEtaMinutes) mins"
             return
         }
 

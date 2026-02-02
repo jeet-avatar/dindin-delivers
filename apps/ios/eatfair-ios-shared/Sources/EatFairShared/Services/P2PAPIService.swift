@@ -10434,6 +10434,23 @@ public struct P2PMessageResponse: Codable {
 
 // MARK: - Enterprise Response Models
 
+/// Traffic-aware ETA data from Google Maps Directions API
+public struct P2PETAData: Codable {
+    public let minutes: Int
+    public let distanceMiles: Double
+    public let distanceMeters: Int
+    public let isTrafficAware: Bool
+    public let routePolyline: String?
+
+    enum CodingKeys: String, CodingKey {
+        case minutes
+        case distanceMiles = "distance_miles"
+        case distanceMeters = "distance_meters"
+        case isTrafficAware = "is_traffic_aware"
+        case routePolyline = "route_polyline"
+    }
+}
+
 public struct P2PFullOrderTracking: Codable {
     public let success: Bool
     public let order: P2PTrackingOrder
@@ -10441,9 +10458,10 @@ public struct P2PFullOrderTracking: Codable {
     public let driver: P2PTrackingDriver?
     public let timeline: [P2PTimelineEvent]
     public let estimatedDelivery: String?
+    public let eta: P2PETAData?
 
     enum CodingKeys: String, CodingKey {
-        case success, order, restaurant, driver, timeline
+        case success, order, restaurant, driver, timeline, eta
         case estimatedDelivery = "estimated_delivery"
     }
 }
