@@ -12,6 +12,10 @@ on:
         required: true
         type: string
 
+# Required for git push to work with GITHUB_TOKEN
+permissions:
+  contents: write
+
 env:
   AWS_REGION: us-east-1
 

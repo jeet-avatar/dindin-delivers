@@ -13,6 +13,11 @@ on:
         type: boolean
         default: false
 
+# Required for creating PRs and pushing code
+permissions:
+  contents: write
+  pull-requests: write
+
 env:
   AWS_REGION: us-east-1
 
