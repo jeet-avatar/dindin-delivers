@@ -10575,18 +10575,7 @@ public struct P2PDriverLocation: Codable {
     }
 }
 
-public struct P2PDriverInfo: Codable {
-    public let id: Int?
-    public let name: String?
-    public let phone: String?
-    public let rating: Double?
-    public let photoUrl: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, phone, rating
-        case photoUrl = "photo_url"
-    }
-}
+// P2PDriverInfo is defined earlier in this file with vehicle fields
 
 public struct P2PRealtimeAnalytics: Codable {
     public let success: Bool
