@@ -2,6 +2,36 @@ import SwiftUI
 import MapKit
 import EatFairShared
 
+/// Route information for ETA and distance display
+struct RouteInfo {
+    var distanceMeters: Double = 0
+    var expectedTravelTimeSeconds: Double = 0
+
+    var distanceMiles: Double {
+        distanceMeters / 1609.34
+    }
+
+    var etaMinutes: Int {
+        Int(ceil(expectedTravelTimeSeconds / 60))
+    }
+
+    var formattedDistance: String {
+        if distanceMiles < 0.1 {
+            return "< 0.1 mi"
+        }
+        return String(format: "%.1f mi", distanceMiles)
+    }
+
+    var formattedETA: String {
+        if etaMinutes < 1 {
+            return "< 1 min"
+        } else if etaMinutes == 1 {
+            return "1 min"
+        }
+        return "\(etaMinutes) mins"
+    }
+}
+
 /// Uber-style Pickup/Dropoff View for Driver App
 /// Shows active delivery with swipe-to-confirm for pickup and dropoff actions
 struct PickupDropoffView: View {
@@ -38,6 +68,7 @@ struct ActivePickupDropoffView: View {
     @State private var showDropoffConfirm = false
     @State private var sliderOffset: CGFloat = 0
     @State private var isSliding = false
+    @State private var routeToDestination: RouteInfo = RouteInfo()
 
     private var isPickedUp: Bool {
         let status = DeliveryOrderStatus.from(order.status)
@@ -52,7 +83,10 @@ struct ActivePickupDropoffView: View {
                     order: order,
                     mapPosition: $mapPosition,
                     showPickupLocation: !isPickedUp,
-                    showDropoffLocation: true
+                    showDropoffLocation: true,
+                    onRouteCalculated: { routeInfo in
+                        routeToDestination = routeInfo
+                    }
                 )
                 .ignoresSafeArea(edges: .top)
 
@@ -62,6 +96,7 @@ struct ActivePickupDropoffView: View {
                         order: order,
                         viewModel: viewModel,
                         isPickedUp: isPickedUp,
+                        routeInfo: routeToDestination,
                         onExpandMap: { isMapExpanded = true }
                     )
                     .transition(.move(edge: .bottom))
@@ -100,11 +135,27 @@ struct DriverDeliveryMapView: View {
     @Binding var mapPosition: MapCameraPosition
     let showPickupLocation: Bool
     let showDropoffLocation: Bool
+    var onRouteCalculated: ((RouteInfo) -> Void)?
 
     @StateObject private var locationManager = LocationManager.shared
+    @State private var routeToPickup: MKRoute?
+    @State private var routeToDropoff: MKRoute?
+    @State private var isCalculatingRoute = false
 
     var body: some View {
         Map(position: $mapPosition) {
+            // Route polyline to pickup (orange)
+            if showPickupLocation, let route = routeToPickup {
+                MapPolyline(route.polyline)
+                    .stroke(Theme.brandOrange, lineWidth: 5)
+            }
+
+            // Route polyline to dropoff (green)
+            if let route = routeToDropoff {
+                MapPolyline(route.polyline)
+                    .stroke(Theme.statusActive, lineWidth: 5)
+            }
+
             // Driver's current location (custom blue dot with pulse)
             if let driverLocation = locationManager.currentCoordinate {
                 Annotation("You", coordinate: driverLocation) {
@@ -166,13 +217,100 @@ struct DriverDeliveryMapView: View {
             locationManager.requestPermission()
             locationManager.startTracking()
             updateMapRegion()
+            calculateRoutes()
         }
         .onChange(of: locationManager.currentCoordinate) { _, newLocation in
             // Optionally update map to follow driver
             if let location = newLocation {
                 // Smoothly animate to new position while keeping destinations visible
                 updateMapRegionWithDriver(driverLocation: location)
+                // Recalculate route when driver moves significantly
+                calculateRoutes()
             }
+        }
+        .onChange(of: showPickupLocation) { _, _ in
+            calculateRoutes()
+        }
+    }
+
+    /// Calculate driving routes using MapKit Directions
+    private func calculateRoutes() {
+        guard !isCalculatingRoute else { return }
+        guard let driverLocation = locationManager.currentCoordinate else { return }
+
+        isCalculatingRoute = true
+
+        let pickupCoord = CLLocationCoordinate2D(
+            latitude: order.restaurant.latitude,
+            longitude: order.restaurant.longitude
+        )
+        let dropoffCoord = CLLocationCoordinate2D(
+            latitude: order.deliveryAddress.latitude,
+            longitude: order.deliveryAddress.longitude
+        )
+
+        // Validate coordinates are not at 0,0 (null island)
+        let hasValidPickup = pickupCoord.latitude != 0 && pickupCoord.longitude != 0
+        let hasValidDropoff = dropoffCoord.latitude != 0 && dropoffCoord.longitude != 0
+
+        if showPickupLocation && hasValidPickup {
+            // Calculate route from driver to pickup (this is the active route before pickup)
+            calculateRoute(from: driverLocation, to: pickupCoord) { route in
+                DispatchQueue.main.async {
+                    self.routeToPickup = route
+                    // Report route info for pickup phase
+                    if let route = route {
+                        let info = RouteInfo(
+                            distanceMeters: route.distance,
+                            expectedTravelTimeSeconds: route.expectedTravelTime
+                        )
+                        self.onRouteCalculated?(info)
+                    }
+                }
+            }
+        }
+
+        if hasValidDropoff {
+            // Calculate route from driver to dropoff (or pickup to dropoff for display)
+            let startPoint = showPickupLocation && hasValidPickup ? pickupCoord : driverLocation
+            calculateRoute(from: startPoint, to: dropoffCoord) { route in
+                DispatchQueue.main.async {
+                    self.routeToDropoff = route
+                    self.isCalculatingRoute = false
+
+                    // If already picked up, report dropoff route info
+                    if !self.showPickupLocation, let route = route {
+                        let info = RouteInfo(
+                            distanceMeters: route.distance,
+                            expectedTravelTimeSeconds: route.expectedTravelTime
+                        )
+                        self.onRouteCalculated?(info)
+                    }
+                }
+            }
+        } else {
+            isCalculatingRoute = false
+        }
+    }
+
+    /// Calculate a single route between two coordinates
+    private func calculateRoute(from source: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, completion: @escaping (MKRoute?) -> Void) {
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: source))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destination))
+        request.transportType = .automobile
+        request.requestsAlternateRoutes = false
+
+        let directions = MKDirections(request: request)
+        directions.calculate { response, error in
+            if let error = error {
+                #if DEBUG
+                print("[DriverDeliveryMapView] Route calculation error: \(error.localizedDescription)")
+                #endif
+                completion(nil)
+                return
+            }
+            completion(response?.routes.first)
         }
     }
 
@@ -314,6 +452,7 @@ struct DriverBottomActionSheet: View {
     let order: Order
     @ObservedObject var viewModel: DeliveryViewModel
     let isPickedUp: Bool
+    var routeInfo: RouteInfo = RouteInfo()
     let onExpandMap: () -> Void
 
     @State private var showNavigateOptions = false
@@ -326,7 +465,7 @@ struct DriverBottomActionSheet: View {
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
 
-            // Current Step Header
+            // Current Step Header with ETA
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(isPickedUp ? "Step 2 of 2" : "Step 1 of 2")
@@ -340,6 +479,30 @@ struct DriverBottomActionSheet: View {
                 }
 
                 Spacer()
+
+                // ETA and Distance display
+                if routeInfo.distanceMeters > 0 {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.caption)
+                            Text(routeInfo.formattedETA)
+                                .font(.title3)
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(isPickedUp ? Theme.statusActive : Theme.brandOrange)
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "car.fill")
+                                .font(.caption2)
+                            Text(routeInfo.formattedDistance)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    .padding(.trailing, 12)
+                }
 
                 // Expand map button
                 Button(action: onExpandMap) {
