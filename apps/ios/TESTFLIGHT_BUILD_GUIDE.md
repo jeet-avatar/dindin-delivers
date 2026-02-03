@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1035 | 1.0 | Ready for TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 111 | 1.0 | Ready for TestFlight |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 111 | 1.0 | Ready for TestFlight |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 112 | 1.0 | Uploaded to TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 112 | 1.0 | Uploaded to TestFlight |
 
 ---
 
@@ -179,9 +179,9 @@ Continuing Dollor.ai iOS development.
 ## Current State (February 3, 2026)
 
 ### Build Numbers
-- Customer: 1035 (Bundle: com.dollorai.customer)
-- Driver: 111 (Bundle: com.dollorai.delivery)
-- Restaurant: 111 (Bundle: com.dollorai.restaurant)
+- Customer: 1037 (Bundle: com.dollorai.customer)
+- Driver: 112 (Bundle: com.dollorai.delivery)
+- Restaurant: 112 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
 - API Version: 1.0.8 (Contract)
