@@ -308,9 +308,23 @@ class DeliveryViewModel: ObservableObject {
 
                 switch result {
                 case .success:
+                    // CRITICAL FIX: Immediately update local state for instant UI feedback
+                    // This ensures the Active tab shows the order right away while the
+                    // full refresh happens in the background (fixes timing issue where
+                    // driver sees "No Active Delivery" after accepting)
+                    if let self = self {
+                        // Remove from available orders immediately
+                        self.availableOrders.removeAll { $0.id == orderId }
+
+                        // Add to my deliveries immediately (if not already there)
+                        if !self.myDeliveries.contains(where: { $0.id == orderId }) {
+                            self.myDeliveries.insert(order, at: 0)
+                        }
+                    }
+
                     // Start real-time location tracking for this order
                     LocationManager.shared.startDeliveryTracking(orderId: orderIdInt)
-                    // Refresh data to show updated orders
+                    // Refresh data to reconcile with server state
                     self?.refreshAllData()
 
                 case .failure(let error):

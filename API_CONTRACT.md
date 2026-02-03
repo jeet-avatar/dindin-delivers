@@ -5,7 +5,7 @@
 > Any changes require PR review and approval.
 
 **Last Updated**: February 2, 2026
-**API Version**: 1.0.5
+**API Version**: 1.0.6
 **Production URL**: `https://api.dollor.ai`
 **Staging URL**: `https://d3kuu45w6kl8hr.cloudfront.net`
 
@@ -143,6 +143,58 @@ Body: { "status": "PREPARING" }  // Accepts UPPERCASE
 ```
 POST /api/erp/orders/{order_id}/accept-delivery   // Restaurant will deliver
 POST /api/erp/orders/{order_id}/decline-delivery  // Send to driver pool
+```
+
+### Driver Order Acceptance (Driver App)
+```
+POST /api/driver/orders/{order_id}/accept
+```
+**Used by**: iOS Driver App, Android OrderApp
+**Auth**: Required (Driver token)
+
+**Client Behavior Requirement**:
+On successful acceptance, the mobile app MUST:
+1. Immediately remove the order from `availableOrders` list
+2. Immediately add the order to `myDeliveries` list (optimistic update)
+3. Navigate to the Active Delivery screen
+4. Call refresh in background to reconcile with server state
+
+This ensures the driver sees navigation guidance immediately after accepting,
+rather than waiting for the async API refresh to complete.
+
+```swift
+// iOS - CORRECT implementation
+case .success:
+    // 1. Optimistic update for instant UI feedback
+    self.availableOrders.removeAll { $0.id == orderId }
+    if !self.myDeliveries.contains(where: { $0.id == orderId }) {
+        self.myDeliveries.insert(order, at: 0)
+    }
+    // 2. Start location tracking
+    LocationManager.shared.startDeliveryTracking(orderId: orderId)
+    // 3. Background refresh to reconcile
+    self.refreshAllData()
+```
+
+```kotlin
+// Android - CORRECT implementation
+override fun onSuccess() {
+    // 1. Optimistic update for instant UI feedback
+    availableOrders.removeAll { it.id == orderId }
+    if (myDeliveries.none { it.id == orderId }) {
+        myDeliveries.add(0, order)
+    }
+    // 2. Start location tracking
+    LocationManager.startDeliveryTracking(orderId)
+    // 3. Background refresh to reconcile
+    refreshAllData()
+}
+```
+
+### Driver Order Status Updates (Driver App)
+```
+PUT /api/driver/orders/{order_id}/picked-up     // Driver picked up from restaurant
+PUT /api/driver/orders/{order_id}/delivered     // Driver completed delivery
 ```
 
 ---
@@ -315,6 +367,8 @@ POST /api/erp/orders/{order_id}/decline-delivery  // Send to driver pool
 
 | Date | Version | Change | Author |
 |------|---------|--------|--------|
+| 2026-02-02 | 1.0.6 | Added driver order acceptance optimistic update requirement - fixes "No Active Delivery" bug | Claude |
+| 2026-02-02 | 1.0.6 | Documented driver app endpoint contracts for accept/pickup/deliver | Claude |
 | 2026-02-02 | 1.0.5 | Fixed route conflict: rides endpoint moved from /api/erp/orders/ to /api/erp/rides/ | Claude |
 | 2026-02-02 | 1.0.5 | Added picked_up_at column to Order model | Claude |
 | 2026-02-02 | 1.0.5 | Fixed iOS case sensitivity for status checks | Claude |
