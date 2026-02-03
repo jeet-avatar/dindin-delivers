@@ -17,7 +17,7 @@ AI Employees:
 - QualityBot Epsilon (AI_EMP_005): Quality monitoring
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime, timedelta
