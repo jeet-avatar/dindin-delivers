@@ -1,16 +1,44 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-## Current Build Numbers (February 2, 2026)
-
-| App | Bundle ID | Build | Version |
-|-----|-----------|-------|---------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1035 | 1.0 |
-| **Dollor Driver** | `com.dollorai.delivery` | 111 | 1.0 |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 111 | 1.0 |
+> **Last Updated**: February 3, 2026
+> **API Contract Version**: 1.0.8
+> **Backend Version**: 1.0.5
 
 ---
 
-## App Store Connect Configuration (VERIFIED WORKING)
+## Current Build Numbers
+
+| App | Bundle ID | Build | Version | Status |
+|-----|-----------|-------|---------|--------|
+| **Dollor (Customer)** | `com.dollorai.customer` | 1035 | 1.0 | Ready for TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 111 | 1.0 | Ready for TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 111 | 1.0 | Ready for TestFlight |
+
+---
+
+## Recent Fixes (This Session)
+
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| Driver earnings showing $0 | Fixed backend response structure (today/this_week/this_month) | `33131dff` |
+| Rate driver 404 error | Fixed endpoint URL: `/api/customer/orders/{id}/rate-driver` | `b65d4760` |
+| "No Active Delivery" after accept | Added optimistic update in DriverViewModel | `198d9ad1` |
+
+---
+
+## API Endpoints Verified (Production)
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /health` | ✅ 200 | Version 1.0.5, DB connected |
+| `GET /api/vendors` | ✅ 200 | Returns vendor list |
+| `GET /api/v5/driver/{id}/dashboard` | ✅ 200 | iOS-compatible format |
+| `POST /api/customer/orders/{id}/rate-driver` | ✅ 401 | Requires auth (correct) |
+| `POST /api/customer/orders/{id}/rate-restaurant` | ✅ 401 | Requires auth (correct) |
+
+---
+
+## App Store Connect Configuration
 
 | Setting | Value |
 |---------|-------|
@@ -93,7 +121,7 @@ xcodebuild -exportArchive -archivePath build/DollorRestaurant.xcarchive -exportP
 
 ### Step 5: Upload to TestFlight
 
-**IMPORTANT:** Use absolute paths to avoid "file not found" errors from wrong directory.
+**IMPORTANT:** Use absolute paths to avoid "file not found" errors.
 
 ```bash
 # Customer
@@ -121,32 +149,93 @@ fastlane run upload_to_testflight \
 
 | Error | Fix |
 |-------|-----|
-| "Could not find ipa file at path" | Use absolute paths for IPA files, not relative paths |
+| "Could not find ipa file at path" | Use absolute paths for IPA files |
 | "Unable to find module dependency: GoogleMaps" | Use `.xcworkspace` not `.xcodeproj` |
-| "Couldn't find app on the account" | Check `api_key.json` has key_id `9K626GB728` and issuer_id `80d10e49-f379-462f-9668-5ea53016812e` |
-| "API key JSON is missing field: key" | JSON must contain actual key content, not filepath |
-| "Build number already used" | Increment `CURRENT_PROJECT_VERSION` in project.pbxproj |
+| "Couldn't find app on the account" | Check `api_key.json` credentials |
+| "API key JSON is missing field: key" | JSON must contain actual key content |
+| "Build number already used" | Increment `CURRENT_PROJECT_VERSION` |
+| Driver earnings showing $0 | Backend fixed in v1.0.8 - redeploy if needed |
+| Rate driver returns 404 | Use `/api/customer/orders/` not `/api/orders/` |
 
 ---
 
-## Next Session Prompt
+## Related Documentation
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| **API Contract** | `API_CONTRACT.md` | Endpoint specifications, status values |
+| **Deployment Guide** | `DEPLOYMENT.md` | Backend deployment procedures |
+| **Session Handoffs** | `apps/ios/SESSION_HANDOFF_*.md` | Previous session context |
+
+---
+
+## Session Handoff Prompt
+
+Copy this prompt to continue in a new session:
 
 ```
-Continuing iOS TestFlight builds for Dollor.ai apps.
+Continuing Dollor.ai iOS development.
 
-Build numbers:
-- Customer: 1035
-- Driver: 111
-- Restaurant: 111
+## Current State (February 3, 2026)
 
-API Config (VERIFIED):
-- Key ID: 9K626GB728
-- Issuer ID: 80d10e49-f379-462f-9668-5ea53016812e
+### Build Numbers
+- Customer: 1035 (Bundle: com.dollorai.customer)
+- Driver: 111 (Bundle: com.dollorai.delivery)
+- Restaurant: 111 (Bundle: com.dollorai.restaurant)
+
+### Backend Status
+- API Version: 1.0.8 (Contract)
+- Backend Version: 1.0.5
+- Staging: https://d3kuu45w6kl8hr.cloudfront.net (healthy)
+- Production: https://api.dollor.ai (healthy)
+
+### Recent Fixes Applied
+1. Driver earnings dashboard - now returns iOS-compatible format (today/this_week/this_month)
+2. Rate driver endpoint - fixed URL from /api/orders/ to /api/customer/orders/
+3. Order acceptance - added optimistic update for instant UI feedback
+
+### Key Files
+- API Contract: API_CONTRACT.md (v1.0.8)
+- Deployment: DEPLOYMENT.md
+- Build Guide: apps/ios/TESTFLIGHT_BUILD_GUIDE.md
+
+### App Store Connect
 - Team ID: PRKZ4UVCD7
+- API Key ID: 9K626GB728
+- Issuer ID: 80d10e49-f379-462f-9668-5ea53016812e
 
-Reference: apps/ios/TESTFLIGHT_BUILD_GUIDE.md
+### Commands to Verify
+```bash
+# Check API health
+curl https://api.dollor.ai/health
+
+# Check driver dashboard format
+curl https://api.dollor.ai/api/v5/driver/48/dashboard | python3 -m json.tool
+
+# Check git status
+git log --oneline -5
+```
+
+### Next Actions
+[Describe what you want to do next]
 ```
 
 ---
 
-*Last Updated: February 2, 2026*
+## Quick Verification Commands
+
+```bash
+# Verify all systems before building
+echo "=== API Status ===" && \
+curl -s https://api.dollor.ai/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Production: {d[\"status\"]} v{d[\"version\"]}')" && \
+curl -s https://d3kuu45w6kl8hr.cloudfront.net/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Staging: {d[\"status\"]} v{d[\"version\"]}')" && \
+echo "" && \
+echo "=== Build Versions ===" && \
+grep "CURRENT_PROJECT_VERSION" /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer/eatfaircustomer.xcodeproj/project.pbxproj | head -1 | awk '{print "Customer: "$3}' && \
+grep "CURRENT_PROJECT_VERSION" /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery/eatffairdelivery.xcodeproj/project.pbxproj | head -1 | awk '{print "Driver: "$3}' && \
+grep "CURRENT_PROJECT_VERSION" /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant/eatffairrestaurant.xcodeproj/project.pbxproj | head -1 | awk '{print "Restaurant: "$3}'
+```
+
+---
+
+*Generated by Claude Code - Dollor.ai AI Employee*
