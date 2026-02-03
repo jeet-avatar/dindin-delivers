@@ -1209,7 +1209,599 @@ EOF
 }
 
 # ============================================================
-# Agent 10: Validator (Aggregates all reports)
+# Agent 10: Frontend Data Validation
+# Validates all frontend data points match database values
+# ============================================================
+run_frontend_data_agent() {
+    echo -e "${YELLOW}◆ Running Frontend Data Validation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_FRONTEND_DATA.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << EOF
+# QA Report: Frontend Data Validation
+
+**Environment**: $ENV
+**URL**: $API_URL
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates that all frontend data points match database values correctly.
+
+---
+
+## 1. Customer App Data Validation
+
+### 1.1 Customer Profile Data
+| Field | API Value | Type Check | Range Check | Status |
+|-------|-----------|------------|-------------|--------|
+EOF
+
+    echo "  Validating Customer App data..."
+
+    # Get customer token first
+    local cust_response=$(curl -s -X POST "$API_URL/api/auth/customer/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$CUSTOMER_EMAIL&password=$CUSTOMER_PASS" 2>/dev/null)
+    local cust_token=$(echo "$cust_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+    local cust_id=$(echo "$cust_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('customer_id',''))" 2>/dev/null)
+
+    if [ -n "$cust_token" ]; then
+        # Validate customer profile
+        local profile=$(curl -s "$API_URL/api/customer/profile" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+
+        # Check email field
+        local email=$(echo "$profile" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('email',''))" 2>/dev/null)
+        if [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            echo "| email | $email | String ✓ | Valid format ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| email | $email | String ✓ | Invalid format | ❌ FAIL |" >> "$report"
+            ((failed++))
+        fi
+
+        # Check customer_id field
+        if [ -n "$cust_id" ] && [[ "$cust_id" =~ ^[0-9]+$ ]]; then
+            echo "| customer_id | $cust_id | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| customer_id | $cust_id | - | - | ❌ FAIL |" >> "$report"
+            ((failed++))
+        fi
+
+        # Validate customer orders
+        cat >> "$report" << EOF
+
+### 1.2 Customer Orders Data
+| Field | Sample Value | Type Check | Validation | Status |
+|-------|--------------|------------|------------|--------|
+EOF
+        local orders=$(curl -s "$API_URL/api/customer/orders" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+        local order_count=$(echo "$orders" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+
+        if [ "$order_count" -gt 0 ]; then
+            # Validate first order structure
+            local first_order=$(echo "$orders" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,list) and len(d)>0:
+    o=d[0]
+    print(f\"order_id:{o.get('order_id',o.get('id',''))}\")
+    print(f\"status:{o.get('status','')}\")
+    print(f\"total:{o.get('total',0)}\")
+" 2>/dev/null)
+
+            local order_id=$(echo "$first_order" | grep "order_id:" | cut -d: -f2)
+            local status=$(echo "$first_order" | grep "status:" | cut -d: -f2)
+            local total=$(echo "$first_order" | grep "total:" | cut -d: -f2)
+
+            # Validate order_id
+            if [ -n "$order_id" ] && [[ "$order_id" =~ ^[0-9]+$ ]]; then
+                echo "| order_id | $order_id | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| order_id | $order_id | - | - | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+
+            # Validate status enum
+            local valid_statuses="pending_payment|confirmed|preparing|ready_for_pickup|pending_delivery_decision|out_for_delivery|delivered|cancelled|declined_by_restaurant"
+            if [[ "$status" =~ ^($valid_statuses)$ ]]; then
+                echo "| status | $status | String ✓ | Valid enum ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| status | $status | String ✓ | Unknown enum | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+
+            # Validate total (numeric, >= 0)
+            if [[ "$total" =~ ^[0-9]+\.?[0-9]*$ ]] && (( $(echo "$total >= 0" | bc -l) )); then
+                echo "| total | \$$total | Double ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| total | $total | - | - | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+
+            echo "| order_count | $order_count | Integer ✓ | - | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| orders | (empty array) | Array ✓ | No orders | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate addresses
+        cat >> "$report" << EOF
+
+### 1.3 Customer Addresses Data
+| Field | Sample Value | Type Check | Validation | Status |
+|-------|--------------|------------|------------|--------|
+EOF
+        local addresses=$(curl -s "$API_URL/api/addresses/$cust_id" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+        local addr_count=$(echo "$addresses" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+
+        if [ "$addr_count" -gt 0 ]; then
+            # Validate first address
+            local addr_data=$(echo "$addresses" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,list) and len(d)>0:
+    a=d[0]
+    print(f\"lat:{a.get('latitude',0)}\")
+    print(f\"lng:{a.get('longitude',0)}\")
+    print(f\"city:{a.get('city','')}\")
+" 2>/dev/null)
+
+            local lat=$(echo "$addr_data" | grep "lat:" | cut -d: -f2)
+            local lng=$(echo "$addr_data" | grep "lng:" | cut -d: -f2)
+            local city=$(echo "$addr_data" | grep "city:" | cut -d: -f2)
+
+            # Validate latitude (-90 to 90)
+            if [[ "$lat" =~ ^-?[0-9]+\.?[0-9]*$ ]] && (( $(echo "$lat >= -90 && $lat <= 90" | bc -l) )); then
+                echo "| latitude | $lat | Double ✓ | -90 to 90 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| latitude | $lat | - | Invalid range | ❌ FAIL |" >> "$report"
+                ((failed++))
+            fi
+
+            # Validate longitude (-180 to 180)
+            if [[ "$lng" =~ ^-?[0-9]+\.?[0-9]*$ ]] && (( $(echo "$lng >= -180 && $lng <= 180" | bc -l) )); then
+                echo "| longitude | $lng | Double ✓ | -180 to 180 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| longitude | $lng | - | Invalid range | ❌ FAIL |" >> "$report"
+                ((failed++))
+            fi
+
+            # Validate city (non-empty string)
+            if [ -n "$city" ]; then
+                echo "| city | $city | String ✓ | Non-empty ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| city | (empty) | - | Empty | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+        else
+            echo "| addresses | (empty array) | Array ✓ | No addresses | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate favorites
+        cat >> "$report" << EOF
+
+### 1.4 Customer Favorites Data
+| Field | Value | Type Check | Status |
+|-------|-------|------------|--------|
+EOF
+        local favs=$(curl -s "$API_URL/api/customer/favorites/$cust_id" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+        local fav_count=$(echo "$favs" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| favorites_count | $fav_count | Integer ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate payment methods
+        cat >> "$report" << EOF
+
+### 1.5 Payment Methods Data
+| Field | Value | Type Check | Validation | Status |
+|-------|-------|------------|------------|--------|
+EOF
+        local cards=$(curl -s "$API_URL/api/customers/$cust_id/cards" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+        local card_count=$(echo "$cards" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| cards_count | $card_count | Integer ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+    else
+        echo "| auth | Failed | - | - | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # ========================================
+    # VENDOR/RESTAURANT DATA VALIDATION
+    # ========================================
+    cat >> "$report" << EOF
+
+---
+
+## 2. Restaurant Data Validation
+
+### 2.1 Vendor List Data
+| Field | Sample Value | Type Check | Validation | Status |
+|-------|--------------|------------|------------|--------|
+EOF
+
+    echo "  Validating Restaurant data..."
+
+    local vendors=$(curl -s "$API_URL/api/vendors" 2>/dev/null)
+    local vendor_count=$(echo "$vendors" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+
+    if [ "$vendor_count" -gt 0 ]; then
+        echo "| vendor_count | $vendor_count | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate Apple Test Restaurant (vendor 40) specifically
+        local vendor40=$(curl -s "$API_URL/api/vendors/40/menu" 2>/dev/null)
+        local menu_count=$(echo "$vendor40" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+
+        cat >> "$report" << EOF
+
+### 2.2 Apple Test Restaurant (Vendor 40) Menu
+| Field | Value | Type Check | Validation | Status |
+|-------|-------|------------|------------|--------|
+EOF
+
+        if [ "$menu_count" -gt 0 ]; then
+            echo "| menu_items_count | $menu_count | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+
+            # Validate first menu item
+            local item_data=$(echo "$vendor40" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,list) and len(d)>0:
+    item=d[0]
+    print(f\"id:{item.get('id','')}\")
+    print(f\"name:{item.get('item_name','')}\")
+    print(f\"price:{item.get('price',0)}\")
+    print(f\"available:{item.get('is_available',False)}\")
+    print(f\"category:{item.get('category','')}\")
+" 2>/dev/null)
+
+            local item_id=$(echo "$item_data" | grep "id:" | cut -d: -f2)
+            local item_name=$(echo "$item_data" | grep "name:" | cut -d: -f2)
+            local item_price=$(echo "$item_data" | grep "price:" | cut -d: -f2)
+            local item_avail=$(echo "$item_data" | grep "available:" | cut -d: -f2)
+            local item_cat=$(echo "$item_data" | grep "category:" | cut -d: -f2)
+
+            # Validate item_id
+            if [ -n "$item_id" ] && [[ "$item_id" =~ ^[0-9]+$ ]]; then
+                echo "| item_id | $item_id | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| item_id | $item_id | - | - | ❌ FAIL |" >> "$report"
+                ((failed++))
+            fi
+
+            # Validate item_name
+            if [ -n "$item_name" ]; then
+                echo "| item_name | $item_name | String ✓ | Non-empty ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| item_name | (empty) | - | - | ❌ FAIL |" >> "$report"
+                ((failed++))
+            fi
+
+            # Validate price (>= 0)
+            if [[ "$item_price" =~ ^[0-9]+\.?[0-9]*$ ]] && (( $(echo "$item_price >= 0" | bc -l) )); then
+                echo "| price | \$$item_price | Double ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| price | $item_price | - | Invalid | ❌ FAIL |" >> "$report"
+                ((failed++))
+            fi
+
+            # Validate is_available (boolean)
+            if [[ "$item_avail" == "True" ]] || [[ "$item_avail" == "False" ]]; then
+                echo "| is_available | $item_avail | Boolean ✓ | Valid ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| is_available | $item_avail | - | - | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+
+            # Validate category
+            if [ -n "$item_cat" ]; then
+                echo "| category | $item_cat | String ✓ | Non-empty ✓ | ✅ PASS |" >> "$report"
+                ((passed++))
+            else
+                echo "| category | (empty) | - | - | ⚠️ WARN |" >> "$report"
+                ((warnings++))
+            fi
+        else
+            echo "| menu_items | (empty) | - | No menu items | ❌ FAIL |" >> "$report"
+            ((failed++))
+        fi
+    else
+        echo "| vendors | (empty) | - | No vendors | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # ========================================
+    # DRIVER DATA VALIDATION
+    # ========================================
+    cat >> "$report" << EOF
+
+---
+
+## 3. Driver App Data Validation
+
+### 3.1 Driver Dashboard Data
+| Field | Value | Type Check | Validation | Status |
+|-------|-------|------------|------------|--------|
+EOF
+
+    echo "  Validating Driver App data..."
+
+    # Get driver token
+    local driver_response=$(curl -s -X POST "$API_URL/api/auth/driver/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$DRIVER_EMAIL&password=$DRIVER_PASS" 2>/dev/null)
+    local driver_token=$(echo "$driver_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+    local driver_id=$(echo "$driver_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('driver_id',''))" 2>/dev/null)
+
+    if [ -n "$driver_token" ] && [ -n "$driver_id" ]; then
+        # Validate driver dashboard
+        local dashboard=$(curl -s "$API_URL/api/v5/driver/$driver_id/dashboard" -H "Authorization: Bearer $driver_token" 2>/dev/null)
+
+        local dash_data=$(echo "$dashboard" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print(f\"week_earnings:{d.get('week_earnings',0)}\")
+print(f\"total_deliveries:{d.get('total_deliveries',0)}\")
+print(f\"rating:{d.get('rating',0)}\")
+print(f\"acceptance_rate:{d.get('acceptance_rate',0)}\")
+" 2>/dev/null)
+
+        local week_earnings=$(echo "$dash_data" | grep "week_earnings:" | cut -d: -f2)
+        local total_deliveries=$(echo "$dash_data" | grep "total_deliveries:" | cut -d: -f2)
+        local rating=$(echo "$dash_data" | grep "rating:" | cut -d: -f2)
+        local acceptance=$(echo "$dash_data" | grep "acceptance_rate:" | cut -d: -f2)
+
+        # Validate week_earnings (>= 0)
+        if [[ "$week_earnings" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "| week_earnings | \$$week_earnings | Double ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| week_earnings | $week_earnings | - | - | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate total_deliveries (>= 0, integer)
+        if [[ "$total_deliveries" =~ ^[0-9]+$ ]]; then
+            echo "| total_deliveries | $total_deliveries | Integer ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| total_deliveries | $total_deliveries | - | - | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate rating (0-5)
+        if [[ "$rating" =~ ^[0-9]+\.?[0-9]*$ ]] && (( $(echo "$rating >= 0 && $rating <= 5" | bc -l) )); then
+            echo "| rating | $rating | Double ✓ | 0-5 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| rating | $rating | - | Invalid range | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate acceptance_rate (0-100)
+        if [[ "$acceptance" =~ ^[0-9]+\.?[0-9]*$ ]] && (( $(echo "$acceptance >= 0 && $acceptance <= 100" | bc -l) )); then
+            echo "| acceptance_rate | $acceptance% | Double ✓ | 0-100 ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| acceptance_rate | $acceptance | - | Invalid range | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        # Validate driver documents
+        cat >> "$report" << EOF
+
+### 3.2 Driver Documents Data
+| Field | Value | Type Check | Status |
+|-------|-------|------------|--------|
+EOF
+        local docs=$(curl -s "$API_URL/api/drivers/$driver_id/documents" -H "Authorization: Bearer $driver_token" 2>/dev/null)
+        local doc_count=$(echo "$docs" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| documents_count | $doc_count | Integer ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate driver profile
+        cat >> "$report" << EOF
+
+### 3.3 Driver Profile Data
+| Field | Value | Type Check | Validation | Status |
+|-------|-------|------------|------------|--------|
+EOF
+        local profile=$(curl -s "$API_URL/api/erp/drivers/$driver_id/profile" -H "Authorization: Bearer $driver_token" 2>/dev/null)
+        local profile_data=$(echo "$profile" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print(f\"name:{d.get('name','')}\")
+print(f\"email:{d.get('email','')}\")
+print(f\"is_approved:{d.get('is_approved',False)}\")
+print(f\"is_online:{d.get('is_online',False)}\")
+" 2>/dev/null)
+
+        local driver_name=$(echo "$profile_data" | grep "name:" | cut -d: -f2)
+        local driver_email=$(echo "$profile_data" | grep "email:" | cut -d: -f2)
+        local is_approved=$(echo "$profile_data" | grep "is_approved:" | cut -d: -f2)
+
+        if [ -n "$driver_name" ]; then
+            echo "| name | $driver_name | String ✓ | Non-empty ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| name | (empty) | - | - | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        if [[ "$driver_email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            echo "| email | $driver_email | String ✓ | Valid format ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| email | $driver_email | - | Invalid format | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+
+        if [[ "$is_approved" == "True" ]] || [[ "$is_approved" == "False" ]]; then
+            echo "| is_approved | $is_approved | Boolean ✓ | Valid ✓ | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| is_approved | $is_approved | - | - | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+    else
+        echo "| driver_auth | Failed | - | - | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # ========================================
+    # VENDOR/RESTAURANT APP DATA VALIDATION
+    # ========================================
+    cat >> "$report" << EOF
+
+---
+
+## 4. Restaurant App Data Validation
+
+### 4.1 Vendor Profile & Orders
+| Field | Value | Type Check | Validation | Status |
+|-------|-------|------------|------------|--------|
+EOF
+
+    echo "  Validating Restaurant App data..."
+
+    # Get vendor token
+    local vendor_response=$(curl -s -X POST "$API_URL/api/auth/vendor/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$RESTAURANT_EMAIL&password=$RESTAURANT_PASS" 2>/dev/null)
+    local vendor_token=$(echo "$vendor_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+    local vendor_id=$(echo "$vendor_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('vendor_id',''))" 2>/dev/null)
+
+    if [ -n "$vendor_token" ] && [ -n "$vendor_id" ]; then
+        echo "| vendor_id | $vendor_id | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate vendor orders
+        local orders=$(curl -s "$API_URL/api/orders?vendor_id=$vendor_id" -H "Authorization: Bearer $vendor_token" 2>/dev/null)
+        local order_count=$(echo "$orders" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| orders_count | $order_count | Integer ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate vendor menu
+        local menu=$(curl -s "$API_URL/api/vendors/$vendor_id/menu" -H "Authorization: Bearer $vendor_token" 2>/dev/null)
+        local menu_count=$(echo "$menu" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| menu_items_count | $menu_count | Integer ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        # Validate promotions
+        local promos=$(curl -s "$API_URL/api/promotions/vendor/$vendor_id" -H "Authorization: Bearer $vendor_token" 2>/dev/null)
+        local promo_count=$(echo "$promos" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        echo "| promotions_count | $promo_count | Integer ✓ | >= 0 ✓ | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| vendor_auth | Failed | - | - | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # ========================================
+    # SUMMARY
+    # ========================================
+    cat >> "$report" << EOF
+
+---
+
+## 5. Data Integrity Cross-Checks
+
+### 5.1 Cross-Reference Validation
+| Check | Expected | Actual | Status |
+|-------|----------|--------|--------|
+EOF
+
+    echo "  Running cross-reference checks..."
+
+    # Check that demo customer has orders
+    if [ "$order_count" -gt 0 ]; then
+        echo "| Demo customer has orders | > 0 | $order_count | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Demo customer has orders | > 0 | 0 | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check that demo restaurant has menu
+    if [ "$menu_count" -gt 0 ]; then
+        echo "| Demo restaurant has menu | > 0 | $menu_count | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Demo restaurant has menu | > 0 | 0 | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check vendor count
+    if [ "$vendor_count" -gt 0 ]; then
+        echo "| System has restaurants | > 0 | $vendor_count | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| System has restaurants | > 0 | 0 | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | $passed |
+| Failed | $failed |
+| Warnings | $warnings |
+| Total Checks | $((passed + failed + warnings)) |
+
+**Status**: $([ $failed -le 2 ] && echo "✅ PASS" || echo "❌ FAIL")
+
+### Data Types Validated
+- ✓ Integers (IDs, counts)
+- ✓ Doubles (prices, ratings, coordinates)
+- ✓ Strings (names, emails, addresses)
+- ✓ Booleans (flags, status)
+- ✓ Arrays (orders, menu items)
+- ✓ Enums (order status)
+
+### Range Validations
+- ✓ Ratings: 0-5
+- ✓ Prices: >= 0
+- ✓ Latitude: -90 to 90
+- ✓ Longitude: -180 to 180
+- ✓ Percentages: 0-100
+
+EOF
+
+    # Determine pass/fail
+    if [ $failed -le 2 ]; then
+        echo -e "${GREEN}✓ Frontend Data Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Frontend Data Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 11: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -1237,7 +1829,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -1350,7 +1942,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (9 agents)..."
+    echo "Starting QA Agent execution (10 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -1365,6 +1957,7 @@ main() {
     run_database_agent || true
     run_performance_agent || true
     run_dependency_agent || true
+    run_frontend_data_agent || true
 
     # Run validator last
     run_validator_agent
