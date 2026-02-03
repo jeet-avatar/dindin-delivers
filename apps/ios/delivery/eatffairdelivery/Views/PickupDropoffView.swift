@@ -142,8 +142,18 @@ struct DriverDeliveryMapView: View {
     @State private var routeToDropoff: MKRoute?
     @State private var isCalculatingRoute = false
 
+    /// Check if coordinates are valid (not at 0,0 - "Null Island")
+    private var hasValidPickupCoordinates: Bool {
+        order.restaurant.latitude != 0 && order.restaurant.longitude != 0
+    }
+
+    private var hasValidDropoffCoordinates: Bool {
+        order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0
+    }
+
     var body: some View {
-        Map(position: $mapPosition) {
+        ZStack {
+            Map(position: $mapPosition) {
             // Route polyline to pickup (orange)
             if showPickupLocation, let route = routeToPickup {
                 MapPolyline(route.polyline)
@@ -186,8 +196,8 @@ struct DriverDeliveryMapView: View {
                 }
             }
 
-            // Pickup (Restaurant) Marker
-            if showPickupLocation {
+            // Pickup (Restaurant) Marker - only show if valid coordinates
+            if showPickupLocation && hasValidPickupCoordinates {
                 Annotation("Pickup", coordinate: CLLocationCoordinate2D(
                     latitude: order.restaurant.latitude,
                     longitude: order.restaurant.longitude
@@ -196,8 +206,8 @@ struct DriverDeliveryMapView: View {
                 }
             }
 
-            // Dropoff (Customer) Marker
-            if showDropoffLocation {
+            // Dropoff (Customer) Marker - only show if valid coordinates
+            if showDropoffLocation && hasValidDropoffCoordinates {
                 Annotation("Dropoff", coordinate: CLLocationCoordinate2D(
                     latitude: order.deliveryAddress.latitude,
                     longitude: order.deliveryAddress.longitude
@@ -212,6 +222,26 @@ struct DriverDeliveryMapView: View {
             MapCompass()
             MapScaleView()
         }
+
+            // Warning overlay when coordinates are missing
+            if !hasValidPickupCoordinates || !hasValidDropoffCoordinates {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Location data incomplete")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(8)
+                    .padding(.bottom, 20)
+                }
+            }
+        } // Close ZStack
         .onAppear {
             // Start tracking driver's location
             locationManager.requestPermission()

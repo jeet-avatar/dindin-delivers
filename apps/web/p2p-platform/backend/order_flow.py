@@ -3810,3 +3810,45 @@ async def update_order_delivery_location(
         "delivery_longitude": longitude,
         "message": "Delivery coordinates updated"
     }
+
+
+# ==================== Admin: Cleanup Test Orders ====================
+@router.delete("/orders/cleanup")
+async def cleanup_test_orders(
+    status: str = Query(..., description="Status of orders to delete (e.g., pending_payment)"),
+    vendor_id: Optional[int] = Query(None, description="Optional vendor ID to filter"),
+    confirm: bool = Query(False, description="Set to true to actually delete"),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete test orders by status. Use confirm=true to actually delete.
+    Useful for cleaning up old test data.
+    """
+    query = db.query(Order).filter(Order.status == status)
+
+    if vendor_id:
+        query = query.filter(Order.vendor_id == vendor_id)
+
+    orders_to_delete = query.all()
+    count = len(orders_to_delete)
+
+    if not confirm:
+        return {
+            "preview": True,
+            "status": status,
+            "count": count,
+            "order_ids": [o.id for o in orders_to_delete[:20]],
+            "message": f"Would delete {count} orders. Set confirm=true to proceed."
+        }
+
+    for order in orders_to_delete:
+        db.delete(order)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "deleted_count": count,
+        "status": status,
+        "message": f"Deleted {count} orders with status '{status}'"
+    }
