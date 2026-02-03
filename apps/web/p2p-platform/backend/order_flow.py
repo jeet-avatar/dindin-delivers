@@ -2211,8 +2211,9 @@ async def get_available_orders(
             "customer_phone": order.customer_phone,
             "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
             "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-            "dropoff_latitude": delivery_addr.get("latitude"),
-            "dropoff_longitude": delivery_addr.get("longitude"),
+            # Use JSON coordinates first, fall back to dedicated columns
+            "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
+            "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
             "estimated_distance": None,
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
@@ -2913,8 +2914,9 @@ async def get_driver_active_orders(
             "customer_phone": order.customer_phone,
             "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
             "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-            "dropoff_latitude": delivery_addr.get("latitude"),
-            "dropoff_longitude": delivery_addr.get("longitude"),
+            # Use JSON coordinates first, fall back to dedicated columns
+            "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
+            "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
             "estimated_distance": None,
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
@@ -2979,8 +2981,9 @@ async def get_driver_pending_orders(
                 "customer_phone": order.customer_phone,
                 "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
                 "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-                "dropoff_latitude": delivery_addr.get("latitude"),
-                "dropoff_longitude": delivery_addr.get("longitude"),
+                # Use JSON coordinates first, fall back to dedicated columns
+                "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
+                "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
                 "estimated_distance": None,
                 "estimated_duration": 30,
                 "delivery_fee": order.delivery_fee,
@@ -3742,4 +3745,45 @@ async def get_full_order_tracking(
         "timeline": timeline,
         "estimated_delivery": estimated_delivery,
         "eta": eta_data
+    }
+
+
+# ==================== Admin: Update Order Delivery Coordinates ====================
+@router.patch("/orders/{order_id}/delivery-location")
+async def update_order_delivery_location(
+    order_id: int,
+    latitude: float = Query(..., description="Delivery latitude"),
+    longitude: float = Query(..., description="Delivery longitude"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update order delivery coordinates.
+    Used to fix orders with missing GPS coordinates for the delivery address.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Update dedicated columns
+    order.delivery_latitude = latitude
+    order.delivery_longitude = longitude
+
+    # Also update JSON if present
+    if order.delivery_address:
+        try:
+            addr = json.loads(order.delivery_address)
+            addr["latitude"] = latitude
+            addr["longitude"] = longitude
+            order.delivery_address = json.dumps(addr)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order_id,
+        "delivery_latitude": latitude,
+        "delivery_longitude": longitude,
+        "message": "Delivery coordinates updated"
     }
