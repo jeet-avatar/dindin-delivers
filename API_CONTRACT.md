@@ -5,7 +5,7 @@
 > Any changes require PR review and approval.
 
 **Last Updated**: February 2, 2026
-**API Version**: 1.0.7
+**API Version**: 1.0.8
 **Production URL**: `https://api.dollor.ai`
 **Staging URL**: `https://d3kuu45w6kl8hr.cloudfront.net`
 
@@ -241,6 +241,55 @@ POST /api/customer/orders/{order_id}/rate-restaurant  // Rate restaurant
 }
 ```
 
+### Driver Earnings Dashboard (Driver App)
+```
+GET /api/v5/driver/{driver_id}/dashboard
+```
+**Used by**: iOS Driver App
+**Auth**: Optional (can use driver_id directly)
+
+**Response** (iOS DriverDashboardResponse format):
+```json
+{
+  "driver_id": "48",
+  "snapshot_time": "2026-02-02T12:00:00Z",
+  "today": {
+    "deliveries": 5,
+    "gross_earnings": 45.50,
+    "base_pay": 25.00,
+    "tips": 18.50,
+    "bonuses": 2.00,
+    "active_hours": 2.5
+  },
+  "this_week": {
+    "deliveries": 25,
+    "gross_earnings": 312.75,
+    "base_pay": 175.00,
+    "tips": 127.75,
+    "bonuses": 10.00,
+    "active_hours": 12.5
+  },
+  "this_month": {
+    "deliveries": 95,
+    "gross_earnings": 1247.50,
+    "base_pay": 712.00,
+    "tips": 485.50,
+    "bonuses": 50.00,
+    "active_hours": 47.5
+  },
+  "ratings": {
+    "average": 4.9,
+    "overall": 4.9,
+    "total_ratings": 95,
+    "total_reviews": 95,
+    "on_time_percentage": 95
+  }
+}
+```
+
+**CRITICAL**: iOS `EarningsViewModel` decodes this response using `DriverDashboardResponse`.
+The response MUST include `today`, `this_week`, `this_month` fields (not `today_stats`, `weekly_stats`).
+
 ---
 
 ## 4. Response Structures
@@ -411,6 +460,8 @@ POST /api/customer/orders/{order_id}/rate-restaurant  // Rate restaurant
 
 | Date | Version | Change | Author |
 |------|---------|--------|--------|
+| 2026-02-02 | 1.0.8 | Fixed driver earnings dashboard response structure for iOS compatibility | Claude |
+| 2026-02-02 | 1.0.8 | Documented /api/v5/driver/{id}/dashboard endpoint with DriverDashboardResponse format | Claude |
 | 2026-02-02 | 1.0.7 | Fixed iOS rate-driver endpoint URL: /orders/ → /customer/orders/ | Claude |
 | 2026-02-02 | 1.0.7 | Documented customer rating endpoints for driver and restaurant | Claude |
 | 2026-02-02 | 1.0.6 | Added driver order acceptance optimistic update requirement - fixes "No Active Delivery" bug | Claude |
