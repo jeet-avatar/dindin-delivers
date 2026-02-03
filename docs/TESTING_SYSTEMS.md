@@ -23,7 +23,7 @@ Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
-| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 10 agents, ~30 API + ~50 code + ~35 data checks |
+| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 11 agents, ~30 API + ~50 code + ~35 data + ~35 display checks |
 | **UAT System** | User flows, database integrity, API contracts | Before releases | 9 phases, ~76 tests |
 | **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~72 checks |
 
@@ -58,8 +58,8 @@ Used for Apple App Store review and automated testing:
 ### Overview
 
 **File:** `scripts/qa-runner.sh`
-**Version:** 3.0 (Frontend Data Validation Edition)
-**Agents:** 10 specialized testing agents
+**Version:** 3.1 (Frontend Display Validation Edition)
+**Agents:** 11 specialized testing agents
 
 ### Usage
 
@@ -88,6 +88,7 @@ Used for Apple App Store review and automated testing:
 | 8 | **Performance** | Speed | API response times, code size metrics |
 | 9 | **Dependencies** | Packages | CocoaPods, requirements.txt, SPM packages |
 | 10 | **Frontend Data** | Data Integrity | All frontend data points match database, type/range/format validation |
+| 11 | **Frontend Display** | Display Validation | No hardcoded values in UI, dynamic data bindings, no mock data |
 
 ### Agent Details
 
@@ -157,6 +158,36 @@ Validates all frontend data points match database values for all three apps:
 - Demo vendor (ID 40) has 17 menu items
 - Demo driver (ID 48) has approved status
 
+#### Agent 11: Frontend Display Validation
+
+Validates all UI fields display dynamic data, no hardcoded values:
+
+**Hardcoded Value Detection:**
+| Category | Pattern | Severity |
+|----------|---------|----------|
+| Prices | `Text("$X.XX")` literals | Warning |
+| Names | `Text("John")` literals | Fail |
+| Emails | Hardcoded email strings | Warning |
+| Phones | Hardcoded phone numbers | Warning |
+| Addresses | `Text("123 Main St")` literals | Warning |
+
+**Data Binding Validation:**
+| Check | What It Validates |
+|-------|-------------------|
+| Currency formatters | Prices use `formatPrice()` or `NumberFormatter` |
+| State management | Views use `@State`, `@Binding`, `@Published` |
+| API data loading | Views have `Task {}`, `.task`, or `onAppear` fetch patterns |
+| Model bindings | Text displays reference model properties (e.g., `order.total`) |
+
+**Mock/Placeholder Data:**
+- Detects `mockData`, `sampleData`, `testData`, `dummyData` in production code
+- Detects Lorem ipsum placeholder text
+- Excludes Preview and DEBUG blocks
+
+**Empty State Handling:**
+- Validates lists have `isEmpty` checks
+- Validates empty state UI components exist
+
 ### Output
 
 Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
@@ -174,6 +205,7 @@ Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
 | `QA_REPORT_PERFORMANCE.md` | Performance metrics |
 | `QA_REPORT_DEPENDENCIES.md` | Package analysis |
 | `QA_REPORT_FRONTEND_DATA.md` | Frontend data validation |
+| `QA_REPORT_FRONTEND_DISPLAY.md` | Frontend display validation |
 
 ### Verdicts
 
@@ -491,6 +523,7 @@ Run meta-validation after both QA and UAT complete:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.2 | Feb 2026 | Added Frontend Display Validation agent (Agent 11) - validates no hardcoded display values, dynamic bindings |
 | 3.1 | Feb 2026 | Added Frontend Data Validation agent (Agent 10) - validates all frontend data points match database |
 | 3.0 | Feb 2026 | Added meta-validation agent for QA/UAT cross-referencing |
 | 2.0 | Feb 2026 | Added 9 agents, database validation, performance checks |
