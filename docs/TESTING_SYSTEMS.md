@@ -10,20 +10,22 @@
 2. [Demo Credentials](#demo-credentials)
 3. [QA Agent System](#qa-agent-system)
 4. [UAT System](#uat-system)
-5. [Quick Reference](#quick-reference)
-6. [Report Locations](#report-locations)
-7. [Troubleshooting](#troubleshooting)
+5. [Meta-Validation System](#meta-validation-system)
+6. [Quick Reference](#quick-reference)
+7. [Report Locations](#report-locations)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-Dollor.ai has two complementary testing systems:
+Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
 | **QA Agent System** | Code quality, security, infrastructure | Before every deployment | 9 agents, ~50 checks |
 | **UAT System** | User flows, database integrity, API contracts | Before releases | 8 phases, ~63 tests |
+| **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~62 checks |
 
 ### Environments
 
@@ -280,11 +282,13 @@ Reports are saved to: `.planning/uat-reports/{timestamp}/`
 
 ## Quick Reference
 
-### Run Both Systems
+### Run All Three Systems
 
 ```bash
-# Full testing suite
-./scripts/qa-runner.sh production pre-deploy && ./scripts/uat-comprehensive.sh production
+# Full testing suite (QA + UAT + Meta-Validation)
+./scripts/qa-runner.sh production pre-deploy && \
+./scripts/uat-comprehensive.sh production && \
+./scripts/validation-meta.sh
 ```
 
 ### CI/CD Integration
@@ -296,6 +300,9 @@ Reports are saved to: `.planning/uat-reports/{timestamp}/`
 
 - name: Run UAT
   run: ./scripts/uat-comprehensive.sh production
+
+- name: Run Meta-Validation
+  run: ./scripts/validation-meta.sh
 ```
 
 ### Deployment Checklist
@@ -304,8 +311,9 @@ Reports are saved to: `.planning/uat-reports/{timestamp}/`
 |------|---------|----------|
 | 1. QA | `./scripts/qa-runner.sh production pre-deploy` | ✅ PASS |
 | 2. UAT | `./scripts/uat-comprehensive.sh production` | ✅ PASS |
-| 3. Deploy | Push to main | CI/CD runs |
-| 4. Verify | `./scripts/qa-runner.sh production post-deploy` | ✅ PASS |
+| 3. Meta | `./scripts/validation-meta.sh` | ✅ PASS |
+| 4. Deploy | Push to main | CI/CD runs |
+| 5. Verify | `./scripts/qa-runner.sh production post-deploy` | ✅ PASS |
 
 ---
 
@@ -325,9 +333,12 @@ Reports are saved to: `.planning/uat-reports/{timestamp}/`
 │       ├── QA_REPORT_DATABASE.md
 │       ├── QA_REPORT_PERFORMANCE.md
 │       └── QA_REPORT_DEPENDENCIES.md
-└── uat-reports/
+├── uat-reports/
+│   └── {YYYY-MM-DD_HH-MM-SS}/
+│       └── UAT_REPORT.md
+└── meta-validation/
     └── {YYYY-MM-DD_HH-MM-SS}/
-        └── UAT_REPORT.md
+        └── META_VALIDATION_REPORT.md
 ```
 
 ### View Latest Reports
@@ -338,6 +349,9 @@ ls -t .planning/qa-reports/ | head -1 | xargs -I{} cat .planning/qa-reports/{}/Q
 
 # Latest UAT report
 ls -t .planning/uat-reports/ | head -1 | xargs -I{} cat .planning/uat-reports/{}/UAT_REPORT.md
+
+# Latest Meta-Validation report
+ls -t .planning/meta-validation/ | head -1 | xargs -I{} cat .planning/meta-validation/{}/META_VALIDATION_REPORT.md
 ```
 
 ---
@@ -382,10 +396,67 @@ curl -s "https://api.dollor.ai/api/customer/profile" \
 
 ---
 
+## Meta-Validation System
+
+### Overview
+
+**File:** `scripts/validation-meta.sh`
+**Purpose:** Cross-reference QA and UAT systems to ensure no validation steps are missed
+
+### Usage
+
+```bash
+# Run meta-validation (compares latest QA and UAT reports)
+./scripts/validation-meta.sh
+```
+
+### Validation Sections
+
+| # | Section | What It Checks |
+|---|---------|----------------|
+| 1 | **Endpoint Coverage** | All 12 critical API endpoints tested by both systems |
+| 2 | **Security Coverage** | OWASP checks present in QA Security agent |
+| 3 | **Authentication Coverage** | All 3 login types (customer, driver, vendor) tested |
+| 4 | **Database Validation** | Connection, integrity, FK checks present |
+| 5 | **UAT Phases** | All 8 phases executed (Auth, Customer, Driver, Restaurant, DB, API, Frontend, Performance) |
+| 6 | **E2E vs User Flow** | QA E2E workflows match UAT user flow tests |
+| 7 | **Demo Credentials** | Same credentials used across all systems |
+| 8 | **Error Handling** | Both systems test 401/403/404 responses |
+
+### Output
+
+Reports are saved to: `.planning/meta-validation/{timestamp}/`
+
+| File | Contents |
+|------|----------|
+| `META_VALIDATION_REPORT.md` | Complete cross-validation results |
+
+### Verdicts
+
+| Verdict | Condition | Meaning |
+|---------|-----------|---------|
+| ✅ PASS | 0 gaps, 0 failures | Full coverage confirmed |
+| ⚠️ WARN | 1-5 gaps | Minor coverage gaps |
+| ❌ FAIL | 6+ gaps or failures | Significant gaps need attention |
+
+### When to Run
+
+Run meta-validation after both QA and UAT complete:
+
+```bash
+# Full validation suite
+./scripts/qa-runner.sh production pre-deploy && \
+./scripts/uat-comprehensive.sh production && \
+./scripts/validation-meta.sh
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.0 | Feb 2026 | Added meta-validation agent for QA/UAT cross-referencing |
 | 2.0 | Feb 2026 | Added 9 agents, database validation, performance checks |
 | 1.0 | Jan 2026 | Initial QA system with 6 agents |
 
