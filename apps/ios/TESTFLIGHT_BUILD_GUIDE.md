@@ -4,9 +4,9 @@
 
 | App | Bundle ID | Build | Version |
 |-----|-----------|-------|---------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1033 | 1.0 |
-| **Dollor Driver** | `com.dollorai.delivery` | 106 | 1.0 |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 107 | 1.0 |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1035 | 1.0 |
+| **Dollor Driver** | `com.dollorai.delivery` | 111 | 1.0 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 111 | 1.0 |
 
 ---
 
@@ -135,9 +135,9 @@ fastlane run upload_to_testflight \
 Continuing iOS TestFlight builds for Dollor.ai apps.
 
 Build numbers:
-- Customer: 1033
-- Driver: 106
-- Restaurant: 107
+- Customer: 1035
+- Driver: 111
+- Restaurant: 111
 
 API Config (VERIFIED):
 - Key ID: 9K626GB728
@@ -149,4 +149,4 @@ Reference: apps/ios/TESTFLIGHT_BUILD_GUIDE.md
 
 ---
 
-*Last Updated: February 1, 2026*
+*Last Updated: February 2, 2026*
