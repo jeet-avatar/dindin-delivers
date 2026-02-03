@@ -5,7 +5,7 @@
 > Any changes require PR review and approval.
 
 **Last Updated**: February 2, 2026
-**API Version**: 1.0.6
+**API Version**: 1.0.7
 **Production URL**: `https://api.dollor.ai`
 **Staging URL**: `https://d3kuu45w6kl8hr.cloudfront.net`
 
@@ -197,6 +197,50 @@ PUT /api/driver/orders/{order_id}/picked-up     // Driver picked up from restaur
 PUT /api/driver/orders/{order_id}/delivered     // Driver completed delivery
 ```
 
+### Customer Rating Endpoints (Customer App)
+```
+POST /api/customer/orders/{order_id}/rate-driver      // Rate delivery driver
+POST /api/customer/orders/{order_id}/rate-restaurant  // Rate restaurant
+```
+**Used by**: iOS Customer App, Android Customer App
+**Auth**: Required (Bearer token)
+
+**Rate Driver Request Body**:
+```json
+{
+  "order_id": 123,
+  "driver_id": 5,
+  "rating": 5,
+  "comment": "Great delivery!",
+  "on_time": true,
+  "friendly": true,
+  "followed_instructions": true,
+  "food_quality": true
+}
+```
+
+**Rate Restaurant Request Body**:
+```json
+{
+  "order_id": 123,
+  "restaurant_id": 1,
+  "rating": 5,
+  "review": "Excellent food!",
+  "food_quality": true,
+  "portion_size": true,
+  "value_for_money": true,
+  "accuracy": true
+}
+```
+
+**Response** (both endpoints):
+```json
+{
+  "success": true,
+  "message": "Rating submitted successfully"
+}
+```
+
 ---
 
 ## 4. Response Structures
@@ -367,6 +411,8 @@ PUT /api/driver/orders/{order_id}/delivered     // Driver completed delivery
 
 | Date | Version | Change | Author |
 |------|---------|--------|--------|
+| 2026-02-02 | 1.0.7 | Fixed iOS rate-driver endpoint URL: /orders/ → /customer/orders/ | Claude |
+| 2026-02-02 | 1.0.7 | Documented customer rating endpoints for driver and restaurant | Claude |
 | 2026-02-02 | 1.0.6 | Added driver order acceptance optimistic update requirement - fixes "No Active Delivery" bug | Claude |
 | 2026-02-02 | 1.0.6 | Documented driver app endpoint contracts for accept/pickup/deliver | Claude |
 | 2026-02-02 | 1.0.5 | Fixed route conflict: rides endpoint moved from /api/erp/orders/ to /api/erp/rides/ | Claude |

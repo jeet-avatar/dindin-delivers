@@ -9617,7 +9617,7 @@ extension P2PAPIService {
         foodQuality: Bool = false,
         completion: @escaping (Result<P2PRatingResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/rate-driver") else {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/rate-driver") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
