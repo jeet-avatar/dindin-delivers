@@ -2134,26 +2134,44 @@ async def update_order_status(
     if not new_status:
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
-    order.status = new_status
-
-    # Set timestamps
+    # Set timestamps based on status
     if new_status == OrderStatus.CONFIRMED:
+        order.status = new_status
         order.confirmed_at = datetime.now()
     elif new_status == OrderStatus.PREPARING:
+        order.status = new_status
         order.preparing_at = datetime.now()
     elif new_status == OrderStatus.READY_FOR_PICKUP:
+        # When marked ready, automatically start the 3-minute delivery decision window
+        # This allows restaurant to choose "I will deliver" or "Send to driver pool"
+        order.status = OrderStatus.PENDING_DELIVERY_DECISION
         order.ready_for_pickup_at = datetime.now()
+        order.delivery_decision_sent_at = datetime.now()
     elif new_status == OrderStatus.DELIVERED:
+        order.status = new_status
         order.delivered_at = datetime.now()
+    else:
+        order.status = new_status
 
     db.commit()
 
-    return {
+    # Calculate timeout for delivery decision window
+    response = {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
-        "status": new_status.value
+        "status": order.status.value
     }
+
+    # Add delivery decision info if in that window
+    if order.status == OrderStatus.PENDING_DELIVERY_DECISION and order.delivery_decision_sent_at:
+        timeout_at = order.delivery_decision_sent_at + timedelta(seconds=DELIVERY_DECISION_WINDOW_SECONDS)
+        response["delivery_decision_sent_at"] = order.delivery_decision_sent_at.isoformat()
+        response["timeout_at"] = timeout_at.isoformat()
+        response["window_seconds"] = DELIVERY_DECISION_WINDOW_SECONDS
+        response["message"] = "Order ready! Choose to self-deliver or send to driver pool."
+
+    return response
 
 
 # ==================== DRIVER FLOW ====================
