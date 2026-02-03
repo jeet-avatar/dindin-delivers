@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 112 | 1.0 | Uploaded to TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 114 | 1.0 | Uploaded to TestFlight |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
@@ -123,7 +123,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
 | Dollor (Customer) | 1037 | ✅ Available for Testing |
-| Dollor Driver | 112 | ✅ Available for Testing |
+| Dollor Driver | 114 | ✅ Available for Testing |
 | Dollor Restaurant | 113 | ✅ Available for Testing |
 
 ### Demo Accounts (For App Store Review)
@@ -327,7 +327,7 @@ Continuing Dollor.ai iOS development.
 
 ### Build Numbers (Uploaded to TestFlight)
 - Customer: 1037 (Bundle: com.dollorai.customer)
-- Driver: 112 (Bundle: com.dollorai.delivery)
+- Driver: 114 (Bundle: com.dollorai.delivery)
 - Restaurant: 113 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
