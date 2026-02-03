@@ -1672,11 +1672,25 @@ async def restaurant_accept_delivery(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+    # Allow delivery decision from multiple statuses (for "Accept & I'll Deliver" flow)
+    # Auto-transition to PENDING_DELIVERY_DECISION if in preparation states
+    allowed_statuses = [
+        OrderStatus.PENDING_DELIVERY_DECISION,
+        OrderStatus.PREPARING,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PENDING_RESTAURANT
+    ]
+
+    if order.status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
-            detail=f"Order must be PENDING_DELIVERY_DECISION to accept delivery. Current: {order.status.value}"
+            detail=f"Cannot accept delivery for order in {order.status.value} status"
         )
+
+    # Auto-start delivery decision window if not already started
+    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+        order.delivery_decision_sent_at = datetime.now()
 
     # Check if within decision window
     if order.delivery_decision_sent_at:
@@ -1751,10 +1765,19 @@ async def restaurant_decline_delivery(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != OrderStatus.PENDING_DELIVERY_DECISION:
+    # Allow decline from multiple statuses (for "Accept & Send to Driver" flow)
+    allowed_statuses = [
+        OrderStatus.PENDING_DELIVERY_DECISION,
+        OrderStatus.PREPARING,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PENDING_RESTAURANT
+    ]
+
+    if order.status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
-            detail=f"Order must be PENDING_DELIVERY_DECISION to decline delivery. Current: {order.status.value}"
+            detail=f"Cannot decline delivery for order in {order.status.value} status"
         )
 
     # Restaurant declined - order goes back to READY_FOR_PICKUP for drivers
