@@ -1,7 +1,7 @@
 # Dollor.ai iOS TestFlight Build Guide
 
 > **Last Updated**: February 3, 2026
-> **API Contract Version**: 1.0.8
+> **API Contract Version**: 1.0.9
 > **Backend Version**: 1.0.5
 
 ---
@@ -331,7 +331,7 @@ Continuing Dollor.ai iOS development.
 - Restaurant: 113 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
-- API Version: 1.0.8 (Contract)
+- API Version: 1.0.9 (Contract)
 - Backend Version: 1.0.5
 - Staging: https://d3kuu45w6kl8hr.cloudfront.net (healthy)
 - Production: https://api.dollor.ai (healthy)
