@@ -747,6 +747,7 @@ class Driver(Base):
     device_type = Column(String(20))    # ios, android, web (set during FCM registration)
     fcm_token_updated_at = Column(DateTime)
     photo_url = Column(String(500))  # Driver photo
+    vehicle_photo_url = Column(String(500))  # Vehicle photo for customer tracking
 
     # Stripe Connect (for payouts)
     stripe_account_id = Column(String(255))

@@ -326,6 +326,8 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         ("onfido_applicant_id", "VARCHAR(255)"),
         ("veriff_session_id", "VARCHAR(255)"),
         ("verification_provider", "VARCHAR(50)"),
+        # Vehicle photo for customer tracking view
+        ("vehicle_photo_url", "VARCHAR(500)"),
     ]
 
     for col_name, col_type in driver_columns:
@@ -16149,26 +16151,42 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
         if not existing_driver:
             demo_driver = Driver(
                 driver_id="DEMO-DRV-001",
-                first_name="Demo",
-                last_name="Driver",
+                first_name="Marcus",
+                last_name="Johnson",
                 email=driver_email,
                 phone="+14155551002",
                 password_hash=get_password_hash("DemoDriver2025!"),
                 city="San Francisco",
                 state="CA",
                 zip_code="94102",
+                street="789 Driver Lane",
                 vehicle_type="car",
                 vehicle_make="Toyota",
                 vehicle_model="Camry",
-                vehicle_year=2022,
+                vehicle_year=2023,
                 vehicle_color="Silver",
-                license_plate="DEMO123",
+                license_plate="7ABC123",
+                license_number="D1234567",
                 drivers_license=True,
+                drivers_license_expiry=datetime(2027, 12, 31),
                 insurance=True,
+                insurance_expiry=datetime(2026, 6, 30),
                 background_check=True,
+                background_check_date=datetime(2024, 1, 15),
                 status=DriverStatus.APPROVED,
                 rating=4.9,
-                total_deliveries=150,
+                total_deliveries=347,
+                # Professional driver photo - generated avatar
+                photo_url="https://ui-avatars.com/api/?name=Marcus+Johnson&size=200&background=4CAF50&color=fff&bold=true&format=png",
+                # Vehicle photo placeholder - silver Toyota Camry
+                vehicle_photo_url="https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=300&fit=crop",
+                is_online=True,
+                current_latitude=37.7749,
+                current_longitude=-122.4194,
+                terms_accepted_at=datetime(2024, 1, 10),
+                verification_status="verified",
+                documents_verified=True,
+                documents_verified_at=datetime(2024, 1, 12),
                 created_at=datetime.utcnow()
             )
             db.add(demo_driver)
@@ -16177,7 +16195,7 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             driver_user = User(
                 email=driver_email,
                 password_hash=get_password_hash("DemoDriver2025!"),
-                full_name="Demo Driver",
+                full_name="Marcus Johnson",
                 role=UserRole.DRIVER,
                 driver_id=demo_driver.id,
                 created_at=datetime.utcnow()
@@ -16186,13 +16204,31 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             db.commit()
             results["created"].append("driver")
         else:
+            # Update existing driver with all demo details (ensure photos and vehicle info are set)
+            existing_driver.first_name = "Marcus"
+            existing_driver.last_name = "Johnson"
+            existing_driver.vehicle_make = "Toyota"
+            existing_driver.vehicle_model = "Camry"
+            existing_driver.vehicle_year = 2023
+            existing_driver.vehicle_color = "Silver"
+            existing_driver.license_plate = "7ABC123"
+            existing_driver.rating = 4.9
+            existing_driver.total_deliveries = 347
+            existing_driver.photo_url = "https://ui-avatars.com/api/?name=Marcus+Johnson&size=200&background=4CAF50&color=fff&bold=true&format=png"
+            existing_driver.vehicle_photo_url = "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=300&fit=crop"
+            existing_driver.status = DriverStatus.APPROVED
+            existing_driver.is_online = True
+            existing_driver.verification_status = "verified"
+            existing_driver.documents_verified = True
+            db.commit()
+
             # Ensure User record exists for existing driver
             existing_user = db.query(User).filter(User.email == driver_email).first()
             if not existing_user:
                 driver_user = User(
                     email=driver_email,
                     password_hash=get_password_hash("DemoDriver2025!"),
-                    full_name="Demo Driver",
+                    full_name="Marcus Johnson",
                     role=UserRole.DRIVER,
                     driver_id=existing_driver.id,
                     created_at=datetime.utcnow()
@@ -16201,8 +16237,9 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
                 db.commit()
                 results["created"].append("driver_user")
             else:
-                # Update password to ensure it matches
+                # Update password and name to ensure it matches
                 existing_user.password_hash = get_password_hash("DemoDriver2025!")
+                existing_user.full_name = "Marcus Johnson"
                 existing_user.driver_id = existing_driver.id
                 existing_user.role = UserRole.DRIVER
                 db.commit()
@@ -17126,10 +17163,11 @@ def accept_delivery(
         "driver_name": driver_name,
         "driver_phone": driver.phone,
         "driver_photo_url": driver.photo_url,
-        "driver_rating": driver.average_rating if hasattr(driver, 'average_rating') else None,
-        "driver_vehicle": f"{driver.vehicle_make or ''} {driver.vehicle_model or ''} {driver.vehicle_year or ''}".strip() if hasattr(driver, 'vehicle_make') else None,
-        "driver_vehicle_color": driver.vehicle_color if hasattr(driver, 'vehicle_color') else None,
-        "driver_license_plate": driver.license_plate if hasattr(driver, 'license_plate') else None
+        "driver_vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
+        "driver_rating": driver.rating,
+        "driver_vehicle": f"{driver.vehicle_make or ''} {driver.vehicle_model or ''} {driver.vehicle_year or ''}".strip() if driver.vehicle_make else None,
+        "driver_vehicle_color": driver.vehicle_color,
+        "driver_license_plate": driver.license_plate
     }
 
     # Send driver assigned email to customer
