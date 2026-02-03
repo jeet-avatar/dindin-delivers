@@ -4,8 +4,8 @@
 > All status values, response structures, and endpoints MUST match this specification.
 > Any changes require PR review and approval.
 
-**Last Updated**: February 2, 2026
-**API Version**: 1.0.8
+**Last Updated**: February 3, 2026
+**API Version**: 1.0.9
 **Production URL**: `https://api.dollor.ai`
 **Staging URL**: `https://d3kuu45w6kl8hr.cloudfront.net`
 
@@ -290,6 +290,126 @@ GET /api/v5/driver/{driver_id}/dashboard
 **CRITICAL**: iOS `EarningsViewModel` decodes this response using `DriverDashboardResponse`.
 The response MUST include `today`, `this_week`, `this_month` fields (not `today_stats`, `weekly_stats`).
 
+### Driver Active Orders (Driver App)
+```
+GET /api/erp/orders/driver/{driver_id}/active
+```
+**Used by**: iOS Driver App, Android OrderApp
+**Auth**: Optional (uses driver_id in path)
+
+**Response**:
+```json
+{
+  "success": true,
+  "orders": [
+    {
+      "id": 128,
+      "order_id": 128,
+      "order_number": "EF020200128",
+      "status": "out_for_delivery",
+      "restaurant": "Apple Test Restaurant",
+      "pickup_address": "1 Apple Park Way, Cupertino, CA",
+      "pickup_latitude": 37.3349,
+      "pickup_longitude": -122.009,
+      "customer_name": "Demo Customer",
+      "customer_address": "12 Teaberry Ln, Rancho Santa Margarita",
+      "customer_phone": "+14155551234",
+      "dropoff_latitude": 33.625938,
+      "dropoff_longitude": -117.603244,
+      "delivery_fee": 12.99,
+      "tip": 4.79,
+      "estimated_duration": 30,
+      "assigned_at": "2026-02-02T22:54:01.990294",
+      "picked_up_at": null,
+      "delivered_at": null
+    }
+  ]
+}
+```
+
+---
+
+## 3.5 GPS Coordinate Requirements (CRITICAL)
+
+### Why This Matters
+
+The Driver app map functionality **requires valid GPS coordinates** for:
+- Restaurant pickup location (to show navigation)
+- Customer delivery location (to show route and ETA)
+
+**If coordinates are missing or null, the map will not display properly.**
+
+### Required Coordinates
+
+| Entity | Required Fields | Source |
+|--------|-----------------|--------|
+| **Vendor/Restaurant** | `latitude`, `longitude` | Vendor profile |
+| **Order Pickup** | `pickup_latitude`, `pickup_longitude` | From vendor |
+| **Order Dropoff** | `dropoff_latitude`, `dropoff_longitude` | From delivery address |
+
+### How Coordinates Flow
+
+```
+1. VENDOR SETUP:
+   Vendor.latitude, Vendor.longitude → Set via admin or PATCH /api/vendors/{id}/location
+
+2. ORDER CREATION:
+   - Pickup coords: Copied from Vendor.latitude/longitude
+   - Dropoff coords: Should be geocoded from customer delivery address
+
+3. DRIVER APP REQUEST:
+   GET /api/erp/orders/driver/{id}/active
+   → Returns pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude
+
+4. MAP DISPLAY:
+   - If coordinates present: Map shows pickup pin, dropoff pin, route
+   - If coordinates NULL: Map shows empty or defaults to (0,0) = Atlantic Ocean
+```
+
+### Coordinate Validation
+
+**Backend validates**:
+- Latitude: Must be between -90 and 90
+- Longitude: Must be between -180 and 180
+- Null/0 values: Backend uses fallback to `Order.delivery_latitude`/`delivery_longitude` columns
+
+**iOS app handles**:
+- Null coordinates: Converts to 0.0 (problematic - shows wrong location)
+- Missing pickup: Cannot show restaurant on map
+- Missing dropoff: Cannot show customer location or calculate route
+
+### Admin Endpoints for Fixing Coordinates
+
+**Update Vendor Location**:
+```
+PATCH /api/vendors/{vendor_id}/location?latitude=37.7749&longitude=-122.4194
+```
+
+**Update Order Delivery Location**:
+```
+PATCH /api/erp/orders/{order_id}/delivery-location?latitude=33.625938&longitude=-117.603244
+```
+
+### Root Cause of Map Issues
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Map empty | Both pickup and dropoff null | Update vendor and order coords |
+| Map shows Atlantic Ocean | Coords default to (0,0) | Update missing coords |
+| No route displayed | Dropoff coords null | Update delivery address |
+| Wrong pickup location | Vendor has no coords | PATCH vendor location |
+
+### Verification Commands
+
+```bash
+# Check vendor has coordinates
+curl -s "https://api.dollor.ai/api/vendors/1" | jq '.latitude, .longitude'
+
+# Check order has complete coordinates
+curl -s "https://api.dollor.ai/api/erp/orders/driver/48/active" | \
+  jq '.orders[] | select(.status=="out_for_delivery") | {id, pickup_latitude, dropoff_latitude}'
+```
+
 ---
 
 ## 4. Response Structures
@@ -460,6 +580,10 @@ The response MUST include `today`, `this_week`, `this_month` fields (not `today_
 
 | Date | Version | Change | Author |
 |------|---------|--------|--------|
+| 2026-02-03 | 1.0.9 | Added GPS Coordinate Requirements section - documents root cause of driver app map issues | Claude |
+| 2026-02-03 | 1.0.9 | Added driver active orders endpoint documentation with coordinate fields | Claude |
+| 2026-02-03 | 1.0.9 | Added admin endpoints for fixing vendor/order coordinates | Claude |
+| 2026-02-03 | 1.0.9 | Backend now falls back to Order.delivery_latitude/longitude when JSON empty | Claude |
 | 2026-02-02 | 1.0.8 | Fixed driver earnings dashboard response structure for iOS compatibility | Claude |
 | 2026-02-02 | 1.0.8 | Documented /api/v5/driver/{id}/dashboard endpoint with DriverDashboardResponse format | Claude |
 | 2026-02-02 | 1.0.7 | Fixed iOS rate-driver endpoint URL: /orders/ → /customer/orders/ | Claude |
