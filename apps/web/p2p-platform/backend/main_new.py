@@ -824,6 +824,18 @@ def _run_startup_migrations():
         ("drivers", "device_type", "VARCHAR(20)"),
         ("drivers", "fcm_token_updated_at", "TIMESTAMP"),
         ("drivers", "photo_url", "VARCHAR(500)"),
+        ("drivers", "vehicle_photo_url", "VARCHAR(500)"),
+        # Driver verification columns
+        ("drivers", "verification_id", "VARCHAR(255)"),
+        ("drivers", "verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
+        ("drivers", "documents_verified", "BOOLEAN DEFAULT FALSE"),
+        ("drivers", "documents_verified_at", "TIMESTAMP"),
+        ("drivers", "verification_notes", "TEXT"),
+        ("drivers", "verification_reviewer_id", "INTEGER"),
+        ("drivers", "persona_inquiry_id", "VARCHAR(255)"),
+        ("drivers", "onfido_applicant_id", "VARCHAR(255)"),
+        ("drivers", "veriff_session_id", "VARCHAR(255)"),
+        ("drivers", "verification_provider", "VARCHAR(50)"),
         # Customers table columns - for customer authentication
         ("customers", "password_hash", "VARCHAR(255)"),
         ("customers", "favorite_vendors", "JSON"),
