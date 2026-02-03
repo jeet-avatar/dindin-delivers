@@ -10205,6 +10205,492 @@ extension P2PAPIService {
             }
         }.resume()
     }
+
+    // MARK: - Driver Earnings APIs
+
+    /// Get driver earnings for a specific period
+    /// - Parameters:
+    ///   - driverId: The driver ID
+    ///   - period: Period for earnings: "today", "week", "month", "year"
+    ///   - completion: Result with earnings data or error
+    public func getDriverEarnings(
+        driverId: Int,
+        period: String = "week",
+        completion: @escaping (Result<P2PDriverEarningsResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/earnings?period=\(period)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to fetch driver earnings")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let earningsResponse = try decoder.decode(P2PDriverEarningsResponse.self, from: data)
+                    completion(.success(earningsResponse))
+                } catch {
+                    #if DEBUG
+                    print("[P2PAPIService] getDriverEarnings decode error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("[P2PAPIService] Response: \(jsonString.prefix(500))")
+                    }
+                    #endif
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Cart Management APIs
+
+    /// Get the current customer's cart
+    /// - Parameter completion: Result with cart data or error
+    public func getCart(
+        completion: @escaping (Result<P2PCartResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/cart") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to fetch cart")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let cartResponse = try decoder.decode(P2PCartResponse.self, from: data)
+                    completion(.success(cartResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Add an item to the cart
+    /// - Parameters:
+    ///   - menuItemId: The menu item ID to add
+    ///   - quantity: Quantity to add
+    ///   - specialInstructions: Optional special instructions
+    ///   - completion: Result with updated cart or error
+    public func addToCart(
+        menuItemId: Int,
+        quantity: Int,
+        specialInstructions: String? = nil,
+        completion: @escaping (Result<P2PCartResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/cart/items") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "menu_item_id": menuItemId,
+            "quantity": quantity
+        ]
+        if let instructions = specialInstructions {
+            body["special_instructions"] = instructions
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to add item to cart")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let cartResponse = try decoder.decode(P2PCartResponse.self, from: data)
+                    completion(.success(cartResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Update a cart item's quantity or instructions
+    /// - Parameters:
+    ///   - itemId: The cart item ID to update
+    ///   - quantity: New quantity (optional)
+    ///   - specialInstructions: New special instructions (optional)
+    ///   - completion: Result with updated cart or error
+    public func updateCartItem(
+        itemId: Int,
+        quantity: Int? = nil,
+        specialInstructions: String? = nil,
+        completion: @escaping (Result<P2PCartResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/cart/items/\(itemId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [:]
+        if let qty = quantity {
+            body["quantity"] = qty
+        }
+        if let instructions = specialInstructions {
+            body["special_instructions"] = instructions
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to update cart item")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let cartResponse = try decoder.decode(P2PCartResponse.self, from: data)
+                    completion(.success(cartResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Remove an item from the cart
+    /// - Parameters:
+    ///   - itemId: The cart item ID to remove
+    ///   - completion: Result with updated cart or error
+    public func removeCartItem(
+        itemId: Int,
+        completion: @escaping (Result<P2PCartResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/cart/items/\(itemId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to remove cart item")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let cartResponse = try decoder.decode(P2PCartResponse.self, from: data)
+                    completion(.success(cartResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Clear all items from the cart
+    /// - Parameter completion: Result with empty cart summary or error
+    public func clearCart(
+        completion: @escaping (Result<P2PCartSummary, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/cart") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to clear cart")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    // Backend returns { message, summary }
+                    let clearResponse = try decoder.decode(P2PClearCartResponse.self, from: data)
+                    completion(.success(clearResponse.summary))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Restaurant Order Assignment APIs
+
+    /// Assign a driver to an order (Restaurant App)
+    /// - Parameters:
+    ///   - orderId: The order ID
+    ///   - driverId: The driver ID to assign
+    ///   - completion: Result with success or error
+    public func assignDriver(
+        orderId: Int,
+        driverId: Int,
+        completion: @escaping (Result<P2PAssignDriverResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/assign-driver") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["driver_id": driverId]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to assign driver")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let assignResponse = try decoder.decode(P2PAssignDriverResponse.self, from: data)
+                    completion(.success(assignResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Refund Processing APIs
+
+    /// Process a refund for an order (Admin/Restaurant use)
+    /// - Parameters:
+    ///   - orderId: The order ID to refund
+    ///   - amount: Refund amount (optional, defaults to full refund)
+    ///   - reason: Reason for refund
+    ///   - completion: Result with refund response or error
+    public func processRefund(
+        orderId: Int,
+        amount: Double? = nil,
+        reason: String,
+        completion: @escaping (Result<P2PProcessRefundResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/payments/refund") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Use vendor token for restaurant-initiated refunds, customer token for customer-initiated
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "order_id": orderId,
+            "reason": reason
+        ]
+        if let refundAmount = amount {
+            body["amount"] = refundAmount
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to process refund")))
+                    }
+                    return
+                }
+
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let refundResponse = try decoder.decode(P2PProcessRefundResponse.self, from: data)
+                    completion(.success(refundResponse))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
 }
 
 // MARK: - Partial Order Response Models
@@ -11256,5 +11742,191 @@ public struct KOTTestResponse: Codable {
         self.posType = posType
         self.posOrderId = posOrderId
         self.error = error
+    }
+}
+
+// MARK: - Driver Earnings Response Models
+
+public struct P2PDriverEarningsResponse: Codable {
+    public let driverId: Int
+    public let period: String
+    public let earnings: P2PEarningsBreakdown
+    public let multiPeriod: P2PMultiPeriodEarnings?
+    public let dailyBreakdown: [P2PDailyEarning]?
+    public let ratings: P2PRatingSummary?
+    public let balance: P2PBalanceInfo?
+    public let paymentHistory: [P2PPaymentHistoryItem]?
+
+    enum CodingKeys: String, CodingKey {
+        case driverId = "driver_id"
+        case period, earnings
+        case multiPeriod = "multi_period"
+        case dailyBreakdown = "daily_breakdown"
+        case ratings, balance
+        case paymentHistory = "payment_history"
+    }
+}
+
+public struct P2PEarningsBreakdown: Codable {
+    public let total: Double
+    public let basePay: Double
+    public let tips: Double
+    public let bonuses: Double
+    public let deliveryCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case total
+        case basePay = "base_pay"
+        case tips, bonuses
+        case deliveryCount = "delivery_count"
+    }
+}
+
+public struct P2PMultiPeriodEarnings: Codable {
+    public let today: Double
+    public let thisWeek: Double
+    public let thisMonth: Double
+
+    enum CodingKeys: String, CodingKey {
+        case today
+        case thisWeek = "this_week"
+        case thisMonth = "this_month"
+    }
+}
+
+public struct P2PDailyEarning: Codable {
+    public let date: String
+    public let amount: Double
+    public let deliveries: Int
+}
+
+public struct P2PRatingSummary: Codable {
+    public let average: Double
+    public let totalRatings: Int
+    public let fiveStarCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case average
+        case totalRatings = "total_ratings"
+        case fiveStarCount = "five_star_count"
+    }
+}
+
+public struct P2PBalanceInfo: Codable {
+    public let available: Double
+    public let pending: Double
+    public let nextPayoutDate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case available, pending
+        case nextPayoutDate = "next_payout_date"
+    }
+}
+
+public struct P2PPaymentHistoryItem: Codable {
+    public let id: Int
+    public let amount: Double
+    public let type: String
+    public let status: String
+    public let date: String
+}
+
+// MARK: - Cart Response Models
+
+public struct P2PCartResponse: Codable {
+    public let items: [P2PCartItem]
+    public let summary: P2PCartSummary
+    public let restaurantId: Int?
+    public let restaurantName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case items, summary
+        case restaurantId = "restaurant_id"
+        case restaurantName = "restaurant_name"
+    }
+}
+
+public struct P2PCartItem: Codable, Identifiable {
+    public let id: Int
+    public let menuItemId: Int
+    public let name: String
+    public let quantity: Int
+    public let price: Double
+    public let totalPrice: Double
+    public let specialInstructions: String?
+    public let imageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case menuItemId = "menu_item_id"
+        case name, quantity, price
+        case totalPrice = "total_price"
+        case specialInstructions = "special_instructions"
+        case imageUrl = "image_url"
+    }
+}
+
+public struct P2PCartSummary: Codable {
+    public let subtotal: Double
+    public let deliveryFee: Double
+    public let platformFee: Double
+    public let tax: Double
+    public let discount: Double
+    public let total: Double
+    public let itemCount: Int
+    public let restaurantCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case subtotal
+        case deliveryFee = "delivery_fee"
+        case platformFee = "platform_fee"
+        case tax, discount, total
+        case itemCount = "item_count"
+        case restaurantCount = "restaurant_count"
+    }
+}
+
+public struct P2PClearCartResponse: Codable {
+    public let message: String
+    public let summary: P2PCartSummary
+}
+
+// MARK: - Driver Assignment Response Models
+
+public struct P2PAssignDriverResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let orderId: Int?
+    public let driverId: Int?
+    public let driverName: String?
+    public let estimatedPickup: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case orderId = "order_id"
+        case driverId = "driver_id"
+        case driverName = "driver_name"
+        case estimatedPickup = "estimated_pickup"
+    }
+}
+
+// MARK: - Refund Processing Response Models
+
+public struct P2PProcessRefundResponse: Codable {
+    public let success: Bool
+    public let message: String
+    public let refundId: String?
+    public let orderId: Int
+    public let refundAmount: Double
+    public let refundStatus: String
+    public let processedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case refundId = "refund_id"
+        case orderId = "order_id"
+        case refundAmount = "refund_amount"
+        case refundStatus = "refund_status"
+        case processedAt = "processed_at"
     }
 }
