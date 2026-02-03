@@ -17625,6 +17625,12 @@ def admin_set_driver_documents(
     if photo:
         driver.photo_url = f"/uploads/driver_documents/{driver_id}/photo_verified.png"
 
+    # If all documents are set, mark driver as fully verified
+    if drivers_license and insurance and photo:
+        driver.documents_verified = True
+        driver.verification_status = "verified"
+        driver.documents_verified_at = datetime.utcnow()
+
     driver.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(driver)
@@ -17633,6 +17639,8 @@ def admin_set_driver_documents(
         "success": True,
         "message": "Driver documents set successfully",
         "driver_id": driver.id,
+        "documents_verified": driver.documents_verified,
+        "verification_status": driver.verification_status,
         "documents": {
             "drivers_license": driver.drivers_license,
             "drivers_license_url": driver.drivers_license_url,
@@ -17640,6 +17648,49 @@ def admin_set_driver_documents(
             "insurance_url": driver.insurance_url,
             "photo_url": driver.photo_url
         }
+    }
+
+
+@app.post("/api/admin/drivers/{driver_id}/verify")
+def admin_verify_driver(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to directly mark a driver as verified.
+    Sets documents_verified=True, verification_status='verified', and status='approved'.
+    Used for demo accounts and testing.
+    """
+    from models import Driver, DriverStatus
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Mark as fully verified
+    driver.documents_verified = True
+    driver.verification_status = "verified"
+    driver.documents_verified_at = datetime.utcnow()
+    driver.status = DriverStatus.APPROVED
+    driver.approved_at = datetime.utcnow()
+
+    # Also set all document flags
+    driver.drivers_license = True
+    driver.insurance = True
+    driver.background_check = True
+
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": "Driver verified successfully",
+        "driver_id": driver.id,
+        "driver_name": f"{driver.first_name} {driver.last_name}",
+        "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
+        "documents_verified": driver.documents_verified,
+        "verification_status": driver.verification_status
     }
 
 
