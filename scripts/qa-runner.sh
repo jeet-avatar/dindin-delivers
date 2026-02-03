@@ -492,8 +492,8 @@ EOF
         ((failed++))
     fi
 
-    # Step 3: View Menu
-    menu_items=$(curl -s "$API_URL/api/vendors/40/menu" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('menu_items',d.get('items',[]))))" 2>/dev/null)
+    # Step 3: View Menu (API returns flat array, not nested object)
+    menu_items=$(curl -s "$API_URL/api/vendors/40/menu" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else len(d.get('menu_items',d.get('items',[]))))" 2>/dev/null)
     if [ -n "$menu_items" ] && [ "$menu_items" -gt 0 ]; then
         echo "| 3. View Menu | ✅ PASS | $menu_items items in menu |" >> "$report"
         ((passed++))

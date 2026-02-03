@@ -228,17 +228,14 @@ if [ -n "$CUSTOMER_TOKEN" ]; then
         log_test "GET /api/vendors" "PASS" ""
         log_test "Restaurants available: ${VENDOR_COUNT}" "PASS" ""
 
-        # Get first vendor with menu
-        FIRST_VENDOR_ID=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')" 2>/dev/null)
-
-        if [ -n "$FIRST_VENDOR_ID" ]; then
-            menu_response=$(curl -s "${API_URL}/api/vendors/${FIRST_VENDOR_ID}/menu" 2>/dev/null)
-            MENU_COUNT=$(echo "$menu_response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-            if [ "$MENU_COUNT" -gt 0 ]; then
-                log_test "GET /api/vendors/${FIRST_VENDOR_ID}/menu" "PASS" "${MENU_COUNT} items"
-            else
-                log_test "GET /api/vendors/${FIRST_VENDOR_ID}/menu" "WARN" "No menu items configured"
-            fi
+        # Use Apple Test Restaurant (vendor 40) for menu test - demo restaurant with guaranteed menu items
+        DEMO_VENDOR_ID=40
+        menu_response=$(curl -s "${API_URL}/api/vendors/${DEMO_VENDOR_ID}/menu" 2>/dev/null)
+        MENU_COUNT=$(echo "$menu_response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        if [ "$MENU_COUNT" -gt 0 ]; then
+            log_test "GET /api/vendors/${DEMO_VENDOR_ID}/menu (Apple Test Restaurant)" "PASS" "${MENU_COUNT} items"
+        else
+            log_test "GET /api/vendors/${DEMO_VENDOR_ID}/menu (Apple Test Restaurant)" "FAIL" "Demo restaurant has no menu items"
         fi
     else
         log_test "GET /api/vendors" "FAIL" "$response"
