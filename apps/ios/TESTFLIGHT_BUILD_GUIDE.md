@@ -28,6 +28,10 @@
 
 ## API Endpoints Verified (Production)
 
+**Last Verified**: February 3, 2026
+
+### Core APIs
+
 | Endpoint | Status | Notes |
 |----------|--------|-------|
 | `GET /health` | ✅ 200 | Version 1.0.5, DB connected |
@@ -35,6 +39,75 @@
 | `GET /api/v5/driver/{id}/dashboard` | ✅ 200 | iOS-compatible format |
 | `POST /api/customer/orders/{id}/rate-driver` | ✅ 401 | Requires auth (correct) |
 | `POST /api/customer/orders/{id}/rate-restaurant` | ✅ 401 | Requires auth (correct) |
+
+### Driver Profile APIs
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /api/admin/drivers` | ✅ 200 | Basic profile + vehicle details |
+| `GET /api/drivers/{id}/documents` | ✅ 200 | Documents status (3 types) |
+| `GET /api/v5/driver/{id}/dashboard` | ✅ 200 | Earnings (today/week/month) |
+| `GET /api/drivers/{id}/status` | ✅ 200 | Online status, location |
+| `GET /api/erp/orders/{id}/full-tracking` | ✅ 200 | Customer order tracking |
+| `GET /api/erp/orders/vendor/{id}` | ✅ 200 | Restaurant order view |
+
+### Driver Photo & Vehicle Pass-Through Verified
+
+When a driver accepts an order, their photo and vehicle details are passed to both Customer and Restaurant apps:
+
+**Customer App (Order Tracking Response)**:
+```json
+{
+  "driver": {
+    "id": 48,
+    "name": "Demo Driver",
+    "phone": "+1-555-123-4567",
+    "rating": 4.9,
+    "photo_url": "/uploads/driver_documents/48/photo_verified.png",
+    "vehicle": "Toyota Camry",
+    "vehicle_color": "Silver",
+    "license_plate": "ABC1234"
+  }
+}
+```
+
+**Restaurant App (Vendor Orders Response)**:
+```json
+{
+  "driver": {
+    "id": 48,
+    "name": "Demo Driver",
+    "phone": "+1-555-123-4567",
+    "photo_url": "/uploads/driver_documents/48/photo_verified.png",
+    "vehicle": "Silver Toyota Camry",
+    "license_plate": "ABC1234"
+  }
+}
+```
+
+### Earnings Dashboard Format (iOS-Compatible)
+
+```json
+{
+  "driver_id": "48",
+  "snapshot_time": "2026-02-03T03:19:50Z",
+  "today": { "deliveries": 0, "gross_earnings": 0.0, "base_pay": 0, "tips": 0, "bonuses": 0.0, "active_hours": 0.0 },
+  "this_week": { "deliveries": 3, "gross_earnings": 38.12, "base_pay": 21.12, "tips": 17.0, "bonuses": 0.0, "active_hours": 1.5 },
+  "this_month": { "deliveries": 3, "gross_earnings": 38.12, "base_pay": 21.12, "tips": 17.0, "bonuses": 0.0, "active_hours": 1.5 },
+  "ratings": { "average": 4.9, "overall": 4.9, "total_ratings": 155, "on_time_percentage": 95 },
+  "tax_info": { "ytd_earnings": 457.44, "estimated_tax": 68.62 },
+  "platform_fees_paid": { "today": 0.0, "this_week": 3.0, "this_month": 3.0 },
+  "payment_methods": { "instant_pay_available": true, "bank_account_linked": true }
+}
+```
+
+### Documents Status
+
+| Document Type | Status |
+|---------------|--------|
+| drivers_license | ✅ verified |
+| insurance | ✅ verified |
+| background_check | ✅ verified |
 
 ---
 
