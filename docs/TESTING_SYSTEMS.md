@@ -23,9 +23,9 @@ Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
-| **QA Agent System** | Code quality, security, infrastructure | Before every deployment | 9 agents, ~50 checks |
-| **UAT System** | User flows, database integrity, API contracts | Before releases | 8 phases, ~63 tests |
-| **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~62 checks |
+| **QA Agent System** | Code quality, security, infrastructure | Before every deployment | 9 agents, ~30 API + ~50 code checks |
+| **UAT System** | User flows, database integrity, API contracts | Before releases | 9 phases, ~76 tests |
+| **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~72 checks |
 
 ### Environments
 
