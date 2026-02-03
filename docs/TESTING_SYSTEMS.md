@@ -23,7 +23,7 @@ Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
-| **QA Agent System** | Code quality, security, infrastructure | Before every deployment | 9 agents, ~30 API + ~50 code checks |
+| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 10 agents, ~30 API + ~50 code + ~35 data checks |
 | **UAT System** | User flows, database integrity, API contracts | Before releases | 9 phases, ~76 tests |
 | **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~72 checks |
 
@@ -58,8 +58,8 @@ Used for Apple App Store review and automated testing:
 ### Overview
 
 **File:** `scripts/qa-runner.sh`
-**Version:** 2.0 (World Class Edition)
-**Agents:** 9 specialized testing agents
+**Version:** 3.0 (Frontend Data Validation Edition)
+**Agents:** 10 specialized testing agents
 
 ### Usage
 
@@ -87,6 +87,7 @@ Used for Apple App Store review and automated testing:
 | 7 | **Database** | DB Health | Connection, demo accounts, migration status |
 | 8 | **Performance** | Speed | API response times, code size metrics |
 | 9 | **Dependencies** | Packages | CocoaPods, requirements.txt, SPM packages |
+| 10 | **Frontend Data** | Data Integrity | All frontend data points match database, type/range/format validation |
 
 ### Agent Details
 
@@ -123,6 +124,39 @@ Vendor Login:    POST /api/auth/vendor/login    (form-urlencoded)
 
 **Exclusions:** Third-party SDKs (`.build/`, `Pods/`, `checkouts/`) are excluded from security scans to reduce false positives.
 
+#### Agent 10: Frontend Data Validation
+
+Validates all frontend data points match database values for all three apps:
+
+**Customer App:**
+| Data Point | Validation |
+|------------|------------|
+| Profile (email, name, phone) | Type, format validation |
+| Orders (id, status, total, items) | Type, range, structure |
+| Addresses (street, city, zip, coordinates) | Type, coordinate range |
+| Favorites (vendor_id, name) | Type, existence |
+| Payment cards (last4, brand, expiry) | Type, format |
+| Cart (items, totals) | Type, calculation |
+
+**Restaurant App:**
+| Data Point | Validation |
+|------------|------------|
+| Vendor list (id, name, rating, is_open) | Type, rating 0-5 |
+| Menu items (id, name, price, category) | Type, price >= 0 |
+| Promotions (discount, dates) | Type, percentage 0-100 |
+
+**Driver App:**
+| Data Point | Validation |
+|------------|------------|
+| Dashboard (earnings, trips, rating) | Type, range |
+| Documents (id, type, status, url) | Type, enum values |
+| Profile (name, vehicle, license) | Type, format |
+
+**Cross-Reference Checks:**
+- Demo customer (ID 74) has orders
+- Demo vendor (ID 40) has 17 menu items
+- Demo driver (ID 48) has approved status
+
 ### Output
 
 Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
@@ -139,6 +173,7 @@ Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
 | `QA_REPORT_DATABASE.md` | Database health |
 | `QA_REPORT_PERFORMANCE.md` | Performance metrics |
 | `QA_REPORT_DEPENDENCIES.md` | Package analysis |
+| `QA_REPORT_FRONTEND_DATA.md` | Frontend data validation |
 
 ### Verdicts
 
@@ -456,6 +491,7 @@ Run meta-validation after both QA and UAT complete:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.1 | Feb 2026 | Added Frontend Data Validation agent (Agent 10) - validates all frontend data points match database |
 | 3.0 | Feb 2026 | Added meta-validation agent for QA/UAT cross-referencing |
 | 2.0 | Feb 2026 | Added 9 agents, database validation, performance checks |
 | 1.0 | Jan 2026 | Initial QA system with 6 agents |
