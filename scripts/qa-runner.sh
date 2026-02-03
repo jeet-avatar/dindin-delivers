@@ -198,12 +198,27 @@ EOF
 EOF
 
     echo "  Testing customer endpoints..."
+    # Public endpoints
+    test_endpoint "GET" "/health" "200" "" "" "GET /health (infrastructure)" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/vendors" "200" "" "" "GET /api/vendors" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/vendors/published" "200" "" "" "GET /api/vendors/published" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/vendors/40" "200" "" "" "GET /api/vendors/{id}" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/vendors/40/menu" "200" "" "" "GET /api/vendors/{id}/menu" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/promotions/active" "200" "" "" "GET /api/promotions/active" >> "$report" && ((passed++)) || ((failed++))
 
     if [ -n "$CUSTOMER_TOKEN" ]; then
-        test_endpoint "GET" "/api/customer/orders" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/orders (auth)" >> "$report" && ((passed++)) || ((failed++))
+        # Customer profile & orders
         test_endpoint "GET" "/api/customer/profile" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/profile (auth)" >> "$report" && ((passed++)) || ((failed++))
+        test_endpoint "GET" "/api/customer/orders" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/orders (auth)" >> "$report" && ((passed++)) || ((failed++))
+        test_endpoint "GET" "/api/customer/74/active-orders" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/{id}/active-orders" >> "$report" && ((passed++)) || ((failed++))
+        # Addresses
+        test_endpoint "GET" "/api/addresses/74" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/addresses/{userId}" >> "$report" && ((passed++)) || ((failed++))
+        # Favorites
+        test_endpoint "GET" "/api/customer/favorites/74" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/favorites/{id}" >> "$report" && ((passed++)) || ((failed++))
+        # Payment methods
+        test_endpoint "GET" "/api/customers/74/cards" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customers/{id}/cards" >> "$report" && ((passed++)) || ((failed++))
+        # Cart
+        test_endpoint "GET" "/api/cart" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/cart" >> "$report" && ((passed++)) || ((failed++))
     fi
 
     cat >> "$report" << EOF
@@ -218,6 +233,11 @@ EOF
     test_endpoint "GET" "/api/v5/driver/48/dashboard" "200" "" "" "GET /api/v5/driver/{id}/dashboard" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/drivers/48/documents" "200" "" "" "GET /api/drivers/{id}/documents" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/drivers/48/status" "200" "" "" "GET /api/drivers/{id}/status" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/erp/drivers/48/profile" "200" "" "" "GET /api/erp/drivers/{id}/profile" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/drivers/48/earnings" "200" "" "" "GET /api/drivers/{id}/earnings" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/drivers/48/available-orders" "200" "" "" "GET /api/drivers/{id}/available-orders" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/drivers/48/deliveries" "200" "" "" "GET /api/drivers/{id}/deliveries" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/erp/orders/available-for-delivery" "200" "" "" "GET /api/erp/orders/available-for-delivery" >> "$report" && ((passed++)) || ((failed++))
 
     cat >> "$report" << EOF
 
@@ -229,10 +249,27 @@ EOF
 
     echo "  Testing restaurant endpoints..."
     test_endpoint "GET" "/api/orders?vendor_id=40" "200" "" "" "GET /api/orders?vendor_id={id}" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/erp/orders/vendor/40" "200" "" "" "GET /api/erp/orders/vendor/{id}" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/vendors/40/menu/categories" "200" "" "" "GET /api/vendors/{id}/menu/categories" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/vendors/40/online-status" "200" "" "" "GET /api/vendors/{id}/online-status" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/promotions/vendor/40" "200" "" "" "GET /api/promotions/vendor/{id}" >> "$report" && ((passed++)) || ((failed++))
+    test_endpoint "GET" "/api/vendors/40/documents" "200" "" "" "GET /api/vendors/{id}/documents" >> "$report" && ((passed++)) || ((failed++))
 
     cat >> "$report" << EOF
 
-## 6. Demo Setup & Admin
+## 6. Order Lifecycle Endpoints
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+EOF
+
+    echo "  Testing order lifecycle endpoints..."
+    # These may return empty arrays but should respond with 200
+    test_endpoint "GET" "/api/erp/orders/available-for-delivery" "200" "" "" "GET /api/erp/orders/available-for-delivery" >> "$report" && ((passed++)) || ((failed++))
+
+    cat >> "$report" << EOF
+
+## 7. Demo Setup & Admin
 
 | Endpoint | Status | Code | Response Time |
 |----------|--------|------|---------------|

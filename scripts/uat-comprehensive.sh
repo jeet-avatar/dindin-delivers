@@ -134,9 +134,42 @@ extract_json() {
 }
 
 # ============================================================
+# PHASE 0: Infrastructure Health Check
+# ============================================================
+
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD} PHASE 0: INFRASTRUCTURE HEALTH CHECK${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+echo -e "${YELLOW}◆ Testing API Health...${NC}"
+response=$(curl -s "${API_URL}/health" 2>/dev/null)
+http_code=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/health" 2>/dev/null)
+
+if [ "$http_code" = "200" ]; then
+    log_test "GET /health" "PASS" "HTTP $http_code"
+    if echo "$response" | grep -q "database\|status"; then
+        DB_STATUS=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database', d.get('status', 'ok')))" 2>/dev/null || echo "ok")
+        log_test "Database connection" "PASS" "$DB_STATUS"
+    fi
+else
+    log_test "GET /health" "FAIL" "HTTP $http_code"
+fi
+
+echo ""
+echo -e "${YELLOW}◆ Testing API Version...${NC}"
+response=$(curl -s "${API_URL}/api/v3" 2>/dev/null)
+if echo "$response" | grep -q "version\|api"; then
+    log_test "GET /api/v3" "PASS" ""
+else
+    log_test "GET /api/v3" "WARN" "Version endpoint unavailable"
+fi
+
+# ============================================================
 # PHASE 1: Authentication Testing
 # ============================================================
 
+echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BOLD} PHASE 1: AUTHENTICATION TESTING${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -255,25 +288,73 @@ if [ -n "$CUSTOMER_TOKEN" ]; then
     fi
 
     echo ""
-    echo -e "${YELLOW}◆ Testing Saved Addresses...${NC}"
-    response=$(curl -s "${API_URL}/api/customer/addresses" \
+    echo -e "${YELLOW}◆ Testing Active Orders...${NC}"
+    response=$(curl -s "${API_URL}/api/customer/${CUSTOMER_ID}/active-orders" \
         -H "Authorization: Bearer ${CUSTOMER_TOKEN}" 2>/dev/null)
 
-    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "addresses"; then
-        log_test "GET /api/customer/addresses" "PASS" ""
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "orders"; then
+        ACTIVE_COUNT=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else len(d.get('orders',[])))" 2>/dev/null || echo "0")
+        log_test "GET /api/customer/{id}/active-orders" "PASS" "${ACTIVE_COUNT} active"
     else
-        log_test "GET /api/customer/addresses" "WARN" "No addresses or endpoint unavailable"
+        log_test "GET /api/customer/{id}/active-orders" "WARN" "No active orders"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Saved Addresses...${NC}"
+    response=$(curl -s "${API_URL}/api/addresses/${CUSTOMER_ID}" \
+        -H "Authorization: Bearer ${CUSTOMER_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "address"; then
+        ADDR_COUNT=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        log_test "GET /api/addresses/{userId}" "PASS" "${ADDR_COUNT} addresses"
+    else
+        log_test "GET /api/addresses/{userId}" "WARN" "No addresses saved"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Favorites...${NC}"
+    response=$(curl -s "${API_URL}/api/customer/favorites/${CUSTOMER_ID}" \
+        -H "Authorization: Bearer ${CUSTOMER_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "favorites"; then
+        FAV_COUNT=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        log_test "GET /api/customer/favorites/{id}" "PASS" "${FAV_COUNT} favorites"
+    else
+        log_test "GET /api/customer/favorites/{id}" "WARN" "No favorites"
     fi
 
     echo ""
     echo -e "${YELLOW}◆ Testing Payment Methods...${NC}"
-    response=$(curl -s "${API_URL}/api/customer/payment-methods" \
+    response=$(curl -s "${API_URL}/api/customers/${CUSTOMER_ID}/cards" \
         -H "Authorization: Bearer ${CUSTOMER_TOKEN}" 2>/dev/null)
 
-    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "payment"; then
-        log_test "GET /api/customer/payment-methods" "PASS" ""
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "card"; then
+        CARD_COUNT=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        log_test "GET /api/customers/{id}/cards" "PASS" "${CARD_COUNT} cards"
     else
-        log_test "GET /api/customer/payment-methods" "WARN" "No payment methods or endpoint unavailable"
+        log_test "GET /api/customers/{id}/cards" "WARN" "No payment methods"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Cart...${NC}"
+    response=$(curl -s "${API_URL}/api/cart" \
+        -H "Authorization: Bearer ${CUSTOMER_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "cart\|items\|\[\]"; then
+        log_test "GET /api/cart" "PASS" ""
+    else
+        log_test "GET /api/cart" "WARN" "Cart endpoint unavailable"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Promotions...${NC}"
+    response=$(curl -s "${API_URL}/api/promotions/active" 2>/dev/null)
+
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "promo"; then
+        PROMO_COUNT=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+        log_test "GET /api/promotions/active" "PASS" "${PROMO_COUNT} active promotions"
+    else
+        log_test "GET /api/promotions/active" "WARN" "No active promotions"
     fi
 else
     log_test "Customer flow" "FAIL" "No customer token available"
@@ -366,6 +447,29 @@ if [ -n "$DRIVER_TOKEN" ] && [ -n "$DRIVER_ID" ]; then
     else
         log_test "GET /api/drivers/{id}/deliveries" "WARN" "No deliveries or unavailable"
     fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Driver Earnings...${NC}"
+    response=$(curl -s "${API_URL}/api/drivers/${DRIVER_ID}/earnings" \
+        -H "Authorization: Bearer ${DRIVER_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "earnings\|total\|amount"; then
+        log_test "GET /api/drivers/{id}/earnings" "PASS" ""
+    else
+        log_test "GET /api/drivers/{id}/earnings" "WARN" "Earnings unavailable"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Available Orders for Delivery...${NC}"
+    response=$(curl -s "${API_URL}/api/erp/orders/available-for-delivery" \
+        -H "Authorization: Bearer ${DRIVER_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\["; then
+        AVAIL_COUNT=$(echo "$response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+        log_test "GET /api/erp/orders/available-for-delivery" "PASS" "${AVAIL_COUNT} orders"
+    else
+        log_test "GET /api/erp/orders/available-for-delivery" "WARN" "No orders available"
+    fi
 else
     log_test "Driver flow" "FAIL" "No driver token available"
 fi
@@ -432,15 +536,62 @@ if [ -n "$VENDOR_TOKEN" ] && [ -n "$VENDOR_ID" ]; then
 
     echo ""
     echo -e "${YELLOW}◆ Testing Restaurant Online Status...${NC}"
-    response=$(curl -s "${API_URL}/api/vendors/${VENDOR_ID}/status" \
+    response=$(curl -s "${API_URL}/api/vendors/${VENDOR_ID}/online-status" \
         -H "Authorization: Bearer ${VENDOR_TOKEN}" 2>/dev/null)
 
-    if echo "$response" | grep -q "is_online\|status"; then
-        IS_ONLINE=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('is_online', 'N/A'))" 2>/dev/null)
-        log_test "GET /api/vendors/{id}/status" "PASS" ""
+    if echo "$response" | grep -q "is_online\|status\|online"; then
+        IS_ONLINE=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('is_online', d.get('online', 'N/A')))" 2>/dev/null)
+        log_test "GET /api/vendors/{id}/online-status" "PASS" ""
         log_test "Restaurant online: ${IS_ONLINE}" "PASS" ""
     else
-        log_test "GET /api/vendors/{id}/status" "WARN" "Status unavailable"
+        log_test "GET /api/vendors/{id}/online-status" "WARN" "Status unavailable"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Menu Categories...${NC}"
+    response=$(curl -s "${API_URL}/api/vendors/${VENDOR_ID}/menu/categories" \
+        -H "Authorization: Bearer ${VENDOR_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\["; then
+        CAT_COUNT=$(echo "$response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        log_test "GET /api/vendors/{id}/menu/categories" "PASS" "${CAT_COUNT} categories"
+    else
+        log_test "GET /api/vendors/{id}/menu/categories" "WARN" "Categories unavailable"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Restaurant Promotions...${NC}"
+    response=$(curl -s "${API_URL}/api/promotions/vendor/${VENDOR_ID}" \
+        -H "Authorization: Bearer ${VENDOR_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\["; then
+        PROMO_COUNT=$(echo "$response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        log_test "GET /api/promotions/vendor/{id}" "PASS" "${PROMO_COUNT} promotions"
+    else
+        log_test "GET /api/promotions/vendor/{id}" "WARN" "No promotions"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing Restaurant Documents...${NC}"
+    response=$(curl -s "${API_URL}/api/vendors/${VENDOR_ID}/documents" \
+        -H "Authorization: Bearer ${VENDOR_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\["; then
+        DOC_COUNT=$(echo "$response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        log_test "GET /api/vendors/{id}/documents" "PASS" "${DOC_COUNT} documents"
+    else
+        log_test "GET /api/vendors/{id}/documents" "WARN" "Documents unavailable"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}◆ Testing ERP Orders View...${NC}"
+    response=$(curl -s "${API_URL}/api/erp/orders/vendor/${VENDOR_ID}" \
+        -H "Authorization: Bearer ${VENDOR_TOKEN}" 2>/dev/null)
+
+    if echo "$response" | grep -q "\[" || echo "$response" | grep -q "orders"; then
+        log_test "GET /api/erp/orders/vendor/{id}" "PASS" ""
+    else
+        log_test "GET /api/erp/orders/vendor/{id}" "WARN" "ERP orders unavailable"
     fi
 else
     log_test "Restaurant flow" "FAIL" "No vendor token available"

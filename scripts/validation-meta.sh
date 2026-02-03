@@ -228,8 +228,51 @@ EOF
 echo -e "${YELLOW}◆ Validating Critical Endpoint Coverage...${NC}"
 
 # Define critical endpoints that MUST be tested (using arrays instead of associative for compatibility)
-ENDPOINT_PATHS=("/api/health" "/api/auth/customer/login" "/api/auth/driver/login" "/api/auth/vendor/login" "/api/vendors" "/api/customer/profile" "/api/customer/orders" "/api/v5/driver" "/api/drivers" "/api/orders")
-ENDPOINT_NAMES=("Health check" "Customer authentication" "Driver authentication" "Vendor authentication" "Restaurant listing" "Customer profile" "Customer orders" "Driver dashboard" "Driver documents/status" "Order management")
+# Expanded to cover more iOS app endpoints
+ENDPOINT_PATHS=(
+    "/health"
+    "/api/auth/customer/login"
+    "/api/auth/driver/login"
+    "/api/auth/vendor/login"
+    "/api/vendors"
+    "/api/vendors/40/menu"
+    "/api/customer/profile"
+    "/api/customer/orders"
+    "/api/addresses"
+    "/api/customer/favorites"
+    "/api/customers"
+    "/api/cart"
+    "/api/promotions"
+    "/api/v5/driver"
+    "/api/drivers"
+    "/api/erp/drivers"
+    "/api/erp/orders"
+    "/api/orders"
+    "/api/vendors/40/menu/categories"
+    "/api/vendors/40/online-status"
+)
+ENDPOINT_NAMES=(
+    "Health check"
+    "Customer authentication"
+    "Driver authentication"
+    "Vendor authentication"
+    "Restaurant listing"
+    "Restaurant menu"
+    "Customer profile"
+    "Customer orders"
+    "Customer addresses"
+    "Customer favorites"
+    "Payment methods (cards)"
+    "Cart management"
+    "Promotions"
+    "Driver dashboard"
+    "Driver documents/status"
+    "Driver ERP profile"
+    "ERP orders"
+    "Order management"
+    "Menu categories"
+    "Restaurant online status"
+)
 
 for i in "${!ENDPOINT_PATHS[@]}"; do
     endpoint="${ENDPOINT_PATHS[$i]}"
