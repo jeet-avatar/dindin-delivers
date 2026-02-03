@@ -251,7 +251,7 @@ Continuing Dollor.ai iOS development.
 
 ## Current State (February 3, 2026)
 
-### Build Numbers
+### Build Numbers (Uploaded to TestFlight)
 - Customer: 1037 (Bundle: com.dollorai.customer)
 - Driver: 112 (Bundle: com.dollorai.delivery)
 - Restaurant: 112 (Bundle: com.dollorai.restaurant)
@@ -263,9 +263,15 @@ Continuing Dollor.ai iOS development.
 - Production: https://api.dollor.ai (healthy)
 
 ### Recent Fixes Applied
-1. Driver earnings dashboard - now returns iOS-compatible format (today/this_week/this_month)
-2. Rate driver endpoint - fixed URL from /api/orders/ to /api/customer/orders/
-3. Order acceptance - added optimistic update for instant UI feedback
+1. Driver earnings dashboard - iOS-compatible format (today/this_week/this_month)
+2. Rate driver endpoint - fixed URL: /api/customer/orders/{id}/rate-driver
+3. Order acceptance - optimistic update for instant UI feedback
+4. Driver photo & vehicle details - verified pass-through to Customer/Restaurant apps
+
+### APIs Verified (All Pass)
+- Driver Profile, Documents, Earnings, Status
+- Order Tracking with driver photo/vehicle
+- Restaurant view with driver details
 
 ### Key Files
 - API Contract: API_CONTRACT.md (v1.0.8)
