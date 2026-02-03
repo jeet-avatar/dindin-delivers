@@ -1801,7 +1801,504 @@ EOF
 }
 
 # ============================================================
-# Agent 11: Validator (Aggregates all reports)
+# Agent 11: Frontend Display Validation
+# Validates that all UI fields display dynamic data, no hardcodes
+# ============================================================
+run_frontend_display_agent() {
+    echo -e "${YELLOW}◆ Running Frontend Display Validation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_FRONTEND_DISPLAY.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << EOF
+# QA Report: Frontend Display Validation
+
+**Environment**: $ENV
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates that all UI fields display dynamic data from APIs, not hardcoded values.
+
+---
+
+## 1. Customer App - Hardcoded Display Values Check
+
+### 1.1 SwiftUI Views - Text Fields
+| File | Check | Pattern | Status |
+|------|-------|---------|--------|
+EOF
+
+    echo "  Scanning Customer App for hardcoded display values..."
+
+    local customer_dir="apps/ios/customer/eatfaircustomer"
+
+    # Check for hardcoded price displays (e.g., "$10.99" instead of formatted variable)
+    # Exclude: platform fee labels ($1, $1-$3), backup files
+    local hardcoded_prices=$(grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection" | wc -l | tr -d ' ')
+    if [ "$hardcoded_prices" -eq 0 ]; then
+        echo "| Customer Views | Hardcoded prices | \"\$X.XX\" literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer Views | Hardcoded prices | Found $hardcoded_prices instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+        # List the files
+        echo "" >> "$report"
+        echo "**Hardcoded price locations:**" >> "$report"
+        echo '```' >> "$report"
+        grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection" | head -5 >> "$report"
+        echo '```' >> "$report"
+        echo "" >> "$report"
+    fi
+
+    # Check for hardcoded names/labels that should be dynamic
+    # Exclude: "Demo" UI labels (intentional), backup files
+    local hardcoded_names=$(grep -rn 'Text("John Doe\|Text("Jane Doe\|Text("Test User"' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup" | wc -l | tr -d ' ')
+    if [ "$hardcoded_names" -eq 0 ]; then
+        echo "| Customer Views | Hardcoded names | User name literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer Views | Hardcoded names | Found $hardcoded_names instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check for hardcoded email displays
+    # Exclude: placeholder text, backup files
+    local hardcoded_emails=$(grep -rn 'Text(".*@.*\.com"\|Text(".*@.*\.ai"' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|placeholder\|Placeholder\|_dead_code\|_backup" | wc -l | tr -d ' ')
+    if [ "$hardcoded_emails" -eq 0 ]; then
+        echo "| Customer Views | Hardcoded emails | Email literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer Views | Hardcoded emails | Found $hardcoded_emails instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded phone numbers
+    local hardcoded_phones=$(grep -rn 'Text("(.*) .*-\|Text("+1\|Text("555-' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_phones" -eq 0 ]; then
+        echo "| Customer Views | Hardcoded phones | Phone number literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer Views | Hardcoded phones | Found $hardcoded_phones instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded addresses
+    local hardcoded_addresses=$(grep -rn 'Text("123 \|Text("456 \|Text("789 ' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_addresses" -eq 0 ]; then
+        echo "| Customer Views | Hardcoded addresses | Address literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer Views | Hardcoded addresses | Found $hardcoded_addresses instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+### 1.2 Data Binding Validation
+| Component | Binding Pattern | Dynamic Source | Status |
+|-----------|-----------------|----------------|--------|
+EOF
+
+    # Check that price displays use formatted variables
+    local dynamic_prices=$(grep -rn 'formatPrice\|currencyFormat\|\.currency\|NumberFormatter' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$dynamic_prices" -gt 0 ]; then
+        echo "| Price Display | Currency formatter | $dynamic_prices usages | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Price Display | Currency formatter | Not found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for proper model bindings (@Published, @State, @Binding)
+    local state_bindings=$(grep -rn '@State\|@Binding\|@Published\|@ObservedObject\|@StateObject' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$state_bindings" -gt 10 ]; then
+        echo "| State Management | SwiftUI bindings | $state_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| State Management | SwiftUI bindings | Only $state_bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for API data loading patterns
+    local api_loading=$(grep -rn 'Task\s*{\|\.task\|onAppear.*fetch\|loadData\|fetchData' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$api_loading" -gt 5 ]; then
+        echo "| Data Loading | API fetch patterns | $api_loading patterns | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Data Loading | API fetch patterns | Only $api_loading found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 2. Driver App - Hardcoded Display Values Check
+
+### 2.1 SwiftUI Views - Text Fields
+| File | Check | Pattern | Status |
+|------|-------|---------|--------|
+EOF
+
+    echo "  Scanning Driver App for hardcoded display values..."
+
+    local driver_dir="apps/ios/delivery/eatffairdelivery"
+
+    # Check for hardcoded earnings displays
+    local hardcoded_earnings=$(grep -rn 'Text("\$[0-9]' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_earnings" -eq 0 ]; then
+        echo "| Driver Views | Hardcoded earnings | \"\$X.XX\" literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver Views | Hardcoded earnings | Found $hardcoded_earnings instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded trip counts
+    local hardcoded_trips=$(grep -rn 'Text("[0-9]+ trips\|Text("[0-9]+ deliveries' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_trips" -eq 0 ]; then
+        echo "| Driver Views | Hardcoded trip counts | Trip count literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver Views | Hardcoded trip counts | Found $hardcoded_trips instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded ratings
+    local hardcoded_ratings=$(grep -rn 'Text("4\.[0-9]\|Text("5\.0\|rating.*=.*[0-9]\.[0-9]' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|default\|case" | wc -l | tr -d ' ')
+    if [ "$hardcoded_ratings" -eq 0 ]; then
+        echo "| Driver Views | Hardcoded ratings | Rating literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver Views | Hardcoded ratings | Found $hardcoded_ratings instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+### 2.2 Data Binding Validation
+| Component | Binding Pattern | Dynamic Source | Status |
+|-----------|-----------------|----------------|--------|
+EOF
+
+    # Check for proper model bindings in driver app
+    local driver_bindings=$(grep -rn '@State\|@Binding\|@Published\|@ObservedObject\|@StateObject' "$driver_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$driver_bindings" -gt 5 ]; then
+        echo "| State Management | SwiftUI bindings | $driver_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| State Management | SwiftUI bindings | Only $driver_bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 3. Restaurant App - Hardcoded Display Values Check
+
+### 3.1 SwiftUI Views - Text Fields
+| File | Check | Pattern | Status |
+|------|-------|---------|--------|
+EOF
+
+    echo "  Scanning Restaurant App for hardcoded display values..."
+
+    local restaurant_dir="apps/ios/restaurant/eatffairrestaurant"
+
+    # Check for hardcoded order counts
+    local hardcoded_orders=$(grep -rn 'Text("[0-9]+ orders\|Text("[0-9]+ new' "$restaurant_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_orders" -eq 0 ]; then
+        echo "| Restaurant Views | Hardcoded order counts | Order count literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant Views | Hardcoded order counts | Found $hardcoded_orders instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded menu prices
+    local hardcoded_menu_prices=$(grep -rn 'Text("\$[0-9]' "$restaurant_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_menu_prices" -eq 0 ]; then
+        echo "| Restaurant Views | Hardcoded menu prices | Menu price literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant Views | Hardcoded menu prices | Found $hardcoded_menu_prices instances | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for hardcoded restaurant names
+    local hardcoded_restaurant_names=$(grep -rn 'Text("My Restaurant\|Text("Test Restaurant\|Text("Demo Restaurant' "$restaurant_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$hardcoded_restaurant_names" -eq 0 ]; then
+        echo "| Restaurant Views | Hardcoded restaurant names | Name literals | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant Views | Hardcoded restaurant names | Found $hardcoded_restaurant_names instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << EOF
+
+### 3.2 Data Binding Validation
+| Component | Binding Pattern | Dynamic Source | Status |
+|-----------|-----------------|----------------|--------|
+EOF
+
+    # Check for proper model bindings in restaurant app
+    local restaurant_bindings=$(grep -rn '@State\|@Binding\|@Published\|@ObservedObject\|@StateObject' "$restaurant_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$restaurant_bindings" -gt 5 ]; then
+        echo "| State Management | SwiftUI bindings | $restaurant_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| State Management | SwiftUI bindings | Only $restaurant_bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 4. Mock/Placeholder Data Check
+
+### 4.1 Production Code Mock Data
+| App | Check | Pattern | Status |
+|-----|-------|---------|--------|
+EOF
+
+    echo "  Checking for mock/placeholder data in production code..."
+
+    # Check for mock data patterns in customer app
+    local mock_customer=$(grep -rn 'mockData\|sampleData\|testData\|dummyData\|fakeData' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|Test" | wc -l | tr -d ' ')
+    if [ "$mock_customer" -eq 0 ]; then
+        echo "| Customer App | Mock data variables | mockData/sampleData | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer App | Mock data variables | Found $mock_customer instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check for mock data patterns in driver app
+    local mock_driver=$(grep -rn 'mockData\|sampleData\|testData\|dummyData\|fakeData' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|Test" | wc -l | tr -d ' ')
+    if [ "$mock_driver" -eq 0 ]; then
+        echo "| Driver App | Mock data variables | mockData/sampleData | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver App | Mock data variables | Found $mock_driver instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check for mock data patterns in restaurant app
+    local mock_restaurant=$(grep -rn 'mockData\|sampleData\|testData\|dummyData\|fakeData' "$restaurant_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|Test" | wc -l | tr -d ' ')
+    if [ "$mock_restaurant" -eq 0 ]; then
+        echo "| Restaurant App | Mock data variables | mockData/sampleData | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant App | Mock data variables | Found $mock_restaurant instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << EOF
+
+### 4.2 Lorem Ipsum / Placeholder Text
+| App | Check | Pattern | Status |
+|-----|-------|---------|--------|
+EOF
+
+    # Check for lorem ipsum text
+    local lorem_customer=$(grep -rni 'lorem ipsum\|placeholder text\|sample text' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$lorem_customer" -eq 0 ]; then
+        echo "| Customer App | Placeholder text | Lorem ipsum | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer App | Placeholder text | Found $lorem_customer instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    local lorem_driver=$(grep -rni 'lorem ipsum\|placeholder text\|sample text' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$lorem_driver" -eq 0 ]; then
+        echo "| Driver App | Placeholder text | Lorem ipsum | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver App | Placeholder text | Found $lorem_driver instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    local lorem_restaurant=$(grep -rni 'lorem ipsum\|placeholder text\|sample text' "$restaurant_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    if [ "$lorem_restaurant" -eq 0 ]; then
+        echo "| Restaurant App | Placeholder text | Lorem ipsum | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant App | Placeholder text | Found $lorem_restaurant instances | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 5. API Response Display Validation
+
+### 5.1 Model-to-View Data Flow
+| App | Model Field | Display Component | Binding Check | Status |
+|-----|-------------|-------------------|---------------|--------|
+EOF
+
+    echo "  Validating API response display patterns..."
+
+    # Check customer profile display bindings
+    local profile_bindings=$(grep -rn 'customer\.name\|customer\.email\|profile\.name\|profile\.email\|user\.name\|user\.email' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$profile_bindings" -gt 0 ]; then
+        echo "| Customer | Profile fields | Text views | $profile_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer | Profile fields | Text views | No bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check order display bindings
+    local order_bindings=$(grep -rn 'order\.id\|order\.status\|order\.total\|order\.items' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$order_bindings" -gt 0 ]; then
+        echo "| Customer | Order fields | Order views | $order_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer | Order fields | Order views | No bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check menu item display bindings
+    local menu_bindings=$(grep -rn 'item\.name\|item\.price\|menuItem\.name\|menuItem\.price\|dish\.name\|dish\.price' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$menu_bindings" -gt 0 ]; then
+        echo "| Customer | Menu item fields | Menu views | $menu_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer | Menu item fields | Menu views | No bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check driver earnings display bindings
+    local earnings_bindings=$(grep -rn 'earnings\|dashboard\.total\|dashboard\.trips\|dashboard\.rating' "$driver_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$earnings_bindings" -gt 0 ]; then
+        echo "| Driver | Dashboard fields | Dashboard view | $earnings_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver | Dashboard fields | Dashboard view | No bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check restaurant order display bindings
+    local rest_order_bindings=$(grep -rn 'order\.id\|order\.status\|order\.customer\|order\.items' "$restaurant_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$rest_order_bindings" -gt 0 ]; then
+        echo "| Restaurant | Order fields | Order views | $rest_order_bindings bindings | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant | Order fields | Order views | No bindings found | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 6. Empty State Handling
+
+### 6.1 Empty Data Display Check
+| App | Component | Empty State Handler | Status |
+|-----|-----------|---------------------|--------|
+EOF
+
+    echo "  Checking empty state handling..."
+
+    # Check for empty state handling in customer app
+    local empty_customer=$(grep -rn 'isEmpty\|\.count == 0\|EmptyView\|NoDataView\|emptyState' "$customer_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$empty_customer" -gt 3 ]; then
+        echo "| Customer App | Lists/Collections | $empty_customer handlers | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer App | Lists/Collections | Only $empty_customer handlers | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for empty state handling in driver app
+    local empty_driver=$(grep -rn 'isEmpty\|\.count == 0\|EmptyView\|NoDataView\|emptyState' "$driver_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$empty_driver" -gt 2 ]; then
+        echo "| Driver App | Lists/Collections | $empty_driver handlers | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver App | Lists/Collections | Only $empty_driver handlers | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Check for empty state handling in restaurant app
+    local empty_restaurant=$(grep -rn 'isEmpty\|\.count == 0\|EmptyView\|NoDataView\|emptyState' "$restaurant_dir" --include="*.swift" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$empty_restaurant" -gt 2 ]; then
+        echo "| Restaurant App | Lists/Collections | $empty_restaurant handlers | ✅ PASS |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant App | Lists/Collections | Only $empty_restaurant handlers | ⚠️ WARN |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | $passed |
+| Failed | $failed |
+| Warnings | $warnings |
+| Total Checks | $((passed + failed + warnings)) |
+
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo "**Status**: ✅ PASS" >> "$report"
+    elif [ $failed -le 2 ]; then
+        echo "**Status**: ⚠️ WARN" >> "$report"
+    else
+        echo "**Status**: ❌ FAIL" >> "$report"
+    fi
+
+    cat >> "$report" << EOF
+
+### Validation Categories
+- ✓ Hardcoded display values (prices, names, emails, phones, addresses)
+- ✓ Data binding patterns (SwiftUI state management)
+- ✓ Mock/placeholder data detection
+- ✓ API response to view bindings
+- ✓ Empty state handling
+
+### Recommendations
+EOF
+
+    if [ $warnings -gt 0 ] || [ $failed -gt 0 ]; then
+        echo "- Review any hardcoded values found and replace with dynamic bindings" >> "$report"
+        echo "- Ensure all display fields use model properties, not literals" >> "$report"
+        echo "- Add proper empty state handlers for all list views" >> "$report"
+    else
+        echo "- All frontend display validations passed" >> "$report"
+        echo "- Data flows correctly from API to UI" >> "$report"
+    fi
+
+    echo "" >> "$report"
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ Frontend Display Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    elif [ $failed -le 2 ]; then
+        echo -e "${YELLOW}⚠ Frontend Display Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Frontend Display Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 12: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -1829,7 +2326,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -1942,7 +2439,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (10 agents)..."
+    echo "Starting QA Agent execution (11 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -1958,6 +2455,7 @@ main() {
     run_performance_agent || true
     run_dependency_agent || true
     run_frontend_data_agent || true
+    run_frontend_display_agent || true
 
     # Run validator last
     run_validator_agent
