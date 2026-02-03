@@ -12,7 +12,7 @@
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
 | **Dollor Driver** | `com.dollorai.delivery` | 112 | 1.0 | Uploaded to TestFlight |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 112 | 1.0 | Uploaded to TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
 
@@ -20,6 +20,9 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| Delivery buttons showing twice | Split status handling: `pending_delivery_decision` vs `ready_for_pickup` | `dc37ee73` |
+| Driver photo missing | Added `vehicle_photo_url` column, demo driver profile with photos | `dc37ee73` |
+| Driver rating error | Fixed `accept_delivery` using `driver.rating` (was `driver.average_rating`) | `dc37ee73` |
 | Driver earnings showing $0 | Fixed backend response structure (today/this_week/this_month) | `33131dff` |
 | Rate driver 404 error | Fixed endpoint URL: `/api/customer/orders/{id}/rate-driver` | `b65d4760` |
 | "No Active Delivery" after accept | Added optimistic update in DriverViewModel | `198d9ad1` |
@@ -121,7 +124,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 |-----|-------|-------------------|
 | Dollor (Customer) | 1037 | ✅ Available for Testing |
 | Dollor Driver | 112 | ✅ Available for Testing |
-| Dollor Restaurant | 112 | ✅ Available for Testing |
+| Dollor Restaurant | 113 | ✅ Available for Testing |
 
 ### Demo Accounts (For App Store Review)
 
@@ -325,7 +328,7 @@ Continuing Dollor.ai iOS development.
 ### Build Numbers (Uploaded to TestFlight)
 - Customer: 1037 (Bundle: com.dollorai.customer)
 - Driver: 112 (Bundle: com.dollorai.delivery)
-- Restaurant: 112 (Bundle: com.dollorai.restaurant)
+- Restaurant: 113 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
 - API Version: 1.0.8 (Contract)
