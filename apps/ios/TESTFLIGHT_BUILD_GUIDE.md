@@ -111,6 +111,77 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 ---
 
+## TestFlight Testing Verification
+
+**Last Tested**: February 3, 2026 @ 8:08 PM PST
+
+### Build Availability on App Store Connect
+
+| App | Build | TestFlight Status |
+|-----|-------|-------------------|
+| Dollor (Customer) | 1037 | ✅ Available for Testing |
+| Dollor Driver | 112 | ✅ Available for Testing |
+| Dollor Restaurant | 112 | ✅ Available for Testing |
+
+### Demo Accounts (For App Store Review)
+
+| App | Email | Password | Login Status |
+|-----|-------|----------|--------------|
+| **Customer** | demo.customer@dollor.ai | DemoCustomer2025! | ✅ Verified |
+| **Driver** | demo.driver@dollor.ai | DemoDriver2025! | ✅ Verified |
+| **Restaurant** | demo.restaurant@dollor.ai | DemoRestaurant2025! | ✅ Verified |
+
+### API Verification Results
+
+| Test | Result | Details |
+|------|--------|---------|
+| Health Check | ✅ Pass | API v1.0.5 healthy, DB connected |
+| Vendor List | ✅ Pass | 91 restaurants returned |
+| Vendor Menu | ✅ Pass | Menu items loaded |
+| Order Tracking | ✅ Pass | Driver photo/vehicle included |
+| Driver Profile | ✅ Pass | Name, rating, photo, vehicle |
+| Driver Documents | ✅ Pass | 3/3 verified |
+| Driver Earnings | ✅ Pass | iOS-compatible format |
+| Driver Status | ✅ Pass | Online status, location |
+| Vendor Orders | ✅ Pass | 76 orders, driver info included |
+| Customer Login | ✅ Pass | Token received, ID: 74 |
+| Driver Login | ✅ Pass | Token received, ID: 48 |
+| Vendor Login | ✅ Pass | Token received, ID: 40 |
+
+### Manual Testing Checklist
+
+**Customer App:**
+- [ ] Login with demo.customer@dollor.ai
+- [ ] Browse restaurant list (91 restaurants)
+- [ ] View menu items
+- [ ] Add items to cart
+- [ ] Complete checkout with payment
+- [ ] Track order (verify driver photo/vehicle visible)
+- [ ] Rate driver after delivery
+
+**Driver App:**
+- [ ] Login with demo.driver@dollor.ai
+- [ ] View earnings dashboard (today/week/month breakdown)
+- [ ] Verify $38.12 earnings this week
+- [ ] View documents status (3/3 verified)
+- [ ] Toggle online/offline status
+- [ ] View available delivery orders
+- [ ] Accept a delivery order
+- [ ] Navigate to restaurant pickup
+- [ ] Mark order as picked up
+- [ ] Navigate to customer delivery
+- [ ] Mark order as delivered
+
+**Restaurant App:**
+- [ ] Login with demo.restaurant@dollor.ai
+- [ ] View incoming orders
+- [ ] Accept order (move to preparing)
+- [ ] Mark order ready for pickup
+- [ ] View assigned driver details (photo, vehicle, phone)
+- [ ] Confirm driver pickup
+
+---
+
 ## App Store Connect Configuration
 
 | Setting | Value |
