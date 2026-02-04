@@ -3434,6 +3434,16 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PDriverLoginResponse.self, from: data)
+
+                    #if DEBUG
+                    logger.info("=== DRIVER LOGIN SUCCESS ===")
+                    logger.info("Driver ID from response: \(String(describing: loginResponse.driverId))")
+                    logger.info("Driver Name: \(loginResponse.name)")
+                    logger.info("Driver Status: \(loginResponse.status ?? "nil")")
+                    logger.info("Is Approved: \(loginResponse.isApproved ?? false)")
+                    logger.info("Access Token prefix: \(String(loginResponse.accessToken.prefix(20)))...")
+                    #endif
+
                     // Store the token and driver info
                     SecureStorage.shared.driverAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.driverId, forKey: UserDefaultsKey.driverId)
@@ -3444,8 +3454,24 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
                     UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
                     UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
+
+                    // Force synchronize and verify
+                    UserDefaults.standard.synchronize()
+
+                    #if DEBUG
+                    let savedDriverId = UserDefaults.standard.object(forKey: UserDefaultsKey.driverId)
+                    logger.info("VERIFIED - Saved driverId in UserDefaults: \(String(describing: savedDriverId))")
+                    logger.info("VERIFIED - currentDriverId property: \(String(describing: self?.currentDriverId))")
+                    #endif
+
                     completion(.success(loginResponse))
                 } catch {
+                    #if DEBUG
+                    logger.error("DRIVER LOGIN DECODE ERROR: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        logger.info("Raw login response: \(jsonString)")
+                    }
+                    #endif
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -3947,7 +3973,13 @@ public class P2PAPIService: ObservableObject {
     public func fetchAvailableDeliveryOrders(
         completion: @escaping (Result<[P2PDeliveryOrder], Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/erp/orders/available-for-delivery") else {
+        let urlString = "\(baseURL)/erp/orders/available-for-delivery"
+        #if DEBUG
+        logger.info("=== fetchAvailableDeliveryOrders START ===")
+        logger.info("URL: \(urlString)")
+        #endif
+
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -3959,20 +3991,41 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    #if DEBUG
+                    logger.error("fetchAvailableDeliveryOrders network error: \(error.localizedDescription)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    #if DEBUG
+                    logger.error("fetchAvailableDeliveryOrders: No data")
+                    #endif
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
+                #if DEBUG
+                let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+                logger.info("fetchAvailableDeliveryOrders HTTP status: \(httpStatus)")
+                logger.info("fetchAvailableDeliveryOrders data size: \(data.count) bytes")
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    logger.info("fetchAvailableDeliveryOrders raw (first 500 chars): \(String(jsonString.prefix(500)))")
+                }
+                #endif
+
                 do {
                     let response = try JSONDecoder().decode(P2PDeliveryOrdersResponse.self, from: data)
+                    #if DEBUG
+                    logger.info("fetchAvailableDeliveryOrders SUCCESS: \(response.orders.count) orders")
+                    #endif
                     completion(.success(response.orders))
                 } catch {
+                    #if DEBUG
+                    logger.error("fetchAvailableDeliveryOrders decode error: \(error)")
+                    #endif
                     self?.error = "Failed to decode orders: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -4352,17 +4405,39 @@ public class P2PAPIService: ObservableObject {
     public func fetchMyDeliveries(
         completion: @escaping (Result<[P2PDeliveryOrder], Error>) -> Void
     ) {
+        // LOGGING: Check driver ID
+        #if DEBUG
+        logger.info("=== fetchMyDeliveries START ===")
+        logger.info("currentDriverId from UserDefaults: \(String(describing: currentDriverId))")
+        logger.info("driverToken exists: \(driverToken != nil)")
+        if let token = driverToken {
+            logger.info("driverToken prefix: \(String(token.prefix(20)))...")
+        }
+        #endif
+
         guard let driverId = currentDriverId else {
+            #if DEBUG
+            logger.error("fetchMyDeliveries FAILED: currentDriverId is nil")
+            logger.info("UserDefaults driverId key value: \(String(describing: UserDefaults.standard.object(forKey: UserDefaultsKey.driverId)))")
+            #endif
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
 
         guard let token = driverToken else {
+            #if DEBUG
+            logger.error("fetchMyDeliveries FAILED: driverToken is nil")
+            #endif
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
 
-        guard let url = URL(string: "\(baseURL)/erp/orders/driver/\(driverId)/active") else {
+        let urlString = "\(baseURL)/erp/orders/driver/\(driverId)/active"
+        #if DEBUG
+        logger.info("fetchMyDeliveries URL: \(urlString)")
+        #endif
+
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -4375,15 +4450,30 @@ public class P2PAPIService: ObservableObject {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
+                    #if DEBUG
+                    logger.error("fetchMyDeliveries network error: \(error.localizedDescription)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    #if DEBUG
+                    logger.error("fetchMyDeliveries: No data returned")
+                    #endif
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
+
+                #if DEBUG
+                let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+                logger.info("fetchMyDeliveries HTTP status: \(httpStatus)")
+                logger.info("fetchMyDeliveries data size: \(data.count) bytes")
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    logger.info("fetchMyDeliveries raw response (first 1000 chars): \(String(jsonString.prefix(1000)))")
+                }
+                #endif
 
                 // Check for HTTP errors
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
@@ -4403,6 +4493,12 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let response = try JSONDecoder().decode(P2PDeliveryOrdersResponse.self, from: data)
+                    #if DEBUG
+                    logger.info("fetchMyDeliveries SUCCESS: \(response.orders.count) orders decoded")
+                    for (index, order) in response.orders.prefix(3).enumerated() {
+                        logger.info("  Order[\(index)]: id=\(order.id), status=\(order.status), vendor=\(order.vendorName ?? "unknown")")
+                    }
+                    #endif
                     completion(.success(response.orders))
                 } catch {
                     #if DEBUG
