@@ -256,7 +256,7 @@ class OrderTrackingViewModel: ObservableObject {
 
     private func updateEstimatedTimeFromStatus(_ status: String) {
         // If we have traffic-aware ETA from server, prefer that
-        if isTrafficAwareETA, let mins = etaMinutes, status == "Out for Delivery" {
+        if isTrafficAwareETA, let mins = etaMinutes, status == "out_for_delivery" {
             estimatedTime = "\(mins) mins"
             return
         }
@@ -265,7 +265,7 @@ class OrderTrackingViewModel: ObservableObject {
         // (only as fallback when server ETA is not available)
         if let driverLoc = driverLocation,
            let order = currentOrder,
-           status == "Out for Delivery",
+           status == "out_for_delivery",
            !isTrafficAwareETA {
             // Calculate local ETA based on driver distance to delivery
             let deliveryCoord = CLLocationCoordinate2D(
@@ -288,7 +288,7 @@ class OrderTrackingViewModel: ObservableObject {
             estimatedTime = "20-30 mins"
         case "Ready":
             estimatedTime = "15-20 mins"
-        case "Out for Delivery":
+        case "out_for_delivery":
             estimatedTime = "10-15 mins"
         case "Delivered":
             estimatedTime = "Arrived"

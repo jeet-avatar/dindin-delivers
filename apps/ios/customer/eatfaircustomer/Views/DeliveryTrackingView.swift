@@ -591,11 +591,11 @@ struct DeliveryBottomSheet: View {
     }
 
     private var isPickedUp: Bool {
-        ["Out for Delivery", "OnTheWay", "Delivered"].contains(order.status)
+        ["out_for_delivery", "ontheway", "delivered"].contains(order.status.lowercased())
     }
 
     private var isOutForDelivery: Bool {
-        ["Out for Delivery", "OnTheWay"].contains(order.status)
+        ["out_for_delivery", "ontheway"].contains(order.status.lowercased())
     }
 
     private func callDriver(phone: String) {
@@ -632,7 +632,7 @@ struct DeliveryStatusTimeline: View {
         let isPlaced = status == "placed" || status == "pending"
         let isPreparing = ["preparing", "accepted", "confirmed"].contains(status)
         let isReady = status == "ready" || status == "pending_delivery_decision" || status == "ready_for_pickup"
-        let isOnTheWay = ["out for delivery", "ontheway", "restaurant_will_deliver"].contains(status)
+        let isOnTheWay = ["out_for_delivery", "ontheway", "restaurant_will_deliver"].contains(status)
         let isDelivered = status == "delivered"
 
         // Stage completion logic - each stage is complete when we've moved past it
@@ -665,7 +665,7 @@ struct DeliveryStatusTimeline: View {
             ("On the Way", "car.fill",
              isOnTheWay,
              stage4Complete,
-             events["picked_up"] ?? events["out for delivery"] ?? events["ontheway"] ?? events["restaurant_will_deliver"]),
+             events["picked_up"] ?? events["out_for_delivery"] ?? events["ontheway"] ?? events["restaurant_will_deliver"]),
 
             // Stage 5: Delivered - complete
             ("Delivered", "house.fill",

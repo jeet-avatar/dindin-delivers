@@ -119,7 +119,7 @@ struct TrackOrderMapView: View {
                     
                     Divider()
                     
-                    if order.status == "Out for Delivery" {
+                    if order.status == "out_for_delivery" {
                         // Show Driver Placeholder (Dynamic later)
                         HStack {
                             Image(systemName: "car.fill")
