@@ -1,9 +1,12 @@
 import Foundation
 import UserNotifications
 import FirebaseMessaging
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let notificationLogger = Logger(subsystem: "ai.dollor.shared", category: "NotificationManager")
 
 /// Shared Notification Manager for all EatFair apps
 public class NotificationManager: NSObject, ObservableObject {
@@ -27,11 +30,9 @@ public class NotificationManager: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self?.isAuthorized = granted
 
-                #if DEBUG
                 if let error = error {
-                    print("[NotificationManager] Authorization error: \(error.localizedDescription)")
+                    notificationLogger.error("Authorization error: \(error.localizedDescription)")
                 }
-                #endif
 
                 if granted {
                     self?.registerForRemoteNotifications()
@@ -68,18 +69,14 @@ public class NotificationManager: NSObject, ObservableObject {
     /// Update FCM token (called by AppDelegate)
     public func updateFCMToken(_ token: String) {
         self.fcmToken = token
-        #if DEBUG
-        print("[NotificationManager] FCM Token updated")
-        #endif
+        notificationLogger.debug("FCM Token updated")
     }
 
     /// Get current FCM token
     public func getFCMToken(completion: @escaping (String?) -> Void) {
         Messaging.messaging().token { token, error in
             if let error = error {
-                #if DEBUG
-                print("[NotificationManager] Error fetching FCM token: \(error.localizedDescription)")
-                #endif
+                notificationLogger.error("Error fetching FCM token: \(error.localizedDescription)")
                 completion(nil)
             } else {
                 self.fcmToken = token
@@ -128,11 +125,9 @@ public class NotificationManager: NSObject, ObservableObject {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         UNUserNotificationCenter.current().add(request) { error in
-            #if DEBUG
             if let error = error {
-                print("[NotificationManager] Failed to schedule notification: \(error.localizedDescription)")
+                notificationLogger.error("Failed to schedule notification: \(error.localizedDescription)")
             }
-            #endif
         }
     }
 

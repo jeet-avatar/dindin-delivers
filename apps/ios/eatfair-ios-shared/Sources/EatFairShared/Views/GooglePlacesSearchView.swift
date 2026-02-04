@@ -1,8 +1,11 @@
 import SwiftUI
 import CoreLocation
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let placesLogger = Logger(subsystem: "ai.dollor.shared", category: "GooglePlacesSearch")
 
 /// Google Places Address Search View
 /// Provides address autocomplete using Google Places API
@@ -180,7 +183,7 @@ public class GooglePlacesSearchViewModel: ObservableObject {
 struct GooglePlacesSearchView_Previews: PreviewProvider {
     static var previews: some View {
         GooglePlacesSearchView { street, city, state, zip, coordinate in
-            print("Selected: \(street), \(city), \(state) \(zip)")
+            placesLogger.debug("Selected: \(street), \(city), \(state) \(zip)")
         }
     }
 }

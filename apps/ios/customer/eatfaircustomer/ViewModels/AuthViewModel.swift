@@ -151,9 +151,7 @@ class AuthViewModel: NSObject, ObservableObject {
 
     /// Google Sign-In → P2P backend (no Firebase Auth)
     func signInWithGoogle() {
-        #if DEBUG
-        print("AuthViewModel: signInWithGoogle() called")
-        #endif
+            logger.debug("signInWithGoogle() called")
 
         guard !googleClientID.isEmpty else {
             errorMessage = "Google Sign-In not configured. Please contact support."
@@ -164,9 +162,7 @@ class AuthViewModel: NSObject, ObservableObject {
         GIDSignIn.sharedInstance.configuration = config
 
         guard let topViewController = getTopViewController() else {
-            #if DEBUG
-            print("AuthViewModel: ERROR - Unable to get top view controller")
-            #endif
+            logger.error("Unable to get top view controller")
             errorMessage = "Unable to get view controller for sign-in"
             return
         }
@@ -178,9 +174,7 @@ class AuthViewModel: NSObject, ObservableObject {
             guard let self = self else { return }
 
             if let error = error {
-                #if DEBUG
-                print("AuthViewModel: Google Sign-In error: \(error.localizedDescription)")
-                #endif
+                logger.error("Google Sign-In error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.errorMessage = error.localizedDescription

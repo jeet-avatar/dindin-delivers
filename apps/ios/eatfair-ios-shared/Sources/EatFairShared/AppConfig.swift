@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let configLogger = Logger(subsystem: "ai.dollor.shared", category: "AppConfig")
 
 /// Centralized configuration for all EatFair apps
 /// Configuration is fetched from Dollar.ai (P2P) backend API
@@ -20,9 +23,7 @@ public class AppConfig: ObservableObject {
             return url
         }
         // Fallback to production if xcconfig not applied
-        #if DEBUG
-        print("[AppConfig] Warning: API_BASE_URL not found in Info.plist, using production default")
-        #endif
+        configLogger.warning("API_BASE_URL not found in Info.plist, using production default")
         return "https://api.dollor.ai"
     }()
 
@@ -341,9 +342,7 @@ public class AppConfig: ObservableObject {
     /// All data comes from P2P backend - Firebase is only for authentication
     public func fetchConfig(completion: ((Bool) -> Void)? = nil) {
         guard let url = URL(string: "\(p2pAPIBaseURL)/api/config") else {
-            #if DEBUG
-            print("[AppConfig] Invalid URL for config endpoint")
-            #endif
+            configLogger.error("Invalid URL for config endpoint")
             // Use default values if API fails
             self.configLoaded = true
             completion?(true)
@@ -360,9 +359,7 @@ public class AppConfig: ObservableObject {
             // If API fails, use default values (already set above)
             guard error == nil, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                #if DEBUG
-                print("[AppConfig] Using default configuration (P2P API not available)")
-                #endif
+                configLogger.warning("Using default configuration (P2P API not available)")
                 DispatchQueue.main.async {
                     self.configLoaded = true
                     completion?(true)
@@ -424,9 +421,7 @@ public class AppConfig: ObservableObject {
                 if let maxDeliveryFee = json["maxDeliveryFee"] as? Double { self.maxDeliveryFee = maxDeliveryFee }
 
                 self.configLoaded = true
-                #if DEBUG
-                print("[AppConfig] Configuration loaded from Dollar.ai backend")
-                #endif
+                configLogger.info("Configuration loaded from Dollar.ai backend")
                 completion?(true)
             }
         }.resume()

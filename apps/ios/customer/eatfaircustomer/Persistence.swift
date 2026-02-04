@@ -6,6 +6,9 @@
 //
 
 import CoreData
+import os
+
+private let coreDataLogger = Logger(subsystem: "com.dollorai.customer", category: "CoreData")
 
 struct PersistenceController {
     static let shared = PersistenceController()
@@ -22,8 +25,7 @@ struct PersistenceController {
             try viewContext.save()
         } catch {
             let nsError = error as NSError
-            print("CoreData preview save error: \(nsError), \(nsError.userInfo)")
-        }
+            coreDataLogger.error("Preview save error: \(nsError), \(nsError.userInfo)")
         return result
     }()
 
@@ -37,7 +39,7 @@ struct PersistenceController {
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 // Log the error but don't crash - allow app to continue with degraded functionality
-                print("CoreData persistent store error: \(error), \(error.userInfo)")
+                coreDataLogger.error("Persistent store error: \(error), \(error.userInfo)")
             }
         })
         container.viewContext.automaticallyMergesChangesFromParent = true

@@ -1,9 +1,12 @@
 import Foundation
 import Security
 import CryptoKit
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
+
+private let networkSecurityLogger = Logger(subsystem: "ai.dollor.shared", category: "NetworkSecurity")
 
 /// Network security manager with SSL pinning and secure API communication
 public final class NetworkSecurity: NSObject {
@@ -81,18 +84,14 @@ public final class NetworkSecurity: NSObject {
 
         // If no pins configured for this domain, allow (but log warning)
         guard let pins = pinnedKeys, !pins.isEmpty else {
-            #if DEBUG
-            print("[NetworkSecurity] No certificate pins configured for: \(domain)")
-            #endif
+            networkSecurityLogger.debug("No certificate pins configured for: \(domain)")
             return true
         }
 
         // Get the server's certificate chain
         guard let certificateChain = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
               !certificateChain.isEmpty else {
-            #if DEBUG
-            print("[NetworkSecurity] No certificates in chain for: \(domain)")
-            #endif
+            networkSecurityLogger.error("No certificates in chain for: \(domain)")
             return false
         }
 
@@ -105,10 +104,8 @@ public final class NetworkSecurity: NSObject {
             }
         }
 
-        #if DEBUG
-        print("[NetworkSecurity] Certificate pinning FAILED for: \(domain)")
-        print("[NetworkSecurity] Expected pins: \(pins)")
-        #endif
+        networkSecurityLogger.error("Certificate pinning FAILED for: \(domain)")
+        networkSecurityLogger.error("Expected pins: \(pins)")
 
         return false
     }
@@ -190,9 +187,7 @@ extension NetworkSecurity: URLSessionDelegate {
                 completionHandler(.useCredential, credential)
             } else {
                 // SSL pinning failed - reject connection
-                #if DEBUG
-                print("[NetworkSecurity] SSL Pinning FAILED - Rejecting connection to: \(domain)")
-                #endif
+                networkSecurityLogger.error("SSL Pinning FAILED - Rejecting connection to: \(domain)")
                 completionHandler(.cancelAuthenticationChallenge, nil)
             }
         } else {
@@ -340,9 +335,7 @@ public extension NetworkSecurity {
     /// Show jailbreak warning if detected
     func checkJailbreakStatus() {
         if isDeviceJailbroken() {
-            #if DEBUG
-            print("[NetworkSecurity] WARNING: Jailbreak detected!")
-            #endif
+            networkSecurityLogger.warning("Jailbreak detected!")
             // In production, you might want to:
             // 1. Show a warning to the user
             // 2. Disable certain sensitive features

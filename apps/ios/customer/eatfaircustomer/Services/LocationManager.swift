@@ -1,5 +1,8 @@
 import CoreLocation
 import Combine
+import os
+
+private let locationLogger = Logger(subsystem: "com.dollorai.customer", category: "LocationManager")
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
@@ -28,8 +31,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        #if DEBUG
-        print("Location error: \(error.localizedDescription)")
-        #endif
+        locationLogger.error("Location error: \(error.localizedDescription)")
     }
 }

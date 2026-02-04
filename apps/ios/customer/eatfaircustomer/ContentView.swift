@@ -7,6 +7,9 @@
 
 import SwiftUI
 import CoreData
+import os
+
+private let contentLogger = Logger(subsystem: "com.dollorai.customer", category: "ContentView")
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -59,7 +62,7 @@ struct ContentView: View {
                 try viewContext.save()
             } catch {
                 let nsError = error as NSError
-                print("CoreData save error: \(nsError), \(nsError.userInfo)")
+                contentLogger.error("CoreData save error: \(nsError), \(nsError.userInfo)")
             }
         }
     }
@@ -72,7 +75,7 @@ struct ContentView: View {
                 try viewContext.save()
             } catch {
                 let nsError = error as NSError
-                print("CoreData delete error: \(nsError), \(nsError.userInfo)")
+                contentLogger.error("CoreData delete error: \(nsError), \(nsError.userInfo)")
             }
         }
     }

@@ -15,6 +15,9 @@
 
 import Foundation
 import Combine
+import os
+
+private let enterpriseLogger = Logger(subsystem: "ai.dollor.shared", category: "EnterpriseNetwork")
 
 // MARK: - Configuration (No Hardcoding)
 
@@ -229,21 +232,22 @@ public final class EnterpriseLogger {
             userId: UserDefaults.standard.string(forKey: "p2p_customer_id")
         )
 
-        // Console logging
-        #if DEBUG
-        let emoji: String
+        // Console logging using os.Logger
         switch level {
-        case .debug: emoji = "🔍"
-        case .info: emoji = "ℹ️"
-        case .warning: emoji = "⚠️"
-        case .error: emoji = "❌"
-        case .critical: emoji = "🚨"
+        case .debug:
+            enterpriseLogger.debug("[\(category)] \(message)")
+        case .info:
+            enterpriseLogger.info("[\(category)] \(message)")
+        case .warning:
+            enterpriseLogger.warning("[\(category)] \(message)")
+        case .error:
+            enterpriseLogger.error("[\(category)] \(message)")
+        case .critical:
+            enterpriseLogger.critical("[\(category)] \(message)")
         }
-        print("\(emoji) [\(category)] \(message)")
         if !metadata.isEmpty {
-            print("   Metadata: \(metadata)")
+            enterpriseLogger.debug("   Metadata: \(metadata)")
         }
-        #endif
 
         // Buffer for remote logging
         if config.remoteLoggingEnabled {

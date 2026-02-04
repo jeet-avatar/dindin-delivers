@@ -36,6 +36,9 @@ import EatFairShared
 import GoogleMaps
 import GooglePlaces
 import GoogleSignIn
+import os
+
+private let appLogger = Logger(subsystem: "com.dollorai.customer", category: "CustomerApp")
 
 // MARK: - App Delegate
 /// Handles app lifecycle events, push notifications, and SDK initialization.
@@ -80,9 +83,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        #if DEBUG
-        print("CustomerApp: Failed to register for remote notifications: \(error.localizedDescription)")
-        #endif
+        appLogger.error("Failed to register for remote notifications: \(error.localizedDescription)")
     }
 
     // MARK: - Google Sign-In URL Handler
@@ -192,21 +193,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Get customer ID from UserDefaults (set during login)
         guard let customerIdString = UserDefaults.standard.string(forKey: "p2p_customer_id"),
               let customerId = Int(customerIdString) else {
-            #if DEBUG
-            print("CustomerApp: No customer ID found, skipping P2P FCM registration")
-            #endif
+            appLogger.debug("No customer ID found, skipping P2P FCM registration")
             return
         }
 
         P2PAPIService.shared.saveCustomerFCMToken(customerId: customerId, token: token) { result in
-            #if DEBUG
             switch result {
             case .success:
-                print("CustomerApp: FCM token saved to P2P backend")
+                appLogger.debug("FCM token saved to P2P backend")
             case .failure(let error):
-                print("CustomerApp: Failed to save FCM token to P2P: \(error.localizedDescription)")
+                appLogger.error("Failed to save FCM token to P2P: \(error.localizedDescription)")
             }
-            #endif
         }
     }
 }
