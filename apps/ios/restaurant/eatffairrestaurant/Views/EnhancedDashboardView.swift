@@ -409,7 +409,7 @@ struct EnhancedOrderCard: View {
         // If already expired, send to driver immediately
         if deliveryDecisionSeconds <= 0 {
             #if DEBUG
-            print("⏰ Timer already expired - auto-sending order \(order.orderId) to driver pool")
+            logger.debug("⏰ Timer already expired - auto-sending order \(order.orderId) to driver pool")
             #endif
             onAccept()  // Accept order first
             onSendToDriver?()  // Then send to driver
@@ -425,7 +425,7 @@ struct EnhancedOrderCard: View {
                 timer.invalidate()
                 // Auto-send to driver when time runs out
                 #if DEBUG
-                print("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
+                logger.debug("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
                 #endif
                 onAccept()  // Accept order first
                 onSendToDriver?()  // Then send to driver
@@ -550,7 +550,7 @@ struct EnhancedOrderCard: View {
                     // Reject button
                     Button(action: {
                         #if DEBUG
-                        print("🟡 Reject button tapped for order \(order.orderId)")
+                        logger.debug("🟡 Reject button tapped for order \(order.orderId)")
                         #endif
                         deliveryTimer?.invalidate()
                         onReject()
@@ -575,7 +575,7 @@ struct EnhancedOrderCard: View {
                         // Accept & Send to Driver
                         Button(action: {
                             #if DEBUG
-                            print("🚗 Accept & Send to Driver for order \(order.orderId)")
+                            logger.debug("🚗 Accept & Send to Driver for order \(order.orderId)")
                             #endif
                             deliveryTimer?.invalidate()
                             onAccept()  // Accept order
@@ -601,7 +601,7 @@ struct EnhancedOrderCard: View {
                         // Accept & I'll Deliver
                         Button(action: {
                             #if DEBUG
-                            print("🏃 Accept & I'll Deliver for order \(order.orderId)")
+                            logger.debug("🏃 Accept & I'll Deliver for order \(order.orderId)")
                             #endif
                             deliveryTimer?.invalidate()
                             onAccept()  // Accept order
@@ -721,7 +721,7 @@ struct EnhancedOrderCard: View {
                     // Mark Ready button
                     Button {
                         #if DEBUG
-                        print("🟡 Mark Ready button tapped for order \(order.orderId)")
+                        logger.debug("🟡 Mark Ready button tapped for order \(order.orderId)")
                         #endif
                         onMarkReady()
                     } label: {
@@ -763,7 +763,7 @@ struct EnhancedOrderCard: View {
                         // Send to Driver
                         Button(action: {
                             #if DEBUG
-                            print("🚗 Send to Driver for order \(order.orderId)")
+                            logger.debug("🚗 Send to Driver for order \(order.orderId)")
                             #endif
                             onSendToDriver?()
                         }) {
@@ -787,7 +787,7 @@ struct EnhancedOrderCard: View {
                         // I'll Deliver
                         Button(action: {
                             #if DEBUG
-                            print("🏃 I'll Deliver for order \(order.orderId)")
+                            logger.debug("🏃 I'll Deliver for order \(order.orderId)")
                             #endif
                             onSelfDeliver?()
                         }) {
@@ -946,7 +946,7 @@ struct EnhancedOrderCard: View {
                     // Mark Delivered button
                     Button {
                         #if DEBUG
-                        print("✅ Mark Delivered button tapped for order \(order.orderId)")
+                        logger.info("✅ Mark Delivered button tapped for order \(order.orderId)")
                         #endif
                         onMarkDelivered?()
                     } label: {
@@ -1327,7 +1327,7 @@ struct OrderDetailSheet: View {
     private func reprintKOT() {
         // Get the order ID (it's stored as optional string in the Order model but is an Int in the API)
         guard let orderIdString = order.id, let orderId = Int(orderIdString) else {
-            print("Invalid order ID for KOT reprint")
+            logger.debug("Invalid order ID for KOT reprint")
             return
         }
 
@@ -1335,12 +1335,12 @@ struct OrderDetailSheet: View {
             switch result {
             case .success(let response):
                 if response.success {
-                    print("KOT reprinted successfully for order \(order.orderId)")
+                    logger.debug("KOT reprinted successfully for order \(order.orderId)")
                 } else {
-                    print("KOT reprint failed: \(response.error ?? "Unknown error")")
+                    logger.debug("KOT reprint failed: \(response.error ?? "Unknown error")")
                 }
             case .failure(let error):
-                print("KOT reprint error: \(error.localizedDescription)")
+                logger.debug("KOT reprint error: \(error.localizedDescription)")
             }
         }
     }

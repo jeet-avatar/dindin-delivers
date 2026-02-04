@@ -65,13 +65,13 @@ class AIInsightsViewModel: ObservableObject {
                 case .success(let response):
                     self?.insights = response
                     #if DEBUG
-                    print("[AIInsights] Loaded \(response.totalOrders) orders, \(response.popularItems.count) popular items")
+                    logger.info("[AIInsights] Loaded \(response.totalOrders) orders, \(response.popularItems.count) popular items")
                     #endif
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                     #if DEBUG
-                    print("[AIInsights] Error: \(error.localizedDescription)")
+                    logger.info("[AIInsights] Error: \(error.localizedDescription)")
                     #endif
                 }
             }

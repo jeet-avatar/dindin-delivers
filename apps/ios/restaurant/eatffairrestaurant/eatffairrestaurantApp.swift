@@ -60,7 +60,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         #if DEBUG
-        print("RestaurantApp: Failed to register for remote notifications: \(error.localizedDescription)")
+        logger.debug("RestaurantApp: Failed to register for remote notifications: \(error.localizedDescription)")
         #endif
     }
 
@@ -137,9 +137,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             #if DEBUG
             switch result {
             case .success:
-                print("RestaurantApp: FCM token saved for vendor \(vendorId)")
+                logger.debug("RestaurantApp: FCM token saved for vendor \(vendorId)")
             case .failure(let error):
-                print("RestaurantApp: Failed to save FCM token: \(error.localizedDescription)")
+                logger.debug("RestaurantApp: Failed to save FCM token: \(error.localizedDescription)")
             }
             #endif
         }

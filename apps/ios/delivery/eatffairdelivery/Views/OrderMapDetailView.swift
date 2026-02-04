@@ -210,7 +210,7 @@ struct OrderMapDetailView: View {
                 self.routePolyline = directions.polyline
             case .failure(let error):
                 #if DEBUG
-                print("Failed to get directions: \(error)")
+                logger.debug("Failed to get directions: \(error)")
                 #endif
                 // Fallback: calculate straight-line distance
                 self.calculateStraightLineDistance()

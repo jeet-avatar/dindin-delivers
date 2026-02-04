@@ -42,7 +42,7 @@ class ChatManager: ObservableObject {
             Auth.auth().removeStateDidChangeListener(listener)
         }
         #if DEBUG
-        print("[ChatManager] Deinitialized, all listeners removed")
+        logger.info("[ChatManager] Deinitialized, all listeners removed")
         #endif
     }
 
@@ -86,7 +86,7 @@ class ChatManager: ObservableObject {
 
                 if let error = error {
                     #if DEBUG
-                    print("[ChatManager] Error fetching conversations: \(error.localizedDescription)")
+                    logger.info("[ChatManager] Error fetching conversations: \(error.localizedDescription)")
                     #endif
                     DispatchQueue.main.async {
                         self.errorMessage = "Unable to load conversations"
@@ -124,7 +124,7 @@ class ChatManager: ObservableObject {
 
                 if let error = error {
                     #if DEBUG
-                    print("[ChatManager] Error fetching messages: \(error.localizedDescription)")
+                    logger.info("[ChatManager] Error fetching messages: \(error.localizedDescription)")
                     #endif
                     DispatchQueue.main.async {
                         self.errorMessage = "Unable to load messages"
@@ -168,7 +168,7 @@ class ChatManager: ObservableObject {
             .addDocument(data: messageData) { [weak self] error in
                 if let error = error {
                     #if DEBUG
-                    print("[ChatManager] Error sending message: \(error.localizedDescription)")
+                    logger.info("[ChatManager] Error sending message: \(error.localizedDescription)")
                     #endif
                     DispatchQueue.main.async {
                         self?.errorMessage = "Failed to send message. Please try again."
@@ -186,7 +186,7 @@ class ChatManager: ObservableObject {
                 ]) { error in
                     if let error = error {
                         #if DEBUG
-                        print("[ChatManager] Error updating conversation: \(error.localizedDescription)")
+                        logger.info("[ChatManager] Error updating conversation: \(error.localizedDescription)")
                         #endif
                     }
                     completion?(error == nil)
@@ -264,7 +264,7 @@ class ChatManager: ObservableObject {
 
         if alreadyInProgress {
             #if DEBUG
-            print("[ChatManager] Conversation creation already in progress for order: \(orderId)")
+            logger.info("[ChatManager] Conversation creation already in progress for order: \(orderId)")
             #endif
             // Wait and return existing
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
@@ -325,13 +325,13 @@ class ChatManager: ObservableObject {
             try await docRef.collection("messages").addDocument(data: systemMessage)
 
             #if DEBUG
-            print("[ChatManager] Created conversation \(docRef.documentID) for order \(orderId)")
+            logger.info("[ChatManager] Created conversation \(docRef.documentID) for order \(orderId)")
             #endif
 
             return docRef.documentID
         } catch {
             #if DEBUG
-            print("[ChatManager] Error creating conversation: \(error.localizedDescription)")
+            logger.info("[ChatManager] Error creating conversation: \(error.localizedDescription)")
             #endif
             DispatchQueue.main.async {
                 self.errorMessage = "Failed to start chat. Please try again."
