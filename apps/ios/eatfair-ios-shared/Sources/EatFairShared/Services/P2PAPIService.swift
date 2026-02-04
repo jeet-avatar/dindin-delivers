@@ -3985,8 +3985,13 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        guard let driverId = currentDriverId else {
+        guard let token = driverToken else {
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        guard let driverId = currentDriverId else {
+            completion(.failure(P2PAPIError.serverError("Driver ID not available")))
             return
         }
 
@@ -3998,6 +4003,7 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let body: [String: Any] = ["driver_id": driverId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -4030,6 +4036,11 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
         guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/picked-up") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
@@ -4037,6 +4048,7 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -4066,6 +4078,11 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
         guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/delivered") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
@@ -4073,6 +4090,7 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
