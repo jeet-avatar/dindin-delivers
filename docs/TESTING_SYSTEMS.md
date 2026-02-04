@@ -23,7 +23,7 @@ Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
-| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 11 agents, ~30 API + ~50 code + ~35 data + ~35 display checks |
+| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 12 agents, ~30 API + ~50 code + ~35 data + ~35 display + ~52 field checks |
 | **UAT System** | User flows, database integrity, API contracts | Before releases | 9 phases, ~76 tests |
 | **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~72 checks |
 
@@ -58,8 +58,8 @@ Used for Apple App Store review and automated testing:
 ### Overview
 
 **File:** `scripts/qa-runner.sh`
-**Version:** 3.1 (Frontend Display Validation Edition)
-**Agents:** 11 specialized testing agents
+**Version:** 3.2 (Field Mapping Validation Edition)
+**Agents:** 12 specialized testing agents
 
 ### Usage
 
@@ -89,6 +89,7 @@ Used for Apple App Store review and automated testing:
 | 9 | **Dependencies** | Packages | CocoaPods, requirements.txt, SPM packages |
 | 10 | **Frontend Data** | Data Integrity | All frontend data points match database, type/range/format validation |
 | 11 | **Frontend Display** | Display Validation | No hardcoded values in UI, dynamic data bindings, no mock data |
+| 12 | **Field Mapping** | API Field Coverage | Checks which API fields return data vs null/empty, identifies UI gaps |
 
 ### Agent Details
 
@@ -206,6 +207,7 @@ Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
 | `QA_REPORT_DEPENDENCIES.md` | Package analysis |
 | `QA_REPORT_FRONTEND_DATA.md` | Frontend data validation |
 | `QA_REPORT_FRONTEND_DISPLAY.md` | Frontend display validation |
+| `QA_REPORT_FIELD_MAPPING.md` | API field mapping validation |
 
 ### Verdicts
 
@@ -523,6 +525,7 @@ Run meta-validation after both QA and UAT complete:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.3 | Feb 2026 | Added Field Mapping Validation agent (Agent 12) - validates API fields are populated, identifies null/empty fields |
 | 3.2 | Feb 2026 | Added Frontend Display Validation agent (Agent 11) - validates no hardcoded display values, dynamic bindings |
 | 3.1 | Feb 2026 | Added Frontend Data Validation agent (Agent 10) - validates all frontend data points match database |
 | 3.0 | Feb 2026 | Added meta-validation agent for QA/UAT cross-referencing |
