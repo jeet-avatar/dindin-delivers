@@ -693,6 +693,7 @@ class DriverStatus(enum.Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
+    ONLINE = "online"  # Driver is online and available for deliveries
 
 
 class Driver(Base):
