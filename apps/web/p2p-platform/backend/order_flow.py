@@ -3164,6 +3164,14 @@ async def get_driver_active_orders(
             except (json.JSONDecodeError, TypeError):
                 delivery_addr = {"address": str(order.delivery_address)}
 
+        # Calculate ETA fields for early driver notification
+        estimated_ready_at = getattr(order, 'estimated_ready_at', None)
+        is_ready = order.status.value.lower() in ["ready", "ready_for_pickup"] if order.status else False
+        minutes_until_ready = None
+        if estimated_ready_at and not is_ready:
+            time_diff = (estimated_ready_at - datetime.now()).total_seconds() / 60
+            minutes_until_ready = max(0, int(time_diff))
+
         result.append({
             "id": order.id,
             "order_id": order.id,
@@ -3187,10 +3195,16 @@ async def get_driver_active_orders(
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
+            "total_earnings": (order.delivery_fee or 0) + (order.tip or 0),
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "assigned_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
             "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
-            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
+            # ETA fields for early driver notification (matching available-for-delivery endpoint)
+            "estimated_prep_minutes": getattr(order, 'estimated_prep_minutes', None),
+            "estimated_ready_at": (estimated_ready_at.isoformat() + "Z") if estimated_ready_at else None,
+            "minutes_until_ready": minutes_until_ready,
+            "is_ready": is_ready
         })
 
     return {"success": True, "orders": result}
