@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "NotificationView")
+
 import SwiftUI
 import EatFairShared
 
@@ -95,7 +99,7 @@ struct NotificationView: View {
                     // Show empty state on error (graceful degradation)
                     notifications = []
                     #if DEBUG
-                    print("[NotificationView] Error loading notifications: \(error)")
+                    logger.info("[NotificationView] Error loading notifications: \(error)")
                     #endif
                 }
             }

@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.shared", category: "NegotiationService")
 import Combine
 
 /// Dollor.ai Negotiation Service
@@ -299,7 +302,7 @@ public class NegotiationService: ObservableObject {
                 self?.receiveMessage()
             case .failure(let error):
                 #if DEBUG
-                print("[NegotiationService] WebSocket error: \(error)")
+                logger.info("[NegotiationService] WebSocket error: \(error)")
                 #endif
             }
         }

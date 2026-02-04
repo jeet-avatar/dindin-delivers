@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "MultiRestaurantCheckoutView")
+
 import SwiftUI
 import PassKit
 import CoreLocation
@@ -806,7 +810,7 @@ struct MultiRestaurantCheckoutView: View {
                     }
                 case .failure(let error):
                     #if DEBUG
-                    print("[Checkout] Failed to load cards: \(error)")
+                    logger.info("[Checkout] Failed to load cards: \(error)")
                     #endif
                     self.savedCards = []
                 }
@@ -882,9 +886,9 @@ struct MultiRestaurantCheckoutView: View {
                 switch result {
                 case .success(let paymentIntentData):
                     #if DEBUG
-                    print("[ApplePay] PaymentIntent received successfully")
-                    print("[ApplePay] Publishable key prefix: \(String(paymentIntentData.publishableKey.prefix(20)))...")
-                    print("[ApplePay] Client secret prefix: \(String(paymentIntentData.clientSecret.prefix(20)))...")
+                    logger.info("[ApplePay] PaymentIntent received successfully")
+                    logger.info("[ApplePay] Publishable key prefix: \(String(paymentIntentData.publishableKey.prefix(20)))...")
+                    logger.info("[ApplePay] Client secret prefix: \(String(paymentIntentData.clientSecret.prefix(20)))...")
                     #endif
 
                     // Set the publishable key
@@ -923,16 +927,16 @@ struct MultiRestaurantCheckoutView: View {
 
                     // Check if Apple Pay is available
                     #if DEBUG
-                    print("[ApplePay] Checking canSubmitPaymentRequest...")
-                    print("[ApplePay] Merchant ID: merchant.com.dolloraiai")
-                    print("[ApplePay] Supported networks: \(request.supportedNetworks)")
-                    print("[ApplePay] Total amount: \(self.finalTotal)")
+                    logger.info("[ApplePay] Checking canSubmitPaymentRequest...")
+                    logger.info("[ApplePay] Merchant ID: merchant.com.dolloraiai")
+                    logger.info("[ApplePay] Supported networks: \(request.supportedNetworks)")
+                    logger.info("[ApplePay] Total amount: \(self.finalTotal)")
                     #endif
 
                     guard StripeAPI.canSubmitPaymentRequest(request) else {
                         #if DEBUG
-                        print("[ApplePay] ERROR: canSubmitPaymentRequest returned false")
-                        print("[ApplePay] PKPaymentAuthorizationController.canMakePayments: \(PKPaymentAuthorizationController.canMakePayments())")
+                        logger.info("[ApplePay] ERROR: canSubmitPaymentRequest returned false")
+                        logger.info("[ApplePay] PKPaymentAuthorizationController.canMakePayments: \(PKPaymentAuthorizationController.canMakePayments())")
                         #endif
                         self.isProcessing = false
                         self.errorMessage = "Apple Pay is not available on this device. Please ensure you have a card added to your Wallet."
@@ -941,7 +945,7 @@ struct MultiRestaurantCheckoutView: View {
                     }
 
                     #if DEBUG
-                    print("[ApplePay] canSubmitPaymentRequest passed, presenting Apple Pay sheet...")
+                    logger.info("[ApplePay] canSubmitPaymentRequest passed, presenting Apple Pay sheet...")
                     #endif
 
                     // Create Stripe Apple Pay context
@@ -951,7 +955,7 @@ struct MultiRestaurantCheckoutView: View {
                     ) { success, error in
                         DispatchQueue.main.async {
                             #if DEBUG
-                            print("[ApplePay] Payment result - success: \(success), error: \(String(describing: error))")
+                            logger.info("[ApplePay] Payment result - success: \(success), error: \(String(describing: error))")
                             #endif
                             if success {
                                 self.placeOrder()
@@ -959,7 +963,7 @@ struct MultiRestaurantCheckoutView: View {
                                 self.isProcessing = false
                                 if let error = error {
                                     #if DEBUG
-                                    print("[ApplePay] ERROR: \(error.localizedDescription)")
+                                    logger.info("[ApplePay] ERROR: \(error.localizedDescription)")
                                     #endif
                                     self.errorMessage = error.localizedDescription
                                 }
@@ -970,7 +974,7 @@ struct MultiRestaurantCheckoutView: View {
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
+                    logger.info("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
                     #endif
                     self.isProcessing = false
                     self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
@@ -999,7 +1003,7 @@ struct MultiRestaurantCheckoutView: View {
                 case .success(let keys):
                     // Check for demo mode (App Store review) - skip Stripe and place order directly
                     if keys.isDemoPayment {
-                        print("[Checkout] Demo account detected - bypassing Stripe payment")
+                        logger.info("[Checkout] Demo account detected - bypassing Stripe payment")
                         self.stripePaymentReady = true
                         // If we're processing, skip payment and place order directly
                         if self.isProcessing {
@@ -1077,11 +1081,11 @@ struct MultiRestaurantCheckoutView: View {
         if useDummyPayments {
             // Simulate a brief delay for order processing
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                print("=== DUMMY ORDER PLACED ===")
-                print("Items: \(self.cartVM.totalItemCount)")
-                print("Subtotal: $\(String(format: "%.2f", self.cartVM.subtotal))")
-                print("Total: $\(String(format: "%.2f", self.finalTotal))")
-                print("==========================")
+                logger.debug("=== DUMMY ORDER PLACED ===")
+                logger.debug("Items: \(self.cartVM.totalItemCount)")
+                logger.debug("Subtotal: $\(String(format: "%.2f", self.cartVM.subtotal))")
+                logger.debug("Total: $\(String(format: "%.2f", self.finalTotal))")
+                logger.debug("==========================")
 
                 // Signal order placed - MainAppView will handle sheet dismissal and success screen
                 self.isProcessing = false
@@ -1117,14 +1121,14 @@ struct MultiRestaurantCheckoutView: View {
                 switch result {
                 case .success:
                     #if DEBUG
-                    print("[OrderFlow] ✅ Backend order placed successfully")
-                    print("[OrderFlow] Setting orderPlaced = true")
+                    logger.info("[OrderFlow] ✅ Backend order placed successfully")
+                    logger.info("[OrderFlow] Setting orderPlaced = true")
                     #endif
                     // Signal order placed - MainAppView will handle sheet dismissal and success screen
                     cartVM.orderPlaced = true
                 case .failure(let error):
                     #if DEBUG
-                    print("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
+                    logger.info("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
                     #endif
                     errorMessage = error.localizedDescription
                     showError = true

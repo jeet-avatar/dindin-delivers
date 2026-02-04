@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "TipDriverView")
+
 //
 //  TipDriverView.swift
 //  eatfaircustomer
@@ -275,10 +279,10 @@ class TipDriverViewModel: ObservableObject {
                 self?.isSubmitting = false
                 switch result {
                 case .success(let response):
-                    print("[TipDriverView] Tip submitted: \(response.message)")
+                    logger.info("[TipDriverView] Tip submitted: \(response.message)")
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
-                    print("[TipDriverView] Tip failed: \(error)")
+                    logger.info("[TipDriverView] Tip failed: \(error)")
                 }
             }
         }

@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "MultiRestaurantCartView")
+
 import SwiftUI
 import EatFairShared
 
@@ -134,7 +138,7 @@ struct MultiRestaurantCartView: View {
         }
         .sheet(isPresented: $showCheckout, onDismiss: {
             #if DEBUG
-            print("[OrderFlow] Checkout sheet dismissed, orderPlaced = \(cartVM.orderPlaced)")
+            logger.info("[OrderFlow] Checkout sheet dismissed, orderPlaced = \(cartVM.orderPlaced)")
             #endif
         }) {
             MultiRestaurantCheckoutView(cartVM: cartVM, scheduledDate: scheduledDate)
@@ -142,7 +146,7 @@ struct MultiRestaurantCartView: View {
         .onChange(of: cartVM.orderPlaced) { _, newValue in
             if newValue {
                 #if DEBUG
-                print("[OrderFlow] CartView detected orderPlaced = true, dismissing checkout")
+                logger.info("[OrderFlow] CartView detected orderPlaced = true, dismissing checkout")
                 #endif
                 // Dismiss checkout sheet when order is placed
                 showCheckout = false

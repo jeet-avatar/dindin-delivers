@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "AddressSearchViewModel")
+
 import SwiftUI
 import MapKit
 import Combine
@@ -37,7 +41,7 @@ class AddressSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleter
     }
     
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("Address search failed: \(error.localizedDescription)")
+        logger.debug("Address search failed: \(error.localizedDescription)")
     }
     
     func selectAddress(_ completion: MKLocalSearchCompletion, completionHandler: @escaping (String, String, String, String, CLLocationCoordinate2D?) -> Void) {

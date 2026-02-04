@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "PaymentMethodsView")
+
 import SwiftUI
 import Combine
 import EatFairShared
@@ -150,7 +154,7 @@ class PaymentMethodsViewModel: ObservableObject {
                     self?.savedCards = cards
                 case .failure(let error):
                     #if DEBUG
-                    print("[PaymentMethods] Failed to load cards: \(error)")
+                    logger.info("[PaymentMethods] Failed to load cards: \(error)")
                     #endif
                     self?.savedCards = []
                 }

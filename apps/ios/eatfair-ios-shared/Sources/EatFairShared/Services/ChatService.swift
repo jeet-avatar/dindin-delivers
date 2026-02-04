@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.shared", category: "ChatService")
 
 /// Dollor.ai Chat Service
 /// Real-time messaging between independent drivers and customers
@@ -337,7 +340,7 @@ public class ChatService: ObservableObject {
                 self?.receiveMessage()
             case .failure(let error):
                 #if DEBUG
-                print("[ChatService] WebSocket error: \(error)")
+                logger.info("[ChatService] WebSocket error: \(error)")
                 #endif
             }
         }
@@ -354,7 +357,7 @@ public class ChatService: ObservableObject {
             webSocket?.send(.string(jsonString)) { error in
                 if let error = error {
                     #if DEBUG
-                    print("[ChatService] WebSocket send error: \(error)")
+                    logger.info("[ChatService] WebSocket send error: \(error)")
                     #endif
                 }
             }

@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.shared", category: "AIEmployeeService")
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -63,12 +66,12 @@ public class AIEmployeeService: ObservableObject {
                     self?.systemHealth = stats.systemHealth
                     self?.isLoading = false
                     #if DEBUG
-                    print("[AIEmployee] Loaded \(stats.aiEmployees.count) AI employees from P2P API")
+                    logger.info("[AIEmployee] Loaded \(stats.aiEmployees.count) AI employees from P2P API")
                     #endif
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[AIEmployee] P2P API failed: \(error.localizedDescription), using Firebase fallback")
+                    logger.info("[AIEmployee] P2P API failed: \(error.localizedDescription), using Firebase fallback")
                     #endif
                     // Firebase will handle the data
                 }

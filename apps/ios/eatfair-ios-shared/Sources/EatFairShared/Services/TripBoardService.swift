@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.shared", category: "TripBoardService")
 
 // MARK: - Trip Board Service
 /// Craigslist-style rideshare bulletin board service
@@ -399,7 +402,7 @@ public class TripBoardService {
                 let response = try JSONDecoder().decode(TripListingsResponse.self, from: data)
                 DispatchQueue.main.async { completion(.success(response)) }
             } catch {
-                print("TripBoard decode error: \(error)")
+                logger.info("TripBoard decode error: \(error)")
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }.resume()

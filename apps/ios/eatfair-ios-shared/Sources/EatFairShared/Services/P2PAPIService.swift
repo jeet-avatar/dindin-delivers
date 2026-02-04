@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.shared", category: "P2PAPIService")
 
 /// P2P Platform API Service
 /// Connects iOS apps to the P2P backend for restaurant data, menus, and orders
@@ -98,7 +101,7 @@ public class P2PAPIService: ObservableObject {
 
                 if let error = error {
                     #if DEBUG
-                    print("[P2PAPIService] fetchRestaurants network error: \(error)")
+                    logger.error("fetchRestaurants network error: \(error)")
                     #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
@@ -109,7 +112,7 @@ public class P2PAPIService: ObservableObject {
                 if let httpResponse = response as? HTTPURLResponse {
                     guard (200...299).contains(httpResponse.statusCode) else {
                         #if DEBUG
-                        print("[P2PAPIService] fetchRestaurants: Invalid HTTP status \(httpResponse.statusCode)")
+                        logger.info("fetchRestaurants: Invalid HTTP status \(httpResponse.statusCode)")
                         #endif
                         let error = P2PAPIError.httpError(httpResponse.statusCode)
                         self?.error = "Server error: \(httpResponse.statusCode)"
@@ -120,9 +123,9 @@ public class P2PAPIService: ObservableObject {
 
                 guard let data = data, !data.isEmpty else {
                     #if DEBUG
-                    print("[P2PAPIService] fetchRestaurants: No data received")
+                    logger.info("fetchRestaurants: No data received")
                     if let httpResponse = response as? HTTPURLResponse {
-                        print("[P2PAPIService] HTTP status: \(httpResponse.statusCode)")
+                        logger.info("HTTP status: \(httpResponse.statusCode)")
                     }
                     #endif
                     completion(.failure(P2PAPIError.noData))
@@ -131,7 +134,7 @@ public class P2PAPIService: ObservableObject {
 
                 #if DEBUG
                 if let jsonString = String(data: data, encoding: .utf8) {
-                    print("[P2PAPIService] fetchRestaurants response (\(data.count) bytes): \(jsonString.prefix(500))")
+                    logger.info("fetchRestaurants response (\(data.count) bytes): \(jsonString.prefix(500))")
                 }
                 #endif
 
@@ -140,7 +143,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response.restaurants))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] fetchRestaurants decode error: \(error)")
+                    logger.error("fetchRestaurants decode error: \(error)")
                     #endif
                     self?.error = "Failed to decode restaurants: \(error.localizedDescription)"
                     completion(.failure(error))
@@ -231,7 +234,7 @@ public class P2PAPIService: ObservableObject {
                 } catch {
                     self?.error = "Failed to decode vendor profile: \(error.localizedDescription)"
                     #if DEBUG
-                    print("[P2PAPIService] Vendor profile decode error: \(error)")
+                    logger.error("Vendor profile decode error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -275,7 +278,7 @@ public class P2PAPIService: ObservableObject {
                 } catch {
                     self?.error = "Failed to decode menu items: \(error.localizedDescription)"
                     #if DEBUG
-                    print("[P2PAPIService] Decode error: \(error)")
+                    logger.error("Decode error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -584,7 +587,7 @@ public class P2PAPIService: ObservableObject {
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
-                    print("[P2PAPIService] getFeaturedDeals network error: \(error)")
+                    logger.error("getFeaturedDeals network error: \(error)")
                     #endif
                     completion(.failure(error))
                     return
@@ -592,7 +595,7 @@ public class P2PAPIService: ObservableObject {
 
                 guard let data = data, !data.isEmpty else {
                     #if DEBUG
-                    print("[P2PAPIService] getFeaturedDeals: No data received")
+                    logger.info("getFeaturedDeals: No data received")
                     #endif
                     // Return empty response instead of error
                     let emptyResponse = P2PFeaturedDealsResponse(success: true, featured: [], count: 0)
@@ -602,7 +605,7 @@ public class P2PAPIService: ObservableObject {
 
                 #if DEBUG
                 if let jsonString = String(data: data, encoding: .utf8) {
-                    print("[P2PAPIService] getFeaturedDeals response: \(jsonString.prefix(300))")
+                    logger.info("getFeaturedDeals response: \(jsonString.prefix(300))")
                 }
                 #endif
 
@@ -611,7 +614,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] getFeaturedDeals decode error: \(error)")
+                    logger.error("getFeaturedDeals decode error: \(error)")
                     #endif
                     // Return empty response on decode error
                     let emptyResponse = P2PFeaturedDealsResponse(success: true, featured: [], count: 0)
@@ -910,14 +913,14 @@ public class P2PAPIService: ObservableObject {
         }
 
         #if DEBUG
-        print("[P2PAPI] Fetching AI Insights for vendor \(vendorId), period: \(period)")
+        logger.info("Fetching AI Insights for vendor \(vendorId), period: \(period)")
         #endif
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
-                    print("[P2PAPI] AI Insights error: \(error.localizedDescription)")
+                    logger.error("AI Insights error: \(error.localizedDescription)")
                     #endif
                     completion(.failure(error))
                     return
@@ -930,7 +933,7 @@ public class P2PAPIService: ObservableObject {
 
                 #if DEBUG
                 if let jsonString = String(data: data, encoding: .utf8) {
-                    print("[P2PAPI] AI Insights response: \(jsonString.prefix(500))...")
+                    logger.info("AI Insights response: \(jsonString.prefix(500))...")
                 }
                 #endif
 
@@ -938,12 +941,12 @@ public class P2PAPIService: ObservableObject {
                     let decoder = JSONDecoder()
                     let insights = try decoder.decode(P2PAIInsightsResponse.self, from: data)
                     #if DEBUG
-                    print("[P2PAPI] AI Insights decoded successfully - \(insights.totalOrders) orders")
+                    logger.info("AI Insights decoded successfully - \(insights.totalOrders) orders")
                     #endif
                     completion(.success(insights))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPI] AI Insights decode error: \(error)")
+                    logger.error("AI Insights decode error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -1333,10 +1336,10 @@ public class P2PAPIService: ObservableObject {
         completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
     ) {
         let fullURL = "\(baseURL)/auth/vendor/google-auth"
-        print("DEBUG API vendorGoogleAuth: URL = \(fullURL)")
+        logger.debug("API vendorGoogleAuth: URL = \(fullURL)")
 
         guard let url = URL(string: fullURL) else {
-            print("DEBUG API vendorGoogleAuth: FAILED - Invalid URL")
+            logger.debug("API vendorGoogleAuth: FAILED - Invalid URL")
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1351,7 +1354,7 @@ public class P2PAPIService: ObservableObject {
             "google_id": googleId
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        print("DEBUG API vendorGoogleAuth: Request body = \(body)")
+        logger.debug("API vendorGoogleAuth: Request body = \(body)")
 
         isLoading = true
 
@@ -1360,32 +1363,32 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
-                    print("DEBUG API vendorGoogleAuth: Network error = \(error.localizedDescription)")
+                    logger.debug("API vendorGoogleAuth: Network error = \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
-                    print("DEBUG API vendorGoogleAuth: FAILED - No data received")
+                    logger.debug("API vendorGoogleAuth: FAILED - No data received")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 // Log raw response
                 if let rawResponse = String(data: data, encoding: .utf8) {
-                    print("DEBUG API vendorGoogleAuth: Raw response = \(rawResponse.prefix(500))")
+                    logger.debug("API vendorGoogleAuth: Raw response = \(rawResponse.prefix(500))")
                 }
 
                 if let httpResponse = response as? HTTPURLResponse {
-                    print("DEBUG API vendorGoogleAuth: HTTP status = \(httpResponse.statusCode)")
+                    logger.debug("API vendorGoogleAuth: HTTP status = \(httpResponse.statusCode)")
 
                     if httpResponse.statusCode >= 400 {
                         if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
-                            print("DEBUG API vendorGoogleAuth: Server error = \(errorResponse.detail)")
+                            logger.debug("API vendorGoogleAuth: Server error = \(errorResponse.detail)")
                             completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                         } else {
-                            print("DEBUG API vendorGoogleAuth: Unknown server error")
+                            logger.debug("API vendorGoogleAuth: Unknown server error")
                             completion(.failure(P2PAPIError.serverError("Google auth failed")))
                         }
                         return
@@ -1394,17 +1397,17 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
-                    print("DEBUG API vendorGoogleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
+                    logger.debug("API vendorGoogleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     // Save vendor name and email for profile display
                     UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
                     UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
-                    print("DEBUG API vendorGoogleAuth: Saved to UserDefaults and Keychain")
+                    logger.debug("API vendorGoogleAuth: Saved to UserDefaults and Keychain")
                     completion(.success(loginResponse))
                 } catch {
-                    print("DEBUG API vendorGoogleAuth: DECODE FAILED - \(error)")
+                    logger.debug("API vendorGoogleAuth: DECODE FAILED - \(error)")
                     self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -1423,10 +1426,10 @@ public class P2PAPIService: ObservableObject {
         completion: @escaping (Result<P2PLoginResponse, Error>) -> Void
     ) {
         let fullURL = "\(baseURL)/auth/vendor/apple-auth"
-        print("DEBUG API vendorAppleAuth: URL = \(fullURL)")
+        logger.debug("API vendorAppleAuth: URL = \(fullURL)")
 
         guard let url = URL(string: fullURL) else {
-            print("DEBUG API vendorAppleAuth: FAILED - Invalid URL")
+            logger.debug("API vendorAppleAuth: FAILED - Invalid URL")
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -1445,7 +1448,7 @@ public class P2PAPIService: ObservableObject {
             body["identity_token"] = token
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        print("DEBUG API vendorAppleAuth: Request body = \(body)")
+        logger.debug("API vendorAppleAuth: Request body = \(body)")
 
         isLoading = true
 
@@ -1454,32 +1457,32 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
-                    print("DEBUG API vendorAppleAuth: Network error = \(error.localizedDescription)")
+                    logger.debug("API vendorAppleAuth: Network error = \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
-                    print("DEBUG API vendorAppleAuth: FAILED - No data received")
+                    logger.debug("API vendorAppleAuth: FAILED - No data received")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 // Log raw response
                 if let rawResponse = String(data: data, encoding: .utf8) {
-                    print("DEBUG API vendorAppleAuth: Raw response = \(rawResponse.prefix(500))")
+                    logger.debug("API vendorAppleAuth: Raw response = \(rawResponse.prefix(500))")
                 }
 
                 if let httpResponse = response as? HTTPURLResponse {
-                    print("DEBUG API vendorAppleAuth: HTTP status = \(httpResponse.statusCode)")
+                    logger.debug("API vendorAppleAuth: HTTP status = \(httpResponse.statusCode)")
 
                     if httpResponse.statusCode >= 400 {
                         if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
-                            print("DEBUG API vendorAppleAuth: Server error = \(errorResponse.detail)")
+                            logger.debug("API vendorAppleAuth: Server error = \(errorResponse.detail)")
                             completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                         } else {
-                            print("DEBUG API vendorAppleAuth: Unknown server error")
+                            logger.debug("API vendorAppleAuth: Unknown server error")
                             completion(.failure(P2PAPIError.serverError("Apple auth failed")))
                         }
                         return
@@ -1488,17 +1491,17 @@ public class P2PAPIService: ObservableObject {
 
                 do {
                     let loginResponse = try JSONDecoder().decode(P2PLoginResponse.self, from: data)
-                    print("DEBUG API vendorAppleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
+                    logger.debug("API vendorAppleAuth: Decoded successfully - vendorId = \(loginResponse.user.vendorId ?? -1)")
                     // Store the token securely in Keychain
                     SecureStorage.shared.vendorAccessToken = loginResponse.accessToken
                     UserDefaults.standard.set(loginResponse.user.vendorId, forKey: UserDefaultsKey.vendorId)
                     // Save vendor name and email for profile display
                     UserDefaults.standard.set(loginResponse.user.fullName, forKey: UserDefaultsKey.vendorName)
                     UserDefaults.standard.set(loginResponse.user.email, forKey: UserDefaultsKey.vendorEmail)
-                    print("DEBUG API vendorAppleAuth: Saved to UserDefaults and Keychain")
+                    logger.debug("API vendorAppleAuth: Saved to UserDefaults and Keychain")
                     completion(.success(loginResponse))
                 } catch {
-                    print("DEBUG API vendorAppleAuth: DECODE FAILED - \(error)")
+                    logger.debug("API vendorAppleAuth: DECODE FAILED - \(error)")
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -2217,7 +2220,7 @@ public class P2PAPIService: ObservableObject {
                 } catch {
                     self?.error = "Failed to decode addresses: \(error.localizedDescription)"
                     #if DEBUG
-                    print("[P2PAPIService] Address decode error: \(error)")
+                    logger.error("Address decode error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -2279,19 +2282,19 @@ public class P2PAPIService: ObservableObject {
         completion: @escaping (Result<P2PCustomerAddress, Error>) -> Void
     ) {
         #if DEBUG
-        print("[P2PAPIService] createAddress called for userId: \(userId)")
+        logger.info("createAddress called for userId: \(userId)")
         #endif
 
         guard let url = URL(string: "\(baseURL)/addresses/\(userId)") else {
             #if DEBUG
-            print("[P2PAPIService] createAddress: Invalid URL")
+            logger.info("createAddress: Invalid URL")
             #endif
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
 
         #if DEBUG
-        print("[P2PAPIService] createAddress URL: \(url.absoluteString)")
+        logger.info("createAddress URL: \(url.absoluteString)")
         #endif
 
         var request = URLRequest(url: url)
@@ -2301,11 +2304,11 @@ public class P2PAPIService: ObservableObject {
         if let token = customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             #if DEBUG
-            print("[P2PAPIService] createAddress: Auth token present")
+            logger.info("createAddress: Auth token present")
             #endif
         } else {
             #if DEBUG
-            print("[P2PAPIService] createAddress: WARNING - No auth token!")
+            logger.info("createAddress: WARNING - No auth token!")
             #endif
         }
 
@@ -2326,7 +2329,7 @@ public class P2PAPIService: ObservableObject {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         #if DEBUG
-        print("[P2PAPIService] createAddress body: \(body)")
+        logger.info("createAddress body: \(body)")
         #endif
 
         isLoading = true
@@ -2337,7 +2340,7 @@ public class P2PAPIService: ObservableObject {
 
                 if let error = error {
                     #if DEBUG
-                    print("[P2PAPIService] createAddress network error: \(error)")
+                    logger.error("createAddress network error: \(error)")
                     #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
@@ -2346,7 +2349,7 @@ public class P2PAPIService: ObservableObject {
 
                 guard let data = data else {
                     #if DEBUG
-                    print("[P2PAPIService] createAddress: No data received")
+                    logger.info("createAddress: No data received")
                     #endif
                     completion(.failure(P2PAPIError.noData))
                     return
@@ -2354,13 +2357,13 @@ public class P2PAPIService: ObservableObject {
 
                 #if DEBUG
                 if let jsonString = String(data: data, encoding: .utf8) {
-                    print("[P2PAPIService] createAddress response: \(jsonString)")
+                    logger.info("createAddress response: \(jsonString)")
                 }
                 #endif
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
                     #if DEBUG
-                    print("[P2PAPIService] createAddress HTTP error: \(httpResponse.statusCode)")
+                    logger.error("createAddress HTTP error: \(httpResponse.statusCode)")
                     #endif
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -2373,12 +2376,12 @@ public class P2PAPIService: ObservableObject {
                 do {
                     let createdAddress = try JSONDecoder().decode(P2PCustomerAddress.self, from: data)
                     #if DEBUG
-                    print("[P2PAPIService] createAddress success: id=\(createdAddress.id)")
+                    logger.info("createAddress success: id=\(createdAddress.id)")
                     #endif
                     completion(.success(createdAddress))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] createAddress decode error: \(error)")
+                    logger.error("createAddress decode error: \(error)")
                     #endif
                     self?.error = "Failed to decode created address: \(error.localizedDescription)"
                     completion(.failure(error))
@@ -2584,7 +2587,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Decode favorites error: \(error)")
+                    logger.error("Decode favorites error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -2640,7 +2643,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Decode add favorite error: \(error)")
+                    logger.error("Decode add favorite error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -2683,7 +2686,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Decode remove favorite error: \(error)")
+                    logger.error("Decode remove favorite error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -2726,7 +2729,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Decode check favorite error: \(error)")
+                    logger.error("Decode check favorite error: \(error)")
                     #endif
                     completion(.failure(error))
                 }
@@ -2782,7 +2785,7 @@ public class P2PAPIService: ObservableObject {
                     } catch {
                         self?.error = "Failed to decode orders: \(error.localizedDescription)"
                         #if DEBUG
-                        print("[P2PAPIService] Decode error: \(error)")
+                        logger.error("Decode error: \(error)")
                         #endif
                         completion(.failure(error))
                     }
@@ -4133,7 +4136,7 @@ public class P2PAPIService: ObservableObject {
                         SecureStorage.shared.driverAccessToken = newToken
                         DispatchQueue.main.async {
                             #if DEBUG
-                            print("[P2PAPIService] Token refreshed successfully")
+                            logger.info("Token refreshed successfully")
                             #endif
                             completion(.success(newToken))
                         }
@@ -4193,7 +4196,7 @@ public class P2PAPIService: ObservableObject {
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401 {
                 if retryOnExpired {
                     #if DEBUG
-                    print("[P2PAPIService] Token expired, attempting refresh...")
+                    logger.info("Token expired, attempting refresh...")
                     #endif
                     self?.refreshDriverToken { result in
                         switch result {
@@ -4208,7 +4211,7 @@ public class P2PAPIService: ObservableObject {
                         case .failure(let error):
                             // Token refresh failed - user needs to re-login
                             #if DEBUG
-                            print("[P2PAPIService] Token refresh failed: \(error)")
+                            logger.info("Token refresh failed: \(error)")
                             #endif
                             NotificationCenter.default.post(
                                 name: Notification.Name("DriverTokenExpired"),
@@ -4316,9 +4319,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(dashboard))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Failed to decode driver dashboard: \(error)")
+                    logger.info("Failed to decode driver dashboard: \(error)")
                     if let jsonString = String(data: data, encoding: .utf8) {
-                        print("[P2PAPIService] Raw response: \(jsonString)")
+                        logger.info("Raw response: \(jsonString)")
                     }
                     #endif
                     completion(.failure(error))
@@ -4491,7 +4494,7 @@ public class P2PAPIService: ObservableObject {
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
-                    print("[P2PAPIService] fetchAvailableRides network error: \(error.localizedDescription)")
+                    logger.error("fetchAvailableRides network error: \(error.localizedDescription)")
                     #endif
                     completion(.failure(error))
                     return
@@ -4500,7 +4503,7 @@ public class P2PAPIService: ObservableObject {
                 // Check HTTP status code
                 if let httpResponse = response as? HTTPURLResponse {
                     #if DEBUG
-                    print("[P2PAPIService] fetchAvailableRides status: \(httpResponse.statusCode)")
+                    logger.info("fetchAvailableRides status: \(httpResponse.statusCode)")
                     #endif
                     if httpResponse.statusCode == 404 {
                         // Endpoint not available - return empty rides
@@ -4520,9 +4523,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response.rides))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Ride decode error: \(error)")
+                    logger.error("Ride decode error: \(error)")
                     if let jsonString = String(data: data, encoding: .utf8) {
-                        print("[P2PAPIService] Raw response: \(jsonString.prefix(500))")
+                        logger.info("Raw response: \(jsonString.prefix(500))")
                     }
                     #endif
                     // If decode fails, return empty rides instead of crashing
@@ -4707,9 +4710,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Fare estimate decode error: \(error)")
+                    logger.error("Fare estimate decode error: \(error)")
                     if let str = String(data: data, encoding: .utf8) {
-                        print("[P2PAPIService] Response: \(str)")
+                        logger.info("Response: \(str)")
                     }
                     #endif
                     completion(.failure(error))
@@ -4786,7 +4789,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] Ride request decode error: \(error)")
+                    logger.error("Ride request decode error: \(error)")
                     #endif
                     // Try to get error message from response
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
@@ -4880,9 +4883,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response.available_requests))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] fetchAvailableRideRequests decode error: \(error)")
+                    logger.error("fetchAvailableRideRequests decode error: \(error)")
                     if let jsonString = String(data: data, encoding: .utf8) {
-                        print("[P2PAPIService] Raw response: \(jsonString.prefix(500))")
+                        logger.info("Raw response: \(jsonString.prefix(500))")
                     }
                     #endif
                     completion(.success([]))
@@ -4998,7 +5001,7 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(response.bids))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] fetchDriverBids decode error: \(error)")
+                    logger.error("fetchDriverBids decode error: \(error)")
                     #endif
                     completion(.success([]))
                 }
@@ -9202,7 +9205,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
 
         guard let url = URL(string: "\(wsBaseURL)/\(clientType)/\(clientId)") else {
             #if DEBUG
-            print("[WebSocket] Invalid URL")
+            logger.info("WebSocket Invalid URL")
             #endif
             return
         }
@@ -9218,7 +9221,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
         startPingTimer()
 
         #if DEBUG
-        print("[WebSocket] Connecting to \(url.absoluteString)")
+        logger.info("WebSocket Connecting to \(url.absoluteString)")
         #endif
     }
 
@@ -9229,7 +9232,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
             self.isConnected = false
         }
         #if DEBUG
-        print("[WebSocket] Disconnected")
+        logger.info("WebSocket Disconnected")
         #endif
     }
 
@@ -9253,7 +9256,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
 
             case .failure(let error):
                 #if DEBUG
-                print("[WebSocket] Receive error: \(error)")
+                logger.error("WebSocket Receive error: \(error)")
                 #endif
                 DispatchQueue.main.async {
                     self?.isConnected = false
@@ -9276,11 +9279,11 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
                 )
             }
             #if DEBUG
-            print("[WebSocket] Received: \(message.type)")
+            logger.info("WebSocket Received: \(message.type)")
             #endif
         } catch {
             #if DEBUG
-            print("[WebSocket] Failed to decode message: \(error)")
+            logger.info("WebSocket Failed to decode message: \(error)")
             #endif
         }
     }
@@ -9300,7 +9303,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
             webSocketTask?.send(.data(data)) { [weak self] error in
                 if let error = error {
                     #if DEBUG
-                    print("[WebSocket] Ping error: \(error)")
+                    logger.error("WebSocket Ping error: \(error)")
                     #endif
                 } else {
                     self?.startPingTimer()
@@ -9313,7 +9316,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
         #if DEBUG
-        print("[WebSocket] Connected")
+        logger.info("WebSocket Connected")
         #endif
         DispatchQueue.main.async {
             self.isConnected = true
@@ -9322,7 +9325,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         #if DEBUG
-        print("[WebSocket] Closed with code: \(closeCode)")
+        logger.info("WebSocket Closed with code: \(closeCode)")
         #endif
         DispatchQueue.main.async {
             self.isConnected = false
@@ -10362,9 +10365,9 @@ extension P2PAPIService {
                     completion(.success(earningsResponse))
                 } catch {
                     #if DEBUG
-                    print("[P2PAPIService] getDriverEarnings decode error: \(error)")
+                    logger.error("getDriverEarnings decode error: \(error)")
                     if let jsonString = String(data: data, encoding: .utf8) {
-                        print("[P2PAPIService] Response: \(jsonString.prefix(500))")
+                        logger.info("Response: \(jsonString.prefix(500))")
                     }
                     #endif
                     completion(.failure(error))
