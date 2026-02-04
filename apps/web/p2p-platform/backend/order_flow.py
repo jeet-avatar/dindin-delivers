@@ -2120,10 +2120,10 @@ async def get_vendor_orders(
             "driver_id": order.driver_id,
             "driver_name": order.driver_name,
             "driver": driver_info,
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": getattr(order, 'picked_up_at', None).isoformat() if getattr(order, 'picked_up_at', None) else None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "picked_up_at": (getattr(order, 'picked_up_at', None).isoformat() + "Z") if getattr(order, 'picked_up_at', None) else None,
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
         })
 
     return {"success": True, "orders": result}
@@ -2242,7 +2242,7 @@ async def get_available_orders(
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
             "total_earnings": (order.delivery_fee or 0) + (order.tip or 0),
-            "created_at": order.created_at.isoformat(),
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "assigned_at": None,
             "picked_up_at": None,
             "delivered_at": None
@@ -2944,10 +2944,10 @@ async def get_driver_active_orders(
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
             "tip": order.tip,
-            "created_at": order.created_at.isoformat(),
-            "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+            "assigned_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
         })
 
     return {"success": True, "orders": result}
@@ -3011,10 +3011,10 @@ async def get_driver_pending_orders(
                 "estimated_duration": 30,
                 "delivery_fee": order.delivery_fee,
                 "tip": order.tip,
-                "created_at": order.created_at.isoformat(),
-                "assigned_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-                "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
-                "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+                "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+                "assigned_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+                "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
+                "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
             })
 
         return {"success": True, "orders": result, "count": len(result)}
