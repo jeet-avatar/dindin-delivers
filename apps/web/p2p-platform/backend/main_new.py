@@ -17098,6 +17098,161 @@ def setup_support_customer(db: Session = Depends(get_db)):
         return {"success": False, "error": str(e)}
 
 
+@app.post("/api/demo/create-order")
+def create_demo_order(db: Session = Depends(get_db)):
+    """
+    Create a complete demo order for testing the full flow:
+    1. Customer places order at Apple restaurant
+    2. Payment processed (simulated for demo)
+    3. Restaurant confirms and prepares
+    4. Order sent to driver pool
+    5. Demo driver can pick up
+
+    This endpoint creates a ready-for-pickup order that the demo driver can see.
+    """
+    try:
+        import json
+        import random
+        from datetime import datetime, timedelta
+
+        # Get or create demo vendor (Apple Restaurant)
+        demo_vendor = db.query(Vendor).filter(
+            Vendor.restaurant_name.ilike("%apple%")
+        ).first()
+
+        if not demo_vendor:
+            # Find any active vendor
+            demo_vendor = db.query(Vendor).filter(
+                Vendor.status == VendorStatus.APPROVED
+            ).first()
+
+        if not demo_vendor:
+            # Create demo vendor
+            demo_vendor = Vendor(
+                company_name="Apple Restaurant LLC",
+                restaurant_name="Apple Fresh Kitchen",
+                email="apple@dollor.ai",
+                phone="+14155551234",
+                address="1 Apple Park Way, Cupertino, CA 95014",
+                latitude=37.3349,
+                longitude=-122.0090,
+                status=VendorStatus.APPROVED,
+                is_delivery_enabled=True,
+                delivery_radius_miles=10,
+                created_at=datetime.utcnow()
+            )
+            db.add(demo_vendor)
+            db.commit()
+            db.refresh(demo_vendor)
+
+        # Get demo customer
+        demo_customer = db.query(Customer).filter(
+            Customer.email == "demo.customer@dollor.ai"
+        ).first()
+
+        if not demo_customer:
+            return {"success": False, "error": "Demo customer not found. Run /api/demo/setup first."}
+
+        # Create order items
+        items = [
+            {"menu_item_id": 1, "name": "Apple Pie", "quantity": 2, "price": 8.99},
+            {"menu_item_id": 2, "name": "Fresh Apple Juice", "quantity": 1, "price": 4.99}
+        ]
+        items_json = json.dumps(items)
+
+        # Calculate totals
+        subtotal = sum(item["price"] * item["quantity"] for item in items)
+        tax_rate = 0.0875  # CA tax
+        tax = round(subtotal * tax_rate, 2)
+        delivery_fee = 5.99
+        platform_fee = 1.00  # $1 flat fee
+        total = round(subtotal + tax + delivery_fee + platform_fee, 2)
+
+        # Generate order number
+        order_number = f"DEMO-{datetime.now().strftime('%H%M%S')}-{random.randint(100, 999)}"
+
+        # Create delivery address near San Francisco
+        delivery_address = json.dumps({
+            "street": "123 Market St",
+            "city": "San Francisco",
+            "state": "CA",
+            "zip": "94102",
+            "latitude": 37.7749,
+            "longitude": -122.4194
+        })
+
+        # Create the order - already confirmed and ready for pickup
+        new_order = Order(
+            order_number=order_number,
+            vendor_id=demo_vendor.id,
+            customer_name=f"{demo_customer.first_name} {demo_customer.last_name}",
+            customer_email=demo_customer.email,
+            customer_phone=demo_customer.phone or "+14155551001",
+            items=items_json,
+            subtotal=subtotal,
+            tax_amount=tax,
+            delivery_fee=delivery_fee,
+            platform_fee=platform_fee,
+            total_amount=total,
+            tip=2.00,
+            delivery_address=delivery_address,
+            delivery_latitude=37.7749,
+            delivery_longitude=-122.4194,
+            delivery_instructions="Ring doorbell, leave at door",
+            status=OrderStatus.READY_FOR_PICKUP,  # Ready for driver to pick up
+            payment_status="paid",
+            stripe_payment_intent_id="demo_pi_" + order_number,
+            created_at=datetime.utcnow(),
+            confirmed_at=datetime.utcnow() - timedelta(minutes=15),
+            preparing_at=datetime.utcnow() - timedelta(minutes=10),
+            estimated_ready_at=datetime.utcnow() - timedelta(minutes=2),  # Ready now
+            estimated_prep_minutes=15
+        )
+
+        db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
+
+        return {
+            "success": True,
+            "order": {
+                "id": new_order.id,
+                "order_number": new_order.order_number,
+                "status": new_order.status.value,
+                "vendor_id": demo_vendor.id,
+                "vendor_name": demo_vendor.restaurant_name,
+                "customer_email": demo_customer.email,
+                "total": total,
+                "items": items,
+                "delivery_address": {
+                    "street": "123 Market St",
+                    "city": "San Francisco",
+                    "latitude": 37.7749,
+                    "longitude": -122.4194
+                },
+                "pickup_location": {
+                    "name": demo_vendor.restaurant_name,
+                    "address": demo_vendor.address,
+                    "latitude": demo_vendor.latitude,
+                    "longitude": demo_vendor.longitude
+                }
+            },
+            "next_steps": [
+                "1. Demo driver logs in with demo.driver@dollor.ai / DemoDriver2025!",
+                "2. Driver sees this order in 'Available Orders' tab",
+                "3. Driver accepts order and navigates to pickup",
+                "4. Driver marks as picked up, then delivers",
+                "5. Customer can track via demo.customer@dollor.ai app"
+            ],
+            "message": f"Demo order {order_number} created and ready for pickup at {demo_vendor.restaurant_name}"
+        }
+
+    except Exception as e:
+        db.rollback()
+        import traceback
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+
+
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
 # These endpoints provide aliases for Android app compatibility
 
