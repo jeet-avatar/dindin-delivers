@@ -4357,12 +4357,22 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
         guard let url = URL(string: "\(baseURL)/erp/orders/driver/\(driverId)/active") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -4375,11 +4385,33 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
+                // Check for HTTP errors
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    #if DEBUG
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        logger.error("fetchMyDeliveries HTTP \(httpResponse.statusCode): \(jsonString)")
+                    }
+                    #endif
+                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = errorJson["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("HTTP \(httpResponse.statusCode)")))
+                    }
+                    return
+                }
+
                 do {
                     let response = try JSONDecoder().decode(P2PDeliveryOrdersResponse.self, from: data)
                     completion(.success(response.orders))
                 } catch {
-                    // If endpoint doesn't exist yet, return empty array
+                    #if DEBUG
+                    logger.error("fetchMyDeliveries decode error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        logger.info("Raw response: \(jsonString.prefix(500))")
+                    }
+                    #endif
+                    // Return empty array only for decode errors, not for server errors
                     completion(.success([]))
                 }
             }
