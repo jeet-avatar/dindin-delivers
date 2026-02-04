@@ -6706,9 +6706,9 @@ def get_orders(
             "payment_status": order.payment_status,
             "stripe_payment_intent_id": order.stripe_payment_intent_id,
             "invoice_number": order.invoice_number,
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
         })
 
     return result
@@ -6789,9 +6789,9 @@ def get_order(
         "payment_status": order.payment_status,
         "stripe_payment_intent_id": order.stripe_payment_intent_id,
         "invoice_number": order.invoice_number,
-        "created_at": order.created_at.isoformat() if order.created_at else None,
-        "confirmed_at": order.confirmed_at.isoformat() if order.confirmed_at else None,
-        "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+        "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+        "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+        "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
     }
 
 
@@ -16863,7 +16863,7 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
                 "estimated_distance": 0,
                 "estimated_earnings": float(order.total_amount) * 0.8 if order.total_amount else 0,
                 "status": order.status.value if order.status else "unknown",
-                "created_at": order.created_at.isoformat() if order.created_at else None
+                "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None
             })
 
         return {
