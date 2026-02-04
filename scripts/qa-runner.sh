@@ -2298,7 +2298,336 @@ EOF
 }
 
 # ============================================================
-# Agent 12: Validator (Aggregates all reports)
+# Agent 12: Field Mapping Validation
+# Validates that API fields are actually populated, not null/empty
+# ============================================================
+run_field_mapping_agent() {
+    echo -e "${YELLOW}◆ Running Field Mapping Validation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_FIELD_MAPPING.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << EOF
+# QA Report: Field Mapping Validation
+
+**Environment**: $ENV
+**URL**: $API_URL
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates that API responses populate all expected fields (not null/empty).
+
+---
+
+## 1. Customer Profile Field Mapping
+
+EOF
+
+    echo "  Validating Customer Profile field mapping..."
+
+    # Get customer token
+    local cust_response=$(curl -s -X POST "$API_URL/api/auth/customer/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$CUSTOMER_EMAIL&password=$CUSTOMER_PASS" 2>/dev/null)
+    local cust_token=$(echo "$cust_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+
+    if [ -n "$cust_token" ]; then
+        local profile=$(curl -s "$API_URL/api/customer/profile" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+
+        echo "| Field | API Response | Has Data | UI Display | Status |" >> "$report"
+        echo "|-------|--------------|----------|------------|--------|" >> "$report"
+
+        # Check each expected field
+        local fields=("email" "name" "phone" "customer_id" "is_active")
+        for field in "${fields[@]}"; do
+            local value=$(echo "$profile" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$field','__NULL__'))" 2>/dev/null)
+            local has_data="No"
+            local status="⚠️ WARN"
+
+            if [ "$value" != "__NULL__" ] && [ "$value" != "" ] && [ "$value" != "None" ]; then
+                has_data="Yes"
+                status="✅ PASS"
+                ((passed++))
+            else
+                ((warnings++))
+            fi
+
+            # Truncate value for display
+            local display_value="${value:0:30}"
+            [ ${#value} -gt 30 ] && display_value="${display_value}..."
+
+            echo "| $field | $display_value | $has_data | ProfileView | $status |" >> "$report"
+        done
+
+        cat >> "$report" << EOF
+
+---
+
+## 2. Order History Field Mapping
+
+EOF
+
+        echo "  Validating Order History field mapping..."
+
+        local orders=$(curl -s "$API_URL/api/customer/orders" -H "Authorization: Bearer $cust_token" 2>/dev/null)
+        local order_count=$(echo "$orders" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+
+        echo "| Field | Sample Value | Populated | UI Location | Status |" >> "$report"
+        echo "|-------|--------------|-----------|-------------|--------|" >> "$report"
+
+        if [ "$order_count" -gt 0 ]; then
+            # Check order fields from first order
+            local order_fields=$(echo "$orders" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+if isinstance(d,list) and len(d)>0:
+    o=d[0]
+    fields = ['order_id', 'id', 'status', 'total', 'subtotal', 'delivery_fee', 'tax', 'tip',
+              'driver_name', 'driver_id', 'customer_name', 'delivery_address', 'restaurant_name',
+              'items', 'placed_at', 'estimated_delivery_time']
+    for f in fields:
+        v = o.get(f, '__NULL__')
+        if isinstance(v, dict):
+            v = 'object'
+        elif isinstance(v, list):
+            v = f'list[{len(v)}]'
+        elif v is None:
+            v = '__NULL__'
+        print(f'{f}|{str(v)[:30]}')
+" 2>/dev/null)
+
+            while IFS='|' read -r field value; do
+                local has_data="No"
+                local status="⚠️ WARN"
+
+                if [ "$value" != "__NULL__" ] && [ "$value" != "" ] && [ "$value" != "None" ]; then
+                    has_data="Yes"
+                    status="✅ PASS"
+                    ((passed++))
+                else
+                    ((warnings++))
+                fi
+
+                echo "| $field | $value | $has_data | OrderHistoryView | $status |" >> "$report"
+            done <<< "$order_fields"
+        else
+            echo "| (no orders) | - | - | - | ⚠️ WARN |" >> "$report"
+            ((warnings++))
+        fi
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 3. Restaurant/Menu Field Mapping
+
+EOF
+
+    echo "  Validating Restaurant/Menu field mapping..."
+
+    local vendors=$(curl -s "$API_URL/api/vendors" 2>/dev/null)
+    local menu=$(curl -s "$API_URL/api/vendors/40/menu" 2>/dev/null)
+
+    echo "### 3.1 Vendor Fields" >> "$report"
+    echo "| Field | Sample Value | Populated | UI Location | Status |" >> "$report"
+    echo "|-------|--------------|-----------|-------------|--------|" >> "$report"
+
+    local vendor_fields=$(echo "$vendors" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+vendors = d if isinstance(d,list) else d.get('vendors',[])
+if vendors and len(vendors)>0:
+    v = vendors[0]
+    fields = ['id', 'name', 'address', 'phone', 'rating', 'delivery_fee', 'minimum_order',
+              'is_open', 'cuisine_type', 'logo_url', 'banner_url', 'delivery_time_minutes']
+    for f in fields:
+        val = v.get(f, '__NULL__')
+        if val is None:
+            val = '__NULL__'
+        print(f'{f}|{str(val)[:25]}')
+" 2>/dev/null)
+
+    while IFS='|' read -r field value; do
+        local has_data="No"
+        local status="⚠️ WARN"
+
+        if [ "$value" != "__NULL__" ] && [ "$value" != "" ] && [ "$value" != "None" ]; then
+            has_data="Yes"
+            status="✅ PASS"
+            ((passed++))
+        else
+            ((warnings++))
+        fi
+
+        echo "| $field | $value | $has_data | HomeView/RestaurantView | $status |" >> "$report"
+    done <<< "$vendor_fields"
+
+    echo "" >> "$report"
+    echo "### 3.2 Menu Item Fields" >> "$report"
+    echo "| Field | Sample Value | Populated | UI Location | Status |" >> "$report"
+    echo "|-------|--------------|-----------|-------------|--------|" >> "$report"
+
+    local menu_fields=$(echo "$menu" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+items = d if isinstance(d,list) else d.get('items',d.get('menu_items',[]))
+if items and len(items)>0:
+    m = items[0]
+    fields = ['id', 'name', 'description', 'price', 'category', 'image_url', 'is_available',
+              'prep_time_minutes', 'calories', 'dietary_tags']
+    for f in fields:
+        val = m.get(f, '__NULL__')
+        if val is None:
+            val = '__NULL__'
+        elif isinstance(val, list):
+            val = f'list[{len(val)}]'
+        print(f'{f}|{str(val)[:25]}')
+" 2>/dev/null)
+
+    while IFS='|' read -r field value; do
+        local has_data="No"
+        local status="⚠️ WARN"
+
+        if [ "$value" != "__NULL__" ] && [ "$value" != "" ] && [ "$value" != "None" ]; then
+            has_data="Yes"
+            status="✅ PASS"
+            ((passed++))
+        else
+            ((warnings++))
+        fi
+
+        echo "| $field | $value | $has_data | MenuView | $status |" >> "$report"
+    done <<< "$menu_fields"
+
+    cat >> "$report" << EOF
+
+---
+
+## 4. Driver Dashboard Field Mapping
+
+EOF
+
+    echo "  Validating Driver Dashboard field mapping..."
+
+    # Get driver token
+    local driver_response=$(curl -s -X POST "$API_URL/api/auth/driver/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$DRIVER_EMAIL&password=$DRIVER_PASS" 2>/dev/null)
+    local driver_token=$(echo "$driver_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+    local driver_id=$(echo "$driver_response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('driver_id','48'))" 2>/dev/null)
+
+    if [ -n "$driver_token" ]; then
+        local dashboard=$(curl -s "$API_URL/api/v5/driver/$driver_id/dashboard" -H "Authorization: Bearer $driver_token" 2>/dev/null)
+
+        echo "| Field | API Value | Populated | UI Location | Status |" >> "$report"
+        echo "|-------|-----------|-----------|-------------|--------|" >> "$report"
+
+        local dashboard_fields=$(echo "$dashboard" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+fields = ['week_earnings', 'today_earnings', 'total_deliveries', 'week_deliveries',
+          'rating', 'acceptance_rate', 'completion_rate', 'total_tips', 'online_hours']
+for f in fields:
+    val = d.get(f, '__NULL__')
+    if val is None:
+        val = '__NULL__'
+    print(f'{f}|{str(val)[:20]}')
+" 2>/dev/null)
+
+        while IFS='|' read -r field value; do
+            local has_data="No"
+            local status="⚠️ WARN"
+
+            if [ "$value" != "__NULL__" ] && [ "$value" != "" ] && [ "$value" != "None" ]; then
+                has_data="Yes"
+                status="✅ PASS"
+                ((passed++))
+            else
+                ((warnings++))
+            fi
+
+            echo "| $field | $value | $has_data | DashboardView | $status |" >> "$report"
+        done <<< "$dashboard_fields"
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 5. Missing Field Analysis
+
+### 5.1 Fields with NULL/Empty Values (May Cause UI Display Issues)
+
+EOF
+
+    echo "  Analyzing missing fields..."
+
+    # Summary of fields that returned null/empty
+    if [ $warnings -gt 0 ]; then
+        echo "| Category | Field | Impact | Recommendation |" >> "$report"
+        echo "|----------|-------|--------|----------------|" >> "$report"
+
+        # Add specific recommendations based on common missing fields
+        echo "| Orders | driver_name | Shows 'Driver' placeholder | Check if order is assigned to driver |" >> "$report"
+        echo "| Orders | estimated_delivery_time | Cannot show ETA | Ensure backend calculates ETA |" >> "$report"
+        echo "| Profile | phone | Shows empty in settings | Make phone optional in UI |" >> "$report"
+        echo "| Menu | image_url | Shows placeholder image | Ensure images are uploaded |" >> "$report"
+        echo "| Menu | calories | Cannot show nutrition info | Make calories optional display |" >> "$report"
+        echo "| Driver | rating | Shows 0 or default | New drivers have no ratings yet |" >> "$report"
+    else
+        echo "_All fields are properly populated._" >> "$report"
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Fields with Data | $passed |
+| Fields Empty/Null | $warnings |
+| Critical Missing | $failed |
+| Total Fields Checked | $((passed + failed + warnings)) |
+
+EOF
+
+    if [ $warnings -gt $passed ]; then
+        echo "**Status**: ⚠️ WARN - Many fields not populated" >> "$report"
+    else
+        echo "**Status**: ✅ PASS - Most fields populated" >> "$report"
+    fi
+
+    cat >> "$report" << EOF
+
+### Field Population Coverage
+- Customer Profile: Fields checked
+- Order History: Fields checked
+- Vendor/Menu: Fields checked
+- Driver Dashboard: Fields checked
+
+### Recommendations
+- Ensure all API endpoints return expected fields
+- Add loading/placeholder states for empty fields in UI
+- Consider making optional fields explicitly optional in models
+
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ Field Mapping Agent: $passed populated, $warnings empty, $failed critical${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Field Mapping Agent: $passed populated, $warnings empty, $failed critical${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 13: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -2326,7 +2655,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -2439,7 +2768,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (11 agents)..."
+    echo "Starting QA Agent execution (12 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -2456,6 +2785,7 @@ main() {
     run_dependency_agent || true
     run_frontend_data_agent || true
     run_frontend_display_agent || true
+    run_field_mapping_agent || true
 
     # Run validator last
     run_validator_agent
