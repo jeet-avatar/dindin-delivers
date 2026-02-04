@@ -162,6 +162,9 @@ class DeliveryViewModel: ObservableObject {
     /// Fetches orders that are ready for pickup and don't have a driver assigned
     func fetchAvailableOrders() {
         isLoading = true
+        #if DEBUG
+        print("[DeliveryViewModel] fetchAvailableOrders called")
+        #endif
 
         p2pService.fetchAvailableDeliveryOrders { [weak self] result in
             DispatchQueue.main.async {
@@ -169,9 +172,19 @@ class DeliveryViewModel: ObservableObject {
 
                 switch result {
                 case .success(let p2pOrders):
-                    self?.availableOrders = p2pOrders.compactMap { self?.convertToOrder($0) }
+                    #if DEBUG
+                    print("[DeliveryViewModel] fetchAvailableOrders received \(p2pOrders.count) P2P orders")
+                    #endif
+                    let converted = p2pOrders.compactMap { self?.convertToOrder($0) }
+                    #if DEBUG
+                    print("[DeliveryViewModel] fetchAvailableOrders converted to \(converted.count) Order objects")
+                    #endif
+                    self?.availableOrders = converted
 
                 case .failure(let error):
+                    #if DEBUG
+                    print("[DeliveryViewModel] fetchAvailableOrders FAILED: \(error.localizedDescription)")
+                    #endif
                     self?.handleError(error)
                 }
             }
@@ -182,6 +195,10 @@ class DeliveryViewModel: ObservableObject {
     /// Fetches orders assigned to the current driver that are not yet delivered
     func fetchMyDeliveries() {
         isLoading = true
+        #if DEBUG
+        print("[DeliveryViewModel] fetchMyDeliveries called")
+        print("[DeliveryViewModel] currentDriverId: \(String(describing: p2pService.currentDriverId))")
+        #endif
 
         p2pService.fetchMyDeliveries { [weak self] result in
             DispatchQueue.main.async {
@@ -189,11 +206,22 @@ class DeliveryViewModel: ObservableObject {
 
                 switch result {
                 case .success(let p2pOrders):
-                    self?.myDeliveries = p2pOrders
-                        .filter {
-                            let status = DeliveryOrderStatus.from($0.status)
-                            return status != .delivered && status != .cancelled
-                        }
+                    #if DEBUG
+                    print("[DeliveryViewModel] fetchMyDeliveries received \(p2pOrders.count) P2P orders from API")
+                    for (i, order) in p2pOrders.prefix(5).enumerated() {
+                        print("[DeliveryViewModel]   [\(i)] id=\(order.id), status=\(order.status), vendor=\(order.vendorName ?? "?")")
+                    }
+                    #endif
+
+                    let filtered = p2pOrders.filter {
+                        let status = DeliveryOrderStatus.from($0.status)
+                        return status != .delivered && status != .cancelled
+                    }
+                    #if DEBUG
+                    print("[DeliveryViewModel] After filtering (non-delivered/cancelled): \(filtered.count) orders")
+                    #endif
+
+                    self?.myDeliveries = filtered
                         .compactMap { self?.convertToOrder($0) }
                         .sorted { order1, order2 in
                             // Sort: Out for Delivery first, then Ready
@@ -207,7 +235,14 @@ class DeliveryViewModel: ObservableObject {
                             return false
                         }
 
+                    #if DEBUG
+                    print("[DeliveryViewModel] myDeliveries final count: \(self?.myDeliveries.count ?? 0)")
+                    #endif
+
                 case .failure(let error):
+                    #if DEBUG
+                    print("[DeliveryViewModel] fetchMyDeliveries FAILED: \(error.localizedDescription)")
+                    #endif
                     // Don't clear existing data on failure - preserve optimistic updates
                     // Only show error if we have no data at all
                     if self?.myDeliveries.isEmpty == true {
