@@ -17188,6 +17188,7 @@ def create_demo_order(db: Session = Depends(get_db)):
         new_order = Order(
             order_number=order_number,
             vendor_id=demo_vendor.id,
+            customer_id=demo_customer.id,  # Link to demo customer for app visibility
             customer_name=f"{demo_customer.first_name} {demo_customer.last_name}",
             customer_email=demo_customer.email,
             customer_phone=demo_customer.phone or "+14155551001",
