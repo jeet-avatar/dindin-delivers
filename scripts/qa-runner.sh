@@ -4257,7 +4257,308 @@ EOF
 }
 
 # ============================================================
-# Agent 19: Validator (Aggregates all reports)
+# Agent 19: Deployment Validation (Production Only)
+# Checks production deployment readiness
+# ============================================================
+run_deployment_agent() {
+    echo -e "${YELLOW}◆ Running Deployment Validation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_DEPLOYMENT.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << EOF
+# QA Report: Deployment Validation
+
+**Environment**: $ENV
+**URL**: $API_URL
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates production deployment readiness.
+
+---
+
+## 1. Production API Health
+EOF
+
+    # Test production API health
+    local prod_health=$(curl -s --max-time 10 "https://api.dollor.ai/health" 2>/dev/null)
+
+    if echo "$prod_health" | grep -q '"status".*"healthy"'; then
+        local version=$(echo "$prod_health" | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','unknown'))" 2>/dev/null)
+        echo "" >> "$report"
+        echo "| Check | Status | Details |" >> "$report"
+        echo "|-------|--------|---------|" >> "$report"
+        echo "| Production API | ✅ PASS | Healthy, v$version |" >> "$report"
+        ((passed++))
+    else
+        echo "" >> "$report"
+        echo "| Check | Status | Details |" >> "$report"
+        echo "|-------|--------|---------|" >> "$report"
+        echo "| Production API | ❌ FAIL | Not responding |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+## 2. Demo Accounts Verification
+EOF
+
+    # Test demo accounts on production
+    local customer_login=$(curl -s --max-time 10 -X POST "https://api.dollor.ai/api/auth/customer/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=demo.customer@dollor.ai&password=DemoCustomer2025!" 2>/dev/null)
+
+    local driver_login=$(curl -s --max-time 10 -X POST "https://api.dollor.ai/api/auth/driver/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=demo.driver@dollor.ai&password=DemoDriver2025!" 2>/dev/null)
+
+    local vendor_login=$(curl -s --max-time 10 -X POST "https://api.dollor.ai/api/auth/vendor/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=demo.restaurant@dollor.ai&password=DemoRestaurant2025!" 2>/dev/null)
+
+    echo "" >> "$report"
+    echo "| Account | Status | Details |" >> "$report"
+    echo "|---------|--------|---------|" >> "$report"
+
+    if echo "$customer_login" | grep -q "access_token"; then
+        echo "| Demo Customer | ✅ PASS | Login successful |" >> "$report"
+        ((passed++))
+    else
+        echo "| Demo Customer | ❌ FAIL | Login failed |" >> "$report"
+        ((failed++))
+    fi
+
+    if echo "$driver_login" | grep -q "access_token"; then
+        echo "| Demo Driver | ✅ PASS | Login successful |" >> "$report"
+        ((passed++))
+    else
+        echo "| Demo Driver | ❌ FAIL | Login failed |" >> "$report"
+        ((failed++))
+    fi
+
+    if echo "$vendor_login" | grep -q "access_token"; then
+        echo "| Demo Restaurant | ✅ PASS | Login successful |" >> "$report"
+        ((passed++))
+    else
+        echo "| Demo Restaurant | ❌ FAIL | Login failed |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+## 3. Documentation Files
+EOF
+
+    echo "" >> "$report"
+    echo "| File | Status |" >> "$report"
+    echo "|------|--------|" >> "$report"
+
+    if [ -f "$PROJECT_ROOT/apps/ios/DEPLOYMENT.md" ]; then
+        echo "| DEPLOYMENT.md | ✅ Present |" >> "$report"
+        ((passed++))
+    else
+        echo "| DEPLOYMENT.md | ⚠️ Missing |" >> "$report"
+        ((warnings++))
+    fi
+
+    if [ -f "$PROJECT_ROOT/apps/ios/TESTFLIGHT_BUILD_GUIDE.md" ]; then
+        echo "| TESTFLIGHT_BUILD_GUIDE.md | ✅ Present |" >> "$report"
+        ((passed++))
+    else
+        echo "| TESTFLIGHT_BUILD_GUIDE.md | ⚠️ Missing |" >> "$report"
+        ((warnings++))
+    fi
+
+    if [ -f "$PROJECT_ROOT/apps/ios/PRODUCTION_QA_GUIDE.md" ]; then
+        echo "| PRODUCTION_QA_GUIDE.md | ✅ Present |" >> "$report"
+        ((passed++))
+    else
+        echo "| PRODUCTION_QA_GUIDE.md | ⚠️ Missing |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | $passed |
+| Failed | $failed |
+| Warnings | $warnings |
+| Total Checks | $((passed + failed + warnings)) |
+
+**Status**: $([ $failed -eq 0 ] && echo "✅ PASS - Ready for deployment" || echo "❌ FAIL - Fix issues before deployment")
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ Deployment Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Deployment Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 20: TestFlight Build Validation (Production Only)
+# Validates iOS build configuration
+# ============================================================
+run_testflight_agent() {
+    echo -e "${YELLOW}◆ Running TestFlight Build Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_TESTFLIGHT.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << EOF
+# QA Report: TestFlight Build Validation
+
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates iOS build configuration for TestFlight.
+
+---
+
+## 1. Build Numbers
+EOF
+
+    echo "" >> "$report"
+    echo "| App | Build Number | Status |" >> "$report"
+    echo "|-----|--------------|--------|" >> "$report"
+
+    # Check Customer app build number
+    local customer_build=$(grep "CURRENT_PROJECT_VERSION" "$PROJECT_ROOT/apps/ios/customer/eatfaircustomer.xcodeproj/project.pbxproj" 2>/dev/null | head -1 | grep -o '[0-9]*' | head -1)
+    if [ -n "$customer_build" ]; then
+        echo "| Customer | $customer_build | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer | - | ❌ Not found |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check Driver app build number
+    local driver_build=$(grep "CURRENT_PROJECT_VERSION" "$PROJECT_ROOT/apps/ios/delivery/eatffairdelivery.xcodeproj/project.pbxproj" 2>/dev/null | head -1 | grep -o '[0-9]*' | head -1)
+    if [ -n "$driver_build" ]; then
+        echo "| Driver | $driver_build | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver | - | ❌ Not found |" >> "$report"
+        ((failed++))
+    fi
+
+    # Check Restaurant app build number
+    local restaurant_build=$(grep "CURRENT_PROJECT_VERSION" "$PROJECT_ROOT/apps/ios/restaurant/eatffairrestaurant.xcodeproj/project.pbxproj" 2>/dev/null | head -1 | grep -o '[0-9]*' | head -1)
+    if [ -n "$restaurant_build" ]; then
+        echo "| Restaurant | $restaurant_build | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant | - | ❌ Not found |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+## 2. Workspace Files
+EOF
+
+    echo "" >> "$report"
+    echo "| App | Workspace | Status |" >> "$report"
+    echo "|-----|-----------|--------|" >> "$report"
+
+    if [ -d "$PROJECT_ROOT/apps/ios/customer/eatfaircustomer.xcworkspace" ]; then
+        echo "| Customer | eatfaircustomer.xcworkspace | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Customer | - | ❌ Missing |" >> "$report"
+        ((failed++))
+    fi
+
+    if [ -d "$PROJECT_ROOT/apps/ios/delivery/eatffairdelivery.xcworkspace" ]; then
+        echo "| Driver | eatffairdelivery.xcworkspace | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Driver | - | ❌ Missing |" >> "$report"
+        ((failed++))
+    fi
+
+    if [ -d "$PROJECT_ROOT/apps/ios/restaurant/eatffairrestaurant.xcworkspace" ]; then
+        echo "| Restaurant | eatffairrestaurant.xcworkspace | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Restaurant | - | ❌ Missing |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+## 3. App Store Connect Configuration
+EOF
+
+    echo "" >> "$report"
+    echo "| Check | Status |" >> "$report"
+    echo "|-------|--------|" >> "$report"
+
+    if [ -f "$HOME/.appstoreconnect/private_keys/api_key.json" ]; then
+        echo "| API Key JSON | ✅ Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| API Key JSON | ⚠️ Not found at ~/.appstoreconnect/private_keys/api_key.json |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+## 4. Bundle Identifiers
+EOF
+
+    echo "" >> "$report"
+    echo "| App | Expected Bundle ID |" >> "$report"
+    echo "|-----|--------------------|" >> "$report"
+    echo "| Customer | com.dollorai.customer |" >> "$report"
+    echo "| Driver | com.dollorai.delivery |" >> "$report"
+    echo "| Restaurant | com.dollorai.restaurant |" >> "$report"
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | $passed |
+| Failed | $failed |
+| Warnings | $warnings |
+| Total Checks | $((passed + failed + warnings)) |
+
+**Status**: $([ $failed -eq 0 ] && echo "✅ PASS - Ready for TestFlight" || echo "❌ FAIL - Fix build configuration")
+
+---
+
+## Build Commands Reference
+
+See [TESTFLIGHT_BUILD_GUIDE.md](../TESTFLIGHT_BUILD_GUIDE.md) for full instructions.
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ TestFlight Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ TestFlight Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 21: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -4285,7 +4586,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow" "DEPLOYMENT:Deployment Readiness" "TESTFLIGHT:TestFlight Build"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -4398,7 +4699,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (18 agents)..."
+    echo "Starting QA Agent execution (20 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -4422,8 +4723,10 @@ main() {
     run_order_lifecycle_agent || true
     run_api_docs_agent || true
     run_driver_details_flow_agent || true
+    run_deployment_agent || true
+    run_testflight_agent || true
 
-    # Run validator last (Agent 19)
+    # Run validator last (Agent 21)
     run_validator_agent
 
     exit_code=$?
