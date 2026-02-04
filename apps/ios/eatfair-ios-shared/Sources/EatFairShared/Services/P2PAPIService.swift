@@ -3196,8 +3196,13 @@ public class P2PAPIService: ObservableObject {
 
     /// Restaurant accepts an order (within 3-minute window)
     /// POST /api/erp/orders/{orderId}/restaurant-accept
+    /// - Parameters:
+    ///   - orderId: The order ID to accept
+    ///   - estimatedPrepMinutes: Optional prep time in minutes (default 15). Drivers are notified with this ETA.
+    ///   - completion: Callback with success/failure
     public func restaurantAcceptOrder(
         orderId: Int,
+        estimatedPrepMinutes: Int = 15,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/restaurant-accept") else {
@@ -3207,10 +3212,15 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let token = vendorToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+
+        // Include estimated prep time in request body
+        let body: [String: Any] = ["estimated_prep_minutes": estimatedPrepMinutes]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -8099,6 +8109,18 @@ public struct P2PDeliveryOrder: Identifiable, Codable {
     public let pickedUpAt: String?
     public let deliveredAt: String?
 
+    // ETA fields for early driver notification
+    public let estimatedPrepMinutes: Int?
+    public let estimatedReadyAt: String?
+    public let minutesUntilReady: Int?
+    public let isReady: Bool?
+
+    // Driver en-route fields (early driver acceptance)
+    public let driverEnRoute: Bool?
+    public let driverAcceptedAt: String?
+    public let driverEtaToRestaurant: Int?
+    public let driverEtaText: String?
+
     /// Computed property to get delivery address as string
     public var deliveryAddressString: String {
         if let addr = customerAddress, !addr.isEmpty {
@@ -8130,6 +8152,16 @@ public struct P2PDeliveryOrder: Identifiable, Codable {
         case assignedAt = "assigned_at"
         case pickedUpAt = "picked_up_at"
         case deliveredAt = "delivered_at"
+        // ETA fields
+        case estimatedPrepMinutes = "estimated_prep_minutes"
+        case estimatedReadyAt = "estimated_ready_at"
+        case minutesUntilReady = "minutes_until_ready"
+        case isReady = "is_ready"
+        // Driver en-route fields
+        case driverEnRoute = "driver_en_route"
+        case driverAcceptedAt = "driver_accepted_at"
+        case driverEtaToRestaurant = "driver_eta_to_restaurant"
+        case driverEtaText = "driver_eta_text"
     }
 }
 
@@ -8559,6 +8591,16 @@ public struct P2PVendorOrder: Codable, Identifiable {
     public let driver: P2PDriverInfo?
     public let pickedUpAt: String?
 
+    // ETA fields for early driver notification
+    public let estimatedPrepMinutes: Int?
+    public let estimatedReadyAt: String?
+
+    // Driver en-route fields (early driver acceptance)
+    public let driverEnRoute: Bool?
+    public let driverAcceptedAt: String?
+    public let driverEtaToRestaurant: Int?
+    public let driverEtaText: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -8577,6 +8619,12 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case driverName = "driver_name"
         case driver
         case pickedUpAt = "picked_up_at"
+        case estimatedPrepMinutes = "estimated_prep_minutes"
+        case estimatedReadyAt = "estimated_ready_at"
+        case driverEnRoute = "driver_en_route"
+        case driverAcceptedAt = "driver_accepted_at"
+        case driverEtaToRestaurant = "driver_eta_to_restaurant"
+        case driverEtaText = "driver_eta_text"
     }
 
     /// Get items as dictionary array for compatibility
@@ -8675,6 +8723,11 @@ public struct P2PVendorOrder: Codable, Identifiable {
             mappedStatus = status
         }
 
+        // Get driver info from nested driver object or top-level fields
+        let resolvedDriverName = driver?.name ?? driverName
+        let resolvedDriverPhone = driver?.phone
+        let resolvedDriverRating = driver?.rating
+
         return Order(
             id: String(id),  // Database ID for API calls
             orderId: orderNumber,  // Display order number (e.g., "EF120500009")
@@ -8701,7 +8754,19 @@ public struct P2PVendorOrder: Codable, Identifiable {
             tax: tax,
             total: total,
             status: mappedStatus,
-            placedAt: timestamp
+            placedAt: timestamp,
+            // Driver info
+            driverName: resolvedDriverName,
+            driverPhone: resolvedDriverPhone,
+            driverRating: resolvedDriverRating,
+            // ETA fields
+            estimatedPrepMinutes: estimatedPrepMinutes,
+            estimatedReadyAt: estimatedReadyAt,
+            // Driver en-route fields
+            driverEnRoute: driverEnRoute,
+            driverAcceptedAt: driverAcceptedAt,
+            driverEtaToRestaurant: driverEtaToRestaurant,
+            driverEtaText: driverEtaText
         )
     }
 }
@@ -8793,7 +8858,22 @@ public struct P2PCustomerOrder: Codable, Identifiable {
     public let deliveryInstructions: String?
     public let driverId: Int?
     public let driverName: String?
+    public let driverPhone: String?
+    public let driverRating: Double?
     public let driverLocation: String?  // JSON string with lat/lng
+
+    // ETA fields for early driver notification
+    public let estimatedPrepMinutes: Int?
+    public let estimatedReadyAt: String?
+    public let minutesUntilReady: Int?
+    public let isReady: Bool?
+
+    // Driver en-route fields (early driver acceptance)
+    public let driverEnRoute: Bool?
+    public let driverAcceptedAt: String?
+    public let driverEtaToRestaurant: Int?
+    public let driverEtaText: String?
+
     public let pickupLatitude: Double?
     public let pickupLongitude: Double?
     public let deliveryLatitude: Double?
@@ -8823,7 +8903,17 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         case deliveryInstructions = "delivery_instructions"
         case driverId = "driver_id"
         case driverName = "driver_name"
+        case driverPhone = "driver_phone"
+        case driverRating = "driver_rating"
         case driverLocation = "driver_location"
+        case estimatedPrepMinutes = "estimated_prep_minutes"
+        case estimatedReadyAt = "estimated_ready_at"
+        case minutesUntilReady = "minutes_until_ready"
+        case isReady = "is_ready"
+        case driverEnRoute = "driver_en_route"
+        case driverAcceptedAt = "driver_accepted_at"
+        case driverEtaToRestaurant = "driver_eta_to_restaurant"
+        case driverEtaText = "driver_eta_text"
         case pickupLatitude = "pickup_latitude"
         case pickupLongitude = "pickup_longitude"
         case deliveryLatitude = "delivery_latitude"
@@ -8985,7 +9075,21 @@ public struct P2PCustomerOrder: Codable, Identifiable {
             total: totalAmount,
             status: displayStatus,
             placedAt: timestamp,
-            driverId: driverId.map { String($0) }
+            driverId: driverId.map { String($0) },
+            // Driver info
+            driverName: driverName,
+            driverPhone: driverPhone,
+            driverRating: driverRating,
+            // ETA fields
+            estimatedPrepMinutes: estimatedPrepMinutes,
+            estimatedReadyAt: estimatedReadyAt,
+            minutesUntilReady: minutesUntilReady,
+            isReady: isReady,
+            // Driver en-route fields
+            driverEnRoute: driverEnRoute,
+            driverAcceptedAt: driverAcceptedAt,
+            driverEtaToRestaurant: driverEtaToRestaurant,
+            driverEtaText: driverEtaText
         )
     }
 }

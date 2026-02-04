@@ -626,7 +626,15 @@ struct OrderCard: View {
 
                 // Quick Stats
                 HStack(spacing: 16) {
-                    OrderStatBadge(icon: "clock.fill", text: estimatedTime, color: Theme.statusInfo)
+                    // ETA badge - show "Ready in X min" or "Ready Now!"
+                    if let isReady = order.isReady, isReady {
+                        OrderStatBadge(icon: "checkmark.circle.fill", text: "Ready Now!", color: .green)
+                    } else if let minutes = order.minutesUntilReady, minutes > 0 {
+                        OrderStatBadge(icon: "clock.fill", text: "Ready ~\(minutes)m", color: Theme.brandOrange)
+                    } else {
+                        OrderStatBadge(icon: "clock.fill", text: estimatedTime, color: Theme.statusInfo)
+                    }
+
                     OrderStatBadge(icon: "bag.fill", text: "\(order.itemsCount) items", color: Theme.brandOrange)
 
                     if order.priorityFee > 0 {

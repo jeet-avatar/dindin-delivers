@@ -322,11 +322,23 @@ public struct Order: Identifiable, Codable {
     
     // Distance (calculated)
     public var restaurantToCustomerDistance: Double? // miles
-    
+
     // Rating & Tip Status
     public var isRated: Bool  // Driver rated
     public var isRestaurantRated: Bool  // Restaurant rated
     public var isTipped: Bool
+
+    // ETA fields for early driver notification
+    public var estimatedPrepMinutes: Int?
+    public var estimatedReadyAt: String?
+    public var minutesUntilReady: Int?
+    public var isReady: Bool?
+
+    // Driver en-route fields (early driver acceptance)
+    public var driverEnRoute: Bool?
+    public var driverAcceptedAt: String?
+    public var driverEtaToRestaurant: Int?
+    public var driverEtaText: String?
 
     enum CodingKeys: String, CodingKey {
         case id, orderId, customerId, customerName, customerPhone, customerEmail
@@ -339,6 +351,10 @@ public struct Order: Identifiable, Codable {
         case status, placedAt, acceptedAt, preparedAt, pickedUpAt, deliveredAt
         case estimatedDeliveryTime, driverId, driverName, driverPhone, driverRating
         case restaurantToCustomerDistance, isRated, isRestaurantRated, isTipped
+        // ETA fields
+        case estimatedPrepMinutes, estimatedReadyAt, minutesUntilReady, isReady
+        // Driver en-route fields
+        case driverEnRoute, driverAcceptedAt, driverEtaToRestaurant, driverEtaText
     }
     
     public init(from decoder: Decoder) throws {
@@ -402,9 +418,21 @@ public struct Order: Identifiable, Codable {
         isRated = try container.decodeIfPresent(Bool.self, forKey: .isRated) ?? false
         isRestaurantRated = try container.decodeIfPresent(Bool.self, forKey: .isRestaurantRated) ?? false
         isTipped = try container.decodeIfPresent(Bool.self, forKey: .isTipped) ?? false
+
+        // ETA fields
+        estimatedPrepMinutes = try container.decodeIfPresent(Int.self, forKey: .estimatedPrepMinutes)
+        estimatedReadyAt = try container.decodeIfPresent(String.self, forKey: .estimatedReadyAt)
+        minutesUntilReady = try container.decodeIfPresent(Int.self, forKey: .minutesUntilReady)
+        isReady = try container.decodeIfPresent(Bool.self, forKey: .isReady)
+
+        // Driver en-route fields
+        driverEnRoute = try container.decodeIfPresent(Bool.self, forKey: .driverEnRoute)
+        driverAcceptedAt = try container.decodeIfPresent(String.self, forKey: .driverAcceptedAt)
+        driverEtaToRestaurant = try container.decodeIfPresent(Int.self, forKey: .driverEtaToRestaurant)
+        driverEtaText = try container.decodeIfPresent(String.self, forKey: .driverEtaText)
     }
     
-    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isRestaurantRated: Bool = false, isTipped: Bool = false) {
+    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isRestaurantRated: Bool = false, isTipped: Bool = false, estimatedPrepMinutes: Int? = nil, estimatedReadyAt: String? = nil, minutesUntilReady: Int? = nil, isReady: Bool? = nil, driverEnRoute: Bool? = nil, driverAcceptedAt: String? = nil, driverEtaToRestaurant: Int? = nil, driverEtaText: String? = nil) {
         self.id = id
         self.orderId = orderId
         self.customerId = customerId
@@ -446,8 +474,16 @@ public struct Order: Identifiable, Codable {
         self.isRated = isRated
         self.isRestaurantRated = isRestaurantRated
         self.isTipped = isTipped
+        self.estimatedPrepMinutes = estimatedPrepMinutes
+        self.estimatedReadyAt = estimatedReadyAt
+        self.minutesUntilReady = minutesUntilReady
+        self.isReady = isReady
+        self.driverEnRoute = driverEnRoute
+        self.driverAcceptedAt = driverAcceptedAt
+        self.driverEtaToRestaurant = driverEtaToRestaurant
+        self.driverEtaText = driverEtaText
     }
-    
+
     public init() {
         self.orderId = UUID().uuidString
         self.customerId = ""
@@ -480,6 +516,14 @@ public struct Order: Identifiable, Codable {
         self.isRated = false
         self.isRestaurantRated = false
         self.isTipped = false
+        self.estimatedPrepMinutes = nil
+        self.estimatedReadyAt = nil
+        self.minutesUntilReady = nil
+        self.isReady = nil
+        self.driverEnRoute = nil
+        self.driverAcceptedAt = nil
+        self.driverEtaToRestaurant = nil
+        self.driverEtaText = nil
     }
 }
 
