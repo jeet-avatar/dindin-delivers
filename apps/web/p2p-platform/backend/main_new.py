@@ -8133,51 +8133,92 @@ def get_vendors(
     query = db.query(Vendor)
 
     if status:
-        query = query.filter(Vendor.onboarding_status == VendorStatus[status.upper()])
+        try:
+            query = query.filter(Vendor.onboarding_status == VendorStatus[status.upper()])
+        except KeyError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
     if risk_rating:
-        query = query.filter(Vendor.risk_rating == RiskRating[risk_rating.upper()])
+        try:
+            query = query.filter(Vendor.risk_rating == RiskRating[risk_rating.upper()])
+        except KeyError:
+            raise HTTPException(status_code=400, detail=f"Invalid risk_rating: {risk_rating}")
 
     vendors = query.order_by(Vendor.created_at.desc()).all()
 
     # Return with iOS compatibility fields
     result = []
     for v in vendors:
-        vendor_dict = {
-            "id": v.id,
-            "vendor_id": str(v.id),
-            "company_name": v.company_name,
-            "restaurant_name": v.restaurant_name,
-            "cuisine_type": v.cuisine_type,
-            "description": v.description,
-            "contact_name": v.contact_name,
-            "contact_email": v.contact_email,
-            "contact_phone": v.contact_phone,
-            "street": v.street,
-            "city": v.city,
-            "state": v.state,
-            "zip_code": v.zip_code,
-            "country": v.country,
-            "latitude": v.latitude,
-            "longitude": v.longitude,
-            "delivery_available": v.delivery_available if v.delivery_available is not None else True,
-            "pickup_available": v.pickup_available if v.pickup_available is not None else True,
-            "average_prep_time": v.average_prep_time,
-            "onboarding_status": v.onboarding_status.value if hasattr(v.onboarding_status, 'value') else str(v.onboarding_status) if v.onboarding_status else "pending",
-            "is_published": v.is_published,
-            "minimum_order": 0.0,  # No minimum order required
-            "delivery_fee": 0.0,  # Default delivery fee
-            # iOS Compatibility Fields - computed from existing data
-            "name": v.restaurant_name or v.company_name or f"Restaurant {v.id}",
-            "phone": v.contact_phone,
-            "address": f"{v.street}, {v.city}, {v.state} {v.zip_code}".strip(", ") if v.street else None,
-            "rating": 4.5,  # Default rating
-            "is_open": True,  # Default to open
-            "logo_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or ""),
-            "banner_url": get_stock_image_for_restaurant(v.cuisine_type or "", v.restaurant_name or v.company_name or ""),
-            "delivery_time_minutes": v.average_prep_time or 30,
-        }
-        result.append(vendor_dict)
+        try:
+            # Build address safely with null checks
+            address_parts = []
+            if v.street:
+                address_parts.append(str(v.street))
+            if v.city:
+                address_parts.append(str(v.city))
+            if v.state:
+                address_parts.append(str(v.state))
+            if v.zip_code:
+                address_parts.append(str(v.zip_code))
+            address = ", ".join(address_parts) if address_parts else None
+
+            # Get onboarding status safely
+            if hasattr(v.onboarding_status, 'value'):
+                onboarding_status = v.onboarding_status.value
+            elif v.onboarding_status:
+                onboarding_status = str(v.onboarding_status)
+            else:
+                onboarding_status = "pending"
+
+            # Get stock images safely
+            try:
+                cuisine = v.cuisine_type or ""
+                name = v.restaurant_name or v.company_name or ""
+                logo_url = get_stock_image_for_restaurant(cuisine, name)
+                banner_url = logo_url
+            except Exception:
+                logo_url = None
+                banner_url = None
+
+            vendor_dict = {
+                "id": v.id,
+                "vendor_id": str(v.id),
+                "company_name": v.company_name,
+                "restaurant_name": v.restaurant_name,
+                "cuisine_type": v.cuisine_type,
+                "description": v.description,
+                "contact_name": v.contact_name,
+                "contact_email": v.contact_email,
+                "contact_phone": v.contact_phone,
+                "street": v.street,
+                "city": v.city,
+                "state": v.state,
+                "zip_code": v.zip_code,
+                "country": v.country,
+                "latitude": v.latitude,
+                "longitude": v.longitude,
+                "delivery_available": v.delivery_available if v.delivery_available is not None else True,
+                "pickup_available": v.pickup_available if v.pickup_available is not None else True,
+                "average_prep_time": v.average_prep_time,
+                "onboarding_status": onboarding_status,
+                "is_published": v.is_published,
+                "minimum_order": 0.0,  # No minimum order required
+                "delivery_fee": 0.0,  # Default delivery fee
+                # iOS Compatibility Fields - computed from existing data
+                "name": v.restaurant_name or v.company_name or f"Restaurant {v.id}",
+                "phone": v.contact_phone,
+                "address": address,
+                "rating": 4.5,  # Default rating
+                "is_open": True,  # Default to open
+                "logo_url": logo_url,
+                "banner_url": banner_url,
+                "delivery_time_minutes": v.average_prep_time or 30,
+            }
+            result.append(vendor_dict)
+        except Exception as e:
+            # Log error but continue processing other vendors
+            print(f"Error processing vendor {v.id}: {e}")
+            continue
 
     return result
 
