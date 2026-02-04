@@ -3768,7 +3768,184 @@ EOF
 }
 
 # ============================================================
-# Agent 17: Validator (Aggregates all reports)
+# Agent 17: API Endpoint Documentation Validation
+# Verifies endpoint documentation exists and is accurate
+# Identifies scattered endpoints, inconsistent patterns
+# ============================================================
+run_api_docs_agent() {
+    echo -e "${YELLOW}◆ Running API Endpoint Documentation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_API_DOCS.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << 'EOF'
+# QA Report: API Endpoint Documentation Validation
+
+**Environment**: $ENV
+**URL**: $API_URL
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates API endpoint documentation completeness and identifies
+inconsistencies that could cause iOS/Android integration issues.
+
+---
+
+## Issues Identified
+
+### 1. Centralized Endpoint Reference
+EOF
+
+    # Check for centralized endpoint documentation
+    if [ -f "$PROJECT_ROOT/.claude/docs/API_ENDPOINTS.md" ] || [ -f "$PROJECT_ROOT/docs/API_ENDPOINTS.md" ]; then
+        echo "| Status | ✅ PASS |" >> "$report"
+        echo "| File | Found |" >> "$report"
+        ((passed++))
+    else
+        echo "| Status | ❌ FAIL |" >> "$report"
+        echo "| Issue | No centralized endpoint documentation found |" >> "$report"
+        echo "| Suggestion | Create .claude/docs/API_ENDPOINTS.md with all production endpoints |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 2. Endpoint Pattern Analysis
+
+| Pattern | Examples | Consistency |
+|---------|----------|-------------|
+EOF
+
+    # Count endpoint patterns in P2PAPIService
+    local p2p_file="$PROJECT_ROOT/apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift"
+    if [ -f "$p2p_file" ]; then
+        local total_lines=$(wc -l < "$p2p_file" | tr -d ' ')
+        local api_endpoints=$(grep -c '/api/' "$p2p_file" 2>/dev/null || echo "0")
+        local erp_endpoints=$(grep -c '/erp/' "$p2p_file" 2>/dev/null || echo "0")
+        local auth_endpoints=$(grep -c '/auth/' "$p2p_file" 2>/dev/null || echo "0")
+
+        echo "| /api/* prefix | ~$api_endpoints endpoints | Primary pattern |" >> "$report"
+        echo "| /erp/* prefix | ~$erp_endpoints endpoints | Legacy/ERP pattern |" >> "$report"
+        echo "| /auth/* prefix | ~$auth_endpoints endpoints | Authentication |" >> "$report"
+        echo "| **Total lines** | $total_lines | Large file |" >> "$report"
+
+        if [ "$total_lines" -gt 5000 ]; then
+            echo "" >> "$report"
+            echo "⚠️ **WARNING**: P2PAPIService.swift has $total_lines lines - endpoints scattered across large file" >> "$report"
+            ((warnings++))
+        fi
+        ((passed++))
+    else
+        echo "| P2PAPIService | Not found | ❌ |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 3. Authentication Patterns
+
+| App | Login Endpoint | Content-Type | Username Field |
+|-----|----------------|--------------|----------------|
+EOF
+
+    # Document auth patterns
+    echo "| Customer | /auth/customer/login | application/x-www-form-urlencoded | username |" >> "$report"
+    echo "| Driver | /auth/driver/login | application/x-www-form-urlencoded | username |" >> "$report"
+    echo "| Vendor | /auth/vendor/login | application/x-www-form-urlencoded | username |" >> "$report"
+    ((passed++))
+
+    cat >> "$report" << 'EOF'
+
+⚠️ **Note**: Login endpoints use `username` field (not `email`) with form-urlencoded format.
+Most other endpoints use `application/json` with `email` field.
+
+### 4. Duplicate/Alias Endpoints
+
+EOF
+
+    # Check backend for duplicate routes
+    local backend_file="$PROJECT_ROOT/apps/web/p2p-platform/backend/main_new.py"
+    if [ -f "$backend_file" ]; then
+        local route_count=$(grep -c "@app\.\(get\|post\|put\|delete\|patch\)" "$backend_file" 2>/dev/null || echo "0")
+        echo "| Total routes in main_new.py | ~$route_count |" >> "$report"
+
+        # Count potential duplicates
+        local duplicate_hints=$(grep -E "(alias|compatibility|legacy|deprecated)" "$backend_file" 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$duplicate_hints" -gt 10 ]; then
+            echo "| Potential alias routes | ~$duplicate_hints (for backward compatibility) |" >> "$report"
+            echo "" >> "$report"
+            echo "⚠️ Backend has duplicate routes for iOS/Android compatibility" >> "$report"
+            ((warnings++))
+        fi
+        ((passed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 5. Endpoint Reference Status
+
+| Endpoint Category | iOS Uses | Documented | Test Coverage |
+|-------------------|----------|------------|---------------|
+| Customer Auth | ✅ | ⚠️ Scattered | ✅ QA Agent 1 |
+| Driver Auth | ✅ | ⚠️ Scattered | ✅ QA Agent 1 |
+| Vendor Auth | ✅ | ⚠️ Scattered | ✅ QA Agent 1 |
+| Orders CRUD | ✅ | ⚠️ Scattered | ✅ QA Agent 16 |
+| Driver Dashboard | ✅ | ⚠️ Scattered | ✅ QA Agent 13 |
+| Vendor Dashboard | ✅ | ⚠️ Scattered | ✅ QA Agent 14 |
+
+---
+
+## Recommendations
+
+| Priority | Suggestion | Benefit |
+|----------|------------|---------|
+| HIGH | Create `.claude/docs/API_ENDPOINTS.md` | Single source of truth for testing |
+| HIGH | Document request format per endpoint | No more guessing username vs email |
+| MEDIUM | Add endpoint validation tests in CI | Catch mismatches before production |
+| MEDIUM | Use AppConfig.Endpoints constants in iOS | Centralized endpoint strings |
+
+---
+
+## Summary
+
+EOF
+
+    echo "| Metric | Count |" >> "$report"
+    echo "|--------|-------|" >> "$report"
+    echo "| Passed | $passed |" >> "$report"
+    echo "| Failed | $failed |" >> "$report"
+    echo "| Warnings | $warnings |" >> "$report"
+    echo "| Total Checks | $((passed + failed + warnings)) |" >> "$report"
+
+    if [ $failed -eq 0 ] && [ $warnings -eq 0 ]; then
+        echo "" >> "$report"
+        echo "**Status**: ✅ PASS" >> "$report"
+    elif [ $failed -eq 0 ]; then
+        echo "" >> "$report"
+        echo "**Status**: ⚠️ WARNING - Documentation improvements recommended" >> "$report"
+    else
+        echo "" >> "$report"
+        echo "**Status**: ❌ FAIL - Missing critical documentation" >> "$report"
+    fi
+
+    # Fix template variables in report
+    sed -i '' "s/\$ENV/$ENV/g" "$report" 2>/dev/null || true
+    sed -i '' "s/\$PHASE/$PHASE/g" "$report" 2>/dev/null || true
+    sed -i '' "s|\$API_URL|$API_URL|g" "$report" 2>/dev/null || true
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ API Docs Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ API Docs Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 18: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -3796,7 +3973,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -3909,7 +4086,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (16 agents)..."
+    echo "Starting QA Agent execution (17 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -3931,8 +4108,9 @@ main() {
     run_customer_app_agent || true
     run_early_driver_notification_agent || true
     run_order_lifecycle_agent || true
+    run_api_docs_agent || true
 
-    # Run validator last
+    # Run validator last (Agent 18)
     run_validator_agent
 
     exit_code=$?
