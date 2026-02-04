@@ -446,6 +446,24 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
             db.rollback()
             errors.append(f"orders.{col_name}: {str(e)}")
 
+    # Migration: Add early driver notification columns to orders table
+    early_driver_notification_columns = [
+        ("estimated_prep_minutes", "INTEGER"),
+        ("estimated_ready_at", "TIMESTAMP"),
+        ("driver_en_route", "BOOLEAN DEFAULT FALSE"),
+        ("driver_accepted_at", "TIMESTAMP"),
+        ("driver_eta_to_restaurant", "INTEGER"),
+    ]
+
+    for col_name, col_type in early_driver_notification_columns:
+        try:
+            db.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"orders.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"orders.{col_name}: {str(e)}")
+
     # Migration: Add new OrderStatus enum values for restaurant acceptance and delivery decision
     # PostgreSQL requires ALTER TYPE to add new enum values
     # SQLAlchemy stores enum NAMES (uppercase) not values, so we need uppercase values
@@ -918,6 +936,12 @@ def _run_startup_migrations():
         ("ride_requests", "payment_completed_at", "TIMESTAMP"),
         ("ride_requests", "driver_paid_at", "TIMESTAMP"),
         ("ride_requests", "stripe_transfer_id", "VARCHAR(255)"),
+        # Early Driver Notification columns - orders table
+        ("orders", "estimated_prep_minutes", "INTEGER"),
+        ("orders", "estimated_ready_at", "TIMESTAMP"),
+        ("orders", "driver_en_route", "BOOLEAN DEFAULT FALSE"),
+        ("orders", "driver_accepted_at", "TIMESTAMP"),
+        ("orders", "driver_eta_to_restaurant", "INTEGER"),
     ]
 
     # Tables to create if they don't exist
@@ -12334,8 +12358,20 @@ def get_customer_orders(
             "delivery_instructions": order.delivery_instructions,
             "driver_id": order.driver_id,
             "driver_name": order.driver_name,
+            "driver_phone": driver_info.get("phone") if driver_info else None,
+            "driver_rating": driver_info.get("rating") if driver_info else None,
             "driver": driver_info,  # Full driver details with vehicle
             "driver_location": order.driver_location,
+            # ETA fields for early driver notification
+            "estimated_prep_minutes": getattr(order, 'estimated_prep_minutes', None),
+            "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if getattr(order, 'estimated_ready_at', None) else None,
+            "minutes_until_ready": max(0, int((order.estimated_ready_at - datetime.now()).total_seconds() / 60)) if getattr(order, 'estimated_ready_at', None) and order.estimated_ready_at > datetime.now() else None,
+            "is_ready": order.status.value.lower() in ["ready", "ready_for_pickup"] if order.status else False,
+            # Driver en-route fields (early driver acceptance)
+            "driver_en_route": getattr(order, 'driver_en_route', False) or False,
+            "driver_accepted_at": (order.driver_accepted_at.isoformat() + "Z") if getattr(order, 'driver_accepted_at', None) else None,
+            "driver_eta_to_restaurant": getattr(order, 'driver_eta_to_restaurant', None),
+            "driver_eta_text": f"~{max(0, getattr(order, 'driver_eta_to_restaurant', 0) - int((datetime.now() - order.driver_accepted_at).total_seconds() / 60))} min" if getattr(order, 'driver_en_route', False) and getattr(order, 'driver_accepted_at', None) and getattr(order, 'driver_eta_to_restaurant', None) else None,
             "pickup_latitude": vendor.latitude if vendor else None,
             "pickup_longitude": vendor.longitude if vendor else None,
             "delivery_latitude": order.delivery_latitude,
@@ -12711,6 +12747,31 @@ async def track_customer_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Get driver details if assigned
+    driver_info = None
+    if order.driver_id:
+        driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+        if driver:
+            driver_info = {
+                "id": driver.id,
+                "name": f"{driver.first_name} {driver.last_name}",
+                "phone": driver.phone,
+                "photo_url": driver.photo_url,
+                "rating": driver.rating
+            }
+
+    # Calculate minutes until ready
+    minutes_until_ready = None
+    if getattr(order, 'estimated_ready_at', None) and order.estimated_ready_at > datetime.now():
+        minutes_until_ready = max(0, int((order.estimated_ready_at - datetime.now()).total_seconds() / 60))
+
+    # Calculate driver ETA text
+    driver_eta_text = None
+    if getattr(order, 'driver_en_route', False) and getattr(order, 'driver_accepted_at', None) and getattr(order, 'driver_eta_to_restaurant', None):
+        elapsed = int((datetime.now() - order.driver_accepted_at).total_seconds() / 60)
+        remaining = max(0, order.driver_eta_to_restaurant - elapsed)
+        driver_eta_text = f"~{remaining} min" if remaining > 0 else "arriving"
+
     return {
         "order_id": order_id,
         "order_number": order.order_number,
@@ -12720,7 +12781,19 @@ async def track_customer_order(
             "longitude": -122.4194 + random.uniform(-0.01, 0.01)
         } if order.driver_id else None,
         "eta_minutes": random.randint(10, 30) if order.driver_id else None,
-        "driver_name": order.driver_name
+        "driver_id": order.driver_id,
+        "driver_name": order.driver_name,
+        "driver": driver_info,
+        # ETA fields for early driver notification
+        "estimated_prep_minutes": getattr(order, 'estimated_prep_minutes', None),
+        "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if getattr(order, 'estimated_ready_at', None) else None,
+        "minutes_until_ready": minutes_until_ready,
+        "is_ready": order.status.value.lower() in ["ready", "ready_for_pickup"] if order.status else False,
+        # Driver en-route fields
+        "driver_en_route": getattr(order, 'driver_en_route', False) or False,
+        "driver_accepted_at": (order.driver_accepted_at.isoformat() + "Z") if getattr(order, 'driver_accepted_at', None) else None,
+        "driver_eta_to_restaurant": getattr(order, 'driver_eta_to_restaurant', None),
+        "driver_eta_text": driver_eta_text
     }
 
 

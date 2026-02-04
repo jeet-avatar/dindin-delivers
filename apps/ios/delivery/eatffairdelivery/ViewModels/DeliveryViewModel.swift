@@ -488,7 +488,15 @@ class DeliveryViewModel: ObservableObject {
             total: totalEarnings,
             status: status,
             placedAt: Int64(Date().timeIntervalSince1970 * 1000),
-            estimatedDeliveryTime: p2pOrder.estimatedDuration.map { Int64($0 * 60 * 1000) }
+            estimatedDeliveryTime: p2pOrder.estimatedDuration.map { Int64($0 * 60 * 1000) },
+            estimatedPrepMinutes: p2pOrder.estimatedPrepMinutes,
+            estimatedReadyAt: p2pOrder.estimatedReadyAt,
+            minutesUntilReady: p2pOrder.minutesUntilReady,
+            isReady: p2pOrder.isReady,
+            driverEnRoute: p2pOrder.driverEnRoute,
+            driverAcceptedAt: p2pOrder.driverAcceptedAt,
+            driverEtaToRestaurant: p2pOrder.driverEtaToRestaurant,
+            driverEtaText: p2pOrder.driverEtaText
         )
     }
 

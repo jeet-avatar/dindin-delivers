@@ -256,6 +256,49 @@ def send_driver_pool_notification(order: "Order", db: Session) -> int:
     return notified
 
 
+def notify_drivers_new_order(order: "Order", prep_minutes: int, vendor: "Vendor", db: Session) -> int:
+    """
+    Send push notifications to nearby available drivers when restaurant accepts an order.
+    Includes ETA information so drivers can head to restaurant early.
+    Returns number of drivers notified.
+
+    This enables the "early driver notification" flow where drivers see orders
+    while they're still being prepared, allowing them to accept and travel to
+    the restaurant, reducing overall delivery time.
+    """
+    from models import Driver, DriverStatus
+
+    # Get available online drivers
+    available_drivers = db.query(Driver).filter(
+        Driver.status == DriverStatus.ONLINE,
+        Driver.is_active == True
+    ).limit(15).all()  # Notify up to 15 nearby drivers
+
+    restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
+
+    notified = 0
+    for driver in available_drivers:
+        success = send_push_notification(
+            user_type="driver",
+            user_id=driver.id,
+            title="New Delivery Available",
+            body=f"{restaurant_name} - Ready in ~{prep_minutes} min",
+            data={
+                "order_id": str(order.id),
+                "order_number": order.order_number,
+                "type": "new_order_with_eta",
+                "estimated_prep_minutes": str(prep_minutes),
+                "restaurant_name": restaurant_name,
+                "status": "preparing"
+            },
+            db=db
+        )
+        if success:
+            notified += 1
+
+    return notified
+
+
 def calculate_delivery_time_minutes(order: "Order") -> Optional[float]:
     """
     Calculate delivery time in minutes from when driver picked up to delivered.
@@ -420,6 +463,7 @@ class CreateOrderRequest(BaseModel):
 
 class AssignDriverRequest(BaseModel):
     driver_id: int
+    driver_eta_minutes: Optional[int] = None  # Driver's ETA to restaurant in minutes
 
 
 class UpdateStatusRequest(BaseModel):
@@ -1328,6 +1372,11 @@ class RestaurantDeclineRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class RestaurantAcceptRequest(BaseModel):
+    """Request body for restaurant accepting an order with optional prep time."""
+    estimated_prep_minutes: Optional[int] = 15  # Default 15 minutes
+
+
 @router.post("/orders/{order_id}/send-to-restaurant")
 async def send_to_restaurant(
     order_id: int,
@@ -1374,12 +1423,14 @@ async def send_to_restaurant(
 @router.post("/orders/{order_id}/restaurant-accept")
 async def restaurant_accept(
     order_id: int,
+    request: Optional[RestaurantAcceptRequest] = None,
     db: Session = Depends(get_db)
 ):
     """
     Restaurant accepts the order within acceptance window.
     Moves order to PREPARING status.
     Triggers KOT (Kitchen Order Ticket) print to POS system if configured.
+    Notifies nearby drivers with ETA so they can head to restaurant early.
     AI Employee: KitchenBot Beta
     """
     ai_employee = AI_EMPLOYEES["RESTAURANT_COORDINATOR"]
@@ -1406,9 +1457,16 @@ async def restaurant_accept(
                 detail="Acceptance window expired. Order timed out."
             )
 
+    # Get prep time from request or use default
+    prep_minutes = request.estimated_prep_minutes if request else 15
+    if prep_minutes is None or prep_minutes < 1:
+        prep_minutes = 15  # Default to 15 minutes
+
     order.status = OrderStatus.PREPARING
     order.restaurant_accepted_at = datetime.now()
     order.preparing_at = datetime.now()
+    order.estimated_prep_minutes = prep_minutes
+    order.estimated_ready_at = datetime.now() + timedelta(minutes=prep_minutes)
 
     db.commit()
 
@@ -1448,15 +1506,27 @@ async def restaurant_accept(
     except Exception as e:
         logging.error(f"Failed to send order accepted notification: {e}")
 
+    # ==================== NOTIFY NEARBY DRIVERS ====================
+    # Early notification lets drivers head to restaurant while food is being prepared
+    drivers_notified = 0
+    try:
+        drivers_notified = notify_drivers_new_order(order, prep_minutes, vendor, db)
+        logger.info(f"Notified {drivers_notified} drivers about order {order.order_number} (ready in {prep_minutes} min)")
+    except Exception as e:
+        logger.error(f"Failed to notify drivers for order {order.order_number}: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "preparing",
         "accepted_at": order.restaurant_accepted_at.isoformat(),
+        "estimated_prep_minutes": order.estimated_prep_minutes,
+        "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if order.estimated_ready_at else None,
         "notification_sent": notification_sent,
+        "drivers_notified": drivers_notified,
         "processed_by": ai_employee["name"],
-        "message": "Restaurant accepted order. Now preparing.",
+        "message": f"Restaurant accepted order. Ready in ~{prep_minutes} minutes. {drivers_notified} drivers notified.",
         "kot_print": kot_result
     }
 
@@ -2101,6 +2171,17 @@ async def get_vendor_orders(
                     "license_plate": driver.license_plate
                 }
 
+        # Calculate driver ETA if en-route
+        driver_eta_text = None
+        if order.driver_en_route and order.driver_eta_to_restaurant:
+            # Calculate remaining time based on when driver accepted
+            if order.driver_accepted_at:
+                elapsed = (datetime.now() - order.driver_accepted_at).total_seconds() / 60
+                remaining = max(0, order.driver_eta_to_restaurant - int(elapsed))
+                driver_eta_text = f"~{remaining} min" if remaining > 0 else "arriving"
+            else:
+                driver_eta_text = f"~{order.driver_eta_to_restaurant} min"
+
         result.append({
             "id": order.id,
             "order_number": order.order_number,
@@ -2120,6 +2201,15 @@ async def get_vendor_orders(
             "driver_id": order.driver_id,
             "driver_name": order.driver_name,
             "driver": driver_info,
+            # Early driver acceptance fields
+            "driver_en_route": order.driver_en_route if hasattr(order, 'driver_en_route') else False,
+            "driver_accepted_at": (order.driver_accepted_at.isoformat() + "Z") if getattr(order, 'driver_accepted_at', None) else None,
+            "driver_eta_to_restaurant": order.driver_eta_to_restaurant if hasattr(order, 'driver_eta_to_restaurant') else None,
+            "driver_eta_text": driver_eta_text,
+            # Prep time ETA
+            "estimated_prep_minutes": order.estimated_prep_minutes if hasattr(order, 'estimated_prep_minutes') else None,
+            "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if getattr(order, 'estimated_ready_at', None) else None,
+            # Timestamps
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
             "picked_up_at": (getattr(order, 'picked_up_at', None).isoformat() + "Z") if getattr(order, 'picked_up_at', None) else None,
@@ -2221,6 +2311,12 @@ async def get_available_orders(
                 delivery_addr = json.loads(order.delivery_address)
             except (json.JSONDecodeError, TypeError):
                 delivery_addr = {"address": str(order.delivery_address)}
+        # Calculate minutes until ready
+        minutes_until_ready = None
+        if order.estimated_ready_at:
+            delta = order.estimated_ready_at - datetime.now()
+            minutes_until_ready = max(0, int(delta.total_seconds() / 60))
+
         result.append({
             "id": order.id,
             "order_id": order.id,
@@ -2245,7 +2341,12 @@ async def get_available_orders(
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "assigned_at": None,
             "picked_up_at": None,
-            "delivered_at": None
+            "delivered_at": None,
+            # ETA fields for early driver notification
+            "estimated_prep_minutes": order.estimated_prep_minutes,
+            "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if order.estimated_ready_at else None,
+            "minutes_until_ready": minutes_until_ready,
+            "is_ready": order.status == OrderStatus.READY_FOR_PICKUP
         })
 
     return {"success": True, "orders": result}
@@ -2259,6 +2360,12 @@ async def assign_driver(
 ):
     """
     Assign driver to order - Called from iOS Driver App
+    Supports early driver acceptance (while food is still being prepared).
+
+    Status handling:
+    - If PREPARING: Keep status, set driver_en_route=True (driver heading to restaurant)
+    - If READY_FOR_PICKUP: Change to OUT_FOR_DELIVERY (driver picking up now)
+
     AI Employee: DispatchBot Gamma
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
@@ -2267,6 +2374,14 @@ async def assign_driver(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Validate order status - only allow assignment for PREPARING or READY_FOR_PICKUP
+    valid_statuses = [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]
+    if order.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order must be PREPARING or READY_FOR_PICKUP to assign driver. Current: {order.status.value}"
+        )
+
     if order.driver_id:
         raise HTTPException(status_code=400, detail="Order already has a driver")
 
@@ -2274,21 +2389,134 @@ async def assign_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED]:
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED, DriverStatus.ONLINE]:
         raise HTTPException(status_code=400, detail="Driver is not active")
 
+    # Get vendor for notifications
+    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+    restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
+
+    # Assign driver
+    driver_name = f"{driver.first_name} {driver.last_name}"
     order.driver_id = driver.id
-    order.driver_name = f"{driver.first_name} {driver.last_name}"
+    order.driver_name = driver_name
+    order.driver_accepted_at = datetime.now()
+    order.dispatched_at = datetime.now()
+
+    # Store driver's ETA to restaurant if provided
+    if request.driver_eta_minutes:
+        order.driver_eta_to_restaurant = request.driver_eta_minutes
+
+    # Determine if this is early acceptance (food still preparing) or ready pickup
+    is_early_acceptance = order.status == OrderStatus.PREPARING
+    food_ready = order.status == OrderStatus.READY_FOR_PICKUP
+
+    if is_early_acceptance:
+        # Early acceptance: driver heading to restaurant while food prepares
+        order.driver_en_route = True
+        # Keep status as PREPARING - will change to OUT_FOR_DELIVERY when picked up
+        logger.info(f"Early driver acceptance: Driver {driver.id} accepted order {order.order_number} while PREPARING")
+    else:
+        # Food is ready: driver is picking up now
+        order.driver_en_route = False
+        order.status = OrderStatus.OUT_FOR_DELIVERY
+        logger.info(f"Driver {driver.id} accepted READY order {order.order_number}, status -> OUT_FOR_DELIVERY")
 
     db.commit()
+
+    # ==================== SEND NOTIFICATIONS ====================
+    customer_notified = False
+    restaurant_notified = False
+
+    # Calculate ETAs for notifications
+    driver_eta_text = f"~{request.driver_eta_minutes} min" if request.driver_eta_minutes else "soon"
+    food_eta_text = ""
+    if order.estimated_ready_at:
+        minutes_until_ready = max(0, int((order.estimated_ready_at - datetime.now()).total_seconds() / 60))
+        food_eta_text = f"~{minutes_until_ready} min" if minutes_until_ready > 0 else "ready now"
+
+    # --- Notify Customer ---
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            if is_early_acceptance:
+                # Early acceptance notification
+                title = "Driver Accepted!"
+                body = f"{driver_name} is heading to {restaurant_name}. Food ready in {food_eta_text}."
+                notif_type = "driver_en_route"
+            else:
+                # Ready pickup notification
+                title = "Driver Picking Up!"
+                body = f"{driver_name} is picking up your order now."
+                notif_type = "driver_picking_up"
+
+            customer_notified = send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title=title,
+                body=body,
+                data={
+                    "type": notif_type,
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "driver_id": str(driver.id),
+                    "driver_name": driver_name,
+                    "driver_phone": driver.phone,
+                    "driver_photo_url": getattr(driver, 'photo_url', None),
+                    "is_early_acceptance": str(is_early_acceptance),
+                    "food_ready": str(food_ready),
+                    "driver_eta_minutes": str(request.driver_eta_minutes) if request.driver_eta_minutes else None,
+                    "minutes_until_food_ready": food_eta_text
+                },
+                db=db
+            )
+    except Exception as e:
+        logger.error(f"Failed to notify customer for order {order.order_number}: {e}")
+
+    # --- Notify Restaurant ---
+    try:
+        if vendor and vendor.push_token:
+            if is_early_acceptance:
+                title = "Driver En Route"
+                body = f"{driver_name} accepted and is heading to you. Arriving in {driver_eta_text}."
+            else:
+                title = "Driver Arrived"
+                body = f"{driver_name} is here to pick up order #{order.order_number}."
+
+            restaurant_notified = send_push_notification(
+                user_type="vendor",
+                user_id=vendor.id,
+                title=title,
+                body=body,
+                data={
+                    "type": "driver_assigned",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "driver_id": str(driver.id),
+                    "driver_name": driver_name,
+                    "driver_phone": driver.phone,
+                    "driver_photo_url": getattr(driver, 'photo_url', None),
+                    "driver_eta_minutes": str(request.driver_eta_minutes) if request.driver_eta_minutes else None,
+                    "is_early_acceptance": str(is_early_acceptance)
+                },
+                db=db
+            )
+    except Exception as e:
+        logger.error(f"Failed to notify restaurant for order {order.order_number}: {e}")
 
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
+        "status": order.status.value,
         "driver_id": driver.id,
         "driver_name": order.driver_name,
-        "processed_by": ai_employee["name"]
+        "is_early_acceptance": is_early_acceptance,
+        "driver_en_route": order.driver_en_route,
+        "customer_notified": customer_notified,
+        "restaurant_notified": restaurant_notified,
+        "processed_by": ai_employee["name"],
+        "message": "Driver heading to restaurant" if is_early_acceptance else "Driver picking up order"
     }
 
 
@@ -2301,6 +2529,10 @@ async def order_picked_up(
     Driver picked up order - Called from iOS Driver App
     AI Employee: DispatchBot Gamma
     Sends push notification to customer: "Your order is on the way!"
+
+    This endpoint handles both:
+    - Normal flow: READY_FOR_PICKUP -> OUT_FOR_DELIVERY
+    - Early acceptance flow: PREPARING (with driver_en_route) -> OUT_FOR_DELIVERY
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
@@ -2308,8 +2540,14 @@ async def order_picked_up(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Validate order has a driver assigned
+    if not order.driver_id:
+        raise HTTPException(status_code=400, detail="No driver assigned to this order")
+
+    # Update status and clear en-route flag
     order.status = OrderStatus.OUT_FOR_DELIVERY
     order.picked_up_at = datetime.now()
+    order.driver_en_route = False  # Driver has picked up, no longer en-route
 
     db.commit()
 

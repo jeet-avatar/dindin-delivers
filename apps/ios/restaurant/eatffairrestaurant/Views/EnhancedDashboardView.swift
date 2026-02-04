@@ -634,29 +634,113 @@ struct EnhancedOrderCard: View {
                     deliveryTimer?.invalidate()
                 }
             } else if order.status.lowercased() == "preparing" || order.status.lowercased() == "accepted" {
-                // Order is being prepared - show Mark Ready button
+                // Order is being prepared - show driver en-route info if applicable
                 Divider()
 
-                Button {
-                    #if DEBUG
-                    print("🟡 Mark Ready button tapped for order \(order.orderId)")
-                    #endif
-                    onMarkReady()
-                } label: {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Mark Ready for Pickup")
+                VStack(spacing: 8) {
+                    // Show driver en-route info if a driver has accepted early
+                    if let driverEnRoute = order.driverEnRoute, driverEnRoute,
+                       let driverName = order.driverName, !driverName.isEmpty {
+                        HStack {
+                            Image(systemName: "car.fill")
+                                .foregroundColor(RestaurantTheme.brandBlue)
+                            Text("Driver heading to restaurant")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(RestaurantTheme.brandBlue)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+
+                        // Driver details
+                        HStack(spacing: 12) {
+                            // Driver avatar placeholder
+                            ZStack {
+                                Circle()
+                                    .fill(RestaurantTheme.brandBlue.opacity(0.2))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(RestaurantTheme.brandBlue)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(driverName)
+                                    .font(.headline)
+                                if let driverPhone = order.driverPhone {
+                                    Text(driverPhone)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                if let eta = order.driverEtaToRestaurant, eta > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "clock.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                        Text("Arriving in ~\(eta) min")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                                if let rating = order.driverRating, rating > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                        Text(String(format: "%.1f", rating))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+
+                            // Call driver button
+                            if let driverPhone = order.driverPhone {
+                                Button(action: {
+                                    let cleanPhone = driverPhone.replacingOccurrences(of: "-", with: "")
+                                        .replacingOccurrences(of: " ", with: "")
+                                        .replacingOccurrences(of: "(", with: "")
+                                        .replacingOccurrences(of: ")", with: "")
+                                    if let url = URL(string: "tel:\(cleanPhone)") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }) {
+                                    Image(systemName: "phone.fill")
+                                        .foregroundColor(.white)
+                                        .padding(10)
+                                        .background(RestaurantTheme.brandBlue)
+                                        .clipShape(Circle())
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(RestaurantTheme.brandOrange)
-                    .cornerRadius(10)
+
+                    // Mark Ready button
+                    Button {
+                        #if DEBUG
+                        print("🟡 Mark Ready button tapped for order \(order.orderId)")
+                        #endif
+                        onMarkReady()
+                    } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Mark Ready for Pickup")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RestaurantTheme.brandOrange)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
+                    .padding(.bottom)
                 }
-                .buttonStyle(.borderless)
-                .padding()
             } else if order.status.lowercased() == "pending_delivery_decision" {
                 // Order needs delivery decision - show delivery decision buttons
                 Divider()

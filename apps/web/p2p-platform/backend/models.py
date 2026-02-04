@@ -480,6 +480,15 @@ class Order(Base):
     dispatched_at = Column(DateTime)  # When driver was assigned
     cancelled_at = Column(DateTime)  # When order was cancelled
 
+    # Prep Time ETA for Early Driver Notification
+    estimated_prep_minutes = Column(Integer, nullable=True)  # e.g., 15 minutes
+    estimated_ready_at = Column(DateTime, nullable=True)  # calculated timestamp when food will be ready
+
+    # Early Driver Acceptance (driver accepts while food is still preparing)
+    driver_en_route = Column(Boolean, default=False)  # True when driver accepted but food not ready
+    driver_accepted_at = Column(DateTime, nullable=True)  # When driver accepted the order
+    driver_eta_to_restaurant = Column(Integer, nullable=True)  # Driver's ETA to restaurant in minutes
+
     # Auto-Dispatch System
     auto_dispatched = Column(Boolean, default=False)  # Was this auto-dispatched?
     broadcast_to_drivers = Column(Boolean, default=False)  # Was broadcast sent?

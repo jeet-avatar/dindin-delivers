@@ -373,6 +373,19 @@ struct DeliveryBottomSheet: View {
     var isTrafficAwareETA: Bool = false
     var etaDistanceMiles: Double? = nil
 
+    /// Check if driver is en-route to restaurant (early acceptance)
+    private var isDriverEnRoute: Bool {
+        order.driverEnRoute == true
+    }
+
+    /// Get driver ETA to restaurant
+    private var driverEtaToRestaurant: String? {
+        if isDriverEnRoute, let eta = order.driverEtaText {
+            return eta
+        }
+        return nil
+    }
+
     /// Format ETA using world-class time formatting
     private var formattedETA: String {
         // If estimatedTime contains "min", extract minutes and use formatter
@@ -460,6 +473,40 @@ struct DeliveryBottomSheet: View {
                 }
             }
             .padding()
+
+            // Driver En-Route Banner (early acceptance - driver heading to restaurant)
+            if isDriverEnRoute {
+                HStack(spacing: 12) {
+                    Image(systemName: "car.fill")
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Theme.brandOrange)
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Driver heading to restaurant")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        if let eta = driverEtaToRestaurant {
+                            Text("Arriving at restaurant in \(eta)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        if let foodEta = order.minutesUntilReady, foodEta > 0 {
+                            Text("Food ready in ~\(foodEta) min")
+                                .font(.caption)
+                                .foregroundColor(Theme.brandGreen)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding()
+                .background(Theme.brandOrange.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
 
             Divider()
 
