@@ -769,13 +769,13 @@ EOF
         echo "| Hardcoded Bearer tokens | ✅ LOW | PASS | None found |" >> "$report"
     fi
 
-    # .env files
-    env_files=$(find . -name ".env" -not -path "*/venv/*" -not -path "*/.git/*" 2>/dev/null | wc -l | xargs)
-    if [ "$env_files" -gt 0 ]; then
-        echo "| .env files in repo | ⚠️ MEDIUM | WARN | $env_files files |" >> "$report"
-        ((medium++))
+    # .env files - only check TRACKED files (what's in production), exclude .example and public frontend configs
+    env_with_secrets=$(git ls-files 2>/dev/null | grep -E "\.env" | grep -v "\.example" | xargs grep -l "SECRET_KEY\|sk_live\|DATABASE.*password" 2>/dev/null | wc -l | xargs)
+    if [ "$env_with_secrets" -gt 0 ]; then
+        echo "| .env files with secrets | ❌ CRITICAL | FAIL | $env_with_secrets in git |" >> "$report"
+        ((critical++))
     else
-        echo "| .env files | ✅ LOW | PASS | None committed |" >> "$report"
+        echo "| .env files | ✅ LOW | PASS | No secrets committed |" >> "$report"
     fi
 
     cat >> "$report" << EOF
