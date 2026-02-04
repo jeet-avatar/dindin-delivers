@@ -16832,45 +16832,82 @@ def fix_driver_login(db: Session = Depends(get_db)):
         if not driver:
             return {"success": False, "error": "Demo driver not found"}
 
-        # Check if User record exists
-        user = db.query(User).filter(User.email == driver_email).first()
+        # Check if User record exists with DRIVER role specifically
+        user = db.query(User).filter(
+            User.email == driver_email,
+            User.role == UserRole.DRIVER
+        ).first()
 
         if user:
-            # Update existing user
+            # Update existing driver user
             user.password_hash = new_hash
-            user.role = UserRole.DRIVER
             user.driver_id = driver.id
             user.full_name = f"{driver.first_name} {driver.last_name}"
             db.commit()
+
+            # Verify the password works
+            test_verify = verify_password(driver_password, user.password_hash)
+
             return {
                 "success": True,
-                "action": "updated",
+                "action": "updated_driver_user",
                 "user_id": user.id,
                 "driver_id": driver.id,
-                "message": "User record updated with correct password and role"
+                "role": str(user.role),
+                "password_verify_test": test_verify,
+                "message": "Existing DRIVER user updated"
             }
-        else:
-            # Create new user
-            new_user = User(
-                email=driver_email,
-                password_hash=new_hash,
-                full_name=f"{driver.first_name} {driver.last_name}",
-                role=UserRole.DRIVER,
-                driver_id=driver.id,
-                created_at=datetime.utcnow()
-            )
-            db.add(new_user)
+
+        # Check if there's any user with this email (might have wrong role)
+        any_user = db.query(User).filter(User.email == driver_email).first()
+        if any_user:
+            # Update to DRIVER role
+            any_user.password_hash = new_hash
+            any_user.role = UserRole.DRIVER
+            any_user.driver_id = driver.id
+            any_user.full_name = f"{driver.first_name} {driver.last_name}"
             db.commit()
+
+            test_verify = verify_password(driver_password, any_user.password_hash)
+
             return {
                 "success": True,
-                "action": "created",
-                "user_id": new_user.id,
+                "action": "converted_to_driver",
+                "user_id": any_user.id,
                 "driver_id": driver.id,
-                "message": "User record created for driver login"
+                "old_role": "unknown",
+                "new_role": str(any_user.role),
+                "password_verify_test": test_verify,
+                "message": "Existing user converted to DRIVER role"
             }
+
+        # Create new user
+        new_user = User(
+            email=driver_email,
+            password_hash=new_hash,
+            full_name=f"{driver.first_name} {driver.last_name}",
+            role=UserRole.DRIVER,
+            driver_id=driver.id,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_user)
+        db.commit()
+
+        test_verify = verify_password(driver_password, new_user.password_hash)
+
+        return {
+            "success": True,
+            "action": "created",
+            "user_id": new_user.id,
+            "driver_id": driver.id,
+            "role": str(new_user.role),
+            "password_verify_test": test_verify,
+            "message": "New DRIVER user created"
+        }
     except Exception as e:
         db.rollback()
-        return {"success": False, "error": str(e)}
+        import traceback
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
 
 @app.post("/api/demo/setup-support-customer")
