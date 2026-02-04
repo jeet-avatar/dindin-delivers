@@ -12270,8 +12270,51 @@ from stripe_integration import router as stripe_router
 app.include_router(stripe_router)
 
 # Include ERP/Order Flow routes
-from order_flow import router as order_flow_router, start_timeout_scheduler, stop_timeout_scheduler
+from order_flow import (
+    router as order_flow_router,
+    start_timeout_scheduler,
+    stop_timeout_scheduler,
+    get_driver_active_orders,
+    get_available_orders,
+    assign_driver,
+    order_picked_up,
+    complete_delivery,
+    unassign_driver,
+    AssignDriverRequest
+)
 app.include_router(order_flow_router)
+
+# Aliases for iOS Driver app (without /api prefix)
+# iOS baseURL is "https://api.dollor.ai" without /api, so these aliases enable the driver app
+@app.get("/erp/orders/driver/{driver_id}/active")
+async def get_driver_active_orders_alias(driver_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - forwards to order_flow.get_driver_active_orders"""
+    return await get_driver_active_orders(driver_id, db)
+
+@app.get("/erp/orders/available-for-delivery")
+async def get_available_orders_alias(db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - get orders available for delivery"""
+    return await get_available_orders(db)
+
+@app.post("/erp/orders/{order_id}/assign-driver")
+async def assign_driver_alias(order_id: int, request: AssignDriverRequest, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - assign driver to order"""
+    return await assign_driver(order_id, request, db)
+
+@app.post("/erp/orders/{order_id}/picked-up")
+async def picked_up_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - mark order as picked up"""
+    return await order_picked_up(order_id, db)
+
+@app.put("/erp/orders/{order_id}/complete-delivery")
+async def complete_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - mark delivery as complete"""
+    return await complete_delivery(order_id, db)
+
+@app.put("/erp/orders/{order_id}/unassign-driver")
+async def unassign_driver_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - unassign driver from order"""
+    return await unassign_driver(order_id, db)
 
 # Include Auto-Onboarding routes (Nova AI Employee)
 from auto_onboarding import router as onboarding_router
