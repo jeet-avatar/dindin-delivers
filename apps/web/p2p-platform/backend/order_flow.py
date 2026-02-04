@@ -3057,17 +3057,22 @@ async def driver_login(
     }
     access_token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
 
+    # Combine first/last name for iOS compatibility (expects 'name' field)
+    full_name = f"{driver.first_name or ''} {driver.last_name or ''}".strip() or driver.email.split('@')[0]
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
+        "name": full_name,  # iOS requires combined name field
         "first_name": driver.first_name,
         "last_name": driver.last_name,
         "email": driver.email,
         "phone": driver.phone,
         "vehicle_type": driver.vehicle_type if hasattr(driver, 'vehicle_type') else None,
-        "status": driver.status.value
+        "status": driver.status.value,
+        "is_approved": driver.status.value == "approved"  # iOS compatibility
     }
 
 

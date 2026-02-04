@@ -328,18 +328,24 @@ struct LoginView: View {
     // MARK: - Apple Sign-In (Delegate-based approach like Customer App)
 
     func appleLogin() {
+        #if DEBUG
         logger.debug("DEBUG APPLE: ========== STARTING APPLE SIGN-IN ==========")
+        #endif
 
         isLoading = true
         errorMessage = ""
 
         appleSignInCoordinator.signIn { [self] result in
+            #if DEBUG
             logger.debug("DEBUG APPLE: Sign-in callback received")
+            #endif
 
             DispatchQueue.main.async {
                 switch result {
                 case .success(let appleIDCredential):
+                    #if DEBUG
                     logger.debug("DEBUG APPLE: Got Apple ID credential")
+                    #endif
 
                     // Extract user info
                     let appleUserId = appleIDCredential.user
@@ -353,17 +359,22 @@ struct LoginView: View {
                     if let identityTokenData = appleIDCredential.identityToken,
                        let tokenString = String(data: identityTokenData, encoding: .utf8) {
                         identityTokenString = tokenString
+                        #if DEBUG
                         logger.debug("DEBUG APPLE: Got identity token (length: \(tokenString.count))")
+                        #endif
                     }
 
                     logger.debug("DEBUG APPLE: Raw data - userId: \(appleUserId.prefix(20))..., email: '\(appleEmail)', name: '\(fullName)'")
+                    #endif
 
                     // IMPORTANT: Apple only provides name AND email on FIRST sign-in
                     // Save both locally if provided, or retrieve saved values for subsequent logins
                     let isFirstSignIn = !appleEmail.isEmpty || !fullName.isEmpty
 
                     if isFirstSignIn {
+                        #if DEBUG
                         logger.debug("DEBUG APPLE: First sign-in - saving name and email locally")
+                        #endif
                         if !fullName.isEmpty {
                             UserDefaults.standard.set(fullName, forKey: self.appleUserNameKey)
                         }
@@ -372,38 +383,53 @@ struct LoginView: View {
                         }
                         UserDefaults.standard.set(appleUserId, forKey: self.appleUserIdKey)
                     } else {
+                        #if DEBUG
                         logger.debug("DEBUG APPLE: Subsequent sign-in - checking for saved data")
+                        #endif
                         let savedAppleId = UserDefaults.standard.string(forKey: self.appleUserIdKey)
                         if savedAppleId == appleUserId {
                             // Retrieve saved name
                             if let savedName = UserDefaults.standard.string(forKey: self.appleUserNameKey), !savedName.isEmpty {
                                 fullName = savedName
+                                #if DEBUG
                                 logger.debug("DEBUG APPLE: Found saved name: \(fullName)")
+                                #endif
                             }
                             // Retrieve saved email
                             if let savedEmail = UserDefaults.standard.string(forKey: self.appleUserEmailKey), !savedEmail.isEmpty {
                                 appleEmail = savedEmail
+                                #if DEBUG
                                 logger.debug("DEBUG APPLE: Found saved email: \(appleEmail)")
+                                #endif
                             }
                         } else {
+                            #if DEBUG
                             logger.debug("DEBUG APPLE: No saved data found for this Apple ID")
+                            #endif
                         }
                     }
 
                     let finalName = fullName.isEmpty ? "My Restaurant" : fullName
                     let finalEmail = appleEmail
+                    #if DEBUG
                     logger.debug("DEBUG APPLE: Final values - email: '\(finalEmail)', name: '\(finalName)'")
+                    #endif
+
                     // If no email but we have identity token, backend can extract email from token
                     // Only fail if we have neither email nor identity token
                     guard !finalEmail.isEmpty || identityTokenString != nil else {
+                        #if DEBUG
                         logger.debug("DEBUG APPLE: ERROR - No email and no identity token available.")
+                        #endif
                         self.isLoading = false
                         self.errorMessage = "Email not available. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again."
                         return
                     }
 
+                    #if DEBUG
                     logger.debug("DEBUG APPLE: Calling P2P backend vendorAppleAuth...")
                     logger.debug("DEBUG APPLE: Has identity token: \(identityTokenString != nil)")
+                    #endif
 
                     self.p2pAPI.vendorAppleAuth(
                         email: finalEmail,
@@ -415,17 +441,21 @@ struct LoginView: View {
                             self.isLoading = false
                             switch result {
                             case .success(let response):
+                                #if DEBUG
                                 logger.debug("DEBUG APPLE: SUCCESS from backend!")
                                 logger.debug("DEBUG APPLE: vendorId: \(response.user.vendorId ?? -1)")
                                 logger.debug("DEBUG APPLE: fullName: \(response.user.fullName)")
                                 logger.debug("DEBUG APPLE: email: \(response.user.email)")
                                 logger.debug("DEBUG APPLE: Setting isLoggedIn = true")
+                                #endif
                                 self.isLoggedIn = true
                             case .failure(let error):
+                                #if DEBUG
                                 logger.debug("DEBUG APPLE: FAILED from backend - error: \(error)")
                                 if let apiError = error as? P2PAPIError {
                                     logger.debug("DEBUG APPLE: API Error type: \(apiError)")
                                 }
+                                #endif
                                 self.errorMessage = error.localizedDescription
                             }
                         }
@@ -434,12 +464,16 @@ struct LoginView: View {
                 case .failure(let error):
                     self.isLoading = false
                     let nsError = error as NSError
+                    #if DEBUG
                     logger.debug("DEBUG APPLE: ERROR from Apple SDK - domain: \(nsError.domain), code: \(nsError.code), description: \(error.localizedDescription)")
+                    #endif
 
                     if nsError.code != ASAuthorizationError.canceled.rawValue {
                         self.errorMessage = error.localizedDescription
                     } else {
+                        #if DEBUG
                         logger.debug("DEBUG APPLE: User cancelled sign-in")
+                        #endif
                     }
                 }
             }
@@ -515,40 +549,58 @@ struct LoginView: View {
     }
 
     func googleLogin() {
+        #if DEBUG
         logger.debug("DEBUG GOOGLE: ========== STARTING GOOGLE SIGN-IN ==========")
+        #endif
 
         guard !googleClientID.isEmpty else {
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: FAILED - Google Client ID is empty")
+            #endif
             errorMessage = "Google Sign-In not configured. Please contact support."
             return
         }
+        #if DEBUG
         logger.debug("DEBUG GOOGLE: Client ID loaded: \(googleClientID.prefix(30))...")
+        #endif
 
         let config = GIDConfiguration(clientID: googleClientID)
         GIDSignIn.sharedInstance.configuration = config
+        #if DEBUG
         logger.debug("DEBUG GOOGLE: GIDConfiguration set")
+        #endif
 
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: FAILED - Unable to get root view controller")
+            #endif
             errorMessage = "Unable to get root view controller"
             return
         }
+        #if DEBUG
         logger.debug("DEBUG GOOGLE: Got rootViewController, presenting Google Sign-In...")
+        #endif
 
         isLoading = true
         errorMessage = ""
 
         GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [self] result, error in
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: Sign-in callback received")
+            #endif
 
             if let error = error {
                 let nsError = error as NSError
+                #if DEBUG
                 logger.debug("DEBUG GOOGLE: ERROR from Google SDK - domain: \(nsError.domain), code: \(nsError.code), description: \(error.localizedDescription)")
+                #endif
 
                 DispatchQueue.main.async {
                     if nsError.domain == "com.google.GIDSignIn" && nsError.code == -5 {
+                        #if DEBUG
                         logger.debug("DEBUG GOOGLE: User cancelled sign-in")
+                        #endif
                         self.isLoading = false
                         return
                     }
@@ -559,17 +611,23 @@ struct LoginView: View {
             }
 
             guard let user = result?.user else {
+                #if DEBUG
                 logger.debug("DEBUG GOOGLE: FAILED - No user in result")
+                #endif
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.errorMessage = "Failed to get user info from Google"
                 }
                 return
             }
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: Got Google user object")
+            #endif
 
             guard let googleEmail = user.profile?.email, !googleEmail.isEmpty else {
+                #if DEBUG
                 logger.debug("DEBUG GOOGLE: FAILED - No email from Google profile")
+                #endif
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.errorMessage = "Unable to retrieve email from Google account"
@@ -579,10 +637,14 @@ struct LoginView: View {
 
             let googleName = user.profile?.name ?? "My Restaurant"
             let googleUserId = user.userID ?? ""
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: Got user info - email: \(googleEmail), name: \(googleName), userId: \(googleUserId.prefix(10))...")
+            #endif
 
             // Use proper OAuth endpoint - handles both login and registration
+            #if DEBUG
             logger.debug("DEBUG GOOGLE: Calling P2P backend vendorGoogleAuth...")
+            #endif
             self.p2pAPI.vendorGoogleAuth(
                 email: googleEmail,
                 name: googleName,
@@ -592,31 +654,45 @@ struct LoginView: View {
                     self.isLoading = false
                     switch result {
                     case .success(let response):
+                        #if DEBUG
                         logger.debug("DEBUG GOOGLE: SUCCESS from backend!")
                         logger.debug("DEBUG GOOGLE: vendorId: \(response.user.vendorId ?? -1)")
                         logger.debug("DEBUG GOOGLE: fullName: \(response.user.fullName)")
                         logger.debug("DEBUG GOOGLE: email: \(response.user.email)")
                         logger.debug("DEBUG GOOGLE: Setting isLoggedIn = true")
+                        #endif
                         self.isLoggedIn = true
                     case .failure(let error):
+                        #if DEBUG
                         logger.debug("DEBUG GOOGLE: FAILED from backend - error: \(error)")
+                        #endif
                         if let apiError = error as? P2PAPIError {
                             switch apiError {
                             case .serverError(let message):
+                                #if DEBUG
                                 logger.debug("DEBUG GOOGLE: Server error message: \(message)")
+                                #endif
                                 self.errorMessage = message
                             case .decodingError:
+                                #if DEBUG
                                 logger.debug("DEBUG GOOGLE: Decoding error - response format mismatch")
+                                #endif
                                 self.errorMessage = "Google sign-in failed. Please try again."
                             case .noData:
+                                #if DEBUG
                                 logger.debug("DEBUG GOOGLE: No data received from server")
+                                #endif
                                 self.errorMessage = "Google sign-in failed. Please try again."
                             default:
+                                #if DEBUG
                                 logger.debug("DEBUG GOOGLE: Other API error: \(apiError)")
+                                #endif
                                 self.errorMessage = "Google sign-in failed. Please try again."
                             }
                         } else {
+                            #if DEBUG
                             logger.debug("DEBUG GOOGLE: Non-API error: \(error.localizedDescription)")
+                            #endif
                             self.errorMessage = error.localizedDescription
                         }
                     }

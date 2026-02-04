@@ -7731,19 +7731,32 @@ public struct P2PDriverLoginResponse: Codable {
     public let tokenType: String
     public let driverId: Int
     public let driverCode: String
-    public let name: String  // Backend returns combined name
+    private let _name: String?  // Backend may return combined name
+    public let firstName: String?  // Backend returns separate first/last
+    public let lastName: String?
     public let email: String
     public let status: String?  // Driver status: pending, approved, active, etc.
     public let isApproved: Bool?  // True if driver is approved and can accept jobs
     public let requiresDocuments: Bool?  // True if driver still needs to upload documents
     public let message: String?  // Only present in registration response
 
+    /// Computed property that returns full name from either format
+    public var name: String {
+        if let combinedName = _name, !combinedName.isEmpty {
+            return combinedName
+        }
+        let parts = [firstName, lastName].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? email.components(separatedBy: "@").first ?? "Driver" : parts.joined(separator: " ")
+    }
+
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case tokenType = "token_type"
         case driverId = "driver_id"
         case driverCode = "driver_code"
-        case name
+        case _name = "name"
+        case firstName = "first_name"
+        case lastName = "last_name"
         case email
         case status
         case isApproved = "is_approved"

@@ -4577,7 +4577,226 @@ EOF
 }
 
 # ============================================================
-# Agent 21: Validator (Aggregates all reports)
+# Agent 21: API Contract Validation (iOS/Backend Field Mismatch Detection)
+# ============================================================
+run_api_contract_agent() {
+    echo -e "${CYAN}◆ Running API Contract Agent (iOS/Backend Field Mismatch Detection)...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_API_CONTRACT.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << 'EOF'
+# QA Report: API Contract Validation
+
+**Purpose**: Detect field mismatches between iOS Codable models and Backend API responses
+**Problem Detected**: This agent was created after discovering that iOS driver login was silently failing
+because the backend returned `first_name`/`last_name` but iOS expected a combined `name` field.
+
+---
+
+## 1. Critical API/iOS Model Contracts
+
+These are the key API endpoints and their iOS model mappings that must stay in sync:
+
+EOF
+
+    echo "" >> "$report"
+    echo "### 1.1 Driver Login Response" >> "$report"
+    echo "" >> "$report"
+    echo "| iOS Field | Type | Required | Backend Field | Status |" >> "$report"
+    echo "|-----------|------|----------|---------------|--------|" >> "$report"
+
+    # Test Driver Login API response fields
+    local driver_login_response
+    driver_login_response=$(curl -s -X POST "$API_BASE_URL/erp/drivers/login" \
+        -H "Content-Type: application/json" \
+        -d '{"email":"demo.driver@dollor.ai","password":"DemoDriver2025!"}' 2>/dev/null || echo '{}')
+
+    # Check required iOS fields exist in API response
+    local ios_driver_fields=("access_token:accessToken" "token_type:tokenType" "driver_id:driverId" "driver_code:driverCode" "email:email")
+
+    for field_pair in "${ios_driver_fields[@]}"; do
+        local api_field=$(echo "$field_pair" | cut -d: -f1)
+        local ios_field=$(echo "$field_pair" | cut -d: -f2)
+
+        if echo "$driver_login_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$api_field', 'MISSING'))" 2>/dev/null | grep -qv "MISSING"; then
+            echo "| $ios_field | Required | ✓ | $api_field | ✅ Present |" >> "$report"
+            ((passed++))
+        else
+            echo "| $ios_field | Required | ✓ | $api_field | ❌ MISSING |" >> "$report"
+            ((failed++))
+        fi
+    done
+
+    # Check name field (the field that caused the bug)
+    echo "" >> "$report"
+    echo "### 1.2 Name Field Compatibility (Critical Fix)" >> "$report"
+    echo "" >> "$report"
+
+    local has_name=$(echo "$driver_login_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'name' in d else 'no')" 2>/dev/null)
+    local has_first_name=$(echo "$driver_login_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'first_name' in d else 'no')" 2>/dev/null)
+    local has_last_name=$(echo "$driver_login_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'last_name' in d else 'no')" 2>/dev/null)
+
+    if [ "$has_name" = "yes" ] || ([ "$has_first_name" = "yes" ] && [ "$has_last_name" = "yes" ]); then
+        echo "✅ **Name field compatibility**: API returns name info that iOS can decode" >> "$report"
+        echo "" >> "$report"
+        echo "- Combined \`name\` field: $has_name" >> "$report"
+        echo "- Separate \`first_name\`: $has_first_name" >> "$report"
+        echo "- Separate \`last_name\`: $has_last_name" >> "$report"
+        ((passed++))
+    else
+        echo "❌ **CRITICAL**: Neither \`name\` nor \`first_name\`/\`last_name\` found in response!" >> "$report"
+        echo "" >> "$report"
+        echo "This will cause iOS driver login to fail silently!" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+---
+
+## 2. Delivery Orders Response Contract
+
+EOF
+
+    echo "" >> "$report"
+    echo "| iOS Field (P2PDeliveryOrder) | CodingKey | Required | Status |" >> "$report"
+    echo "|------------------------------|-----------|----------|--------|" >> "$report"
+
+    # Test delivery orders API
+    local orders_response
+    orders_response=$(curl -s "$API_BASE_URL/erp/orders/driver/48/active" -H "Authorization: Bearer test" 2>/dev/null || echo '{"orders":[]}')
+
+    local first_order
+    first_order=$(echo "$orders_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('orders', [{}])[0] if d.get('orders') else {}))" 2>/dev/null || echo '{}')
+
+    # Check critical delivery order fields
+    local delivery_fields=("order_id:orderId:Required" "order_number:orderNumber:Required" "status:status:Optional" "restaurant:restaurantName:Required" "pickup_address:restaurantAddress:Required" "delivery_fee:deliveryFee:Required" "created_at:createdAt:Required")
+
+    for field_info in "${delivery_fields[@]}"; do
+        local api_field=$(echo "$field_info" | cut -d: -f1)
+        local ios_field=$(echo "$field_info" | cut -d: -f2)
+        local required=$(echo "$field_info" | cut -d: -f3)
+
+        if echo "$first_order" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if '$api_field' in d else 1)" 2>/dev/null; then
+            echo "| $ios_field | $api_field | $required | ✅ Present |" >> "$report"
+            ((passed++))
+        else
+            if [ "$required" = "Required" ]; then
+                echo "| $ios_field | $api_field | $required | ❌ MISSING |" >> "$report"
+                ((failed++))
+            else
+                echo "| $ios_field | $api_field | $required | ⚠️ Not found |" >> "$report"
+                ((warnings++))
+            fi
+        fi
+    done
+
+    cat >> "$report" << 'EOF'
+
+---
+
+## 3. iOS Model Decode Simulation
+
+Testing if iOS models can decode actual API responses:
+
+EOF
+
+    # Test decoding with Python (simulating Swift Codable)
+    echo "### 3.1 Driver Login Decode Test" >> "$report"
+    echo "" >> "$report"
+
+    local decode_test
+    decode_test=$(python3 << PYEOF
+import json
+
+# Actual API response format
+api_response = '''$driver_login_response'''
+
+try:
+    data = json.loads(api_response)
+
+    # Simulate iOS required fields check
+    required_fields = ['access_token', 'token_type', 'driver_id', 'driver_code', 'email']
+    missing = [f for f in required_fields if f not in data]
+
+    # Check name compatibility (iOS now handles both formats)
+    has_name_compat = 'name' in data or ('first_name' in data and 'last_name' in data)
+
+    if missing:
+        print(f"❌ Decode would FAIL - Missing required fields: {missing}")
+    elif not has_name_compat:
+        print("❌ Decode would FAIL - No name field (name or first_name/last_name)")
+    else:
+        print("✅ Decode would SUCCEED - All required fields present")
+
+except Exception as e:
+    print(f"❌ JSON parse error: {e}")
+PYEOF
+)
+
+    echo "$decode_test" >> "$report"
+
+    if echo "$decode_test" | grep -q "SUCCEED"; then
+        ((passed++))
+    else
+        ((failed++))
+    fi
+
+    cat >> "$report" << EOF
+
+---
+
+## 4. Common Mismatch Patterns to Watch
+
+| Pattern | iOS Expectation | Common API Issue | Detection |
+|---------|-----------------|------------------|-----------|
+| Name split | \`name: String\` | Returns \`first_name\`/\`last_name\` separately | ✅ Now handled |
+| Optional vs Required | Non-optional field | API sometimes returns null | Check nullability |
+| Type mismatch | \`Int\` | API returns String number | Check type coercion |
+| Missing field | Expected field | Not included in response | Causes keyNotFound |
+| Case mismatch | \`orderId\` | API uses \`order_id\` | Use CodingKeys |
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | $passed |
+| Failed | $failed |
+| Warnings | $warnings |
+| Total Checks | $((passed + failed + warnings)) |
+
+**Status**: $([ $failed -eq 0 ] && echo "✅ PASS - API/iOS contracts are compatible" || echo "❌ FAIL - Field mismatches detected that could break iOS apps")
+
+---
+
+## Recommendations
+
+1. **Always test API changes against iOS models** before deployment
+2. **Add new fields as optional** in iOS until backend is confirmed deployed
+3. **Use computed properties** for backward compatibility (like \`name\` field fix)
+4. **Log decode errors in DEBUG mode** to catch silent failures
+
+---
+
+*Agent created after discovering silent driver login failure due to name field mismatch*
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ API Contract Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ API Contract Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 22: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -4605,7 +4824,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow" "DEPLOYMENT:Deployment Readiness" "TESTFLIGHT:TestFlight Build"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow" "DEPLOYMENT:Deployment Readiness" "TESTFLIGHT:TestFlight Build" "API_CONTRACT:API/iOS Contract Validation"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -4718,7 +4937,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (20 agents)..."
+    echo "Starting QA Agent execution (21 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -4744,8 +4963,9 @@ main() {
     run_driver_details_flow_agent || true
     run_deployment_agent || true
     run_testflight_agent || true
+    run_api_contract_agent || true
 
-    # Run validator last (Agent 21)
+    # Run validator last (Agent 22)
     run_validator_agent
 
     exit_code=$?
