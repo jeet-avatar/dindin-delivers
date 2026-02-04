@@ -15084,6 +15084,7 @@ def get_vendor_orders(vendor_id: int, status: Optional[str] = None, limit: int =
             "order_number": order.order_number,
             "status": order.status.value if order.status else "pending_payment",
             "vendor_id": order.vendor_id,
+            "customer_id": order.customer_id,
             "customer_name": customer_name,
             "customer_phone": customer_phone,
             "customer_email": order.customer_email,
