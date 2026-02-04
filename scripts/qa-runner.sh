@@ -4608,11 +4608,26 @@ EOF
     echo "| iOS Field | Type | Required | Backend Field | Status |" >> "$report"
     echo "|-----------|------|----------|---------------|--------|" >> "$report"
 
-    # Test Driver Login API response fields
+    # Test Driver Login API response fields using Python for reliable JSON handling
     local driver_login_response
-    driver_login_response=$(curl -s -X POST "$API_BASE_URL/erp/drivers/login" \
-        -H "Content-Type: application/json" \
-        -d '{"email":"demo.driver@dollor.ai","password":"DemoDriver2025!"}' 2>/dev/null || echo '{}')
+    driver_login_response=$(python3 << PYEOF
+import requests
+import json
+try:
+    response = requests.post(
+        "${API_URL}/api/erp/drivers/login",
+        json={"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
+        headers={"Content-Type": "application/json"},
+        timeout=10
+    )
+    if response.status_code == 200:
+        print(json.dumps(response.json()))
+    else:
+        print('{}')
+except Exception as e:
+    print('{}')
+PYEOF
+    )
 
     # Check required iOS fields exist in API response
     local ios_driver_fields=("access_token:accessToken" "token_type:tokenType" "driver_id:driverId" "driver_code:driverCode" "email:email")
@@ -4665,9 +4680,25 @@ EOF
     echo "| iOS Field (P2PDeliveryOrder) | CodingKey | Required | Status |" >> "$report"
     echo "|------------------------------|-----------|----------|--------|" >> "$report"
 
-    # Test delivery orders API
+    # Test delivery orders API using Python for reliable handling
     local orders_response
-    orders_response=$(curl -s "$API_BASE_URL/erp/orders/driver/48/active" -H "Authorization: Bearer test" 2>/dev/null || echo '{"orders":[]}')
+    orders_response=$(python3 << PYEOF
+import requests
+import json
+try:
+    response = requests.get(
+        "${API_URL}/api/erp/orders/driver/48/active",
+        headers={"Authorization": "Bearer test"},
+        timeout=10
+    )
+    if response.status_code == 200:
+        print(json.dumps(response.json()))
+    else:
+        print('{"orders":[]}')
+except Exception as e:
+    print('{"orders":[]}')
+PYEOF
+    )
 
     local first_order
     first_order=$(echo "$orders_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('orders', [{}])[0] if d.get('orders') else {}))" 2>/dev/null || echo '{}')
