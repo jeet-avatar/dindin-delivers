@@ -86,7 +86,7 @@ class AnalyticsViewModel: ObservableObject {
                     self?.promotionAnalytics = analytics
                 case .failure(let error):
                     #if DEBUG
-                    print("[Analytics] Failed to fetch promotion analytics: \(error.localizedDescription)")
+                    logger.info("[Analytics] Failed to fetch promotion analytics: \(error.localizedDescription)")
                     #endif
                 }
             }

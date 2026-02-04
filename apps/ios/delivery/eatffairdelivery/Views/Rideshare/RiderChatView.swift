@@ -213,7 +213,7 @@ struct RiderChatView: View {
                 errorMessage = nil
             case .failure(let error):
                 #if DEBUG
-                print("[RiderChatView] Failed to load messages: \(error)")
+                logger.info("[RiderChatView] Failed to load messages: \(error)")
                 #endif
                 errorMessage = "Failed to load messages"
             }
@@ -240,7 +240,7 @@ struct RiderChatView: View {
                 isInputFocused = false
             case .failure(let error):
                 #if DEBUG
-                print("[RiderChatView] Failed to send message: \(error)")
+                logger.info("[RiderChatView] Failed to send message: \(error)")
                 #endif
                 // Keep message text so user can retry
             }

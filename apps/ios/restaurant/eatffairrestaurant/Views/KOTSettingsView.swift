@@ -388,7 +388,7 @@ class KOTSettingsViewModel: ObservableObject {
                     self?.cloverMerchantId = config.merchantId ?? ""
                     // API keys are not returned for security
                 case .failure(let error):
-                    print("Failed to load KOT config: \(error)")
+                    logger.debug("Failed to load KOT config: \(error)")
                 }
             }
         }

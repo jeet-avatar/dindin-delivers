@@ -76,7 +76,7 @@ class EarningsViewModel: ObservableObject {
                     self.cannotGoOnlineReason = "Your documents were rejected. Please upload new documents."
                 }
                 #if DEBUG
-                print("[EarningsVM] Approval status changed via notification: \(approved)")
+                logger.info("[EarningsVM] Approval status changed via notification: \(approved)")
                 #endif
             }
         }
@@ -98,7 +98,7 @@ class EarningsViewModel: ObservableObject {
     func fetchEarnings() {
         guard let driverId = currentDriverId else {
             #if DEBUG
-            print("[EarningsViewModel] No driver ID available")
+            logger.info("[EarningsViewModel] No driver ID available")
             #endif
             return
         }
@@ -115,12 +115,12 @@ class EarningsViewModel: ObservableObject {
                 self.updateFromDashboard(dashboard)
                 self.isLoadingEarnings = false
                 #if DEBUG
-                print("[EarningsViewModel] Successfully loaded dashboard from P2P API")
+                logger.info("[EarningsViewModel] Successfully loaded dashboard from P2P API")
                 #endif
 
             case .failure(let error):
                 #if DEBUG
-                print("[EarningsViewModel] P2P API failed: \(error.localizedDescription), falling back to Firebase")
+                logger.info("[EarningsViewModel] P2P API failed: \(error.localizedDescription), falling back to Firebase")
                 #endif
                 // Fallback to Firebase if P2P API fails
                 self.fetchEarningsFromFirebase(driverId: driverId)
@@ -269,7 +269,7 @@ class EarningsViewModel: ObservableObject {
 
                 if let error = error {
                     #if DEBUG
-                    print("[EarningsViewModel] Fetch error: \(error.localizedDescription)")
+                    logger.info("[EarningsViewModel] Fetch error: \(error.localizedDescription)")
                     #endif
 
                     // Issue #27: Retry logic for network failures
@@ -373,11 +373,11 @@ class EarningsViewModel: ObservableObject {
                 case .success:
                     self?.isOnline = status
                     #if DEBUG
-                    print("[Earnings] P2P online status updated to: \(status)")
+                    logger.info("[Earnings] P2P online status updated to: \(status)")
                     #endif
                 case .failure(let error):
                     #if DEBUG
-                    print("[Earnings] P2P online status update failed: \(error.localizedDescription)")
+                    logger.info("[Earnings] P2P online status update failed: \(error.localizedDescription)")
                     #endif
                     // Still try Firebase as backup
                 }
@@ -455,7 +455,7 @@ class EarningsViewModel: ObservableObject {
         }
 
         #if DEBUG
-        print("[EarningsVM] Driver status: \(driverStatus), approved: \(isApproved), requiresDocs: \(requiresDocuments)")
+        logger.info("[EarningsVM] Driver status: \(driverStatus), approved: \(isApproved), requiresDocs: \(requiresDocuments)")
         #endif
     }
 
@@ -470,7 +470,7 @@ class EarningsViewModel: ObservableObject {
         if !isApproved {
             errorMessage = cannotGoOnlineReason ?? "You must be approved before going online"
             #if DEBUG
-            print("[EarningsVM] Cannot go online - driver not approved")
+            logger.info("[EarningsVM] Cannot go online - driver not approved")
             #endif
             return
         }

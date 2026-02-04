@@ -763,7 +763,7 @@ class MenuViewModel: ObservableObject {
                         self?.generateMenuSuggestion()
                     case .failure(let error):
                         #if DEBUG
-                        print("Failed to fetch P2P menu: \(error)")
+                        logger.debug("Failed to fetch P2P menu: \(error)")
                         #endif
                         // Fallback to Firebase
                         self?.fetchMenuFromFirebase()
@@ -814,11 +814,11 @@ class MenuViewModel: ObservableObject {
                     switch result {
                     case .success:
                         #if DEBUG
-                        print("[Menu] P2P item availability updated")
+                        logger.info("[Menu] P2P item availability updated")
                         #endif
                     case .failure(let error):
                         #if DEBUG
-                        print("[Menu] P2P availability update failed: \(error.localizedDescription)")
+                        logger.info("[Menu] P2P availability update failed: \(error.localizedDescription)")
                         #endif
                     }
                     // Also update Firebase for backup
@@ -899,11 +899,11 @@ class MenuViewModel: ObservableObject {
                     switch result {
                     case .success:
                         #if DEBUG
-                        print("[Menu] P2P item updated successfully")
+                        logger.info("[Menu] P2P item updated successfully")
                         #endif
                     case .failure(let error):
                         #if DEBUG
-                        print("[Menu] P2P item update failed: \(error.localizedDescription)")
+                        logger.info("[Menu] P2P item update failed: \(error.localizedDescription)")
                         #endif
                     }
                     // Also update Firebase for backup
@@ -973,7 +973,7 @@ class MenuViewModel: ObservableObject {
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: 0.7) else {
             #if DEBUG
-            print("Failed to compress image")
+            logger.debug("Failed to compress image")
             #endif
             completion(nil)
             return
@@ -994,7 +994,7 @@ class MenuViewModel: ObservableObject {
         storageRef.putData(imageData, metadata: metadata) { _, error in
             if let error = error {
                 #if DEBUG
-                print("Image upload failed: \(error.localizedDescription)")
+                logger.debug("Image upload failed: \(error.localizedDescription)")
                 #endif
                 completion(nil)
                 return
@@ -1004,7 +1004,7 @@ class MenuViewModel: ObservableObject {
             storageRef.downloadURL { url, error in
                 if let error = error {
                     #if DEBUG
-                    print("Failed to get download URL: \(error.localizedDescription)")
+                    logger.debug("Failed to get download URL: \(error.localizedDescription)")
                     #endif
                     completion(nil)
                     return

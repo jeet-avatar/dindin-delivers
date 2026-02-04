@@ -61,7 +61,7 @@ class LocationManager: NSObject, ObservableObject {
         retryTimer = nil
         networkMonitor.cancel()
         #if DEBUG
-        print("[LocationManager] Deinitialized, timers cancelled")
+        logger.info("[LocationManager] Deinitialized, timers cancelled")
         #endif
     }
 
@@ -71,7 +71,7 @@ class LocationManager: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self?.isNetworkAvailable = path.status == .satisfied
                 #if DEBUG
-                print("[LocationManager] Network status: \(path.status == .satisfied ? "available" : "unavailable")")
+                logger.info("[LocationManager] Network status: \(path.status == .satisfied ? "available" : "unavailable")")
                 #endif
             }
         }
@@ -201,7 +201,7 @@ class LocationManager: NSObject, ObservableObject {
         // Issue #43: Check network availability before making API call
         guard isNetworkAvailable else {
             #if DEBUG
-            print("[LocationManager] Skipping P2P update - no network")
+            logger.info("[LocationManager] Skipping P2P update - no network")
             #endif
             return
         }
@@ -221,7 +221,7 @@ class LocationManager: NSObject, ObservableObject {
             case .failure(let error):
                 self.consecutiveP2PFailures += 1
                 #if DEBUG
-                print("[LocationManager] P2P location update failed (\(self.consecutiveP2PFailures)/\(self.maxConsecutiveFailures)): \(error.localizedDescription)")
+                logger.info("[LocationManager] P2P location update failed (\(self.consecutiveP2PFailures)/\(self.maxConsecutiveFailures)): \(error.localizedDescription)")
                 #endif
 
                 // Notify user after multiple consecutive failures
@@ -285,7 +285,7 @@ class LocationManager: NSObject, ObservableObject {
         startRetryTimerIfNeeded()
 
         #if DEBUG
-        print("[LocationManager] Queued failed location update. Queue size: \(pendingLocationUpdates.count)")
+        logger.info("[LocationManager] Queued failed location update. Queue size: \(pendingLocationUpdates.count)")
         #endif
     }
 
@@ -310,7 +310,7 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         #if DEBUG
-        print("[LocationManager] Processing \(pendingLocationUpdates.count) pending location updates")
+        logger.info("[LocationManager] Processing \(pendingLocationUpdates.count) pending location updates")
         #endif
 
         // Remove stale updates (older than 5 minutes)

@@ -72,7 +72,7 @@ class DeliveryViewModel: ObservableObject {
         refreshTimer = nil
         cancellables.removeAll()
         #if DEBUG
-        print("[DeliveryViewModel] Deinitialized, timer and cancellables cleaned up")
+        logger.info("[DeliveryViewModel] Deinitialized, timer and cancellables cleaned up")
         #endif
     }
 
@@ -95,7 +95,7 @@ class DeliveryViewModel: ObservableObject {
         if isAvailable && wasOffline {
             // Network restored - retry pending actions
             #if DEBUG
-            print("[DeliveryViewModel] Network restored, retrying \(pendingActions.count) pending actions")
+            logger.info("[DeliveryViewModel] Network restored, retrying \(pendingActions.count) pending actions")
             #endif
             let actions = pendingActions
             pendingActions.removeAll()
@@ -283,7 +283,7 @@ class DeliveryViewModel: ObservableObject {
 
         if isAlreadyInProgress {
             #if DEBUG
-            print("[DeliveryViewModel] Order acceptance already in progress for order: \(orderId)")
+            logger.info("[DeliveryViewModel] Order acceptance already in progress for order: \(orderId)")
             #endif
             return
         }
@@ -419,7 +419,7 @@ class DeliveryViewModel: ObservableObject {
         let now = Date()
         guard now.timeIntervalSince(lastLocationUpdate) >= locationUpdateMinInterval else {
             #if DEBUG
-            print("[DeliveryViewModel] Location update throttled, last update was \(now.timeIntervalSince(lastLocationUpdate))s ago")
+            logger.info("[DeliveryViewModel] Location update throttled, last update was \(now.timeIntervalSince(lastLocationUpdate))s ago")
             #endif
             return
         }

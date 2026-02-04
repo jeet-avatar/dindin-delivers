@@ -77,7 +77,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             audioEngine.inputNode.removeTap(onBus: 0)
         }
         #if DEBUG
-        print("[VoiceAssistantManager] Deinitialized, recognition cancelled")
+        logger.info("[VoiceAssistantManager] Deinitialized, recognition cancelled")
         #endif
     }
 
@@ -130,7 +130,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 self.errorMessage = "Unable to start voice recognition: \(error.localizedDescription)"
             }
             #if DEBUG
-            print("[VoiceAssistantManager] startListening error: \(error)")
+            logger.info("[VoiceAssistantManager] startListening error: \(error)")
             #endif
         }
     }
@@ -207,7 +207,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self, self.isListening else { return }
             #if DEBUG
-            print("[VoiceAssistantManager] Auto-stopping after \(self.autoStopTimeout)s timeout")
+            logger.info("[VoiceAssistantManager] Auto-stopping after \(self.autoStopTimeout)s timeout")
             #endif
             self.stopListening()
         }

@@ -210,7 +210,7 @@ class DriverProfileViewModel: ObservableObject {
                     self?.checkDocumentExpirationsFromAPI(documents: response.documents)
                 case .failure(let error):
                     #if DEBUG
-                    print("[DriverProfileViewModel] Failed to fetch documents: \(error.localizedDescription)")
+                    logger.info("[DriverProfileViewModel] Failed to fetch documents: \(error.localizedDescription)")
                     #endif
                     // Don't show error - documents may not be uploaded yet
                 }
@@ -711,9 +711,9 @@ class DriverProfileViewModel: ObservableObject {
         // Use P2P API - this is the only backend we use
         guard let driverId = UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) as? Int else {
             #if DEBUG
-            print("[DriverProfileViewModel] uploadDocument failed - driverId not found in UserDefaults")
-            print("[DriverProfileViewModel] UserDefaults.driverId key: \(UserDefaultsKeys.driverId)")
-            print("[DriverProfileViewModel] Token available: \(SecureStorage.shared.driverAccessToken != nil)")
+            logger.info("[DriverProfileViewModel] uploadDocument failed - driverId not found in UserDefaults")
+            logger.info("[DriverProfileViewModel] UserDefaults.driverId key: \(UserDefaultsKeys.driverId)")
+            logger.info("[DriverProfileViewModel] Token available: \(SecureStorage.shared.driverAccessToken != nil)")
             #endif
             await MainActor.run {
                 self.errorMessage = "Not logged in. Please login again."
@@ -723,7 +723,7 @@ class DriverProfileViewModel: ObservableObject {
         }
 
         #if DEBUG
-        print("[DriverProfileViewModel] uploadDocument starting - driverId: \(driverId), type: \(type), dataSize: \(data.count) bytes")
+        logger.info("[DriverProfileViewModel] uploadDocument starting - driverId: \(driverId), type: \(type), dataSize: \(data.count) bytes")
         #endif
 
         await uploadDocumentViaP2P(data: data, type: type, driverId: driverId)
@@ -789,7 +789,7 @@ class DriverProfileViewModel: ObservableObject {
                     // If Persona verification URL is returned, open it for identity verification
                     if let personaUrl = response.personaInquiryUrl {
                         #if DEBUG
-                        print("[DriverProfileViewModel] Persona verification required: \(personaUrl)")
+                        logger.info("[DriverProfileViewModel] Persona verification required: \(personaUrl)")
                         #endif
                         self.pendingVerificationUrl = personaUrl
                         self.showVerificationWebView = true
@@ -804,7 +804,7 @@ class DriverProfileViewModel: ObservableObject {
                     // Issue #33: Retry logic for transient failures
                     if retryCount < self.maxUploadRetries {
                         #if DEBUG
-                        print("[DriverProfileViewModel] Upload failed, retrying (\(retryCount + 1)/\(self.maxUploadRetries)): \(error.localizedDescription)")
+                        logger.info("[DriverProfileViewModel] Upload failed, retrying (\(retryCount + 1)/\(self.maxUploadRetries)): \(error.localizedDescription)")
                         #endif
 
                         // Exponential backoff: 1s, 2s, 4s
@@ -817,7 +817,7 @@ class DriverProfileViewModel: ObservableObject {
                         self.errorMessage = "Failed to upload document after \(self.maxUploadRetries) attempts. Please try again later."
                         self.showError = true
                         #if DEBUG
-                        print("[DriverProfileViewModel] Upload failed after max retries: \(error.localizedDescription)")
+                        logger.info("[DriverProfileViewModel] Upload failed after max retries: \(error.localizedDescription)")
                         #endif
                     }
                 }

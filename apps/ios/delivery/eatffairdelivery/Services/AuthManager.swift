@@ -29,12 +29,12 @@ class AuthManager: ObservableObject {
             driverEmail = UserDefaults.standard.string(forKey: UserDefaultsKeys.driverEmail) ?? ""
 
             #if DEBUG
-            print("[AuthManager] Driver logged in - ID: \(UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) ?? "nil")")
+            logger.info("[AuthManager] Driver logged in - ID: \(UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) ?? "nil")")
             #endif
         } else {
             isLoggedIn = false
             #if DEBUG
-            print("[AuthManager] Not logged in - hasToken: \(hasToken), hasDriverId: \(hasDriverId)")
+            logger.info("[AuthManager] Not logged in - hasToken: \(hasToken), hasDriverId: \(hasDriverId)")
             #endif
         }
     }
@@ -56,7 +56,7 @@ class AuthManager: ObservableObject {
         }
 
         #if DEBUG
-        print("[AuthManager] Logged out - cleared all driver data")
+        logger.info("[AuthManager] Logged out - cleared all driver data")
         #endif
     }
 

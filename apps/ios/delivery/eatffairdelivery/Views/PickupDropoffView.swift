@@ -335,7 +335,7 @@ struct DriverDeliveryMapView: View {
         directions.calculate { response, error in
             if let error = error {
                 #if DEBUG
-                print("[DriverDeliveryMapView] Route calculation error: \(error.localizedDescription)")
+                logger.info("[DriverDeliveryMapView] Route calculation error: \(error.localizedDescription)")
                 #endif
                 completion(nil)
                 return

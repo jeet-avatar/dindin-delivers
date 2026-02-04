@@ -24,7 +24,7 @@ struct PersistenceController {
         } catch {
             let nsError = error as NSError
             #if DEBUG
-            print("CoreData preview save error: \(nsError), \(nsError.userInfo)")
+            logger.debug("CoreData preview save error: \(nsError), \(nsError.userInfo)")
             #endif
         }
         return result
@@ -41,7 +41,7 @@ struct PersistenceController {
             if let error = error as NSError? {
                 // Log the error but don't crash - allow app to continue with degraded functionality
                 #if DEBUG
-                print("CoreData persistent store error: \(error), \(error.userInfo)")
+                logger.debug("CoreData persistent store error: \(error), \(error.userInfo)")
                 #endif
             }
         })

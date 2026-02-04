@@ -117,7 +117,7 @@ class RideBiddingViewModel: ObservableObject {
                 case .failure(let error):
                     // Silent fail for polling - only show error on manual refresh
                     #if DEBUG
-                    print("[RideBiddingViewModel] fetchAvailableRequests error: \(error)")
+                    logger.info("[RideBiddingViewModel] fetchAvailableRequests error: \(error)")
                     #endif
                 }
             }
@@ -142,7 +142,7 @@ class RideBiddingViewModel: ObservableObject {
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[RideBiddingViewModel] fetchMyBids error: \(error)")
+                    logger.info("[RideBiddingViewModel] fetchMyBids error: \(error)")
                     #endif
                 }
             }

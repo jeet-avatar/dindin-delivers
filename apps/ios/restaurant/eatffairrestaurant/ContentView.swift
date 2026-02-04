@@ -24,7 +24,7 @@ struct ContentView: View {
             // Check P2P vendor login (single source of truth)
             if P2PAPIService.shared.currentVendorId != nil {
                 #if DEBUG
-                print("ContentView: Found P2P vendor ID, user is logged in")
+                logger.debug("ContentView: Found P2P vendor ID, user is logged in")
                 #endif
                 isLoggedIn = true
             }
@@ -35,14 +35,14 @@ struct ContentView: View {
                 // This follows Apple's App Store guidelines
                 NotificationManager.shared.requestAuthorization { granted in
                     #if DEBUG
-                    print("ContentView: Notification permission \(granted ? "granted" : "denied")")
+                    logger.debug("ContentView: Notification permission \(granted ? "granted" : "denied")")
                     #endif
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserDidLogout"))) { _ in
             #if DEBUG
-            print("ContentView: Received logout notification")
+            logger.debug("ContentView: Received logout notification")
             #endif
             isLoggedIn = false
         }

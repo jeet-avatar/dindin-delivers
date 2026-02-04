@@ -24,7 +24,7 @@ struct KeychainHelper {
         // Issue #1: Safe optional binding instead of force unwrap
         guard let data = password.data(using: .utf8) else {
             #if DEBUG
-            print("[KeychainHelper] Failed to encode password for email: \(email)")
+            logger.info("[KeychainHelper] Failed to encode password for email: \(email)")
             #endif
             return .failure(.encodingFailed)
         }
@@ -41,7 +41,7 @@ struct KeychainHelper {
         // Issue #3: Log deletion status (not critical if fails with itemNotFound)
         if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
             #if DEBUG
-            print("[KeychainHelper] Warning: Delete before save returned status: \(deleteStatus)")
+            logger.info("[KeychainHelper] Warning: Delete before save returned status: \(deleteStatus)")
             #endif
         }
 
@@ -49,7 +49,7 @@ struct KeychainHelper {
         let addStatus = SecItemAdd(query as CFDictionary, nil)
         if addStatus != errSecSuccess {
             #if DEBUG
-            print("[KeychainHelper] Failed to save password. Status: \(addStatus)")
+            logger.info("[KeychainHelper] Failed to save password. Status: \(addStatus)")
             #endif
             return .failure(.saveFailed(addStatus))
         }
@@ -91,7 +91,7 @@ struct KeychainHelper {
 
         if status != errSecSuccess && status != errSecItemNotFound {
             #if DEBUG
-            print("[KeychainHelper] Failed to delete password. Status: \(status)")
+            logger.info("[KeychainHelper] Failed to delete password. Status: \(status)")
             #endif
             return .failure(.deleteFailed(status))
         }
@@ -128,7 +128,7 @@ struct DriverLoginView: View {
               let plist = NSDictionary(contentsOfFile: path),
               let clientID = plist["CLIENT_ID"] as? String else {
             #if DEBUG
-            print("[DriverLoginView] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
+            logger.info("[DriverLoginView] ERROR: Could not load CLIENT_ID from GoogleService-Info.plist")
             #endif
             // Return empty string - will fail gracefully in handleGoogleLogin()
             return ""
@@ -451,7 +451,7 @@ struct DriverLoginView: View {
         // Issue #10: Use fallback instead of crashing the app
         if errorCode != errSecSuccess {
             #if DEBUG
-            print("[DriverLoginView] SecRandomCopyBytes failed with OSStatus \(errorCode), using fallback nonce generation")
+            logger.info("[DriverLoginView] SecRandomCopyBytes failed with OSStatus \(errorCode), using fallback nonce generation")
             #endif
             // Fallback: Use UUID-based nonce generation
             let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "")
@@ -615,7 +615,7 @@ struct DriverLoginView: View {
                     let saveResult = KeychainHelper.save(password: googlePassword, for: googleEmail)
                     if case .failure(let keychainError) = saveResult {
                         #if DEBUG
-                        print("[DriverLoginView] Keychain save warning: \(keychainError)")
+                        logger.info("[DriverLoginView] Keychain save warning: \(keychainError)")
                         #endif
                         // Continue anyway - user can still login, just won't have seamless re-auth
                     }

@@ -759,11 +759,11 @@ class SettingsViewModel: ObservableObject {
                     self?.acceptingDelivery = profile.deliveryAvailable
                     self?.acceptingPickup = profile.pickupAvailable
                     #if DEBUG
-                    print("Loaded vendor profile from P2P: \(profile.name)")
+                    logger.debug("Loaded vendor profile from P2P: \(profile.name)")
                     #endif
                 case .failure(let error):
                     #if DEBUG
-                    print("Error: Failed to fetch vendor profile - \(error.localizedDescription)")
+                    logger.debug("Error: Failed to fetch vendor profile - \(error.localizedDescription)")
                     #endif
                 }
             }
