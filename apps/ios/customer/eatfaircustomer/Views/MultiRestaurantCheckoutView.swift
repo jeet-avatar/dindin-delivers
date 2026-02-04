@@ -1236,6 +1236,86 @@ struct PriceRow: View {
 // MARK: - Add Card View (uses StripeAddCardView from PaymentMethodsView)
 // AddCardView is now StripeAddCardView which uses real Stripe integration
 
+// MARK: - Money Flow Chip
+struct MoneyFlowChip: View {
+    let label: String
+    let amount: Double
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            Text("$\(String(format: "%.2f", amount))")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Fee Breakdown Detail View
+struct FeeBreakdownDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("How Your Payment is Distributed")) {
+                    FeeRow(title: "Restaurant", description: "Food cost goes directly to the restaurant", icon: "fork.knife", color: .green)
+                    FeeRow(title: "Driver", description: "Delivery fee + tips go 100% to your driver", icon: "car.fill", color: .blue)
+                    FeeRow(title: "Tax", description: "Sales tax collected for your state", icon: "percent", color: .gray)
+                    FeeRow(title: "Platform Fee", description: "$1 matchmaking fee to Dollor.ai", icon: "app.fill", color: .orange)
+                    FeeRow(title: "Processing", description: "Card processing fee (Stripe)", icon: "creditcard.fill", color: .purple)
+                }
+
+                Section(header: Text("Our Promise")) {
+                    Text("Dollor.ai only charges a flat $1 matchmaking fee. Drivers keep 100% of delivery fees and tips. No hidden charges.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Fee Breakdown")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Fee Row
+private struct FeeRow: View {
+    let title: String
+    let description: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 // MARK: - Preview
 #if DEBUG
 #Preview {

@@ -26,6 +26,7 @@ struct PersistenceController {
         } catch {
             let nsError = error as NSError
             coreDataLogger.error("Preview save error: \(nsError), \(nsError.userInfo)")
+        }
         return result
     }()
 
