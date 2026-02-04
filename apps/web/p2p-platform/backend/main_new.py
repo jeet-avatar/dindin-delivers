@@ -1945,6 +1945,12 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     ).first()
 
     if not user:
+        # Debug: Check if user exists with any role
+        any_user = db.query(User).filter(User.email == form_data.username).first()
+        if any_user:
+            print(f"User exists but wrong role: {any_user.role}, id={any_user.id}")
+        else:
+            print(f"No user found with email: {form_data.username}")
         print(f"Driver user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -1952,8 +1958,11 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    print(f"Found user id={user.id}, role={user.role}, driver_id={user.driver_id}")
+
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for driver")
+        print(f"Password verification failed for driver user {user.id}")
+        print(f"Hash length: {len(user.password_hash) if user.password_hash else 0}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -16813,6 +16822,63 @@ def force_reset_demo_passwords(db: Session = Depends(get_db)):
             "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
             "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
         }
+    }
+
+
+@app.get("/api/demo/debug-driver-login")
+def debug_driver_login(db: Session = Depends(get_db)):
+    """Debug why driver login is failing"""
+    email = "demo.driver@dollor.ai"
+    password = "DemoDriver2025!"
+
+    # Check 1: Find user with any role
+    any_user = db.query(User).filter(User.email == email).all()
+    users_info = []
+    for u in any_user:
+        users_info.append({
+            "id": u.id,
+            "email": u.email,
+            "role": str(u.role),
+            "driver_id": u.driver_id,
+            "has_password_hash": bool(u.password_hash),
+            "hash_length": len(u.password_hash) if u.password_hash else 0
+        })
+
+    # Check 2: Find user with DRIVER role
+    driver_user = db.query(User).filter(
+        User.email == email,
+        User.role == UserRole.DRIVER
+    ).first()
+
+    driver_user_info = None
+    password_verify_result = None
+    if driver_user:
+        password_verify_result = verify_password(password, driver_user.password_hash)
+        driver_user_info = {
+            "id": driver_user.id,
+            "role": str(driver_user.role),
+            "driver_id": driver_user.driver_id,
+            "password_verifies": password_verify_result
+        }
+
+    # Check 3: Find driver record
+    driver = db.query(Driver).filter(Driver.email == email).first()
+    driver_info = None
+    if driver:
+        driver_info = {
+            "id": driver.id,
+            "email": driver.email,
+            "status": str(driver.status) if driver.status else None,
+            "has_password_hash": bool(driver.password_hash),
+            "driver_password_verifies": verify_password(password, driver.password_hash) if driver.password_hash else None
+        }
+
+    return {
+        "email": email,
+        "all_users_with_email": users_info,
+        "driver_role_user": driver_user_info,
+        "driver_record": driver_info,
+        "conclusion": "SHOULD_WORK" if driver_user_info and password_verify_result else "BROKEN"
     }
 
 
