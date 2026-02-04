@@ -23,7 +23,7 @@ Dollor.ai has three complementary testing systems:
 
 | System | Purpose | When to Use | Tests |
 |--------|---------|-------------|-------|
-| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 12 agents, ~30 API + ~50 code + ~35 data + ~35 display + ~52 field checks |
+| **QA Agent System** | Code quality, security, infrastructure, data validation | Before every deployment | 17 agents, ~30 API + ~50 code + ~35 data + ~35 display + ~52 field checks |
 | **UAT System** | User flows, database integrity, API contracts | Before releases | 9 phases, ~76 tests |
 | **Meta-Validation** | Cross-reference QA and UAT coverage | After QA and UAT complete | 8 sections, ~72 checks |
 
@@ -58,8 +58,8 @@ Used for Apple App Store review and automated testing:
 ### Overview
 
 **File:** `scripts/qa-runner.sh`
-**Version:** 3.2 (Field Mapping Validation Edition)
-**Agents:** 12 specialized testing agents
+**Version:** 3.3 (API Documentation Validation Edition)
+**Agents:** 17 specialized testing agents
 
 ### Usage
 
@@ -90,6 +90,11 @@ Used for Apple App Store review and automated testing:
 | 10 | **Frontend Data** | Data Integrity | All frontend data points match database, type/range/format validation |
 | 11 | **Frontend Display** | Display Validation | No hardcoded values in UI, dynamic data bindings, no mock data |
 | 12 | **Field Mapping** | API Field Coverage | Checks which API fields return data vs null/empty, identifies UI gaps |
+| 13 | **Driver App** | Driver App Tabs | Validates all Driver app tab flows and navigation |
+| 14 | **Customer App** | Customer App Tabs | Validates all Customer app tab flows and navigation |
+| 15 | **Early Driver** | Early Driver Notification | Tests early driver notification system for food delivery |
+| 16 | **Order Lifecycle** | Order Flow | Complete order flow: Customer → Restaurant → Driver → Delivery |
+| 17 | **API Docs** | API Documentation | Validates endpoint documentation, identifies scattered endpoints, inconsistent patterns |
 
 ### Agent Details
 
@@ -208,6 +213,11 @@ Reports are saved to: `.planning/qa-reports/{timestamp}_{phase}/`
 | `QA_REPORT_FRONTEND_DATA.md` | Frontend data validation |
 | `QA_REPORT_FRONTEND_DISPLAY.md` | Frontend display validation |
 | `QA_REPORT_FIELD_MAPPING.md` | API field mapping validation |
+| `QA_REPORT_DRIVER_APP.md` | Driver app tabs validation |
+| `QA_REPORT_CUSTOMER_APP.md` | Customer app tabs validation |
+| `QA_REPORT_EARLY_DRIVER.md` | Early driver notification validation |
+| `QA_REPORT_ORDER_LIFECYCLE.md` | Order lifecycle flow validation |
+| `QA_REPORT_API_DOCS.md` | API documentation validation |
 
 ### Verdicts
 
@@ -525,8 +535,9 @@ Run meta-validation after both QA and UAT complete:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 3.3 | Feb 2026 | Added Field Mapping Validation agent (Agent 12) - validates API fields are populated, identifies null/empty fields |
-| 3.2 | Feb 2026 | Added Frontend Display Validation agent (Agent 11) - validates no hardcoded display values, dynamic bindings |
+| 3.4 | Feb 2026 | Added API Documentation Validation agent (Agent 17) - validates endpoint documentation completeness, identifies scattered endpoints |
+| 3.3 | Feb 2026 | Added Order Lifecycle, Early Driver Notification, Driver/Customer App agents (Agents 13-16) |
+| 3.2 | Feb 2026 | Added Frontend Display Validation agent (Agent 11), Field Mapping agent (Agent 12) |
 | 3.1 | Feb 2026 | Added Frontend Data Validation agent (Agent 10) - validates all frontend data points match database |
 | 3.0 | Feb 2026 | Added meta-validation agent for QA/UAT cross-referencing |
 | 2.0 | Feb 2026 | Added 9 agents, database validation, performance checks |

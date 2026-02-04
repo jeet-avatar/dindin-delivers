@@ -1,6 +1,6 @@
 # Dollor.ai QA Agent System
 
-> **Version**: 1.0.0
+> **Version**: 3.4.0
 > **Created**: February 3, 2026
 > **Purpose**: Read-only testing agents that run before/after deployment
 
@@ -8,8 +8,31 @@
 
 ## Overview
 
-7 specialized agents that verify the Dollor.ai platform without modifying any code.
+17 specialized agents that verify the Dollor.ai platform without modifying any code.
 All agents are **READ-ONLY** and use demo credentials for testing.
+
+### Agent Summary
+
+| # | Agent | Purpose |
+|---|-------|---------|
+| 1 | API | API endpoint validation |
+| 2 | UI | Code quality checks |
+| 3 | E2E | End-to-end workflows |
+| 4 | Dead Code | Unused code detection |
+| 5 | Security | OWASP security checks |
+| 6 | Tests | Test execution |
+| 7 | Database | DB health validation |
+| 8 | Performance | Speed metrics |
+| 9 | Dependencies | Package analysis |
+| 10 | Frontend Data | Data integrity |
+| 11 | Frontend Display | Display validation |
+| 12 | Field Mapping | API field coverage |
+| 13 | Driver App | Driver app tabs |
+| 14 | Customer App | Customer app tabs |
+| 15 | Early Driver | Early driver notification |
+| 16 | Order Lifecycle | Complete order flow |
+| 17 | API Docs | Endpoint documentation |
+| 18 | Validator | Aggregates all reports |
 
 ## Demo Credentials
 
@@ -160,7 +183,42 @@ All agents are **READ-ONLY** and use demo credentials for testing.
 
 ---
 
-### 7. Validator Agent (`qa-validator`)
+### 17. API Documentation Agent (`qa-api-docs`)
+
+**Purpose**: Validate API endpoint documentation and identify inconsistencies
+
+**Scope**:
+- Centralized endpoint documentation check
+- Endpoint pattern analysis (scattered across 10,000+ lines)
+- Authentication pattern documentation
+- Duplicate/alias endpoint detection
+
+**Checks**:
+- [ ] Centralized API_ENDPOINTS.md exists
+- [ ] All endpoint patterns documented
+- [ ] Request format per endpoint documented (content-type, field names)
+- [ ] Duplicate routes identified
+- [ ] AppConfig.Endpoints constants verified
+
+**Key Findings Tracked**:
+| Issue | Description |
+|-------|-------------|
+| Scattered endpoints | Endpoints across 10,000+ lines in P2PAPIService.swift |
+| Inconsistent patterns | Auth uses /auth/*, some use /api/*, some /erp/* |
+| Request format mismatch | Login uses username field, others use email |
+| Duplicate aliases | ~69 duplicate routes for compatibility |
+
+**Recommendations**:
+- Create `.claude/docs/API_ENDPOINTS.md` with all production endpoints
+- Document request format per endpoint (content-type, field names)
+- Add endpoint validation tests in CI
+- Use AppConfig.Endpoints constants in iOS
+
+**Output**: `QA_REPORT_API_DOCS.md`
+
+---
+
+### 18. Validator Agent (`qa-validator`)
 
 **Purpose**: Aggregate all agent reports and produce final verdict
 
@@ -171,6 +229,17 @@ All agents are **READ-ONLY** and use demo credentials for testing.
 - QA_REPORT_DEADCODE.md
 - QA_REPORT_SECURITY.md
 - QA_REPORT_TESTS.md
+- QA_REPORT_DATABASE.md
+- QA_REPORT_PERFORMANCE.md
+- QA_REPORT_DEPENDENCIES.md
+- QA_REPORT_FRONTEND_DATA.md
+- QA_REPORT_FRONTEND_DISPLAY.md
+- QA_REPORT_FIELD_MAPPING.md
+- QA_REPORT_DRIVER_APP.md
+- QA_REPORT_CUSTOMER_APP.md
+- QA_REPORT_EARLY_DRIVER.md
+- QA_REPORT_ORDER_LIFECYCLE.md
+- QA_REPORT_API_DOCS.md
 
 **Output**: `QA_VALIDATION_REPORT.md`
 
