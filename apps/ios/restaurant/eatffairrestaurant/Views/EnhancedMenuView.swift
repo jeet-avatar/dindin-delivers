@@ -484,7 +484,7 @@ struct AddEditMenuItemView: View {
                             }
                         }
 
-                        if selectedImage != nil || (existingImageUrl != nil && !existingImageUrl!.isEmpty) {
+                        if selectedImage != nil || !(existingImageUrl ?? "").isEmpty {
                             Button(role: .destructive) {
                                 selectedImage = nil
                                 existingImageUrl = nil
@@ -634,9 +634,9 @@ struct AddEditMenuItemView: View {
         if selectedImage != nil {
             // New image selected - will be uploaded
             imageUrlToSave = nil // Will be set after upload
-        } else if existingImageUrl != nil && !existingImageUrl!.isEmpty {
+        } else if let existingUrl = existingImageUrl, !existingUrl.isEmpty {
             // Keep existing image
-            imageUrlToSave = existingImageUrl
+            imageUrlToSave = existingUrl
         } else {
             // No image
             imageUrlToSave = ""
