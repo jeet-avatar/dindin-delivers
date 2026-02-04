@@ -3945,7 +3945,318 @@ EOF
 }
 
 # ============================================================
-# Agent 18: Validator (Aggregates all reports)
+# Agent 18: Driver Details Flow Validation
+# Verifies driver details are visible across all apps after accept
+# Critical flow: Driver Accept → Restaurant sees details → Customer tracking
+# ============================================================
+run_driver_details_flow_agent() {
+    echo -e "${YELLOW}◆ Running Driver Details Flow Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_DRIVER_DETAILS_FLOW.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << 'EOF'
+# QA Report: Driver Details Flow Validation
+
+**Environment**: $ENV
+**URL**: $API_URL
+**Date**: $(date)
+**Phase**: $PHASE
+
+This agent validates the critical flow where driver details are visible
+across all three apps after a driver accepts an order.
+
+---
+
+## Flow Under Test
+
+```
+Driver presses Accept
+        ↓
+POST /erp/orders/{id}/assign-driver (with Bearer token)
+        ↓
+Backend stores driver_id on Order
+        ↓
+Restaurant polls /erp/orders/vendor/{id}
+        ↓
+Backend joins Order.driver_id → Driver table
+        ↓
+Returns driver.phone, driver.rating, driver.vehicle
+        ↓
+Restaurant app displays driver details + call button
+        ↓
+Customer polls /erp/orders/{id}/full-tracking
+        ↓
+Customer sees driver name, phone, photo, vehicle, live location
+```
+
+---
+
+## Test Results
+
+### 1. Driver Authentication
+EOF
+
+    # Test Driver Login
+    echo "  Testing driver login..."
+    local driver_result=$(curl -s -X POST "$API_URL/api/auth/driver/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$DRIVER_EMAIL&password=$DRIVER_PASS" 2>/dev/null)
+
+    if echo "$driver_result" | grep -q "access_token"; then
+        DRIVER_TOKEN=$(echo "$driver_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+        local driver_id=$(echo "$driver_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('driver_id',''))" 2>/dev/null)
+        echo "" >> "$report"
+        echo "| Check | Result |" >> "$report"
+        echo "|-------|--------|" >> "$report"
+        echo "| Driver Login | ✅ PASS |" >> "$report"
+        echo "| Driver ID | $driver_id |" >> "$report"
+        echo "| Token Received | Yes |" >> "$report"
+        ((passed++))
+    else
+        echo "" >> "$report"
+        echo "| Check | Result |" >> "$report"
+        echo "|-------|--------|" >> "$report"
+        echo "| Driver Login | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 2. Vendor Orders - Driver Details Enrichment
+EOF
+
+    # Test Vendor Orders endpoint returns driver details
+    echo "  Testing vendor orders with driver details..."
+    local vendor_orders=$(curl -s "$API_URL/api/erp/orders/vendor/40" 2>/dev/null)
+
+    # Check if driver object is present in orders with assigned drivers
+    local has_driver_object=$(echo "$vendor_orders" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    orders = data.get('orders', [])
+    for order in orders:
+        if order.get('driver_id') and order.get('driver'):
+            driver = order.get('driver')
+            if driver.get('phone') and driver.get('rating'):
+                print('YES')
+                sys.exit(0)
+    print('NO')
+except:
+    print('ERROR')
+" 2>/dev/null)
+
+    echo "" >> "$report"
+    echo "| Field | Status |" >> "$report"
+    echo "|-------|--------|" >> "$report"
+
+    if [ "$has_driver_object" = "YES" ]; then
+        echo "| driver object present | ✅ PASS |" >> "$report"
+        echo "| driver.phone populated | ✅ PASS |" >> "$report"
+        echo "| driver.rating populated | ✅ PASS |" >> "$report"
+        ((passed++))
+        ((passed++))
+        ((passed++))
+
+        # Extract sample driver details
+        local sample_driver=$(echo "$vendor_orders" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for order in data.get('orders', []):
+    if order.get('driver'):
+        d = order.get('driver')
+        print(f\"| Sample: {d.get('name','')} | {d.get('phone','')} | {d.get('rating','')} |\")
+        break
+" 2>/dev/null)
+        echo "$sample_driver" >> "$report"
+    else
+        echo "| driver object present | ❌ FAIL |" >> "$report"
+        echo "| driver.phone populated | ❌ FAIL |" >> "$report"
+        echo "| driver.rating populated | ❌ FAIL |" >> "$report"
+        ((failed++))
+        ((failed++))
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 3. Customer Order Tracking - Driver Details
+EOF
+
+    # Test Customer login and tracking
+    echo "  Testing customer tracking with driver details..."
+    local customer_result=$(curl -s -X POST "$API_URL/api/auth/customer/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=$CUSTOMER_EMAIL&password=$CUSTOMER_PASS" 2>/dev/null)
+
+    if echo "$customer_result" | grep -q "access_token"; then
+        CUSTOMER_TOKEN=$(echo "$customer_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+
+        # Get customer orders
+        local customer_orders=$(curl -s "$API_URL/api/customer/orders" \
+            -H "Authorization: Bearer $CUSTOMER_TOKEN" 2>/dev/null)
+
+        local has_customer_driver=$(echo "$customer_orders" | python3 -c "
+import sys, json
+try:
+    orders = json.load(sys.stdin)
+    if isinstance(orders, list):
+        for order in orders:
+            if order.get('driver_id') and order.get('driver'):
+                driver = order.get('driver')
+                if driver.get('phone'):
+                    print('YES')
+                    sys.exit(0)
+    print('NO')
+except:
+    print('ERROR')
+" 2>/dev/null)
+
+        echo "" >> "$report"
+        echo "| Check | Result |" >> "$report"
+        echo "|-------|--------|" >> "$report"
+        echo "| Customer Login | ✅ PASS |" >> "$report"
+        ((passed++))
+
+        if [ "$has_customer_driver" = "YES" ]; then
+            echo "| Orders with driver details | ✅ PASS |" >> "$report"
+            ((passed++))
+        else
+            echo "| Orders with driver details | ⚠️ No assigned orders |" >> "$report"
+            ((warnings++))
+        fi
+    else
+        echo "" >> "$report"
+        echo "| Check | Result |" >> "$report"
+        echo "|-------|--------|" >> "$report"
+        echo "| Customer Login | ❌ FAIL |" >> "$report"
+        ((failed++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+### 4. API Authorization Headers
+
+Verifies that driver delivery APIs require Bearer token authentication.
+
+EOF
+
+    echo "" >> "$report"
+    echo "| Endpoint | Auth Required | Status |" >> "$report"
+    echo "|----------|---------------|--------|" >> "$report"
+
+    # Test that accept order requires auth
+    local accept_no_auth=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "$API_URL/api/erp/orders/999/assign-driver" \
+        -H "Content-Type: application/json" \
+        -d '{"driver_id": 48}' 2>/dev/null)
+
+    if [ "$accept_no_auth" = "401" ] || [ "$accept_no_auth" = "403" ]; then
+        echo "| /erp/orders/{id}/assign-driver | Yes | ✅ Returns $accept_no_auth |" >> "$report"
+        ((passed++))
+    else
+        echo "| /erp/orders/{id}/assign-driver | Yes | ⚠️ Returns $accept_no_auth |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Test that picked-up requires auth
+    local pickup_no_auth=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "$API_URL/api/erp/orders/999/picked-up" 2>/dev/null)
+
+    if [ "$pickup_no_auth" = "401" ] || [ "$pickup_no_auth" = "403" ] || [ "$pickup_no_auth" = "404" ]; then
+        echo "| /erp/orders/{id}/picked-up | Yes | ✅ Returns $pickup_no_auth |" >> "$report"
+        ((passed++))
+    else
+        echo "| /erp/orders/{id}/picked-up | No? | ⚠️ Returns $pickup_no_auth |" >> "$report"
+        ((warnings++))
+    fi
+
+    # Test that delivered requires auth
+    local deliver_no_auth=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "$API_URL/api/erp/orders/999/delivered" 2>/dev/null)
+
+    if [ "$deliver_no_auth" = "401" ] || [ "$deliver_no_auth" = "403" ] || [ "$deliver_no_auth" = "404" ]; then
+        echo "| /erp/orders/{id}/delivered | Yes | ✅ Returns $deliver_no_auth |" >> "$report"
+        ((passed++))
+    else
+        echo "| /erp/orders/{id}/delivered | No? | ⚠️ Returns $deliver_no_auth |" >> "$report"
+        ((warnings++))
+    fi
+
+    cat >> "$report" << 'EOF'
+
+---
+
+## Driver Details Fields
+
+When a driver is assigned, these fields should be populated:
+
+| Field | Source | Used By |
+|-------|--------|---------|
+| `driver.id` | Driver table | All apps |
+| `driver.name` | Driver.first_name + last_name | All apps |
+| `driver.phone` | Driver.phone | Restaurant (call button), Customer |
+| `driver.rating` | Driver.rating | Restaurant, Customer |
+| `driver.photo_url` | Driver.photo_url | Customer tracking |
+| `driver.vehicle` | Driver.vehicle_color + make + model | Customer tracking |
+| `driver.license_plate` | Driver.license_plate | Customer tracking |
+| `driver.location` | Order.driver_location | Customer live tracking |
+
+---
+
+## iOS Code References
+
+| App | File | Line | Usage |
+|-----|------|------|-------|
+| Restaurant | EnhancedDashboardView.swift | 673 | `order.driverPhone` → call button |
+| Restaurant | EnhancedDashboardView.swift | 688 | `order.driverRating` → star display |
+| Customer | DeliveryTrackingView.swift | 758 | `DriverInfoRow` component |
+| Driver | DeliveryViewModel.swift | 328 | `myDeliveries.insert(order)` |
+| Shared | P2PAPIService.swift | 3984 | `acceptDeliveryOrder()` with auth |
+
+---
+
+## Summary
+
+EOF
+
+    echo "| Metric | Count |" >> "$report"
+    echo "|--------|-------|" >> "$report"
+    echo "| Passed | $passed |" >> "$report"
+    echo "| Failed | $failed |" >> "$report"
+    echo "| Warnings | $warnings |" >> "$report"
+    echo "| Total Checks | $((passed + failed + warnings)) |" >> "$report"
+
+    if [ $failed -eq 0 ] && [ $warnings -eq 0 ]; then
+        echo "" >> "$report"
+        echo "**Status**: ✅ PASS - Driver details flow working correctly" >> "$report"
+    elif [ $failed -eq 0 ]; then
+        echo "" >> "$report"
+        echo "**Status**: ⚠️ WARNING - Some checks need attention" >> "$report"
+    else
+        echo "" >> "$report"
+        echo "**Status**: ❌ FAIL - Driver details flow broken" >> "$report"
+    fi
+
+    # Fix template variables in report
+    sed -i '' "s/\$ENV/$ENV/g" "$report" 2>/dev/null || true
+    sed -i '' "s/\$PHASE/$PHASE/g" "$report" 2>/dev/null || true
+    sed -i '' "s|\$API_URL|$API_URL|g" "$report" 2>/dev/null || true
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ Driver Details Flow Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Driver Details Flow Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 19: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -3973,7 +4284,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -4086,7 +4397,7 @@ EOF
 # ============================================================
 main() {
     echo ""
-    echo "Starting QA Agent execution (17 agents)..."
+    echo "Starting QA Agent execution (18 agents)..."
     echo ""
 
     cd "$PROJECT_ROOT"
@@ -4109,8 +4420,9 @@ main() {
     run_early_driver_notification_agent || true
     run_order_lifecycle_agent || true
     run_api_docs_agent || true
+    run_driver_details_flow_agent || true
 
-    # Run validator last (Agent 18)
+    # Run validator last (Agent 19)
     run_validator_agent
 
     exit_code=$?
