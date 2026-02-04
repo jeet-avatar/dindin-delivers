@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "OrderTrackingViewModel")
+
 import SwiftUI
 import Combine
 import EatFairShared
@@ -71,7 +75,7 @@ class OrderTrackingViewModel: ObservableObject {
 
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
-                    print("Error fetching active orders: \(error)")
+                    logger.debug("Error fetching active orders: \(error)")
                 }
             }
         }
@@ -91,7 +95,7 @@ class OrderTrackingViewModel: ObservableObject {
 
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
-                    print("Error fetching orders: \(error)")
+                    logger.debug("Error fetching orders: \(error)")
                 }
             }
         }
@@ -152,7 +156,7 @@ class OrderTrackingViewModel: ObservableObject {
                         self.estimatedTime = "\(etaData.minutes) mins"
 
                         #if DEBUG
-                        print("[OrderTracking] Traffic-aware ETA: \(etaData.minutes) mins, \(etaData.distanceMiles) mi, traffic: \(etaData.isTrafficAware)")
+                        logger.info("[OrderTracking] Traffic-aware ETA: \(etaData.minutes) mins, \(etaData.distanceMiles) mi, traffic: \(etaData.isTrafficAware)")
                         #endif
                     } else if let eta = tracking.estimatedDelivery {
                         // Fallback to string-based estimate
@@ -163,12 +167,12 @@ class OrderTrackingViewModel: ObservableObject {
                     }
 
                     #if DEBUG
-                    print("[OrderTracking] Full tracking loaded with \(tracking.timeline.count) timeline events")
+                    logger.info("[OrderTracking] Full tracking loaded with \(tracking.timeline.count) timeline events")
                     #endif
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[OrderTracking] Full tracking failed: \(error.localizedDescription)")
+                    logger.info("[OrderTracking] Full tracking failed: \(error.localizedDescription)")
                     #endif
                     // Basic tracking will handle updates
                 }

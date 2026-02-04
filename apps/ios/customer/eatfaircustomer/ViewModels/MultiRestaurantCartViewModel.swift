@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "MultiRestaurantCartViewModel")
+
 import SwiftUI
 import FirebaseAuth
 import Combine
@@ -411,7 +415,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
         let orderGroup = DispatchGroup()
 
         #if DEBUG
-        print("[OrderFlow] Creating orders for \(orderedRestaurants.count) restaurant(s)...")
+        logger.info("[OrderFlow] Creating orders for \(orderedRestaurants.count) restaurant(s)...")
         #endif
 
         // Create a separate order for each restaurant
@@ -419,7 +423,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
             guard let vendorIdStr = restaurant.id,
                   let vendorId = Int(vendorIdStr) else {
                 #if DEBUG
-                print("[OrderFlow] ⚠️ Skipping restaurant with invalid ID: \(restaurant.name)")
+                logger.info("[OrderFlow] ⚠️ Skipping restaurant with invalid ID: \(restaurant.name)")
                 #endif
                 failedOrders.append(restaurant.name)
                 continue
@@ -429,7 +433,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
             let restaurantItems = items.filter { $0.restaurantId == vendorIdStr }
             guard !restaurantItems.isEmpty else {
                 #if DEBUG
-                print("[OrderFlow] ⚠️ No items for restaurant: \(restaurant.name)")
+                logger.info("[OrderFlow] ⚠️ No items for restaurant: \(restaurant.name)")
                 #endif
                 continue
             }
@@ -450,8 +454,8 @@ class MultiRestaurantCartViewModel: ObservableObject {
             let restaurantTip = tip * tipProportion
 
             #if DEBUG
-            print("[OrderFlow] Creating order for \(restaurant.name) (vendor \(vendorId))")
-            print("[OrderFlow]   Items: \(restaurantItems.count), Subtotal: $\(restaurantSubtotal), Tip: $\(restaurantTip)")
+            logger.info("[OrderFlow] Creating order for \(restaurant.name) (vendor \(vendorId))")
+            logger.info("[OrderFlow]   Items: \(restaurantItems.count), Subtotal: $\(restaurantSubtotal), Tip: $\(restaurantTip)")
             #endif
 
             orderGroup.enter()
@@ -471,7 +475,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
                 switch result {
                 case .success(let p2pResponse):
                     #if DEBUG
-                    print("[OrderFlow] ✅ Order created for \(restaurant.name): \(p2pResponse.orderNumber)")
+                    logger.info("[OrderFlow] ✅ Order created for \(restaurant.name): \(p2pResponse.orderNumber)")
                     #endif
 
                     // Send order to restaurant (with retry logic)
@@ -494,7 +498,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[OrderFlow] ❌ Order failed for \(restaurant.name): \(error.localizedDescription)")
+                    logger.info("[OrderFlow] ❌ Order failed for \(restaurant.name): \(error.localizedDescription)")
                     #endif
                     DispatchQueue.main.async {
                         failedOrders.append(restaurant.name)
@@ -537,9 +541,9 @@ class MultiRestaurantCartViewModel: ObservableObject {
             self.lastOrderItems = self.items  // Save items before clearing
 
             #if DEBUG
-            print("[OrderFlow] ✅ All orders completed: \(completedOrders.count) succeeded, \(failedOrders.count) failed")
-            print("[OrderFlow] Order numbers: \(self.lastOrderNumbers)")
-            print("[OrderFlow] Total: $\(self.lastOrderTotal ?? 0)")
+            logger.info("[OrderFlow] ✅ All orders completed: \(completedOrders.count) succeeded, \(failedOrders.count) failed")
+            logger.info("[OrderFlow] Order numbers: \(self.lastOrderNumbers)")
+            logger.info("[OrderFlow] Total: $\(self.lastOrderTotal ?? 0)")
             #endif
 
             // Show warning if some orders failed
@@ -571,12 +575,12 @@ class MultiRestaurantCartViewModel: ObservableObject {
             switch result {
             case .success:
                 #if DEBUG
-                print("[OrderFlow] ✅ Order sent to restaurant successfully (attempt \(currentAttempt))")
+                logger.info("[OrderFlow] ✅ Order sent to restaurant successfully (attempt \(currentAttempt))")
                 #endif
 
             case .failure(let error):
                 #if DEBUG
-                print("[OrderFlow] ⚠️ Failed to send order to restaurant (attempt \(currentAttempt)/\(maxRetries)): \(error.localizedDescription)")
+                logger.info("[OrderFlow] ⚠️ Failed to send order to restaurant (attempt \(currentAttempt)/\(maxRetries)): \(error.localizedDescription)")
                 #endif
 
                 // Retry if we haven't exhausted all attempts
@@ -584,7 +588,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     // Exponential backoff: 2s, 4s, 8s...
                     let delay = Double(pow(2.0, Double(currentAttempt)))
                     #if DEBUG
-                    print("[OrderFlow] Retrying in \(delay) seconds...")
+                    logger.info("[OrderFlow] Retrying in \(delay) seconds...")
                     #endif
 
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -597,8 +601,8 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     }
                 } else {
                     #if DEBUG
-                    print("[OrderFlow] ❌ All retry attempts exhausted. Order \(orderId) may not have reached restaurant.")
-                    print("[OrderFlow] The backend should have a fallback mechanism to detect unconfirmed orders.")
+                    logger.info("[OrderFlow] ❌ All retry attempts exhausted. Order \(orderId) may not have reached restaurant.")
+                    logger.info("[OrderFlow] The backend should have a fallback mechanism to detect unconfirmed orders.")
                     #endif
                 }
             }

@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "RestaurantDetailView")
+
 import SwiftUI
 import EatFairShared
 
@@ -255,7 +259,7 @@ struct RestaurantDetailView: View {
                 }
             case .failure(let error):
                 #if DEBUG
-                print("[RestaurantDetail] Failed to fetch promotions: \(error)")
+                logger.info("[RestaurantDetail] Failed to fetch promotions: \(error)")
                 #endif
                 activePromotions = []
             }

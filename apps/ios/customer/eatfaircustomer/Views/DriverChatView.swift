@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "DriverChatView")
+
 import SwiftUI
 import Combine
 import EatFairShared
@@ -327,7 +331,7 @@ class ChatViewModel: ObservableObject {
                 }
             case .failure(let error):
                 #if DEBUG
-                print("[DriverChat] Fetch messages failed: \(error)")
+                logger.info("[DriverChat] Fetch messages failed: \(error)")
                 #endif
             }
         }
@@ -354,7 +358,7 @@ class ChatViewModel: ObservableObject {
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                     #if DEBUG
-                    print("[DriverChat] Send message failed: \(error)")
+                    logger.info("[DriverChat] Send message failed: \(error)")
                     #endif
                 }
             }

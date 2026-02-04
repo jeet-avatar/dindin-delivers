@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "MainAppView")
+
 import SwiftUI
 import Combine
 import EatFairShared
@@ -68,19 +72,19 @@ struct MainAppView: View {
                 .sheet(isPresented: $showCartSheet, onDismiss: {
                     // Cart sheet fully dismissed - check if we need to show success screen
                     #if DEBUG
-                    print("[OrderFlow] Cart sheet onDismiss called")
-                    print("[OrderFlow] orderPlaced = \(multiCartViewModel.orderPlaced)")
+                    logger.info("[OrderFlow] Cart sheet onDismiss called")
+                    logger.info("[OrderFlow] orderPlaced = \(multiCartViewModel.orderPlaced)")
                     #endif
                     if multiCartViewModel.orderPlaced {
                         #if DEBUG
-                        print("[OrderFlow] Showing success screen after 0.3s delay")
+                        logger.info("[OrderFlow] Showing success screen after 0.3s delay")
                         #endif
                         // Use slight delay to ensure SwiftUI is ready for fullScreenCover
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             showOrderSuccess = true
                             multiCartViewModel.orderPlaced = false
                             #if DEBUG
-                            print("[OrderFlow] ✅ showOrderSuccess = true")
+                            logger.info("[OrderFlow] ✅ showOrderSuccess = true")
                             #endif
                         }
                     }
@@ -98,16 +102,16 @@ struct MainAppView: View {
                 }
                 .onChange(of: multiCartViewModel.orderPlaced) { _, newValue in
                     #if DEBUG
-                    print("[OrderFlow] onChange(orderPlaced) fired: \(newValue)")
+                    logger.info("[OrderFlow] onChange(orderPlaced) fired: \(newValue)")
                     #endif
                     if newValue {
                         #if DEBUG
-                        print("[OrderFlow] Will dismiss cart sheet after 0.5s (let checkout dismiss first)")
+                        logger.info("[OrderFlow] Will dismiss cart sheet after 0.5s (let checkout dismiss first)")
                         #endif
                         // Wait for checkout sheet to dismiss first, then dismiss cart
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             #if DEBUG
-                            print("[OrderFlow] Now setting showCartSheet = false")
+                            logger.info("[OrderFlow] Now setting showCartSheet = false")
                             #endif
                             showCartSheet = false
                         }
@@ -474,7 +478,7 @@ class SearchViewModel: ObservableObject {
                 case .success(let restaurants):
                     self?.p2pRestaurants = restaurants
                 case .failure(let error):
-                    print("SearchViewModel: Failed to fetch restaurants: \(error)")
+                    logger.debug("SearchViewModel: Failed to fetch restaurants: \(error)")
                     self?.p2pRestaurants = []
                 }
             }

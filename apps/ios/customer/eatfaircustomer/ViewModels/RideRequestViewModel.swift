@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "RideRequestViewModel")
+
 import SwiftUI
 import Combine
 import EatFairShared
@@ -236,16 +240,16 @@ class RideRequestViewModel: ObservableObject {
                 self.timeFee = estimate.breakdown.timeCost
 
                 #if DEBUG
-                print("[RideRequestViewModel] Fare estimate from production API:")
-                print("  Distance: \(estimate.distanceMiles) miles")
-                print("  Duration: \(estimate.durationMinutes) min")
-                print("  Total: $\(estimate.total)")
-                print("  Platform fee: $\(estimate.platformFee)")
+                logger.info("[RideRequestViewModel] Fare estimate from production API:")
+                logger.debug("  Distance: \(estimate.distanceMiles) miles")
+                logger.debug("  Duration: \(estimate.durationMinutes) min")
+                logger.debug("  Total: $\(estimate.total)")
+                logger.debug("  Platform fee: $\(estimate.platformFee)")
                 #endif
 
             case .failure(let error):
                 #if DEBUG
-                print("[RideRequestViewModel] Fare estimate API error: \(error)")
+                logger.info("[RideRequestViewModel] Fare estimate API error: \(error)")
                 #endif
                 // Fallback to local calculation if API fails
                 self.estimateFareLocally()
@@ -273,7 +277,7 @@ class RideRequestViewModel: ObservableObject {
         timeFee = duration * perMinuteRate
 
         #if DEBUG
-        print("[RideRequestViewModel] Using local fallback calculation")
+        logger.info("[RideRequestViewModel] Using local fallback calculation")
         #endif
     }
 
@@ -657,7 +661,7 @@ class RideRequestViewModel: ObservableObject {
                 case .success(let response):
                     // Check for demo mode (App Store review) - skip payment sheet
                     if response.clientSecret.hasPrefix("demo_") {
-                        print("[RidePayment] Demo account detected - bypassing Stripe payment")
+                        logger.info("[RidePayment] Demo account detected - bypassing Stripe payment")
                         // Directly confirm payment with demo payment intent
                         self?.confirmPayment(paymentIntentId: response.paymentIntentId)
                         return

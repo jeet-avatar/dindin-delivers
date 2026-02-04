@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "RideRequestView")
+
 import SwiftUI
 import MapKit
 import CoreLocation
@@ -1143,7 +1147,7 @@ class RideLocationManager: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error.localizedDescription)")
+        logger.debug("Location error: \(error.localizedDescription)")
         locationCompletion?(nil)
         locationCompletion = nil
     }

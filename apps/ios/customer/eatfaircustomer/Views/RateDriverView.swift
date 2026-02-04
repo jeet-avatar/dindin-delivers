@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "RateDriverView")
+
 //
 //  RateDriverView.swift
 //  eatfaircustomer
@@ -248,10 +252,10 @@ class RateDriverViewModel: ObservableObject {
                 self?.isSubmitting = false
                 switch result {
                 case .success(let response):
-                    print("[RateDriverView] Rating submitted: \(response.message)")
+                    logger.info("[RateDriverView] Rating submitted: \(response.message)")
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
-                    print("[RateDriverView] Rating failed: \(error)")
+                    logger.info("[RateDriverView] Rating failed: \(error)")
                 }
             }
         }

@@ -1,3 +1,7 @@
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.customer", category: "AddressViewModel")
+
 import SwiftUI
 import Combine
 import CoreLocation
@@ -76,13 +80,13 @@ class AddressViewModel: ObservableObject {
     // MARK: - Add Address
     func addAddress(address: Address, completion: @escaping (Bool) -> Void) {
         #if DEBUG
-        print("[AddressViewModel] addAddress called")
-        print("[AddressViewModel] currentUserId: \(String(describing: currentUserId))")
+        logger.info("[AddressViewModel] addAddress called")
+        logger.info("[AddressViewModel] currentUserId: \(String(describing: currentUserId))")
         #endif
 
         guard let userId = currentUserId else {
             #if DEBUG
-            print("[AddressViewModel] ERROR: No user ID - user not logged in")
+            logger.info("[AddressViewModel] ERROR: No user ID - user not logged in")
             #endif
             errorMessage = "Please log in to save addresses"
             completion(false)
@@ -90,7 +94,7 @@ class AddressViewModel: ObservableObject {
         }
 
         #if DEBUG
-        print("[AddressViewModel] User ID found: \(userId)")
+        logger.info("[AddressViewModel] User ID found: \(userId)")
         #endif
 
         isLoading = true
@@ -106,7 +110,7 @@ class AddressViewModel: ObservableObject {
         let addressString = "\(address.street), \(address.city), \(address.state) \(address.zipCode)"
 
         #if DEBUG
-        print("[AddressViewModel] Geocoding: \(addressString)")
+        logger.info("[AddressViewModel] Geocoding: \(addressString)")
         #endif
 
         geocoder.geocodeAddressString(addressString) { [weak self] placemarks, error in
@@ -114,7 +118,7 @@ class AddressViewModel: ObservableObject {
 
             if let error = error {
                 #if DEBUG
-                print("[AddressViewModel] Geocoding error: \(error.localizedDescription)")
+                logger.info("[AddressViewModel] Geocoding error: \(error.localizedDescription)")
                 #endif
             }
 
@@ -126,12 +130,12 @@ class AddressViewModel: ObservableObject {
                 newAddress.latitude = location.coordinate.latitude
                 newAddress.longitude = location.coordinate.longitude
                 #if DEBUG
-                print("[AddressViewModel] Geocoded: lat=\(newAddress.latitude), lng=\(newAddress.longitude)")
+                logger.info("[AddressViewModel] Geocoded: lat=\(newAddress.latitude), lng=\(newAddress.longitude)")
                 #endif
             } else if !hasValidCoordinates {
                 // Geocoding failed and we don't have coordinates - show error
                 #if DEBUG
-                print("[AddressViewModel] Geocoding failed and no valid coordinates provided")
+                logger.info("[AddressViewModel] Geocoding failed and no valid coordinates provided")
                 #endif
                 self.isLoading = false
                 self.errorMessage = "Unable to find location. Please use the address search feature or check the address."
@@ -154,7 +158,7 @@ class AddressViewModel: ObservableObject {
             }
 
             #if DEBUG
-            print("[AddressViewModel] Calling P2P API createAddress...")
+            logger.info("[AddressViewModel] Calling P2P API createAddress...")
             #endif
 
             // Create address via P2P API
@@ -166,7 +170,7 @@ class AddressViewModel: ObservableObject {
                 switch result {
                 case .success(let p2pAddress):
                     #if DEBUG
-                    print("[AddressViewModel] Address saved successfully: id=\(p2pAddress.id)")
+                    logger.info("[AddressViewModel] Address saved successfully: id=\(p2pAddress.id)")
                     #endif
                     let savedAddress = p2pAddress.toAddress()
                     self.addresses.append(savedAddress)
@@ -178,7 +182,7 @@ class AddressViewModel: ObservableObject {
 
                 case .failure(let error):
                     #if DEBUG
-                    print("[AddressViewModel] Failed to save address: \(error)")
+                    logger.info("[AddressViewModel] Failed to save address: \(error)")
                     #endif
                     self.errorMessage = "Failed to save address"
                     completion(false)
