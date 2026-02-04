@@ -4038,17 +4038,35 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
+        #if DEBUG
+        logger.info("=== acceptDeliveryOrder START ===")
+        logger.info("orderId: \(orderId)")
+        logger.info("currentDriverId: \(String(describing: currentDriverId))")
+        logger.info("driverToken exists: \(driverToken != nil)")
+        #endif
+
         guard let token = driverToken else {
+            #if DEBUG
+            logger.error("acceptDeliveryOrder FAILED: driverToken is nil")
+            #endif
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
 
         guard let driverId = currentDriverId else {
+            #if DEBUG
+            logger.error("acceptDeliveryOrder FAILED: currentDriverId is nil")
+            #endif
             completion(.failure(P2PAPIError.serverError("Driver ID not available")))
             return
         }
 
-        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/assign-driver") else {
+        let urlString = "\(baseURL)/erp/orders/\(orderId)/assign-driver"
+        #if DEBUG
+        logger.info("acceptDeliveryOrder URL: \(urlString)")
+        #endif
+
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -4061,15 +4079,33 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["driver_id": driverId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
+        #if DEBUG
+        logger.info("acceptDeliveryOrder request body: \(body)")
+        #endif
+
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
+                #if DEBUG
+                let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+                logger.info("acceptDeliveryOrder HTTP status: \(httpStatus)")
+                if let data = data, let jsonString = String(data: data, encoding: .utf8) {
+                    logger.info("acceptDeliveryOrder response: \(String(jsonString.prefix(500)))")
+                }
+                #endif
+
                 if let error = error {
+                    #if DEBUG
+                    logger.error("acceptDeliveryOrder network error: \(error.localizedDescription)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    #if DEBUG
+                    logger.error("acceptDeliveryOrder HTTP error: \(httpResponse.statusCode)")
+                    #endif
                     if let data = data,
                        let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -4079,6 +4115,9 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
+                #if DEBUG
+                logger.info("acceptDeliveryOrder SUCCESS for order \(orderId)")
+                #endif
                 completion(.success(true))
             }
         }.resume()
@@ -4089,12 +4128,26 @@ public class P2PAPIService: ObservableObject {
         orderId: Int,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
+        #if DEBUG
+        logger.info("=== markOrderPickedUp START ===")
+        logger.info("orderId: \(orderId)")
+        logger.info("driverToken exists: \(driverToken != nil)")
+        #endif
+
         guard let token = driverToken else {
+            #if DEBUG
+            logger.error("markOrderPickedUp FAILED: driverToken is nil")
+            #endif
             completion(.failure(P2PAPIError.serverError("Driver not logged in")))
             return
         }
 
-        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/picked-up") else {
+        let urlString = "\(baseURL)/erp/orders/\(orderId)/picked-up"
+        #if DEBUG
+        logger.info("markOrderPickedUp URL: \(urlString)")
+        #endif
+
+        guard let url = URL(string: urlString) else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -4105,13 +4158,27 @@ public class P2PAPIService: ObservableObject {
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
+                #if DEBUG
+                let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+                logger.info("markOrderPickedUp HTTP status: \(httpStatus)")
+                if let data = data, let jsonString = String(data: data, encoding: .utf8) {
+                    logger.info("markOrderPickedUp response: \(String(jsonString.prefix(500)))")
+                }
+                #endif
+
                 if let error = error {
+                    #if DEBUG
+                    logger.error("markOrderPickedUp network error: \(error.localizedDescription)")
+                    #endif
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    #if DEBUG
+                    logger.error("markOrderPickedUp HTTP error: \(httpResponse.statusCode)")
+                    #endif
                     if let data = data,
                        let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -4121,6 +4188,9 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
+                #if DEBUG
+                logger.info("markOrderPickedUp SUCCESS for order \(orderId)")
+                #endif
                 completion(.success(true))
             }
         }.resume()

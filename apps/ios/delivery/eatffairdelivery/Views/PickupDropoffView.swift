@@ -564,6 +564,7 @@ struct DriverBottomActionSheet: View {
             SwipeToConfirmButton(
                 title: isPickedUp ? "Swipe to Complete Delivery" : "Swipe to Confirm Pickup",
                 color: isPickedUp ? Theme.statusActive : Theme.brandOrange,
+                isLoading: viewModel.isLoading,
                 onConfirm: {
                     if isPickedUp {
                         viewModel.markAsDelivered(order)
@@ -824,6 +825,7 @@ struct OrderSummaryCard: View {
 struct SwipeToConfirmButton: View {
     let title: String
     let color: Color
+    let isLoading: Bool  // Binding to parent's loading state
     let onConfirm: () -> Void
 
     @State private var offset: CGFloat = 0
@@ -916,6 +918,20 @@ struct SwipeToConfirmButton: View {
                             }
                     )
                     .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+            }
+            // Reset state when loading completes (success or failure)
+            .onChange(of: isLoading) { _, newValue in
+                if !newValue && isConfirmed {
+                    // Loading finished - reset the slider after a brief delay
+                    // This handles both success (view will update with new status)
+                    // and failure (slider resets to allow retry)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        withAnimation(.spring(response: 0.3)) {
+                            isConfirmed = false
+                            offset = 0
+                        }
+                    }
+                }
             }
         }
         .frame(height: 58)

@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 122 | 1.0 | Uploaded to TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 123 | 1.0 | Uploaded to TestFlight |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
@@ -26,6 +26,8 @@
 | Driver earnings showing $0 | Fixed backend response structure (today/this_week/this_month) | `33131dff` |
 | Rate driver 404 error | Fixed endpoint URL: `/api/customer/orders/{id}/rate-driver` | `b65d4760` |
 | "No Active Delivery" after accept | Added optimistic update in DriverViewModel | `198d9ad1` |
+| "Confirming..." stuck on swipe | Fixed SwipeToConfirmButton to reset state when loading completes | Build 123 |
+| Debug logging for order flow | Added detailed logging to acceptDeliveryOrder and markOrderPickedUp | Build 123 |
 
 ---
 
@@ -123,7 +125,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
 | Dollor (Customer) | 1037 | ✅ Available for Testing |
-| Dollor Driver | 114 | ✅ Available for Testing |
+| Dollor Driver | 123 | ✅ Uploaded (processing) |
 | Dollor Restaurant | 113 | ✅ Available for Testing |
 
 ### Demo Accounts (For App Store Review)
