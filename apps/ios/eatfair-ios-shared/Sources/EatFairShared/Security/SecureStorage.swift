@@ -1,5 +1,8 @@
 import Foundation
 import Security
+import os
+
+private let storageLogger = Logger(subsystem: "ai.dollor.shared", category: "SecureStorage")
 
 /// Secure storage using iOS Keychain
 /// Use this for storing authentication tokens, sensitive user data, and API keys
@@ -60,11 +63,9 @@ public final class SecureStorage {
 
         let status = SecItemAdd(query as CFDictionary, nil)
 
-        #if DEBUG
         if status != errSecSuccess {
-            print("[SecureStorage] Failed to save \(key.rawValue): \(status)")
+            storageLogger.error("Failed to save \(key.rawValue): \(status)")
         }
-        #endif
 
         return status == errSecSuccess
     }
@@ -97,11 +98,9 @@ public final class SecureStorage {
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         guard status == errSecSuccess else {
-            #if DEBUG
             if status != errSecItemNotFound {
-                print("[SecureStorage] Failed to retrieve \(key.rawValue): \(status)")
+                storageLogger.error("Failed to retrieve \(key.rawValue): \(status)")
             }
-            #endif
             return nil
         }
 
@@ -134,9 +133,7 @@ public final class SecureStorage {
             delete(key)
         }
 
-        #if DEBUG
-        print("[SecureStorage] All secure data deleted")
-        #endif
+        storageLogger.info("All secure data deleted")
     }
 
     // MARK: - Migration from UserDefaults
@@ -157,9 +154,7 @@ public final class SecureStorage {
                 if save(token, for: keychainKey) {
                     // Remove from UserDefaults
                     UserDefaults.standard.removeObject(forKey: userDefaultsKey)
-                    #if DEBUG
-                    print("[SecureStorage] Migrated \(userDefaultsKey) to Keychain")
-                    #endif
+                    storageLogger.info("Migrated \(userDefaultsKey) to Keychain")
                 }
             }
         }

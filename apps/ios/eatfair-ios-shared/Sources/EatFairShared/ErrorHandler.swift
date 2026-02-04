@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+import os
+
+private let errorLogger = Logger(subsystem: "ai.dollor.shared", category: "ErrorHandler")
 
 // MARK: - EatFair Error Types
 
@@ -245,15 +248,13 @@ public class ErrorHandler: ObservableObject {
     }
 
     private func logError(_ error: EatFairError, originalError: Error?, context: String) {
-        #if DEBUG
-        print("❌ [EatFairError] \(error.localizedDescription)")
+        errorLogger.error("\(error.localizedDescription)")
         if let original = originalError {
-            print("   Original: \(original)")
+            errorLogger.error("Original: \(original)")
         }
         if !context.isEmpty {
-            print("   Context: \(context)")
+            errorLogger.error("Context: \(context)")
         }
-        #endif
 
         // In production, this would send to analytics/crash reporting
     }

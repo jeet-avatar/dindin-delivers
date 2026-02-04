@@ -1,6 +1,9 @@
 import Foundation
 import FirebaseFirestore
 import EatFairShared
+import os
+
+private let seederLogger = Logger(subsystem: "com.dollorai.customer", category: "DatabaseSeeder")
 
 // =============================================================================
 // WARNING: This file is for DEVELOPMENT/TESTING only!
@@ -31,8 +34,8 @@ class DatabaseSeeder {
     /// Seeds real restaurant data for testing.
     /// WARNING: This will write to Firestore. Only use in development.
     func seedMenuData() {
-        print("⚠️ [DEBUG] Seeding database with real restaurant data...")
-        print("⚠️ [DEBUG] This should NEVER run in production!")
+        seederLogger.warning("Seeding database with real restaurant data...")
+        seederLogger.warning("This should NEVER run in production!")
 
         // Real Restaurant 1: Natraj Cuisine
         let natrajCuisine = Restaurant(
@@ -86,16 +89,16 @@ class DatabaseSeeder {
         ]
         uploadItems(tuttoMenu, to: "3")
 
-        print("✅ [DEBUG] Database seeding complete with Natraj Cuisine and Tutto Fresco")
+        seederLogger.info("Database seeding complete with Natraj Cuisine and Tutto Fresco")
     }
 
     private func saveRestaurant(_ restaurant: Restaurant) {
         guard let id = restaurant.id else { return }
         do {
             try db.collection(FirebaseCollections.restaurants).document(id).setData(from: restaurant)
-            print("[DEBUG] Saved restaurant: \(restaurant.name)")
+            seederLogger.debug("Saved restaurant: \(restaurant.name)")
         } catch {
-            print("[DEBUG] Error saving restaurant: \(error)")
+            seederLogger.error("Error saving restaurant: \(error)")
         }
     }
 
@@ -107,9 +110,9 @@ class DatabaseSeeder {
         for item in items {
             do {
                 let _ = try collection.addDocument(from: item)
-                print("[DEBUG] Added menu item: \(item.name)")
+                seederLogger.debug("Added menu item: \(item.name)")
             } catch {
-                print("[DEBUG] Error adding item: \(error)")
+                seederLogger.error("Error adding item: \(error)")
             }
         }
     }
@@ -117,8 +120,8 @@ class DatabaseSeeder {
     /// Seeds a test order for development testing using real restaurant data.
     /// WARNING: This will write to Firestore. Only use in development.
     func seedTestOrder() {
-        print("⚠️ [DEBUG] Seeding test order...")
-        print("⚠️ [DEBUG] This should NEVER run in production!")
+        seederLogger.warning("Seeding test order...")
+        seederLogger.warning("This should NEVER run in production!")
 
         let restaurantInfo = RestaurantInfo(
             id: "2",
@@ -169,16 +172,16 @@ class DatabaseSeeder {
 
         do {
             try db.collection(FirebaseCollections.orders).document(order.orderId).setData(from: order)
-            print("✅ [DEBUG] Seeded test order: \(testOrderId)")
+            seederLogger.info("Seeded test order: \(testOrderId)")
         } catch {
-            print("[DEBUG] Error seeding order: \(error)")
+            seederLogger.error("Error seeding order: \(error)")
         }
     }
 
     /// Cleans up all debug/test data from Firestore.
     /// Use this before UAT to remove any test artifacts.
     func cleanupTestData() {
-        print("🧹 [DEBUG] Cleaning up test data...")
+        seederLogger.info("Cleaning up test data...")
 
         // Delete old sample restaurants (not the real ones)
         db.collection(FirebaseCollections.restaurants).document("sample_restaurant_1").delete()
@@ -190,7 +193,7 @@ class DatabaseSeeder {
                 guard let documents = snapshot?.documents else { return }
                 for doc in documents {
                     doc.reference.delete()
-                    print("[DEBUG] Deleted test order: \(doc.documentID)")
+                    seederLogger.debug("Deleted test order: \(doc.documentID)")
                 }
             }
 
@@ -201,11 +204,11 @@ class DatabaseSeeder {
                 guard let documents = snapshot?.documents else { return }
                 for doc in documents {
                     doc.reference.delete()
-                    print("[DEBUG] Deleted showcase order: \(doc.documentID)")
+                    seederLogger.debug("Deleted showcase order: \(doc.documentID)")
                 }
             }
 
-        print("✅ [DEBUG] Cleanup complete")
+        seederLogger.info("Cleanup complete")
     }
 
     // MARK: - 10 Showcase Orders with Promotions
@@ -213,7 +216,7 @@ class DatabaseSeeder {
     /// Seeds 10 different order types with various promotions for front-end demonstration.
     /// All orders are DELIVERED status to show complete end-to-end journey.
     func seedShowcaseOrders() {
-        print("🎯 [DEBUG] Seeding 10 showcase orders with promotions...")
+        seederLogger.info("Seeding 10 showcase orders with promotions...")
 
         let baseTime = Int64(Date().timeIntervalSince1970 * 1000)
         let oneHour: Int64 = 3600000
@@ -736,7 +739,7 @@ class DatabaseSeeder {
         // Seed corresponding promotions
         seedShowcasePromotions()
 
-        print("✅ [DEBUG] Seeded 10 showcase orders with various promotions")
+        seederLogger.info("Seeded 10 showcase orders with various promotions")
     }
 
     /// Seeds the promotions used by showcase orders
@@ -858,9 +861,9 @@ class DatabaseSeeder {
             guard let id = promo["id"] as? String else { continue }
             db.collection("promotions").document(id).setData(promo) { error in
                 if let error = error {
-                    print("[DEBUG] Error saving promotion: \(error)")
+                    seederLogger.error("Error saving promotion: \(error)")
                 } else {
-                    print("[DEBUG] Saved promotion: \(promo["code"] ?? "")")
+                    seederLogger.debug("Saved promotion: \(promo["code"] ?? "")")
                 }
             }
         }
@@ -869,9 +872,9 @@ class DatabaseSeeder {
     private func saveOrder(_ order: Order) {
         do {
             try db.collection(FirebaseCollections.orders).document(order.orderId).setData(from: order)
-            print("[DEBUG] Saved order: \(order.orderId) - \(order.promotionCode ?? "No promo")")
+            seederLogger.debug("Saved order: \(order.orderId) - \(order.promotionCode ?? "No promo")")
         } catch {
-            print("[DEBUG] Error saving order: \(error)")
+            seederLogger.error("Error saving order: \(error)")
         }
     }
 }
