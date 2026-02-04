@@ -4035,18 +4035,19 @@ EOF
     # Check if driver object is present in orders with assigned drivers
     local has_driver_object=$(echo "$vendor_orders" | python3 -c "
 import sys, json
+result = 'NO'
 try:
     data = json.load(sys.stdin)
-    orders = data.get('orders', [])
+    orders = data.get('orders', []) if isinstance(data, dict) else data
     for order in orders:
         if order.get('driver_id') and order.get('driver'):
             driver = order.get('driver')
             if driver.get('phone') and driver.get('rating'):
-                print('YES')
-                sys.exit(0)
-    print('NO')
-except:
-    print('ERROR')
+                result = 'YES'
+                break
+except Exception as e:
+    result = 'ERROR'
+print(result)
 " 2>/dev/null)
 
     echo "" >> "$report"
