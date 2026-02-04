@@ -16309,7 +16309,7 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
                 background_check_date=datetime(2024, 1, 15),
                 status=DriverStatus.APPROVED,
                 rating=4.9,
-                total_deliveries=347,
+                total_deliveries=6,  # Matches actual orders in demo data
                 # Professional driver photo - generated avatar
                 photo_url="https://ui-avatars.com/api/?name=Marcus+Johnson&size=200&background=4CAF50&color=fff&bold=true&format=png",
                 # Vehicle photo placeholder - silver Toyota Camry
@@ -16347,7 +16347,7 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
             existing_driver.vehicle_color = "Silver"
             existing_driver.license_plate = "7ABC123"
             existing_driver.rating = 4.9
-            existing_driver.total_deliveries = 347
+            existing_driver.total_deliveries = 6  # Matches actual orders in demo data
             existing_driver.photo_url = "https://ui-avatars.com/api/?name=Marcus+Johnson&size=200&background=4CAF50&color=fff&bold=true&format=png"
             existing_driver.vehicle_photo_url = "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=300&fit=crop"
             existing_driver.status = DriverStatus.APPROVED
