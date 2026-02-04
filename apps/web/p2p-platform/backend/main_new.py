@@ -16816,6 +16816,63 @@ def force_reset_demo_passwords(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/demo/fix-driver-login")
+def fix_driver_login(db: Session = Depends(get_db)):
+    """
+    Fix demo driver login by ensuring User record exists with correct password and role.
+    The driver login endpoint (/api/auth/driver/login) requires a User with role=DRIVER.
+    """
+    try:
+        driver_email = "demo.driver@dollor.ai"
+        driver_password = "DemoDriver2025!"
+        new_hash = get_password_hash(driver_password)
+
+        # Find demo driver
+        driver = db.query(Driver).filter(Driver.email == driver_email).first()
+        if not driver:
+            return {"success": False, "error": "Demo driver not found"}
+
+        # Check if User record exists
+        user = db.query(User).filter(User.email == driver_email).first()
+
+        if user:
+            # Update existing user
+            user.password_hash = new_hash
+            user.role = UserRole.DRIVER
+            user.driver_id = driver.id
+            user.full_name = f"{driver.first_name} {driver.last_name}"
+            db.commit()
+            return {
+                "success": True,
+                "action": "updated",
+                "user_id": user.id,
+                "driver_id": driver.id,
+                "message": "User record updated with correct password and role"
+            }
+        else:
+            # Create new user
+            new_user = User(
+                email=driver_email,
+                password_hash=new_hash,
+                full_name=f"{driver.first_name} {driver.last_name}",
+                role=UserRole.DRIVER,
+                driver_id=driver.id,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_user)
+            db.commit()
+            return {
+                "success": True,
+                "action": "created",
+                "user_id": new_user.id,
+                "driver_id": driver.id,
+                "message": "User record created for driver login"
+            }
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/demo/setup-support-customer")
 def setup_support_customer(db: Session = Depends(get_db)):
     """
