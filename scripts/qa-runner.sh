@@ -199,7 +199,7 @@ EOF
 
     echo "  Testing customer endpoints..."
     # Public endpoints (vendors, menu, promotions)
-    test_endpoint "GET" "/api/vendors" "200" "" "" "GET /api/vendors" >> "$report" && ((passed++)) || ((failed++))
+    # Note: /api/vendors requires auth, /api/vendors/published is public
     test_endpoint "GET" "/api/vendors/published" "200" "" "" "GET /api/vendors/published" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/vendors/40/menu" "200" "" "" "GET /api/vendors/{id}/menu" >> "$report" && ((passed++)) || ((failed++))
     test_endpoint "GET" "/api/promotions/active" "200" "" "" "GET /api/promotions/active" >> "$report" && ((passed++)) || ((failed++))
@@ -513,8 +513,8 @@ EOF
         ((failed++))
     fi
 
-    # Step 2: Browse Vendors
-    vendor_count=$(curl -s "$API_URL/api/vendors" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+    # Step 2: Browse Vendors (use published endpoint - public API)
+    vendor_count=$(curl -s "$API_URL/api/vendors/published" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('count', len(d.get('restaurants', []))))" 2>/dev/null)
     if [ -n "$vendor_count" ] && [ "$vendor_count" -gt 0 ]; then
         echo "| 2. Browse Vendors | ✅ PASS | $vendor_count restaurants available |" >> "$report"
         ((passed++))
@@ -1007,8 +1007,8 @@ EOF
         echo "| Demo accounts exist | ❌ FAIL | Run /api/demo/setup |" >> "$report"
     fi
 
-    # Check vendor count
-    vendor_count=$(curl -s "$API_URL/api/vendors" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+    # Check vendor count (use published endpoint - public API)
+    vendor_count=$(curl -s "$API_URL/api/vendors/published" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('count', len(d.get('restaurants', []))))" 2>/dev/null)
     if [ -n "$vendor_count" ] && [ "$vendor_count" -gt 0 ]; then
         echo "| Vendors table | ✅ PASS | $vendor_count vendors |" >> "$report"
     else
@@ -1070,8 +1070,8 @@ EOF
 
     echo "  Testing API response times..."
 
-    # Test key endpoints
-    for endpoint in "/health" "/api/vendors" "/api/vendors/40/menu" "/api/v5/driver/48/dashboard"; do
+    # Test key endpoints (use /api/vendors/published - public API)
+    for endpoint in "/health" "/api/vendors/published" "/api/vendors/40/menu" "/api/v5/driver/48/dashboard"; do
         start=$(python3 -c "import time; print(int(time.time()*1000))")
         curl -s -o /dev/null "$API_URL$endpoint"
         end=$(python3 -c "import time; print(int(time.time()*1000))")
@@ -1434,8 +1434,9 @@ EOF
 
     echo "  Validating Restaurant data..."
 
-    local vendors=$(curl -s "$API_URL/api/vendors" 2>/dev/null)
-    local vendor_count=$(echo "$vendors" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+    # Use /api/vendors/published - public endpoint
+    local vendors=$(curl -s "$API_URL/api/vendors/published" 2>/dev/null)
+    local vendor_count=$(echo "$vendors" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('count', len(d.get('restaurants', []))))" 2>/dev/null || echo "0")
 
     if [ "$vendor_count" -gt 0 ]; then
         echo "| vendor_count | $vendor_count | Integer ✓ | > 0 ✓ | ✅ PASS |" >> "$report"
@@ -2428,7 +2429,8 @@ EOF
 
     echo "  Validating Restaurant/Menu field mapping..."
 
-    local vendors=$(curl -s "$API_URL/api/vendors" 2>/dev/null)
+    # Use /api/vendors/published - public endpoint
+    local vendors=$(curl -s "$API_URL/api/vendors/published" 2>/dev/null)
     local menu=$(curl -s "$API_URL/api/vendors/40/menu" 2>/dev/null)
 
     echo "### 3.1 Vendor Fields" >> "$report"
@@ -2438,7 +2440,7 @@ EOF
     local vendor_fields=$(echo "$vendors" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
-vendors = d if isinstance(d,list) else d.get('vendors',[])
+vendors = d.get('restaurants', d.get('vendors', d if isinstance(d,list) else []))
 if vendors and len(vendors)>0:
     v = vendors[0]
     fields = ['id', 'name', 'address', 'phone', 'rating', 'delivery_fee', 'minimum_order',
