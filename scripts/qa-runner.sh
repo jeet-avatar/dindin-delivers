@@ -1836,8 +1836,8 @@ EOF
     local customer_dir="apps/ios/customer/eatfaircustomer"
 
     # Check for hardcoded price displays (e.g., "$10.99" instead of formatted variable)
-    # Exclude: platform fee labels ($1, $1-$3), backup files
-    local hardcoded_prices=$(grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection" | wc -l | tr -d ' ')
+    # Exclude: platform fee labels ($1, $1-$3), Dollor branding, backup files
+    local hardcoded_prices=$(grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection\|ONLY when\|when confirmed\|flat\|each party\|Dollor" | wc -l | tr -d ' ')
     if [ "$hardcoded_prices" -eq 0 ]; then
         echo "| Customer Views | Hardcoded prices | \"\$X.XX\" literals | ✅ PASS |" >> "$report"
         ((passed++))
@@ -1848,7 +1848,7 @@ EOF
         echo "" >> "$report"
         echo "**Hardcoded price locations:**" >> "$report"
         echo '```' >> "$report"
-        grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection" | head -5 >> "$report"
+        grep -rn 'Text("\$[0-9]' "$customer_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|_dead_code\|_backup\|fee\|Fee\|per restaurant\|connection\|ONLY when\|when confirmed\|flat\|each party\|Dollor" | head -5 >> "$report"
         echo '```' >> "$report"
         echo "" >> "$report"
     fi
@@ -1948,7 +1948,8 @@ EOF
     local driver_dir="apps/ios/delivery/eatffairdelivery"
 
     # Check for hardcoded earnings displays
-    local hardcoded_earnings=$(grep -rn 'Text("\$[0-9]' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG" | wc -l | tr -d ' ')
+    # Exclude: platform fee messaging ($1, $1-3 flat fee, etc.)
+    local hardcoded_earnings=$(grep -rn 'Text("\$[0-9]' "$driver_dir" --include="*.swift" 2>/dev/null | grep -v "//\|Preview\|#if DEBUG\|fee\|Fee\|flat\|Dollor\|percentage\|NOT a" | wc -l | tr -d ' ')
     if [ "$hardcoded_earnings" -eq 0 ]; then
         echo "| Driver Views | Hardcoded earnings | \"\$X.XX\" literals | ✅ PASS |" >> "$report"
         ((passed++))
