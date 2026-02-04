@@ -18109,7 +18109,8 @@ def get_vendor_ai_insights(
                 for item in items:
                     name = item.get("name", "Unknown")
                     qty = item.get("quantity", 1)
-                    price = item.get("price", 0) * qty
+                    # Support both price formats: total_price, unit_price, or price
+                    price = item.get("total_price") or (item.get("unit_price", item.get("price", 0)) * qty)
                     item_stats[name]["quantity"] += qty
                     item_stats[name]["revenue"] += price
             except (json.JSONDecodeError, TypeError):
