@@ -208,7 +208,14 @@ class DeliveryViewModel: ObservableObject {
                         }
 
                 case .failure(let error):
-                    self?.handleError(error)
+                    // Don't clear existing data on failure - preserve optimistic updates
+                    // Only show error if we have no data at all
+                    if self?.myDeliveries.isEmpty == true {
+                        self?.handleError(error)
+                    }
+                    #if DEBUG
+                    print("fetchMyDeliveries failed but preserving existing \(self?.myDeliveries.count ?? 0) orders: \(error)")
+                    #endif
                 }
             }
         }

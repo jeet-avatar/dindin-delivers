@@ -4411,8 +4411,8 @@ public class P2PAPIService: ObservableObject {
                         logger.info("Raw response: \(jsonString.prefix(500))")
                     }
                     #endif
-                    // Return empty array only for decode errors, not for server errors
-                    completion(.success([]))
+                    // Return failure on decode errors so ViewModel can preserve existing data
+                    completion(.failure(P2PAPIError.serverError("Failed to parse delivery orders: \(error.localizedDescription)")))
                 }
             }
         }.resume()
