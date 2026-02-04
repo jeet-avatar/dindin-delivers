@@ -8141,8 +8141,8 @@ def get_vendors(
             "average_prep_time": v.average_prep_time,
             "onboarding_status": v.onboarding_status.value if hasattr(v.onboarding_status, 'value') else str(v.onboarding_status) if v.onboarding_status else "pending",
             "is_published": v.is_published,
-            "minimum_order": v.minimum_order or 0.0,
-            "delivery_fee": v.delivery_fee or 0.0,
+            "minimum_order": 0.0,  # No minimum order required
+            "delivery_fee": 0.0,  # Default delivery fee
             # iOS Compatibility Fields - computed from existing data
             "name": v.restaurant_name or v.company_name or f"Restaurant {v.id}",
             "phone": v.contact_phone,
@@ -8273,7 +8273,7 @@ def get_published_vendors(
             "delivery_time": f"{v.average_prep_time or 25}-{(v.average_prep_time or 25) + 15} min",
             "delivery_time_minutes": v.average_prep_time or 30,  # iOS expects delivery_time_minutes
             "delivery_fee": 2.99,
-            "minimum_order": v.minimum_order or 0.0,
+            "minimum_order": 0.0,  # No minimum order required
             "performance_score": v.performance_score,
             "published_at": v.published_at.isoformat() if v.published_at else None,
             "published_platforms": v.published_platforms,
