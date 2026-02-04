@@ -17133,7 +17133,10 @@ def create_demo_order(db: Session = Depends(get_db)):
                 restaurant_name="Apple Fresh Kitchen",
                 email="apple@dollor.ai",
                 phone="+14155551234",
-                address="1 Apple Park Way, Cupertino, CA 95014",
+                street="1 Apple Park Way",
+                city="Cupertino",
+                state="CA",
+                zip_code="95014",
                 latitude=37.3349,
                 longitude=-122.0090,
                 status=VendorStatus.APPROVED,
@@ -17232,7 +17235,7 @@ def create_demo_order(db: Session = Depends(get_db)):
                 },
                 "pickup_location": {
                     "name": demo_vendor.restaurant_name,
-                    "address": demo_vendor.address,
+                    "address": f"{demo_vendor.street or ''}, {demo_vendor.city or ''}, {demo_vendor.state or ''} {demo_vendor.zip_code or ''}".strip(', '),
                     "latitude": demo_vendor.latitude,
                     "longitude": demo_vendor.longitude
                 }
