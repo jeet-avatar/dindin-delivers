@@ -1,5 +1,8 @@
 import SwiftUI
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "EnhancedDashboard")
 
 /// World-class Restaurant Dashboard with AI-powered insights
 struct EnhancedDashboardView: View {

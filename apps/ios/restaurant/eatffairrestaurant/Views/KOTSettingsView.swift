@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "KOTSettings")
 
 /// KOT (Kitchen Order Ticket) / POS Integration Settings
 /// Allows restaurants to configure automatic order printing to Square, Clover, or Toast POS systems

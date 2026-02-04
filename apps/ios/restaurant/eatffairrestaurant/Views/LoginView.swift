@@ -3,6 +3,9 @@ import GoogleSignIn
 import EatFairShared
 import AuthenticationServices
 import CryptoKit
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "LoginView")
 
 // MARK: - Apple Sign-In Coordinator (Delegate-based approach like Customer App)
 class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
