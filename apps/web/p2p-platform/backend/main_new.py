@@ -16909,7 +16909,14 @@ def update_driver_location_android(request: dict, db: Session = Depends(get_db))
 # Available deliveries endpoint for driver app
 @app.get("/api/v2/driver/deliveries/available")
 def get_available_deliveries_android(db: Session = Depends(get_db)):
-    """Get available delivery orders for drivers (Android compatible)."""
+    """Get available delivery orders for drivers (Android compatible).
+
+    Includes Early Driver Notification fields:
+    - estimated_prep_minutes: Prep time in minutes
+    - estimated_ready_at: Timestamp when food will be ready
+    - minutes_until_ready: Countdown minutes until ready
+    - is_ready: Boolean if food is ready for pickup
+    """
     try:
         # Get orders that are ready for pickup and don't have a driver assigned
         orders = db.query(Order).filter(
@@ -16921,6 +16928,16 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
         for order in orders:
             # Get vendor info separately
             vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+
+            # Calculate Early Driver Notification fields
+            estimated_ready_at = getattr(order, 'estimated_ready_at', None)
+            is_ready = order.status.value.lower() in ["ready", "ready_for_pickup"] if order.status else False
+
+            # Calculate minutes until ready
+            minutes_until_ready = None
+            if estimated_ready_at and not is_ready:
+                time_diff = (estimated_ready_at - datetime.now()).total_seconds() / 60
+                minutes_until_ready = max(0, int(time_diff))
 
             deliveries.append({
                 "id": order.id,
@@ -16936,7 +16953,12 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
                 "estimated_distance": 0,
                 "estimated_earnings": float(order.total_amount) * 0.8 if order.total_amount else 0,
                 "status": order.status.value if order.status else "unknown",
-                "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None
+                "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
+                # Early Driver Notification fields
+                "estimated_prep_minutes": getattr(order, 'estimated_prep_minutes', None),
+                "estimated_ready_at": (estimated_ready_at.isoformat() + "Z") if estimated_ready_at else None,
+                "minutes_until_ready": minutes_until_ready,
+                "is_ready": is_ready
             })
 
         return {
