@@ -104,8 +104,10 @@ if butter_chicken and naan:
         "country": "USA"
     })
 
+    # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
+    order_count = db.query(Order).count()
     order = Order(
-        order_number=f"ORD-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:5].upper()}",
+        order_number=f"DOLL{datetime.now().year}{order_count + 1:03d}",
         customer_name="Test Customer",
         customer_email="customer@test.com",
         customer_phone="949-555-9999",

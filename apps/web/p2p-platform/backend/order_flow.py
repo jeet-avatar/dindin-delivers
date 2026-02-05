@@ -784,10 +784,9 @@ async def request_ride(
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
-    # Generate ride/order number
-    import random
-    import string
-    order_number = f"RIDE-{datetime.now().strftime('%Y%m%d')}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=5))}"
+    # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
+    order_count = db.query(Order).count()
+    order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
     # Get coordinates for distance/time estimation
     pickup_lat = ride_data.pickup_address.get("lat", 0)
@@ -1215,9 +1214,10 @@ async def create_order(
     # Customer pays: Subtotal + Tax + Service Fee + Delivery Fee + Tip
     total_amount = subtotal + tax_amount + CUSTOMER_SERVICE_FEE + delivery_fee + order_data.tip
 
-    # Generate order number
+    # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
+    # Example: DOLL2026001, DOLL2026002, etc.
     order_count = db.query(Order).count()
-    order_number = f"EF{datetime.now().strftime('%m%d')}{order_count + 1:05d}"
+    order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
     # Look up customer_id from email for order tracking
     customer_id = None
@@ -3197,7 +3197,7 @@ async def get_driver_active_orders(
             "tip": order.tip,
             "total_earnings": (order.delivery_fee or 0) + (order.tip or 0),
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-            "assigned_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
+            "assigned_at": (getattr(order, 'driver_accepted_at', None) or order.dispatched_at or order.confirmed_at).isoformat() + "Z" if (getattr(order, 'driver_accepted_at', None) or order.dispatched_at or order.confirmed_at) else None,
             "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
             "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
             # ETA fields for early driver notification (matching available-for-delivery endpoint)

@@ -8602,10 +8602,10 @@ async def test_vendor_kot_integration(
 
     from kot_integrations import KOTService, KOTOrder, KOTItem
 
-    # Create test order
+    # Create test order with standardized format
     test_kot = KOTOrder(
         order_id=0,
-        order_number=f"TEST-{datetime.now().strftime('%H%M%S')}",
+        order_number=f"DOLL{datetime.now().year}000",  # Test order uses 000
         customer_name="Test Customer (Dollor KOT Test)",
         items=[
             KOTItem(
@@ -17193,8 +17193,9 @@ def create_demo_order(db: Session = Depends(get_db)):
         platform_fee = 1.00  # $1 flat fee
         total = round(subtotal + tax + delivery_fee + platform_fee, 2)
 
-        # Generate order number
-        order_number = f"DEMO-{datetime.now().strftime('%H%M%S')}-{random.randint(100, 999)}"
+        # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
+        order_count = db.query(Order).count()
+        order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
         # Create delivery address near San Francisco
         delivery_address = json.dumps({
