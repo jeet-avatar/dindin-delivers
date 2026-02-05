@@ -12268,6 +12268,7 @@ from order_flow import (
     ride_picked_up,
     create_order as erp_create_order,
     CreateOrderRequest,
+    get_full_order_tracking,  # iOS customer app tracking
 )
 app.include_router(order_flow_router)
 
@@ -12370,6 +12371,13 @@ async def get_driver_location_ios_alias(order_id: int, db: Session = Depends(get
     iOS calls: GET /erp/orders/{orderId}/driver-location
     """
     return await get_driver_location(order_id, db)
+
+@app.get("/erp/orders/{order_id}/full-tracking")
+async def get_full_order_tracking_ios_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Customer app - get full order tracking with driver, restaurant, and ETA
+    iOS calls: GET /erp/orders/{orderId}/full-tracking
+    """
+    return await get_full_order_tracking(order_id, db)
 
 @app.get("/erp/rides/available")
 async def get_available_rides_ios_alias(
@@ -12655,7 +12663,7 @@ def get_customer_orders(
             "tax": order.tax_amount or 0,  # iOS compatibility - expects 'tax'
             "delivery_fee": order.delivery_fee or 0,
             "tip": order.tip or 0,
-            "items": json.loads(order.items) if order.items and isinstance(order.items, str) else (order.items or []),  # Parse JSON string to array for iOS
+            "items": order.items if isinstance(order.items, str) else json.dumps(order.items or []),  # Keep as JSON string for iOS P2PCustomerOrder.items: String
             "delivery_address": order.delivery_address,
             "delivery_instructions": order.delivery_instructions,
             "driver_id": order.driver_id,
@@ -13000,6 +13008,13 @@ async def get_customer_active_orders(
         # Get vendor info for restaurant name and location
         vendor = db.query(Vendor).filter(Vendor.id == o.vendor_id).first() if o.vendor_id else None
 
+        # Convert items to JSON string if it's an array (iOS P2PCustomerOrder expects String)
+        items_str = o.items
+        if items_str and not isinstance(items_str, str):
+            items_str = json.dumps(items_str)
+        elif not items_str:
+            items_str = "[]"
+
         result_orders.append({
             "id": o.id,
             "order_number": o.order_number,
@@ -13013,7 +13028,7 @@ async def get_customer_active_orders(
             "tax_amount": o.tax_amount or 0,
             "delivery_fee": o.delivery_fee or 0,
             "tip": o.tip,
-            "items": json.loads(o.items) if o.items and isinstance(o.items, str) else (o.items or []),
+            "items": items_str,  # JSON string for iOS P2PCustomerOrder.items: String
             "delivery_address": o.delivery_address,
             "delivery_instructions": o.delivery_instructions,
             "driver_id": o.driver_id,
@@ -13030,7 +13045,8 @@ async def get_customer_active_orders(
             "delivered_at": (o.delivered_at.isoformat() + "Z") if o.delivered_at else None
         })
 
-    return {"orders": result_orders}
+    # Return raw array (not wrapped) - iOS decodes [P2PCustomerOrder].self directly
+    return result_orders
 
 
 @app.get("/api/customer/orders/{order_id}/track")
