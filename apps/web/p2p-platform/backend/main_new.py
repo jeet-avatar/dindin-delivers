@@ -17229,10 +17229,11 @@ def create_demo_order(db: Session = Depends(get_db)):
             status=OrderStatus.READY_FOR_PICKUP,  # Ready for driver to pick up
             payment_status="paid",
             stripe_payment_intent_id="demo_pi_" + order_number,
-            created_at=datetime.utcnow(),
-            confirmed_at=datetime.utcnow() - timedelta(minutes=15),
-            preparing_at=datetime.utcnow() - timedelta(minutes=10),
-            estimated_ready_at=datetime.utcnow() - timedelta(minutes=2),  # Ready now
+            # Timestamps in proper sequential order (order placed 20 mins ago, now ready)
+            created_at=datetime.utcnow() - timedelta(minutes=20),      # Order placed
+            confirmed_at=datetime.utcnow() - timedelta(minutes=18),    # Restaurant confirmed
+            preparing_at=datetime.utcnow() - timedelta(minutes=15),    # Started preparing
+            estimated_ready_at=datetime.utcnow(),                       # Ready now
             estimated_prep_minutes=15
         )
 
