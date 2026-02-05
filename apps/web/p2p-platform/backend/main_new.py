@@ -17100,6 +17100,23 @@ def setup_support_customer(db: Session = Depends(get_db)):
         return {"success": False, "error": str(e)}
 
 
+@app.get("/api/debug/order/{order_id}")
+def debug_order(order_id: int, db: Session = Depends(get_db)):
+    """Debug endpoint to check raw order data from database."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return {"error": "Order not found"}
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer_name,
+        "customer_email": order.customer_email,
+        "vendor_id": order.vendor_id,
+        "status": order.status.value if order.status else None
+    }
+
+
 @app.post("/api/demo/create-order")
 def create_demo_order(db: Session = Depends(get_db)):
     """
@@ -17157,6 +17174,9 @@ def create_demo_order(db: Session = Depends(get_db)):
 
         if not demo_customer:
             return {"success": False, "error": "Demo customer not found. Run /api/demo/setup first."}
+
+        # Debug: Log customer ID
+        print(f"DEBUG create_demo_order: demo_customer.id = {demo_customer.id}")
 
         # Create order items
         items = [
@@ -17227,6 +17247,7 @@ def create_demo_order(db: Session = Depends(get_db)):
                 "status": new_order.status.value,
                 "vendor_id": demo_vendor.id,
                 "vendor_name": demo_vendor.restaurant_name,
+                "customer_id": new_order.customer_id,
                 "customer_email": demo_customer.email,
                 "total": total,
                 "items": items,
