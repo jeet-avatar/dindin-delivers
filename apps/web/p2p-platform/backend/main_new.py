@@ -207,7 +207,6 @@ def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
 
 # Health Check Endpoint
 @app.get("/health")
-@app.get("/api/health")
 async def health_check(db: Session = Depends(get_db)):
     """
     Health check endpoint for load balancers and monitoring.
@@ -1252,7 +1251,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 # Vendor Login
 @app.post("/api/auth/vendor/login")
-@app.post("/auth/vendor/login")  # Alias for mobile apps without /api prefix
 def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     print(f"Vendor login attempt for: {form_data.username}")
     
@@ -1320,7 +1318,6 @@ class VendorDemoLoginRequest(BaseModel):
     email: Optional[str] = None  # Android sends 'email' field
 
 @app.post("/api/auth/vendor/demo-login")
-@app.post("/auth/vendor/demo-login")  # Alias for iOS mobile apps without /api prefix
 def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db)):
     """Demo login for vendor - creates or finds demo vendor account for App Store review"""
     # Accept both email_hint (iOS) and email (Android)
@@ -1594,7 +1591,6 @@ def decode_google_jwt(token: str) -> dict:
         return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
-@app.post("/auth/vendor/google-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
     try:
@@ -1718,7 +1714,6 @@ class VendorAppleAuthRequest(BaseModel):
     identity_token: Optional[str] = None  # JWT token containing real email for returning users
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
-@app.post("/auth/vendor/apple-auth")  # Alias for iOS mobile apps without /api prefix
 def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
     try:
@@ -1934,7 +1929,6 @@ class DriverLoginResponse(BaseModel):
         from_attributes = True
 
 @app.post("/api/auth/driver/login")
-@app.post("/auth/driver/login")  # Alias for mobile apps without /api prefix
 def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
     print(f"Driver login attempt for: {form_data.username}")
@@ -2001,7 +1995,6 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
 
 
 @app.post("/api/auth/driver/refresh")
-@app.post("/auth/driver/refresh")  # Alias for mobile apps without /api prefix
 def driver_refresh_token(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Refresh driver authentication token"""
     if current_user.role != UserRole.DRIVER or not current_user.driver_id:
@@ -2037,7 +2030,6 @@ def driver_refresh_token(current_user: User = Depends(get_current_user), db: Ses
 
 
 @app.post("/api/auth/driver/register")
-@app.post("/auth/driver/register")  # Alias for mobile apps without /api prefix
 def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db)):
     """Register a new driver account"""
     print(f"Driver registration attempt for: {request.email}")
@@ -2148,7 +2140,6 @@ class DriverGoogleAuthRequest(BaseModel):
     credential: Optional[str] = None  # Alternative field name
 
 @app.post("/api/auth/driver/google")
-@app.post("/auth/driver/google")  # Alias for mobile apps without /api prefix
 def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for drivers - handles both login and registration"""
 
@@ -2253,7 +2244,6 @@ class DriverAppleAuthRequest(BaseModel):
     apple_id: str
 
 @app.post("/api/auth/driver/apple-auth")
-@app.post("/auth/driver/apple-auth")  # Alias for mobile apps without /api prefix
 def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for drivers - handles both login and registration"""
     print(f"Driver Apple auth for: {request.email}")
@@ -2366,11 +2356,6 @@ def get_driver_profile(current_user: User = Depends(get_current_user), db: Sessi
 
 
 @app.put("/api/auth/driver/online")
-@app.post("/api/auth/driver/online")
-@app.put("/api/auth/driver/toggle-online")  # Alias for mobile apps
-@app.post("/api/auth/driver/toggle-online")  # Alias for mobile apps
-@app.put("/api/driver/online/toggle")  # Alias for mobile apps
-@app.post("/api/driver/online/toggle")  # Alias for mobile apps
 def set_driver_online(
     is_online: Optional[bool] = None,
     request_body: Optional[dict] = Body(None),
@@ -2500,7 +2485,6 @@ class CustomerLoginRequest(BaseModel):
 
 
 @app.post("/api/auth/customer/login")
-@app.post("/auth/customer/login")  # Alias for mobile apps without /api prefix
 def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
     # SECURITY: Rate limit login attempts to prevent brute force
@@ -2551,7 +2535,6 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
 
 
 @app.post("/api/auth/customer/register")
-@app.post("/auth/customer/register")  # Alias for mobile apps without /api prefix
 def customer_auth_register(http_request: Request, request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account for rideshare"""
     # SECURITY: Rate limit registration attempts
@@ -2687,7 +2670,6 @@ class CustomerGoogleAuthRequest(BaseModel):
     id_token: Optional[str] = None  # Web sends this JWT credential
 
 @app.post("/api/auth/customer/google")
-@app.post("/auth/customer/google")  # Alias for mobile apps without /api prefix
 def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration"""
 
@@ -2805,8 +2787,6 @@ def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depe
 
 
 @app.put("/api/auth/customer/profile")
-@app.put("/api/customer/{customer_id}/profile")
-@app.put("/customer/{customer_id}/profile")  # Alias for iOS
 def update_customer_profile(
     customer_id: Optional[int] = None,
     name: Optional[str] = None,
@@ -2859,7 +2839,6 @@ def update_customer_profile(
 # Required by Google Play Store policy for account deletion
 
 @app.delete("/api/customers/{customer_id}/delete")
-@app.delete("/customers/{customer_id}/delete")  # Alias for mobile apps
 def delete_customer_account(
     customer_id: int,
     token: str = Depends(oauth2_scheme),
@@ -2925,7 +2904,6 @@ class VerifyEmailRequest(BaseModel):
     code: str = Field(..., min_length=6, max_length=6)
 
 @app.post("/api/customer/email/send-verification")
-@app.post("/customer/email/send-verification")  # Alias for mobile apps
 def send_verification_email(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -2989,7 +2967,6 @@ def send_verification_email(
         )
 
 @app.post("/api/customer/email/verify")
-@app.post("/customer/email/verify")  # Alias for mobile apps
 def verify_customer_email(
     request: VerifyEmailRequest,
     token: str = Depends(oauth2_scheme),
@@ -3065,7 +3042,6 @@ def verify_customer_email(
         )
 
 @app.get("/api/customer/email/status")
-@app.get("/customer/email/status")  # Alias for mobile apps
 def get_email_verification_status(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -3393,7 +3369,6 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
 @app.get("/api/erp/rides/estimate")
-@app.post("/api/erp/rides/estimate")
 def estimate_fare_frontend(
     pickup_lat: float = None,
     pickup_lng: float = None,
@@ -3564,7 +3539,6 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
 
 
 @app.get("/erp/drivers/{driver_id}")
-@app.get("/api/erp/drivers/{driver_id}")  # Alias with /api prefix for consistency
 def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver profile by ID (iOS app compatible endpoint)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -3623,9 +3597,6 @@ class DriverProfileUpdate(BaseModel):
 
 
 @app.put("/drivers/{driver_id}")
-@app.put("/api/drivers/{driver_id}")
-@app.put("/erp/drivers/{driver_id}")  # Alias for Android app using erp/ prefix
-@app.put("/api/erp/drivers/{driver_id}")  # Alias with /api prefix
 def update_driver_profile_by_id(
     driver_id: int,
     body: Optional[DriverProfileUpdate] = None,
@@ -3776,7 +3747,6 @@ def update_driver_status(
 # Android app uses GET/POST /api/drivers/{driver_id}/status
 
 @app.get("/api/drivers/{driver_id}/status")
-@app.get("/drivers/{driver_id}/status")
 def get_driver_status(
     driver_id: int,
     db: Session = Depends(get_db)
@@ -3800,7 +3770,6 @@ def get_driver_status(
 
 
 @app.post("/api/drivers/{driver_id}/status")
-@app.post("/drivers/{driver_id}/status")
 def post_driver_status(
     driver_id: int,
     is_online: bool = Query(..., description="Set driver online/offline status"),
@@ -3830,7 +3799,6 @@ def post_driver_status(
 
 
 @app.get("/drivers/{driver_id}/documents")
-@app.get("/api/drivers/{driver_id}/documents")
 def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver documents status (iOS app compatible endpoint)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -3883,7 +3851,6 @@ def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/drivers/{driver_id}/documents")
-@app.post("/api/drivers/{driver_id}/documents")
 async def upload_driver_document_by_id(
     driver_id: int,
     document_type: str = Form(...),
@@ -4219,9 +4186,6 @@ class CustomerAppleAuthRequest(BaseModel):
     identity_token: Optional[str] = None  # JWT from Apple
 
 @app.post("/api/customer/apple-auth")
-@app.post("/api/auth/customer/apple-auth")  # Alias for Android compatibility
-@app.post("/auth/customer/apple-auth")  # Alias for mobile apps without /api prefix
-@app.post("/customer/apple-auth")  # Alias for iOS Customer app (calls without /api or /auth prefix)
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for customers - handles both login and registration"""
     print(f"Customer Apple auth - apple_id: {request.apple_id[:20] if request.apple_id else 'None'}...")
@@ -9149,7 +9113,6 @@ VENDOR_DOC_FIELD_MAP = {
 }
 
 @app.get("/api/vendors/{vendor_id}/documents")
-@app.get("/vendors/{vendor_id}/documents")  # Alias for Android app without /api prefix
 def get_vendor_documents(
     vendor_id: int,
     db: Session = Depends(get_db),
@@ -9199,7 +9162,6 @@ def get_vendor_documents(
     return {"documents": documents, "count": len(documents)}
 
 @app.post("/api/vendors/{vendor_id}/documents")
-@app.post("/vendors/{vendor_id}/documents")  # Alias for Android app without /api prefix
 async def upload_vendor_document(
     vendor_id: int,
     file: UploadFile = File(...),
@@ -9263,7 +9225,6 @@ async def upload_vendor_document(
     return {"message": "Document uploaded successfully", "file_path": file_path}
 
 @app.delete("/api/vendors/{vendor_id}/documents/{document_id}")
-@app.delete("/vendors/{vendor_id}/documents/{document_id}")  # Alias for Android app without /api prefix
 def delete_vendor_document(
     vendor_id: int,
     document_id: int,
@@ -12299,6 +12260,14 @@ from order_flow import (
     restaurant_decline_delivery,
     RestaurantAcceptRequest,
     RestaurantDeclineRequest,
+    # Additional imports for iOS aliases
+    confirm_payment,
+    get_driver_location,
+    get_available_rides,
+    accept_ride,
+    ride_picked_up,
+    create_order as erp_create_order,
+    CreateOrderRequest,
 )
 app.include_router(order_flow_router)
 
@@ -12377,6 +12346,193 @@ async def restaurant_decline_delivery_alias(order_id: int, db: Session = Depends
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
     """
     return await restaurant_decline_delivery(order_id, db)
+
+# ==================== ADDITIONAL iOS ALIASES ====================
+# These enable iOS apps to call /erp/* paths without /api prefix
+
+@app.post("/erp/orders/create")
+async def create_order_ios_alias(order_data: CreateOrderRequest, db: Session = Depends(get_db)):
+    """Alias for iOS Customer app - create order
+    iOS calls: POST /erp/orders/create
+    """
+    return await erp_create_order(order_data, db)
+
+@app.post("/erp/orders/{order_id}/confirm-payment")
+async def confirm_payment_ios_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Customer app - confirm payment
+    iOS calls: POST /erp/orders/{orderId}/confirm-payment
+    """
+    return await confirm_payment(order_id, db)
+
+@app.get("/erp/orders/{order_id}/driver-location")
+async def get_driver_location_ios_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Customer app - get driver location for order tracking
+    iOS calls: GET /erp/orders/{orderId}/driver-location
+    """
+    return await get_driver_location(order_id, db)
+
+@app.get("/erp/rides/available")
+async def get_available_rides_ios_alias(
+    driver_lat: Optional[float] = None,
+    driver_lng: Optional[float] = None,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS Driver app - get available rides
+    iOS calls: GET /erp/rides/available
+    """
+    return await get_available_rides(driver_lat, driver_lng, db)
+
+@app.post("/erp/rides/{ride_id}/accept")
+async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - accept ride
+    iOS calls: POST /erp/rides/{rideId}/accept
+    """
+    return await accept_ride(ride_id, request, db)
+
+@app.post("/erp/rides/{ride_id}/picked-up")
+async def ride_picked_up_ios_alias(ride_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - mark ride picked up
+    iOS calls: POST /erp/rides/{rideId}/picked-up
+    """
+    return await ride_picked_up(ride_id, db)
+
+@app.get("/erp/rides/{ride_id}/track")
+async def track_ride_ios_alias(ride_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Customer app - track ride
+    iOS calls: GET /erp/rides/{rideId}/track
+    """
+    return await track_ride(ride_id, db)
+
+@app.get("/erp/rides/{ride_id}/status")
+def get_ride_status_ios_alias(ride_id: str, db: Session = Depends(get_db)):
+    """Alias for iOS apps - get ride status
+    iOS calls: GET /erp/rides/{rideId}/status
+    """
+    return get_ride_status(ride_id, db)
+
+@app.post("/erp/rides/{ride_id}/cancel")
+async def cancel_ride_ios_alias(
+    ride_id: int,
+    reason: str = "customer_request",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Alias for iOS apps - cancel ride
+    iOS calls: POST /erp/rides/{rideId}/cancel
+    """
+    return await cancel_ride(ride_id, reason, db, current_user)
+
+@app.post("/erp/rides/{ride_id}/negotiate")
+async def negotiate_ride_ios_alias(
+    ride_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS apps - negotiate fare
+    iOS calls: POST /erp/rides/{rideId}/negotiate
+    Body: {"proposed_fare": 10.0, "is_driver_offer": true}
+    """
+    from models import RideRequest
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    proposed_fare = request.get("proposed_fare", ride.estimated_price or 15.0)
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "proposed_fare": proposed_fare,
+        "status": "negotiating",
+        "message": "Fare negotiation submitted"
+    }
+
+@app.post("/erp/rides/{ride_id}/accept-fare")
+async def accept_fare_ios_alias(
+    ride_id: int,
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS apps - accept negotiated fare
+    iOS calls: POST /erp/rides/{rideId}/accept-fare
+    Body: {"accepted_fare": 12.0}
+    """
+    from models import RideRequest
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    accepted_fare = request.get("accepted_fare", ride.final_price or 15.0)
+    ride.final_price = accepted_fare
+    db.commit()
+
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "accepted_fare": accepted_fare,
+        "status": "fare_accepted"
+    }
+
+@app.get("/erp/rides/{ride_id}/customer-negotiate")
+async def customer_negotiate_ios_alias(
+    ride_id: int,
+    proposed_fare: float,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS Customer app - customer counter-offer
+    iOS calls: GET /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
+    """
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "proposed_fare": proposed_fare,
+        "status": "counter_offer_sent",
+        "message": "Your counter-offer has been sent to the driver"
+    }
+
+@app.get("/erp/rides/{ride_id}/customer-accept-fare")
+async def customer_accept_fare_ios_alias(
+    ride_id: int,
+    accepted_fare: float,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS Customer app - accept driver's fare
+    iOS calls: GET /erp/rides/{rideId}/customer-accept-fare?accepted_fare=12.0
+    """
+    from models import RideRequest
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if ride:
+        ride.final_price = accepted_fare
+        db.commit()
+
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "accepted_fare": accepted_fare,
+        "status": "fare_accepted",
+        "message": "Fare accepted. Driver is on the way!"
+    }
+
+@app.get("/erp/rides/{ride_id}/negotiation-status")
+async def negotiation_status_ios_alias(
+    ride_id: int,
+    db: Session = Depends(get_db)
+):
+    """Alias for iOS apps - get negotiation status
+    iOS calls: GET /erp/rides/{rideId}/negotiation-status
+    """
+    from models import RideRequest
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    return {
+        "success": True,
+        "ride_id": ride_id,
+        "status": ride.status.value if ride.status else "pending",
+        "current_fare": ride.final_price or ride.estimated_price,
+        "negotiation_rounds": 0,
+        "last_offer_by": None
+    }
 
 # Include Auto-Onboarding routes (Nova AI Employee)
 from auto_onboarding import router as onboarding_router
@@ -12975,7 +13131,6 @@ class BidResponseRequest(BaseModel):
 
 
 @app.get("/api/rides/request/{request_id}/bids")
-@app.get("/rides/request/{request_id}/bids")
 def get_ride_request_bids(request_id: int, db: Session = Depends(get_db)):
     """Get all bids for a specific ride request"""
     # In a full implementation, this would query a RideBid table
@@ -12990,7 +13145,6 @@ def get_ride_request_bids(request_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/rides/request/{request_id}/bid")
-@app.post("/rides/request/{request_id}/bid")
 def submit_ride_bid(
     request_id: int,
     bid_request: RideBidRequest,
@@ -13020,7 +13174,6 @@ def submit_ride_bid(
 
 
 @app.post("/api/rides/bid/{bid_id}/withdraw")
-@app.post("/rides/bid/{bid_id}/withdraw")
 def withdraw_ride_bid(
     bid_id: int,
     db: Session = Depends(get_db),
@@ -13039,7 +13192,6 @@ def withdraw_ride_bid(
 
 
 @app.post("/api/rides/bid/{bid_id}/respond")
-@app.post("/rides/bid/{bid_id}/respond")
 def respond_to_ride_bid(
     bid_id: int,
     response: BidResponseRequest,
@@ -13082,7 +13234,6 @@ def respond_to_ride_bid(
 
 
 @app.post("/api/rides/bid/{bid_id}/accept-counter")
-@app.post("/rides/bid/{bid_id}/accept-counter")
 def accept_counter_offer(
     bid_id: int,
     db: Session = Depends(get_db),
@@ -13105,7 +13256,6 @@ def accept_counter_offer(
 
 
 @app.post("/api/rides/bid/{bid_id}/reject-counter")
-@app.post("/rides/bid/{bid_id}/reject-counter")
 def reject_counter_offer(
     bid_id: int,
     db: Session = Depends(get_db),
@@ -13124,7 +13274,6 @@ def reject_counter_offer(
 
 
 @app.get("/api/driver/bids")
-@app.get("/driver/bids")
 def get_driver_bids(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -13144,7 +13293,6 @@ def get_driver_bids(
 
 
 @app.get("/api/rides/available")
-@app.get("/rides/available")
 def get_available_ride_requests(
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
@@ -13170,7 +13318,6 @@ class RideChatMessageRequest(BaseModel):
 
 
 @app.get("/api/p2p/ride-requests/{ride_request_id}/chat")
-@app.get("/p2p/ride-requests/{ride_request_id}/chat")
 def get_ride_request_chat(
     ride_request_id: int,
     db: Session = Depends(get_db)
@@ -13185,7 +13332,6 @@ def get_ride_request_chat(
 
 
 @app.post("/api/p2p/ride-requests/{ride_request_id}/chat")
-@app.post("/p2p/ride-requests/{ride_request_id}/chat")
 def send_ride_request_chat(
     ride_request_id: int,
     chat_request: RideChatMessageRequest,
@@ -13208,7 +13354,6 @@ def send_ride_request_chat(
 
 
 @app.get("/api/chat/messages/{ride_id}")
-@app.get("/chat/messages/{ride_id}")
 def get_chat_messages(ride_id: int, db: Session = Depends(get_db)):
     """Get chat messages for a ride (alias endpoint)"""
     return {
@@ -13219,7 +13364,6 @@ def get_chat_messages(ride_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/chat/messages/{ride_id}")
-@app.post("/chat/messages/{ride_id}")
 def send_chat_message(
     ride_id: int,
     message: str = Form(...),
@@ -13246,7 +13390,6 @@ class DeliveryDecisionRequest(BaseModel):
 
 
 @app.post("/api/erp/orders/{order_id}/start-delivery-decision")
-@app.post("/erp/orders/{order_id}/start-delivery-decision")
 async def start_delivery_decision(order_id: int, db: Session = Depends(get_db)):
     """
     Start the delivery decision window for an order.
@@ -13285,7 +13428,6 @@ async def start_delivery_decision(order_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/erp/orders/{order_id}/restaurant-delivery-decision")
-@app.post("/erp/orders/{order_id}/restaurant-delivery-decision")
 async def restaurant_delivery_decision(
     order_id: int,
     decision_request: DeliveryDecisionRequest,
@@ -13385,7 +13527,6 @@ async def restaurant_delivery_decision(
 
 
 @app.get("/api/erp/orders/{order_id}/delivery-decision-status")
-@app.get("/erp/orders/{order_id}/delivery-decision-status")
 async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db)):
     """
     Get the delivery decision status for an order.
@@ -15637,7 +15778,6 @@ class FCMTokenRequest(BaseModel):
 
 
 @app.post("/api/erp/customers/{customer_id}/fcm-token")
-@app.post("/erp/customers/{customer_id}/fcm-token")
 def register_customer_fcm_token(
     customer_id: int,
     token_request: FCMTokenRequest,
@@ -15665,7 +15805,6 @@ def register_customer_fcm_token(
 
 
 @app.post("/api/erp/drivers/{driver_id}/fcm-token")
-@app.post("/erp/drivers/{driver_id}/fcm-token")
 def register_driver_fcm_token(
     driver_id: int,
     token_request: FCMTokenRequest,
@@ -15694,7 +15833,6 @@ def register_driver_fcm_token(
 
 
 @app.post("/api/erp/vendors/{vendor_id}/fcm-token")
-@app.post("/erp/vendors/{vendor_id}/fcm-token")
 def register_vendor_fcm_token(
     vendor_id: int,
     token_request: FCMTokenRequest,
@@ -15722,7 +15860,6 @@ def register_vendor_fcm_token(
 
 
 @app.delete("/api/erp/customers/{customer_id}/fcm-token")
-@app.delete("/erp/customers/{customer_id}/fcm-token")
 def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db)):
     """Unregister FCM token for customer (on logout)"""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
@@ -15737,7 +15874,6 @@ def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db
 
 
 @app.delete("/api/erp/drivers/{driver_id}/fcm-token")
-@app.delete("/erp/drivers/{driver_id}/fcm-token")
 def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
     """Unregister FCM token for driver (on logout)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -15753,7 +15889,6 @@ def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
 
 
 @app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
-@app.delete("/erp/vendors/{vendor_id}/fcm-token")
 def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db)):
     """Unregister FCM token for vendor (on logout)"""
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -15818,8 +15953,6 @@ async def proxy_get_rating_aggregate(entity_type: str, entity_id: int):
 # ==================== ANALYTICS SERVICE PROXY ====================
 
 @app.get("/api/erp/analytics/dashboard/realtime")
-@app.get("/erp/analytics/realtime")  # Alias for iOS apps
-@app.get("/api/erp/analytics/realtime")  # Alias with /api prefix
 async def proxy_realtime_dashboard():
     """Proxy to analytics-service: Get realtime dashboard"""
     result = await proxy_request(ANALYTICS_SERVICE_URL, "/api/dashboard/realtime")
@@ -15829,7 +15962,6 @@ async def proxy_realtime_dashboard():
 
 
 @app.get("/api/erp/analytics/ai-employees")
-@app.get("/erp/analytics/ai-employees")  # Alias for iOS apps
 async def get_ai_employees_analytics(db: Session = Depends(get_db)):
     """Get AI employees analytics and status"""
     # Return AI employee status and metrics
@@ -18579,7 +18711,6 @@ class AIInsightsResponse(BaseModel):
 
 
 @app.get("/api/vendors/{vendor_id}/ai-insights")
-@app.get("/vendors/{vendor_id}/ai-insights")  # Alias for mobile apps
 def get_vendor_ai_insights(
     vendor_id: int,
     period: str = Query("today", description="today, week, month, year"),
@@ -18827,6 +18958,75 @@ def get_vendor_ai_insights(
         recommendations=recommendations
     )
 
+
+
+# =============================================================================
+# ROUTE ALIASES - Auto-generated to fix stacked decorator anti-pattern
+# =============================================================================
+app.add_api_route("/auth/vendor/login", vendor_login, methods=["POST"])
+app.add_api_route("/auth/vendor/demo-login", vendor_demo_login, methods=["POST"])
+app.add_api_route("/auth/vendor/google-auth", vendor_google_auth, methods=["POST"])
+app.add_api_route("/auth/vendor/apple-auth", vendor_apple_auth, methods=["POST"])
+app.add_api_route("/auth/driver/login", driver_login, methods=["POST"])
+app.add_api_route("/auth/driver/refresh", driver_refresh_token, methods=["POST"])
+app.add_api_route("/auth/driver/register", driver_register, methods=["POST"])
+app.add_api_route("/auth/driver/google", driver_google_auth, methods=["POST"])
+app.add_api_route("/auth/driver/apple-auth", driver_apple_auth, methods=["POST"])
+app.add_api_route("/api/auth/driver/online", set_driver_online, methods=["POST"])
+app.add_api_route("/api/auth/driver/toggle-online", set_driver_online, methods=["PUT"])
+app.add_api_route("/api/auth/driver/toggle-online", set_driver_online, methods=["POST"])
+app.add_api_route("/api/driver/online/toggle", set_driver_online, methods=["PUT"])
+app.add_api_route("/api/driver/online/toggle", set_driver_online, methods=["POST"])
+app.add_api_route("/auth/customer/login", customer_auth_login, methods=["POST"])
+app.add_api_route("/auth/customer/register", customer_auth_register, methods=["POST"])
+app.add_api_route("/auth/customer/google", customer_google_auth, methods=["POST"])
+app.add_api_route("/api/customer/{customer_id}/profile", update_customer_profile, methods=["PUT"])
+app.add_api_route("/customer/{customer_id}/profile", update_customer_profile, methods=["PUT"])
+app.add_api_route("/customers/{customer_id}/delete", delete_customer_account, methods=["DELETE"])
+app.add_api_route("/customer/email/send-verification", send_verification_email, methods=["POST"])
+app.add_api_route("/customer/email/verify", verify_customer_email, methods=["POST"])
+app.add_api_route("/customer/email/status", get_email_verification_status, methods=["GET"])
+app.add_api_route("/api/erp/rides/estimate", estimate_fare_frontend, methods=["POST"])
+app.add_api_route("/api/erp/drivers/{driver_id}", get_driver_profile_by_id, methods=["GET"])
+app.add_api_route("/api/drivers/{driver_id}", update_driver_profile_by_id, methods=["PUT"])
+app.add_api_route("/erp/drivers/{driver_id}", update_driver_profile_by_id, methods=["PUT"])
+app.add_api_route("/api/erp/drivers/{driver_id}", update_driver_profile_by_id, methods=["PUT"])
+app.add_api_route("/drivers/{driver_id}/status", get_driver_status, methods=["GET"])
+app.add_api_route("/drivers/{driver_id}/status", post_driver_status, methods=["POST"])
+app.add_api_route("/api/drivers/{driver_id}/documents", get_driver_documents_by_id, methods=["GET"])
+app.add_api_route("/api/drivers/{driver_id}/documents", get_driver_documents, methods=["POST"])
+app.add_api_route("/api/auth/customer/apple-auth", customer_apple_auth, methods=["POST"])
+app.add_api_route("/auth/customer/apple-auth", customer_apple_auth, methods=["POST"])
+app.add_api_route("/customer/apple-auth", customer_apple_auth, methods=["POST"])
+app.add_api_route("/vendors/{vendor_id}/documents", get_vendor_documents, methods=["GET"])
+app.add_api_route("/vendors/{vendor_id}/documents", delete_vendor_document, methods=["POST"])
+app.add_api_route("/vendors/{vendor_id}/documents/{document_id}", delete_vendor_document, methods=["DELETE"])
+app.add_api_route("/rides/request/{request_id}/bids", get_ride_request_bids, methods=["GET"])
+app.add_api_route("/rides/request/{request_id}/bid", submit_ride_bid, methods=["POST"])
+app.add_api_route("/rides/bid/{bid_id}/withdraw", withdraw_ride_bid, methods=["POST"])
+app.add_api_route("/rides/bid/{bid_id}/respond", respond_to_ride_bid, methods=["POST"])
+app.add_api_route("/rides/bid/{bid_id}/accept-counter", accept_counter_offer, methods=["POST"])
+app.add_api_route("/rides/bid/{bid_id}/reject-counter", reject_counter_offer, methods=["POST"])
+app.add_api_route("/driver/bids", get_driver_bids, methods=["GET"])
+app.add_api_route("/rides/available", get_available_ride_requests, methods=["GET"])
+app.add_api_route("/p2p/ride-requests/{ride_request_id}/chat", get_ride_request_chat, methods=["GET"])
+app.add_api_route("/p2p/ride-requests/{ride_request_id}/chat", send_ride_request_chat, methods=["POST"])
+app.add_api_route("/chat/messages/{ride_id}", get_chat_messages, methods=["GET"])
+app.add_api_route("/chat/messages/{ride_id}", send_chat_message, methods=["POST"])
+app.add_api_route("/erp/orders/{order_id}/start-delivery-decision", _format_address, methods=["POST"])
+app.add_api_route("/erp/orders/{order_id}/restaurant-delivery-decision", _format_address, methods=["POST"])
+app.add_api_route("/erp/orders/{order_id}/delivery-decision-status", _format_address, methods=["GET"])
+app.add_api_route("/erp/customers/{customer_id}/fcm-token", register_customer_fcm_token, methods=["POST"])
+app.add_api_route("/erp/drivers/{driver_id}/fcm-token", register_driver_fcm_token, methods=["POST"])
+app.add_api_route("/erp/vendors/{vendor_id}/fcm-token", register_vendor_fcm_token, methods=["POST"])
+app.add_api_route("/erp/customers/{customer_id}/fcm-token", unregister_customer_fcm_token, methods=["DELETE"])
+app.add_api_route("/erp/drivers/{driver_id}/fcm-token", unregister_driver_fcm_token, methods=["DELETE"])
+app.add_api_route("/erp/vendors/{vendor_id}/fcm-token", unregister_vendor_fcm_token, methods=["DELETE"])
+app.add_api_route("/vendors/{vendor_id}/ai-insights", get_vendor_ai_insights, methods=["GET"])
+app.add_api_route("/api/health", health_check, methods=["GET"])
+app.add_api_route("/erp/analytics/realtime", proxy_realtime_dashboard, methods=["GET"])
+app.add_api_route("/api/erp/analytics/realtime", proxy_realtime_dashboard, methods=["GET"])
+app.add_api_route("/erp/analytics/ai-employees", get_ai_employees_analytics, methods=["GET"])
 
 if __name__ == "__main__":
     import uvicorn

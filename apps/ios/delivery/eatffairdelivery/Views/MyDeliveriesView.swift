@@ -43,6 +43,11 @@ struct MyDeliveriesView: View {
                 // Voice Assistant Floating Button
                 VoiceAssistantButton()
             }
+            .alert("Error", isPresented: $viewModel.showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(viewModel.errorMessage)
+            }
         }
     }
 
