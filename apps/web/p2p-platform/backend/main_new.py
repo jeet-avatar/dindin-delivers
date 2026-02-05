@@ -221,7 +221,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.5",
+        "version": "1.0.6",
+        "build": "2026-02-04-customer-id-fix",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
