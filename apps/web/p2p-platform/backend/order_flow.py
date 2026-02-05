@@ -2590,12 +2590,37 @@ async def order_picked_up(
     except Exception as e:
         logging.error(f"Failed to send pickup notification: {e}")
 
+    # ==================== SEND PUSH NOTIFICATION TO RESTAURANT ====================
+    restaurant_notified = False
+    try:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        if vendor and vendor.push_token:
+            driver_name = order.driver_name or "Driver"
+            restaurant_notified = send_push_notification(
+                user_type="vendor",
+                user_id=vendor.id,
+                title="Order Picked Up ✓",
+                body=f"{driver_name} picked up order #{order.order_number}. Order is now out for delivery.",
+                data={
+                    "type": "order_picked_up",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "out_for_delivery",
+                    "driver_name": driver_name
+                },
+                db=db
+            )
+            logging.info(f"Pickup notification sent to vendor {vendor.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send pickup notification to vendor: {e}")
+
     return {
         "success": True,
         "order_id": order.id,
         "order_number": order.order_number,
         "status": "Out for Delivery",
-        "notification_sent": notification_sent,
+        "customer_notified": notification_sent,
+        "restaurant_notified": restaurant_notified,
         "processed_by": ai_employee["name"]
     }
 
