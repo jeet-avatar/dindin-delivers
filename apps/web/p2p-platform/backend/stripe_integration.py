@@ -242,9 +242,9 @@ async def create_order(
 
     total_amount = subtotal + tax_amount + delivery_fee + platform_fee
     
-    # Generate order number
+    # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
     order_count = db.query(Order).count()
-    order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{order_count + 1:05d}"
+    order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
     # Look up customer_id from email for order tracking
     customer_id = None
