@@ -422,27 +422,22 @@ struct EnhancedOrderCard: View {
         deliveryTimer?.invalidate()
         deliveryTimer = nil
 
-        // Use weak self to prevent retain cycle and add flag to prevent double-firing
+        // Flag to prevent double-firing
         var hasTriggered = false
-        deliveryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-
+        deliveryTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [self] timer in
             // Recalculate based on actual time (prevents drift)
-            self.deliveryDecisionSeconds = self.calculateRemainingSeconds()
+            deliveryDecisionSeconds = calculateRemainingSeconds()
 
-            if self.deliveryDecisionSeconds <= 0 && !hasTriggered {
+            if deliveryDecisionSeconds <= 0 && !hasTriggered {
                 hasTriggered = true // Prevent double-firing
                 timer.invalidate()
-                self.deliveryTimer = nil
+                deliveryTimer = nil
                 // Auto-send to driver when time runs out
                 #if DEBUG
-                logger.debug("⏰ Timer expired - auto-sending order \(self.order.orderId) to driver pool")
+                logger.debug("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
                 #endif
-                self.onAccept()  // Accept order first
-                self.onSendToDriver?()  // Then send to driver
+                onAccept()  // Accept order first
+                onSendToDriver?()  // Then send to driver
             }
         }
     }

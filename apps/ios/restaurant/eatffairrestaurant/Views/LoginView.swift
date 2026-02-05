@@ -364,6 +364,7 @@ struct LoginView: View {
                         #endif
                     }
 
+                    #if DEBUG
                     logger.debug("DEBUG APPLE: Raw data - userId: \(appleUserId.prefix(20))..., email: '\(appleEmail)', name: '\(fullName)'")
                     #endif
 

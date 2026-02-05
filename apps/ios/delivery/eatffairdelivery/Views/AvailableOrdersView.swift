@@ -115,7 +115,7 @@ struct AvailableOrdersView: View {
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(viewModel.errorMessage)
+                Text(viewModel.errorMessage ?? "")
             }
             .onReceive(NotificationCenter.default.publisher(for: .voiceCommandRecognized)) { notification in
                 guard let command = notification.userInfo?["command"] as? VoiceAssistantManager.VoiceCommand else { return }
