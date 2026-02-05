@@ -105,9 +105,13 @@ class RideBiddingViewModel: ObservableObject {
         let latitude = location?.coordinate.latitude ?? 0.0
         let longitude = location?.coordinate.longitude ?? 0.0
 
+        // Use large radius if location unavailable to show all requests
+        let radiusKm: Double = (location == nil) ? 50000.0 : 100.0
+
         p2pService.fetchAvailableRideRequests(
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            radiusKm: radiusKm
         ) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
