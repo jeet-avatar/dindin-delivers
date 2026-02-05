@@ -4034,8 +4034,13 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Assign driver to an order (accept delivery)
+    /// - Parameters:
+    ///   - orderId: The order ID to accept
+    ///   - driverEtaMinutes: Optional ETA in minutes for driver to reach restaurant
+    ///   - completion: Completion handler with success/failure
     public func acceptDeliveryOrder(
         orderId: Int,
+        driverEtaMinutes: Int? = nil,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         #if DEBUG
@@ -4076,7 +4081,10 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let body: [String: Any] = ["driver_id": driverId]
+        var body: [String: Any] = ["driver_id": driverId]
+        if let eta = driverEtaMinutes {
+            body["driver_eta_minutes"] = eta
+        }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         #if DEBUG
