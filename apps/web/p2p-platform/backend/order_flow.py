@@ -3161,10 +3161,14 @@ async def get_driver_active_orders(
     db: Session = Depends(get_db)
 ):
     """
-    Get driver's active and completed deliveries - Called from iOS Driver App
+    Get driver's active deliveries - Called from iOS Driver App
+    Excludes delivered and cancelled orders to show only active work
     """
+    # Filter out completed orders - only show active deliveries
+    excluded_statuses = [OrderStatus.DELIVERED, OrderStatus.CANCELLED]
     orders = db.query(Order).filter(
-        Order.driver_id == driver_id
+        Order.driver_id == driver_id,
+        Order.status.notin_(excluded_statuses)
     ).order_by(Order.created_at.desc()).limit(100).all()
 
     result = []

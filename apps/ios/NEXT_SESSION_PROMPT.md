@@ -1,232 +1,212 @@
-# GSD Session Handoff - Build 1025/101/65
-**Date:** 2026-02-01
-**Previous Session:** TestFlight builds + Critical API fixes
+# NEXT SESSION PROMPT - Dollor.ai iOS Go-Live
+
+**Last Updated**: 2026-02-04 22:15 UTC
+**Status**: PARTIALLY COMPLETE - Continue Fixes
 
 ---
 
-## Quick Start
+## ENVIRONMENTS (CRITICAL)
 
-```
-/gsd:resume-work
-```
+| Environment | URL | When to Use |
+|-------------|-----|-------------|
+| **Local** | `http://localhost:8080` | Development only |
+| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` | Testing BEFORE production |
+| **Production** | `https://api.dollor.ai` | Live users - TEST ON STAGING FIRST |
 
-Or if starting fresh:
-
-```
-/gsd:progress
-```
-
----
-
-## Session Summary - What Was Fixed
-
-### 1. CRITICAL: Database Migration (Production Down Fix)
-
-**Problem:** ALL vendor-related API endpoints returned 500 error
-**Root Cause:** Missing `average_rating` and `total_ratings` columns in `vendors` table
-**Fix Applied:**
-```sql
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS average_rating DECIMAL(3,2) DEFAULT 0.0;
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS total_ratings INTEGER DEFAULT 0;
-```
-
-**Result:** Customer app now shows 13 restaurants correctly.
-
-### 2. Backend API: Vendor Orders Endpoint
-
-Added `/api/erp/orders/vendor/{vendor_id}` for Restaurant iOS app:
-- Commit: `fa5207e1`
-- File: `main_new.py` (lines ~14697-14708)
-- Enables Restaurant app to fetch orders via RESTful path style
-
-### 3. Demo Payment Bypass (App Store Review)
-
-Backend detects demo accounts and skips Stripe processing:
-- File: `main_new.py` (lines ~14788-14815)
-- File: `rideshare_payments.py`
-
-iOS apps detect `demo: true` flag and skip PaymentSheet:
-- `PaymentService.swift` - Added `isDemoPayment` property
-- `MultiRestaurantCheckoutView.swift` - Bypasses Stripe for demo
-- `RideRequestViewModel.swift` - Bypasses payment sheet for demo
-
-**Demo Credentials:**
-| Role | Email | Password |
-|------|-------|----------|
-| Customer | `demo.customer@dollor.ai` | `DemoCustomer2025!` |
-| Driver | `demo.driver@dollor.ai` | `DemoDriver2025!` |
-| Restaurant | `demo.restaurant@dollor.ai` | `DemoRestaurant2025!` |
-
-### 4. iOS App Builds Ready
-
-| App | Build | Archive Location |
-|-----|-------|------------------|
-| Customer | 1025 | `apps/ios/build/DollorCustomer-Build1025.xcarchive` |
-| Restaurant | 101 | `apps/ios/build/DollorRestaurant-Build101.xcarchive` |
-| Driver | 65 | `apps/ios/build/DollorDriver-Build65.xcarchive` |
-
----
-
-## Pending Tasks for Next Session
-
-### HIGH PRIORITY
-
-1. **Upload All 3 Apps to TestFlight**
-   ```bash
-   # Copy archives to Xcode Organizer
-   cp -R apps/ios/build/*.xcarchive ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/
-   open ~/Library/Developer/Xcode/Archives/
-   ```
-   - Select each archive → Validate App → Distribute App → TestFlight
-
-2. **Fix ECS Deployment Pipeline**
-   - GitHub Actions deployments failing since Jan 13
-   - Blue-green (manual) works; CI/CD broken at health check
-   - Check: task definition, health check path, container startup
-
-3. **Update App Store Review Information**
-   - Add demo credentials to Beta App Review Information
-   - Reply to any rejection with demo account details
-
-### MEDIUM PRIORITY
-
-4. **Driver Document Upload via Email** (Feature Request)
-   - Driver logs into web portal
-   - Click "Send upload link to email"
-   - Open link on mobile → take photo → upload
-   - Document syncs back to web portal
-
-   Backend endpoints needed:
-   - `POST /api/drivers/{id}/send-document-link`
-   - `POST /api/drivers/upload-mobile/{token}`
-
-5. **Clean Production Data**
-   - Remove duplicate restaurants (e.g., Season Thai Cuisine IDs 46, 47)
-   - Clean up test accounts
-
----
-
-## Environment Status
-
-### Production API
+### Start Local Backend
 ```bash
-# Health check
-curl https://api.dollor.ai/api/health
-# Returns: {"status":"healthy","database":"connected"}
-
-# Restaurant listing (13 restaurants)
-curl https://api.dollor.ai/api/vendors/published | jq '.count'
-# Returns: 13
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend
+source venv/bin/activate  # if using venv
+pip install pydantic==2.5.0  # ensure correct version
+uvicorn main_new:app --reload --port 8080
 ```
 
-### Git Status
+### iOS App Config Location
 ```
-Branch: main
-Latest: fa5207e1 - fix(api): Add vendor orders endpoint
-Uncommitted: iOS project files (build number changes)
+apps/ios/eatfair-ios-shared/Sources/EatFairShared/AppConfig.swift
 ```
-
-### CI/CD Status
-- iOS CI: Disabled (`.github/workflows/ios-ci.yml.disabled`)
-- Backend: GitHub Actions fails; blue-green manual works
 
 ---
 
-## Build Number History (Avoid Conflicts)
+## DEMO CREDENTIALS (All Environments)
 
-| App | History | Current |
-|-----|---------|---------|
-| Customer | 1008 → 1020 → **1025** | 1025 |
-| Restaurant | 71 → 72 → 75 → 100 → **101** | 101 |
-| Driver | 60 → 61 → **65** | 65 |
-
-**Team ID:** PRKZ4UVCD7 (correct - never use YRHVAY595K)
+| App | Email | Password | ID |
+|-----|-------|----------|-----|
+| Customer | demo.customer@dollor.ai | DemoCustomer2025! | 74 |
+| Vendor | demo.restaurant@dollor.ai | DemoRestaurant2025! | 40 |
+| Driver | demo.driver@dollor.ai | DemoDriver2025! | 48 |
 
 ---
 
-## Commands Reference
+## WHAT WAS FIXED (Session 2026-02-04)
 
-### Build iOS App
+| Issue | File | Status |
+|-------|------|--------|
+| P0: DriverStatus.ONLINE | models.py | ✅ FIXED (enum exists) |
+| P1: Active orders filter | order_flow.py:3166 | ✅ FIXED |
+| P1: Alert - AvailableOrdersView | AvailableOrdersView.swift | ✅ FIXED |
+| P1: Alert - DriverDashboardView | DriverDashboardView.swift | ✅ FIXED |
+| P1: Alert - MyDeliveriesView | MyDeliveriesView.swift | ✅ FIXED |
+| Stacked decorators | main_new.py | ✅ FIXED (60 removed) |
+| Pydantic version | - | ✅ FIXED (2.5.0) |
+
+---
+
+## WHAT REMAINS TO FIX
+
+| Priority | Issue | File:Line | Fix |
+|----------|-------|-----------|-----|
+| **P1** | Error alert missing | PickupDropoffView.swift | Add .alert() modifier |
+| **P2** | Order # truncated | ActiveDeliveryDetailView.swift:54 | Remove .prefix(8) |
+| **P2** | Order # truncated | MyDeliveriesView.swift:250 | Remove .prefix(6) |
+| **P2** | Order # truncated | PickupDropoffView.swift:780 | Remove .prefix(8) |
+| **--** | Add QA checks | scripts/qa-runner.sh | Add issue detection |
+| **--** | Add validator checks | .claude/agents/*.sh | Add compulsory checks |
+
+---
+
+## FIX COMMANDS
+
+### 1. Add Alert to PickupDropoffView.swift
+Find the NavigationView closing and add before it:
+```swift
+.alert("Error", isPresented: $viewModel.showError) {
+    Button("OK", role: .cancel) { }
+} message: {
+    Text(viewModel.errorMessage)
+}
+```
+
+### 2. Fix Order Number Truncation
 ```bash
-xcodebuild -workspace apps/ios/customer/eatfaircustomer.xcworkspace \
-  -scheme eatfaircustomer \
-  -configuration Release \
-  -archivePath apps/ios/build/DollorCustomer.xcarchive \
-  -destination "generic/platform=iOS" \
-  -allowProvisioningUpdates \
-  archive
+# Find and replace .prefix() calls
+grep -rn "\.prefix(6)\|\.prefix(8)" apps/ios/delivery/eatffairdelivery/Views/
+
+# In each file, change:
+# Text("Order #\(order.orderId.prefix(8))")
+# To:
+# Text("Order #\(order.orderId)")
 ```
 
-### Run Database Migration
+### 3. Verify Active Orders Fix
 ```bash
-# Get production DB URL from AWS Secrets Manager
-aws secretsmanager get-secret-value --secret-id "dollor/production/database-v2" \
-  --query SecretString --output text | jq -r '.DATABASE_URL'
+# Get token first
+TOKEN=$(curl -s -X POST "https://d3kuu45w6kl8hr.cloudfront.net/api/auth/driver/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=demo.driver@dollor.ai&password=DemoDriver2025!" | \
+  python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))")
 
-# Run migration
-PGPASSWORD='[password]' psql -h dollor-db.c23qcukqe810.us-east-1.rds.amazonaws.com \
-  -U dolloradmin -d dollor -c "YOUR SQL HERE"
+# Check no delivered orders returned
+curl -s "https://d3kuu45w6kl8hr.cloudfront.net/api/erp/orders/driver/48/active" \
+  -H "Authorization: Bearer $TOKEN" | \
+  python3 -c "import sys,json; orders=json.load(sys.stdin); print([o['status'] for o in orders])"
 ```
 
-### Bump Build Number
+---
+
+## VERIFICATION WORKFLOW
+
+### Step 1: Backend Import Test
 ```bash
-sed -i '' 's/CURRENT_PROJECT_VERSION = OLD;/CURRENT_PROJECT_VERSION = NEW;/g' \
-  apps/ios/APP/PROJECT.xcodeproj/project.pbxproj
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend
+python3 -c "from main_new import app; print(f'✅ Routes: {len(app.routes)}')"
+```
+
+### Step 2: Run QA on Staging
+```bash
+cd /Users/jeet/StudioProjects/eatfair-ios
+./scripts/qa-runner.sh staging pre-deploy
+```
+
+### Step 3: Test Demo Logins
+```bash
+# Customer
+curl -s -X POST "https://d3kuu45w6kl8hr.cloudfront.net/api/auth/customer/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=demo.customer@dollor.ai&password=DemoCustomer2025!" | \
+  python3 -c "import sys,json; d=json.load(sys.stdin); print('✅ Customer' if 'access_token' in d else '❌ Customer')"
+
+# Vendor
+curl -s -X POST "https://d3kuu45w6kl8hr.cloudfront.net/api/auth/vendor/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=demo.restaurant@dollor.ai&password=DemoRestaurant2025!" | \
+  python3 -c "import sys,json; d=json.load(sys.stdin); print('✅ Vendor' if 'access_token' in d else '❌ Vendor')"
+
+# Driver
+curl -s -X POST "https://d3kuu45w6kl8hr.cloudfront.net/api/auth/driver/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=demo.driver@dollor.ai&password=DemoDriver2025!" | \
+  python3 -c "import sys,json; d=json.load(sys.stdin); print('✅ Driver' if 'access_token' in d else '❌ Driver')"
+```
+
+### Step 4: iOS Build Test
+```bash
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
+xcodebuild -workspace eatfaircustomer.xcworkspace -scheme eatfaircustomer -sdk iphonesimulator build 2>&1 | tail -5
 ```
 
 ---
 
-## Key Files Modified
+## SOURCE OF TRUTH FILES
 
-| File | Changes |
-|------|---------|
-| `main_new.py` | Vendor orders endpoint, demo payment bypass |
-| `rideshare_payments.py` | Demo payment bypass for rides |
-| `PaymentService.swift` | Demo flag detection |
-| `MultiRestaurantCheckoutView.swift` | Skip Stripe for demo |
-| `RideRequestViewModel.swift` | Skip payment sheet for demo |
-| `*.xcodeproj/project.pbxproj` | Build number updates |
-
----
-
-## Troubleshooting
-
-### "Redundant Binary Upload" Error
-- App Store Connect already has that build number
-- Solution: Bump to higher number, rebuild, re-upload
-
-### 500 Error on API
-- Check database columns match model
-- Run: `curl https://api.dollor.ai/api/vendors/public -X POST -d '{}' -H 'Content-Type: application/json'`
-- Error message shows missing column
-
-### ECS Deployment Fails
-- Container likely failing health check
-- Check CloudWatch logs for startup errors
-- Verify DATABASE_URL in Secrets Manager
+| Purpose | Path |
+|---------|------|
+| Backend API | `apps/web/p2p-platform/backend/main_new.py` |
+| Order Flow | `apps/web/p2p-platform/backend/order_flow.py` |
+| Models | `apps/web/p2p-platform/backend/models.py` |
+| iOS API | `apps/ios/eatfair-ios-shared/.../P2PAPIService.swift` |
+| QA Runner | `scripts/qa-runner.sh` |
+| Issues Report | `apps/ios/SESSION_ISSUES_REPORT.md` |
+| This File | `apps/ios/NEXT_SESSION_PROMPT.md` |
+| Source of Truth | `.claude/SOURCE_OF_TRUTH.md` |
 
 ---
 
-## GSD Commands
+## AGENTS AVAILABLE
 
 ```bash
-# Resume previous work
-/gsd:resume-work
+# Go-Live Check
+./.claude/agents/ios-go-live-agent.sh staging
 
-# Check progress
-/gsd:progress
+# Business Analyst Validator
+./.claude/agents/business-analyst-validator.sh staging
 
-# Quick task execution
-/gsd:quick
-
-# Plan a new phase
-/gsd:plan-phase
-
-# Debug systematic issue
-/gsd:debug
+# Full QA (21 agents)
+./scripts/qa-runner.sh staging pre-deploy
 ```
 
 ---
 
-*Generated: 2026-02-01 03:20 PST*
-*Builds: Customer 1025, Restaurant 101, Driver 65*
+## BUSINESS RULES (NEVER CHANGE)
+
+1. **MATCHMAKING SERVICE** - Not delivery company, not TNC
+2. **FLAT FEES ONLY** - $1-$3, never percentage commission
+3. **DRIVERS KEEP 100%** - of delivery fee + tips
+4. **MULTI-RESTAURANT** - up to 3 restaurants per order
+
+---
+
+## QA LAST RUN (22:07:58)
+
+```
+✅ PASS - 21/21 agents passed
+Reports: .planning/qa-reports/2026-02-04_22-07-58_pre-deploy/
+```
+
+---
+
+## NEXT STEPS
+
+1. ☐ Fix PickupDropoffView.swift alert
+2. ☐ Fix order number truncation (3 files)
+3. ☐ Add checks to QA runner
+4. ☐ Run full QA
+5. ☐ Test iOS builds
+6. ☐ Deploy to staging
+7. ☐ Test on staging
+8. ☐ Deploy to production
+9. ☐ Submit to App Store
+
+---
+
+*Do not assume - verify everything with commands above.*

@@ -65,6 +65,11 @@ struct DriverDashboardView: View {
                 showTerms = false
             }
         }
+        .alert("Error", isPresented: $deliveryViewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(deliveryViewModel.errorMessage)
+        }
     }
 
     private func checkTermsAcceptance() {
