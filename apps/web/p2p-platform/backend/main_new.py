@@ -12290,7 +12290,8 @@ from order_flow import (
     order_picked_up,
     complete_delivery,
     unassign_driver,
-    AssignDriverRequest
+    AssignDriverRequest,
+    update_order_status,
 )
 app.include_router(order_flow_router)
 
@@ -12325,6 +12326,13 @@ async def complete_delivery_alias(order_id: int, db: Session = Depends(get_db)):
 async def unassign_driver_alias(order_id: int, db: Session = Depends(get_db)):
     """Alias for iOS Driver app - unassign driver from order"""
     return await unassign_driver(order_id, db)
+
+@app.put("/erp/orders/{order_id}/status")
+async def update_order_status_alias(order_id: int, status: str, db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - update order status
+    iOS calls: PUT /erp/orders/{orderId}/status?status={status}
+    """
+    return await update_order_status(order_id, status, db)
 
 # Include Auto-Onboarding routes (Nova AI Employee)
 from auto_onboarding import router as onboarding_router
