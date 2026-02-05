@@ -246,8 +246,17 @@ class OrdersViewModel: ObservableObject {
 
     func rejectOrder(_ order: Order, reason: String = "") {
         // Use order.id (database ID) not order.orderId (display number)
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh and try again."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            // Log the issue for debugging - order ID format mismatch
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer - API expects numeric ID")
+            #endif
+            errorMessage = "Unable to process order. Please contact support if this persists."
             showError = true
             return
         }
@@ -270,8 +279,16 @@ class OrdersViewModel: ObservableObject {
 
     /// Restaurant accepts an order within the 3-minute window
     func acceptRestaurantOrder(_ order: Order) {
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh and try again."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer for acceptance")
+            #endif
+            errorMessage = "Unable to accept order. Please contact support if this persists."
             showError = true
             return
         }
@@ -291,8 +308,16 @@ class OrdersViewModel: ObservableObject {
 
     /// Restaurant declines an order within the 3-minute window
     func declineRestaurantOrder(_ order: Order, reason: String = "Restaurant unavailable") {
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
             showError = true
             return
         }
@@ -314,8 +339,16 @@ class OrdersViewModel: ObservableObject {
 
     /// Restaurant accepts delivery (will self-deliver)
     func acceptDelivery(_ order: Order) {
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
             showError = true
             return
         }
@@ -335,8 +368,16 @@ class OrdersViewModel: ObservableObject {
 
     /// Restaurant declines delivery (send to driver pool)
     func declineDelivery(_ order: Order) {
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
             showError = true
             return
         }
@@ -356,8 +397,16 @@ class OrdersViewModel: ObservableObject {
 
     /// Restaurant marks self-delivery order as delivered
     func markOrderDelivered(_ order: Order) {
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
             showError = true
             return
         }
@@ -382,8 +431,16 @@ class OrdersViewModel: ObservableObject {
 
     func updateOrderStatus(_ order: Order, newStatus: String, estimatedMinutes: Int? = nil) {
         // Use the database ID from order.id (not the display order number)
-        guard let idString = order.id, let orderIdInt = Int(idString) else {
-            errorMessage = "Invalid order ID"
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
             showError = true
             return
         }
