@@ -51,7 +51,7 @@ struct ActiveDeliveryDetailView: View {
                                     .fontWeight(.bold)
                                     .foregroundColor(Theme.textPrimary)
                                 
-                                Text("Order #\(order.orderId.prefix(8))")
+                                Text("Order #\(order.orderId)")
                                     .font(.caption)
                                     .foregroundColor(Theme.textSecondary)
                             }
