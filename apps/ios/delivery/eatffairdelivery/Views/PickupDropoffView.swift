@@ -57,7 +57,7 @@ struct PickupDropoffView: View {
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text(viewModel.errorMessage)
+            Text(viewModel.errorMessage ?? "")
         }
     }
 }
