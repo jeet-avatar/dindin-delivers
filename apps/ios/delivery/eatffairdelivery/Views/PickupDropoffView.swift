@@ -91,6 +91,11 @@ struct ActivePickupDropoffView: View {
                     showDropoffLocation: true,
                     onRouteCalculated: { routeInfo in
                         routeToDestination = routeInfo
+                    },
+                    onRouteError: { errorMessage in
+                        // Show error to user via the viewModel
+                        viewModel.errorMessage = errorMessage
+                        viewModel.showError = true
                     }
                 )
                 .ignoresSafeArea(edges: .top)
@@ -141,11 +146,13 @@ struct DriverDeliveryMapView: View {
     let showPickupLocation: Bool
     let showDropoffLocation: Bool
     var onRouteCalculated: ((RouteInfo) -> Void)?
+    var onRouteError: ((String) -> Void)?
 
     @StateObject private var locationManager = LocationManager.shared
     @State private var routeToPickup: MKRoute?
     @State private var routeToDropoff: MKRoute?
     @State private var isCalculatingRoute = false
+    @State private var routeCalculationFailed = false
 
     /// Check if coordinates are valid (not at 0,0 - "Null Island")
     private var hasValidPickupCoordinates: Bool {
@@ -337,13 +344,25 @@ struct DriverDeliveryMapView: View {
         request.requestsAlternateRoutes = false
 
         let directions = MKDirections(request: request)
-        directions.calculate { response, error in
+        directions.calculate { [self] response, error in
             if let error = error {
                 #if DEBUG
                 logger.info("[DriverDeliveryMapView] Route calculation error: \(error.localizedDescription)")
                 #endif
+                DispatchQueue.main.async {
+                    self.routeCalculationFailed = true
+                    // Notify parent about the error for user feedback
+                    if error.localizedDescription.contains("network") {
+                        self.onRouteError?("Unable to calculate route. Check your internet connection.")
+                    } else {
+                        self.onRouteError?("Unable to calculate route to destination.")
+                    }
+                }
                 completion(nil)
                 return
+            }
+            DispatchQueue.main.async {
+                self.routeCalculationFailed = false
             }
             completion(response?.routes.first)
         }

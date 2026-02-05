@@ -198,8 +198,24 @@ class MenuViewModel: ObservableObject {
                         return
                     }
 
+                    // Track decode failures to help diagnose empty menu issues
+                    var decodeFailures = 0
                     self.menuItems = documents.compactMap { doc in
-                        try? doc.data(as: MenuItem.self)
+                        do {
+                            return try doc.data(as: MenuItem.self)
+                        } catch {
+                            decodeFailures += 1
+                            menuLogger.error("MenuViewModel: Failed to decode menu item \(doc.documentID): \(error.localizedDescription)")
+                            return nil
+                        }
+                    }
+
+                    // Warn user if many items failed to decode
+                    if decodeFailures > 0 && self.menuItems.isEmpty {
+                        self.errorMessage = "Unable to load menu. Please try again."
+                        self.hasError = true
+                    } else if decodeFailures > documents.count / 2 {
+                        menuLogger.warning("MenuViewModel: \(decodeFailures)/\(documents.count) items failed to decode")
                     }
 
                     // Sort by category then by name
@@ -233,8 +249,18 @@ class MenuViewModel: ObservableObject {
 
             DispatchQueue.main.async {
                 // Decode on main thread to satisfy MainActor isolation
-                let items = documents.compactMap { doc in
-                    try? doc.data(as: MenuItem.self)
+                var decodeFailures = 0
+                let items = documents.compactMap { doc -> MenuItem? in
+                    do {
+                        return try doc.data(as: MenuItem.self)
+                    } catch {
+                        decodeFailures += 1
+                        menuLogger.error("MenuViewModel: Failed to decode menu item \(doc.documentID): \(error.localizedDescription)")
+                        return nil
+                    }
+                }
+                if decodeFailures > 0 {
+                    menuLogger.warning("MenuViewModel: \(decodeFailures)/\(documents.count) items failed to decode in fetchMenuOnce")
                 }
                 completion(items)
             }
