@@ -339,7 +339,26 @@ class DeliveryViewModel: ObservableObject {
 
         isLoading = true
 
-        p2pService.acceptDeliveryOrder(orderId: orderIdInt) { [weak self] result in
+        // Calculate ETA to restaurant for early driver notification
+        let driverEtaMinutes: Int? = {
+            let restaurantLat = order.restaurant.latitude
+            let restaurantLon = order.restaurant.longitude
+
+            // Only calculate if we have valid restaurant coordinates
+            guard restaurantLat != 0 && restaurantLon != 0 else { return nil }
+
+            // Calculate ETA from driver's current location to restaurant
+            if let etaSeconds = LocationManager.shared.etaTo(latitude: restaurantLat, longitude: restaurantLon) {
+                return max(1, Int(ceil(etaSeconds / 60))) // Convert to minutes, minimum 1 minute
+            }
+            return nil
+        }()
+
+        #if DEBUG
+        logger.info("[DeliveryViewModel] Calculated driver ETA to restaurant: \(String(describing: driverEtaMinutes)) minutes")
+        #endif
+
+        p2pService.acceptDeliveryOrder(orderId: orderIdInt, driverEtaMinutes: driverEtaMinutes) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
