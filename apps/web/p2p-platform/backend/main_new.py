@@ -16976,6 +16976,46 @@ def debug_driver_login(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/demo/debug-customer-login")
+def debug_customer_login(db: Session = Depends(get_db)):
+    """Debug why customer login is failing"""
+    email = "demo.customer@dollor.ai"
+    password = "DemoCustomer2025!"
+
+    # Check: Find customer
+    customer = db.query(Customer).filter(Customer.email == email).first()
+
+    customer_info = None
+    password_verify_result = None
+    if customer:
+        password_verify_result = verify_password(password, customer.password_hash) if customer.password_hash else False
+        customer_info = {
+            "id": customer.id,
+            "email": customer.email,
+            "customer_id": customer.customer_id,
+            "is_active": customer.is_active,
+            "has_password_hash": bool(customer.password_hash),
+            "hash_length": len(customer.password_hash) if customer.password_hash else 0,
+            "hash_prefix": customer.password_hash[:20] if customer.password_hash else None,
+            "password_verifies": password_verify_result
+        }
+
+    # Also check if there are multiple customers with same email
+    all_customers = db.query(Customer).filter(Customer.email == email).all()
+    all_customers_info = [{
+        "id": c.id,
+        "email": c.email,
+        "is_active": c.is_active
+    } for c in all_customers]
+
+    return {
+        "email": email,
+        "customer_record": customer_info,
+        "all_customers_with_email": all_customers_info,
+        "conclusion": "SHOULD_WORK" if customer_info and password_verify_result else "BROKEN"
+    }
+
+
 @app.post("/api/demo/fix-driver-login")
 def fix_driver_login(db: Session = Depends(get_db)):
     """
