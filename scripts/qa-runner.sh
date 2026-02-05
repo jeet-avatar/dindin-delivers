@@ -209,6 +209,34 @@ EOF
         test_endpoint "GET" "/api/customer/profile" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/profile (auth)" >> "$report" && ((passed++)) || ((failed++))
         test_endpoint "GET" "/api/customer/orders" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/orders (auth)" >> "$report" && ((passed++)) || ((failed++))
         test_endpoint "GET" "/api/customer/74/active-orders" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/customer/{id}/active-orders" >> "$report" && ((passed++)) || ((failed++))
+
+        # CRITICAL: Check items field is returned as array (not string)
+        local items_type_check
+        items_type_check=$(curl -s "$API_URL/api/customer/orders" -H "Authorization: Bearer $CUSTOMER_TOKEN" | python3 -c "
+import sys, json
+try:
+    orders = json.load(sys.stdin)
+    if orders and len(orders) > 0:
+        items = orders[0].get('items')
+        if isinstance(items, list):
+            print('ARRAY')
+        elif isinstance(items, str):
+            print('STRING')
+        else:
+            print('UNKNOWN')
+    else:
+        print('NO_ORDERS')
+except:
+    print('ERROR')
+" 2>/dev/null)
+        if [ "$items_type_check" = "ARRAY" ]; then
+            echo "| GET /api/customer/orders items field | ✅ PASS | Array | iOS can decode |" >> "$report"
+            ((passed++))
+        elif [ "$items_type_check" = "STRING" ]; then
+            echo "| GET /api/customer/orders items field | ❌ FAIL | String | iOS decode will fail! |" >> "$report"
+            ((failed++))
+        fi
+
         # Addresses
         test_endpoint "GET" "/api/addresses/74" "200" "Bearer $CUSTOMER_TOKEN" "" "GET /api/addresses/{userId}" >> "$report" && ((passed++)) || ((failed++))
         # Favorites
@@ -4776,6 +4804,93 @@ PYEOF
         ((failed++))
     fi
 
+    echo "" >> "$report"
+    echo "### 3.2 Customer Orders Items Field Type Check" >> "$report"
+    echo "" >> "$report"
+    echo "**Critical Fix**: iOS expects \`items\` as an array, not a JSON string." >> "$report"
+    echo "" >> "$report"
+
+    # Test customer orders items field type
+    local items_check
+    items_check=$(python3 << PYEOF
+import requests
+import json
+try:
+    # Login as customer
+    login_resp = requests.post(
+        "${API_URL}/api/auth/customer/login",
+        data={"username": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+        timeout=10
+    )
+    if login_resp.status_code != 200:
+        print("❌ Customer login failed - cannot test items field")
+        exit(0)
+
+    token = login_resp.json().get("access_token")
+    customer_id = login_resp.json().get("customer_id")
+
+    # Check /api/customer/orders
+    orders_resp = requests.get(
+        "${API_URL}/api/customer/orders",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10
+    )
+
+    if orders_resp.status_code == 200:
+        orders = orders_resp.json()
+        if orders and len(orders) > 0:
+            items = orders[0].get("items")
+            if isinstance(items, list):
+                print(f"✅ /api/customer/orders: items is ARRAY ({len(items)} items)")
+            elif isinstance(items, str):
+                print("❌ /api/customer/orders: items is STRING (iOS decode will fail!)")
+            else:
+                print(f"⚠️ /api/customer/orders: items is {type(items).__name__}")
+        else:
+            print("⚠️ No orders found to test items field")
+    else:
+        print(f"❌ /api/customer/orders returned {orders_resp.status_code}")
+
+    # Check /api/customer/{id}/active-orders
+    active_resp = requests.get(
+        f"${API_URL}/api/customer/{customer_id}/active-orders",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10
+    )
+
+    if active_resp.status_code == 200:
+        active = active_resp.json()
+        active_orders = active.get("orders", [])
+        if active_orders and len(active_orders) > 0:
+            items = active_orders[0].get("items")
+            if isinstance(items, list):
+                print(f"✅ /api/customer/{{id}}/active-orders: items is ARRAY ({len(items)} items)")
+            elif isinstance(items, str):
+                print("❌ /api/customer/{id}/active-orders: items is STRING (iOS decode will fail!)")
+            else:
+                print(f"⚠️ /api/customer/{{id}}/active-orders: items is {type(items).__name__}")
+        else:
+            print("⚠️ No active orders found to test items field")
+    else:
+        print(f"❌ /api/customer/{{id}}/active-orders returned {active_resp.status_code}")
+
+except Exception as e:
+    print(f"❌ Error testing items field: {e}")
+PYEOF
+)
+
+    echo "\`\`\`" >> "$report"
+    echo "$items_check" >> "$report"
+    echo "\`\`\`" >> "$report"
+
+    # Count pass/fail for items check
+    if echo "$items_check" | grep -q "items is ARRAY"; then
+        ((passed++))
+    fi
+    if echo "$items_check" | grep -q "items is STRING"; then
+        ((failed++))
+    fi
+
     cat >> "$report" << EOF
 
 ---
@@ -4785,6 +4900,7 @@ PYEOF
 | Pattern | iOS Expectation | Common API Issue | Detection |
 |---------|-----------------|------------------|-----------|
 | Name split | \`name: String\` | Returns \`first_name\`/\`last_name\` separately | ✅ Now handled |
+| Items as string | \`items: [OrderItem]\` | Returns JSON string instead of array | ✅ Now checked |
 | Optional vs Required | Non-optional field | API sometimes returns null | Check nullability |
 | Type mismatch | \`Int\` | API returns String number | Check type coercion |
 | Missing field | Expected field | Not included in response | Causes keyNotFound |
