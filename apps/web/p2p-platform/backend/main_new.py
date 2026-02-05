@@ -12646,6 +12646,14 @@ def get_customer_orders(
         # Calculate total if not present
         total = order.total_amount or ((order.subtotal or 0) + (order.tax_amount or 0) + (order.delivery_fee or 0) + (order.tip or 0))
 
+        # Parse delivery address JSON to extract coordinates (same as driver API)
+        delivery_addr = {}
+        if order.delivery_address:
+            try:
+                delivery_addr = json.loads(order.delivery_address)
+            except (json.JSONDecodeError, TypeError):
+                delivery_addr = {}
+
         result.append({
             "id": order.id,
             "order_id": order.id,  # iOS compatibility - expects order_id
@@ -12684,8 +12692,9 @@ def get_customer_orders(
             "driver_eta_text": f"~{max(0, getattr(order, 'driver_eta_to_restaurant', 0) - int((datetime.now() - order.driver_accepted_at).total_seconds() / 60))} min" if getattr(order, 'driver_en_route', False) and getattr(order, 'driver_accepted_at', None) and getattr(order, 'driver_eta_to_restaurant', None) else None,
             "pickup_latitude": vendor.latitude if vendor else None,
             "pickup_longitude": vendor.longitude if vendor else None,
-            "delivery_latitude": order.delivery_latitude,
-            "delivery_longitude": order.delivery_longitude,
+            # Use JSON coordinates first (from delivery_address), fall back to dedicated columns
+            "delivery_latitude": delivery_addr.get("latitude") or order.delivery_latitude,
+            "delivery_longitude": delivery_addr.get("longitude") or order.delivery_longitude,
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "placed_at": (order.created_at.isoformat() + "Z") if order.created_at else None,  # iOS compatibility - expects 'placed_at'
             "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
@@ -13015,6 +13024,14 @@ async def get_customer_active_orders(
         elif not items_str:
             items_str = "[]"
 
+        # Parse delivery address JSON to extract coordinates (same as driver API)
+        delivery_addr = {}
+        if o.delivery_address:
+            try:
+                delivery_addr = json.loads(o.delivery_address)
+            except (json.JSONDecodeError, TypeError):
+                delivery_addr = {}
+
         result_orders.append({
             "id": o.id,
             "order_number": o.order_number,
@@ -13036,8 +13053,9 @@ async def get_customer_active_orders(
             "driver_location": None,  # Will be populated by tracking endpoint
             "pickup_latitude": vendor.latitude if vendor else None,
             "pickup_longitude": vendor.longitude if vendor else None,
-            "delivery_latitude": o.delivery_latitude,
-            "delivery_longitude": o.delivery_longitude,
+            # Use JSON coordinates first (from delivery_address), fall back to dedicated columns
+            "delivery_latitude": delivery_addr.get("latitude") or o.delivery_latitude,
+            "delivery_longitude": delivery_addr.get("longitude") or o.delivery_longitude,
             "created_at": (o.created_at.isoformat() + "Z") if o.created_at else None,
             "confirmed_at": (o.confirmed_at.isoformat() + "Z") if o.confirmed_at else None,
             "preparing_at": (o.preparing_at.isoformat() + "Z") if o.preparing_at else None,
