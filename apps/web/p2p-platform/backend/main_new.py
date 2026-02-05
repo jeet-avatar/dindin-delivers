@@ -12655,7 +12655,7 @@ def get_customer_orders(
             "tax": order.tax_amount or 0,  # iOS compatibility - expects 'tax'
             "delivery_fee": order.delivery_fee or 0,
             "tip": order.tip or 0,
-            "items": order.items or "[]",  # Keep as string for iOS parsing
+            "items": json.loads(order.items) if order.items and isinstance(order.items, str) else (order.items or []),  # Parse JSON string to array for iOS
             "delivery_address": order.delivery_address,
             "delivery_instructions": order.delivery_instructions,
             "driver_id": order.driver_id,
@@ -13013,7 +13013,7 @@ async def get_customer_active_orders(
             "tax_amount": o.tax_amount or 0,
             "delivery_fee": o.delivery_fee or 0,
             "tip": o.tip,
-            "items": o.items or "[]",
+            "items": json.loads(o.items) if o.items and isinstance(o.items, str) else (o.items or []),
             "delivery_address": o.delivery_address,
             "delivery_instructions": o.delivery_instructions,
             "driver_id": o.driver_id,
