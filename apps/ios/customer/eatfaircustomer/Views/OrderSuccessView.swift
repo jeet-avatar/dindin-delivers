@@ -137,9 +137,11 @@ struct OrderSuccessView: View {
                 .cornerRadius(8)
             }
 
-            // Show each restaurant order
-            ForEach(Array(zip(multiCartViewModel.lastOrderNumbers, multiCartViewModel.lastOrderRestaurantNames).enumerated()), id: \.offset) { index, orderInfo in
-                let (orderNumber, restaurantName) = orderInfo
+            // Show each restaurant order - ensure arrays are same length to prevent crashes
+            let orderCount = min(multiCartViewModel.lastOrderNumbers.count, multiCartViewModel.lastOrderRestaurantNames.count)
+            ForEach(0..<orderCount, id: \.self) { index in
+                let orderNumber = multiCartViewModel.lastOrderNumbers[index]
+                let restaurantName = multiCartViewModel.lastOrderRestaurantNames[index]
                 let restaurantItems = multiCartViewModel.lastOrderItems.filter { $0.restaurantName == restaurantName }
 
                 VStack(alignment: .leading, spacing: 8) {
