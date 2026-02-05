@@ -12293,6 +12293,12 @@ from order_flow import (
     AssignDriverRequest,
     update_order_status,
     order_delivered,
+    restaurant_accept,
+    restaurant_decline,
+    restaurant_accept_delivery,
+    restaurant_decline_delivery,
+    RestaurantAcceptRequest,
+    RestaurantDeclineRequest,
 )
 app.include_router(order_flow_router)
 
@@ -12341,6 +12347,36 @@ async def order_delivered_alias(order_id: int, db: Session = Depends(get_db)):
     iOS calls: POST /erp/orders/{orderId}/delivered
     """
     return await order_delivered(order_id, db)
+
+@app.post("/erp/orders/{order_id}/restaurant-accept")
+async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - accept order
+    iOS calls: POST /erp/orders/{orderId}/restaurant-accept
+    Body: {"estimated_prep_minutes": 15}
+    """
+    return await restaurant_accept(order_id, request, db)
+
+@app.post("/erp/orders/{order_id}/restaurant-decline")
+async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - decline order
+    iOS calls: POST /erp/orders/{orderId}/restaurant-decline
+    Body: {"reason": "optional reason"}
+    """
+    return await restaurant_decline(order_id, request, db)
+
+@app.post("/erp/orders/{order_id}/restaurant-accept-delivery")
+async def restaurant_accept_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - accept self-delivery
+    iOS calls: POST /erp/orders/{orderId}/restaurant-accept-delivery
+    """
+    return await restaurant_accept_delivery(order_id, db)
+
+@app.post("/erp/orders/{order_id}/restaurant-decline-delivery")
+async def restaurant_decline_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - decline self-delivery (send to driver pool)
+    iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
+    """
+    return await restaurant_decline_delivery(order_id, db)
 
 # Include Auto-Onboarding routes (Nova AI Employee)
 from auto_onboarding import router as onboarding_router
