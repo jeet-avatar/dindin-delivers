@@ -331,8 +331,8 @@ struct ActiveDeliveryDetailView: View {
 
     var statusText: String {
         switch orderStatus {
-        case .readyForPickup: return "Pickup Order"
-        case .outForDelivery, .restaurantWillDeliver: return "Deliver to Customer"
+        case .readyForPickup: return "Heading to Restaurant"
+        case .outForDelivery, .restaurantWillDeliver: return "Heading to Customer"
         case .delivered: return "Order Completed"
         case .cancelled: return "Order Cancelled"
         default: return "Order Pending"

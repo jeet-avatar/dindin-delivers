@@ -135,8 +135,10 @@ public enum OrderStatus: String, CaseIterable {
             return match
         }
 
-        // Legacy/alternate mappings
+        // Legacy/alternate mappings AND displayName mappings
+        // (displayName uses spaces, rawValue uses underscores)
         switch status {
+        // Raw value alternates
         case "order_placed", "placed":
             return .confirmed
         case "accepted":
@@ -145,12 +147,38 @@ public enum OrderStatus: String, CaseIterable {
             return .readyForPickup
         case "picked_up":
             return .outForDelivery
-        case "out for delivery":
-            return .outForDelivery
-        case "pending_restaurant_delivery", "pending restaurant delivery":
+        case "pending_restaurant_delivery":
             return .pendingDeliveryDecision
         case "restaurant_delivering", "self_delivering":
             return .restaurantWillDeliver
+
+        // DisplayName mappings (human-readable with spaces)
+        case "pending payment":
+            return .pendingPayment
+        case "order confirmed":
+            return .confirmed
+        case "waiting for restaurant":
+            return .pendingRestaurant
+        case "restaurant declined":
+            return .declinedByRestaurant
+        case "restaurant timeout":
+            return .restaurantTimeout
+        case "being prepared":
+            return .preparing
+        case "ready for pickup":
+            return .readyForPickup
+        case "delivery decision pending", "pending restaurant delivery":
+            return .pendingDeliveryDecision
+        case "restaurant delivering":
+            return .restaurantWillDeliver
+        case "sent to drivers":
+            return .deliveryDecisionTimeout
+        case "out for delivery":
+            return .outForDelivery
+        // Note: "delivered" and "cancelled" are rawValues, matched at line 134
+        case "action required":
+            return .pendingModification
+
         default:
             return .confirmed
         }

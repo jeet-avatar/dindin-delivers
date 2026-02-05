@@ -526,8 +526,8 @@ struct DriverBottomActionSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    Text(isPickedUp ? "Dropoff" : "Pickup")
-                        .font(.title)
+                    Text(isPickedUp ? "Heading to Customer" : "Heading to Restaurant")
+                        .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(isPickedUp ? Theme.statusActive : Theme.brandOrange)
                 }
