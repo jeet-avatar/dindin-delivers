@@ -2186,6 +2186,8 @@ async def get_vendor_orders(
             "id": order.id,
             "order_number": order.order_number,
             "status": order.status.value,
+            "vendor_id": order.vendor_id,
+            "customer_id": order.customer_id,
             "customer_name": order.customer_name,
             "customer_email": order.customer_email,
             "customer_phone": order.customer_phone,
