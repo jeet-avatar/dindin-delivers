@@ -252,7 +252,7 @@ struct ActiveDeliveryHeroCard: View {
 
                     Spacer()
 
-                    Text("Order #\(String(order.orderId.prefix(6)))")
+                    Text("Order #\(order.orderId)")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                         .padding(.horizontal, 10)

@@ -54,6 +54,11 @@ struct PickupDropoffView: View {
         }
         .navigationTitle("Active Delivery")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.errorMessage)
+        }
     }
 }
 
@@ -777,7 +782,7 @@ struct OrderSummaryCard: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Order #\(order.orderId.prefix(8))")
+                Text("Order #\(order.orderId)")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
 
