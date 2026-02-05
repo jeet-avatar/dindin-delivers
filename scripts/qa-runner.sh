@@ -4943,7 +4943,197 @@ EOF
 }
 
 # ============================================================
-# Agent 22: Validator (Aggregates all reports)
+# Agent 22: Data Type Validation Agent
+# ============================================================
+run_data_type_agent() {
+    echo -e "${CYAN}◆ Running Data Type Validation Agent...${NC}"
+
+    local report="$REPORT_DIR/QA_REPORT_DATA_TYPES.md"
+    local passed=0
+    local failed=0
+    local warnings=0
+
+    cat > "$report" << 'EOF'
+# QA Report: Data Type Validation
+
+**Purpose**: Ensure API responses return correct data types that iOS/Android can decode.
+**Critical Issue Caught**: `items` field returned as JSON string instead of array, causing iOS decode failures.
+
+---
+
+## Field Type Checks
+
+| Endpoint | Field | Expected | Actual | Status |
+|----------|-------|----------|--------|--------|
+EOF
+
+    # Run comprehensive type checks using Python
+    local type_check_results
+    type_check_results=$(python3 << PYEOF
+import requests
+import json
+
+base = "${API_URL}"
+results = []
+
+def login(url, email, password):
+    try:
+        resp = requests.post(url, data={"username": email, "password": password}, timeout=10)
+        if resp.status_code == 200:
+            return resp.json().get("access_token"), resp.json()
+    except:
+        pass
+    return None, {}
+
+def check_field_type(name, data, field, expected_type):
+    """Check if a field has the expected type"""
+    if data is None:
+        return f"| {name} | {field} | {expected_type} | N/A | ⚠️ No data |"
+
+    value = data.get(field) if isinstance(data, dict) else None
+
+    if value is None:
+        return f"| {name} | {field} | {expected_type} | None | ⚠️ Missing |"
+
+    actual_type = type(value).__name__
+
+    if expected_type == "array" and isinstance(value, list):
+        return f"| {name} | {field} | {expected_type} | list ({len(value)} items) | ✅ PASS |"
+    elif expected_type == "array" and isinstance(value, str):
+        return f"| {name} | {field} | {expected_type} | string | ❌ FAIL |"
+    elif expected_type == "string" and isinstance(value, str):
+        return f"| {name} | {field} | {expected_type} | string | ✅ PASS |"
+    elif expected_type == "number" and isinstance(value, (int, float)):
+        return f"| {name} | {field} | {expected_type} | {actual_type} | ✅ PASS |"
+    elif expected_type == "object" and isinstance(value, dict):
+        return f"| {name} | {field} | {expected_type} | dict | ✅ PASS |"
+    elif expected_type == "boolean" and isinstance(value, bool):
+        return f"| {name} | {field} | {expected_type} | bool | ✅ PASS |"
+    else:
+        return f"| {name} | {field} | {expected_type} | {actual_type} | ❌ FAIL |"
+
+# Login as all user types
+cust_token, cust_data = login(f"{base}/api/auth/customer/login", "demo.customer@dollor.ai", "DemoCustomer2025!")
+driver_token, driver_data = login(f"{base}/api/auth/driver/login", "demo.driver@dollor.ai", "DemoDriver2025!")
+vendor_token, vendor_data = login(f"{base}/api/auth/vendor/login", "demo.restaurant@dollor.ai", "DemoRestaurant2025!")
+
+cust_id = cust_data.get("customer_id", 74)
+driver_id = driver_data.get("driver_id", 48)
+vendor_id = vendor_data.get("vendor_id", 40)
+
+# Define endpoints and their expected field types
+# Format: (endpoint_name, url, token, response_path, fields_to_check)
+# fields_to_check: [(field_name, expected_type), ...]
+
+checks = [
+    # Customer endpoints
+    ("Customer Orders", f"{base}/api/customer/orders", cust_token, "root[0]", [
+        ("items", "array"),
+        ("status", "string"),
+        ("total", "number"),
+        ("id", "number"),
+    ]),
+    ("Customer Active Orders", f"{base}/api/customer/{cust_id}/active-orders", cust_token, "orders[0]", [
+        ("items", "array"),
+        ("status", "string"),
+        ("total_amount", "number"),
+    ]),
+    # Vendor endpoints
+    ("Vendor Orders", f"{base}/api/erp/orders/vendor/{vendor_id}", vendor_token, "orders[0]", [
+        ("items", "array"),
+        ("status", "string"),
+        ("total_amount", "number"),
+    ]),
+    # General orders
+    ("All Orders", f"{base}/api/orders", cust_token, "root[0]", [
+        ("items", "array"),
+        ("status", "string"),
+    ]),
+]
+
+for endpoint_name, url, token, path, fields in checks:
+    try:
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        resp = requests.get(url, headers=headers, timeout=10)
+
+        if resp.status_code != 200:
+            print(f"| {endpoint_name} | - | - | HTTP {resp.status_code} | ⚠️ Error |")
+            continue
+
+        data = resp.json()
+
+        # Navigate to the right part of response
+        if path.startswith("root"):
+            target = data[0] if isinstance(data, list) and len(data) > 0 else None
+        elif path.startswith("orders"):
+            orders = data.get("orders", [])
+            target = orders[0] if orders else None
+        else:
+            target = data
+
+        for field, expected in fields:
+            print(check_field_type(endpoint_name, target, field, expected))
+
+    except Exception as e:
+        print(f"| {endpoint_name} | - | - | Error: {str(e)[:30]} | ❌ Error |")
+
+PYEOF
+)
+
+    echo "$type_check_results" >> "$report"
+
+    # Count results
+    local pass_count=$(echo "$type_check_results" | grep -c "✅ PASS" || echo 0)
+    local fail_count=$(echo "$type_check_results" | grep -c "❌ FAIL" || echo 0)
+    local warn_count=$(echo "$type_check_results" | grep -c "⚠️" || echo 0)
+
+    passed=$pass_count
+    failed=$fail_count
+    warnings=$warn_count
+
+    cat >> "$report" << EOF
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| ✅ Passed | $passed |
+| ❌ Failed | $failed |
+| ⚠️ Warnings | $warnings |
+
+**Status**: $([ $failed -eq 0 ] && echo "✅ PASS - All field types are correct" || echo "❌ FAIL - Field type mismatches detected")
+
+---
+
+## Why This Matters
+
+iOS/Android apps use strongly-typed decoders (Swift Codable, Kotlin data classes).
+When the backend returns wrong types, decoding fails silently:
+
+| Wrong Type | iOS Behavior | Android Behavior |
+|------------|--------------|------------------|
+| String instead of Array | Falls back to empty [] | Throws JsonDataException |
+| String instead of Number | Throws DecodingError | Throws JsonDataException |
+| null instead of value | Uses default or crashes | Throws NullPointerException |
+
+---
+
+*Agent created to prevent items-as-string regression*
+EOF
+
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✓ Data Type Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Data Type Agent: $passed passed, $failed failed, $warnings warnings${NC}"
+        return 1
+    fi
+}
+
+# ============================================================
+# Agent 23: Validator (Aggregates all reports)
 # ============================================================
 run_validator_agent() {
     echo -e "${MAGENTA}◆ Running Validator Agent...${NC}"
@@ -4971,7 +5161,7 @@ EOF
 
     # Check each report
     local agent_num=1
-    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow" "DEPLOYMENT:Deployment Readiness" "TESTFLIGHT:TestFlight Build" "API_CONTRACT:API/iOS Contract Validation"; do
+    for agent_info in "API:API Endpoints" "UI:Code Quality" "E2E:Workflows" "DEADCODE:Dead Code" "SECURITY:Security" "TESTS:Testing" "DATABASE:Database" "PERFORMANCE:Performance" "DEPENDENCIES:Dependencies" "FRONTEND_DATA:Frontend Data" "FRONTEND_DISPLAY:Frontend Display" "FIELD_MAPPING:Field Mapping" "DRIVER_APP:Driver App Tabs" "CUSTOMER_APP:Customer App Tabs" "EARLY_DRIVER:Early Driver Notification" "ORDER_LIFECYCLE:Order Lifecycle Flow" "API_DOCS:API Documentation" "DRIVER_DETAILS_FLOW:Driver Details Flow" "DEPLOYMENT:Deployment Readiness" "TESTFLIGHT:TestFlight Build" "API_CONTRACT:API/iOS Contract Validation" "DATA_TYPES:Data Type Validation"; do
         agent=$(echo "$agent_info" | cut -d: -f1)
         focus=$(echo "$agent_info" | cut -d: -f2)
         report_file="$REPORT_DIR/QA_REPORT_${agent}.md"
@@ -5111,8 +5301,9 @@ main() {
     run_deployment_agent || true
     run_testflight_agent || true
     run_api_contract_agent || true
+    run_data_type_agent || true
 
-    # Run validator last (Agent 22)
+    # Run validator last (Agent 23)
     run_validator_agent
 
     exit_code=$?
