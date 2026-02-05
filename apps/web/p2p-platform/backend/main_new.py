@@ -221,8 +221,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.7",
-        "build": "2026-02-05-customer-id-vendor-fix",
+        "version": "1.0.8",
+        "build": "2026-02-05-fix-items-unit-price",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -15034,101 +15034,9 @@ async def proxy_list_orders(
     return {"orders": [], "total": 0, "message": "Order service temporarily unavailable"}
 
 
-@app.get("/api/erp/orders/vendor/{vendor_id}")
-@app.get("/erp/orders/vendor/{vendor_id}")  # Alias for iOS app
-def get_vendor_orders(vendor_id: int, status: Optional[str] = None, limit: int = 50, db: Session = Depends(get_db)):
-    """Get orders for a specific vendor - enriched with driver details for iOS Restaurant app"""
-    from models import Order, Vendor, Driver, Customer
-
-    # Query orders for this vendor
-    query = db.query(Order).filter(Order.vendor_id == vendor_id)
-    if status:
-        query = query.filter(Order.status == status)
-    query = query.order_by(Order.created_at.desc())
-    orders = query.limit(limit).all()
-
-    result = []
-    for order in orders:
-        # Get driver details including vehicle info for restaurant display
-        driver_info = None
-        if order.driver_id:
-            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
-            if driver:
-                driver_info = {
-                    "id": driver.id,
-                    "name": f"{driver.first_name} {driver.last_name}",
-                    "phone": driver.phone,
-                    "photo_url": driver.photo_url,
-                    "rating": driver.rating,
-                    "vehicle": f"{driver.vehicle_color or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() or None,
-                    "vehicle_make": driver.vehicle_make,
-                    "vehicle_model": driver.vehicle_model,
-                    "vehicle_color": driver.vehicle_color,
-                    "license_plate": driver.license_plate
-                }
-
-        # Get customer details
-        customer_name = order.customer_name
-        customer_phone = order.customer_phone
-        if not customer_name and order.customer_email:
-            customer = db.query(Customer).filter(Customer.email == order.customer_email).first()
-            if customer:
-                customer_name = customer.name
-                customer_phone = customer_phone or customer.phone
-
-        # Calculate total if not present
-        total = order.total_amount or ((order.subtotal or 0) + (order.tax_amount or 0) + (order.delivery_fee or 0) + (order.tip or 0))
-
-        result.append({
-            "id": order.id,
-            "order_id": order.id,
-            "order_number": order.order_number,
-            "status": order.status.value if order.status else "pending_payment",
-            "vendor_id": order.vendor_id,
-            "customer_id": order.customer_id,
-            "customer_name": customer_name,
-            "customer_phone": customer_phone,
-            "customer_email": order.customer_email,
-            "total_amount": total,
-            "total": total,
-            "subtotal": order.subtotal or 0,
-            "tax_amount": order.tax_amount or 0,
-            "tax": order.tax_amount or 0,
-            "delivery_fee": order.delivery_fee or 0,
-            "tip": order.tip or 0,
-            "items": order.items or "[]",
-            "delivery_address": order.delivery_address,
-            "delivery_instructions": order.delivery_instructions,
-            # Driver details - enriched from Driver table
-            "driver_id": order.driver_id,
-            "driver_name": driver_info["name"] if driver_info else order.driver_name,
-            "driver_phone": driver_info["phone"] if driver_info else None,
-            "driver_rating": driver_info["rating"] if driver_info else None,
-            "driver_photo_url": driver_info["photo_url"] if driver_info else None,
-            "driver_vehicle": driver_info["vehicle"] if driver_info else None,
-            "driver_license_plate": driver_info["license_plate"] if driver_info else None,
-            "driver": driver_info,
-            "driver_location": order.driver_location,
-            # ETA fields for early driver notification
-            "estimated_prep_minutes": getattr(order, 'estimated_prep_minutes', None),
-            "estimated_ready_at": (order.estimated_ready_at.isoformat() + "Z") if getattr(order, 'estimated_ready_at', None) else None,
-            "minutes_until_ready": max(0, int((order.estimated_ready_at - datetime.now()).total_seconds() / 60)) if getattr(order, 'estimated_ready_at', None) and order.estimated_ready_at > datetime.now() else None,
-            "is_ready": order.status.value.lower() in ["ready", "ready_for_pickup"] if order.status else False,
-            # Driver en-route fields
-            "driver_en_route": getattr(order, 'driver_en_route', False) or False,
-            "driver_accepted_at": (order.driver_accepted_at.isoformat() + "Z") if getattr(order, 'driver_accepted_at', None) else None,
-            "driver_eta_to_restaurant": getattr(order, 'driver_eta_to_restaurant', None),
-            # Timestamps
-            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-            "placed_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
-            "preparing_at": (order.preparing_at.isoformat() + "Z") if order.preparing_at else None,
-            "dispatched_at": (order.dispatched_at.isoformat() + "Z") if order.dispatched_at else None,
-            "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
-            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
-        })
-
-    return {"orders": result, "total": len(result)}
+# REMOVED: Duplicate vendor orders endpoint
+# The canonical endpoint is in order_flow.py: /api/erp/orders/vendor/{vendor_id}
+# That endpoint correctly parses items with unit_price and total_price for iOS compatibility
 
 
 @app.post("/api/erp/orders")

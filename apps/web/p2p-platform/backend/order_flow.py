@@ -2136,11 +2136,23 @@ async def get_vendor_orders(
 
     result = []
     for order in orders:
-        # Safely parse items JSON
+        # Safely parse items JSON and normalize fields for iOS compatibility
         items_data = []
         if order.items:
             try:
-                items_data = json.loads(order.items)
+                raw_items = json.loads(order.items)
+                # Normalize item fields: iOS expects unit_price and total_price
+                for item in raw_items:
+                    price = item.get("price") or item.get("unit_price") or 0
+                    quantity = item.get("quantity") or 1
+                    items_data.append({
+                        "menu_item_id": item.get("menu_item_id"),
+                        "name": item.get("name", "Item"),
+                        "quantity": quantity,
+                        "price": price,
+                        "unit_price": price,  # iOS expects this
+                        "total_price": round(price * quantity, 2)  # iOS expects this
+                    })
             except (json.JSONDecodeError, TypeError):
                 items_data = []
 
