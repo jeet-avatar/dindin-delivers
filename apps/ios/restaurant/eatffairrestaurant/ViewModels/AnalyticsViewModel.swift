@@ -45,8 +45,9 @@ class AnalyticsViewModel: ObservableObject {
     private let p2pAPI = P2PAPIService.shared
     private var cancellables = Set<AnyCancellable>()
 
-    private var vendorId: Int {
-        p2pAPI.currentVendorId ?? 1
+    private var vendorId: Int? {
+        // CRITICAL: Never fall back to vendor ID 1 - this would leak another vendor's data
+        p2pAPI.currentVendorId
     }
 
     // MARK: - Initialization
@@ -79,6 +80,14 @@ class AnalyticsViewModel: ObservableObject {
 
     /// Fetch promotion analytics from P2P API
     func fetchPromotionAnalytics() {
+        guard let vendorId = vendorId else {
+            #if DEBUG
+            logger.info("[Analytics] Cannot fetch promotion analytics - vendor not logged in")
+            #endif
+            errorMessage = "Please log in to view analytics"
+            return
+        }
+
         p2pAPI.getPromotionAnalytics(vendorId: vendorId) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {

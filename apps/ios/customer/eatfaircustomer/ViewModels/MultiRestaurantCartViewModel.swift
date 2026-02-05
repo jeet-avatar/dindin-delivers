@@ -346,10 +346,17 @@ class MultiRestaurantCartViewModel: ObservableObject {
 
         isLoading = true
 
-        // Build restaurant info array
-        let restaurantInfos = orderedRestaurants.map { restaurant in
+        // Build restaurant info array - filter out restaurants with missing IDs to prevent silent failures
+        let validRestaurants = orderedRestaurants.filter { $0.id != nil && !$0.id!.isEmpty }
+        guard validRestaurants.count == orderedRestaurants.count else {
+            isLoading = false
+            completion(.failure(NSError(domain: "Cart", code: 400, userInfo: [NSLocalizedDescriptionKey: "Some restaurants have invalid IDs. Please remove and re-add them."])))
+            return
+        }
+
+        let restaurantInfos = validRestaurants.map { restaurant in
             RestaurantInfo(
-                id: restaurant.id ?? "",
+                id: restaurant.id!, // Safe - validated above
                 name: restaurant.name,
                 address: restaurant.address,
                 latitude: restaurant.latitude,

@@ -370,6 +370,15 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
+                    // CRITICAL: Rollback local state on API failure
+                    if let self = self {
+                        // Remove from myDeliveries if we optimistically added it
+                        self.myDeliveries.removeAll { $0.id == orderId }
+                        // Add back to available orders if it was there
+                        if !self.availableOrders.contains(where: { $0.id == orderId }) {
+                            self.availableOrders.insert(order, at: 0)
+                        }
+                    }
                     self?.showErrorMessage("Failed to accept order: \(error.localizedDescription)")
                 }
             }
