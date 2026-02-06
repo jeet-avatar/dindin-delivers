@@ -331,8 +331,8 @@ class RideRequestViewModel: ObservableObject {
                     self.startTrackingRide()
 
                     // If customer set an initial fare offer, submit it automatically
-                    if let initialOffer = self.initialFareOffer {
-                        self.submitInitialFareOffer(rideId: response.rideId, offer: initialOffer)
+                    if let initialOffer = self.initialFareOffer, let rideId = response.rideId {
+                        self.submitInitialFareOffer(rideId: rideId, offer: initialOffer)
                     } else {
                         self.isLoading = false
                     }
