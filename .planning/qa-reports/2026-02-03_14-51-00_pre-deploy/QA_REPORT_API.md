@@ -1,0 +1,75 @@
+# QA Report: API Testing (Comprehensive)
+
+**Environment**: production
+**URL**: https://api.dollor.ai
+**Date**: Tue Feb  3 14:51:00 PST 2026
+**Phase**: pre-deploy
+
+---
+
+## 1. Health & Infrastructure
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| GET /health | ✅ PASS | 200 | 240ms |
+
+## 2. Authentication Endpoints
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| POST /api/auth/customer/login | ✅ PASS | 200 | Token received |
+| POST /api/auth/driver/login | ✅ PASS | 200 | Token received |
+| POST /api/auth/vendor/login | ✅ PASS | 200 | Token received |
+
+## 3. Customer App Endpoints
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| GET /api/vendors | ✅ PASS | 200 | 385ms |
+| GET /api/vendors/{id}/menu | ✅ PASS | 200 | 173ms |
+| GET /api/customer/orders (auth) | ✅ PASS | 200 | 289ms |
+| GET /api/customer/profile (auth) | ✅ PASS | 200 | 176ms |
+
+## 4. Driver App Endpoints
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| GET /api/v5/driver/{id}/dashboard | ✅ PASS | 200 | 180ms |
+| GET /api/drivers/{id}/documents | ✅ PASS | 200 | 172ms |
+| GET /api/drivers/{id}/status | ✅ PASS | 200 | 171ms |
+
+## 5. Restaurant App Endpoints
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| GET /api/orders?vendor_id={id} | ✅ PASS | 200 | 267ms |
+
+## 6. Demo Setup & Admin
+
+| Endpoint | Status | Code | Response Time |
+|----------|--------|------|---------------|
+| POST /api/demo/setup | ✅ PASS | 200 | 2513ms |
+
+## 7. Error Handling
+
+| Test | Status | Notes |
+|------|--------|-------|
+| Invalid endpoint returns 404 | ✅ PASS | Got 404 |
+| Protected endpoint requires auth | ✅ PASS | Got 401 |
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Passed | 15 |
+| Failed | 1 |
+| Total Tests | 16 |
+
+**Status**: ❌ FAIL
+
+### Token Status
+- Customer Token: ✅ Valid
+- Driver Token: ✅ Valid
+- Vendor Token: ✅ Valid
