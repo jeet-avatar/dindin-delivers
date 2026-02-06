@@ -13193,17 +13193,36 @@ def submit_ride_bid(
     if not driver or driver.status != DriverStatus.ACTIVE:
         raise HTTPException(status_code=403, detail="Driver account is not active")
 
-    # In a full implementation, this would create a RideBid record
-    bid_id = request_id * 1000 + current_user.driver_id  # Mock bid ID
+    # Generate bid ID
+    bid_id = request_id * 1000 + current_user.driver_id
 
+    # Return response matching iOS RideBidResponse model
     return {
         "success": True,
         "message": "Bid submitted successfully",
-        "bid_id": bid_id,
-        "request_id": request_id,
-        "proposed_price": bid_request.proposed_price,
-        "estimated_arrival_minutes": bid_request.estimated_arrival_minutes,
-        "status": "pending"
+        "bid": {
+            "id": bid_id,
+            "bid_id": f"BID-{bid_id}",
+            "ride_request_id": request_id,
+            "driver_id": current_user.driver_id,
+            "driver_name": f"{driver.first_name} {driver.last_name}" if driver.first_name else None,
+            "driver_rating": driver.rating,
+            "driver_photo_url": None,
+            "driver_vehicle": f"{driver.vehicle_make} {driver.vehicle_model}" if driver.vehicle_make else None,
+            "proposed_price": bid_request.proposed_price,
+            "message": bid_request.message,
+            "estimated_arrival_minutes": bid_request.estimated_arrival_minutes,
+            "is_counter_offer": False,
+            "original_price": None,
+            "status": "pending",
+            "customer_response": None,
+            "customer_counter_price": None,
+            "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
+            "created_at": datetime.utcnow().isoformat(),
+            "ride_request": None
+        },
+        "ride_request": None,
+        "accepted_bid": None
     }
 
 
