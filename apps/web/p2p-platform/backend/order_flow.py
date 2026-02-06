@@ -344,7 +344,7 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
-    Customer
+    Customer, RideRequest, RideRequestStatus
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -884,8 +884,6 @@ async def get_available_rides(
     Get available P2P rides for drivers
     Returns ride requests waiting for driver acceptance
     """
-    from models import RideRequest, RideRequestStatus, Customer
-
     # Query RideRequest table for open/bidding rides
     try:
         rides = db.query(RideRequest).filter(
