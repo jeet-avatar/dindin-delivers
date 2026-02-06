@@ -1,6 +1,6 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 4, 2026
+> **Last Updated**: February 5, 2026
 > **API Contract Version**: 1.0.9
 > **Backend Version**: 1.0.5
 
@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 123 | 1.0 | Uploaded to TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 136 | 1.0 | Uploaded to TestFlight |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
@@ -28,6 +28,8 @@
 | "No Active Delivery" after accept | Added optimistic update in DriverViewModel | `198d9ad1` |
 | "Confirming..." stuck on swipe | Fixed SwipeToConfirmButton to reset state when loading completes | Build 123 |
 | Debug logging for order flow | Added detailed logging to acceptDeliveryOrder and markOrderPickedUp | Build 123 |
+| Order number not visible | Added order number display to Customer OrderCard, Driver OrderCard, OrderDetailSheet, PendingDeliveryCard | Build 134 |
+| Build errors in shared code | Fixed self-reference issues in P2PAPIService, added missing logger imports | Build 134 |
 
 ---
 
@@ -125,7 +127,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
 | Dollor (Customer) | 1037 | ✅ Available for Testing |
-| Dollor Driver | 123 | ✅ Uploaded (processing) |
+| Dollor Driver | 136 | ✅ Uploaded to TestFlight |
 | Dollor Restaurant | 113 | ✅ Available for Testing |
 
 ### Demo Accounts (For App Store Review)
@@ -329,7 +331,7 @@ Continuing Dollor.ai iOS development.
 
 ### Build Numbers (Uploaded to TestFlight)
 - Customer: 1037 (Bundle: com.dollorai.customer)
-- Driver: 114 (Bundle: com.dollorai.delivery)
+- Driver: 136 (Bundle: com.dollorai.delivery)
 - Restaurant: 113 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
