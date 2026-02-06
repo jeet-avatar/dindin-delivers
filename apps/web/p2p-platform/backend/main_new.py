@@ -13223,15 +13223,43 @@ class BidResponseRequest(BaseModel):
 
 @app.get("/api/rides/request/{request_id}/bids")
 def get_ride_request_bids(request_id: int, db: Session = Depends(get_db)):
-    """Get all bids for a specific ride request"""
-    # In a full implementation, this would query a RideBid table
-    # For now, return mock data structure
+    """Get all bids for a specific ride request (Customer API)"""
+    from models import RideBid, BidStatus
+
+    # Query actual bids from database
+    bids = db.query(RideBid).filter(
+        RideBid.ride_request_id == request_id
+    ).order_by(RideBid.created_at.desc()).all()
+
+    bids_data = []
+    for bid in bids:
+        bids_data.append({
+            "id": bid.id,
+            "bid_id": bid.bid_id,
+            "ride_request_id": bid.ride_request_id,
+            "driver_id": bid.driver_id,
+            "driver_name": bid.driver_name,
+            "driver_rating": bid.driver_rating,
+            "driver_photo_url": bid.driver_photo_url,
+            "driver_vehicle": bid.driver_vehicle,
+            "proposed_price": bid.proposed_price,
+            "message": bid.message,
+            "estimated_arrival_minutes": bid.estimated_arrival_minutes,
+            "is_counter_offer": bid.is_counter_offer,
+            "original_price": bid.original_price,
+            "status": bid.status.value if hasattr(bid.status, 'value') else str(bid.status),
+            "customer_response": bid.customer_response,
+            "customer_counter_price": bid.customer_counter_price,
+            "expires_at": bid.expires_at.isoformat() if bid.expires_at else None,
+            "created_at": bid.created_at.isoformat() if bid.created_at else None
+        })
+
     return {
         "request_id": request_id,
-        "bids": [],
-        "total_bids": 0,
+        "bids": bids_data,
+        "total_bids": len(bids_data),
         "bidding_open": True,
-        "bidding_ends_at": (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+        "bidding_ends_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat()
     }
 
 
@@ -13243,6 +13271,8 @@ def submit_ride_bid(
     current_user: User = Depends(get_current_user)
 ):
     """Submit a bid on a ride request (Driver API)"""
+    from models import RideBid, BidStatus, RideRequest as RideRequestDB
+
     if current_user.role != UserRole.DRIVER or not current_user.driver_id:
         raise HTTPException(status_code=403, detail="Only drivers can submit bids")
 
@@ -13250,32 +13280,73 @@ def submit_ride_bid(
     if not driver or driver.status != DriverStatus.ACTIVE:
         raise HTTPException(status_code=403, detail="Driver account is not active")
 
-    # Generate bid ID
-    bid_id = request_id * 1000 + current_user.driver_id
+    # Verify ride request exists
+    ride_request = db.query(RideRequestDB).filter(RideRequestDB.id == request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Check if driver already has a bid on this request
+    existing_bid = db.query(RideBid).filter(
+        RideBid.ride_request_id == request_id,
+        RideBid.driver_id == current_user.driver_id,
+        RideBid.status == BidStatus.PENDING
+    ).first()
+
+    if existing_bid:
+        raise HTTPException(status_code=400, detail="You already have a pending bid on this ride")
+
+    # Generate unique bid_id
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    bid_id_str = f"BID-{timestamp}-{current_user.driver_id}"
+
+    # Create and persist the bid to database
+    new_bid = RideBid(
+        bid_id=bid_id_str,
+        ride_request_id=request_id,
+        driver_id=current_user.driver_id,
+        driver_name=f"{driver.first_name} {driver.last_name}" if driver.first_name else driver.email,
+        driver_rating=driver.rating,
+        driver_photo_url=driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
+        driver_vehicle=f"{driver.vehicle_make} {driver.vehicle_model}" if driver.vehicle_make else None,
+        proposed_price=bid_request.proposed_price,
+        message=bid_request.message,
+        estimated_arrival_minutes=bid_request.estimated_arrival_minutes,
+        is_counter_offer=False,
+        original_price=None,
+        status=BidStatus.PENDING,
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
+        created_at=datetime.utcnow()
+    )
+
+    db.add(new_bid)
+    db.commit()
+    db.refresh(new_bid)
+
+    logger.info(f"Bid {new_bid.id} saved for ride request {request_id} by driver {current_user.driver_id}")
 
     # Return response matching iOS RideBidResponse model
     return {
         "success": True,
         "message": "Bid submitted successfully",
         "bid": {
-            "id": bid_id,
-            "bid_id": f"BID-{bid_id}",
+            "id": new_bid.id,
+            "bid_id": new_bid.bid_id,
             "ride_request_id": request_id,
             "driver_id": current_user.driver_id,
-            "driver_name": f"{driver.first_name} {driver.last_name}" if driver.first_name else None,
-            "driver_rating": driver.rating,
-            "driver_photo_url": None,
-            "driver_vehicle": f"{driver.vehicle_make} {driver.vehicle_model}" if driver.vehicle_make else None,
-            "proposed_price": bid_request.proposed_price,
-            "message": bid_request.message,
-            "estimated_arrival_minutes": bid_request.estimated_arrival_minutes,
+            "driver_name": new_bid.driver_name,
+            "driver_rating": new_bid.driver_rating,
+            "driver_photo_url": new_bid.driver_photo_url,
+            "driver_vehicle": new_bid.driver_vehicle,
+            "proposed_price": new_bid.proposed_price,
+            "message": new_bid.message,
+            "estimated_arrival_minutes": new_bid.estimated_arrival_minutes,
             "is_counter_offer": False,
             "original_price": None,
             "status": "pending",
             "customer_response": None,
             "customer_counter_price": None,
-            "expires_at": (datetime.utcnow() + timedelta(minutes=10)).isoformat(),
-            "created_at": datetime.utcnow().isoformat(),
+            "expires_at": new_bid.expires_at.isoformat() if new_bid.expires_at else None,
+            "created_at": new_bid.created_at.isoformat() if new_bid.created_at else None,
             "ride_request": None
         },
         "ride_request": None,
