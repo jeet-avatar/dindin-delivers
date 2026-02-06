@@ -2818,6 +2818,39 @@ EOF
 
 ---
 
+## 6. Resolved Issues (API Knowledge Base)
+
+### Rideshare Bidding Response Format (Fixed 2026-02-05)
+**Commit**: 6e679ba0
+
+**Problem**: Driver app crashed when trying to negotiate/bid on rideshare requests.
+
+**Root Cause**: Backend ride bid endpoints returned response fields that didn't match iOS \`RideBidResponse\` model:
+- Backend returned: \`ride_request: {id: X, status: "matched"}\` (only 2 fields)
+- iOS expected: \`RideRequestForBidding\` with \`pickup\`, \`dropoff\`, etc. (full model)
+- This caused JSON decode failure appearing as "Failed to submit bid"
+
+**Fixed Endpoints**:
+| Endpoint | Purpose |
+|----------|---------|
+| POST /api/rides/request/{id}/bid | Submit bid on ride request |
+| POST /api/rides/bid/{id}/respond | Accept/reject/counter customer offer |
+| POST /api/rides/bid/{id}/accept-counter | Accept customer's counter-offer |
+| POST /api/rides/bid/{id}/reject-counter | Reject customer's counter-offer |
+
+**Solution**: All endpoints now return proper \`RideBidResponse\` format:
+\`\`\`json
+{
+  "success": true,
+  "message": "...",
+  "bid": null,
+  "ride_request": null,
+  "accepted_bid": null
+}
+\`\`\`
+
+---
+
 ## Summary
 
 | Metric | Count |
