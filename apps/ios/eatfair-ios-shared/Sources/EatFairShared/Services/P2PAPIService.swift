@@ -8706,6 +8706,32 @@ public struct AcceptedDriverInfo: Codable {
     public let vehicle_year: Int?
     public let license_plate: String?
     public let vehicle_photo_url: String?
+
+    public init(
+        id: Int,
+        name: String?,
+        phone: String?,
+        rating: Double?,
+        photo_url: String?,
+        vehicle_make: String?,
+        vehicle_model: String?,
+        vehicle_color: String?,
+        vehicle_year: Int?,
+        license_plate: String?,
+        vehicle_photo_url: String?
+    ) {
+        self.id = id
+        self.name = name
+        self.phone = phone
+        self.rating = rating
+        self.photo_url = photo_url
+        self.vehicle_make = vehicle_make
+        self.vehicle_model = vehicle_model
+        self.vehicle_color = vehicle_color
+        self.vehicle_year = vehicle_year
+        self.license_plate = license_plate
+        self.vehicle_photo_url = vehicle_photo_url
+    }
 }
 
 public struct AcceptedRideLocation: Codable {
