@@ -908,21 +908,28 @@ async def get_available_rides(
         except:
             pass
 
+        # iOS P2PRideLocation expects: street, city, state, zip, lat, lng
         result.append({
             "ride_id": ride.id,
             "ride_number": ride.request_id or f"RR-{ride.id}",
             "customer_name": customer_name,
             "pickup": {
-                "address": ride.pickup_address or "",
-                "latitude": ride.pickup_lat,
-                "longitude": ride.pickup_lng
+                "street": ride.pickup_address or "",
+                "city": "",
+                "state": "",
+                "zip": "",
+                "lat": ride.pickup_lat,
+                "lng": ride.pickup_lng
             },
             "dropoff": {
-                "address": ride.dropoff_address or "",
-                "latitude": ride.dropoff_lat,
-                "longitude": ride.dropoff_lng
+                "street": ride.dropoff_address or "",
+                "city": "",
+                "state": "",
+                "zip": "",
+                "lat": ride.dropoff_lat,
+                "lng": ride.dropoff_lng
             },
-            "fee": ride.estimated_fare or ride.suggested_price,
+            "fee": ride.estimated_fare or ride.suggested_price or 0,
             "tip": 0,
             "total_earnings": ride.estimated_fare or ride.suggested_price or 0,
             "notes": getattr(ride, 'special_requests', None),
