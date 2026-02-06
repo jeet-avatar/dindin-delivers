@@ -422,7 +422,7 @@ class MultiRestaurantCartViewModel: ObservableObject {
         let orderGroup = DispatchGroup()
 
         #if DEBUG
-        logger.info("[OrderFlow] Creating orders for \(orderedRestaurants.count) restaurant(s)...")
+        logger.info("[OrderFlow] Creating orders for \(self.orderedRestaurants.count) restaurant(s)...")
         #endif
 
         // Create a separate order for each restaurant

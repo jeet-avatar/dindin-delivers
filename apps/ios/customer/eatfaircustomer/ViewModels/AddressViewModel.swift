@@ -81,7 +81,7 @@ class AddressViewModel: ObservableObject {
     func addAddress(address: Address, completion: @escaping (Bool) -> Void) {
         #if DEBUG
         logger.info("[AddressViewModel] addAddress called")
-        logger.info("[AddressViewModel] currentUserId: \(String(describing: currentUserId))")
+        logger.info("[AddressViewModel] currentUserId: \(String(describing: self.currentUserId))")
         #endif
 
         guard let userId = currentUserId else {

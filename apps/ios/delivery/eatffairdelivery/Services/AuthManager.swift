@@ -1,6 +1,9 @@
 import Foundation
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "eatffairdelivery", category: "AuthManager")
 
 /// AuthManager for P2P-based driver authentication
 /// Manages driver login state using P2P API tokens stored in SecureStorage (Keychain)
@@ -29,7 +32,7 @@ class AuthManager: ObservableObject {
             driverEmail = UserDefaults.standard.string(forKey: UserDefaultsKeys.driverEmail) ?? ""
 
             #if DEBUG
-            logger.info("[AuthManager] Driver logged in - ID: \(UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId) ?? "nil")")
+            logger.info("[AuthManager] Driver logged in - ID: \(String(describing: UserDefaults.standard.object(forKey: UserDefaultsKeys.driverId)))")
             #endif
         } else {
             isLoggedIn = false

@@ -2,6 +2,9 @@ import SwiftUI
 import Speech
 import AVFoundation
 import Combine
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "eatffairdelivery", category: "VoiceAssistantManager")
 
 /// VoiceAssistantManager handles speech recognition and text-to-speech
 /// Enables hands-free operation for drivers during deliveries
