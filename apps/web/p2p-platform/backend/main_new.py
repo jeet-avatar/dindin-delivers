@@ -12331,6 +12331,11 @@ async def get_driver_active_orders_alias(driver_id: int, db: Session = Depends(g
     """Alias for iOS Driver app - forwards to order_flow.get_driver_active_orders"""
     return await get_driver_active_orders(driver_id, db)
 
+@app.get("/api/drivers/{driver_id}/active-order")
+async def get_driver_active_order_alias(driver_id: int, db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - GET /api/drivers/{id}/active-order"""
+    return await get_driver_active_orders(driver_id, db)
+
 @app.get("/erp/orders/available-for-delivery")
 async def get_available_orders_alias(db: Session = Depends(get_db)):
     """Alias for iOS Driver app - get orders available for delivery"""

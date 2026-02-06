@@ -109,6 +109,83 @@ test_endpoint() {
 }
 
 # ============================================================
+# CRITICAL: Pre-Deployment API Validation (MUST PASS)
+# Run this BEFORE any code changes are deployed
+# ============================================================
+run_critical_api_check() {
+    echo ""
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}  CRITICAL API VALIDATION - ALL MUST PASS BEFORE DEPLOY${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    local failed=0
+    local passed=0
+
+    # Define critical endpoints that MUST work
+    declare -a CRITICAL_ENDPOINTS=(
+        "GET|/api/health|Health Check"
+        "GET|/api/vendors|Vendor List"
+        "GET|/api/v5/driver/48/dashboard|Driver Dashboard"
+        "GET|/api/drivers/48/status|Driver Status"
+        "GET|/api/drivers/48/active-order|Driver Active Order"
+        "GET|/api/erp/orders/available-for-delivery|Available Orders"
+        "GET|/api/rides/available?driver_id=48&latitude=33.45&longitude=-117.67|Available Rides"
+        "GET|/api/customer/orders|Customer Orders"
+        "GET|/api/erp/orders/vendor/1|Vendor Orders"
+    )
+
+    echo "Checking ${#CRITICAL_ENDPOINTS[@]} critical endpoints..."
+    echo ""
+    echo "| Endpoint | Status | Response |"
+    echo "|----------|--------|----------|"
+
+    for endpoint_info in "${CRITICAL_ENDPOINTS[@]}"; do
+        IFS='|' read -r method endpoint name <<< "$endpoint_info"
+
+        response=$(curl -s -o /tmp/critical_check.json -w "%{http_code}" -X "$method" "$API_URL$endpoint" 2>/dev/null)
+        body=$(cat /tmp/critical_check.json 2>/dev/null)
+
+        # Check for valid response (200, or 401 for auth-required endpoints)
+        if [[ "$response" == "200" ]]; then
+            # Additional check: response should not contain "Not Found" or be empty
+            if echo "$body" | grep -q '"detail":\s*"Not Found"'; then
+                echo "| $name | ❌ FAIL | 404 Not Found |"
+                ((failed++))
+            else
+                echo "| $name | ✅ PASS | $response |"
+                ((passed++))
+            fi
+        elif [[ "$response" == "401" || "$response" == "403" ]]; then
+            # Auth required is OK - endpoint exists
+            echo "| $name | ✅ PASS | $response (auth required) |"
+            ((passed++))
+        elif [[ "$response" == "404" ]]; then
+            echo "| $name | ❌ FAIL | 404 Not Found |"
+            ((failed++))
+        else
+            echo "| $name | ⚠️ WARN | $response |"
+            ((failed++))
+        fi
+    done
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "Results: ${GREEN}$passed passed${NC}, ${RED}$failed failed${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    if [ $failed -gt 0 ]; then
+        echo -e "${RED}❌ CRITICAL API CHECK FAILED - DO NOT DEPLOY${NC}"
+        echo -e "${RED}   Fix the failing endpoints before proceeding!${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✅ All critical APIs passed - Safe to deploy${NC}"
+        return 0
+    fi
+}
+
+# ============================================================
 # Agent 1: API Testing (Comprehensive)
 # ============================================================
 run_api_agent() {
@@ -5337,6 +5414,17 @@ main() {
     echo ""
 
     cd "$PROJECT_ROOT"
+
+    # CRITICAL: Run API validation FIRST - blocks deployment if fails
+    if ! run_critical_api_check; then
+        echo ""
+        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+        echo -e "${RED}  DEPLOYMENT BLOCKED - CRITICAL API CHECK FAILED${NC}"
+        echo -e "${RED}  Fix the failing endpoints before any deployment!${NC}"
+        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        exit 1
+    fi
 
     # Run all agents
     run_api_agent || true
