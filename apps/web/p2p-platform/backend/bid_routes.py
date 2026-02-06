@@ -572,11 +572,11 @@ async def get_available_ride_requests(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # Get open ride requests
+    # Get open and bidding ride requests (BIDDING = at least one driver has bid)
     now = datetime.utcnow()
     open_requests = db.query(RideRequest).filter(
         and_(
-            RideRequest.status == RideRequestStatus.OPEN,
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
             or_(
                 RideRequest.bidding_expires_at > now,
                 RideRequest.bidding_expires_at.is_(None)
@@ -629,7 +629,8 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
 
-    if ride_request.status != RideRequestStatus.OPEN:
+    # Allow bidding when status is OPEN or BIDDING (status becomes BIDDING after first bid)
+    if ride_request.status not in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING]:
         raise HTTPException(status_code=400, detail=f"Ride request is {ride_request.status.value}, not accepting bids")
 
     # Check if bidding expired
