@@ -3278,10 +3278,62 @@ async def request_ride(
     # Customer total = ride fare + tiered platform fee + tip
     total_fare = round(ride_fare + customer_platform_fee + tip, 2)
 
+    # Get or create customer ID from token
+    customer_id_val = 1  # Default for demo
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            customer_id_val = payload.get("customer_id", 1)
+        except JWTError:
+            pass
+
+    # Generate unique request_id
+    from datetime import datetime as dt
+    request_id = f"RR-{dt.utcnow().strftime('%Y%m%d')}-{ride_id}"
+
+    # PERSIST ride request to database for driver bidding
+    try:
+        from models import RideRequest as RideRequestDB, RideRequestStatus
+        new_ride_request = RideRequestDB(
+            request_id=request_id,
+            customer_id=customer_id_val,
+            customer_name=customer_name,
+            customer_phone=request.customer_phone,
+            pickup_address=pickup.get('address', pickup.get('street', 'Pickup')),
+            pickup_latitude=pickup.get('lat', 0.0),
+            pickup_longitude=pickup.get('lng', 0.0),
+            pickup_place_name=pickup.get('address', 'Pickup'),
+            dropoff_address=dropoff.get('address', dropoff.get('street', 'Dropoff')),
+            dropoff_latitude=dropoff.get('lat', 0.0),
+            dropoff_longitude=dropoff.get('lng', 0.0),
+            dropoff_place_name=dropoff.get('address', 'Dropoff'),
+            estimated_distance_km=distance_km,
+            estimated_duration_minutes=estimated_minutes,
+            ride_type="standard",
+            suggested_price=ride_fare,
+            customer_max_price=total_fare * 1.2,  # 20% buffer
+            customer_preferred_price=ride_fare,
+            status=RideRequestStatus.OPEN,
+            platform_fee=customer_platform_fee,
+            broadcast_radius_km=15.0
+        )
+        db.add(new_ride_request)
+        db.commit()
+        db.refresh(new_ride_request)
+        ride_db_id = new_ride_request.id
+    except Exception as e:
+        # Log but don't fail - allows API to work even if DB insert fails
+        import logging
+        logging.error(f"Failed to persist ride request: {e}")
+        ride_db_id = None
+
     # Return ride confirmation
     return {
+        "id": ride_db_id,  # Database ID for bidding
+        "request_id": request_id,  # Formatted request ID
         "ride_id": ride_id,
-        "status": "searching",
+        "status": "open",  # Open for bidding
         "message": "Looking for a driver...",
         "estimated_pickup_time": "5-10 minutes",
         "fare": {
@@ -13401,16 +13453,16 @@ def get_available_ride_requests(
             "customer_name": customer_name,
             "customer_phone": None,  # Hidden until matched
             "pickup": {
-                "address": req.pickup_address or "",
-                "latitude": req.pickup_latitude,
-                "longitude": req.pickup_longitude,
-                "place_name": req.pickup_address
+                "address": req.pickup_address or "Pickup Location",
+                "latitude": req.pickup_latitude or 0.0,
+                "longitude": req.pickup_longitude or 0.0,
+                "place_name": req.pickup_address or "Pickup"
             },
             "dropoff": {
-                "address": req.dropoff_address or "",
-                "latitude": req.dropoff_latitude,
-                "longitude": req.dropoff_longitude,
-                "place_name": req.dropoff_address
+                "address": req.dropoff_address or "Dropoff Location",
+                "latitude": req.dropoff_latitude or 0.0,
+                "longitude": req.dropoff_longitude or 0.0,
+                "place_name": req.dropoff_address or "Dropoff"
             },
             "estimated_distance_km": req.estimated_distance_km,
             "estimated_duration_minutes": req.estimated_duration_minutes,
