@@ -595,7 +595,9 @@ struct DriverBottomActionSheet: View {
                     } else {
                         viewModel.markAsPickedUp(order)
                     }
-                }
+                },
+                hasError: viewModel.showError,
+                isFinalAction: isPickedUp  // Show success state only for delivery completion
             )
             .padding()
         }
@@ -851,9 +853,12 @@ struct SwipeToConfirmButton: View {
     let color: Color
     let isLoading: Bool  // Binding to parent's loading state
     let onConfirm: () -> Void
+    var hasError: Bool = false  // Pass true if there was an error
+    var isFinalAction: Bool = false  // Pass true for "Complete Delivery" to show success state
 
     @State private var offset: CGFloat = 0
     @State private var isConfirmed = false
+    @State private var showSuccess = false
     @GestureState private var isDragging = false
 
     private let buttonWidth: CGFloat = 60
@@ -866,23 +871,26 @@ struct SwipeToConfirmButton: View {
             ZStack(alignment: .leading) {
                 // Background track
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(color.opacity(0.2))
+                    .fill(showSuccess ? Color.green.opacity(0.2) : color.opacity(0.2))
 
                 // Progress fill
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(color.opacity(0.4))
-                    .frame(width: offset + buttonWidth + 8)
+                    .fill(showSuccess ? Color.green.opacity(0.4) : color.opacity(0.4))
+                    .frame(width: showSuccess ? geometry.size.width : offset + buttonWidth + 8)
 
                 // Label
                 HStack {
                     Spacer()
-                    if !isConfirmed {
-                        Text(title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(color)
-                            .opacity(1 - Double(offset / maxOffset))
-                    } else {
+                    if showSuccess {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Delivery Complete!")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                    } else if isConfirmed {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: color))
@@ -891,68 +899,90 @@ struct SwipeToConfirmButton: View {
                                 .fontWeight(.semibold)
                                 .foregroundStyle(color)
                         }
+                    } else {
+                        Text(title)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(color)
+                            .opacity(1 - Double(offset / maxOffset))
                     }
                     Spacer()
                 }
 
-                // Slider button
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(color)
-                    .frame(width: buttonWidth, height: 50)
-                    .overlay(
-                        Image(systemName: isConfirmed ? "checkmark" : "chevron.right.2")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                    )
-                    .offset(x: offset + 4)
-                    .gesture(
-                        DragGesture()
-                            .updating($isDragging) { _, state, _ in
-                                state = true
-                            }
-                            .onChanged { value in
-                                guard !isConfirmed else { return }
-                                let newOffset = max(0, min(value.translation.width, maxOffset))
-                                offset = newOffset
-                            }
-                            .onEnded { value in
-                                guard !isConfirmed else { return }
-                                if offset >= maxOffset * threshold {
-                                    // Confirm action
-                                    withAnimation(.spring(response: 0.3)) {
-                                        offset = maxOffset
-                                        isConfirmed = true
-                                    }
+                // Slider button (hidden when showing success)
+                if !showSuccess {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color)
+                        .frame(width: buttonWidth, height: 50)
+                        .overlay(
+                            Image(systemName: isConfirmed ? "checkmark" : "chevron.right.2")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        )
+                        .offset(x: offset + 4)
+                        .gesture(
+                            DragGesture()
+                                .updating($isDragging) { _, state, _ in
+                                    state = true
+                                }
+                                .onChanged { value in
+                                    guard !isConfirmed else { return }
+                                    let newOffset = max(0, min(value.translation.width, maxOffset))
+                                    offset = newOffset
+                                }
+                                .onEnded { value in
+                                    guard !isConfirmed else { return }
+                                    if offset >= maxOffset * threshold {
+                                        // Confirm action
+                                        withAnimation(.spring(response: 0.3)) {
+                                            offset = maxOffset
+                                            isConfirmed = true
+                                        }
 
-                                    // Haptic feedback
-                                    let generator = UINotificationFeedbackGenerator()
-                                    generator.notificationOccurred(.success)
+                                        // Haptic feedback
+                                        let generator = UINotificationFeedbackGenerator()
+                                        generator.notificationOccurred(.success)
 
-                                    // Execute action after brief delay
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        onConfirm()
-                                    }
-                                } else {
-                                    // Reset
-                                    withAnimation(.spring(response: 0.3)) {
-                                        offset = 0
+                                        // Execute action after brief delay
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            onConfirm()
+                                        }
+                                    } else {
+                                        // Reset
+                                        withAnimation(.spring(response: 0.3)) {
+                                            offset = 0
+                                        }
                                     }
                                 }
-                            }
-                    )
-                    .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+                        )
+                        .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
             }
-            // Reset state when loading completes (success or failure)
+            // Handle loading state changes
             .onChange(of: isLoading) { _, newValue in
                 if !newValue && isConfirmed {
-                    // Loading finished - reset the slider after a brief delay
-                    // This handles both success (view will update with new status)
-                    // and failure (slider resets to allow retry)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    // Loading finished
+                    if hasError {
+                        // Error occurred - reset to allow retry
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.3)) {
+                                isConfirmed = false
+                                offset = 0
+                            }
+                        }
+                    } else if isFinalAction {
+                        // Final action success (delivery complete) - show success state
                         withAnimation(.spring(response: 0.3)) {
-                            isConfirmed = false
-                            offset = 0
+                            showSuccess = true
+                        }
+                    } else {
+                        // Intermediate success (pickup) - reset so title can update
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.3)) {
+                                isConfirmed = false
+                                offset = 0
+                            }
                         }
                     }
                 }
