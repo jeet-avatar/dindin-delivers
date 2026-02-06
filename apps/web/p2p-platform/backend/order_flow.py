@@ -344,7 +344,7 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
-    Customer, RideRequest, RideRequestStatus
+    Customer, RideRequest as RideRequestModel, RideRequestStatus
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -886,9 +886,10 @@ async def get_available_rides(
     """
     try:
         # Query RideRequest table for open/bidding rides
-        rides = db.query(RideRequest).filter(
-            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
-        ).order_by(RideRequest.created_at.desc()).limit(50).all()
+        # Note: Using RideRequestModel to avoid shadowing by Pydantic RideRequest class
+        rides = db.query(RideRequestModel).filter(
+            RideRequestModel.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+        ).order_by(RideRequestModel.created_at.desc()).limit(50).all()
 
         result = []
         for ride in rides:
