@@ -589,6 +589,12 @@ struct OrderCard: View {
                             .foregroundColor(Theme.textPrimary)
                             .lineLimit(1)
 
+                        // Order number for reference
+                        Text("#\(order.orderId)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(Theme.brandRed)
+
                         HStack(spacing: 12) {
                             Label("\(order.itemsCount) items", systemImage: "bag.fill")
                             Label(distanceToRestaurant, systemImage: "location.fill")
@@ -973,7 +979,7 @@ struct OrderDetailSheet: View {
                 .padding(.vertical)
             }
             .background(Theme.backgroundGrey.ignoresSafeArea())
-            .navigationTitle("Order Details")
+            .navigationTitle("Order #\(order.orderId)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

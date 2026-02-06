@@ -271,6 +271,12 @@ struct OrderCard: View {
                             .font(.headline)
                             .fontWeight(.bold)
 
+                        // Order number for customer reference
+                        Text("#\(order.orderId)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(Theme.brandGreen)
+
                         Text("\(order.itemsCount) items • $\(String(format: "%.2f", order.total))")
                             .font(.subheadline)
                             .foregroundColor(.secondary)

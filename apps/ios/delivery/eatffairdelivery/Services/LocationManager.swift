@@ -3,6 +3,9 @@ import CoreLocation
 import Combine
 import EatFairShared
 import Network
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "eatffairdelivery", category: "LocationManager")
 
 /// LocationManager handles real-time GPS tracking for delivery drivers
 /// Publishes location updates and syncs with P2P backend (PostgreSQL)

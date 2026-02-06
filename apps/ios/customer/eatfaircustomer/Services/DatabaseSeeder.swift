@@ -859,11 +859,11 @@ class DatabaseSeeder {
 
         for promo in promotions {
             guard let id = promo["id"] as? String else { continue }
-            db.collection("promotions").document(id).setData(promo) { error in
+            db.collection("promotions").document(id).setData(promo, merge: false) { (error: Error?) in
                 if let error = error {
                     seederLogger.error("Error saving promotion: \(error)")
                 } else {
-                    seederLogger.debug("Saved promotion: \(promo["code"] ?? "")")
+                    seederLogger.debug("Saved promotion: \(promo["code"] as? String ?? "")")
                 }
             }
         }

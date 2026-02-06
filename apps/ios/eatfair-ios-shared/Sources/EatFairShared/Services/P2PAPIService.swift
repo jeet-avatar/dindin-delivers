@@ -4046,8 +4046,8 @@ public class P2PAPIService: ObservableObject {
         #if DEBUG
         logger.info("=== acceptDeliveryOrder START ===")
         logger.info("orderId: \(orderId)")
-        logger.info("currentDriverId: \(String(describing: currentDriverId))")
-        logger.info("driverToken exists: \(driverToken != nil)")
+        logger.info("currentDriverId: \(String(describing: self.currentDriverId))")
+        logger.info("driverToken exists: \(self.driverToken != nil)")
         #endif
 
         guard let token = driverToken else {
@@ -4139,7 +4139,7 @@ public class P2PAPIService: ObservableObject {
         #if DEBUG
         logger.info("=== markOrderPickedUp START ===")
         logger.info("orderId: \(orderId)")
-        logger.info("driverToken exists: \(driverToken != nil)")
+        logger.info("driverToken exists: \(self.driverToken != nil)")
         #endif
 
         guard let token = driverToken else {
@@ -4486,8 +4486,8 @@ public class P2PAPIService: ObservableObject {
         // LOGGING: Check driver ID
         #if DEBUG
         logger.info("=== fetchMyDeliveries START ===")
-        logger.info("currentDriverId from UserDefaults: \(String(describing: currentDriverId))")
-        logger.info("driverToken exists: \(driverToken != nil)")
+        logger.info("currentDriverId from UserDefaults: \(String(describing: self.currentDriverId))")
+        logger.info("driverToken exists: \(self.driverToken != nil)")
         if let token = driverToken {
             logger.info("driverToken prefix: \(String(token.prefix(20)))...")
         }
@@ -4574,7 +4574,7 @@ public class P2PAPIService: ObservableObject {
                     #if DEBUG
                     logger.info("fetchMyDeliveries SUCCESS: \(response.orders.count) orders decoded")
                     for (index, order) in response.orders.prefix(3).enumerated() {
-                        logger.info("  Order[\(index)]: id=\(order.id), status=\(order.status), vendor=\(order.vendorName ?? "unknown")")
+                        logger.info("  Order[\(index)]: id=\(order.id), status=\(order.status ?? "nil")")
                     }
                     #endif
                     completion(.success(response.orders))
@@ -9535,7 +9535,7 @@ public class P2PWebSocketManager: NSObject, ObservableObject, URLSessionWebSocke
 
     public func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         #if DEBUG
-        logger.info("WebSocket Closed with code: \(closeCode)")
+        logger.info("WebSocket Closed with code: \(closeCode.rawValue)")
         #endif
         DispatchQueue.main.async {
             self.isConnected = false

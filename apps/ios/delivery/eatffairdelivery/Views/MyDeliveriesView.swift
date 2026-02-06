@@ -621,6 +621,12 @@ struct PendingDeliveryCard: View {
                         .fontWeight(.semibold)
                         .foregroundColor(Theme.textPrimary)
 
+                    // Order number for reference
+                    Text("#\(order.orderId)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(Theme.brandRed)
+
                     Text(order.restaurant.address)
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)

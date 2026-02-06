@@ -2,6 +2,9 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 import Combine
+import os
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "eatffairdelivery", category: "ChatManager")
 
 /// ChatManager handles real-time messaging between drivers and customers
 /// Enables direct communication for coordination, tips negotiation, and multi-stop deliveries
