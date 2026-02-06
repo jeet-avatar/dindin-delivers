@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 136 | 1.0 | Uploaded to TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 138 | 1.0 | Uploaded to TestFlight |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
@@ -30,6 +30,10 @@
 | Debug logging for order flow | Added detailed logging to acceptDeliveryOrder and markOrderPickedUp | Build 123 |
 | Order number not visible | Added order number display to Customer OrderCard, Driver OrderCard, OrderDetailSheet, PendingDeliveryCard | Build 134 |
 | Build errors in shared code | Fixed self-reference issues in P2PAPIService, added missing logger imports | Build 134 |
+| Rideshare bid response format | Fixed backend bid endpoints to return proper RideBidResponse model | `6e679ba0` |
+| Ride requests not persisted | Added RideRequest database insert for driver bidding | `7ceac8b4` |
+| Driver active-order 404 | Added /api/drivers/{id}/active-order endpoint alias | `04f39eb0` |
+| QA safety net | Added pre-deployment critical API validation to qa-runner.sh | `04f39eb0` |
 
 ---
 
