@@ -1,8 +1,8 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 5, 2026
-> **API Contract Version**: 1.0.9
-> **Backend Version**: 1.0.5
+> **Last Updated**: February 6, 2026
+> **API Contract Version**: 1.0.10
+> **Backend Version**: 1.0.6
 
 ---
 
@@ -10,8 +10,8 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1037 | 1.0 | Uploaded to TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 138 | 1.0 | Uploaded to TestFlight |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1043 | 1.0 | Ready for upload |
+| **Dollor Driver** | `com.dollorai.delivery` | 139 | 1.0 | Ready for upload |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
 
 ---
@@ -20,6 +20,10 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| P2P bids not persisted | Bids now saved to ride_bids table in database | `251cd524` |
+| Customer can't see driver bids | Added bid polling UI, DriverBidsSheet, bid accept/reject | `1aac7996` |
+| Driver details not shown | Added AcceptedDriver details section (photo, name, rating, vehicle, ETA, plate) | `1aac7996` |
+| Compilation errors | Fixed requestId -> rideId, added AcceptedDriverInfo initializer | `0d42c30f` |
 | Delivery buttons showing twice | Split status handling: `pending_delivery_decision` vs `ready_for_pickup` | `dc37ee73` |
 | Driver photo missing | Added `vehicle_photo_url` column, demo driver profile with photos | `dc37ee73` |
 | Driver rating error | Fixed `accept_delivery` using `driver.rating` (was `driver.average_rating`) | `dc37ee73` |
