@@ -13357,12 +13357,13 @@ def get_available_ride_requests(
     available_requests = []
     for req in requests:
         # Calculate distance to pickup if driver location provided
+        # Note: RideRequest model uses pickup_latitude/pickup_longitude
         distance_to_pickup_km = None
-        if latitude and longitude and req.pickup_lat and req.pickup_lng:
+        if latitude and longitude and req.pickup_latitude and req.pickup_longitude:
             # Haversine formula for distance
             R = 6371  # Earth's radius in km
             lat1, lon1 = math.radians(latitude), math.radians(longitude)
-            lat2, lon2 = math.radians(req.pickup_lat), math.radians(req.pickup_lng)
+            lat2, lon2 = math.radians(req.pickup_latitude), math.radians(req.pickup_longitude)
             dlat, dlon = lat2 - lat1, lon2 - lon1
             a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
             c = 2 * math.asin(math.sqrt(a))
@@ -13372,51 +13373,40 @@ def get_available_ride_requests(
             if distance_to_pickup_km > (radius_miles * 1.60934):
                 continue
 
-        # Get customer name from customers table
-        customer_name = None
-        try:
-            customer = db.query(Customer).filter(Customer.id == req.customer_id).first()
-            if customer:
-                customer_name = customer.name
-        except:
-            pass
-
-        # Calculate estimated distance in km
-        estimated_distance_km = None
-        if req.distance_miles:
-            estimated_distance_km = req.distance_miles * 1.60934
+        # Get customer name - RideRequest has customer_name field
+        customer_name = req.customer_name or "Customer"
 
         available_requests.append({
             "id": req.id,
             "request_id": req.request_id or f"RR-{req.id}",
             "customer_id": req.customer_id,
-            "customer_name": customer_name or "Customer",
+            "customer_name": customer_name,
             "customer_phone": None,  # Hidden until matched
             "pickup": {
                 "address": req.pickup_address or "",
-                "latitude": req.pickup_lat,
-                "longitude": req.pickup_lng,
+                "latitude": req.pickup_latitude,
+                "longitude": req.pickup_longitude,
                 "place_name": req.pickup_address
             },
             "dropoff": {
                 "address": req.dropoff_address or "",
-                "latitude": req.dropoff_lat,
-                "longitude": req.dropoff_lng,
+                "latitude": req.dropoff_latitude,
+                "longitude": req.dropoff_longitude,
                 "place_name": req.dropoff_address
             },
-            "estimated_distance_km": estimated_distance_km,
-            "estimated_duration_minutes": int(req.estimated_duration_minutes) if req.estimated_duration_minutes else None,
+            "estimated_distance_km": req.estimated_distance_km,
+            "estimated_duration_minutes": req.estimated_duration_minutes,
             "ride_type": req.ride_type or "standard",
-            "suggested_price": req.suggested_price or req.estimated_fare,
-            "customer_max_price": getattr(req, 'customer_max_price', None),
-            "customer_preferred_price": getattr(req, 'customer_preferred_price', None),
+            "suggested_price": req.suggested_price,
+            "customer_max_price": req.customer_max_price,
+            "customer_preferred_price": req.customer_preferred_price,
             "status": req.status.value if hasattr(req.status, 'value') else str(req.status),
-            "bidding_expires_at": None,  # Add if field exists
-            "special_requests": getattr(req, 'special_requests', None),
+            "bidding_expires_at": None,
+            "special_requests": None,
             "created_at": req.created_at.isoformat() if req.created_at else None,
-            "bid_count": 0,  # TODO: Count actual bids
+            "bid_count": 0,
             "distance_to_pickup_km": distance_to_pickup_km,
-            "already_bid": False  # TODO: Check if driver already bid
+            "already_bid": False
         })
 
     return {
