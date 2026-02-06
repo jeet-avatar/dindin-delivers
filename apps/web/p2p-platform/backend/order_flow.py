@@ -884,60 +884,53 @@ async def get_available_rides(
     Get available P2P rides for drivers
     Returns ride requests waiting for driver acceptance
     """
-    # Query RideRequest table for open/bidding rides
     try:
+        # Query RideRequest table for open/bidding rides
         rides = db.query(RideRequest).filter(
             RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
         ).order_by(RideRequest.created_at.desc()).limit(50).all()
-    except Exception:
-        # Fallback if enum not available
-        rides = db.query(RideRequest).filter(
-            RideRequest.status.in_(["open", "bidding"])
-        ).order_by(RideRequest.created_at.desc()).limit(50).all()
 
-    result = []
-    for ride in rides:
-        # Get customer name
-        customer_name = "Customer"
-        try:
-            customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
-            if customer:
-                customer_name = customer.name or "Customer"
-        except:
-            pass
+        result = []
+        for ride in rides:
+            # Get customer name
+            customer_name = ride.customer_name or "Customer"
 
-        # iOS P2PRideLocation expects: street, city, state, zip, lat, lng
-        # RideRequest model uses: pickup_latitude/longitude, dropoff_latitude/longitude
-        result.append({
-            "ride_id": ride.id,
-            "ride_number": ride.request_id or f"RR-{ride.id}",
-            "customer_name": customer_name,
-            "pickup": {
-                "street": ride.pickup_address or "",
-                "city": "",
-                "state": "",
-                "zip": "",
-                "lat": ride.pickup_latitude,
-                "lng": ride.pickup_longitude
-            },
-            "dropoff": {
-                "street": ride.dropoff_address or "",
-                "city": "",
-                "state": "",
-                "zip": "",
-                "lat": ride.dropoff_latitude,
-                "lng": ride.dropoff_longitude
-            },
-            "fee": ride.suggested_price or 0,
-            "tip": 0,
-            "total_earnings": ride.suggested_price or 0,
-            "notes": getattr(ride, 'special_requests', None),
-            "created_at": ride.created_at.isoformat() if ride.created_at else None,
-            "status": ride.status.value if hasattr(ride.status, 'value') else str(ride.status),
-            "distance_miles": (ride.estimated_distance_km or 0) * 0.621371
-        })
+            # iOS P2PRideLocation expects: street, city, state, zip, lat, lng
+            result.append({
+                "ride_id": ride.id,
+                "ride_number": ride.request_id or f"RR-{ride.id}",
+                "customer_name": customer_name,
+                "pickup": {
+                    "street": ride.pickup_address or "",
+                    "city": "",
+                    "state": "",
+                    "zip": "",
+                    "lat": ride.pickup_latitude,
+                    "lng": ride.pickup_longitude
+                },
+                "dropoff": {
+                    "street": ride.dropoff_address or "",
+                    "city": "",
+                    "state": "",
+                    "zip": "",
+                    "lat": ride.dropoff_latitude,
+                    "lng": ride.dropoff_longitude
+                },
+                "fee": ride.suggested_price or 0,
+                "tip": 0,
+                "total_earnings": ride.suggested_price or 0,
+                "notes": None,
+                "created_at": ride.created_at.isoformat() if ride.created_at else None,
+                "status": ride.status.value if hasattr(ride.status, 'value') else str(ride.status),
+                "distance_miles": (ride.estimated_distance_km or 0) * 0.621371
+            })
 
-    return {"success": True, "rides": result}
+        return {"success": True, "rides": result}
+    except Exception as e:
+        import traceback
+        print(f"ERROR in get_available_rides: {e}")
+        print(traceback.format_exc())
+        return {"success": False, "rides": [], "error": str(e)}
 
 
 @router.post("/rides/{ride_id}/accept")
