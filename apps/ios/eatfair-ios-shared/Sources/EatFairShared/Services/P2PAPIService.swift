@@ -6567,45 +6567,18 @@ public struct RideAddressInput: Codable {
     }
 }
 
-/// Response from ride request
+/// Response from ride request creation
+/// Backend returns: { success, message, ride_request: RideRequestForBidding }
 public struct RideRequestResponse: Codable {
     public let success: Bool
-    public let rideId: Int
-    public let rideNumber: String
-    public let pickup: RideAddressInput?
-    public let dropoff: RideAddressInput?
-    public let totalFare: Double
-    public let driverEarnings: Double
-    public let platformFee: Double
-    public let baseFare: Double
-    public let distanceFee: Double
-    public let timeFee: Double
-    public let surgeMultiplier: Double
-    public let taxAmount: Double
-    public let taxRate: String
-    public let tip: Double
-    public let status: String
-    public let processedBy: String?
+    public let message: String?
+    public let ride_request: RideRequestForBidding?
 
-    enum CodingKeys: String, CodingKey {
-        case success
-        case rideId = "ride_id"
-        case rideNumber = "ride_number"
-        case pickup
-        case dropoff
-        case totalFare = "total_fare"
-        case driverEarnings = "driver_earnings"
-        case platformFee = "platform_fee"
-        case baseFare = "base_fare"
-        case distanceFee = "distance_fee"
-        case timeFee = "time_fee"
-        case surgeMultiplier = "surge_multiplier"
-        case taxAmount = "tax_amount"
-        case taxRate = "tax_rate"
-        case tip
-        case status
-        case processedBy = "processed_by"
-    }
+    /// Convenience accessors for the ride request details
+    public var rideId: Int? { ride_request?.id }
+    public var rideNumber: String? { ride_request?.request_id }
+    public var status: String? { ride_request?.status }
+    public var suggestedPrice: Double? { ride_request?.suggested_price }
 }
 
 /// Ride tracking info for customers
