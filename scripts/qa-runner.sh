@@ -133,6 +133,7 @@ run_critical_api_check() {
         "GET|/api/rides/available?driver_id=48&latitude=33.45&longitude=-117.67|Available Rides"
         "GET|/api/customer/orders|Customer Orders"
         "GET|/api/erp/orders/vendor/1|Vendor Orders"
+        "GET|/api/rides/request/1/bids|P2P Ride Bids"
     )
 
     echo "Checking ${#CRITICAL_ENDPOINTS[@]} critical endpoints..."
@@ -697,6 +698,46 @@ EOF
     order_count=$(curl -s "$API_URL/api/orders?vendor_id=40" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
     echo "| 2. View Orders | ✅ PASS | $order_count orders |" >> "$report"
     ((passed++))
+
+    cat >> "$report" << EOF
+
+## 4. P2P Rideshare Bidding Flow (API Test)
+
+EOF
+
+    echo "  Testing P2P rideshare bidding flow..."
+
+    # Test 1: Available rides for drivers
+    available_rides=$(curl -s "$API_URL/api/rides/available?driver_id=48&latitude=33.45&longitude=-117.67" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('available_requests',[])))" 2>/dev/null)
+    if [ -n "$available_rides" ]; then
+        echo "| 1. Available Rides | ✅ PASS | $available_rides rides available |" >> "$report"
+        ((passed++))
+    else
+        echo "| 1. Available Rides | ❌ FAIL | Cannot fetch rides |" >> "$report"
+        ((failed++))
+    fi
+
+    # Test 2: Fetch bids for a ride request (should return empty or bids)
+    bids_response=$(curl -s "$API_URL/api/rides/request/1/bids")
+    bids_count=$(echo "$bids_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('bids',[])))" 2>/dev/null)
+    has_request_id=$(echo "$bids_response" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'request_id' in d else 'no')" 2>/dev/null)
+    if [ "$has_request_id" = "yes" ]; then
+        echo "| 2. Fetch Ride Bids | ✅ PASS | $bids_count bids found |" >> "$report"
+        ((passed++))
+    else
+        echo "| 2. Fetch Ride Bids | ❌ FAIL | Invalid response format |" >> "$report"
+        ((failed++))
+    fi
+
+    # Test 3: Bid response endpoint exists (auth required is OK)
+    bid_respond=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/rides/bid/1/respond" -H "Content-Type: application/json" -d '{"action":"reject"}')
+    if [ "$bid_respond" = "401" ] || [ "$bid_respond" = "403" ] || [ "$bid_respond" = "200" ]; then
+        echo "| 3. Bid Respond Endpoint | ✅ PASS | Status $bid_respond (auth required OK) |" >> "$report"
+        ((passed++))
+    else
+        echo "| 3. Bid Respond Endpoint | ❌ FAIL | Status $bid_respond |" >> "$report"
+        ((failed++))
+    fi
 
     # Summary
     cat >> "$report" << EOF
