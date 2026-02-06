@@ -907,6 +907,7 @@ async def get_available_rides(
             pass
 
         # iOS P2PRideLocation expects: street, city, state, zip, lat, lng
+        # RideRequest model uses: pickup_latitude/longitude, dropoff_latitude/longitude
         result.append({
             "ride_id": ride.id,
             "ride_number": ride.request_id or f"RR-{ride.id}",
@@ -916,24 +917,24 @@ async def get_available_rides(
                 "city": "",
                 "state": "",
                 "zip": "",
-                "lat": ride.pickup_lat,
-                "lng": ride.pickup_lng
+                "lat": ride.pickup_latitude,
+                "lng": ride.pickup_longitude
             },
             "dropoff": {
                 "street": ride.dropoff_address or "",
                 "city": "",
                 "state": "",
                 "zip": "",
-                "lat": ride.dropoff_lat,
-                "lng": ride.dropoff_lng
+                "lat": ride.dropoff_latitude,
+                "lng": ride.dropoff_longitude
             },
-            "fee": ride.estimated_fare or ride.suggested_price or 0,
+            "fee": ride.suggested_price or 0,
             "tip": 0,
-            "total_earnings": ride.estimated_fare or ride.suggested_price or 0,
+            "total_earnings": ride.suggested_price or 0,
             "notes": getattr(ride, 'special_requests', None),
             "created_at": ride.created_at.isoformat() if ride.created_at else None,
             "status": ride.status.value if hasattr(ride.status, 'value') else str(ride.status),
-            "distance_miles": ride.distance_miles
+            "distance_miles": (ride.estimated_distance_km or 0) * 0.621371
         })
 
     return {"success": True, "rides": result}
