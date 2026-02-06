@@ -46,6 +46,13 @@ class RideRequestViewModel: ObservableObject {
     @Published var cancellationFee: Double = 0.0
     @Published var cancellationReason: String = ""
 
+    // P2P Driver Bids (incoming bids from drivers)
+    @Published var incomingBids: [RideBid] = []
+    @Published var selectedBid: RideBid?
+    @Published var showBidsSheet = false
+    @Published var acceptedDriver: AcceptedDriverInfo?
+    @Published var driverETA: Int?  // Estimated arrival in minutes
+
     // Payment
     @Published var paymentIntentClientSecret: String?
     @Published var showPaymentSheet = false
@@ -67,6 +74,7 @@ class RideRequestViewModel: ObservableObject {
     private let p2pService = P2PAPIService.shared
     private var trackingTimer: Timer?
     private var negotiationTimer: Timer?
+    private var bidPollingTimer: Timer?
 
     // MARK: - Pricing Constants (from AppConfig - matches backend pricing_config.py)
     // All pricing values come from centralized AppConfig - no hardcodes!
@@ -176,6 +184,7 @@ class RideRequestViewModel: ObservableObject {
     deinit {
         trackingTimer?.invalidate()
         negotiationTimer?.invalidate()
+        bidPollingTimer?.invalidate()
     }
 
     // MARK: - Set Pickup Location
@@ -330,6 +339,9 @@ class RideRequestViewModel: ObservableObject {
                     self.currentStep = .waitingForDriver
                     self.startTrackingRide()
 
+                    // Start polling for driver bids (P2P bidding flow)
+                    self.startBidPolling()
+
                     // If customer set an initial fare offer, submit it automatically
                     if let initialOffer = self.initialFareOffer, let rideId = response.rideId {
                         self.submitInitialFareOffer(rideId: rideId, offer: initialOffer)
@@ -372,6 +384,158 @@ class RideRequestViewModel: ObservableObject {
 
                 // Clear the initial offer
                 self.initialFareOffer = nil
+            }
+        }
+    }
+
+    // MARK: - P2P Bid Polling (fetch incoming driver bids)
+
+    /// Start polling for incoming driver bids
+    private func startBidPolling() {
+        guard let requestId = activeRide?.requestId else {
+            logger.warning("Cannot start bid polling - no active ride request ID")
+            return
+        }
+
+        logger.info("Starting bid polling for request \(requestId)")
+
+        // Fetch immediately, then poll every 5 seconds
+        fetchIncomingBids(requestId: requestId)
+
+        bidPollingTimer?.invalidate()
+        bidPollingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Stop polling once a driver is accepted
+            if self.acceptedDriver != nil || self.currentStep == .driverEnRoute || self.currentStep == .rideInProgress {
+                self.stopBidPolling()
+                return
+            }
+            self.fetchIncomingBids(requestId: requestId)
+        }
+    }
+
+    /// Stop bid polling
+    private func stopBidPolling() {
+        logger.info("Stopping bid polling")
+        bidPollingTimer?.invalidate()
+        bidPollingTimer = nil
+    }
+
+    /// Fetch incoming bids for the current ride request
+    private func fetchIncomingBids(requestId: Int) {
+        p2pService.fetchRideRequestBids(requestId: requestId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                switch result {
+                case .success(let response):
+                    let newBids = response.bids.filter { $0.status == "pending" }
+                    if newBids.count != self.incomingBids.count {
+                        logger.info("Received \(newBids.count) incoming bids")
+                    }
+                    self.incomingBids = newBids
+
+                    // Auto-show bids sheet when first bid arrives
+                    if !newBids.isEmpty && !self.showBidsSheet && self.acceptedDriver == nil {
+                        self.showBidsSheet = true
+                    }
+
+                case .failure(let error):
+                    logger.error("Failed to fetch bids: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Accept/Reject Driver Bids
+
+    /// Accept a driver's bid
+    func acceptBid(_ bid: RideBid) {
+        isLoading = true
+        selectedBid = bid
+
+        p2pService.acceptDriverBid(bidId: bid.id) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    logger.info("Bid accepted: \(response.message)")
+
+                    // Stop polling for more bids
+                    self.stopBidPolling()
+                    self.showBidsSheet = false
+                    self.incomingBids = []
+
+                    // Store driver info from the bid
+                    self.acceptedDriver = AcceptedDriverInfo(
+                        id: bid.driver_id,
+                        name: bid.driver_name,
+                        phone: nil,
+                        rating: bid.driver_rating,
+                        photo_url: bid.driver_photo_url,
+                        vehicle_make: nil,
+                        vehicle_model: nil,
+                        vehicle_color: nil,
+                        vehicle_year: nil,
+                        license_plate: nil,
+                        vehicle_photo_url: nil
+                    )
+
+                    // Parse vehicle info from driver_vehicle string (e.g., "Toyota Camry")
+                    if let vehicle = bid.driver_vehicle {
+                        let parts = vehicle.split(separator: " ")
+                        if parts.count >= 2 {
+                            self.acceptedDriver = AcceptedDriverInfo(
+                                id: bid.driver_id,
+                                name: bid.driver_name,
+                                phone: nil,
+                                rating: bid.driver_rating,
+                                photo_url: bid.driver_photo_url,
+                                vehicle_make: String(parts[0]),
+                                vehicle_model: parts.dropFirst().joined(separator: " "),
+                                vehicle_color: nil,
+                                vehicle_year: nil,
+                                license_plate: nil,
+                                vehicle_photo_url: nil
+                            )
+                        }
+                    }
+
+                    // Use the driver's response if available
+                    if let driver = response.driver {
+                        self.acceptedDriver = driver
+                    }
+
+                    self.driverETA = bid.estimated_arrival_minutes ?? response.estimated_arrival_minutes
+
+                    // Transition to driver en route step
+                    self.currentStep = .driverEnRoute
+                    self.negotiationMessage = "Driver accepted! On the way to pick you up."
+
+                case .failure(let error):
+                    self.showErrorMessage("Failed to accept bid: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Reject a driver's bid
+    func rejectBid(_ bid: RideBid) {
+        p2pService.rejectDriverBid(bidId: bid.id) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                switch result {
+                case .success:
+                    // Remove the rejected bid from the list
+                    self.incomingBids.removeAll { $0.id == bid.id }
+                    logger.info("Bid rejected successfully")
+
+                case .failure(let error):
+                    logger.error("Failed to reject bid: \(error.localizedDescription)")
+                }
             }
         }
     }

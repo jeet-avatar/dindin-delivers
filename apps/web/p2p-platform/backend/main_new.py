@@ -13380,18 +13380,81 @@ def respond_to_ride_bid(
     current_user: User = Depends(get_current_user)
 ):
     """Respond to a bid - accept, reject, or counter (Customer/Driver API)"""
+    from models import RideBid, BidStatus, RideRequest as RideRequestDB
+
     action = response.action
 
-    # Return response matching iOS RideBidResponse model
+    # Look up the bid
+    bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
+
     if action == "accept":
+        driver_info = None
+        pickup_info = None
+        dropoff_info = None
+        estimated_arrival = None
+        fare = None
+
+        if bid:
+            # Update bid status to accepted
+            bid.status = BidStatus.ACCEPTED
+            bid.accepted_at = datetime.utcnow()
+            db.commit()
+
+            # Get driver details
+            driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+            if driver:
+                driver_info = {
+                    "id": driver.id,
+                    "name": f"{driver.first_name} {driver.last_name}" if driver.first_name else driver.email,
+                    "phone": driver.phone,
+                    "rating": driver.rating,
+                    "photo_url": driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
+                    "vehicle_make": driver.vehicle_make,
+                    "vehicle_model": driver.vehicle_model,
+                    "vehicle_color": driver.vehicle_color,
+                    "vehicle_year": driver.vehicle_year,
+                    "license_plate": driver.license_plate,
+                    "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None
+                }
+
+            # Get ride request details
+            ride_request = db.query(RideRequestDB).filter(RideRequestDB.id == bid.ride_request_id).first()
+            if ride_request:
+                pickup_info = {
+                    "address": ride_request.pickup_address,
+                    "latitude": ride_request.pickup_latitude,
+                    "longitude": ride_request.pickup_longitude
+                }
+                dropoff_info = {
+                    "address": ride_request.dropoff_address,
+                    "latitude": ride_request.dropoff_latitude,
+                    "longitude": ride_request.dropoff_longitude
+                }
+
+            estimated_arrival = bid.estimated_arrival_minutes
+            fare = bid.proposed_price
+
+            logger.info(f"Bid {bid_id} accepted by customer {current_user.id}")
+
         return {
             "success": True,
             "message": "Bid accepted - ride matched!",
-            "bid": None,
-            "ride_request": None,
-            "accepted_bid": None
+            "ride_id": bid.ride_request_id if bid else None,
+            "driver": driver_info,
+            "pickup": pickup_info,
+            "dropoff": dropoff_info,
+            "estimated_arrival_minutes": estimated_arrival,
+            "fare": fare,
+            "status": "accepted"
         }
+
     elif action == "reject":
+        if bid:
+            bid.status = BidStatus.REJECTED
+            bid.rejected_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Bid {bid_id} rejected by customer {current_user.id}")
+
         return {
             "success": True,
             "message": "Bid rejected",
@@ -13399,12 +13462,22 @@ def respond_to_ride_bid(
             "ride_request": None,
             "accepted_bid": None
         }
+
     elif action == "counter":
         if not response.counter_price:
             raise HTTPException(status_code=400, detail="Counter price is required for counter action")
+
+        if bid:
+            bid.customer_counter_price = response.counter_price
+            bid.customer_response = response.message
+            bid.status = BidStatus.COUNTERED
+            bid.responded_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Customer countered bid {bid_id} with price ${response.counter_price}")
+
         return {
             "success": True,
-            "message": "Counter offer sent to customer",
+            "message": "Counter offer sent to driver",
             "bid": None,
             "ride_request": None,
             "accepted_bid": None
