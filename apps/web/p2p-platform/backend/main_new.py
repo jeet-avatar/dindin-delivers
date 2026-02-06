@@ -13328,16 +13328,101 @@ def get_driver_bids(
 
 @app.get("/api/rides/available")
 def get_available_ride_requests(
+    driver_id: Optional[int] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
-    radius_miles: float = 10.0,
+    radius_miles: float = 50.0,
+    radius_km: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
     """Get available ride requests for drivers to bid on"""
-    # In a full implementation, this would query ride requests within radius
+    from models import RideRequest, RideRequestStatus, Driver
+    import math
+
+    # Convert radius_km to radius_miles if provided
+    if radius_km:
+        radius_miles = radius_km * 0.621371
+
+    # Query open ride requests (status = OPEN or BIDDING)
+    try:
+        requests = db.query(RideRequest).filter(
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+        ).order_by(RideRequest.created_at.desc()).limit(50).all()
+    except Exception as e:
+        # Fallback: try without enum if RideRequestStatus not available
+        requests = db.query(RideRequest).filter(
+            RideRequest.status.in_(["open", "bidding"])
+        ).order_by(RideRequest.created_at.desc()).limit(50).all()
+
+    available_requests = []
+    for req in requests:
+        # Calculate distance to pickup if driver location provided
+        distance_to_pickup_km = None
+        if latitude and longitude and req.pickup_lat and req.pickup_lng:
+            # Haversine formula for distance
+            R = 6371  # Earth's radius in km
+            lat1, lon1 = math.radians(latitude), math.radians(longitude)
+            lat2, lon2 = math.radians(req.pickup_lat), math.radians(req.pickup_lng)
+            dlat, dlon = lat2 - lat1, lon2 - lon1
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            distance_to_pickup_km = R * c
+
+            # Skip if outside radius
+            if distance_to_pickup_km > (radius_miles * 1.60934):
+                continue
+
+        # Get customer name from customers table
+        customer_name = None
+        try:
+            customer = db.query(Customer).filter(Customer.id == req.customer_id).first()
+            if customer:
+                customer_name = customer.name
+        except:
+            pass
+
+        # Calculate estimated distance in km
+        estimated_distance_km = None
+        if req.distance_miles:
+            estimated_distance_km = req.distance_miles * 1.60934
+
+        available_requests.append({
+            "id": req.id,
+            "request_id": req.request_id or f"RR-{req.id}",
+            "customer_id": req.customer_id,
+            "customer_name": customer_name or "Customer",
+            "customer_phone": None,  # Hidden until matched
+            "pickup": {
+                "address": req.pickup_address or "",
+                "latitude": req.pickup_lat,
+                "longitude": req.pickup_lng,
+                "place_name": req.pickup_address
+            },
+            "dropoff": {
+                "address": req.dropoff_address or "",
+                "latitude": req.dropoff_lat,
+                "longitude": req.dropoff_lng,
+                "place_name": req.dropoff_address
+            },
+            "estimated_distance_km": estimated_distance_km,
+            "estimated_duration_minutes": int(req.estimated_duration_minutes) if req.estimated_duration_minutes else None,
+            "ride_type": req.ride_type or "standard",
+            "suggested_price": req.suggested_price or req.estimated_fare,
+            "customer_max_price": getattr(req, 'customer_max_price', None),
+            "customer_preferred_price": getattr(req, 'customer_preferred_price', None),
+            "status": req.status.value if hasattr(req.status, 'value') else str(req.status),
+            "bidding_expires_at": None,  # Add if field exists
+            "special_requests": getattr(req, 'special_requests', None),
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+            "bid_count": 0,  # TODO: Count actual bids
+            "distance_to_pickup_km": distance_to_pickup_km,
+            "already_bid": False  # TODO: Check if driver already bid
+        })
+
     return {
-        "requests": [],
-        "total": 0,
+        "success": True,
+        "available_requests": available_requests,
+        "count": len(available_requests),
         "search_radius_miles": radius_miles
     }
 
