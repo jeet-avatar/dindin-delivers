@@ -1341,6 +1341,173 @@ struct RideStatusCard: View {
             }
             .padding(.horizontal)
 
+            // MARK: - Incoming Driver Bids Section (P2P Bidding)
+            if viewModel.currentStep == .waitingForDriver && !viewModel.incomingBids.isEmpty {
+                Divider()
+
+                VStack(spacing: 12) {
+                    HStack {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.15))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "person.3.fill")
+                                .foregroundColor(.green)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(viewModel.incomingBids.count) Driver\(viewModel.incomingBids.count == 1 ? "" : "s") Available")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Tap to view and select a driver")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button(action: { viewModel.showBidsSheet = true }) {
+                            Text("View Bids")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Color.green)
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            // MARK: - Accepted Driver Details Section
+            if let driver = viewModel.acceptedDriver {
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Driver Row with Photo, Name, Rating
+                    HStack(spacing: 12) {
+                        // Driver Photo
+                        if let photoUrl = driver.photo_url,
+                           let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                driverPhotoPlaceholder
+                            }
+                        } else {
+                            driverPhotoPlaceholder
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(driver.name ?? "Driver")
+                                    .font(.headline)
+                                if let rating = driver.rating {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.yellow)
+                                        Text(String(format: "%.1f", rating))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+
+                            if let eta = viewModel.driverETA {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "clock.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                    Text("Arriving in ~\(eta) min")
+                                        .font(.subheadline)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        if let phone = driver.phone {
+                            Button(action: { callDriver(phone) }) {
+                                Image(systemName: "phone.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.green)
+                                    .clipShape(Circle())
+                            }
+                        }
+                    }
+
+                    // Vehicle Info Card
+                    if driver.vehicle_make != nil || driver.license_plate != nil {
+                        HStack(spacing: 12) {
+                            // Vehicle Photo
+                            if let vehiclePhotoUrl = driver.vehicle_photo_url,
+                               let url = URL(string: vehiclePhotoUrl.hasPrefix("http") ? vehiclePhotoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(vehiclePhotoUrl)") {
+                                AsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 80, height: 60)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                } placeholder: {
+                                    vehiclePhotoPlaceholder
+                                }
+                            } else {
+                                vehiclePhotoPlaceholder
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                // Vehicle Make/Model with Color
+                                HStack(spacing: 4) {
+                                    if let color = driver.vehicle_color {
+                                        Text(color)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    if let make = driver.vehicle_make {
+                                        Text(make)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    }
+                                    if let model = driver.vehicle_model {
+                                        Text(model)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+
+                                // License Plate (prominent)
+                                if let plate = driver.license_plate {
+                                    Text(plate)
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.primary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.yellow.opacity(0.3))
+                                        .cornerRadius(4)
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                }
+                .padding(.horizontal)
+            }
+
             // Negotiation Status Section ($1+$1 Platform Fee Model)
             if viewModel.isNegotiating {
                 Divider()
@@ -1639,6 +1806,34 @@ struct RideStatusCard: View {
                 isPresented: $showNegotiateSheet
             )
         }
+        // Incoming Bids Sheet
+        .sheet(isPresented: $viewModel.showBidsSheet) {
+            DriverBidsSheet(viewModel: viewModel)
+        }
+    }
+
+    // MARK: - Placeholder Views
+
+    private var driverPhotoPlaceholder: some View {
+        ZStack {
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 60, height: 60)
+            Image(systemName: "person.fill")
+                .font(.title2)
+                .foregroundColor(.gray)
+        }
+    }
+
+    private var vehiclePhotoPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.gray.opacity(0.2))
+            .frame(width: 80, height: 60)
+            .overlay(
+                Image(systemName: "car.fill")
+                    .font(.title3)
+                    .foregroundColor(.gray)
+            )
     }
 
     private func callDriver(_ phone: String) {
@@ -1787,6 +1982,217 @@ struct CustomerNegotiationSheet: View {
     private func submitOffer() {
         guard let amount = Double(customerOfferAmount) else { return }
         viewModel.submitFareOffer(proposedFare: amount)
+    }
+}
+
+// MARK: - Driver Bids Sheet (P2P Bidding)
+struct DriverBidsSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Header
+                VStack(spacing: 8) {
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(.green)
+
+                    Text("Available Drivers")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Select a driver to accept their offer")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+
+                Divider()
+
+                // Bids List
+                if viewModel.incomingBids.isEmpty {
+                    VStack(spacing: 16) {
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Waiting for drivers...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(viewModel.incomingBids, id: \.id) { bid in
+                                DriverBidCard(bid: bid, onAccept: {
+                                    viewModel.acceptBid(bid)
+                                    dismiss()
+                                }, onReject: {
+                                    viewModel.rejectBid(bid)
+                                })
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+// MARK: - Driver Bid Card
+struct DriverBidCard: View {
+    let bid: RideBid
+    let onAccept: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Driver Info Row
+            HStack(spacing: 12) {
+                // Driver Photo
+                if let photoUrl = bid.driver_photo_url,
+                   let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 56, height: 56)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        driverPhotoPlaceholder
+                    }
+                } else {
+                    driverPhotoPlaceholder
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    // Name and Rating
+                    HStack(spacing: 6) {
+                        Text(bid.driver_name ?? "Driver")
+                            .font(.headline)
+
+                        if let rating = bid.driver_rating {
+                            HStack(spacing: 2) {
+                                Image(systemName: "star.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.yellow)
+                                Text(String(format: "%.1f", rating))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+
+                    // Vehicle
+                    if let vehicle = bid.driver_vehicle {
+                        Text(vehicle)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    // ETA
+                    if let eta = bid.estimated_arrival_minutes {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("~\(eta) min away")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Price
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("$\(String(format: "%.2f", bid.proposed_price))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+
+                    Text("Offered")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            // Driver Message (if any)
+            if let message = bid.message, !message.isEmpty {
+                HStack {
+                    Image(systemName: "quote.bubble.fill")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .italic()
+                    Spacer()
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            // Action Buttons
+            HStack(spacing: 12) {
+                Button(action: onReject) {
+                    HStack {
+                        Image(systemName: "xmark")
+                        Text("Decline")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(10)
+                }
+
+                Button(action: onAccept) {
+                    HStack {
+                        Image(systemName: "checkmark")
+                        Text("Accept")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.green)
+                    .cornerRadius(10)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+
+    private var driverPhotoPlaceholder: some View {
+        ZStack {
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 56, height: 56)
+            Image(systemName: "person.fill")
+                .font(.title3)
+                .foregroundColor(.gray)
+        }
     }
 }
 

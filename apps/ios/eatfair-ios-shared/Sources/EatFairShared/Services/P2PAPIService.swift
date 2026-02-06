@@ -5266,6 +5266,156 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Customer P2P Bid Methods (for viewing and accepting driver bids)
+
+    /// Fetch incoming driver bids for a ride request (Customer API)
+    public func fetchRideRequestBids(
+        requestId: Int,
+        completion: @escaping (Result<CustomerRideBidsResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(requestId)/bids") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    logger.error("fetchRideRequestBids network error: \(error)")
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.serverError("No data received")))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(CustomerRideBidsResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    logger.error("fetchRideRequestBids decode error: \(error)")
+                    // Return empty response on decode error
+                    let emptyResponse = CustomerRideBidsResponse(
+                        request_id: requestId,
+                        bids: [],
+                        total_bids: 0,
+                        bidding_open: true,
+                        bidding_ends_at: nil
+                    )
+                    completion(.success(emptyResponse))
+                }
+            }
+        }.resume()
+    }
+
+    /// Accept a driver's bid (Customer API)
+    public func acceptDriverBid(
+        bidId: Int,
+        completion: @escaping (Result<AcceptedRideDetails, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/respond") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["action": "accept"]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    logger.error("acceptDriverBid network error: \(error)")
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.serverError("No data received")))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(AcceptedRideDetails.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    logger.error("acceptDriverBid decode error: \(error)")
+                    // Try to parse basic success response
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let success = json["success"] as? Bool, success {
+                        let basicResponse = AcceptedRideDetails(
+                            success: true,
+                            message: json["message"] as? String ?? "Bid accepted",
+                            ride_id: nil,
+                            driver: nil,
+                            pickup: nil,
+                            dropoff: nil,
+                            estimated_arrival_minutes: nil,
+                            fare: nil,
+                            status: "accepted"
+                        )
+                        completion(.success(basicResponse))
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    /// Reject a driver's bid (Customer API)
+    public func rejectDriverBid(
+        bidId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/respond") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["action": "reject"]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to reject bid")))
+                }
+            }
+        }.resume()
+    }
+
     /// Accept customer's counter-offer
     public func acceptCounterOffer(
         bidId: Int,
@@ -8520,6 +8670,48 @@ public struct RideBidResponse: Codable {
 public struct DriverBidsResponse: Codable {
     public let success: Bool
     public let bids: [RideBid]
+}
+
+/// Customer's ride request bids response (incoming driver bids)
+public struct CustomerRideBidsResponse: Codable {
+    public let request_id: Int
+    public let bids: [RideBid]
+    public let total_bids: Int
+    public let bidding_open: Bool
+    public let bidding_ends_at: String?
+}
+
+/// Accepted ride details with driver info for customer
+public struct AcceptedRideDetails: Codable {
+    public let success: Bool
+    public let message: String
+    public let ride_id: Int?
+    public let driver: AcceptedDriverInfo?
+    public let pickup: AcceptedRideLocation?
+    public let dropoff: AcceptedRideLocation?
+    public let estimated_arrival_minutes: Int?
+    public let fare: Double?
+    public let status: String?
+}
+
+public struct AcceptedDriverInfo: Codable {
+    public let id: Int
+    public let name: String?
+    public let phone: String?
+    public let rating: Double?
+    public let photo_url: String?
+    public let vehicle_make: String?
+    public let vehicle_model: String?
+    public let vehicle_color: String?
+    public let vehicle_year: Int?
+    public let license_plate: String?
+    public let vehicle_photo_url: String?
+}
+
+public struct AcceptedRideLocation: Codable {
+    public let address: String?
+    public let latitude: Double?
+    public let longitude: Double?
 }
 
 /// Ride bid model
