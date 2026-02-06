@@ -2849,6 +2849,21 @@ EOF
 }
 \`\`\`
 
+### Ride Request Persistence (Fixed 2026-02-05)
+**Commit**: 7ceac8b4
+
+**Problem**: Driver app showed "no data" or "data could not be read" when viewing/negotiating rideshare requests.
+
+**Root Causes**:
+1. \`POST /api/erp/rides/request\` was NOT persisting RideRequest to database - only calculated fares
+2. \`GET /api/rides/available\` could return \`null\` for pickup/dropoff lat/lng
+3. iOS \`RideLocation\` model requires non-optional \`latitude: Double\`, \`longitude: Double\`
+
+**Fixed**:
+1. Ride requests now saved to \`ride_requests\` table with status=OPEN for bidding
+2. Location fields default to 0.0 instead of null
+3. Response includes \`id\` (database ID) and \`request_id\` for bidding flow
+
 ---
 
 ## Summary
