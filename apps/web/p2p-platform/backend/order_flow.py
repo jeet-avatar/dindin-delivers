@@ -882,36 +882,53 @@ async def get_available_rides(
 ):
     """
     Get available P2P rides for drivers
-    Returns rides waiting for pickup
+    Returns ride requests waiting for driver acceptance
     """
-    # Get rides (orders with RIDE- prefix that don't have a driver)
-    rides = db.query(Order).filter(
-        Order.order_number.like("RIDE-%"),
-        Order.status.in_([OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
-        Order.driver_id.is_(None)
-    ).all()
+    from models import RideRequest, RideRequestStatus, Customer
+
+    # Query RideRequest table for open/bidding rides
+    try:
+        rides = db.query(RideRequest).filter(
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+        ).order_by(RideRequest.created_at.desc()).limit(50).all()
+    except Exception:
+        # Fallback if enum not available
+        rides = db.query(RideRequest).filter(
+            RideRequest.status.in_(["open", "bidding"])
+        ).order_by(RideRequest.created_at.desc()).limit(50).all()
 
     result = []
     for ride in rides:
+        # Get customer name
+        customer_name = "Customer"
         try:
-            addr = json.loads(ride.delivery_address) if ride.delivery_address else {}
-            pickup = addr.get("pickup", {})
-            dropoff = addr.get("dropoff", {})
+            customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+            if customer:
+                customer_name = customer.name or "Customer"
         except:
-            pickup = {}
-            dropoff = {}
+            pass
 
         result.append({
             "ride_id": ride.id,
-            "ride_number": ride.order_number,
-            "customer_name": ride.customer_name,
-            "pickup": pickup,
-            "dropoff": dropoff,
-            "fee": ride.delivery_fee,
-            "tip": ride.tip,
-            "total_earnings": (ride.delivery_fee or 0) + (ride.tip or 0),
-            "notes": ride.delivery_instructions,
-            "created_at": ride.created_at.isoformat() if ride.created_at else None
+            "ride_number": ride.request_id or f"RR-{ride.id}",
+            "customer_name": customer_name,
+            "pickup": {
+                "address": ride.pickup_address or "",
+                "latitude": ride.pickup_lat,
+                "longitude": ride.pickup_lng
+            },
+            "dropoff": {
+                "address": ride.dropoff_address or "",
+                "latitude": ride.dropoff_lat,
+                "longitude": ride.dropoff_lng
+            },
+            "fee": ride.estimated_fare or ride.suggested_price,
+            "tip": 0,
+            "total_earnings": ride.estimated_fare or ride.suggested_price or 0,
+            "notes": getattr(ride, 'special_requests', None),
+            "created_at": ride.created_at.isoformat() if ride.created_at else None,
+            "status": ride.status.value if hasattr(ride.status, 'value') else str(ride.status),
+            "distance_miles": ride.distance_miles
         })
 
     return {"success": True, "rides": result}
