@@ -13254,33 +13254,32 @@ def respond_to_ride_bid(
     """Respond to a bid - accept, reject, or counter (Customer/Driver API)"""
     action = response.action
 
+    # Return response matching iOS RideBidResponse model
     if action == "accept":
         return {
             "success": True,
             "message": "Bid accepted - ride matched!",
-            "bid_id": bid_id,
-            "status": "accepted",
-            "ride_request": {
-                "id": bid_id // 1000,
-                "status": "matched"
-            }
+            "bid": None,
+            "ride_request": None,
+            "accepted_bid": None
         }
     elif action == "reject":
         return {
             "success": True,
             "message": "Bid rejected",
-            "bid_id": bid_id,
-            "status": "rejected"
+            "bid": None,
+            "ride_request": None,
+            "accepted_bid": None
         }
     elif action == "counter":
         if not response.counter_price:
             raise HTTPException(status_code=400, detail="Counter price is required for counter action")
         return {
             "success": True,
-            "message": "Counter offer submitted",
-            "bid_id": bid_id,
-            "status": "countered",
-            "counter_price": response.counter_price
+            "message": "Counter offer sent to customer",
+            "bid": None,
+            "ride_request": None,
+            "accepted_bid": None
         }
 
     raise HTTPException(status_code=400, detail="Invalid action")
@@ -13296,15 +13295,13 @@ def accept_counter_offer(
     if current_user.role != UserRole.DRIVER:
         raise HTTPException(status_code=403, detail="Only drivers can accept counter-offers")
 
+    # Return response matching iOS RideBidResponse model
     return {
         "success": True,
         "message": "Counter-offer accepted - ride matched!",
-        "bid_id": bid_id,
-        "status": "accepted",
-        "ride_request": {
-            "id": bid_id // 1000,
-            "status": "matched"
-        }
+        "bid": None,
+        "ride_request": None,
+        "accepted_bid": None
     }
 
 
@@ -13318,11 +13315,13 @@ def reject_counter_offer(
     if current_user.role != UserRole.DRIVER:
         raise HTTPException(status_code=403, detail="Only drivers can reject counter-offers")
 
+    # Return response matching iOS RideBidResponse model
     return {
         "success": True,
         "message": "Counter-offer rejected",
-        "bid_id": bid_id,
-        "status": "rejected"
+        "bid": None,
+        "ride_request": None,
+        "accepted_bid": None
     }
 
 
