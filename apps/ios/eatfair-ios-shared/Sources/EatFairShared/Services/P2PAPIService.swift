@@ -8566,6 +8566,7 @@ public struct P2PRide: Identifiable, Codable {
     public let fee: Double
     public let tip: Double?
     public let totalEarnings: Double?
+    public let customerPreferredPrice: Double?  // Customer's negotiated offer
     public let notes: String?
     public let createdAt: String?
 
@@ -8573,6 +8574,16 @@ public struct P2PRide: Identifiable, Codable {
 
     public var earnings: Double {
         totalEarnings ?? (fee + (tip ?? 0))
+    }
+
+    /// Display price - customer's offer if available, otherwise suggested fee
+    public var displayPrice: Double {
+        customerPreferredPrice ?? fee
+    }
+
+    /// True if customer has made a specific price offer
+    public var hasCustomerOffer: Bool {
+        customerPreferredPrice != nil && customerPreferredPrice! > 0
     }
 
     enum CodingKeys: String, CodingKey {
@@ -8584,6 +8595,7 @@ public struct P2PRide: Identifiable, Codable {
         case fee
         case tip
         case totalEarnings = "total_earnings"
+        case customerPreferredPrice = "customer_preferred_price"
         case notes
         case createdAt = "created_at"
     }
