@@ -2198,6 +2198,8 @@ async def get_vendor_orders(
                     "vehicle_make": driver.vehicle_make,
                     "vehicle_model": driver.vehicle_model,
                     "vehicle_color": driver.vehicle_color,
+                    "vehicle_year": driver.vehicle_year,
+                    "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
                     "license_plate": driver.license_plate
                 }
 

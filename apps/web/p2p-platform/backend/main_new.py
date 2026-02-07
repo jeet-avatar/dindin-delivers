@@ -3506,12 +3506,13 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import text
 
-        # Query ride with driver info
+        # Query ride with driver info including photos
         result = db.execute(
             text("""
                 SELECT r.id, r.status, r.driver_id,
                        d.first_name, d.last_name, d.phone, d.rating,
-                       d.vehicle_make, d.vehicle_model, d.license_plate
+                       d.vehicle_make, d.vehicle_model, d.license_plate,
+                       d.photo_url, d.vehicle_photo_url, d.vehicle_color, d.vehicle_year
                 FROM rides r
                 LEFT JOIN drivers d ON r.driver_id = d.id
                 WHERE r.id = :ride_id OR r.ride_id = :ride_id
@@ -3529,8 +3530,13 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
                 "name": f"{result[3]} {result[4][0]}." if result[3] and result[4] else "Driver",
                 "phone": result[5] or None,
                 "rating": float(result[6]) if result[6] else 4.8,
-                "photo_url": None,
+                "photo_url": result[10],  # d.photo_url
+                "vehicle_photo_url": result[11],  # d.vehicle_photo_url
                 "vehicle": f"{result[7] or 'Unknown'} {result[8] or 'Vehicle'}",
+                "vehicle_make": result[7],
+                "vehicle_model": result[8],
+                "vehicle_color": result[12],  # d.vehicle_color
+                "vehicle_year": result[13],  # d.vehicle_year
                 "license_plate": result[9] or "N/A"
             }
 
