@@ -76,6 +76,7 @@ Report: [qa-challenger-reports/2026-02-06_FULL_QA_REPORT.md](./qa-challenger-rep
 | 002 | Create 24 Cross-Platform QA Agents | 2026-02-06 | done | [CROSS_PLATFORM_QA_AGENTS.md](./CROSS_PLATFORM_QA_AGENTS.md) |
 | 003 | Production Knowledge Update | 2026-02-06 | done | QA_KNOWLEDGE_BASE.md |
 | 004 | QA: Negotiation Flow Investigation | 2026-02-07 | d4c3153f | [004-qa-negotiation-flow](./quick/004-qa-negotiation-flow-investigation/) |
+| 005 | Cleanup legacy bid handlers (420 lines) | 2026-02-07 | 4eeffd1c | [005-cleanup-legacy-bid](./quick/005-cleanup-legacy-bid-handlers/) |
 
 ### Demo Credentials
 
