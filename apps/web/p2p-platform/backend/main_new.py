@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.8",
-        "build": "2026-02-05-fix-items-unit-price",
+        "version": "1.0.10",
+        "build": "2026-02-06-fix-negotiate-api",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -12538,30 +12538,39 @@ async def accept_fare_ios_alias(
     }
 
 @app.get("/erp/rides/{ride_id}/customer-negotiate")
+@app.post("/erp/rides/{ride_id}/customer-negotiate")
+@app.get("/api/rides/{ride_id}/negotiate")
+@app.post("/api/rides/{ride_id}/negotiate")
 async def customer_negotiate_ios_alias(
     ride_id: int,
-    proposed_fare: float,
+    proposed_fare: float = Query(default=0.0),
     db: Session = Depends(get_db)
 ):
-    """Alias for iOS Customer app - customer counter-offer
-    iOS calls: GET /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
+    """Cross-platform fare negotiation endpoint
+    iOS calls: POST /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
+    Android/Web calls: POST /api/rides/{rideId}/negotiate with JSON body
+    Returns FareNegotiationResponse format for all platforms
     """
     return {
         "success": True,
-        "ride_id": ride_id,
-        "proposed_fare": proposed_fare,
         "status": "counter_offer_sent",
+        "customer_offer": proposed_fare,
+        "driver_offer": None,
+        "platform_fee_driver": 1.0,
+        "platform_fee_customer": 1.0,
         "message": "Your counter-offer has been sent to the driver"
     }
 
 @app.get("/erp/rides/{ride_id}/customer-accept-fare")
+@app.post("/erp/rides/{ride_id}/customer-accept-fare")
 async def customer_accept_fare_ios_alias(
     ride_id: int,
-    accepted_fare: float,
+    accepted_fare: float = Query(default=0.0),
     db: Session = Depends(get_db)
 ):
     """Alias for iOS Customer app - accept driver's fare
-    iOS calls: GET /erp/rides/{rideId}/customer-accept-fare?accepted_fare=12.0
+    iOS calls: POST /erp/rides/{rideId}/customer-accept-fare?accepted_fare=12.0
+    Returns FareNegotiationResponse format for iOS
     """
     from models import RideRequest
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
@@ -12571,9 +12580,11 @@ async def customer_accept_fare_ios_alias(
 
     return {
         "success": True,
-        "ride_id": ride_id,
-        "accepted_fare": accepted_fare,
-        "status": "fare_accepted",
+        "status": "accepted",
+        "customer_offer": accepted_fare,
+        "driver_offer": accepted_fare,
+        "platform_fee_driver": 1.0,
+        "platform_fee_customer": 1.0,
         "message": "Fare accepted. Driver is on the way!"
     }
 
@@ -19401,3 +19412,4 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
 # Backend rebuild trigger - 20260106081348
 # Backend deploy 20260128-ai-insights
+# Backend rebuild 20260206-fix-bids-api-format
