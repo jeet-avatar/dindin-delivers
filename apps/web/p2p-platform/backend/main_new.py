@@ -13339,8 +13339,8 @@ def submit_ride_bid(
         driver_id=current_user.driver_id,
         driver_name=f"{driver.first_name} {driver.last_name}" if driver.first_name else driver.email,
         driver_rating=driver.rating,
-        driver_photo_url=driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
-        driver_vehicle=f"{driver.vehicle_make} {driver.vehicle_model}" if driver.vehicle_make else None,
+        driver_photo_url=driver.photo_url,
+        driver_vehicle=f"{driver.vehicle_make} {driver.vehicle_model} {driver.vehicle_year or ''} - {driver.vehicle_color or ''}".strip(' -') if driver.vehicle_make else None,
         proposed_price=bid_request.proposed_price,
         message=bid_request.message,
         estimated_arrival_minutes=bid_request.estimated_arrival_minutes,
@@ -13441,13 +13441,13 @@ def respond_to_ride_bid(
                     "name": f"{driver.first_name} {driver.last_name}" if driver.first_name else driver.email,
                     "phone": driver.phone,
                     "rating": driver.rating,
-                    "photo_url": driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
+                    "photo_url": driver.photo_url,
                     "vehicle_make": driver.vehicle_make,
                     "vehicle_model": driver.vehicle_model,
                     "vehicle_color": driver.vehicle_color,
                     "vehicle_year": driver.vehicle_year,
                     "license_plate": driver.license_plate,
-                    "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None
+                    "vehicle_photo_url": driver.vehicle_photo_url
                 }
 
             # Get ride request details
@@ -13576,11 +13576,13 @@ def accept_counter_offer(
             "name": f"{driver.first_name} {driver.last_name}" if driver.first_name else "Driver",
             "phone": driver.phone,
             "rating": driver.rating,
-            "photo_url": driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
+            "photo_url": driver.photo_url,
             "vehicle_make": driver.vehicle_make,
             "vehicle_model": driver.vehicle_model,
             "vehicle_color": driver.vehicle_color,
-            "license_plate": driver.license_plate
+            "vehicle_year": driver.vehicle_year,
+            "license_plate": driver.license_plate,
+            "vehicle_photo_url": driver.vehicle_photo_url
         }
 
     logger.info(f"Driver {bid.driver_id} accepted counter-offer for ride {ride.id} at ${final_price}")
