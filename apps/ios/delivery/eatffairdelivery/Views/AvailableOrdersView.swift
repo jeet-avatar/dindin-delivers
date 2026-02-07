@@ -1130,15 +1130,20 @@ struct RideCard: View {
         VStack(spacing: 0) {
             // Header with earnings and distance
             HStack {
-                // Earnings Badge
+                // Earnings Badge - show customer's offer if available
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("$\(String(format: "%.2f", ride.earnings))")
+                    Text("$\(String(format: "%.2f", ride.displayPrice))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                     HStack(spacing: 4) {
-                        Text("$\(String(format: "%.2f", ride.fee)) fare")
-                            .font(.caption2)
+                        if ride.hasCustomerOffer {
+                            Text("Customer's offer")
+                                .font(.caption2)
+                        } else {
+                            Text("$\(String(format: "%.2f", ride.fee)) fare")
+                                .font(.caption2)
+                        }
                         if let tip = ride.tip, tip > 0 {
                             Text("+ $\(String(format: "%.2f", tip)) tip")
                                 .font(.caption2)
@@ -1150,7 +1155,7 @@ struct RideCard: View {
                 .padding(.vertical, 8)
                 .background(
                     LinearGradient(
-                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        colors: ride.hasCustomerOffer ? [Color.green, Color.green.opacity(0.8)] : [Color.blue, Color.blue.opacity(0.8)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -1406,14 +1411,44 @@ struct FareNegotiationSheet: View {
 
                 // Current Fare Display
                 VStack(spacing: 12) {
-                    HStack {
-                        Text("Customer's Offer")
-                            .foregroundColor(Theme.textSecondary)
-                        Spacer()
-                        Text("$\(String(format: "%.2f", ride.fee))")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(Theme.textPrimary)
+                    // Show customer's actual offer if they made one
+                    if ride.hasCustomerOffer {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Customer's Offer")
+                                    .foregroundColor(Theme.textSecondary)
+                                Text("Negotiated price")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                            Spacer()
+                            Text("$\(String(format: "%.2f", ride.displayPrice))")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                        }
+
+                        // Show suggested price for reference
+                        HStack {
+                            Text("Suggested fare")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", ride.fee))")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                                .strikethrough()
+                        }
+                    } else {
+                        HStack {
+                            Text("Suggested Fare")
+                                .foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text("$\(String(format: "%.2f", ride.fee))")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(Theme.textPrimary)
+                        }
                     }
 
                     Divider()
@@ -1499,17 +1534,17 @@ struct FareNegotiationSheet: View {
                     }
                     .disabled((Double(counterOffer) ?? 0) <= 0)
 
-                    // Accept Rider's Offer
+                    // Accept Rider's Offer (use customer's negotiated price if available)
                     Button(action: {
-                        viewModel.acceptCustomerFare(rideId: ride.rideId, fare: ride.fee)
+                        viewModel.acceptCustomerFare(rideId: ride.rideId, fare: ride.displayPrice)
                         dismiss()
                     }) {
-                        Text("Accept Rider's $\(String(format: "%.2f", ride.fee)) Offer")
+                        Text("Accept Rider's $\(String(format: "%.2f", ride.displayPrice)) Offer")
                             .font(.headline)
-                            .foregroundColor(.blue)
+                            .foregroundColor(ride.hasCustomerOffer ? .white : .blue)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue.opacity(0.1))
+                            .background(ride.hasCustomerOffer ? Color.green : Color.blue.opacity(0.1))
                             .cornerRadius(12)
                     }
                 }
