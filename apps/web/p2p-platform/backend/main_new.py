@@ -13517,56 +13517,204 @@ def accept_counter_offer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Accept a customer's counter-offer (Driver API)"""
-    if current_user.role != UserRole.DRIVER:
-        raise HTTPException(status_code=403, detail="Only drivers can accept counter-offers")
+    """Accept a customer's counter-offer (Driver API)
 
-    # Return response matching iOS RideBidResponse model
+    Flow: Driver accepts customer's counter-price -> Ride is matched -> Payment triggered
+    """
+    from models import RideBid, BidStatus, RideRequest, RideRequestStatus, Driver
+
+    # Get the bid
+    bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    if bid.status != BidStatus.COUNTERED:
+        raise HTTPException(status_code=400, detail=f"Bid is not in countered state. Current: {bid.status.value}")
+
+    # Update bid - accept at customer's counter price
+    final_price = bid.customer_counter_price or bid.proposed_price
+    bid.status = BidStatus.ACCEPTED
+    bid.proposed_price = final_price  # Update to accepted price
+    bid.accepted_at = datetime.utcnow()
+
+    # Update ride request to matched
+    ride = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+    if ride:
+        ride.status = RideRequestStatus.MATCHED
+        ride.final_price = final_price
+        ride.matched_driver_id = bid.driver_id
+        ride.matched_at = datetime.utcnow()
+
+        # Calculate platform fee ($1 for rides <= $35, $2 for $35-70, $3 for > $70)
+        if final_price <= 35:
+            platform_fee = 1.0
+        elif final_price <= 70:
+            platform_fee = 2.0
+        else:
+            platform_fee = 3.0
+
+        ride.platform_fee = platform_fee
+        ride.driver_payout = final_price - platform_fee
+        ride.payment_status = "pending"
+
+    db.commit()
+
+    # Get driver info for response
+    driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+    driver_info = None
+    if driver:
+        driver_info = {
+            "id": driver.id,
+            "name": f"{driver.first_name} {driver.last_name}" if driver.first_name else "Driver",
+            "phone": driver.phone,
+            "rating": driver.rating,
+            "photo_url": driver.profile_photo_url if hasattr(driver, 'profile_photo_url') else None,
+            "vehicle_make": driver.vehicle_make,
+            "vehicle_model": driver.vehicle_model,
+            "vehicle_color": driver.vehicle_color,
+            "license_plate": driver.license_plate
+        }
+
+    logger.info(f"Driver {bid.driver_id} accepted counter-offer for ride {ride.id} at ${final_price}")
+
     return {
         "success": True,
-        "message": "Counter-offer accepted - ride matched!",
-        "bid": None,
-        "ride_request": None,
-        "accepted_bid": None
+        "message": f"Counter-offer accepted! Ride matched at ${final_price:.2f}",
+        "ride_request": {
+            "id": ride.id,
+            "request_id": ride.request_id,
+            "customer_id": ride.customer_id,
+            "customer_name": ride.customer_name,
+            "pickup": {"address": ride.pickup_address, "latitude": ride.pickup_latitude, "longitude": ride.pickup_longitude},
+            "dropoff": {"address": ride.dropoff_address, "latitude": ride.dropoff_latitude, "longitude": ride.dropoff_longitude},
+            "final_price": final_price,
+            "status": "matched",
+            "matched_at": ride.matched_at.isoformat() if ride.matched_at else None,
+            "matched_driver": driver_info,
+            "platform_fee": ride.platform_fee,
+            "driver_payout": ride.driver_payout
+        } if ride else None,
+        "bid": {
+            "id": bid.id,
+            "status": "accepted",
+            "proposed_price": final_price,
+            "customer_counter_price": bid.customer_counter_price
+        }
     }
 
 
 @app.post("/api/rides/bid/{bid_id}/reject-counter")
 def reject_counter_offer(
     bid_id: int,
+    new_price: Optional[float] = Query(None, description="Driver's new counter-offer price"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Reject a customer's counter-offer (Driver API)"""
-    if current_user.role != UserRole.DRIVER:
-        raise HTTPException(status_code=403, detail="Only drivers can reject counter-offers")
+    """Reject customer's counter-offer and optionally make a new counter (Driver API)
 
-    # Return response matching iOS RideBidResponse model
-    return {
-        "success": True,
-        "message": "Counter-offer rejected",
-        "bid": None,
-        "ride_request": None,
-        "accepted_bid": None
-    }
+    Flow options:
+    1. Reject only: Driver rejects, customer can accept original or find another driver
+    2. Counter back: Driver offers a new price for negotiation to continue
+    """
+    from models import RideBid, BidStatus
+
+    bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    if bid.status != BidStatus.COUNTERED:
+        raise HTTPException(status_code=400, detail=f"Bid is not in countered state. Current: {bid.status.value}")
+
+    if new_price and new_price > 0:
+        # Driver is countering back with a new price
+        bid.proposed_price = new_price
+        bid.status = BidStatus.PENDING  # Back to pending for customer to respond
+        bid.is_counter_offer = True
+        bid.updated_at = datetime.utcnow()
+        db.commit()
+
+        logger.info(f"Driver {bid.driver_id} countered back with ${new_price} for bid {bid_id}")
+
+        return {
+            "success": True,
+            "message": f"Counter-offer sent to customer at ${new_price:.2f}",
+            "bid": {
+                "id": bid.id,
+                "status": "pending",
+                "proposed_price": new_price,
+                "is_counter_offer": True
+            }
+        }
+    else:
+        # Driver just rejects
+        bid.status = BidStatus.REJECTED
+        bid.rejected_at = datetime.utcnow()
+        db.commit()
+
+        logger.info(f"Driver {bid.driver_id} rejected counter-offer for bid {bid_id}")
+
+        return {
+            "success": True,
+            "message": "Counter-offer rejected",
+            "bid": {
+                "id": bid.id,
+                "status": "rejected"
+            }
+        }
 
 
 @app.get("/api/driver/bids")
 def get_driver_bids(
+    driver_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all bids for the current driver"""
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(status_code=403, detail="Only drivers can view their bids")
+    """Get all bids for a driver - includes pending, countered, accepted bids"""
+    from models import RideBid, BidStatus, RideRequest, Driver
 
-    # In a full implementation, this would query RideBid table
+    # Get driver ID from current user or query param
+    d_id = driver_id or (current_user.driver_id if hasattr(current_user, 'driver_id') else None)
+    if not d_id:
+        raise HTTPException(status_code=400, detail="Driver ID required")
+
+    # Query all bids for this driver
+    bids = db.query(RideBid).filter(RideBid.driver_id == d_id).order_by(RideBid.created_at.desc()).limit(50).all()
+
+    bid_list = []
+    for bid in bids:
+        ride = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+        bid_list.append({
+            "id": bid.id,
+            "bid_id": bid.bid_id,
+            "ride_request_id": bid.ride_request_id,
+            "proposed_price": bid.proposed_price,
+            "customer_counter_price": bid.customer_counter_price,
+            "customer_response": bid.customer_response,
+            "status": bid.status.value if hasattr(bid.status, 'value') else str(bid.status),
+            "is_counter_offer": bid.is_counter_offer,
+            "estimated_arrival_minutes": bid.estimated_arrival_minutes,
+            "message": bid.message,
+            "created_at": bid.created_at.isoformat() if bid.created_at else None,
+            "ride": {
+                "pickup_address": ride.pickup_address if ride else None,
+                "dropoff_address": ride.dropoff_address if ride else None,
+                "customer_name": ride.customer_name if ride else None,
+                "status": ride.status.value if ride and hasattr(ride.status, 'value') else None
+            } if ride else None
+        })
+
+    # Count by status
+    pending = sum(1 for b in bid_list if b['status'] == 'pending')
+    countered = sum(1 for b in bid_list if b['status'] == 'countered')
+    accepted = sum(1 for b in bid_list if b['status'] == 'accepted')
+
     return {
-        "bids": [],
-        "total": 0,
-        "pending": 0,
-        "accepted": 0,
-        "countered": 0
+        "success": True,
+        "bids": bid_list,
+        "total": len(bid_list),
+        "pending": pending,
+        "countered": countered,
+        "accepted": accepted
     }
 
 
