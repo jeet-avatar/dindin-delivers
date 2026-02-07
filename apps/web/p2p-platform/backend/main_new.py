@@ -17611,6 +17611,99 @@ def fix_driver_login(db: Session = Depends(get_db)):
         return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
 
+@app.post("/api/demo/update-driver-profile")
+def update_demo_driver_profile(db: Session = Depends(get_db)):
+    """
+    Update the demo driver (Marcus Johnson) with complete profile details.
+    This ensures all driver details are properly populated and flow through
+    to Customer and Restaurant apps during order tracking.
+    """
+    try:
+        driver_email = "demo.driver@dollor.ai"
+        driver = db.query(Driver).filter(Driver.email == driver_email).first()
+
+        if not driver:
+            return {"success": False, "error": "Demo driver not found. Run /api/demo/setup first."}
+
+        # Update driver with complete profile details
+        driver.first_name = "Marcus"
+        driver.last_name = "Johnson"
+        driver.phone = "+1-555-123-4567"
+        driver.date_of_birth = "1990-05-15"
+        driver.license_number = "D1234567"
+
+        # Vehicle details
+        driver.vehicle_type = "car"
+        driver.vehicle_make = "Toyota"
+        driver.vehicle_model = "Camry"
+        driver.vehicle_year = 2023
+        driver.vehicle_color = "Silver"
+        driver.license_plate = "7ABC123"
+
+        # Professional driver photo (using a reliable placeholder service)
+        driver.photo_url = "https://ui-avatars.com/api/?name=Marcus+Johnson&size=200&background=4CAF50&color=fff&bold=true&format=png"
+
+        # Vehicle photo - silver Toyota Camry (using Unsplash direct link)
+        driver.vehicle_photo_url = "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=300&fit=crop"
+
+        # Address
+        driver.street = "789 Driver Lane"
+        driver.city = "San Francisco"
+        driver.state = "CA"
+        driver.zip_code = "94102"
+
+        # Status and ratings
+        driver.status = DriverStatus.APPROVED
+        driver.rating = 4.9
+        driver.total_deliveries = 6
+        driver.is_online = True
+
+        # Documents (all verified)
+        driver.drivers_license = True
+        driver.drivers_license_url = "/uploads/driver_documents/48/license_verified.png"
+        driver.drivers_license_expiry = datetime(2027, 12, 31)
+        driver.insurance = True
+        driver.insurance_url = "/uploads/driver_documents/48/insurance_verified.png"
+        driver.insurance_expiry = datetime(2026, 6, 30)
+        driver.background_check = True
+        driver.background_check_date = datetime(2024, 1, 15)
+
+        db.commit()
+        db.refresh(driver)
+
+        return {
+            "success": True,
+            "driver_id": driver.id,
+            "driver_code": driver.driver_id,
+            "profile": {
+                "name": f"{driver.first_name} {driver.last_name}",
+                "phone": driver.phone,
+                "email": driver.email,
+                "photo_url": driver.photo_url,
+                "rating": driver.rating
+            },
+            "vehicle": {
+                "type": driver.vehicle_type,
+                "make": driver.vehicle_make,
+                "model": driver.vehicle_model,
+                "year": driver.vehicle_year,
+                "color": driver.vehicle_color,
+                "license_plate": driver.license_plate,
+                "photo_url": driver.vehicle_photo_url
+            },
+            "documents": {
+                "drivers_license": driver.drivers_license,
+                "insurance": driver.insurance,
+                "background_check": driver.background_check
+            },
+            "message": "Demo driver profile updated with complete details"
+        }
+    except Exception as e:
+        db.rollback()
+        import traceback
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+
+
 @app.post("/api/demo/setup-support-customer")
 def setup_support_customer(db: Session = Depends(get_db)):
     """
