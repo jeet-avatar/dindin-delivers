@@ -920,6 +920,7 @@ async def get_available_rides(
                 "fee": ride.suggested_price or 0,
                 "tip": 0,
                 "total_earnings": ride.suggested_price or 0,
+                "customer_preferred_price": ride.customer_preferred_price,  # Customer's negotiated offer
                 "notes": None,
                 "created_at": ride.created_at.isoformat() if ride.created_at else None,
                 "status": ride.status.value if hasattr(ride.status, 'value') else str(ride.status),
