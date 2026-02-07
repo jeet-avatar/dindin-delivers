@@ -116,6 +116,7 @@ jobs:
     name: Deploy Backend to EKS
     runs-on: ubuntu-latest
     needs: deploy-ecs
+    continue-on-error: true  # EKS staging is optional - cluster may not exist
 
     steps:
       - name: Checkout code
@@ -167,7 +168,7 @@ jobs:
   notify:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
-    needs: [deploy-frontend, deploy-ecs, deploy-eks]
+    needs: [deploy-frontend, deploy-ecs]  # EKS is optional, don't wait for it
     if: always()
 
     steps:
