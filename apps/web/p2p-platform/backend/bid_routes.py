@@ -346,11 +346,13 @@ async def get_bids_for_request(request_id: int, db: Session = Depends(get_db)):
         )
     ).order_by(RideBid.proposed_price.asc()).all()
 
+    # Return iOS-compatible format (CustomerRideBidsResponse)
     return {
-        "success": True,
-        "ride_request": serialize_ride_request(ride_request),
+        "request_id": request_id,
         "bids": [serialize_bid(b) for b in bids],
-        "bid_count": len(bids)
+        "total_bids": len(bids),
+        "bidding_open": ride_request.status == RideRequestStatus.OPEN or ride_request.status == RideRequestStatus.BIDDING,
+        "bidding_ends_at": ride_request.bidding_expires_at.isoformat() if ride_request.bidding_expires_at else None
     }
 
 

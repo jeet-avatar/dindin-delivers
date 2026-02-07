@@ -57,8 +57,14 @@ import DealsPage from './app/screens/customer/DealsPage';
 
 // Vendor Pages
 import VendorLogin from './app/screens/auth/VendorLogin';
+import VendorLayout from './app/components/layout/VendorLayout';
+import VendorOrders from './app/screens/vendor/Orders';
 import VendorProfile from './app/screens/vendor/Profile';
+import VendorDashboard from './app/screens/vendor/Dashboard';
 import VendorDocuments from './app/screens/vendor/Documents';
+import VendorMenuManagement from './app/screens/vendor/MenuManagement';
+import VendorAnalytics from './app/screens/vendor/Analytics';
+import VendorAIInsights from './app/screens/vendor/AIInsights';
 
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
@@ -185,12 +191,19 @@ function App() {
         <Route path="/customer/refer" element={<ReferAndEarn />} />
         <Route path="/customer/history" element={<OrderTracking />} />
 
-        {/* Vendor Routes */}
+        {/* Vendor Routes - Aligned with iOS EnhancedDashboardView tabs */}
         <Route path="/vendor/login" element={<VendorLogin />} />
-        <Route path="/vendor/profile" element={<VendorProfile />} />
-        <Route path="/vendor/settings" element={<VendorProfile />} />
-        <Route path="/vendor/dashboard" element={<VendorProfile />} />
-        <Route path="/vendor/documents" element={<VendorDocuments />} />
+        <Route path="/vendor" element={<VendorLayout />}>
+          <Route index element={<VendorOrders />} />
+          <Route path="orders" element={<VendorOrders />} />
+          <Route path="menu" element={<VendorMenuManagement />} />
+          <Route path="analytics" element={<VendorAnalytics />} />
+          <Route path="ai" element={<VendorAIInsights />} />
+          <Route path="settings" element={<VendorProfile />} />
+          <Route path="profile" element={<VendorProfile />} />
+          <Route path="dashboard" element={<VendorDashboard />} />
+          <Route path="documents" element={<VendorDocuments />} />
+        </Route>
 
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
         <Route path="/driver/login" element={<DriverLogin />} />

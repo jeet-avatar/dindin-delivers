@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Tag } from 'antd';
 import {
-  ShoppingCartOutlined,
-  ShoppingOutlined,
-  TagOutlined,
-  EnvironmentOutlined,
-  DollarOutlined,
+  UnorderedListOutlined,
+  AppstoreOutlined,
+  BarChartOutlined,
+  RobotOutlined,
+  SettingOutlined,
+  FileTextOutlined,
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -20,6 +21,8 @@ const { Header, Sider, Content } = Layout;
 interface UserData {
   id?: string;
   name?: string;
+  full_name?: string;
+  restaurant_name?: string;
   email?: string;
 }
 
@@ -37,41 +40,52 @@ const VendorLayout: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem('id_token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     navigate('/vendor/login');
   };
 
+  /**
+   * Navigation items aligned with iOS EnhancedDashboardView tabs
+   *
+   * iOS Tab Structure:
+   * 1. Orders (list.clipboard.fill) - OrdersDashboardView
+   * 2. Menu (menucard.fill) - EnhancedMenuView
+   * 3. Analytics (chart.bar.fill) - AnalyticsView
+   * 4. AI (brain.head.profile) - AIInsightsView
+   * 5. Settings (gearshape.fill) - RestaurantSettingsView
+   */
   const menuItems = [
     {
       key: '/vendor/orders',
-      icon: <ShoppingCartOutlined />,
+      icon: <UnorderedListOutlined />,
       label: 'Orders',
     },
     {
       key: '/vendor/menu',
-      icon: <ShoppingOutlined />,
+      icon: <AppstoreOutlined />,
       label: 'Menu',
     },
     {
-      key: '/vendor/promotions',
-      icon: <TagOutlined />,
-      label: 'Promotions',
+      key: '/vendor/analytics',
+      icon: <BarChartOutlined />,
+      label: 'Analytics',
     },
     {
-      key: '/vendor/map',
-      icon: <EnvironmentOutlined />,
-      label: 'Map',
+      key: '/vendor/ai',
+      icon: <RobotOutlined />,
+      label: 'AI Insights',
     },
     {
-      key: '/vendor/earnings',
-      icon: <DollarOutlined />,
-      label: 'Earnings',
+      key: '/vendor/settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
     },
     {
-      key: '/vendor/profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
+      key: '/vendor/documents',
+      icon: <FileTextOutlined />,
+      label: 'Documents',
     },
   ];
 
@@ -141,7 +155,7 @@ const VendorLayout: React.FC = () => {
               onClick={() => setCollapsed(!collapsed)}
               className="trigger-btn"
             />
-            <Tag color="green" className="status-tag">Restaurant Partner</Tag>
+            <span className="header-title">{user?.restaurant_name || user?.full_name || user?.name || 'Restaurant'}</span>
           </div>
           <div className="header-right">
             <Button type="text" icon={<BellOutlined />} className="notification-btn" />
@@ -150,10 +164,10 @@ const VendorLayout: React.FC = () => {
                 <Avatar
                   icon={<UserOutlined />}
                   className="user-avatar"
-                  style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
                 />
                 <div className="user-details">
-                  <span className="user-name">{user?.full_name || 'Restaurant Owner'}</span>
+                  <span className="user-name">{user?.restaurant_name || user?.full_name || 'Restaurant'}</span>
                   <span className="user-role">Partner</span>
                 </div>
               </div>
@@ -170,7 +184,7 @@ const VendorLayout: React.FC = () => {
           min-height: 100vh;
         }
         .vendor-sider {
-          background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+          background: linear-gradient(180deg, #78350f 0%, #92400e 100%) !important;
           box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
           position: relative;
           z-index: 10;
@@ -191,11 +205,11 @@ const VendorLayout: React.FC = () => {
           width: 48px;
           height: 48px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+          background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+          box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
           flex-shrink: 0;
         }
         .logo-dollar {
@@ -212,7 +226,7 @@ const VendorLayout: React.FC = () => {
         .logo-text {
           font-size: 26px;
           font-weight: 900;
-          background: linear-gradient(135deg, #10B981 0%, #8B5CF6 100%);
+          background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -245,10 +259,10 @@ const VendorLayout: React.FC = () => {
           font-size: 14px;
         }
         .vendor-menu .ant-menu-item:hover {
-          background: rgba(16, 185, 129, 0.15) !important;
+          background: rgba(245, 158, 11, 0.15) !important;
         }
         .vendor-menu .ant-menu-item-selected {
-          background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+          background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%) !important;
         }
         .sidebar-footer {
           padding: 16px;
@@ -269,7 +283,7 @@ const VendorLayout: React.FC = () => {
         }
         .help-icon {
           font-size: 24px;
-          color: #10B981;
+          color: #F59E0B;
         }
         .help-text {
           display: flex;
@@ -305,10 +319,10 @@ const VendorLayout: React.FC = () => {
           width: 40px;
           height: 40px;
         }
-        .status-tag {
+        .header-title {
+          font-size: 18px;
           font-weight: 600;
-          padding: 4px 12px;
-          border-radius: 20px;
+          color: #1e293b;
         }
         .header-right {
           display: flex;
