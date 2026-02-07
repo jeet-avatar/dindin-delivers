@@ -3627,7 +3627,9 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "vehicle_year": driver.vehicle_year,
         "vehicle_color": driver.vehicle_color,
         "license_plate": driver.license_plate,
-        "profile_image": None,  # TODO: Add profile image support
+        "profile_image": driver.photo_url,
+        "photo_url": driver.photo_url,
+        "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
         "license_number": driver.license_number,
         "drivers_license_url": driver.drivers_license_url,
         "insurance_url": driver.insurance_url,
