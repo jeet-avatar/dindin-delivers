@@ -12549,8 +12549,22 @@ async def customer_negotiate_ios_alias(
     """Cross-platform fare negotiation endpoint
     iOS calls: POST /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
     Android/Web calls: POST /api/rides/{rideId}/negotiate with JSON body
-    Returns FareNegotiationResponse format for all platforms
+
+    This endpoint updates the customer's preferred price so drivers can see it.
+    Returns FareNegotiationResponse format for all platforms.
     """
+    from models import RideRequest
+
+    # Update the ride request with customer's offer
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if ride:
+        ride.customer_preferred_price = proposed_fare
+        ride.updated_at = datetime.utcnow()
+        db.commit()
+        logger.info(f"Customer updated offer for ride {ride_id} to ${proposed_fare}")
+    else:
+        logger.warning(f"Ride {ride_id} not found for negotiation")
+
     return {
         "success": True,
         "status": "counter_offer_sent",
@@ -12558,7 +12572,7 @@ async def customer_negotiate_ios_alias(
         "driver_offer": None,
         "platform_fee_driver": 1.0,
         "platform_fee_customer": 1.0,
-        "message": "Your counter-offer has been sent to the driver"
+        "message": "Your offer has been sent to drivers"
     }
 
 @app.get("/erp/rides/{ride_id}/customer-accept-fare")
