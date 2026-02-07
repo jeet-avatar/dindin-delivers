@@ -18911,6 +18911,60 @@ def admin_verify_driver(
     }
 
 
+@app.post("/api/admin/cleanup/pending-orders")
+def admin_cleanup_pending_orders(
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to cancel all old pending orders and ride requests.
+    This cleans up stale data that clutters the Restaurant and Driver apps.
+    Only cancels: pending_payment, pending_restaurant, pending_delivery_decision
+    Keeps: confirmed, preparing, ready_for_pickup, out_for_delivery, delivered, etc.
+    """
+    from models import Order, OrderStatus, RideRequest
+
+    # Define which statuses to cancel
+    pending_statuses = [
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.PENDING_RESTAURANT,
+        OrderStatus.PENDING_DELIVERY_DECISION,
+    ]
+
+    # Cancel pending orders
+    pending_orders = db.query(Order).filter(
+        Order.status.in_(pending_statuses)
+    ).all()
+
+    cancelled_order_count = 0
+    for order in pending_orders:
+        order.status = OrderStatus.CANCELLED
+        order.updated_at = datetime.utcnow()
+        cancelled_order_count += 1
+
+    # Cancel open ride requests (status = 'open' or 'pending')
+    cancelled_ride_count = 0
+    try:
+        open_rides = db.query(RideRequest).filter(
+            RideRequest.status.in_(['open', 'pending', 'bidding'])
+        ).all()
+
+        for ride in open_rides:
+            ride.status = 'cancelled'
+            cancelled_ride_count += 1
+    except Exception as e:
+        logger.warning(f"Could not cancel ride requests: {e}")
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Pending orders and rides cancelled",
+        "orders_cancelled": cancelled_order_count,
+        "rides_cancelled": cancelled_ride_count,
+        "pending_statuses_cleared": [s.value for s in pending_statuses]
+    }
+
+
 # ============================================================
 # ADMIN INSPECTION ENDPOINTS
 # ============================================================
