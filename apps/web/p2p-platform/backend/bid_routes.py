@@ -418,10 +418,29 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         except Exception as e:
             print(f"WebSocket broadcast error: {e}")
 
+        # Get driver for response and email
+        driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+
+        # Build driver info for iOS AcceptedDriverInfo format
+        driver_info = None
+        if driver:
+            driver_info = {
+                "id": driver.id,
+                "name": f"{driver.first_name} {driver.last_name}" if driver.first_name else driver.email,
+                "phone": driver.phone,
+                "rating": driver.rating,
+                "photo_url": driver.photo_url,
+                "vehicle_make": driver.vehicle_make,
+                "vehicle_model": driver.vehicle_model,
+                "vehicle_color": driver.vehicle_color,
+                "vehicle_year": driver.vehicle_year,
+                "license_plate": driver.license_plate,
+                "vehicle_photo_url": driver.vehicle_photo_url
+            }
+
         # Send ride matched email to customer
         try:
             customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
-            driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
             if customer and customer.email and driver:
                 send_ride_matched_email(
                     to_email=customer.email,
@@ -438,9 +457,27 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         except Exception as e:
             logger.error(f"Failed to send ride matched email: {e}")
 
+        # Return iOS AcceptedRideDetails format + backward compatible fields
         return {
             "success": True,
             "message": f"Bid accepted! Ride matched with {bid.driver_name}",
+            # iOS AcceptedRideDetails fields
+            "ride_id": ride_request.id,
+            "driver": driver_info,
+            "pickup": {
+                "address": ride_request.pickup_address,
+                "latitude": ride_request.pickup_latitude,
+                "longitude": ride_request.pickup_longitude
+            },
+            "dropoff": {
+                "address": ride_request.dropoff_address,
+                "latitude": ride_request.dropoff_latitude,
+                "longitude": ride_request.dropoff_longitude
+            },
+            "estimated_arrival_minutes": bid.estimated_arrival_minutes,
+            "fare": bid.proposed_price,
+            "status": "accepted",
+            # Backward compatible fields
             "ride_request": serialize_ride_request(ride_request),
             "accepted_bid": serialize_bid(bid)
         }
