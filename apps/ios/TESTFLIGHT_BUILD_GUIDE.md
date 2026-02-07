@@ -1,8 +1,8 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 6, 2026
+> **Last Updated**: February 7, 2026
 > **API Contract Version**: 1.0.10
-> **Backend Version**: 1.0.6
+> **Backend Version**: 1.0.10
 
 ---
 
@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1043 | 1.0 | Ready for upload |
-| **Dollor Driver** | `com.dollorai.delivery` | 139 | 1.0 | Ready for upload |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 113 | 1.0 | Uploaded to TestFlight |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1050 | 1.0 | Uploaded 2026-02-07 11:27 |
+| **Dollor Driver** | `com.dollorai.delivery` | 150 | 1.0 | Uploaded 2026-02-07 11:37 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 125 | 1.0 | Uploaded 2026-02-07 11:39 |
 
 ---
 
