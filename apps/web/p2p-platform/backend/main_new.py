@@ -18921,7 +18921,7 @@ def admin_cleanup_pending_orders(
     Only cancels: pending_payment, pending_restaurant, pending_delivery_decision
     Keeps: confirmed, preparing, ready_for_pickup, out_for_delivery, delivered, etc.
     """
-    from models import Order, OrderStatus, RideRequest
+    from models import Order, OrderStatus, RideRequest, RideRequestStatus
 
     # Define which statuses to cancel
     pending_statuses = [
@@ -18931,25 +18931,31 @@ def admin_cleanup_pending_orders(
     ]
 
     # Cancel pending orders
-    pending_orders = db.query(Order).filter(
-        Order.status.in_(pending_statuses)
-    ).all()
-
     cancelled_order_count = 0
-    for order in pending_orders:
-        order.status = OrderStatus.CANCELLED
-        order.updated_at = datetime.utcnow()
-        cancelled_order_count += 1
+    try:
+        pending_orders = db.query(Order).filter(
+            Order.status.in_(pending_statuses)
+        ).all()
 
-    # Cancel open ride requests (status = 'open' or 'pending')
+        for order in pending_orders:
+            order.status = OrderStatus.CANCELLED
+            order.updated_at = datetime.utcnow()
+            cancelled_order_count += 1
+    except Exception as e:
+        logger.warning(f"Could not cancel pending orders: {e}")
+
+    # Cancel open ride requests
     cancelled_ride_count = 0
     try:
         open_rides = db.query(RideRequest).filter(
-            RideRequest.status.in_(['open', 'pending', 'bidding'])
+            RideRequest.status.in_([
+                RideRequestStatus.OPEN,
+                RideRequestStatus.BIDDING
+            ])
         ).all()
 
         for ride in open_rides:
-            ride.status = 'cancelled'
+            ride.status = RideRequestStatus.CANCELLED
             cancelled_ride_count += 1
     except Exception as e:
         logger.warning(f"Could not cancel ride requests: {e}")
