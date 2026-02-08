@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.10",
-        "build": "2026-02-06-fix-negotiate-api",
+        "version": "1.0.11",
+        "build": "2026-02-08-fix-ios-erp-paths",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -19335,3 +19335,4 @@ if __name__ == "__main__":
 # Backend rebuild trigger - 20260106081348
 # Backend deploy 20260128-ai-insights
 # Backend rebuild 20260206-fix-bids-api-format
+# Backend rebuild 20260208-fix-ios-erp-api-paths
