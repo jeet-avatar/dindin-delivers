@@ -19302,12 +19302,13 @@ app.add_api_route("/customer/apple-auth", customer_apple_auth, methods=["POST"])
 app.add_api_route("/vendors/{vendor_id}/documents", get_vendor_documents, methods=["GET"])
 app.add_api_route("/vendors/{vendor_id}/documents", delete_vendor_document, methods=["POST"])
 app.add_api_route("/vendors/{vendor_id}/documents/{document_id}", delete_vendor_document, methods=["DELETE"])
-app.add_api_route("/rides/request/{request_id}/bids", get_ride_request_bids, methods=["GET"])
-app.add_api_route("/rides/request/{request_id}/bid", submit_ride_bid, methods=["POST"])
-app.add_api_route("/rides/bid/{bid_id}/withdraw", withdraw_ride_bid, methods=["POST"])
-app.add_api_route("/rides/bid/{bid_id}/respond", respond_to_ride_bid, methods=["POST"])
-app.add_api_route("/rides/bid/{bid_id}/accept-counter", accept_counter_offer, methods=["POST"])
-app.add_api_route("/rides/bid/{bid_id}/reject-counter", reject_counter_offer, methods=["POST"])
+# Routes removed - already exist in bid_routes.py which is included as a router:
+# - GET /request/{request_id}/bids -> get_bids_for_request
+# - POST /request/{request_id}/bid -> submit_bid
+# - POST /bid/{bid_id}/withdraw -> withdraw_bid
+# - POST /bid/{bid_id}/respond -> respond_to_bid
+# - POST /bid/{bid_id}/accept-counter -> accept_counter_offer
+# - POST /bid/{bid_id}/reject-counter -> reject_counter_offer
 app.add_api_route("/driver/bids", get_driver_bids, methods=["GET"])
 app.add_api_route("/rides/available", get_available_ride_requests, methods=["GET"])
 app.add_api_route("/p2p/ride-requests/{ride_request_id}/chat", get_ride_request_chat, methods=["GET"])
