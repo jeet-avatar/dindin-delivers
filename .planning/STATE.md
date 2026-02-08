@@ -2,9 +2,9 @@
 
 **Project**: Dollor.ai iOS Apps
 **Status**: Active - Production Ready
-**Last activity**: 2026-02-07
+**Last activity**: 2026-02-08
 **Backend Version**: 1.0.11
-**Build**: 2026-02-07-fix-driver-info
+**Build**: 2026-02-08-fix-ios-erp-paths
 
 ## Current Phase
 - Cross-Platform QA Complete - All 24 Agents PASSED
@@ -13,16 +13,20 @@
 
 | App | Build | Status | TestFlight |
 |-----|-------|--------|------------|
-| Customer | 1043 | ✅ APPROVED | Available |
-| Driver | 145 | ✅ APPROVED | Available |
-| Restaurant | 119 | ✅ APPROVED | Available |
+| Customer | 1053 | ✅ UPLOADED | Processing |
+| Driver | 154 | ✅ UPLOADED | Processing |
+| Restaurant | 128 | ✅ UPLOADED | Processing |
 
 ### Active Issues
 
-| Issue | Severity | Platforms | Status |
-|-------|----------|-----------|--------|
-| Active orders JSON wrapper mismatch | CRITICAL | iOS | Backend aliased |
-| Items field type mismatch (array vs String) | CRITICAL | iOS | Backend fixed |
+None - All critical issues resolved.
+
+### Deployment Complete (2026-02-08)
+**Backend v1.0.11 deployed and verified:**
+- All iOS ERP paths now aliased
+- API health: healthy, database connected
+- Customer negotiate endpoint: working
+- All 24 QA agents: PASSED
 
 ### Resolved (2026-02-07)
 - **Driver details missing in bid accept response** - FIXED in bid_routes.py
