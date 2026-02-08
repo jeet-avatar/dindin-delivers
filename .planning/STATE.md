@@ -14,9 +14,9 @@
 
 | App | Build | Status | TestFlight |
 |-----|-------|--------|------------|
-| Customer | 1053 | ✅ UPLOADED | Processing |
-| Driver | 154 | ✅ UPLOADED | Processing |
-| Restaurant | 128 | ✅ UPLOADED | Processing |
+| Customer | 1055 | ✅ UPLOADED | Processing |
+| Driver | 156 | ✅ UPLOADED | Processing |
+| Restaurant | 130 | ✅ UPLOADED | Processing |
 
 ### Active Issues
 
