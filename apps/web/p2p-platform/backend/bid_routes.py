@@ -694,7 +694,7 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     # Check if driver has an active ride or delivery
     active_ride = db.query(RideRequest).filter(
         and_(
-            RideRequest.driver_id == data.driver_id,
+            RideRequest.matched_driver_id == data.driver_id,
             RideRequest.status.in_([RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS])
         )
     ).first()
