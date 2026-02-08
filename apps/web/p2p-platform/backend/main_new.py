@@ -12445,6 +12445,7 @@ async def get_full_order_tracking_ios_alias(order_id: int, db: Session = Depends
     return await get_full_order_tracking(order_id, db)
 
 @app.get("/erp/rides/available")
+@app.get("/api/erp/rides/available")
 async def get_available_rides_ios_alias(
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
@@ -12456,34 +12457,39 @@ async def get_available_rides_ios_alias(
     return await get_available_rides(driver_lat, driver_lng, db)
 
 @app.post("/erp/rides/{ride_id}/accept")
+@app.post("/api/erp/rides/{ride_id}/accept")
 async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, db: Session = Depends(get_db)):
     """Alias for iOS Driver app - accept ride
-    iOS calls: POST /erp/rides/{rideId}/accept
+    iOS calls: POST /api/erp/rides/{rideId}/accept
     """
     return await accept_ride(ride_id, request, db)
 
 @app.post("/erp/rides/{ride_id}/picked-up")
+@app.post("/api/erp/rides/{ride_id}/picked-up")
 async def ride_picked_up_ios_alias(ride_id: int, db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark ride picked up
-    iOS calls: POST /erp/rides/{rideId}/picked-up
+    iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
     return await ride_picked_up(ride_id, db)
 
 @app.get("/erp/rides/{ride_id}/track")
+@app.get("/api/erp/rides/{ride_id}/track")
 async def track_ride_ios_alias(ride_id: int, db: Session = Depends(get_db)):
     """Alias for iOS Customer app - track ride
-    iOS calls: GET /erp/rides/{rideId}/track
+    iOS calls: GET /api/erp/rides/{rideId}/track
     """
     return await track_ride(ride_id, db)
 
 @app.get("/erp/rides/{ride_id}/status")
+@app.get("/api/erp/rides/{ride_id}/status")
 def get_ride_status_ios_alias(ride_id: str, db: Session = Depends(get_db)):
     """Alias for iOS apps - get ride status
-    iOS calls: GET /erp/rides/{rideId}/status
+    iOS calls: GET /api/erp/rides/{rideId}/status
     """
     return get_ride_status(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/cancel")
+@app.post("/api/erp/rides/{ride_id}/cancel")
 async def cancel_ride_ios_alias(
     ride_id: int,
     reason: str = "customer_request",
@@ -12491,18 +12497,19 @@ async def cancel_ride_ios_alias(
     current_user: User = Depends(get_current_user)
 ):
     """Alias for iOS apps - cancel ride
-    iOS calls: POST /erp/rides/{rideId}/cancel
+    iOS calls: POST /api/erp/rides/{rideId}/cancel
     """
     return await cancel_ride(ride_id, reason, db, current_user)
 
 @app.post("/erp/rides/{ride_id}/negotiate")
+@app.post("/api/erp/rides/{ride_id}/negotiate")
 async def negotiate_ride_ios_alias(
     ride_id: int,
     request: dict,
     db: Session = Depends(get_db)
 ):
     """Alias for iOS apps - negotiate fare
-    iOS calls: POST /erp/rides/{rideId}/negotiate
+    iOS calls: POST /api/erp/rides/{rideId}/negotiate
     Body: {"proposed_fare": 10.0, "is_driver_offer": true}
     """
     from models import RideRequest
@@ -12520,13 +12527,14 @@ async def negotiate_ride_ios_alias(
     }
 
 @app.post("/erp/rides/{ride_id}/accept-fare")
+@app.post("/api/erp/rides/{ride_id}/accept-fare")
 async def accept_fare_ios_alias(
     ride_id: int,
     request: dict,
     db: Session = Depends(get_db)
 ):
     """Alias for iOS apps - accept negotiated fare
-    iOS calls: POST /erp/rides/{rideId}/accept-fare
+    iOS calls: POST /api/erp/rides/{rideId}/accept-fare
     Body: {"accepted_fare": 12.0}
     """
     from models import RideRequest
@@ -12547,6 +12555,8 @@ async def accept_fare_ios_alias(
 
 @app.get("/erp/rides/{ride_id}/customer-negotiate")
 @app.post("/erp/rides/{ride_id}/customer-negotiate")
+@app.get("/api/erp/rides/{ride_id}/customer-negotiate")
+@app.post("/api/erp/rides/{ride_id}/customer-negotiate")
 @app.get("/api/rides/{ride_id}/negotiate")
 @app.post("/api/rides/{ride_id}/negotiate")
 async def customer_negotiate_ios_alias(
@@ -12585,6 +12595,8 @@ async def customer_negotiate_ios_alias(
 
 @app.get("/erp/rides/{ride_id}/customer-accept-fare")
 @app.post("/erp/rides/{ride_id}/customer-accept-fare")
+@app.get("/api/erp/rides/{ride_id}/customer-accept-fare")
+@app.post("/api/erp/rides/{ride_id}/customer-accept-fare")
 async def customer_accept_fare_ios_alias(
     ride_id: int,
     accepted_fare: float = Query(default=0.0),
@@ -12611,6 +12623,7 @@ async def customer_accept_fare_ios_alias(
     }
 
 @app.get("/erp/rides/{ride_id}/negotiation-status")
+@app.get("/api/erp/rides/{ride_id}/negotiation-status")
 async def negotiation_status_ios_alias(
     ride_id: int,
     db: Session = Depends(get_db)
