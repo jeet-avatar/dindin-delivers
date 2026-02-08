@@ -83,17 +83,23 @@ class UpdateBidInput(BaseModel):
 # =========================================================================
 
 def generate_request_id():
-    """Generate unique ride request ID"""
-    date_str = datetime.utcnow().strftime("%Y%m%d")
-    unique = str(uuid.uuid4())[:6].upper()
-    return f"RR-{date_str}-{unique}"
+    """Generate temporary ride request ID (will be updated after DB insert)"""
+    return f"RIDE{datetime.utcnow().strftime('%Y')}000000"
+
+
+def generate_clean_request_id(db_id: int):
+    """Generate clean ride request ID using database ID: RIDE{year}{6-digit-id}"""
+    return f"RIDE{datetime.utcnow().strftime('%Y')}{db_id:06d}"
 
 
 def generate_bid_id():
-    """Generate unique bid ID"""
-    date_str = datetime.utcnow().strftime("%Y%m%d")
-    unique = str(uuid.uuid4())[:6].upper()
-    return f"BID-{date_str}-{unique}"
+    """Generate temporary bid ID (will be updated after DB insert)"""
+    return f"BID{datetime.utcnow().strftime('%Y')}000000"
+
+
+def generate_clean_bid_id(db_id: int):
+    """Generate clean bid ID using database ID: BID{year}{6-digit-id}"""
+    return f"BID{datetime.utcnow().strftime('%Y')}{db_id:06d}"
 
 
 def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -260,6 +266,10 @@ async def create_ride_request(data: CreateRideRequestInput, db: Session = Depend
     db.add(ride_request)
     db.commit()
     db.refresh(ride_request)
+
+    # Update request_id with clean format: RIDE{year}{6-digit-id}
+    ride_request.request_id = generate_clean_request_id(ride_request.id)
+    db.commit()
 
     # Broadcast to nearby drivers via WebSocket
     try:
@@ -753,6 +763,10 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
 
     db.commit()
     db.refresh(bid)
+
+    # Update bid_id with clean format: BID{year}{6-digit-id}
+    bid.bid_id = generate_clean_bid_id(bid.id)
+    db.commit()
 
     # Send WebSocket update to customer about new bid
     try:
