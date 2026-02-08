@@ -681,6 +681,36 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
+    # Check if driver has an active ride or delivery
+    active_ride = db.query(RideRequest).filter(
+        and_(
+            RideRequest.driver_id == data.driver_id,
+            RideRequest.status.in_([RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS])
+        )
+    ).first()
+    if active_ride:
+        raise HTTPException(
+            status_code=400,
+            detail="You have an active ride in progress. Complete your current ride before bidding on new requests."
+        )
+
+    # Check if driver has an active delivery order
+    from models import Order, OrderStatus
+    active_delivery = db.query(Order).filter(
+        and_(
+            Order.driver_id == data.driver_id,
+            Order.status.in_([
+                OrderStatus.ASSIGNED_TO_DRIVER,
+                OrderStatus.OUT_FOR_DELIVERY
+            ])
+        )
+    ).first()
+    if active_delivery:
+        raise HTTPException(
+            status_code=400,
+            detail="You have an active delivery in progress. Complete your current delivery before bidding on rides."
+        )
+
     # Check if driver already has a pending bid
     existing_bid = db.query(RideBid).filter(
         and_(

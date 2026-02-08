@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.11",
-        "build": "2026-02-08-fix-ios-erp-paths",
+        "version": "1.0.12",
+        "build": "2026-02-08-ride-numbers-driver-busy-check",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -3288,15 +3288,15 @@ async def request_ride(
         except JWTError:
             pass
 
-    # Generate unique request_id
+    # Generate unique request_id (will be updated after DB insert with actual ID)
     from datetime import datetime as dt
-    request_id = f"RR-{dt.utcnow().strftime('%Y%m%d')}-{ride_id}"
+    temp_request_id = f"RIDE{dt.utcnow().strftime('%Y')}000000"
 
     # PERSIST ride request to database for driver bidding
     try:
         from models import RideRequest as RideRequestDB, RideRequestStatus
         new_ride_request = RideRequestDB(
-            request_id=request_id,
+            request_id=temp_request_id,
             customer_id=customer_id_val,
             customer_name=customer_name,
             customer_phone=request.customer_phone,
@@ -3322,11 +3322,17 @@ async def request_ride(
         db.commit()
         db.refresh(new_ride_request)
         ride_db_id = new_ride_request.id
+
+        # Update request_id with clean format: RIDE{year}{6-digit-id}
+        request_id = f"RIDE{dt.utcnow().strftime('%Y')}{ride_db_id:06d}"
+        new_ride_request.request_id = request_id
+        db.commit()
     except Exception as e:
         # Log but don't fail - allows API to work even if DB insert fails
         import logging
         logging.error(f"Failed to persist ride request: {e}")
         ride_db_id = None
+        request_id = f"RIDE{dt.utcnow().strftime('%Y')}000000"
 
     # Return ride confirmation
     return {
