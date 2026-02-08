@@ -709,10 +709,7 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     active_delivery = db.query(Order).filter(
         and_(
             Order.driver_id == data.driver_id,
-            Order.status.in_([
-                OrderStatus.ASSIGNED_TO_DRIVER,
-                OrderStatus.OUT_FOR_DELIVERY
-            ])
+            Order.status == OrderStatus.OUT_FOR_DELIVERY
         )
     ).first()
     if active_delivery:
