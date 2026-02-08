@@ -3,11 +3,12 @@
 **Project**: Dollor.ai iOS Apps
 **Status**: Active - Production Ready
 **Last activity**: 2026-02-08
-**Backend Version**: 1.0.11
-**Build**: 2026-02-08-fix-ios-erp-paths
+**Backend Version**: 1.0.12
+**Build**: 2026-02-08-ride-numbers-driver-busy-check
 
 ## Current Phase
 - Cross-Platform QA Complete - All 24 Agents PASSED
+- P2P Rideshare Full Flow VERIFIED
 
 ### Production Build Status
 
@@ -22,10 +23,12 @@
 None - All critical issues resolved.
 
 ### Deployment Complete (2026-02-08)
-**Backend v1.0.11 deployed and verified:**
-- All iOS ERP paths now aliased
-- API health: healthy, database connected
-- Customer negotiate endpoint: working
+**Backend v1.0.12 deployed and verified:**
+- Clean ride number format: `RIDE{year}{6-digit-id}` (e.g., `RIDE2026000107`)
+- Clean bid number format: `BID{year}{6-digit-id}` (e.g., `BID2026000035`)
+- Driver busy check: Prevents bidding while on active ride or delivery
+- Full rideshare flow tested: create → bid → accept → start → complete
+- Invoice/receipt uses ride number correctly
 - All 24 QA agents: PASSED
 
 ### Resolved (2026-02-07)
