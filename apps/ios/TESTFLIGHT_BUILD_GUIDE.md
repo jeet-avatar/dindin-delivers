@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1054 | 1.0 | Ready to build |
-| **Dollor Driver** | `com.dollorai.delivery` | 155 | 1.0 | Ready to build |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 129 | 1.0 | Ready to build |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1055 | 1.0 | Uploaded 2026-02-08 15:31 |
+| **Dollor Driver** | `com.dollorai.delivery` | 156 | 1.0 | Uploaded 2026-02-08 15:33 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 130 | 1.0 | Uploaded 2026-02-08 15:37 |
 
 ---
 
