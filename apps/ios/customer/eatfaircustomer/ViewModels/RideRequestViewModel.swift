@@ -511,7 +511,7 @@ class RideRequestViewModel: ObservableObject {
 
                 // Transition to driver en route step
                 self.currentStep = .driverEnRoute
-                self.negotiationMessage = "Driver accepted! On the way to pick you up."
+                self.negotiationMessage = nil  // Status bar already shows "Driver accepted"
 
             case .failure(let error):
                 self.showErrorMessage("Failed to accept bid: \(error.localizedDescription)")
