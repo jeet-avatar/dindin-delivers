@@ -7,6 +7,9 @@
 
 import CoreData
 import Combine
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "Persistence")
 
 struct PersistenceController {
     static let shared = PersistenceController()

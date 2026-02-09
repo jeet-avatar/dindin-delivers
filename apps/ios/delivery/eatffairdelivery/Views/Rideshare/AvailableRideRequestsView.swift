@@ -77,8 +77,20 @@ struct AvailableRideRequestsView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: $viewModel.showError) {
-                Button("OK", role: .cancel) {}
+            .alert(alertTitle, isPresented: $viewModel.showError) {
+                if isBlockingError {
+                    Button("View Active Work") {
+                        // Navigate to appropriate tab based on error type
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("NavigateToActiveWork"),
+                            object: nil,
+                            userInfo: ["type": hasActiveRide ? "ride" : "delivery"]
+                        )
+                    }
+                    Button("OK", role: .cancel) {}
+                } else {
+                    Button("OK", role: .cancel) {}
+                }
             } message: {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
@@ -316,6 +328,34 @@ struct AvailableRideRequestsView: View {
         let prices = viewModel.availableRequests.compactMap { $0.suggested_price }
         guard !prices.isEmpty else { return nil }
         return prices.reduce(0, +) / Double(prices.count)
+    }
+
+    // MARK: - Smart Error Alert Helpers
+
+    /// Check if error is about active ride blocking
+    private var hasActiveRide: Bool {
+        viewModel.errorMessage?.contains("active ride") == true
+    }
+
+    /// Check if error is about active delivery blocking
+    private var hasActiveDelivery: Bool {
+        viewModel.errorMessage?.contains("active delivery") == true
+    }
+
+    /// Check if this is a blocking error (driver has active work)
+    private var isBlockingError: Bool {
+        hasActiveRide || hasActiveDelivery
+    }
+
+    /// Smart alert title based on error type
+    private var alertTitle: String {
+        if hasActiveRide {
+            return "Complete Active Ride First"
+        } else if hasActiveDelivery {
+            return "Complete Delivery First"
+        } else {
+            return "Error"
+        }
     }
 }
 

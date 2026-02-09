@@ -4,6 +4,9 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "DriverProfileViewModel")
 
 /// Issues #31-33 Fixed: Profile save error handling, input validation, document upload retry
 @MainActor

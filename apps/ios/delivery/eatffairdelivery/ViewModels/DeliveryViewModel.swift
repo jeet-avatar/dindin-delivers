@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "DeliveryViewModel")
 
 /// DeliveryViewModel manages all delivery-related data
 /// Connected to P2P API for unified database with Customer and Restaurant apps
@@ -95,7 +98,7 @@ class DeliveryViewModel: ObservableObject {
         if isAvailable && wasOffline {
             // Network restored - retry pending actions
             #if DEBUG
-            logger.info("[DeliveryViewModel] Network restored, retrying \(pendingActions.count) pending actions")
+            logger.info("[DeliveryViewModel] Network restored, retrying \(self.pendingActions.count) pending actions")
             #endif
             let actions = pendingActions
             pendingActions.removeAll()
@@ -209,7 +212,7 @@ class DeliveryViewModel: ObservableObject {
                     #if DEBUG
                     print("[DeliveryViewModel] fetchMyDeliveries received \(p2pOrders.count) P2P orders from API")
                     for (i, order) in p2pOrders.prefix(5).enumerated() {
-                        print("[DeliveryViewModel]   [\(i)] id=\(order.id), status=\(order.status), vendor=\(order.vendorName ?? "?")")
+                        print("[DeliveryViewModel]   [\(i)] id=\(order.id), status=\(order.status ?? "?"), vendor=\(order.restaurantName)")
                     }
                     #endif
 
@@ -489,7 +492,7 @@ class DeliveryViewModel: ObservableObject {
         let now = Date()
         guard now.timeIntervalSince(lastLocationUpdate) >= locationUpdateMinInterval else {
             #if DEBUG
-            logger.info("[DeliveryViewModel] Location update throttled, last update was \(now.timeIntervalSince(lastLocationUpdate))s ago")
+            logger.info("[DeliveryViewModel] Location update throttled, last update was \(now.timeIntervalSince(self.lastLocationUpdate))s ago")
             #endif
             return
         }

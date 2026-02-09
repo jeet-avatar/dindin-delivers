@@ -1,5 +1,8 @@
 import SwiftUI
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "RiderChatView")
 
 /// RiderChatView - Chat with rider during a ride
 /// Uses REST API (matches Android) - no Firebase dependency

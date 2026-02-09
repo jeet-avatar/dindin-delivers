@@ -2,6 +2,9 @@ import SwiftUI
 import Combine
 import EatFairShared
 import CoreLocation
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "RideBiddingViewModel")
 
 /// RideBiddingViewModel manages the P2P rideshare bidding workflow
 /// Matches web app RideBidding.tsx functionality
@@ -192,7 +195,14 @@ class RideBiddingViewModel: ObservableObject {
                     self?.availableRequests.removeAll { $0.id == requestId }
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to submit bid: \(error.localizedDescription)")
+                    // Show the backend message directly for known blocking errors
+                    let message = error.localizedDescription
+                    if message.contains("active ride") || message.contains("active delivery") {
+                        // Backend message is clear and actionable
+                        self?.showErrorMessage(message)
+                    } else {
+                        self?.showErrorMessage("Failed to submit bid: \(message)")
+                    }
                 }
             }
         }

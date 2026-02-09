@@ -2,6 +2,9 @@ import SwiftUI
 import Combine
 import PhotosUI
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "RestaurantDocumentsView")
 
 /// Restaurant Documents Management - Self-service document upload for P2P verification
 /// Uses P2P Backend API for document storage (saves to PostgreSQL database)

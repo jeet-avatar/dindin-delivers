@@ -4,6 +4,9 @@ import FirebaseFirestore
 import FirebaseAuth
 import EatFairShared
 import CoreLocation
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "EarningsViewModel")
 
 /// Issues #27-30 Fixed: Error handling, retry logic, listener cleanup, authorization checks
 /// Updated to use P2P API instead of Firebase for earnings data
@@ -455,7 +458,7 @@ class EarningsViewModel: ObservableObject {
         }
 
         #if DEBUG
-        logger.info("[EarningsVM] Driver status: \(driverStatus), approved: \(isApproved), requiresDocs: \(requiresDocuments)")
+        logger.info("[EarningsVM] Driver status: \(self.driverStatus), approved: \(self.isApproved), requiresDocs: \(self.requiresDocuments)")
         #endif
     }
 
