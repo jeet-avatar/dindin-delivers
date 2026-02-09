@@ -1,6 +1,9 @@
 import SwiftUI
 import MapKit
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "PickupDropoffView")
 
 /// Route information for ETA and distance display
 struct RouteInfo {

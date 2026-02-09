@@ -5,6 +5,9 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "EnhancedMenuView")
 
 /// World-class Menu Management with AI-powered suggestions
 struct EnhancedMenuView: View {

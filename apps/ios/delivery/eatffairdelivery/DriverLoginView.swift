@@ -5,6 +5,9 @@ import EatFairShared
 import Security
 import AuthenticationServices
 import CryptoKit
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.delivery", category: "DriverLogin")
 
 // MARK: - Keychain Helper for Secure Password Storage
 struct KeychainHelper {

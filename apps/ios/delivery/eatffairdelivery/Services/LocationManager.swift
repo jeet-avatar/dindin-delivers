@@ -288,7 +288,7 @@ class LocationManager: NSObject, ObservableObject {
         startRetryTimerIfNeeded()
 
         #if DEBUG
-        logger.info("[LocationManager] Queued failed location update. Queue size: \(pendingLocationUpdates.count)")
+        logger.info("[LocationManager] Queued failed location update. Queue size: \(self.pendingLocationUpdates.count)")
         #endif
     }
 
@@ -313,7 +313,7 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         #if DEBUG
-        logger.info("[LocationManager] Processing \(pendingLocationUpdates.count) pending location updates")
+        logger.info("[LocationManager] Processing \(self.pendingLocationUpdates.count) pending location updates")
         #endif
 
         // Remove stale updates (older than 5 minutes)

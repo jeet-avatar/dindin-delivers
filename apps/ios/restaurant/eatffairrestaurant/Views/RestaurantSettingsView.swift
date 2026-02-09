@@ -5,6 +5,9 @@ import UserNotifications
 import FirebaseAuth
 import FirebaseFirestore
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "RestaurantSettingsView")
 
 /// Restaurant Settings with comprehensive configuration options
 struct RestaurantSettingsView: View {

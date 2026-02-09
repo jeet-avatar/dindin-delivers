@@ -13,6 +13,9 @@ import UserNotifications
 import EatFairShared
 import GoogleMaps
 import GooglePlaces
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "RestaurantApp")
 import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {

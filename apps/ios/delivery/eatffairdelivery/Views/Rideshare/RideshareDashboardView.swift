@@ -68,8 +68,18 @@ struct RideshareDashboardView: View {
             .onAppear {
                 viewModel.refreshData()
             }
-            .alert("Error", isPresented: $viewModel.showError) {
-                Button("OK", role: .cancel) {}
+            .alert(alertTitle, isPresented: $viewModel.showError) {
+                if isBlockingError {
+                    Button("View Active Work") {
+                        // Navigate to active tab
+                        withAnimation {
+                            selectedTab = .active
+                        }
+                    }
+                    Button("OK", role: .cancel) {}
+                } else {
+                    Button("OK", role: .cancel) {}
+                }
             } message: {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
@@ -137,6 +147,34 @@ struct RideshareDashboardView: View {
             return viewModel.myBids.count
         case .active:
             return viewModel.activeRides.count
+        }
+    }
+
+    // MARK: - Smart Error Alert Helpers
+
+    /// Check if error is about active ride blocking
+    private var hasActiveRide: Bool {
+        viewModel.errorMessage?.contains("active ride") == true
+    }
+
+    /// Check if error is about active delivery blocking
+    private var hasActiveDelivery: Bool {
+        viewModel.errorMessage?.contains("active delivery") == true
+    }
+
+    /// Check if this is a blocking error (driver has active work)
+    private var isBlockingError: Bool {
+        hasActiveRide || hasActiveDelivery
+    }
+
+    /// Smart alert title based on error type
+    private var alertTitle: String {
+        if hasActiveRide {
+            return "Complete Active Ride First"
+        } else if hasActiveDelivery {
+            return "Complete Delivery First"
+        } else {
+            return "Error"
         }
     }
 }

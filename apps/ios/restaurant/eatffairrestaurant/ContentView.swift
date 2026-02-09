@@ -8,6 +8,9 @@
 import SwiftUI
 import CoreData
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "ContentView")
 
 struct ContentView: View {
     @State private var isLoggedIn = false

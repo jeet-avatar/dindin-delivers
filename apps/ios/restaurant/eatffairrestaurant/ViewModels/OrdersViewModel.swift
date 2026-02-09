@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "OrdersViewModel")
 
 /// Enhanced Orders ViewModel with real-time updates and AI features
 /// Uses P2P backend as single source of truth (no Firebase)

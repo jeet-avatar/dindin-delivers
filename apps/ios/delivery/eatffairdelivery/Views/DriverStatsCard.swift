@@ -125,7 +125,7 @@ class DriverStatsViewModel: ObservableObject {
     func fetchStats() {
         guard let driverId = currentDriverId else {
             #if DEBUG
-            logger.info("[DriverStatsViewModel] No driver ID available")
+            print("[DriverStatsViewModel] No driver ID available")
             #endif
             return
         }
@@ -141,12 +141,12 @@ class DriverStatsViewModel: ObservableObject {
                 self.updateFromDashboard(dashboard)
                 self.isLoading = false
                 #if DEBUG
-                logger.info("[DriverStatsViewModel] Loaded stats from P2P API")
+                print("[DriverStatsViewModel] Loaded stats from P2P API")
                 #endif
 
             case .failure(let error):
                 #if DEBUG
-                logger.info("[DriverStatsViewModel] P2P API failed: \(error.localizedDescription), falling back to Firebase")
+                print("[DriverStatsViewModel] P2P API failed: \(error.localizedDescription), falling back to Firebase")
                 #endif
                 // Fallback to Firebase
                 self.fetchStatsFromFirebase(driverId: driverId)

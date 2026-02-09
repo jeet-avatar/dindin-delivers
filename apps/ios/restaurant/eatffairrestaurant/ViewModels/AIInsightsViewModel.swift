@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "AIInsightsViewModel")
 
 /// ViewModel for AI Insights - fetches real data from backend API
 class AIInsightsViewModel: ObservableObject {

@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import EatFairShared
+import os
+
+private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "AnalyticsViewModel")
 
 /// ViewModel for analytics dashboard - computes analytics from real order data
 class AnalyticsViewModel: ObservableObject {
