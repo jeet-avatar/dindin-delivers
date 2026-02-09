@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1055 | 1.0 | Uploaded 2026-02-08 15:31 |
-| **Dollor Driver** | `com.dollorai.delivery` | 156 | 1.0 | Uploaded 2026-02-08 15:33 |
+| **Dollor Driver** | `com.dollorai.delivery` | 157 | 1.0 | Ready for upload |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 130 | 1.0 | Uploaded 2026-02-08 15:37 |
 
 ---
@@ -20,6 +20,8 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| Driver bid blocking unclear | Smart alert detection for "active ride" / "active delivery" with navigation button | `7c273e7a` |
+| Logger not in scope errors | Added proper Logger imports across Driver and Restaurant apps | `7c273e7a` |
 | P2P bids not persisted | Bids now saved to ride_bids table in database | `251cd524` |
 | Customer can't see driver bids | Added bid polling UI, DriverBidsSheet, bid accept/reject | `1aac7996` |
 | Driver details not shown | Added AcceptedDriver details section (photo, name, rating, vehicle, ETA, plate) | `1aac7996` |
