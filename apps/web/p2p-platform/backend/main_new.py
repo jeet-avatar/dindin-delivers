@@ -17463,7 +17463,7 @@ def clear_demo_driver_bids(db: Session = Depends(get_db)):
     This resets the driver to a clean state for testing.
     """
     try:
-        from models import RideBid, Driver, RideRequest
+        from models import RideBid, Driver, RideRequest, RideRequestStatus
 
         # Get demo driver
         demo_driver = db.query(Driver).filter(Driver.id == 48).first()
@@ -17473,11 +17473,14 @@ def clear_demo_driver_bids(db: Session = Depends(get_db)):
         # Get all bid IDs for this driver
         driver_bid_ids = [b.id for b in db.query(RideBid).filter(RideBid.driver_id == 48).all()]
 
-        # Clear matched_bid_id references in ride_requests first (foreign key constraint)
+        # Clear matched_bid_id and matched_driver_id references in ride_requests first (FK constraint)
         if driver_bid_ids:
             cleared_refs = db.query(RideRequest).filter(
                 RideRequest.matched_bid_id.in_(driver_bid_ids)
-            ).update({RideRequest.matched_bid_id: None}, synchronize_session=False)
+            ).update({
+                RideRequest.matched_bid_id: None,
+                RideRequest.matched_driver_id: None
+            }, synchronize_session=False)
         else:
             cleared_refs = 0
 
@@ -17497,12 +17500,12 @@ def clear_demo_driver_bids(db: Session = Depends(get_db)):
 
         # Clear any active rides assigned to this driver
         active_rides = db.query(RideRequest).filter(
-            RideRequest.driver_id == 48,
-            RideRequest.status.in_(['matched', 'in_progress', 'driver_assigned'])
+            RideRequest.matched_driver_id == 48,
+            RideRequest.status.in_([RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS])
         ).all()
 
         for ride in active_rides:
-            ride.status = 'completed'
+            ride.status = RideRequestStatus.COMPLETED
             ride.completed_at = datetime.now()
 
         db.commit()
