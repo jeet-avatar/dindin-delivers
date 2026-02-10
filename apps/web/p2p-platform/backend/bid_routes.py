@@ -731,10 +731,32 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
         raise HTTPException(status_code=400, detail="You already have a pending bid on this request. Update or withdraw it first.")
 
     # Check max bids limit (default 10)
+    # First, auto-expire old pending bids (older than 10 minutes)
+    now = datetime.utcnow()
+    expired_bids = db.query(RideBid).filter(
+        and_(
+            RideBid.ride_request_id == request_id,
+            RideBid.status == BidStatus.PENDING,
+            RideBid.expires_at < now
+        )
+    ).all()
+
+    for expired_bid in expired_bids:
+        expired_bid.status = BidStatus.EXPIRED
+        expired_bid.customer_response = "Bid expired (no response within 10 minutes)"
+
+    if expired_bids:
+        db.commit()
+
+    # Count only active (non-expired) pending bids
     current_bid_count = db.query(RideBid).filter(
         and_(
             RideBid.ride_request_id == request_id,
-            RideBid.status == BidStatus.PENDING
+            RideBid.status == BidStatus.PENDING,
+            or_(
+                RideBid.expires_at > now,
+                RideBid.expires_at.is_(None)
+            )
         )
     ).count()
 
@@ -742,7 +764,7 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     if current_bid_count >= max_bids:
         raise HTTPException(
             status_code=400,
-            detail=f"This ride has reached the maximum of {max_bids} bids. Try another ride request."
+            detail=f"This ride has reached the maximum of {max_bids} active bids. Try another ride request."
         )
 
     # Create bid
