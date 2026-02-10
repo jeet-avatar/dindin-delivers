@@ -1,7 +1,7 @@
 # Dollor.ai QA Knowledge Base
 
-> **Last Updated:** February 10, 2026 @ 14:05 PST (24-Agent QA Complete)
-> **Backend Version:** 1.0.13
+> **Last Updated:** February 10, 2026 @ 22:45 PST (Bidding Rules Updated)
+> **Backend Version:** 1.0.14
 > **Production API:** https://api.dollor.ai
 > **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net
 > **Source:** All data captured from PRODUCTION API responses
@@ -14,12 +14,12 @@
 |--------|-------|----------|
 | Status | healthy | ✅ 2026-02-10 |
 | Database | connected | ✅ 2026-02-10 |
-| Version | 1.0.13 | ✅ 2026-02-10 |
-| Build | 2026-02-09-driver-busy-check-all-flows | ✅ 2026-02-10 |
+| Version | 1.0.14 | 🚀 Deploying |
+| Build | 2026-02-10-max-bids-and-auto-expire | 🚀 Deploying |
 
-**Raw Production Response:**
+**Raw Production Response (after deploy):**
 ```json
-{"status":"healthy","service":"p2p-backend","version":"1.0.13","build":"2026-02-09-driver-busy-check-all-flows","timestamp":"2026-02-10T10:30:00.000000","database":"connected"}
+{"status":"healthy","service":"p2p-backend","version":"1.0.14","build":"2026-02-10-max-bids-and-auto-expire","timestamp":"2026-02-10T22:45:00.000000","database":"connected"}
 ```
 
 ---
@@ -117,6 +117,33 @@
 | `/api/rides/available` | GET | Available rides (Driver) | Array of ride requests |
 | `/api/erp/rides/{id}/customer-negotiate` | GET/POST | Fare negotiation | `success`, `status`, `customer_offer`, `driver_offer`, `platform_fee_driver`, `platform_fee_customer` |
 | `/api/erp/rides/{id}/customer-accept-fare` | GET/POST | Accept fare | `success`, `status`, `final_fare`, `platform_fee` |
+
+### Rideshare Bidding Rules (v1.0.14)
+
+| Rule | Value | Enforcement |
+|------|-------|-------------|
+| Max bids per ride | 10 | ✅ Backend enforced |
+| Bid expiry | 10 minutes | ✅ Auto-expired on next bid |
+| Same driver duplicate bid | 1 per ride | ✅ Backend enforced |
+| Driver can bid while busy | No | ✅ Backend enforced |
+
+**Bid Lifecycle:**
+```
+PENDING (10 min) → ACCEPTED (customer accepts)
+                → REJECTED (customer rejects)
+                → COUNTERED (customer counter-offers)
+                → EXPIRED (no response in 10 min)
+```
+
+**Error Messages (Driver App):**
+| Scenario | Message |
+|----------|---------|
+| Max bids reached | `"This ride has reached the maximum of 10 active bids. Try another ride request."` |
+| Bid expired | `"Bid expired (no response within 10 minutes)"` |
+| Already has bid | `"You already have a pending bid on this request. Update or withdraw it first."` |
+| Driver busy (ride) | `"You have an active ride in progress. Complete your current ride before bidding."` |
+| Driver busy (delivery) | `"You have an active delivery in progress. Complete your current delivery before bidding on rides."` |
+| Bidding closed | `"Bidding window has closed"` |
 
 ### Vendor (Restaurant) Endpoints
 
