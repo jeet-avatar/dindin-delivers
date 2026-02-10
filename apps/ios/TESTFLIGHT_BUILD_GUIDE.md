@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1060 | 1.0 | ✅ Uploaded 2026-02-09 13:02 |
-| **Dollor Driver** | `com.dollorai.delivery` | 163 | 1.0 | ✅ Uploaded 2026-02-10 18:24 |
+| **Dollor Driver** | `com.dollorai.delivery` | 165 | 1.0 | ✅ Uploaded 2026-02-09 23:24 |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 140 | 1.0 | ✅ Uploaded 2026-02-09 13:13 |
 
 ---
@@ -20,6 +20,7 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| ActiveDeliveryFullScreen wrong destination | Made view status-aware: shows "Picking up from" + restaurant for pickup phase, "Delivering to" + customer for delivery phase | Build 165 |
 | Driver bid blocking unclear | Smart alert detection for "active ride" / "active delivery" with navigation button | `7c273e7a` |
 | Logger not in scope errors | Added proper Logger imports across Driver and Restaurant apps | `7c273e7a` |
 | P2P bids not persisted | Bids now saved to ride_bids table in database | `251cd524` |
