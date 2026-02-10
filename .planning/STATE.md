@@ -2,9 +2,9 @@
 
 **Project**: Dollor.ai iOS Apps
 **Status**: Active - Production Ready
-**Last activity**: 2026-02-09
-**Backend Version**: 1.0.12
-**Build**: 2026-02-08-ride-numbers-driver-busy-check
+**Last activity**: 2026-02-10
+**Backend Version**: 1.0.13
+**Build**: 2026-02-09-driver-busy-check-all-flows
 
 ## Current Phase
 - Cross-Platform QA Complete - All 24 Agents PASSED
@@ -23,6 +23,14 @@
 
 None - All critical issues resolved.
 
+### Deployment Complete (2026-02-10)
+**Backend v1.0.13 deployed and verified:**
+- Driver busy check now covers ALL flows (food orders + ride bidding)
+- Driver can only have ONE active work item at a time
+- Checks all active statuses: PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY
+- Consistent error messages across both flows
+- Full protection matrix tested and verified
+
 ### Deployment Complete (2026-02-08)
 **Backend v1.0.12 deployed and verified:**
 - Clean ride number format: `RIDE{year}{6-digit-id}` (e.g., `RIDE2026000107`)
@@ -31,6 +39,11 @@ None - All critical issues resolved.
 - Full rideshare flow tested: create → bid → accept → start → complete
 - Invoice/receipt uses ride number correctly
 - All 24 QA agents: PASSED
+
+### Resolved (2026-02-10)
+- **Driver could accept multiple food orders** - FIXED in order_flow.py:2429-2450
+- **Ride bidding only checked OUT_FOR_DELIVERY** - FIXED in bid_routes.py to check all active statuses
+- **Inconsistent busy checks between flows** - Both now check PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY
 
 ### Resolved (2026-02-07)
 - **Driver details missing in bid accept response** - FIXED in bid_routes.py
