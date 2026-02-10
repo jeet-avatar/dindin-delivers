@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1060 | 1.0 | ✅ Uploaded 2026-02-09 13:02 |
-| **Dollor Driver** | `com.dollorai.delivery` | 160 | 1.0 | ✅ Uploaded 2026-02-09 13:11 |
+| **Dollor Driver** | `com.dollorai.delivery` | 163 | 1.0 | ✅ Uploaded 2026-02-10 18:24 |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 140 | 1.0 | ✅ Uploaded 2026-02-09 13:13 |
 
 ---
@@ -30,6 +30,8 @@
 | Driver photo missing | Added `vehicle_photo_url` column, demo driver profile with photos | `dc37ee73` |
 | Driver rating error | Fixed `accept_delivery` using `driver.rating` (was `driver.average_rating`) | `dc37ee73` |
 | Driver earnings showing $0 | Fixed backend response structure (today/this_week/this_month) | `33131dff` |
+| Driver earnings still $0 after fix | Changed fetchTodayCompleted() to use dashboard API instead of /active orders | Build 162 |
+| Wrong destination shown after accept | Backend fix: Keep status ready_for_pickup until pickup, iOS shows "Heading to Restaurant" correctly | Build 163 |
 | Rate driver 404 error | Fixed endpoint URL: `/api/customer/orders/{id}/rate-driver` | `b65d4760` |
 | "No Active Delivery" after accept | Added optimistic update in DriverViewModel | `198d9ad1` |
 | "Confirming..." stuck on swipe | Fixed SwipeToConfirmButton to reset state when loading completes | Build 123 |
