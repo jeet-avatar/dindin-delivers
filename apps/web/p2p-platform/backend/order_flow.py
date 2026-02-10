@@ -2426,6 +2426,29 @@ async def assign_driver(
     if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED, DriverStatus.ONLINE]:
         raise HTTPException(status_code=400, detail="Driver is not active")
 
+    # Check if driver has an active ride (MATCHED or IN_PROGRESS)
+    from models import RideRequest, RideRequestStatus
+    active_ride = db.query(RideRequest).filter(
+        RideRequest.matched_driver_id == request.driver_id,
+        RideRequest.status.in_([RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS])
+    ).first()
+    if active_ride:
+        raise HTTPException(
+            status_code=400,
+            detail="You have an active ride in progress. Complete your current ride before accepting deliveries."
+        )
+
+    # Check if driver has an active delivery order
+    active_delivery = db.query(Order).filter(
+        Order.driver_id == request.driver_id,
+        Order.status.in_([OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY])
+    ).first()
+    if active_delivery:
+        raise HTTPException(
+            status_code=400,
+            detail="You have an active delivery in progress. Complete your current delivery first."
+        )
+
     # Get vendor for notifications
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
     restaurant_name = vendor.restaurant_name if vendor else "Restaurant"

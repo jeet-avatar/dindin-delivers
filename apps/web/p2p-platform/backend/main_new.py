@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.12",
-        "build": "2026-02-08-ride-numbers-driver-busy-check",
+        "version": "1.0.13",
+        "build": "2026-02-09-driver-busy-check-all-flows",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
