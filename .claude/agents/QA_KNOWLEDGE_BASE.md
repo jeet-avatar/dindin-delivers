@@ -418,17 +418,69 @@ if message.contains("active ride") || message.contains("active delivery") {
 **Backend Contract Dependency:**
 iOS smart alerts depend on backend error messages containing "active ride" or "active delivery". Changes to these strings in bid_routes.py or order_flow.py require iOS coordination.
 
-### Restaurant App (4 Tabs)
+### Restaurant App (5 Tabs) - Updated 2026-02-10
 
-#### Orders Tab
+**Total Lines:** 11,411
+**Build:** 140 (on TestFlight)
+**Main File:** `EnhancedDashboardView.swift` (1,691 lines)
+
+#### 5-Tab Structure (EnhancedDashboardView.swift:15-50)
+```swift
+TabView(selection: $selectedTab) {
+    OrdersDashboardView(ordersVM: ordersVM)     // Tab 0: Orders
+    EnhancedMenuView()                           // Tab 1: Menu
+    AnalyticsView(ordersVM: ordersVM)           // Tab 2: Analytics
+    AIInsightsView(ordersVM: ordersVM)          // Tab 3: AI
+    RestaurantSettingsView()                     // Tab 4: Settings
+}
+```
+
+#### Restaurant App File Structure
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| EnhancedDashboardView.swift | 1,691 | Main 5-tab container + OrdersDashboard |
+| RestaurantSettingsView.swift | 1,419 | Settings, payout config |
+| AIEmployeesView.swift | 1,152 | AI employee configuration |
+| LoginView.swift | 1,079 | Vendor login/registration |
+| RestaurantRegistrationView.swift | 1,072 | New vendor registration |
+| EnhancedMenuView.swift | 1,053 | Menu management |
+| AIInsightsView.swift | 686 | AI-powered insights |
+| KOTSettingsView.swift | 605 | Kitchen Order Ticket settings |
+| OrdersViewModel.swift | 600 | Order state management |
+| RestaurantDocumentsView.swift | 574 | Document uploads |
+| AnalyticsView.swift | 523 | Business analytics |
+| AnalyticsViewModel.swift | 374 | Analytics state |
+
+#### Logger Compliance (12 files - 100%)
+
+| File | Logger | Subsystem | Status |
+|------|--------|-----------|--------|
+| EnhancedDashboardView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| OrdersViewModel | ✅ | com.dollorai.restaurant | COMPLIANT |
+| AnalyticsViewModel | ✅ | com.dollorai.restaurant | COMPLIANT |
+| AIInsightsViewModel | ✅ | com.dollorai.restaurant | COMPLIANT |
+| LoginView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| RestaurantSettingsView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| EnhancedMenuView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| KOTSettingsView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| RestaurantDocumentsView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| ContentView | ✅ | com.dollorai.restaurant | COMPLIANT |
+| Persistence | ✅ | com.dollorai.restaurant | COMPLIANT |
+| eatffairrestaurantApp | ✅ | com.dollorai.restaurant | COMPLIANT |
+
+#### Orders Tab (Tab 0)
 | Function | API Endpoint | Expected Behavior |
 |----------|--------------|-------------------|
 | Incoming orders | `/api/erp/orders/vendor/{id}` | Show new orders |
 | Accept order | `/api/erp/orders/{id}/accept` | Move to preparing |
 | Mark ready | `/api/erp/orders/{id}/mark-ready` | Ready for pickup |
+| Self-deliver | `/api/erp/orders/{id}/accept-delivery` | Restaurant delivers |
+| Send to driver | `/api/erp/orders/{id}/decline-delivery` | Driver pool delivery |
+| Mark delivered | `/api/erp/orders/{id}/delivered` | Complete self-delivery |
 | View driver | Order.driver | Show driver info |
 
-#### Menu Tab
+#### Menu Tab (Tab 1)
 | Function | API Endpoint | Expected Behavior |
 |----------|--------------|-------------------|
 | Menu items | `/api/vendor/{id}/menu/items` | List items |
@@ -436,7 +488,7 @@ iOS smart alerts depend on backend error messages containing "active ride" or "a
 | Edit item | PUT `/api/vendor/menu/items/{id}` | Update item |
 | Toggle availability | PATCH item | Set available |
 
-#### Analytics Tab
+#### Analytics Tab (Tab 2)
 | Function | API Endpoint | Expected Behavior |
 |----------|--------------|-------------------|
 | Dashboard | `/api/vendor/{id}/analytics` | Show stats |
