@@ -704,12 +704,12 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
             detail="You have an active ride in progress. Complete your current ride before bidding on new requests."
         )
 
-    # Check if driver has an active delivery order
+    # Check if driver has an active delivery order (any status where driver is assigned)
     from models import Order, OrderStatus
     active_delivery = db.query(Order).filter(
         and_(
             Order.driver_id == data.driver_id,
-            Order.status == OrderStatus.OUT_FOR_DELIVERY
+            Order.status.in_([OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY])
         )
     ).first()
     if active_delivery:
