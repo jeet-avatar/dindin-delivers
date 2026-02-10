@@ -2445,16 +2445,19 @@ async def assign_driver(
     is_early_acceptance = order.status == OrderStatus.PREPARING
     food_ready = order.status == OrderStatus.READY_FOR_PICKUP
 
+    # FIX: Driver accepting order = driver heading TO restaurant (not to customer yet!)
+    # Status should ONLY become OUT_FOR_DELIVERY when driver marks pickup complete
+    order.driver_en_route = True  # Driver is en-route TO restaurant
+
     if is_early_acceptance:
         # Early acceptance: driver heading to restaurant while food prepares
-        order.driver_en_route = True
         # Keep status as PREPARING - will change to OUT_FOR_DELIVERY when picked up
         logger.info(f"Early driver acceptance: Driver {driver.id} accepted order {order.order_number} while PREPARING")
     else:
-        # Food is ready: driver is picking up now
-        order.driver_en_route = False
-        order.status = OrderStatus.OUT_FOR_DELIVERY
-        logger.info(f"Driver {driver.id} accepted READY order {order.order_number}, status -> OUT_FOR_DELIVERY")
+        # Food is ready: driver is heading to restaurant to pick up
+        # Keep status as READY_FOR_PICKUP - will change to OUT_FOR_DELIVERY when picked up
+        # DO NOT change to OUT_FOR_DELIVERY here - that happens after pickup!
+        logger.info(f"Driver {driver.id} accepted READY order {order.order_number}, heading to restaurant for pickup")
 
     db.commit()
 
@@ -2474,15 +2477,15 @@ async def assign_driver(
         customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
         if customer and customer.push_token:
             if is_early_acceptance:
-                # Early acceptance notification
+                # Early acceptance notification - food still preparing
                 title = "Driver Accepted!"
                 body = f"{driver_name} is heading to {restaurant_name}. Food ready in {food_eta_text}."
                 notif_type = "driver_en_route"
             else:
-                # Ready pickup notification
-                title = "Driver Picking Up!"
-                body = f"{driver_name} is picking up your order now."
-                notif_type = "driver_picking_up"
+                # Food ready - driver heading to restaurant for pickup
+                title = "Driver On The Way!"
+                body = f"{driver_name} is heading to {restaurant_name} to pick up your order."
+                notif_type = "driver_en_route"
 
             customer_notified = send_push_notification(
                 user_type="customer",
@@ -2511,11 +2514,13 @@ async def assign_driver(
     try:
         if vendor and vendor.push_token:
             if is_early_acceptance:
+                # Early acceptance - food still preparing, driver heading to restaurant
                 title = "Driver En Route"
                 body = f"{driver_name} accepted and is heading to you. Arriving in {driver_eta_text}."
             else:
-                title = "Driver Arrived"
-                body = f"{driver_name} is here to pick up order #{order.order_number}."
+                # Food ready - driver heading to restaurant for pickup
+                title = "Driver En Route"
+                body = f"{driver_name} is on the way to pick up order #{order.order_number}. Arriving in {driver_eta_text}."
 
             restaurant_notified = send_push_notification(
                 user_type="vendor",
@@ -2550,7 +2555,7 @@ async def assign_driver(
         "customer_notified": customer_notified,
         "restaurant_notified": restaurant_notified,
         "processed_by": ai_employee["name"],
-        "message": "Driver heading to restaurant" if is_early_acceptance else "Driver picking up order"
+        "message": "Driver heading to restaurant for pickup"
     }
 
 
