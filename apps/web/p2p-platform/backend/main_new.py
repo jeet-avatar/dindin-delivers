@@ -17463,14 +17463,25 @@ def clear_demo_driver_bids(db: Session = Depends(get_db)):
     This resets the driver to a clean state for testing.
     """
     try:
-        from models import RideBid, Driver
+        from models import RideBid, Driver, RideRequest
 
         # Get demo driver
         demo_driver = db.query(Driver).filter(Driver.id == 48).first()
         if not demo_driver:
             return {"success": False, "error": "Demo driver not found"}
 
-        # Delete all bids for this driver
+        # Get all bid IDs for this driver
+        driver_bid_ids = [b.id for b in db.query(RideBid).filter(RideBid.driver_id == 48).all()]
+
+        # Clear matched_bid_id references in ride_requests first (foreign key constraint)
+        if driver_bid_ids:
+            cleared_refs = db.query(RideRequest).filter(
+                RideRequest.matched_bid_id.in_(driver_bid_ids)
+            ).update({RideRequest.matched_bid_id: None}, synchronize_session=False)
+        else:
+            cleared_refs = 0
+
+        # Now delete all bids for this driver
         deleted_count = db.query(RideBid).filter(RideBid.driver_id == 48).delete()
 
         # Also clear any active orders assigned to this driver
@@ -17484,13 +17495,63 @@ def clear_demo_driver_bids(db: Session = Depends(get_db)):
             order.status = OrderStatus.DELIVERED
             order.delivered_at = datetime.now()
 
+        # Clear any active rides assigned to this driver
+        active_rides = db.query(RideRequest).filter(
+            RideRequest.driver_id == 48,
+            RideRequest.status.in_(['matched', 'in_progress', 'driver_assigned'])
+        ).all()
+
+        for ride in active_rides:
+            ride.status = 'completed'
+            ride.completed_at = datetime.now()
+
         db.commit()
 
         return {
             "success": True,
             "bids_deleted": deleted_count,
+            "refs_cleared": cleared_refs,
             "orders_completed": len(active_orders),
-            "message": f"Cleared {deleted_count} bids and completed {len(active_orders)} orders for demo driver"
+            "rides_completed": len(active_rides),
+            "message": f"Cleared {deleted_count} bids, {cleared_refs} refs, completed {len(active_orders)} orders and {len(active_rides)} rides for demo driver"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/admin/cleanup-expired-bids")
+def cleanup_expired_bids(db: Session = Depends(get_db)):
+    """
+    Clean up all expired bids system-wide.
+    Marks bids past their expires_at as EXPIRED and clears stale references.
+    """
+    try:
+        from models import RideBid, BidStatus
+        from sqlalchemy import and_
+
+        now = datetime.utcnow()
+
+        # Find all expired pending bids
+        expired_bids = db.query(RideBid).filter(
+            and_(
+                RideBid.status == BidStatus.PENDING,
+                RideBid.expires_at < now
+            )
+        ).all()
+
+        expired_count = 0
+        for bid in expired_bids:
+            bid.status = BidStatus.EXPIRED
+            bid.customer_response = "Bid expired (no response within 10 minutes)"
+            expired_count += 1
+
+        db.commit()
+
+        return {
+            "success": True,
+            "expired_count": expired_count,
+            "message": f"Marked {expired_count} bids as expired"
         }
     except Exception as e:
         db.rollback()
