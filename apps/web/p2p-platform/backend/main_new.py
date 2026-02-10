@@ -2164,18 +2164,26 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
 
     print(f"Driver Google auth for: {email}")
 
-    # Check if user exists with DRIVER role
-    user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+    # Check if user exists with this email (any role)
+    existing_user = db.query(User).filter(User.email == email).first()
 
-    if user:
-        # Existing driver - block only SUSPENDED drivers
-        if user.driver_id:
-            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-            if driver and driver.status == DriverStatus.SUSPENDED:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Driver account is suspended. Please contact support@dollor.ai"
-                )
+    if existing_user:
+        if existing_user.role == UserRole.DRIVER:
+            # Existing driver - block only SUSPENDED drivers
+            user = existing_user
+            if user.driver_id:
+                driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+                if driver and driver.status == DriverStatus.SUSPENDED:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Driver account is suspended. Please contact support@dollor.ai"
+                    )
+        else:
+            # Email already registered with different role
+            raise HTTPException(
+                status_code=400,
+                detail=f"This email is already registered as a {existing_user.role.value}. Please use the {existing_user.role.value} app or use a different email."
+            )
     else:
         # Create new driver and user
         name_parts = name.split(" ", 1)
