@@ -730,6 +730,21 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     if existing_bid:
         raise HTTPException(status_code=400, detail="You already have a pending bid on this request. Update or withdraw it first.")
 
+    # Check max bids limit (default 10)
+    current_bid_count = db.query(RideBid).filter(
+        and_(
+            RideBid.ride_request_id == request_id,
+            RideBid.status == BidStatus.PENDING
+        )
+    ).count()
+
+    max_bids = ride_request.max_bids or 10
+    if current_bid_count >= max_bids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This ride has reached the maximum of {max_bids} bids. Try another ride request."
+        )
+
     # Create bid
     vehicle_info = f"{driver.vehicle_make} {driver.vehicle_model}"
     if driver.vehicle_year:
