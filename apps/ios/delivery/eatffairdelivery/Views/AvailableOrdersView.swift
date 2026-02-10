@@ -1382,32 +1382,70 @@ struct FareNegotiationSheet: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @Environment(\.dismiss) var dismiss
     @State private var counterOffer: String = ""
+    @State private var isReady = false
 
     private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // Header
-                VStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue.opacity(0.15))
-                            .frame(width: 80, height: 80)
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 32))
-                            .foregroundColor(.blue)
+            ZStack {
+                // Background color - prevents white flash
+                Theme.backgroundGrey.ignoresSafeArea()
+
+                if isReady {
+                    mainContent
+                } else {
+                    // Loading placeholder - shown briefly
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading...")
+                            .foregroundColor(Theme.textSecondary)
                     }
-
-                    Text("Set Your Price")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("As an independent driver, you set your own rates")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
                 }
-                .padding(.top)
+            }
+            .navigationTitle("Set Your Price")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear {
+                // Small delay to ensure smooth sheet animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        isReady = true
+                    }
+                }
+            }
+        }
+        .navigationViewStyle(.stack) // Prevents layout issues
+    }
+
+    // MARK: - Main Content
+    private var mainContent: some View {
+        VStack(spacing: 24) {
+            // Header
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 32))
+                        .foregroundColor(.blue)
+                }
+
+                Text("Set Your Price")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("As an independent driver, you set your own rates")
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textSecondary)
+            }
+            .padding(.top)
 
                 // Current Fare Display
                 VStack(spacing: 12) {
@@ -1549,15 +1587,6 @@ struct FareNegotiationSheet: View {
                     }
                 }
                 .padding()
-            }
-            .background(Theme.backgroundGrey.ignoresSafeArea())
-            .navigationTitle("Set Your Price")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
         }
     }
 }
