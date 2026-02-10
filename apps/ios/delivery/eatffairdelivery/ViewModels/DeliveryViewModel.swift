@@ -260,28 +260,36 @@ class DeliveryViewModel: ObservableObject {
     }
 
     // MARK: - Fetch Today's Completed Deliveries
-    /// Fetches completed deliveries for today to calculate stats
+    /// Fetches earnings from dashboard API (includes all completed deliveries + rides)
     func fetchTodayCompleted() {
-        p2pService.fetchMyDeliveries { [weak self] result in
+        guard let driverId = p2pService.currentDriverId else {
+            #if DEBUG
+            print("[DeliveryViewModel] fetchTodayCompleted: No driver ID")
+            #endif
+            return
+        }
+
+        // Use dashboard API for accurate earnings (includes delivered orders)
+        p2pService.getDriverDashboard(driverId: String(driverId)) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success(let p2pOrders):
-                    let today = Calendar.current.startOfDay(for: Date())
+                case .success(let dashboard):
+                    // Update stats from dashboard API (accurate totals)
+                    self?.todayCompletedCount = dashboard.today.deliveries
+                    self?.todayEarnings = dashboard.today.grossEarnings
+                    self?.todayTips = dashboard.today.tips ?? 0.0
+                    self?.hoursOnline = dashboard.today.activeHours ?? 0.0
+                    self?.weeklyEarnings = dashboard.thisWeek.grossEarnings
+                    self?.weeklyDeliveries = dashboard.thisWeek.deliveries
 
-                    self?.completedDeliveries = p2pOrders
-                        .filter { order in
-                            DeliveryOrderStatus.from(order.status) == .delivered &&
-                            self?.isOrderFromToday(order, today: today) == true
-                        }
-                        .compactMap { self?.convertToOrder($0) }
+                    #if DEBUG
+                    print("[DeliveryViewModel] Dashboard loaded: today=\(dashboard.today.deliveries) deliveries, $\(dashboard.today.grossEarnings)")
+                    #endif
 
-                    self?.todayCompletedCount = self?.completedDeliveries.count ?? 0
-                    self?.todayEarnings = self?.completedDeliveries.reduce(0) { total, order in
-                        total + order.deliveryFee + order.priorityFee + order.tip
-                    } ?? 0.0
-
-                case .failure:
-                    break // Silently fail for stats
+                case .failure(let error):
+                    #if DEBUG
+                    print("[DeliveryViewModel] Dashboard API failed: \(error.localizedDescription)")
+                    #endif
                 }
             }
         }
