@@ -760,11 +760,18 @@ struct ActiveDeliveryFullScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showCompleteConfirmation = false
+    @State private var showPickupConfirmation = false
+
+    // Determine if order has been picked up based on status
+    private var isPickedUp: Bool {
+        let status = OrderStatus.from(order.status)
+        return status == .outForDelivery || status == .restaurantWillDeliver
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Full Screen Map
-            FullScreenDeliveryMap(order: order, locationManager: locationManager)
+            // Full Screen Map - shows pickup or dropoff location based on status
+            FullScreenDeliveryMap(order: order, locationManager: locationManager, isPickedUp: isPickedUp)
                 .ignoresSafeArea()
 
             // Bottom Sheet
@@ -776,13 +783,13 @@ struct ActiveDeliveryFullScreen: View {
                     .padding(.top, 8)
 
                 VStack(spacing: 16) {
-                    // ETA
+                    // ETA - shows restaurant or customer based on pickup status
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Delivering to")
+                            Text(isPickedUp ? "Delivering to" : "Picking up from")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
-                            Text(order.customerName)
+                            Text(isPickedUp ? order.customerName : order.restaurant.name)
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(Theme.textPrimary)
@@ -790,33 +797,48 @@ struct ActiveDeliveryFullScreen: View {
 
                         Spacer()
 
-                        if let eta = locationManager.etaTo(latitude: order.deliveryAddress.latitude, longitude: order.deliveryAddress.longitude) {
-                            VStack(alignment: .trailing, spacing: 4) {
-                                Text(locationManager.formatETA(eta))
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(Theme.statusInfo)
-                                Text("ETA")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.textSecondary)
+                        // ETA to destination (restaurant for pickup, customer for delivery)
+                        if isPickedUp {
+                            if let eta = locationManager.etaTo(latitude: order.deliveryAddress.latitude, longitude: order.deliveryAddress.longitude) {
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(locationManager.formatETA(eta))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(Theme.statusInfo)
+                                    Text("ETA")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textSecondary)
+                                }
+                            }
+                        } else {
+                            if let eta = locationManager.etaTo(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude) {
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(locationManager.formatETA(eta))
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(Theme.brandOrange)
+                                    Text("ETA")
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textSecondary)
+                                }
                             }
                         }
                     }
 
-                    // Address
+                    // Address - shows restaurant or customer address based on pickup status
                     HStack(spacing: 12) {
-                        Image(systemName: "house.fill")
-                            .foregroundColor(Theme.statusActive)
+                        Image(systemName: isPickedUp ? "house.fill" : "storefront.fill")
+                            .foregroundColor(isPickedUp ? Theme.statusActive : Theme.brandOrange)
 
-                        Text(order.deliveryAddress.fullAddress)
+                        Text(isPickedUp ? order.deliveryAddress.fullAddress : order.restaurant.address)
                             .font(.subheadline)
                             .foregroundColor(Theme.textSecondary)
                             .lineLimit(2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Instructions
-                    if !order.deliveryInstructions.isEmpty {
+                    // Instructions - only show during delivery phase
+                    if isPickedUp && !order.deliveryInstructions.isEmpty {
                         HStack(spacing: 8) {
                             Image(systemName: "note.text")
                                 .foregroundColor(Theme.statusWarning)
@@ -827,6 +849,22 @@ struct ActiveDeliveryFullScreen: View {
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Theme.statusWarning.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+
+                    // Order info for pickup phase
+                    if !isPickedUp {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bag.fill")
+                                .foregroundColor(Theme.brandOrange)
+                            Text("#\(order.orderId) • \(order.itemsCount) items")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.brandOrange.opacity(0.1))
                         .cornerRadius(10)
                     }
 
@@ -841,7 +879,8 @@ struct ActiveDeliveryFullScreen: View {
                                 .cornerRadius(12)
                         }
 
-                        if let phone = order.customerPhone, !phone.isEmpty {
+                        // Phone button - only show during delivery phase (customer phone)
+                        if isPickedUp, let phone = order.customerPhone, !phone.isEmpty {
                             Button(action: {
                                 if let url = URL(string: "tel://\(phone.replacingOccurrences(of: " ", with: ""))") {
                                     UIApplication.shared.open(url)
@@ -856,17 +895,33 @@ struct ActiveDeliveryFullScreen: View {
                             }
                         }
 
-                        Button(action: { showCompleteConfirmation = true }) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Complete Delivery")
+                        // Action button - Confirm Pickup or Complete Delivery
+                        if isPickedUp {
+                            Button(action: { showCompleteConfirmation = true }) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Complete Delivery")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(Theme.statusActive)
+                                .cornerRadius(12)
                             }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Theme.statusActive)
-                            .cornerRadius(12)
+                        } else {
+                            Button(action: { showPickupConfirmation = true }) {
+                                HStack {
+                                    Image(systemName: "bag.circle.fill")
+                                    Text("Confirm Pickup")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(Theme.brandOrange)
+                                .cornerRadius(12)
+                            }
                         }
                     }
                 }
@@ -883,6 +938,13 @@ struct ActiveDeliveryFullScreen: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .confirmationDialog("Confirm Pickup?", isPresented: $showPickupConfirmation) {
+            Button("I've Picked Up the Order") {
+                viewModel.markAsPickedUp(order)
+                // Don't dismiss - stay on screen with updated state
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 }
 
@@ -890,6 +952,7 @@ struct ActiveDeliveryFullScreen: View {
 struct FullScreenDeliveryMap: View {
     let order: Order
     let locationManager: LocationManager
+    let isPickedUp: Bool
 
     @State private var position: MapCameraPosition = .automatic
 
@@ -902,7 +965,33 @@ struct FullScreenDeliveryMap: View {
                 }
             }
 
-            // Dropoff
+            // Restaurant Location (pickup) - always show but highlight when active
+            Annotation(order.restaurant.name, coordinate: CLLocationCoordinate2D(
+                latitude: order.restaurant.latitude,
+                longitude: order.restaurant.longitude
+            )) {
+                VStack(spacing: 2) {
+                    ZStack {
+                        Circle()
+                            .fill(isPickedUp ? Theme.textGrey : Theme.brandOrange)
+                            .frame(width: isPickedUp ? 36 : 44, height: isPickedUp ? 36 : 44)
+                            .shadow(color: (isPickedUp ? Theme.textGrey : Theme.brandOrange).opacity(0.4), radius: 8)
+
+                        Image(systemName: "storefront.fill")
+                            .font(.system(size: isPickedUp ? 16 : 20))
+                            .foregroundColor(.white)
+                    }
+
+                    if !isPickedUp {
+                        Image(systemName: "arrowtriangle.down.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.brandOrange)
+                            .offset(y: -4)
+                    }
+                }
+            }
+
+            // Customer Location (dropoff) - always show but highlight when active
             Annotation(order.customerName, coordinate: CLLocationCoordinate2D(
                 latitude: order.deliveryAddress.latitude,
                 longitude: order.deliveryAddress.longitude
@@ -910,19 +999,21 @@ struct FullScreenDeliveryMap: View {
                 VStack(spacing: 2) {
                     ZStack {
                         Circle()
-                            .fill(Theme.statusActive)
-                            .frame(width: 44, height: 44)
-                            .shadow(color: Theme.statusActive.opacity(0.4), radius: 8)
+                            .fill(isPickedUp ? Theme.statusActive : Theme.textGrey)
+                            .frame(width: isPickedUp ? 44 : 36, height: isPickedUp ? 44 : 36)
+                            .shadow(color: (isPickedUp ? Theme.statusActive : Theme.textGrey).opacity(0.4), radius: 8)
 
                         Image(systemName: "house.fill")
-                            .font(.system(size: 20))
+                            .font(.system(size: isPickedUp ? 20 : 16))
                             .foregroundColor(.white)
                     }
 
-                    Image(systemName: "arrowtriangle.down.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.statusActive)
-                        .offset(y: -4)
+                    if isPickedUp {
+                        Image(systemName: "arrowtriangle.down.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.statusActive)
+                            .offset(y: -4)
+                    }
                 }
             }
         }
