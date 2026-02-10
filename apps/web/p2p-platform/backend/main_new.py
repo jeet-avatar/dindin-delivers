@@ -12517,18 +12517,41 @@ async def negotiate_ride_ios_alias(
     """Alias for iOS apps - negotiate fare
     iOS calls: POST /api/erp/rides/{rideId}/negotiate
     Body: {"proposed_fare": 10.0, "is_driver_offer": true}
+
+    Returns FareNegotiationResponse format for iOS decode compatibility.
     """
     from models import RideRequest
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    proposed_fare = request.get("proposed_fare", ride.estimated_price or 15.0)
+    proposed_fare = request.get("proposed_fare", ride.suggested_price or 15.0)
+    is_driver_offer = request.get("is_driver_offer", True)
+
+    # Calculate platform fee based on fare (tiered: $1/$2/$3)
+    if proposed_fare <= 35:
+        platform_fee = 1.0
+    elif proposed_fare <= 70:
+        platform_fee = 2.0
+    else:
+        platform_fee = 3.0
+
+    # Update ride with the offer (use customer_preferred_price for both since no driver_offer field)
+    if not is_driver_offer:
+        ride.customer_preferred_price = proposed_fare
+        db.commit()
+
+    # Return FareNegotiationResponse format expected by iOS
+    customer_offer = ride.customer_preferred_price or ride.suggested_price or 15.0
+    driver_offer = proposed_fare if is_driver_offer else None
+
     return {
         "success": True,
-        "ride_id": ride_id,
-        "proposed_fare": proposed_fare,
-        "status": "negotiating",
+        "status": "pending",  # negotiating -> pending for iOS compatibility
+        "customer_offer": customer_offer,
+        "driver_offer": driver_offer,
+        "platform_fee_driver": platform_fee,
+        "platform_fee_customer": platform_fee,
         "message": "Fare negotiation submitted"
     }
 
