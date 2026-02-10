@@ -17456,6 +17456,47 @@ def debug_order(order_id: int, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/demo/clear-driver-bids")
+def clear_demo_driver_bids(db: Session = Depends(get_db)):
+    """
+    Clear all old bids for the demo driver (ID 48).
+    This resets the driver to a clean state for testing.
+    """
+    try:
+        from models import RideBid, Driver
+
+        # Get demo driver
+        demo_driver = db.query(Driver).filter(Driver.id == 48).first()
+        if not demo_driver:
+            return {"success": False, "error": "Demo driver not found"}
+
+        # Delete all bids for this driver
+        deleted_count = db.query(RideBid).filter(RideBid.driver_id == 48).delete()
+
+        # Also clear any active orders assigned to this driver
+        from models import Order, OrderStatus
+        active_orders = db.query(Order).filter(
+            Order.driver_id == 48,
+            Order.status.in_([OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY])
+        ).all()
+
+        for order in active_orders:
+            order.status = OrderStatus.DELIVERED
+            order.delivered_at = datetime.now()
+
+        db.commit()
+
+        return {
+            "success": True,
+            "bids_deleted": deleted_count,
+            "orders_completed": len(active_orders),
+            "message": f"Cleared {deleted_count} bids and completed {len(active_orders)} orders for demo driver"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
+
 @app.post("/api/demo/create-order")
 def create_demo_order(db: Session = Depends(get_db)):
     """
