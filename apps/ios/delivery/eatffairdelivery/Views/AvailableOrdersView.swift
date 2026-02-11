@@ -1382,45 +1382,23 @@ struct FareNegotiationSheet: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @Environment(\.dismiss) var dismiss
     @State private var counterOffer: String = ""
-    @State private var isReady = false
 
     private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
 
     var body: some View {
         NavigationView {
-            ZStack {
-                // Background color - prevents white flash
-                Theme.backgroundGrey.ignoresSafeArea()
-
-                if isReady {
-                    mainContent
-                } else {
-                    // Loading placeholder - shown briefly
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                        Text("Loading...")
-                            .foregroundColor(Theme.textSecondary)
+            mainContent
+                .background(Theme.backgroundGrey)
+                .navigationTitle("Set Your Price")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Cancel") { dismiss() }
                     }
                 }
-            }
-            .navigationTitle("Set Your Price")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-            .onAppear {
-                // Small delay to ensure smooth sheet animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.easeIn(duration: 0.2)) {
-                        isReady = true
-                    }
-                }
-            }
         }
-        .navigationViewStyle(.stack) // Prevents layout issues
+        .navigationViewStyle(.stack)
+        .presentationBackground(Theme.backgroundGrey)
     }
 
     // MARK: - Main Content

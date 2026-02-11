@@ -31,6 +31,7 @@ from email_service import (
     send_ride_completed_email,
     send_ride_cancelled_email
 )
+from order_flow import send_push_notification
 import asyncio
 import logging
 
@@ -835,6 +836,28 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
             logger.info(f"Bid notification email sent to {customer.email}")
     except Exception as e:
         logger.error(f"Failed to send bid notification email: {e}")
+
+    # Send push notification to customer about new bid
+    try:
+        driver_name = f"{driver.first_name} {driver.last_name}".strip()
+        send_push_notification(
+            user_type="customer",
+            user_id=ride_request.customer_id,
+            title="New Driver Bid!",
+            body=f"{driver_name} bid ${data.proposed_price:.2f} for your ride",
+            data={
+                "type": "new_bid",
+                "ride_request_id": str(request_id),
+                "bid_id": str(bid.id),
+                "driver_name": driver_name,
+                "proposed_price": str(data.proposed_price),
+                "eta_minutes": str(data.estimated_arrival_minutes or 10)
+            },
+            db=db
+        )
+        logger.info(f"Push notification sent to customer {ride_request.customer_id} for new bid")
+    except Exception as e:
+        logger.error(f"Failed to send push notification for new bid: {e}")
 
     return {
         "success": True,
