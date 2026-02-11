@@ -179,3 +179,4 @@ backend/.employee-backups/
 # ===================
 **/fastlane/report.xml
 **/fastlane/README.md
+apps/ios/delivery/.dead-code-backup/
