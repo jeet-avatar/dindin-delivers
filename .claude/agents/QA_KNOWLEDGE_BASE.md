@@ -1,7 +1,7 @@
 # Dollor.ai QA Knowledge Base
 
-> **Last Updated:** February 10, 2026 @ 22:45 PST (Bidding Rules Updated)
-> **Backend Version:** 1.0.14
+> **Last Updated:** February 11, 2026 @ 03:15 PST (29-Agent QA System)
+> **Backend Version:** 1.0.18
 > **Production API:** https://api.dollor.ai
 > **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net
 > **Source:** All data captured from PRODUCTION API responses
@@ -12,19 +12,19 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| Status | healthy | ✅ 2026-02-10 |
-| Database | connected | ✅ 2026-02-10 |
-| Version | 1.0.14 | 🚀 Deploying |
-| Build | 2026-02-10-max-bids-and-auto-expire | 🚀 Deploying |
+| Status | healthy | ✅ 2026-02-11 |
+| Database | connected | ✅ 2026-02-11 |
+| Version | 1.0.18 | ✅ DEPLOYED |
+| Build | 2026-02-11-negotiation-round-fix | ✅ DEPLOYED |
 
-**Raw Production Response (after deploy):**
+**Raw Production Response:**
 ```json
-{"status":"healthy","service":"p2p-backend","version":"1.0.14","build":"2026-02-10-max-bids-and-auto-expire","timestamp":"2026-02-10T22:45:00.000000","database":"connected"}
+{"status":"healthy","service":"p2p-backend","version":"1.0.18","build":"2026-02-11-negotiation-round-fix","timestamp":"2026-02-11T03:12:46.527846","database":"connected"}
 ```
 
 ---
 
-## 24 Cross-Platform QA Agents Reference
+## 29 Cross-Platform QA Agents Reference
 
 | # | Agent Name | Purpose | Platforms | Script/File |
 |---|------------|---------|-----------|-------------|
@@ -40,9 +40,9 @@
 | 10 | Frontend Data Validation | API response fields present | iOS/Android | JSON parsing |
 | 11 | Frontend Display Validation | No hardcoded display values | iOS/Android | grep patterns |
 | 12 | Field Mapping Validator | iOS/Android/Backend match | All | struct analysis |
-| 13 | Driver App Validator | 4 tabs, all flows | iOS/Android | UI validation |
+| 13 | Driver App Validator | 5 tabs, all flows | iOS/Android | UI validation |
 | 14 | Customer App Validator | 4-5 tabs, all flows | iOS/Android | UI validation |
-| 15 | Restaurant App Validator | 4 tabs, order management | iOS/Android | UI validation |
+| 15 | Restaurant App Validator | 5 tabs, order management | iOS/Android | UI validation |
 | 16 | Order Lifecycle | Full order status flow | All | E2E test |
 | 17 | API Documentation | Endpoints documented | All | OpenAPI check |
 | 18 | Driver Details Flow | Photo, vehicle, rating | All | field trace |
@@ -52,8 +52,66 @@
 | 22 | Data Type Validator | Types consistent cross-platform | All | type analysis |
 | 23 | QA Challenger (FINAL GATE) | Demands evidence, blocks deploy | All | `qa-challenger-agent.sh` |
 | 24 | Cross-Platform Validator | Button actions, timing, paths | All | `agent-24-cross-platform-validator.md` |
+| 25 | Error Message Consistency | User-friendly patterns, no raw errors | iOS/Android | pattern audit |
+| 26 | Logger Compliance | os.Logger, no print(), subsystem | iOS | grep validation |
+| 27 | Bid Negotiation Flow | Multi-round counters, max rounds | All | E2E flow test |
+| 28 | Push Notification | Bid/order notifications | All | APNs/FCM test |
+| 29 | Smart Error UX | Blocking errors with navigation | iOS/Android | UX validation |
 
 **Full Documentation**: `.planning/CROSS_PLATFORM_QA_AGENTS.md`
+
+---
+
+## Cross-Platform Error Message Consistency (Agent 25)
+
+### Summary (2026-02-11 QA Run)
+
+| App | Total Patterns | User-Friendly | Technical | % User-Friendly | Rating |
+|-----|---------------|---------------|-----------|-----------------|--------|
+| Customer | 48 | 46 | 2 | 96% | 9.0/10 |
+| Driver | 37 | 36 | 1 | 97% | 9.5/10 |
+| Restaurant | 30 | 28 | 2 | 93% | 9.0/10 |
+| **Total** | **115** | **110** | **5** | **96%** | **9.2/10** |
+
+### Consistent Patterns Across All Apps
+
+| Pattern | Customer | Driver | Restaurant |
+|---------|----------|--------|------------|
+| `@Published var errorMessage: String?` | ✅ | ✅ | ✅ |
+| `@Published var showError = false` | ✅ | ✅ | ✅ |
+| `showErrorMessage(_:)` helper | ✅ | ✅ | ✅ |
+| Alert presentation pattern | ✅ | ✅ | ✅ |
+| Context prefix ("Failed to X:") | ✅ | ✅ | ✅ |
+
+### Error Message Style Guide
+
+All apps follow these patterns:
+1. **Validation errors**: "Please [action]" (e.g., "Please enter a valid email")
+2. **State errors**: "[State]. [Suggestion]" (e.g., "No active ride to cancel")
+3. **API failures**: "Failed to [action]: [error]" (e.g., "Failed to submit bid: ...")
+4. **Auth errors**: "Please log in to [action]" (e.g., "Please login to request a ride")
+
+**Cross-App Consistency Score: 9.5/10**
+
+---
+
+## Logger Compliance Summary (Agent 26)
+
+| App | Files with Logger | Files with print() | Subsystem | Compliance |
+|-----|-------------------|-------------------|-----------|------------|
+| Customer | 22 | 0 | com.dollorai.customer | 100% |
+| Driver | 12 | 3 (19 prints, DEBUG-only) | com.dollorai.delivery | 95% |
+| Restaurant | 12 | 0 | com.dollorai.restaurant | 100% |
+
+**Standard Pattern:**
+```swift
+import os
+private let logger = Logger(subsystem: "com.dollorai.{app}", category: "{FileName}")
+```
+
+**Minor Issues (P3):**
+- Driver app: 19 print() statements in 3 files (all #if DEBUG wrapped)
+- Some Services use Bundle.main.bundleIdentifier fallback
 
 ---
 
@@ -679,10 +737,10 @@ delivered
 | App | Bundle ID | Build | Version | Uploaded |
 |-----|-----------|-------|---------|----------|
 | Customer | com.dollorai.customer | 1060 | 1.0 | 2026-02-10 |
-| Driver | com.dollorai.delivery | **165** | 1.0 | 2026-02-10 |
+| Driver | com.dollorai.delivery | **168** | 1.0 | 2026-02-11 |
 | Restaurant | com.dollorai.restaurant | 140 | 1.0 | 2026-02-10 |
 
-**QA Gate:** Build 165 includes:
+**QA Gate:** Build 168 includes:
 - Smart error handling for driver bid blocking
 - Logger fixes across all ViewModels
 - Clean ride number format (RIDE2026000XXX)
@@ -850,4 +908,5 @@ curl -s "https://api.dollor.ai/api/v5/driver/48/dashboard" | jq '.today, .this_w
 
 ---
 
-*Generated for Dollor.ai QA Team - Updated February 6, 2026*
+*Generated for Dollor.ai QA Team - Updated February 11, 2026*
+*29-Agent QA System v4.2.0*
