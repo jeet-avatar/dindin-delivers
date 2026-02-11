@@ -1,8 +1,8 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 8, 2026
-> **API Contract Version**: 1.0.12
-> **Backend Version**: 1.0.12
+> **Last Updated**: February 10, 2026
+> **API Contract Version**: 1.0.14
+> **Backend Version**: 1.0.14
 
 ---
 
@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1060 | 1.0 | ✅ Uploaded 2026-02-09 13:02 |
-| **Dollor Driver** | `com.dollorai.delivery` | 166 | 1.0 | ✅ Uploaded 2026-02-10 16:00 |
+| **Dollor Driver** | `com.dollorai.delivery` | 167 | 1.0 | ✅ Uploaded 2026-02-10 16:25 (Production API) |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 140 | 1.0 | ✅ Uploaded 2026-02-09 13:13 |
 
 ---
@@ -20,6 +20,8 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| FareNegotiationSheet white flash | Added loading state with ProgressView before main content | Build 167 |
+| "Failed to submit offer" decode error | Backend v1.0.14 returns required platform_fee_driver/customer fields | Build 167 |
 | ActiveDeliveryFullScreen wrong destination | Made view status-aware: shows "Picking up from" + restaurant for pickup phase, "Delivering to" + customer for delivery phase | Build 165 |
 | Driver bid blocking unclear | Smart alert detection for "active ride" / "active delivery" with navigation button | `7c273e7a` |
 | Logger not in scope errors | Added proper Logger imports across Driver and Restaurant apps | `7c273e7a` |
