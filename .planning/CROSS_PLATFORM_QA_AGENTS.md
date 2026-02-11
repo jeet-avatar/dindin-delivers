@@ -43,6 +43,11 @@ All agents are **READ-ONLY** and verify cross-platform consistency, API contract
 | 22 | Data Type Validator | Types consistent across platforms | All | Yes |
 | 23 | QA Challenger (FINAL GATE) | Demands evidence for all passes | All | Yes |
 | 24 | Cross-Platform Validator | Button actions, timing, paths | All | Yes |
+| 25 | Error Message Consistency | User-friendly patterns, no raw errors | iOS/Android | Yes |
+| 26 | Logger Compliance | os.Logger usage, no print(), subsystem consistency | iOS | Yes |
+| 27 | Bid Negotiation Flow | Multi-round counter-offers, max rounds | All | Yes |
+| 28 | Push Notification | Bid notifications, order updates | All | Yes |
+| 29 | Smart Error UX | Blocking errors with navigation | iOS/Android | Yes |
 
 ---
 
@@ -605,6 +610,237 @@ done
 
 ---
 
+### Agent 25: Error Message Consistency Validator
+
+**Purpose**: Verify all error messages are user-friendly, not raw technical errors
+
+**Platforms**: iOS (Swift), Android (Kotlin)
+
+**Pattern Detection**:
+| Pattern Type | Example | Rating |
+|--------------|---------|--------|
+| USER-FRIENDLY | "Please enter a valid email address" | 10/10 |
+| USER-FRIENDLY | "Failed to submit bid: {context}" | 9/10 |
+| TECHNICAL | `error.localizedDescription` raw | 5/10 |
+| TECHNICAL | "Error: \(error)" | 3/10 |
+
+**Validation Rules**:
+```swift
+// GOOD: User-friendly patterns
+"Please [action]"                    // Validation
+"[State]. [Suggestion]"              // State info
+"Failed to [action]: [context]"      // Context + detail
+
+// BAD: Technical patterns
+error.localizedDescription           // Raw passthrough
+"Error: \(error)"                    // No context
+"Network error"                      // Too vague
+```
+
+**Files to Audit**:
+- All ViewModels in customer/, delivery/, restaurant/
+- Look for `errorMessage =` assignments
+- Count user-friendly vs technical patterns
+
+**Thresholds**:
+| Rating | % User-Friendly |
+|--------|-----------------|
+| PASS | ≥ 95% |
+| WARN | 90-94% |
+| FAIL | < 90% |
+
+**Output**: `QA_REPORT_ERROR_MESSAGES.md`
+
+---
+
+### Agent 26: Logger Compliance Validator
+
+**Purpose**: Verify proper os.Logger usage across all iOS apps
+
+**Platforms**: iOS only
+
+**Compliance Checks**:
+| Check | Pattern | Required |
+|-------|---------|----------|
+| Logger import | `import os` | Yes |
+| Logger declaration | `private let logger = Logger(...)` | Yes |
+| Subsystem format | `com.dollorai.{app}` | Yes |
+| No print() | `print(...)` | Must be 0 |
+| DEBUG-only print | `#if DEBUG print(...) #endif` | Acceptable |
+
+**Subsystem Standards**:
+| App | Subsystem |
+|-----|-----------|
+| Customer | `com.dollorai.customer` |
+| Driver | `com.dollorai.delivery` |
+| Restaurant | `com.dollorai.restaurant` |
+| Shared | `com.dollorai.shared` |
+
+**Bad Patterns**:
+```swift
+// WRONG: Inconsistent subsystem naming
+Logger(subsystem: "ai.dollor.customer", ...)     // Wrong prefix
+Logger(subsystem: Bundle.main.bundleIdentifier!, ...) // Dynamic (risky)
+Logger(subsystem: "com.dollor.delivery", ...)    // Typo (missing 'ai')
+```
+
+**Validation Commands**:
+```bash
+# Count Logger declarations
+grep -r "Logger(subsystem" apps/ios/*/
+
+# Count print() statements
+grep -r "print(" apps/ios/*/*.swift | grep -v "#if DEBUG"
+
+# Check subsystem consistency
+grep -ro "subsystem: \"[^\"]*\"" apps/ios/
+```
+
+**Output**: `QA_REPORT_LOGGER_COMPLIANCE.md`
+
+---
+
+### Agent 27: Bid Negotiation Flow Validator
+
+**Purpose**: Verify complete multi-round bid negotiation flow
+
+**Platforms**: All (iOS, Android, Backend)
+
+**Negotiation Rules**:
+| Rule | Value | Enforcement |
+|------|-------|-------------|
+| Max rounds per bid | 2 | Backend enforced |
+| Max customer counters per ride | 3 | Backend enforced |
+| Bid expiry | 10 minutes | Auto-expired |
+| Low bid warning | 40-60% of suggested | UI warning |
+| Bid rejection | < 40% of suggested | Backend rejects |
+
+**Flow Validation**:
+```
+1. Customer creates ride request
+   ↓
+2. Driver submits bid (proposed_price, message, eta)
+   ↓
+3. Customer sees bids in DriverBidsSheet
+   ↓
+4. Customer can: ACCEPT | REJECT | COUNTER
+   ↓ (if COUNTER)
+5. Driver sees counter in pendingCounterOffers
+   ↓
+6. Driver can: ACCEPT | REJECT | COUNTER (via /driver-counter)
+   ↓ (if COUNTER round 2)
+7. Customer receives final offer (is_final_round=true)
+   ↓
+8. Customer must ACCEPT or REJECT (no more counters)
+```
+
+**API Endpoints**:
+| Step | Endpoint | Method |
+|------|----------|--------|
+| Submit bid | `/api/rides/request/{id}/bid` | POST |
+| Get bids | `/api/rides/request/{id}/bids` | GET |
+| Customer respond | `/api/rides/bid/{id}/respond` | POST |
+| Driver counter | `/api/rides/bid/{id}/driver-counter` | POST |
+
+**Test Scenarios**:
+1. Happy path: Bid → Accept
+2. Counter flow: Bid → Counter → Accept
+3. Double counter: Bid → Counter → Driver Counter → Accept
+4. Max rounds: Verify is_final_round=true after 2 rounds
+5. Rejection: Bid → Reject → Bid removed
+6. Expiry: Bid → Wait 10 min → Bid expired
+
+**Output**: `QA_REPORT_BID_NEGOTIATION.md`
+
+---
+
+### Agent 28: Push Notification Validator
+
+**Purpose**: Verify push notifications trigger correctly for all events
+
+**Platforms**: iOS, Android, Backend
+
+**Notification Events**:
+| Event | Trigger | Recipients |
+|-------|---------|------------|
+| New bid | Driver submits bid | Customer |
+| Bid accepted | Customer accepts | Driver |
+| Counter-offer | Customer/Driver counters | Other party |
+| Bid rejected | Customer rejects | Driver |
+| Order ready | Restaurant marks ready | Customer + Driver |
+| Order delivered | Driver marks delivered | Customer |
+| Ride started | Driver starts ride | Customer |
+| Ride completed | Driver completes ride | Customer |
+
+**Backend Implementation** (v1.0.15+):
+```python
+# bid_routes.py - push notification on new bid
+await send_push_notification(
+    customer_id=ride_request.customer_id,
+    title="New Bid Received",
+    body=f"${bid.proposed_price:.2f} from {driver.name}"
+)
+```
+
+**Validation Checks**:
+1. APNs/FCM tokens stored correctly
+2. Notification payload format correct
+3. Deep links work (tap opens correct screen)
+4. Badge counts update correctly
+5. Notification permissions requested properly
+
+**Output**: `QA_REPORT_PUSH_NOTIFICATIONS.md`
+
+---
+
+### Agent 29: Smart Error UX Validator
+
+**Purpose**: Verify blocking errors show smart alerts with navigation
+
+**Platforms**: iOS, Android
+
+**Smart Error Pattern**:
+```swift
+// WORLD-CLASS: Smart detection + navigation
+if message.contains("active ride") {
+    alertTitle = "Complete Active Ride First"
+    primaryButton = "View Active Work" → navigates to Active tab
+}
+```
+
+**Required Blocking Errors**:
+| Error Condition | Alert Title | Primary Action |
+|-----------------|-------------|----------------|
+| Active ride exists | "Complete Active Ride First" | Navigate to Active tab |
+| Active delivery exists | "Complete Delivery First" | Navigate to Active tab |
+| Max bids reached | "Maximum Bids Reached" | Show alternative rides |
+| Bidding closed | "Bidding Closed" | Dismiss |
+
+**Implementation Checklist**:
+- [ ] ViewModel detects blocking keywords with `.contains()`
+- [ ] View computes `isBlockingError` boolean
+- [ ] Alert shows context-aware title
+- [ ] Primary button has navigation action
+- [ ] Secondary button is "OK" for dismissal
+
+**Files to Audit**:
+| File | Smart Error |
+|------|-------------|
+| RideBiddingViewModel.swift:200-205 | Smart detection |
+| RideshareDashboardView.swift | hasActiveRide/hasActiveDelivery |
+| AvailableRideRequestsView.swift | isBlockingError + navigation |
+
+**Backend Contract Dependency**:
+iOS smart alerts depend on backend error messages containing exact keywords:
+- "active ride" (bid_routes.py:781)
+- "active delivery" (bid_routes.py:795)
+
+**Change Coordination Required**: If backend changes these error strings, iOS must be updated simultaneously.
+
+**Output**: `QA_REPORT_SMART_ERROR_UX.md`
+
+---
+
 *Generated by GSD Framework v1.10.0*
-*Dollor.ai Cross-Platform QA System - 24 Agents*
-*Last Updated: February 6, 2026*
+*Dollor.ai Cross-Platform QA System - 29 Agents*
+*Last Updated: February 11, 2026*
