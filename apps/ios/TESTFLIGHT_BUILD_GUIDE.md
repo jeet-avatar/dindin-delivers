@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1060 | 1.0 | ✅ Uploaded 2026-02-09 13:02 |
-| **Dollor Driver** | `com.dollorai.delivery` | 167 | 1.0 | ✅ Uploaded 2026-02-10 16:25 (Production API) |
+| **Dollor Driver** | `com.dollorai.delivery` | 168 | 1.0 | ✅ Uploaded 2026-02-10 16:56 (Push notif + white flash fix) |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 140 | 1.0 | ✅ Uploaded 2026-02-09 13:13 |
 
 ---
@@ -20,7 +20,8 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
-| FareNegotiationSheet white flash | Added loading state with ProgressView before main content | Build 167 |
+| Customer not notified of bids | Backend v1.0.15 sends push notification when driver bids | Build 168 |
+| FareNegotiationSheet white flash | Use .presentationBackground() for immediate background | Build 168 |
 | "Failed to submit offer" decode error | Backend v1.0.14 returns required platform_fee_driver/customer fields | Build 167 |
 | ActiveDeliveryFullScreen wrong destination | Made view status-aware: shows "Picking up from" + restaurant for pickup phase, "Delivering to" + customer for delivery phase | Build 165 |
 | Driver bid blocking unclear | Smart alert detection for "active ride" / "active delivery" with navigation button | `7c273e7a` |
