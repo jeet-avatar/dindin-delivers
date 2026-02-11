@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.15",
-        "build": "2026-02-10-bid-push-notifications",
+        "version": "1.0.16",
+        "build": "2026-02-10-negotiate-push-notifications",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -12548,6 +12548,27 @@ async def negotiate_ride_ios_alias(
     if not is_driver_offer:
         ride.customer_preferred_price = proposed_fare
         db.commit()
+
+    # Send push notification to customer when driver sends an offer
+    if is_driver_offer and ride.customer_id:
+        try:
+            from order_flow import send_push_notification
+            send_push_notification(
+                user_type="customer",
+                user_id=ride.customer_id,
+                title="Driver Price Offer!",
+                body=f"A driver offered ${proposed_fare:.2f} for your ride",
+                data={
+                    "type": "fare_negotiation",
+                    "ride_id": str(ride_id),
+                    "proposed_fare": str(proposed_fare),
+                    "action": "driver_offer"
+                },
+                db=db
+            )
+            logger.info(f"Push notification sent to customer {ride.customer_id} for fare negotiation")
+        except Exception as e:
+            logger.error(f"Failed to send negotiation push notification: {e}")
 
     # Return FareNegotiationResponse format expected by iOS
     customer_offer = ride.customer_preferred_price or ride.suggested_price or 15.0
