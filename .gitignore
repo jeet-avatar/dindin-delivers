@@ -165,3 +165,17 @@ temp/
 *.tmp
 logs/
 coverage/
+
+# ===================
+# Backend artifacts (local only)
+# ===================
+*.db
+apps/web/p2p-platform/backend/uploads/
+apps/web/p2p-platform/backend/screenshots/
+backend/.employee-backups/
+
+# ===================
+# Fastlane temp files
+# ===================
+**/fastlane/report.xml
+**/fastlane/README.md
