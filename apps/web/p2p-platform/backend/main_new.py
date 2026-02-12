@@ -4525,6 +4525,89 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
 
+# ============================================================
+# Driver Password Reset (matches Android: driver/password-reset/*)
+# ============================================================
+
+class DriverPasswordResetRequest(BaseModel):
+    email: str
+
+class DriverPasswordResetConfirm(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@app.post("/api/driver/password-reset/request")
+def driver_request_password_reset(request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a driver password reset - sends code to email"""
+    import random
+
+    # Check if user exists with driver role
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user or not user.driver_id:
+        # Don't reveal whether email exists for security
+        return {"success": True, "message": "If a driver account exists with this email, a reset code has been sent."}
+
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+
+    # Store code with timestamp (expires in 15 minutes)
+    from datetime import datetime, timedelta
+    password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    # Send email with reset code
+    try:
+        send_email(
+            to_email=request.email,
+            subject="Dollor Driver - Password Reset Code",
+            html_content=f"""
+            <h2>Password Reset</h2>
+            <p>Your password reset code is: <strong>{code}</strong></p>
+            <p>This code expires in 15 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+            """
+        )
+    except Exception as e:
+        print(f"Failed to send driver password reset email: {str(e)}")
+
+    print(f"Driver password reset code for {request.email}: {code}")
+    return {"success": True, "message": "Reset code sent to your email."}
+
+@app.post("/api/driver/password-reset/confirm")
+def driver_confirm_password_reset(request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm driver password reset with code and set new password"""
+    from datetime import datetime
+
+    # Check if code exists and is valid
+    reset_data = password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > reset_data["expires"]:
+        del password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Get user and update password
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update password
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
+    # Remove used code
+    del password_reset_codes[request.email]
+
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+
 @app.get("/api/customer/profile")
 async def get_customer_profile_v2(customer: Customer = Depends(get_current_customer)):
     """Get current customer's profile - uses Customer table directly via JWT"""
