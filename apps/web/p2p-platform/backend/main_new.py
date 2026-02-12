@@ -220,8 +220,8 @@ async def health_check(db: Session = Depends(get_db)):
     health_status = {
         "status": "healthy",
         "service": "p2p-backend",
-        "version": "1.0.16",
-        "build": "2026-02-10-negotiate-push-notifications",
+        "version": "1.0.18",
+        "build": "2026-02-11-negotiation-round-fix",
         "timestamp": datetime.utcnow().isoformat(),
         "database": "unknown"
     }
@@ -410,6 +410,37 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         except Exception as e:
             db.rollback()
             errors.append(f"ride_requests.{col_name}: {str(e)}")
+
+    # Migration: Add multi-round negotiation columns to ride_requests
+    ride_request_negotiation_columns = [
+        ("customer_counter_count", "INTEGER DEFAULT 0"),
+        ("low_bid_warning_shown", "BOOLEAN DEFAULT FALSE"),
+    ]
+
+    for col_name, col_type in ride_request_negotiation_columns:
+        try:
+            db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"ride_requests.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"ride_requests.{col_name}: {str(e)}")
+
+    # Migration: Add multi-round negotiation columns to ride_bids
+    ride_bid_negotiation_columns = [
+        ("negotiation_round", "INTEGER DEFAULT 1"),
+        ("last_offer_by", "VARCHAR(20) DEFAULT 'driver'"),
+        ("round_counter", "INTEGER DEFAULT 0"),
+    ]
+
+    for col_name, col_type in ride_bid_negotiation_columns:
+        try:
+            db.execute(text(f"ALTER TABLE ride_bids ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"ride_bids.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"ride_bids.{col_name}: {str(e)}")
 
     # Migration: Add restaurant acceptance flow columns to orders table
     order_acceptance_columns = [
@@ -1621,24 +1652,38 @@ def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(g
         existing_user = db.query(User).filter(User.email == email).first()
 
         if existing_user:
-            if existing_user.role == UserRole.VENDOR:
-                # Existing vendor - allow login
-                user = existing_user
+            user = existing_user
+            if user.vendor_id:
+                # User already has a vendor account — allow login
+                print(f"Existing user {email} (role={user.role.value}) logging in as vendor")
             else:
-                # Email already registered with different role
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
+                # User exists but has no vendor account — create one and link it
+                new_vendor = Vendor(
+                    company_name=name,
+                    contact_name=name,
+                    contact_email=email,
+                    onboarding_status=VendorStatus.APPROVED,
+                    street="",
+                    city="",
+                    state="",
+                    zip_code="",
+                    country="US"
                 )
+                db.add(new_vendor)
+                db.commit()
+                db.refresh(new_vendor)
+
+                user.vendor_id = new_vendor.id
+                db.commit()
+                db.refresh(user)
+                print(f"Added vendor role to existing {user.role.value} user: {email}")
         else:
-            # Create new vendor and user
-            # Auto-approve for login access, but keep is_published=False
-            # Restaurant goes live only after admin approval
+            # Brand new user — create vendor + user
             new_vendor = Vendor(
                 company_name=name,
                 contact_name=name,
                 contact_email=email,
-                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
+                onboarding_status=VendorStatus.APPROVED,
                 street="",
                 city="",
                 state="",
@@ -2168,24 +2213,52 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
     existing_user = db.query(User).filter(User.email == email).first()
 
     if existing_user:
-        if existing_user.role == UserRole.DRIVER:
-            # Existing driver - block only SUSPENDED drivers
-            user = existing_user
-            if user.driver_id:
-                driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
-                if driver and driver.status == DriverStatus.SUSPENDED:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Driver account is suspended. Please contact support@dollor.ai"
-                    )
+        user = existing_user
+        if user.driver_id:
+            # User already has a driver account — check if suspended
+            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+            if driver and driver.status == DriverStatus.SUSPENDED:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Driver account is suspended. Please contact support@dollor.ai"
+                )
+            print(f"Existing user {email} (role={user.role.value}) logging in as driver")
         else:
-            # Email already registered with different role
-            raise HTTPException(
-                status_code=400,
-                detail=f"This email is already registered as a {existing_user.role.value}. Please use the {existing_user.role.value} app or use a different email."
+            # User exists but has no driver account — create one and link it
+            name_parts = name.split(" ", 1)
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            driver_count = db.query(Driver).count()
+            driver_code = f"DRV-{driver_count + 1:05d}"
+
+            new_driver = Driver(
+                driver_id=driver_code,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                status=DriverStatus.PENDING
             )
+            db.add(new_driver)
+            db.commit()
+            db.refresh(new_driver)
+
+            # Link driver to existing user
+            user.driver_id = new_driver.id
+            db.commit()
+            db.refresh(user)
+            print(f"Added driver role to existing {user.role.value} user: {email}")
+
+            try:
+                send_driver_registration_confirmation(
+                    to_email=email,
+                    driver_name=name,
+                    driver_code=driver_code
+                )
+            except Exception as e:
+                print(f"Failed to send driver registration email: {str(e)}")
     else:
-        # Create new driver and user
+        # Brand new user — create driver + user
         name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
@@ -2217,7 +2290,6 @@ def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(g
         db.refresh(user)
         print(f"Created new driver via Google auth: {email}")
 
-        # Send registration confirmation
         try:
             send_driver_registration_confirmation(
                 to_email=email,
