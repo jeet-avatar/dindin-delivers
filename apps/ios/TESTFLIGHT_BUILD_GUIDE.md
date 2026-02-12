@@ -1,8 +1,8 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 10, 2026
+> **Last Updated**: February 11, 2026
 > **API Contract Version**: 1.0.14
-> **Backend Version**: 1.0.14
+> **Backend Version**: 1.0.18
 
 ---
 
@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1063 | 1.0 | ✅ Uploaded 2026-02-11 15:49 |
-| **Dollor Driver** | `com.dollorai.delivery` | 171 | 1.0 | ✅ Uploaded 2026-02-11 15:57 |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 143 | 1.0 | ✅ Uploaded 2026-02-11 15:59 |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1065 | 1.0 | ✅ Uploaded 2026-02-11 18:53 |
+| **Dollor Driver** | `com.dollorai.delivery` | 173 | 1.0 | ✅ Uploaded 2026-02-11 18:55 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 145 | 1.0 | ✅ Uploaded 2026-02-11 18:56 |
 
 ---
 
@@ -20,6 +20,7 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| Driver app blank screen on order detail tap | Fixed race condition using `.sheet(item:)` binding instead of `.sheet(isPresented:)` with separate state | Build 173 `3ced8d48` |
 | Error messages not user-friendly (54%) | Converted 53 raw error.localizedDescription to smart user-friendly messages (100% compliance) | Build 1063/171/143 |
 | Customer not notified of bids | Backend v1.0.15 sends push notification when driver bids | Build 168 |
 | FareNegotiationSheet white flash | Use .presentationBackground() for immediate background | Build 168 |
@@ -258,32 +259,39 @@ cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && pod install
 ```
 
 ### Step 3: Archive All Apps
+
+> **CRITICAL**: Always use `cd` to change to the app directory BEFORE running xcodebuild.
+> Restaurant builds will fail if run from the wrong directory because workspace paths are relative.
+
 ```bash
 # Customer
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer && \
 xcodebuild -workspace eatfaircustomer.xcworkspace -scheme eatfaircustomer -configuration Release -archivePath build/DollorCustomer.xcarchive archive -allowProvisioningUpdates
 
 # Driver
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery && \
 xcodebuild -workspace eatffairdelivery.xcworkspace -scheme eatffairdelivery -configuration Release -archivePath build/DollorDriver.xcarchive archive -allowProvisioningUpdates
 
-# Restaurant
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
+# Restaurant (MUST cd first - fails otherwise!)
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && \
 xcodebuild -workspace eatffairrestaurant.xcworkspace -scheme eatffairrestaurant -configuration Release -archivePath build/DollorRestaurant.xcarchive archive -allowProvisioningUpdates
 ```
 
 ### Step 4: Export IPAs
+
+> **CRITICAL**: Same as archive - always use `cd &&` to change directory first!
+
 ```bash
 # Customer
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer && \
 xcodebuild -exportArchive -archivePath build/DollorCustomer.xcarchive -exportPath build/export -exportOptionsPlist ExportOptionsLocal.plist
 
 # Driver
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/delivery && \
 xcodebuild -exportArchive -archivePath build/DollorDriver.xcarchive -exportPath build/export -exportOptionsPlist ../customer/ExportOptionsLocal.plist
 
-# Restaurant
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant
+# Restaurant (MUST cd first!)
+cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && \
 xcodebuild -exportArchive -archivePath build/DollorRestaurant.xcarchive -exportPath build/export -exportOptionsPlist ../customer/ExportOptionsLocal.plist
 ```
 
@@ -324,6 +332,8 @@ fastlane run upload_to_testflight \
 | "Build number already used" | Increment `CURRENT_PROJECT_VERSION` |
 | Driver earnings showing $0 | Backend fixed in v1.0.8 - redeploy if needed |
 | Rate driver returns 404 | Use `/api/customer/orders/` not `/api/orders/` |
+| **Restaurant archive/export fails first time** | **ALWAYS use `cd` to change to app directory before running xcodebuild** - Restaurant builds fail if run from wrong directory because workspace path is relative. Example: `cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && xcodebuild ...` |
+| "Dollor Driver.ipa" upload fails | Copy IPA to `/tmp/DollorDriver.ipa` (remove space) before fastlane upload |
 
 ---
 
