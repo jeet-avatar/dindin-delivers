@@ -7,7 +7,6 @@ struct MyDeliveriesView: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @StateObject private var locationManager = LocationManager.shared
     @State private var selectedDelivery: Order?
-    @State private var showActiveDelivery = false
     @State private var dummyTab: Int = 0  // Local state for standalone usage
 
     var body: some View {
@@ -34,10 +33,8 @@ struct MyDeliveriesView: View {
                 viewModel.fetchMyDeliveries()
                 locationManager.startTracking()
             }
-            .fullScreenCover(isPresented: $showActiveDelivery) {
-                if let delivery = selectedDelivery {
-                    ActiveDeliveryFullScreen(order: delivery, viewModel: viewModel, locationManager: locationManager)
-                }
+            .fullScreenCover(item: $selectedDelivery) { delivery in
+                ActiveDeliveryFullScreen(order: delivery, viewModel: viewModel, locationManager: locationManager)
             }
             .overlay(alignment: .bottomTrailing) {
                 // Voice Assistant Floating Button
@@ -136,7 +133,6 @@ struct MyDeliveriesView: View {
                         locationManager: locationManager,
                         onTap: {
                             selectedDelivery = activeDelivery
-                            showActiveDelivery = true
                         },
                         onComplete: {
                             viewModel.markAsDelivered(activeDelivery)
@@ -160,7 +156,6 @@ struct MyDeliveriesView: View {
                                 locationManager: locationManager,
                                 onTap: {
                                     selectedDelivery = order
-                                    showActiveDelivery = true
                                 }
                             )
                             .padding(.horizontal)

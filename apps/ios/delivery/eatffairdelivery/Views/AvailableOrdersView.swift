@@ -13,9 +13,7 @@ struct AvailableOrdersView: View {
     @State private var viewMode: ViewMode = .list
     @State private var selectedOrder: Order?
     @State private var selectedRide: P2PRide?
-    @State private var showOrderDetail = false
-    @State private var showRideDetail = false
-    @State private var showNegotiationSheet = false
+    @State private var rideToNegotiate: P2PRide?
     @State private var showEarningsSheet = false
     @State private var showMessagesSheet = false
 
@@ -82,6 +80,7 @@ struct AvailableOrdersView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundColor(Theme.brandRed)
                     }
+                    .accessibilityLabel("Refresh available orders")
                 }
             }
             .onAppear {
@@ -89,22 +88,16 @@ struct AvailableOrdersView: View {
                 locationManager.requestPermission()
                 locationManager.getCurrentLocation()
             }
-            .sheet(isPresented: $showOrderDetail) {
-                if let order = selectedOrder {
-                    OrderDetailSheet(order: order, viewModel: viewModel, locationManager: locationManager, onAccepted: {
-                        selectedTab = 2  // Switch to Active tab
-                    })
-                }
+            .sheet(item: $selectedOrder) { order in
+                OrderDetailSheet(order: order, viewModel: viewModel, locationManager: locationManager, onAccepted: {
+                    selectedTab = 2  // Switch to Active tab
+                })
             }
-            .sheet(isPresented: $showRideDetail) {
-                if let ride = selectedRide {
-                    RideDetailSheet(ride: ride, viewModel: viewModel, locationManager: locationManager)
-                }
+            .sheet(item: $selectedRide) { ride in
+                RideDetailSheet(ride: ride, viewModel: viewModel, locationManager: locationManager)
             }
-            .sheet(isPresented: $showNegotiationSheet) {
-                if let ride = selectedRide {
-                    FareNegotiationSheet(ride: ride, viewModel: viewModel)
-                }
+            .sheet(item: $rideToNegotiate) { ride in
+                FareNegotiationSheet(ride: ride, viewModel: viewModel)
             }
             .sheet(isPresented: $showEarningsSheet) {
                 EarningsSummarySheet(viewModel: viewModel)
@@ -114,6 +107,7 @@ struct AvailableOrdersView: View {
             }
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK", role: .cancel) { }
+                    .accessibilityLabel("Dismiss error")
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
@@ -144,8 +138,9 @@ struct AvailableOrdersView: View {
             }
         case .declineOrder:
             // Just dismiss any open sheet
-            showOrderDetail = false
-            showRideDetail = false
+            selectedOrder = nil
+            selectedRide = nil
+            rideToNegotiate = nil
         default:
             break
         }
@@ -176,6 +171,8 @@ struct AvailableOrdersView: View {
                             : Color.clear
                     )
                 }
+                .accessibilityLabel("Switch to \(mode.displayName) mode")
+                .accessibilityHint(viewModel.driverMode == mode ? "Currently selected" : "Tap to switch modes")
             }
         }
         .background(Theme.lightGrey)
@@ -247,6 +244,8 @@ struct AvailableOrdersView: View {
                         .background(viewMode == .list ? Theme.brandRed : Color.clear)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("List view")
+                .accessibilityHint(viewMode == .list ? "Currently selected" : "Show orders as a list")
 
                 Button(action: { viewMode = .map }) {
                     Image(systemName: "map")
@@ -256,6 +255,8 @@ struct AvailableOrdersView: View {
                         .background(viewMode == .map ? Theme.brandRed : Color.clear)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("Map view")
+                .accessibilityHint(viewMode == .map ? "Currently selected" : "Show orders on a map")
             }
             .padding(4)
             .background(Theme.lightGrey)
@@ -276,7 +277,6 @@ struct AvailableOrdersView: View {
                         locationManager: locationManager,
                         onTap: {
                             selectedOrder = order
-                            showOrderDetail = true
                         },
                         onAccept: {
                             viewModel.acceptOrder(order)
@@ -302,7 +302,6 @@ struct AvailableOrdersView: View {
             locationManager: locationManager,
             onOrderSelected: { order in
                 selectedOrder = order
-                showOrderDetail = true
             }
         )
     }
@@ -365,6 +364,8 @@ struct AvailableOrdersView: View {
                 .background(Theme.brandRed)
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Refresh orders")
+            .accessibilityHint("Check for new available delivery orders")
 
             Spacer()
         }
@@ -414,6 +415,8 @@ struct AvailableOrdersView: View {
                 .background(Color.blue)
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Refresh ride requests")
+            .accessibilityHint("Check for new available ride requests")
 
             Spacer()
         }
@@ -430,14 +433,12 @@ struct AvailableOrdersView: View {
                         locationManager: locationManager,
                         onTap: {
                             selectedRide = ride
-                            showRideDetail = true
                         },
                         onAccept: {
                             viewModel.acceptRide(ride)
                         },
                         onNegotiate: {
-                            selectedRide = ride
-                            showNegotiationSheet = true
+                            rideToNegotiate = ride
                         }
                     )
                 }
@@ -456,7 +457,6 @@ struct AvailableOrdersView: View {
             locationManager: locationManager,
             onRideSelected: { ride in
                 selectedRide = ride
-                showRideDetail = true
             }
         )
     }
@@ -546,6 +546,8 @@ struct FilterChip: View {
                 .background(isSelected ? Theme.brandRed : Theme.lightGrey)
                 .cornerRadius(20)
         }
+        .accessibilityLabel("Filter by \(title)")
+        .accessibilityHint(isSelected ? "Currently selected" : "Tap to filter orders")
     }
 }
 
@@ -583,17 +585,23 @@ struct OrderCard: View {
                 // Header
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(order.restaurant.name)
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(Theme.textPrimary)
-                            .lineLimit(1)
+                        HStack(spacing: 8) {
+                            Text(order.restaurant.name)
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(Theme.textPrimary)
+                                .lineLimit(1)
 
-                        // Order number for reference
-                        Text("#\(order.orderId)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(Theme.brandRed)
+                            // Order number badge - prominent for easy reference
+                            Text("#\(order.orderId)")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Theme.brandOrange)
+                                .cornerRadius(6)
+                        }
 
                         HStack(spacing: 12) {
                             Label("\(order.itemsCount) items", systemImage: "bag.fill")
@@ -673,6 +681,8 @@ struct OrderCard: View {
                     .background(Theme.brandRed.opacity(0.1))
                     .cornerRadius(12)
                 }
+                .accessibilityLabel("View order details")
+                .accessibilityHint("See full order information and route")
 
                 Button(action: { showAcceptConfirmation = true }) {
                     HStack {
@@ -688,6 +698,8 @@ struct OrderCard: View {
                     .cornerRadius(12)
                     .shadow(color: Theme.brandRed.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
+                .accessibilityLabel("Accept this delivery order")
+                .accessibilityHint("Assigns this order to you for delivery")
             }
             .padding()
         }
@@ -698,7 +710,9 @@ struct OrderCard: View {
             Button("Accept - Earn $\(String(format: "%.2f", totalEarnings))") {
                 onAccept()
             }
+            .accessibilityLabel("Confirm accept order for \(String(format: "%.2f", totalEarnings)) dollars")
             Button("Cancel", role: .cancel) {}
+                .accessibilityLabel("Cancel and go back")
         } message: {
             Text("Pick up from \(order.restaurant.name) and deliver to \(order.customerName)")
         }
@@ -834,6 +848,8 @@ struct OrdersMapView: View {
                                 .offset(y: -4)
                         }
                     }
+                    .accessibilityLabel("Order from \(order.restaurant.name), \(Int(order.deliveryFee + order.priorityFee)) dollars")
+                    .accessibilityHint("Tap to view order details")
                 }
             }
         }
@@ -984,6 +1000,7 @@ struct OrderDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
+                        .accessibilityLabel("Close order details")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -1006,6 +1023,8 @@ struct OrderDetailSheet: View {
                     .background(Theme.brandRed)
                     .cornerRadius(16)
                 }
+                .accessibilityLabel("Accept this delivery order")
+                .accessibilityHint("Assigns this order to you for delivery")
                 .padding()
                 .background(Theme.cardBackground)
             }
@@ -1190,6 +1209,16 @@ struct RideCard: View {
                     .padding(.vertical, 4)
                     .background(Color.green.opacity(0.15))
                     .cornerRadius(8)
+
+                    // Ride Number - for easy reference
+                    Text("#\(ride.rideNumber)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.brandOrange)
+                        .cornerRadius(6)
                 }
             }
             .padding()
@@ -1291,6 +1320,8 @@ struct RideCard: View {
                     .background(Color.blue)
                     .cornerRadius(10)
                 }
+                .accessibilityLabel("Accept this ride request")
+                .accessibilityHint("Accept the ride at the current price")
 
                 // Negotiate Button - unique feature!
                 Button(action: onNegotiate) {
@@ -1310,6 +1341,8 @@ struct RideCard: View {
                             .stroke(Color.blue, lineWidth: 1)
                     )
                 }
+                .accessibilityLabel("Negotiate fare")
+                .accessibilityHint("Set your own price for this ride")
             }
             .padding()
         }
@@ -1366,6 +1399,8 @@ struct RidesMapView: View {
                                     .cornerRadius(4)
                             }
                         }
+                        .accessibilityLabel("Ride request for \(String(format: "%.0f", ride.earnings)) dollars")
+                        .accessibilityHint("Tap to view ride details")
                     }
                 }
             }
@@ -1394,6 +1429,7 @@ struct FareNegotiationSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Cancel") { dismiss() }
+                            .accessibilityLabel("Cancel negotiation")
                     }
                 }
         }
@@ -1549,6 +1585,8 @@ struct FareNegotiationSheet: View {
                             .cornerRadius(12)
                     }
                     .disabled((Double(counterOffer) ?? 0) <= 0)
+                    .accessibilityLabel("Send your price to rider")
+                    .accessibilityHint("Submit your counter offer for this ride")
 
                     // Accept Rider's Offer (use customer's negotiated price if available)
                     Button(action: {
@@ -1563,6 +1601,7 @@ struct FareNegotiationSheet: View {
                             .background(ride.hasCustomerOffer ? Color.green : Color.blue.opacity(0.1))
                             .cornerRadius(12)
                     }
+                    .accessibilityLabel("Accept rider's offer of \(String(format: "%.2f", ride.displayPrice)) dollars")
                 }
                 .padding()
         }
@@ -1693,6 +1732,7 @@ struct RideDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
+                        .accessibilityLabel("Close ride details")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -1713,6 +1753,8 @@ struct RideDetailSheet: View {
                         .background(Color.blue)
                         .cornerRadius(16)
                     }
+                    .accessibilityLabel("Accept this ride")
+                    .accessibilityHint("Accept the ride at the current price")
 
                     // Negotiate Button
                     Button(action: {
@@ -1727,6 +1769,8 @@ struct RideDetailSheet: View {
                         .background(Color.blue.opacity(0.1))
                         .cornerRadius(16)
                     }
+                    .accessibilityLabel("Negotiate fare")
+                    .accessibilityHint("Set your own price for this ride")
                 }
                 .padding()
                 .background(Theme.cardBackground)
@@ -1848,6 +1892,7 @@ struct EarningsSummarySheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Close earnings summary")
                 }
             }
         }
@@ -1938,6 +1983,7 @@ struct MessagesListSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Close messages")
                 }
             }
         }
