@@ -112,6 +112,8 @@ struct MultiRestaurantCheckoutView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel checkout")
+                        .accessibilityHint("Returns to your cart without placing order")
                 }
             }
             .sheet(isPresented: $showLocationPicker) {
@@ -240,6 +242,7 @@ struct MultiRestaurantCheckoutView: View {
                     }
                     .font(.subheadline)
                     .foregroundColor(.green)
+                    .accessibilityLabel("Change delivery address")
                 }
             } else {
                 Button(action: { showLocationPicker = true }) {
@@ -253,6 +256,8 @@ struct MultiRestaurantCheckoutView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .accessibilityLabel("Add delivery address")
+                .accessibilityHint("Opens address selection to add a new delivery address")
             }
         }
         .padding()
@@ -376,6 +381,8 @@ struct MultiRestaurantCheckoutView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                 }
+                .accessibilityLabel("Add new payment card")
+                .accessibilityHint("Opens form to add a new credit or debit card")
 
                 // Cash on Delivery
                 PaymentMethodRow(
@@ -493,6 +500,8 @@ struct MultiRestaurantCheckoutView: View {
                 .foregroundColor(.white)
                 .cornerRadius(10)
                 .disabled(promotionCode.isEmpty)
+                .accessibilityLabel("Apply promo code")
+                .accessibilityHint("Applies the entered promotional code to your order")
             }
 
             if discount > 0, let code = appliedPromoCode {
@@ -548,6 +557,8 @@ struct MultiRestaurantCheckoutView: View {
                     .font(.caption2)
                     .foregroundColor(.green)
                 }
+                .accessibilityLabel("View fee details")
+                .accessibilityHint("Shows breakdown of all fees in your order")
             }
 
             VStack(spacing: 8) {
@@ -764,6 +775,8 @@ struct MultiRestaurantCheckoutView: View {
             }
             .disabled(!isValidOrder || isProcessing)
             .padding()
+            .accessibilityLabel("\(payButtonTitle) for \(String(format: "$%.2f", max(0, finalTotal)))")
+            .accessibilityHint("Completes your order and processes payment")
         }
         .background(Color.white)
     }
@@ -965,9 +978,16 @@ struct MultiRestaurantCheckoutView: View {
                                     #if DEBUG
                                     logger.info("[ApplePay] ERROR: \(error.localizedDescription)")
                                     #endif
-                                    self.errorMessage = error.localizedDescription
+                                    let errMsg = error.localizedDescription.lowercased()
+                                    if errMsg.contains("cancelled") || errMsg.contains("canceled") {
+                                        self.errorMessage = nil
+                                    } else if errMsg.contains("declined") {
+                                        self.errorMessage = "Payment declined. Please check your card or try another method."
+                                    } else {
+                                        self.errorMessage = "Apple Pay could not be completed. Please try again."
+                                    }
                                 }
-                                self.showError = error != nil
+                                self.showError = self.errorMessage != nil
                             }
                         }
                     }
@@ -977,7 +997,12 @@ struct MultiRestaurantCheckoutView: View {
                     logger.info("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
                     #endif
                     self.isProcessing = false
-                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self.errorMessage = "Unable to initialize payment. Please try again."
+                    }
                     self.showError = true
                 }
             }
@@ -1036,7 +1061,12 @@ struct MultiRestaurantCheckoutView: View {
                     }
 
                 case .failure(let error):
-                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self.errorMessage = "Unable to initialize payment. Please try again."
+                    }
                     self.showError = true
                 }
             }
@@ -1051,7 +1081,14 @@ struct MultiRestaurantCheckoutView: View {
             isProcessing = false
         case .failed(let error):
             isProcessing = false
-            errorMessage = "Payment failed: \(error.localizedDescription)"
+            let errMsg = error.localizedDescription.lowercased()
+            if errMsg.contains("declined") || errMsg.contains("insufficient") {
+                errorMessage = "Payment declined. Please check your card or try another method."
+            } else if errMsg.contains("expired") {
+                errorMessage = "Card has expired. Please update your payment method."
+            } else {
+                errorMessage = "Payment could not be completed. Please try again."
+            }
             showError = true
         }
     }
@@ -1130,7 +1167,14 @@ struct MultiRestaurantCheckoutView: View {
                     #if DEBUG
                     logger.info("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
                     #endif
-                    errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("closed") || errMsg.contains("unavailable") {
+                        errorMessage = "Restaurant is currently closed. Please try again later."
+                    } else if errMsg.contains("out of stock") || errMsg.contains("unavailable") {
+                        errorMessage = "Some items are no longer available. Please update your cart."
+                    } else {
+                        errorMessage = "Unable to place order. Please try again."
+                    }
                     showError = true
                 }
             }
@@ -1285,6 +1329,7 @@ struct FeeBreakdownDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Close fee breakdown")
                 }
             }
         }

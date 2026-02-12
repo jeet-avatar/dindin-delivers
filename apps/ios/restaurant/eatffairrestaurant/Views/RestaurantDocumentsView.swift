@@ -511,7 +511,12 @@ class RestaurantDocumentsViewModel: ObservableObject {
                     logger.debug("RestaurantDocumentsViewModel: Fetched \(docs.count) documents")
                     #endif
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to load documents. Please try again."
+                    }
                     #if DEBUG
                     logger.debug("RestaurantDocumentsViewModel: Error fetching documents: \(error)")
                     #endif
@@ -546,7 +551,14 @@ class RestaurantDocumentsViewModel: ObservableObject {
                     #if DEBUG
                     logger.debug("RestaurantDocumentsViewModel: Upload failed - \(error)")
                     #endif
-                    self?.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("size") || errMsg.contains("large") {
+                        self?.errorMessage = "File is too large. Please use an image under 10MB."
+                    } else if errMsg.contains("format") || errMsg.contains("type") {
+                        self?.errorMessage = "Invalid file format. Please use JPG, PNG, or PDF."
+                    } else {
+                        self?.errorMessage = "Unable to upload document. Please try again."
+                    }
                     completion(false)
                 }
             }

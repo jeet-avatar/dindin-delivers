@@ -122,7 +122,12 @@ struct NotificationView: View {
                 case .success:
                     notifications = []
                 case .failure(let error):
-                    errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        errorMessage = "Unable to clear notifications. Please try again."
+                    }
                     showError = true
                 }
             }

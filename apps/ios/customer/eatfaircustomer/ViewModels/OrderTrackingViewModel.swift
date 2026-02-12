@@ -74,7 +74,7 @@ class OrderTrackingViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to load order status. Please check your connection and try again."
                     logger.debug("Error fetching active orders: \(error)")
                 }
             }
@@ -94,7 +94,7 @@ class OrderTrackingViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to load your orders. Please try again."
                     logger.debug("Error fetching orders: \(error)")
                 }
             }
@@ -192,7 +192,8 @@ class OrderTrackingViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to track this order. Please try again later."
+                    logger.debug("Error fetching order by ID: \(error)")
                 }
             }
         }

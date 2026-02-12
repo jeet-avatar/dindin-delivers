@@ -1379,7 +1379,12 @@ struct ConfirmMatchSheet: View {
             case .success:
                 onConfirm()
             case .failure(let error):
-                errorMessage = error.localizedDescription
+                let errMsg = error.localizedDescription.lowercased()
+                if errMsg.contains("expired") || errMsg.contains("no longer") {
+                    errorMessage = "This match is no longer available."
+                } else {
+                    errorMessage = "Unable to confirm match. Please try again."
+                }
                 showError = true
             }
         }

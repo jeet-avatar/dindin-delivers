@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1060 | 1.0 | ✅ Uploaded 2026-02-09 13:02 |
-| **Dollor Driver** | `com.dollorai.delivery` | 168 | 1.0 | ✅ Uploaded 2026-02-10 16:56 (Push notif + white flash fix) |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 140 | 1.0 | ✅ Uploaded 2026-02-09 13:13 |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1063 | 1.0 | ✅ Uploaded 2026-02-11 15:49 |
+| **Dollor Driver** | `com.dollorai.delivery` | 171 | 1.0 | ✅ Uploaded 2026-02-11 15:57 |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 143 | 1.0 | ✅ Uploaded 2026-02-11 15:59 |
 
 ---
 
@@ -20,6 +20,7 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| Error messages not user-friendly (54%) | Converted 53 raw error.localizedDescription to smart user-friendly messages (100% compliance) | Build 1063/171/143 |
 | Customer not notified of bids | Backend v1.0.15 sends push notification when driver bids | Build 168 |
 | FareNegotiationSheet white flash | Use .presentationBackground() for immediate background | Build 168 |
 | "Failed to submit offer" decode error | Backend v1.0.14 returns required platform_fee_driver/customer fields | Build 167 |

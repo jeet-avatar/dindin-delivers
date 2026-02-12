@@ -84,7 +84,18 @@ class AuthViewModel: NSObject, ObservableObject {
                     self?.customerEmail = response.email
                     self?.isAuthenticated = true
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    // Check for specific error types
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("invalid") || errorMsg.contains("password") || errorMsg.contains("credential") {
+                        self?.errorMessage = "Invalid email or password. Please check and try again."
+                    } else if errorMsg.contains("not found") || errorMsg.contains("no account") {
+                        self?.errorMessage = "No account found with this email. Please sign up first."
+                    } else if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to sign in. Please try again."
+                    }
+                    logger.error("Login error: \(error.localizedDescription)")
                 }
             }
         }
@@ -128,7 +139,15 @@ class AuthViewModel: NSObject, ObservableObject {
                     self?.customerEmail = response.email
                     self?.isAuthenticated = true
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("exists") || errorMsg.contains("already") {
+                        self?.errorMessage = "An account with this email already exists. Please sign in instead."
+                    } else if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to create account. Please try again."
+                    }
+                    logger.error("Registration error: \(error.localizedDescription)")
                 }
             }
         }
@@ -177,7 +196,11 @@ class AuthViewModel: NSObject, ObservableObject {
                 logger.error("Google Sign-In error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.isLoading = false
-                    self.errorMessage = error.localizedDescription
+                    // Don't show error if user cancelled
+                    let nsError = error as NSError
+                    if nsError.code != -5 { // GIDSignInError.canceled
+                        self.errorMessage = "Google sign-in failed. Please try again."
+                    }
                 }
                 return
             }
@@ -209,7 +232,13 @@ class AuthViewModel: NSObject, ObservableObject {
                         self.customerEmail = response.email
                         self.isAuthenticated = true
                     case .failure(let error):
-                        self.errorMessage = error.localizedDescription
+                        let errorMsg = error.localizedDescription.lowercased()
+                        if errorMsg.contains("network") || errorMsg.contains("connection") {
+                            self.errorMessage = "Unable to connect. Please check your internet connection."
+                        } else {
+                            self.errorMessage = "Unable to complete Google sign-in. Please try again."
+                        }
+                        logger.error("Google auth error: \(error.localizedDescription)")
                     }
                 }
             }
@@ -247,7 +276,15 @@ class AuthViewModel: NSObject, ObservableObject {
                     self?.showResetCodeEntry = true
                     self?.showForgotPassword = false
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("not found") || errorMsg.contains("no account") {
+                        self?.errorMessage = "No account found with this email address."
+                    } else if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to send reset code. Please try again."
+                    }
+                    logger.error("Password reset request error: \(error.localizedDescription)")
                 }
             }
         }
@@ -281,7 +318,15 @@ class AuthViewModel: NSObject, ObservableObject {
                     self?.resetCode = ""
                     self?.newPassword = ""
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("invalid") || errorMsg.contains("code") || errorMsg.contains("expired") {
+                        self?.errorMessage = "Invalid or expired reset code. Please request a new one."
+                    } else if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to reset password. Please try again."
+                    }
+                    logger.error("Password reset confirm error: \(error.localizedDescription)")
                 }
             }
         }
@@ -433,7 +478,13 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
                     self?.customerEmail = response.email
                     self?.isAuthenticated = true
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to complete Apple sign-in. Please try again."
+                    }
+                    logger.error("Apple auth error: \(error.localizedDescription)")
                 }
             }
         }
@@ -445,7 +496,8 @@ extension AuthViewModel: ASAuthorizationControllerDelegate {
             self.isLoading = false
             // Don't show error if user cancelled
             if nsError.code != ASAuthorizationError.canceled.rawValue {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = "Apple sign-in failed. Please try again."
+                logger.error("Apple sign-in error: \(error.localizedDescription)")
             }
         }
     }

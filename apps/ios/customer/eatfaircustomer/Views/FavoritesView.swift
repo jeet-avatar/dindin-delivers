@@ -120,7 +120,12 @@ class FavoritesViewModel: ObservableObject {
                         )
                     }
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to load favorites. Please try again."
+                    }
                 }
             }
         }

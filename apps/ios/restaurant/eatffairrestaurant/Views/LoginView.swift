@@ -187,6 +187,8 @@ struct LoginView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.orange)
                             }
+                            .accessibilityLabel("Forgot password")
+                            .accessibilityHint("Opens password reset screen")
                         }
                     }
                     .padding(.horizontal)
@@ -238,6 +240,8 @@ struct LoginView: View {
                         .background(Color.orange)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("Log in to your account")
+                    .accessibilityHint("Signs you into the restaurant dashboard")
                     .disabled(isLoading || email.isEmpty || password.isEmpty)
                     .opacity((email.isEmpty || password.isEmpty) ? 0.6 : 1.0)
                     .padding(.horizontal)
@@ -274,6 +278,8 @@ struct LoginView: View {
                                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                         )
                     }
+                    .accessibilityLabel("Sign in with Google")
+                    .accessibilityHint("Uses your Google account to sign in")
                     .disabled(isLoading)
                     .padding(.horizontal)
 
@@ -297,6 +303,8 @@ struct LoginView: View {
                         .background(Color.black)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("Sign in with Apple")
+                    .accessibilityHint("Uses your Apple ID to sign in")
                     .disabled(isLoading)
                     .padding(.horizontal)
 
@@ -309,6 +317,8 @@ struct LoginView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(.orange)
                         }
+                        .accessibilityLabel("Sign up for a new account")
+                        .accessibilityHint("Opens the registration screen")
                     }
                     .padding(.top, 8)
 
@@ -457,7 +467,14 @@ struct LoginView: View {
                                     logger.debug("DEBUG APPLE: API Error type: \(apiError)")
                                 }
                                 #endif
-                                self.errorMessage = error.localizedDescription
+                                let errMsg = error.localizedDescription.lowercased()
+                                if errMsg.contains("not found") || errMsg.contains("no account") {
+                                    self.errorMessage = "No restaurant account found. Please register first."
+                                } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                                    self.errorMessage = "Your restaurant account is pending approval."
+                                } else {
+                                    self.errorMessage = "Unable to sign in with Apple. Please try again."
+                                }
                             }
                         }
                     }
@@ -470,7 +487,7 @@ struct LoginView: View {
                     #endif
 
                     if nsError.code != ASAuthorizationError.canceled.rawValue {
-                        self.errorMessage = error.localizedDescription
+                        self.errorMessage = "Apple Sign-In could not be completed. Please try again."
                     } else {
                         #if DEBUG
                         logger.debug("DEBUG APPLE: User cancelled sign-in")
@@ -606,7 +623,12 @@ struct LoginView: View {
                         return
                     }
                     self.isLoading = false
-                    self.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self.errorMessage = "Google Sign-In could not be completed. Please try again."
+                    }
                 }
                 return
             }
@@ -694,7 +716,12 @@ struct LoginView: View {
                             #if DEBUG
                             logger.debug("DEBUG GOOGLE: Non-API error: \(error.localizedDescription)")
                             #endif
-                            self.errorMessage = error.localizedDescription
+                            let errMsg = error.localizedDescription.lowercased()
+                            if errMsg.contains("not found") || errMsg.contains("no account") {
+                                self.errorMessage = "No restaurant account found. Please register first."
+                            } else {
+                                self.errorMessage = "Unable to sign in. Please try again."
+                            }
                         }
                     }
                 }
@@ -766,6 +793,8 @@ struct ForgotPasswordView: View {
                                 .background(Color.orange)
                                 .cornerRadius(12)
                         }
+                        .accessibilityLabel("Back to login")
+                        .accessibilityHint("Returns to the login screen")
                         .padding(.horizontal)
                         .padding(.top, 20)
                     }
@@ -810,6 +839,8 @@ struct ForgotPasswordView: View {
                         .background(Color.orange)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("Send password reset email")
+                    .accessibilityHint("Sends instructions to reset your password")
                     .disabled(isLoading || email.isEmpty)
                     .opacity(email.isEmpty ? 0.6 : 1.0)
                     .padding(.horizontal)
@@ -824,6 +855,8 @@ struct ForgotPasswordView: View {
                         Image(systemName: "xmark")
                             .foregroundColor(.gray)
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityHint("Dismisses this screen")
                 }
             }
         }
@@ -987,6 +1020,8 @@ struct SignUpView: View {
                         .background(Color.orange)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("Create account")
+                    .accessibilityHint("Registers your restaurant on Dollor AI")
                     .disabled(isLoading || !isFormValid)
                     .opacity(isFormValid ? 1.0 : 0.6)
                     .padding(.horizontal)
@@ -1008,6 +1043,8 @@ struct SignUpView: View {
                         Image(systemName: "xmark")
                             .foregroundColor(.gray)
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityHint("Dismisses this screen")
                 }
             }
         }

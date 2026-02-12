@@ -175,7 +175,12 @@ class PaymentMethodsViewModel: ObservableObject {
                 case .success:
                     self?.savedCards.removeAll { $0.id == card.id }
                 case .failure(let error):
-                    self?.errorMessage = "Failed to delete card: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("default") || errMsg.contains("primary") {
+                        self?.errorMessage = "Cannot delete default card. Set another card as default first."
+                    } else {
+                        self?.errorMessage = "Unable to delete card. Please try again."
+                    }
                 }
             }
         }
@@ -193,7 +198,12 @@ class PaymentMethodsViewModel: ObservableObject {
                         self?.savedCards[i].isDefault = (self?.savedCards[i].id == card.id)
                     }
                 case .failure(let error):
-                    self?.errorMessage = "Failed to set default card: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("expired") {
+                        self?.errorMessage = "This card has expired. Please add a new card."
+                    } else {
+                        self?.errorMessage = "Unable to set default card. Please try again."
+                    }
                 }
             }
         }
@@ -420,7 +430,14 @@ struct StripeAddCardView: View {
                 case .success(let card):
                     self.onCardAdded(card)
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("invalid") || errMsg.contains("declined") {
+                        self.errorMessage = "Card was declined. Please check card details."
+                    } else if errMsg.contains("duplicate") || errMsg.contains("exists") {
+                        self.errorMessage = "This card is already saved."
+                    } else {
+                        self.errorMessage = "Unable to add card. Please try again."
+                    }
                 }
             }
         }

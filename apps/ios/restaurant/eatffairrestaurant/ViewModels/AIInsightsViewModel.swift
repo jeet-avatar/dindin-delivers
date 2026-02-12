@@ -72,7 +72,14 @@ class AIInsightsViewModel: ObservableObject {
                     #endif
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else if errorMsg.contains("no data") || errorMsg.contains("empty") {
+                        self?.errorMessage = "No insights available yet. Complete some orders first."
+                    } else {
+                        self?.errorMessage = "Unable to load insights. Please try again."
+                    }
                     #if DEBUG
                     logger.info("[AIInsights] Error: \(error.localizedDescription)")
                     #endif

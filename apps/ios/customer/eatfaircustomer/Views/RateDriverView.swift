@@ -254,7 +254,7 @@ class RateDriverViewModel: ObservableObject {
                 case .success(let response):
                     logger.info("[RateDriverView] Rating submitted: \(response.message)")
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self?.errorMessage = "Unable to submit rating. Please try again."
                     logger.info("[RateDriverView] Rating failed: \(error)")
                 }
             }

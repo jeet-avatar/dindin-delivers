@@ -121,7 +121,12 @@ class MenuViewModel: ObservableObject {
             case .failure(let error):
                 DispatchQueue.main.async {
                     self?.isLoading = false
-                    self?.errorMessage = "Unable to load menu: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to load menu. Please try again."
+                    }
                     self?.hasError = true
                 }
             }

@@ -315,7 +315,14 @@ struct RestaurantRegistrationView: View {
                             errorMessage = "Registration failed. Please try again."
                         }
                     } else {
-                        errorMessage = error.localizedDescription
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("email") && errMsg.contains("exist") {
+                            errorMessage = "This email is already registered. Please sign in instead."
+                        } else if errMsg.contains("phone") {
+                            errorMessage = "Invalid phone number. Please check and try again."
+                        } else {
+                            errorMessage = "Unable to create account. Please try again."
+                        }
                     }
                 }
             }

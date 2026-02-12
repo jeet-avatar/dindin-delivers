@@ -433,7 +433,14 @@ class KOTSettingsViewModel: ObservableObject {
                     self?.successMessage = "Kitchen printing settings saved successfully!"
                     self?.showSuccessAlert = true
                 case .failure(let error):
-                    self?.errorMessage = "Failed to save settings: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else if errMsg.contains("invalid") || errMsg.contains("credentials") {
+                        self?.errorMessage = "Invalid credentials. Please check your API key and location."
+                    } else {
+                        self?.errorMessage = "Unable to save settings. Please try again."
+                    }
                     self?.showErrorAlert = true
                 }
             }
@@ -459,7 +466,14 @@ class KOTSettingsViewModel: ObservableObject {
                         self?.showErrorAlert = true
                     }
                 case .failure(let error):
-                    self?.errorMessage = "Test failed: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else if errMsg.contains("unauthorized") || errMsg.contains("invalid") {
+                        self?.errorMessage = "Invalid credentials. Please check your API key."
+                    } else {
+                        self?.errorMessage = "Connection test failed. Please verify your settings."
+                    }
                     self?.showErrorAlert = true
                 }
             }
