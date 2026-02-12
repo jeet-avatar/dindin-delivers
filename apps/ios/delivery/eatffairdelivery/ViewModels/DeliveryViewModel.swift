@@ -409,7 +409,15 @@ class DeliveryViewModel: ObservableObject {
                             self.availableOrders.insert(order, at: 0)
                         }
                     }
-                    self?.showErrorMessage("Failed to accept order: \(error.localizedDescription)")
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("busy") || errorMsg.contains("active") {
+                        self?.showErrorMessage("You already have an active delivery. Complete it first before accepting another.")
+                    } else if errorMsg.contains("assigned") || errorMsg.contains("taken") {
+                        self?.showErrorMessage("This order was already taken by another driver.")
+                    } else {
+                        self?.showErrorMessage("Unable to accept order. Please try again.")
+                    }
+                    logger.error("Accept order error: \(error.localizedDescription)")
                 }
             }
         }
@@ -434,7 +442,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to mark as picked up: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to mark as picked up. Please try again.")
+                    logger.error("Mark picked up error: \(error.localizedDescription)")
                 }
             }
         }
@@ -458,7 +467,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to complete delivery: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to complete delivery. Please try again or contact support.")
+                    logger.error("Complete delivery error: \(error.localizedDescription)")
                 }
             }
         }
@@ -480,7 +490,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to cancel delivery: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to cancel this delivery. Please contact support if needed.")
+                    logger.error("Cancel delivery error: \(error.localizedDescription)")
                 }
             }
         }
@@ -583,8 +594,16 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Private Helpers
     private func handleError(_ error: Error) {
-        errorMessage = error.localizedDescription
+        let errorMsg = error.localizedDescription.lowercased()
+        if errorMsg.contains("network") || errorMsg.contains("connection") || errorMsg.contains("offline") {
+            errorMessage = "Unable to connect. Please check your internet connection."
+        } else if errorMsg.contains("unauthorized") || errorMsg.contains("token") {
+            errorMessage = "Session expired. Please log in again."
+        } else {
+            errorMessage = "Something went wrong. Please try again."
+        }
         showError = true
+        logger.error("DeliveryViewModel error: \(error.localizedDescription)")
     }
 
     private func showErrorMessage(_ message: String) {
@@ -630,7 +649,15 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to accept ride: \(error.localizedDescription)")
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("busy") || errorMsg.contains("active") {
+                        self?.showErrorMessage("You already have an active ride or delivery. Complete it first.")
+                    } else if errorMsg.contains("taken") || errorMsg.contains("assigned") {
+                        self?.showErrorMessage("This ride was already accepted by another driver.")
+                    } else {
+                        self?.showErrorMessage("Unable to accept this ride. Please try again.")
+                    }
+                    logger.error("Accept ride error: \(error.localizedDescription)")
                 }
             }
         }
@@ -649,7 +676,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to mark ride as picked up: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to update ride status. Please try again.")
+                    logger.error("Mark ride picked up error: \(error.localizedDescription)")
                 }
             }
         }
@@ -669,7 +697,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to complete ride: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to complete ride. Please try again or contact support.")
+                    logger.error("Complete ride error: \(error.localizedDescription)")
                 }
             }
         }
@@ -709,7 +738,8 @@ class DeliveryViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to submit offer: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to submit your fare offer. Please try again.")
+                    logger.error("Submit fare offer error: \(error.localizedDescription)")
                 }
             }
         }
@@ -730,7 +760,8 @@ class DeliveryViewModel: ObservableObject {
                     self?.refreshAllData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to accept fare: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to accept the customer's fare. Please try again.")
+                    logger.error("Accept fare error: \(error.localizedDescription)")
                 }
             }
         }

@@ -590,7 +590,14 @@ public class V3CheckoutViewModel: ObservableObject {
                 isProcessing = false
 
             } catch {
-                errorMessage = error.localizedDescription
+                let errMsg = error.localizedDescription.lowercased()
+                if errMsg.contains("payment") || errMsg.contains("declined") {
+                    errorMessage = "Payment could not be processed. Please try again."
+                } else if errMsg.contains("closed") || errMsg.contains("unavailable") {
+                    errorMessage = "Restaurant is currently closed. Please try again later."
+                } else {
+                    errorMessage = "Unable to place order. Please try again."
+                }
                 showError = true
                 isProcessing = false
             }

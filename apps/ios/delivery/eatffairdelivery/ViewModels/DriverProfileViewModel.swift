@@ -295,8 +295,16 @@ class DriverProfileViewModel: ObservableObject {
                 case .success(let driverData):
                     self?.parseP2PDriverData(driverData)
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else if errorMsg.contains("unauthorized") || errorMsg.contains("token") {
+                        self?.errorMessage = "Session expired. Please log in again."
+                    } else {
+                        self?.errorMessage = "Unable to load profile. Please try again."
+                    }
                     self?.showError = true
+                    logger.error("Fetch profile error: \(error.localizedDescription)")
                 }
             }
         }
@@ -584,8 +592,9 @@ class DriverProfileViewModel: ObservableObject {
             guard let self = self else { return }
             if let error = error {
                 DispatchQueue.main.async {
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to create your profile. Please try again."
                     self.showError = true
+                    logger.error("Create profile error: \(error.localizedDescription)")
                 }
             } else {
                 DispatchQueue.main.async {
@@ -660,9 +669,15 @@ class DriverProfileViewModel: ObservableObject {
                     completion?(.success(()))
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to save. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to save your profile. Please try again."
+                    }
                     self?.showError = true
                     completion?(.failure(error))
+                    logger.error("Save profile error: \(error.localizedDescription)")
                 }
             }
         }
@@ -702,8 +717,9 @@ class DriverProfileViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self?.errorMessage = "Unable to upload your photo. Please try again."
                     self?.showError = true
+                    logger.error("Upload profile image error: \(error.localizedDescription)")
                 }
             }
         }

@@ -281,7 +281,12 @@ class TipDriverViewModel: ObservableObject {
                 case .success(let response):
                     logger.info("[TipDriverView] Tip submitted: \(response.message)")
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("payment") || errMsg.contains("card") || errMsg.contains("declined") {
+                        self?.errorMessage = "Payment could not be processed. Please check your payment method."
+                    } else {
+                        self?.errorMessage = "Unable to send tip. Please try again."
+                    }
                     logger.info("[TipDriverView] Tip failed: \(error)")
                 }
             }

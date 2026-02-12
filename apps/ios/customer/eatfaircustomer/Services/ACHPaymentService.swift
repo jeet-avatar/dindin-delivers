@@ -461,7 +461,14 @@ struct ACHPaymentButton: View {
                     // User canceled, not an error
                     onPaymentComplete(false, nil)
                 } else {
-                    errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("insufficient") || errMsg.contains("funds") {
+                        errorMessage = "Insufficient funds. Please check your account balance."
+                    } else if errMsg.contains("invalid") || errMsg.contains("account") {
+                        errorMessage = "Invalid account details. Please verify your bank information."
+                    } else {
+                        errorMessage = "Payment could not be processed. Please try again."
+                    }
                     showError = true
                     onPaymentComplete(false, error)
                 }

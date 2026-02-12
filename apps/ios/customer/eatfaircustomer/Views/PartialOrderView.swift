@@ -331,7 +331,12 @@ struct PartialOrderView: View {
                 self.modification = mod
                 self.timeRemaining = mod.timeRemainingSeconds ?? 0
             case .failure(let error):
-                self.errorMessage = error.localizedDescription
+                let errMsg = error.localizedDescription.lowercased()
+                if errMsg.contains("expired") || errMsg.contains("timeout") {
+                    self.errorMessage = "This modification request has expired."
+                } else {
+                    self.errorMessage = "Unable to load modification details. Please try again."
+                }
             }
         }
     }
@@ -351,7 +356,12 @@ struct PartialOrderView: View {
                 }
                 showSuccessAlert = true
             case .failure(let error):
-                errorMessage = error.localizedDescription
+                let errMsg = error.localizedDescription.lowercased()
+                if errMsg.contains("expired") || errMsg.contains("timeout") {
+                    errorMessage = "Response window has expired. Please contact support."
+                } else {
+                    errorMessage = "Unable to process your response. Please try again."
+                }
             }
         }
     }

@@ -225,7 +225,14 @@ class OrdersViewModel: ObservableObject {
                     self.updateAIInsights()
 
                 case .failure(let error):
-                    self.errorMessage = "Failed to fetch orders: \(error.localizedDescription)"
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") || errorMsg.contains("internet") {
+                        self.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else if errorMsg.contains("unauthorized") || errorMsg.contains("401") {
+                        self.errorMessage = "Session expired. Please log in again."
+                    } else {
+                        self.errorMessage = "Unable to load orders. Please try again."
+                    }
                     self.showError = true
                 }
             }
@@ -271,7 +278,12 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("already") || errorMsg.contains("cannot cancel") {
+                        self?.errorMessage = "This order can no longer be cancelled."
+                    } else {
+                        self?.errorMessage = "Unable to reject order. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -302,7 +314,14 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("expired") || errorMsg.contains("timeout") || errorMsg.contains("window") {
+                        self?.errorMessage = "Acceptance window expired. Order was auto-cancelled."
+                    } else if errorMsg.contains("already") {
+                        self?.errorMessage = "This order has already been processed."
+                    } else {
+                        self?.errorMessage = "Unable to accept order. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -331,7 +350,12 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("already") || errorMsg.contains("processed") {
+                        self?.errorMessage = "This order has already been processed."
+                    } else {
+                        self?.errorMessage = "Unable to decline order. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -362,7 +386,14 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("expired") || errorMsg.contains("timeout") || errorMsg.contains("window") {
+                        self?.errorMessage = "Delivery decision window expired. Order sent to driver pool."
+                    } else if errorMsg.contains("already") || errorMsg.contains("assigned") {
+                        self?.errorMessage = "A driver has already been assigned to this order."
+                    } else {
+                        self?.errorMessage = "Unable to accept delivery. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -391,7 +422,12 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("already") || errorMsg.contains("assigned") {
+                        self?.errorMessage = "A driver has already been assigned to this order."
+                    } else {
+                        self?.errorMessage = "Unable to decline delivery. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -420,7 +456,12 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("already") || errorMsg.contains("completed") {
+                        self?.errorMessage = "This order has already been marked as delivered."
+                    } else {
+                        self?.errorMessage = "Unable to mark order as delivered. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -455,7 +496,14 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("invalid") || errorMsg.contains("transition") {
+                        self?.errorMessage = "Cannot update order to this status."
+                    } else if errorMsg.contains("already") {
+                        self?.errorMessage = "This order status has already been updated."
+                    } else {
+                        self?.errorMessage = "Unable to update order status. Please try again."
+                    }
                     self?.showError = true
                 }
             }
@@ -591,7 +639,12 @@ class OrdersViewModel: ObservableObject {
                 case .failure(let error):
                     // Revert the toggle on failure
                     self?.isOnline.toggle()
-                    self?.errorMessage = error.localizedDescription
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("network") || errorMsg.contains("connection") {
+                        self?.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self?.errorMessage = "Unable to update status. Please try again."
+                    }
                     self?.showError = true
                 }
             }

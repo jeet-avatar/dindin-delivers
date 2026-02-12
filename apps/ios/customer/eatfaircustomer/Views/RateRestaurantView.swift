@@ -268,7 +268,7 @@ class RateRestaurantViewModel: ObservableObject {
                     logger.info("[RateRestaurantView] Rating submitted: \(response.message)")
                     self?.didSubmit = true
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self?.errorMessage = "Unable to submit rating. Please try again."
                     logger.info("[RateRestaurantView] Rating failed: \(error)")
                 }
             }

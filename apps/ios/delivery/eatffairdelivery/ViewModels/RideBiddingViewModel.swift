@@ -196,13 +196,16 @@ class RideBiddingViewModel: ObservableObject {
 
                 case .failure(let error):
                     // Show the backend message directly for known blocking errors
-                    let message = error.localizedDescription
+                    let message = error.localizedDescription.lowercased()
                     if message.contains("active ride") || message.contains("active delivery") {
-                        // Backend message is clear and actionable
-                        self?.showErrorMessage(message)
+                        // Backend message is clear and actionable - use original case
+                        self?.showErrorMessage(error.localizedDescription)
+                    } else if message.contains("busy") {
+                        self?.showErrorMessage("You already have active work. Complete it first before bidding.")
                     } else {
-                        self?.showErrorMessage("Failed to submit bid: \(message)")
+                        self?.showErrorMessage("Unable to submit your bid. Please try again.")
                     }
+                    logger.error("Submit bid error: \(error.localizedDescription)")
                 }
             }
         }
@@ -225,7 +228,8 @@ class RideBiddingViewModel: ObservableObject {
                     self?.refreshData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to withdraw bid: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to withdraw your bid. Please try again.")
+                    logger.error("Withdraw bid error: \(error.localizedDescription)")
                 }
             }
         }
@@ -263,7 +267,13 @@ class RideBiddingViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to accept: \(error.localizedDescription)")
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("expired") || errorMsg.contains("no longer") {
+                        self?.showErrorMessage("This offer has expired. The ride may no longer be available.")
+                    } else {
+                        self?.showErrorMessage("Unable to accept this offer. Please try again.")
+                    }
+                    logger.error("Accept counter error: \(error.localizedDescription)")
                 }
             }
         }
@@ -290,33 +300,45 @@ class RideBiddingViewModel: ObservableObject {
                     self?.refreshData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to reject: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to reject this offer. Please try again.")
+                    logger.error("Reject counter error: \(error.localizedDescription)")
                 }
             }
         }
     }
 
-    /// Submit a new counter-offer price
+    /// Submit a new counter-offer price (driver to customer)
+    /// Uses the dedicated /rides/bid/{id}/driver-counter endpoint
     func submitNewCounterOffer(_ bid: RideBid, newPrice: Double) {
         isLoading = true
 
-        p2pService.respondToCounterOffer(
+        p2pService.driverSubmitCounter(
             bidId: bid.id,
-            action: "counter",
-            counterPrice: newPrice
+            counterPrice: newPrice,
+            message: nil
         ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
                 switch result {
-                case .success:
-                    self?.showSuccessMessage("New offer sent to customer")
+                case .success(let response):
+                    if response.is_final_round == true {
+                        self?.showSuccessMessage("Final offer sent! Customer must accept or reject.")
+                    } else {
+                        self?.showSuccessMessage("Counter-offer sent to customer")
+                    }
                     self?.showCounterOfferSheet = false
                     self?.selectedCounterOffer = nil
                     self?.refreshData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to send offer: \(error.localizedDescription)")
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("limit") || errorMsg.contains("maximum") {
+                        self?.showErrorMessage("You've reached the maximum counter-offers for this ride.")
+                    } else {
+                        self?.showErrorMessage("Unable to send your counter-offer. Please try again.")
+                    }
+                    logger.error("Submit counter error: \(error.localizedDescription)")
                 }
             }
         }
@@ -340,7 +362,8 @@ class RideBiddingViewModel: ObservableObject {
                     self?.refreshData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to start ride: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to start the ride. Please try again.")
+                    logger.error("Start ride error: \(error.localizedDescription)")
                 }
             }
         }
@@ -363,7 +386,8 @@ class RideBiddingViewModel: ObservableObject {
                     self?.refreshData()
 
                 case .failure(let error):
-                    self?.showErrorMessage("Failed to complete ride: \(error.localizedDescription)")
+                    self?.showErrorMessage("Unable to complete the ride. Please try again or contact support.")
+                    logger.error("Complete ride error: \(error.localizedDescription)")
                 }
             }
         }

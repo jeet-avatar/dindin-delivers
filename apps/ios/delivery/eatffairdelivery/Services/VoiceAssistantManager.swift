@@ -130,7 +130,14 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         } catch {
             // Issue #23: Show meaningful error to user
             DispatchQueue.main.async {
-                self.errorMessage = "Unable to start voice recognition: \(error.localizedDescription)"
+                let errMsg = error.localizedDescription.lowercased()
+                if errMsg.contains("permission") || errMsg.contains("denied") {
+                    self.errorMessage = "Microphone access denied. Please enable in Settings."
+                } else if errMsg.contains("unavailable") || errMsg.contains("not supported") {
+                    self.errorMessage = "Voice recognition is not available on this device."
+                } else {
+                    self.errorMessage = "Voice assistant could not start. Please try again."
+                }
             }
             #if DEBUG
             logger.info("[VoiceAssistantManager] startListening error: \(error)")

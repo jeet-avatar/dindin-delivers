@@ -528,7 +528,14 @@ struct DriverLoginView: View {
                     case .success:
                         self.isLoggedIn = true
                     case .failure(let error):
-                        self.errorMessage = error.localizedDescription
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("not found") || errMsg.contains("no account") {
+                            self.errorMessage = "No driver account found. Please register first."
+                        } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                            self.errorMessage = "Your driver account is pending approval."
+                        } else {
+                            self.errorMessage = "Unable to sign in with Apple. Please try again."
+                        }
                     }
                 }
             }
@@ -537,7 +544,7 @@ struct DriverLoginView: View {
             let nsError = error as NSError
             // Don't show error if user cancelled
             if nsError.code != ASAuthorizationError.canceled.rawValue {
-                errorMessage = error.localizedDescription
+                errorMessage = "Apple Sign-In could not be completed. Please try again."
             }
         }
     }
@@ -572,7 +579,12 @@ struct DriverLoginView: View {
                         self.isLoading = false
                         return
                     }
-                    self.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("network") || errMsg.contains("connection") {
+                        self.errorMessage = "Unable to connect. Please check your internet connection."
+                    } else {
+                        self.errorMessage = "Google Sign-In could not be completed. Please try again."
+                    }
                     self.isLoading = false
                 }
                 return
@@ -767,7 +779,16 @@ struct DriverLoginView: View {
                     case .success:
                         self.isLoggedIn = true
                     case .failure(let error):
-                        self.errorMessage = error.localizedDescription
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("email") && errMsg.contains("exist") {
+                            self.errorMessage = "This email is already registered. Please sign in instead."
+                        } else if errMsg.contains("password") {
+                            self.errorMessage = "Password does not meet requirements. Please use at least 8 characters."
+                        } else if errMsg.contains("phone") {
+                            self.errorMessage = "Invalid phone number. Please check and try again."
+                        } else {
+                            self.errorMessage = "Unable to create account. Please try again."
+                        }
                     }
                 }
             }
@@ -779,7 +800,18 @@ struct DriverLoginView: View {
                     case .success:
                         self.isLoggedIn = true
                     case .failure(let error):
-                        self.errorMessage = error.localizedDescription
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("invalid") || errMsg.contains("password") || errMsg.contains("credential") {
+                            self.errorMessage = "Invalid email or password. Please check and try again."
+                        } else if errMsg.contains("not found") || errMsg.contains("no account") {
+                            self.errorMessage = "No driver account found. Please register first."
+                        } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                            self.errorMessage = "Your driver account is pending approval."
+                        } else if errMsg.contains("suspended") || errMsg.contains("deactivated") {
+                            self.errorMessage = "Your account has been suspended. Please contact support."
+                        } else {
+                            self.errorMessage = "Unable to sign in. Please try again."
+                        }
                     }
                 }
             }

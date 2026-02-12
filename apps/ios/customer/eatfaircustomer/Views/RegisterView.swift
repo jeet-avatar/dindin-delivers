@@ -307,7 +307,16 @@ struct RegisterView: View {
                 case .success:
                     onRegisterSuccess()
                 case .failure(let error):
-                    errorMessage = error.localizedDescription
+                    let errMsg = error.localizedDescription.lowercased()
+                    if errMsg.contains("email") && errMsg.contains("exist") {
+                        errorMessage = "This email is already registered. Please sign in instead."
+                    } else if errMsg.contains("password") {
+                        errorMessage = "Password does not meet requirements. Please use at least 8 characters."
+                    } else if errMsg.contains("phone") {
+                        errorMessage = "Invalid phone number. Please check and try again."
+                    } else {
+                        errorMessage = "Unable to create account. Please try again."
+                    }
                     showError = true
                 }
             }

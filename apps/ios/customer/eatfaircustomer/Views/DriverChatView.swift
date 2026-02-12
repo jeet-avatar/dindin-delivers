@@ -356,7 +356,7 @@ class ChatViewModel: ObservableObject {
                     self?.newMessage = ""
                     self?.fetchMessages()
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self?.errorMessage = "Message could not be sent. Please try again."
                     #if DEBUG
                     logger.info("[DriverChat] Send message failed: \(error)")
                     #endif
