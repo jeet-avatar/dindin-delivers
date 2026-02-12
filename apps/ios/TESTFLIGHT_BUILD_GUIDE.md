@@ -53,13 +53,13 @@
 
 ## API Endpoints Verified (Production)
 
-**Last Verified**: February 3, 2026
+**Last Verified**: February 11, 2026
 
 ### Core APIs
 
 | Endpoint | Status | Notes |
 |----------|--------|-------|
-| `GET /health` | ✅ 200 | Version 1.0.5, DB connected |
+| `GET /health` | ✅ 200 | Version 1.0.18, DB connected |
 | `GET /api/vendors` | ✅ 200 | Returns vendor list |
 | `GET /api/v5/driver/{id}/dashboard` | ✅ 200 | iOS-compatible format |
 | `POST /api/customer/orders/{id}/rate-driver` | ✅ 401 | Requires auth (correct) |
@@ -138,15 +138,15 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 ## TestFlight Testing Verification
 
-**Last Tested**: February 3, 2026 @ 8:08 PM PST
+**Last Tested**: February 11, 2026
 
 ### Build Availability on App Store Connect
 
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
-| Dollor (Customer) | 1037 | ✅ Available for Testing |
-| Dollor Driver | 136 | ✅ Uploaded to TestFlight |
-| Dollor Restaurant | 113 | ✅ Available for Testing |
+| Dollor (Customer) | 1066 | ✅ Available for Testing |
+| Dollor Driver | 174 | ✅ Uploaded to TestFlight |
+| Dollor Restaurant | 146 | ✅ Available for Testing |
 
 ### Demo Accounts (For App Store Review)
 
@@ -160,7 +160,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 | Test | Result | Details |
 |------|--------|---------|
-| Health Check | ✅ Pass | API v1.0.5 healthy, DB connected |
+| Health Check | ✅ Pass | API v1.0.18 healthy, DB connected |
 | Vendor List | ✅ Pass | 91 restaurants returned |
 | Vendor Menu | ✅ Pass | Menu items loaded |
 | Order Tracking | ✅ Pass | Driver photo/vehicle included |
@@ -333,7 +333,7 @@ fastlane run upload_to_testflight \
 | Driver earnings showing $0 | Backend fixed in v1.0.8 - redeploy if needed |
 | Rate driver returns 404 | Use `/api/customer/orders/` not `/api/orders/` |
 | **Restaurant archive/export fails first time** | **ALWAYS use `cd` to change to app directory before running xcodebuild** - Restaurant builds fail if run from wrong directory because workspace path is relative. Example: `cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios/restaurant && xcodebuild ...` |
-| "Dollor Driver.ipa" upload fails | Copy IPA to `/tmp/DollorDriver.ipa` (remove space) before fastlane upload |
+| "Dollor Driver.ipa" upload fails | Wrap path in quotes: `ipa:"/path/Dollor Driver.ipa"` - quotes handle spaces correctly |
 
 ---
 
@@ -354,34 +354,29 @@ Copy this prompt to continue in a new session:
 ```
 Continuing Dollor.ai iOS development.
 
-## Current State (February 3, 2026)
+## Current State (February 11, 2026)
 
 ### Build Numbers (Uploaded to TestFlight)
-- Customer: 1037 (Bundle: com.dollorai.customer)
-- Driver: 136 (Bundle: com.dollorai.delivery)
-- Restaurant: 113 (Bundle: com.dollorai.restaurant)
+- Customer: 1066 (Bundle: com.dollorai.customer)
+- Driver: 174 (Bundle: com.dollorai.delivery)
+- Restaurant: 146 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
-- API Version: 1.0.9 (Contract)
-- Backend Version: 1.0.5
+- API Contract Version: 1.0.14
+- Backend Version: 1.0.18
 - Staging: https://d3kuu45w6kl8hr.cloudfront.net (healthy)
 - Production: https://api.dollor.ai (healthy)
 
 ### Recent Fixes Applied
-1. Driver earnings dashboard - iOS-compatible format (today/this_week/this_month)
-2. Rate driver endpoint - fixed URL: /api/customer/orders/{id}/rate-driver
-3. Order acceptance - optimistic update for instant UI feedback
-4. Driver photo & vehicle details - verified pass-through to Customer/Restaurant apps
-
-### APIs Verified (All Pass)
-- Driver Profile, Documents, Earnings, Status
-- Order Tracking with driver photo/vehicle
-- Restaurant view with driver details
+1. Driver app blank screen on order detail tap - fixed race condition using .sheet(item:)
+2. Error messages made user-friendly (100% compliance - 53 patterns fixed)
+3. P2P rideshare bidding flow complete (bid polling, accept/reject, driver details)
+4. Push notifications for driver bids
 
 ### Key Files
-- API Contract: API_CONTRACT.md (v1.0.8)
-- Deployment: DEPLOYMENT.md
 - Build Guide: apps/ios/TESTFLIGHT_BUILD_GUIDE.md
+- API Contract: API_CONTRACT.md (v1.0.14)
+- Deployment: DEPLOYMENT.md
 
 ### App Store Connect
 - Team ID: PRKZ4UVCD7
@@ -393,8 +388,10 @@ Continuing Dollor.ai iOS development.
 # Check API health
 curl https://api.dollor.ai/health
 
-# Check driver dashboard format
-curl https://api.dollor.ai/api/v5/driver/48/dashboard | python3 -m json.tool
+# Check build versions
+grep "CURRENT_PROJECT_VERSION" apps/ios/customer/eatfaircustomer.xcodeproj/project.pbxproj | head -1
+grep "CURRENT_PROJECT_VERSION" apps/ios/delivery/eatffairdelivery.xcodeproj/project.pbxproj | head -1
+grep "CURRENT_PROJECT_VERSION" apps/ios/restaurant/eatffairrestaurant.xcodeproj/project.pbxproj | head -1
 
 # Check git status
 git log --oneline -5
