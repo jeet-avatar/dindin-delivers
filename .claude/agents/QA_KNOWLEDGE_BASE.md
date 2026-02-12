@@ -1,6 +1,6 @@
 # Dollor.ai QA Knowledge Base
 
-> **Last Updated:** February 11, 2026 @ 11:30 PST (29-Agent QA System)
+> **Last Updated:** February 11, 2026 @ 19:30 PST (34-Agent QA System)
 > **Backend Version:** 1.0.18
 > **Production API:** https://api.dollor.ai
 > **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net
@@ -25,7 +25,7 @@
 
 ---
 
-## 29 Cross-Platform QA Agents Reference
+## 34 Cross-Platform QA Agents Reference
 
 | # | Agent Name | Purpose | Platforms | Script/File |
 |---|------------|---------|-----------|-------------|
@@ -58,6 +58,11 @@
 | 27 | Bid Negotiation Flow | Multi-round counters, max rounds | All | E2E flow test |
 | 28 | Push Notification | Bid/order notifications | All | APNs/FCM test |
 | 29 | Smart Error UX | Blocking errors with navigation | iOS/Android | UX validation |
+| 30 | UI Consistency | Visual elements, spacing, colors, fonts | iOS | UI validation |
+| 31 | UX Flow | User journeys, friction points, feedback | iOS | UX validation |
+| 32 | Cross-App Integration | Customer/Driver/Restaurant flows | iOS | integration test |
+| 33 | Button Action Validator | All buttons trigger correct actions | iOS | UI validation |
+| 34 | Navigation Flow | Screen transitions, back buttons, deep links | iOS | flow validation |
 
 **Full Documentation**: `.planning/CROSS_PLATFORM_QA_AGENTS.md`
 
@@ -942,4 +947,4 @@ curl -s "https://api.dollor.ai/api/v5/driver/48/dashboard" | jq '.today, .this_w
 ---
 
 *Generated for Dollor.ai QA Team - Updated February 11, 2026*
-*29-Agent QA System v4.2.0*
+*34-Agent QA System v4.2.0*
