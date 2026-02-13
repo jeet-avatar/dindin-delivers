@@ -468,6 +468,30 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         except Exception as e:
             logger.error(f"Failed to send ride matched email: {e}")
 
+        # Send push notification to driver - BID ACCEPTED
+        try:
+            customer_name = "Customer"
+            if customer:
+                customer_name = f"{customer.first_name} {customer.last_name}".strip() or "Customer"
+
+            send_push_notification(
+                user_type="driver",
+                user_id=bid.driver_id,
+                title="Bid Accepted!",
+                body=f"{customer_name} accepted your ${bid.proposed_price:.0f} bid. Head to pickup!",
+                data={
+                    "type": "bid_accepted",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "pickup_address": ride_request.pickup_address,
+                    "final_price": str(bid.proposed_price)
+                },
+                db=db
+            )
+            logger.info(f"Push notification sent to driver {bid.driver_id} - bid accepted")
+        except Exception as e:
+            logger.error(f"Failed to send push notification to driver: {e}")
+
         # Return iOS AcceptedRideDetails format + backward compatible fields
         return {
             "success": True,
@@ -522,12 +546,78 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         if not data.counter_price:
             raise HTTPException(status_code=400, detail="Counter price required")
 
+        # Multi-round negotiation: Check customer counter limit (max 3 total)
+        MAX_CUSTOMER_COUNTERS = 3
+        current_counter_count = ride_request.customer_counter_count or 0
+
+        if current_counter_count >= MAX_CUSTOMER_COUNTERS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Maximum {MAX_CUSTOMER_COUNTERS} counter-offers reached. Please accept a bid or request a new ride."
+            )
+
+        # Check negotiation round for this bid (max 2 rounds per bid)
+        MAX_ROUNDS_PER_BID = 2
+        current_round = bid.negotiation_round or 1
+
+        if current_round >= MAX_ROUNDS_PER_BID and bid.last_offer_by == "customer":
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum negotiation rounds reached for this bid. Accept, reject, or try another driver."
+            )
+
+        # Low bid warning check
+        suggested_price = ride_request.suggested_price or 15.0
+        counter_price = data.counter_price
+        warning_message = None
+
+        # Very low bid (< 40% of suggested) - reject with message
+        if counter_price < suggested_price * 0.4:
+            min_acceptable = round(suggested_price * 0.5, 2)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Offer too low. Minimum acceptable: ${min_acceptable:.2f}. Suggested fare: ${suggested_price:.2f}"
+            )
+
+        # Low bid (< 60% of suggested) - allow but warn
+        elif counter_price < suggested_price * 0.6:
+            warning_message = f"Warning: Your offer is {int((1 - counter_price/suggested_price) * 100)}% below market rate. Drivers may not accept."
+            ride_request.low_bid_warning_shown = True
+
+        # Update bid with counter
+        # Note: negotiation_round only increments when DRIVER makes a new offer
+        # Customer counter is still part of current round (responding to driver's offer)
         bid.status = BidStatus.COUNTERED
         bid.responded_at = now
         bid.customer_response = data.message
         bid.customer_counter_price = data.counter_price
+        # Don't increment negotiation_round here - customer is responding, not starting new round
+        bid.last_offer_by = "customer"
+        bid.round_counter = (bid.round_counter or 0) + 1
+
+        # Update ride request counter count
+        ride_request.customer_counter_count = current_counter_count + 1
 
         db.commit()
+
+        # Send push notification to driver about counter-offer
+        try:
+            send_push_notification(
+                user_type="driver",
+                user_id=bid.driver_id,
+                title="Counter Offer Received!",
+                body=f"Customer offered ${data.counter_price:.2f} (Round {current_round}/2)",
+                data={
+                    "type": "counter_offer",
+                    "bid_id": str(bid.id),
+                    "ride_request_id": str(ride_request.id),
+                    "counter_price": str(data.counter_price),
+                    "round": str(current_round)
+                },
+                db=db
+            )
+        except Exception as e:
+            logger.error(f"Failed to send counter-offer push notification: {e}")
 
         # Send WebSocket update to driver with counter-offer
         try:
@@ -537,17 +627,27 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
                 action="countered",
                 details={
                     "counter_price": data.counter_price,
-                    "message": data.message
+                    "message": data.message,
+                    "negotiation_round": current_round,
+                    "rounds_remaining": MAX_ROUNDS_PER_BID - current_round
                 }
             ))
         except Exception as e:
             print(f"WebSocket broadcast error: {e}")
 
-        return {
+        response = {
             "success": True,
             "message": f"Counter-offer of ${data.counter_price:.2f} sent to driver",
-            "bid": serialize_bid(bid)
+            "bid": serialize_bid(bid),
+            "negotiation_round": current_round,
+            "customer_counters_remaining": MAX_CUSTOMER_COUNTERS - ride_request.customer_counter_count,
+            "rounds_remaining_this_bid": MAX_ROUNDS_PER_BID - current_round
         }
+
+        if warning_message:
+            response["warning"] = warning_message
+
+        return response
 
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use: accept, reject, or counter")
@@ -906,9 +1006,111 @@ async def withdraw_bid(bid_id: int, db: Session = Depends(get_db)):
 
     db.commit()
 
+    # Keep ride request open for other drivers
+    ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+    if ride_request and ride_request.status == RideRequestStatus.BIDDING:
+        # Check if there are other pending bids
+        other_pending = db.query(RideBid).filter(
+            and_(
+                RideBid.ride_request_id == ride_request.id,
+                RideBid.status == BidStatus.PENDING
+            )
+        ).count()
+        if other_pending == 0:
+            ride_request.status = RideRequestStatus.OPEN  # Reopen for new bids
+            db.commit()
+
     return {
         "success": True,
-        "message": "Bid withdrawn"
+        "message": "Bid withdrawn. Ride is available for other drivers."
+    }
+
+
+class DriverCounterInput(BaseModel):
+    counter_price: float
+    message: Optional[str] = None
+
+
+@router.post("/bid/{bid_id}/driver-counter")
+async def driver_counter_offer(bid_id: int, data: DriverCounterInput, db: Session = Depends(get_db)):
+    """
+    Driver responds to customer's counter-offer with their own counter (Round 2).
+    This is the final round - customer must accept or reject.
+    """
+    bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    if bid.status != BidStatus.COUNTERED:
+        raise HTTPException(status_code=400, detail="Can only counter a bid that has been countered by customer")
+
+    if bid.last_offer_by != "customer":
+        raise HTTPException(status_code=400, detail="Waiting for customer response")
+
+    ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    MAX_ROUNDS_PER_BID = 2
+    if bid.negotiation_round >= MAX_ROUNDS_PER_BID:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum negotiation rounds reached. Accept customer's offer or withdraw."
+        )
+
+    now = datetime.utcnow()
+
+    # Update bid with driver's counter
+    bid.proposed_price = data.counter_price
+    bid.message = data.message
+    bid.negotiation_round = (bid.negotiation_round or 1) + 1
+    bid.last_offer_by = "driver"
+    bid.round_counter = (bid.round_counter or 0) + 1
+    bid.updated_at = now
+    bid.status = BidStatus.PENDING  # Back to pending for customer decision
+
+    db.commit()
+
+    # Send push notification to customer about driver's counter
+    try:
+        send_push_notification(
+            user_type="customer",
+            user_id=ride_request.customer_id,
+            title="Driver Counter Offer!",
+            body=f"Driver offered ${data.counter_price:.2f} - Final offer (Round {bid.negotiation_round}/2)",
+            data={
+                "type": "driver_counter",
+                "bid_id": str(bid.id),
+                "ride_request_id": str(ride_request.id),
+                "counter_price": str(data.counter_price),
+                "round": str(bid.negotiation_round),
+                "is_final": "true"
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Failed to send driver counter push notification: {e}")
+
+    # WebSocket broadcast
+    try:
+        asyncio.create_task(broadcast_bid_update(
+            ride_request_id=ride_request.id,
+            customer_id=ride_request.customer_id,
+            bid_data={
+                **serialize_bid(bid),
+                "is_driver_counter": True,
+                "is_final_round": bid.negotiation_round >= MAX_ROUNDS_PER_BID
+            }
+        ))
+    except Exception as e:
+        print(f"WebSocket broadcast error: {e}")
+
+    return {
+        "success": True,
+        "message": f"Counter-offer of ${data.counter_price:.2f} sent to customer. This is the final round.",
+        "bid": serialize_bid(bid),
+        "negotiation_round": bid.negotiation_round,
+        "is_final_round": True
     }
 
 
@@ -1052,6 +1254,33 @@ async def start_ride(request_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Failed to send ride started email: {e}")
 
+    # Send push notification to customer - RIDE STARTED
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer:
+            driver_name = "Your driver"
+            if driver:
+                driver_name = f"{driver.first_name}".strip() or "Your driver"
+
+            eta_minutes = ride_request.estimated_duration_minutes or 15
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="You're on your way!",
+                body=f"{driver_name} picked you up. ETA to destination: ~{eta_minutes} min",
+                data={
+                    "type": "ride_started",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "dropoff_address": ride_request.dropoff_address
+                },
+                db=db
+            )
+            logger.info(f"Push notification sent to customer {ride_request.customer_id} - ride started")
+    except Exception as e:
+        logger.error(f"Failed to send push notification to customer: {e}")
+
     return {
         "success": True,
         "message": "Ride started",
@@ -1105,6 +1334,34 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
             logger.info(f"Ride completed email sent to {customer.email}")
     except Exception as e:
         logger.error(f"Failed to send ride completed email: {e}")
+
+    # Send push notification to customer - RIDE COMPLETED
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer:
+            driver_name = "Your driver"
+            if driver:
+                driver_name = f"{driver.first_name} {driver.last_name}".strip() or "Your driver"
+
+            final_price = ride_request.final_price or 0
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="Ride Complete!",
+                body=f"You've arrived! Total: ${final_price:.2f}. Rate {driver_name} and add a tip.",
+                data={
+                    "type": "ride_completed",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "final_price": str(final_price),
+                    "driver_name": driver_name
+                },
+                db=db
+            )
+            logger.info(f"Push notification sent to customer {ride_request.customer_id} - ride completed")
+    except Exception as e:
+        logger.error(f"Failed to send push notification to customer: {e}")
 
     return {
         "success": True,
