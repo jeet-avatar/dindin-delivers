@@ -64,11 +64,16 @@ class RideBiddingViewModel: ObservableObject {
         AppConfig.shared.rideshareTier1Fee
     }
 
+    // Connection Status (for polling failure detection)
+    @Published var showConnectionWarning = false
+
     // MARK: - Private Properties
 
     private let p2pService = P2PAPIService.shared
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private var pollingFailureCount = 0
+    private let maxFailuresBeforeWarning = 3
 
     // MARK: - Initialization
 
@@ -132,15 +137,19 @@ class RideBiddingViewModel: ObservableObject {
             radiusKm: radiusKm
         ) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 switch result {
                 case .success(let requests):
-                    self?.availableRequests = requests
+                    self.availableRequests = requests
+                    self.pollingFailureCount = 0  // Reset on success
+                    self.showConnectionWarning = false
 
                 case .failure(let error):
-                    // Silent fail for polling - only show error on manual refresh
-                    #if DEBUG
-                    logger.info("[RideBiddingViewModel] fetchAvailableRequests error: \(error)")
-                    #endif
+                    self.pollingFailureCount += 1
+                    logger.debug("Polling failed (\(self.pollingFailureCount)): \(error.localizedDescription)")
+                    if self.pollingFailureCount >= self.maxFailuresBeforeWarning {
+                        self.showConnectionWarning = true
+                    }
                 }
             }
         }
@@ -154,18 +163,32 @@ class RideBiddingViewModel: ObservableObject {
 
         p2pService.fetchDriverBids { [weak self] result in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 switch result {
                 case .success(let bids):
-                    self?.myBids = bids
-                    // Filter counter-offers that need response
-                    self?.pendingCounterOffers = bids.filter { $0.status == "countered" }
-                    // Filter active rides (accepted bids)
-                    self?.activeRides = bids.filter { $0.status == "accepted" }
+                    // Check for NEW counter-offers (wasn't countered before, is now)
+                    let previousCountered = Set(self.pendingCounterOffers.map { $0.id })
+                    let newCountered = bids.filter { $0.status == "countered" && !previousCountered.contains($0.id) }
+
+                    // Update state
+                    self.myBids = bids
+                    self.pendingCounterOffers = bids.filter { $0.status == "countered" }
+                    self.activeRides = bids.filter { $0.status == "accepted" }
+                    self.pollingFailureCount = 0  // Reset on success
+                    self.showConnectionWarning = false
+
+                    // Auto-show counter-offer sheet for new counter-offers
+                    if let firstNew = newCountered.first, !self.showCounterOfferSheet {
+                        self.selectedCounterOffer = firstNew
+                        self.showCounterOfferSheet = true
+                    }
 
                 case .failure(let error):
-                    #if DEBUG
-                    logger.info("[RideBiddingViewModel] fetchMyBids error: \(error)")
-                    #endif
+                    self.pollingFailureCount += 1
+                    logger.debug("Bids poll failed (\(self.pollingFailureCount)): \(error.localizedDescription)")
+                    if self.pollingFailureCount >= self.maxFailuresBeforeWarning {
+                        self.showConnectionWarning = true
+                    }
                 }
             }
         }
