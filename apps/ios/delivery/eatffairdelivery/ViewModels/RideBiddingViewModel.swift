@@ -165,6 +165,9 @@ class RideBiddingViewModel: ObservableObject {
         estimatedArrivalMinutes: Int,
         message: String?
     ) {
+        // Prevent double-tap race condition
+        guard !isSubmittingBid else { return }
+
         guard p2pService.currentDriverId != nil else {
             showErrorMessage("Please log in to submit a bid")
             return
