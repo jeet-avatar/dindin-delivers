@@ -2247,7 +2247,7 @@ struct RideStatusCard: View {
     private func submitRating() {
         guard selectedRating > 0 else { return }
         guard let rideId = viewModel.activeRide?.rideId else {
-            ratingSubmitted = true
+            // No ride ID - skip rating silently
             return
         }
 
@@ -2261,7 +2261,14 @@ struct RideStatusCard: View {
         ) { result in
             DispatchQueue.main.async {
                 isSubmittingRating = false
-                ratingSubmitted = true
+                switch result {
+                case .success:
+                    ratingSubmitted = true
+                case .failure(let error):
+                    // Log error but still allow dismissing
+                    print("Rating submission failed: \(error.localizedDescription)")
+                    ratingSubmitted = true // Allow user to proceed
+                }
             }
         }
     }
@@ -2270,7 +2277,7 @@ struct RideStatusCard: View {
         let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
         guard tipAmount > 0 else { return }
         guard let rideId = viewModel.activeRide?.rideId else {
-            tipSubmitted = true
+            // No ride ID - skip tip silently
             return
         }
 
@@ -2283,7 +2290,14 @@ struct RideStatusCard: View {
         ) { result in
             DispatchQueue.main.async {
                 isSubmittingTip = false
-                tipSubmitted = true
+                switch result {
+                case .success:
+                    tipSubmitted = true
+                case .failure(let error):
+                    // Log error but still allow dismissing
+                    print("Tip submission failed: \(error.localizedDescription)")
+                    tipSubmitted = true // Allow user to proceed
+                }
             }
         }
     }

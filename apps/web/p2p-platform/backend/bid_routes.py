@@ -1125,14 +1125,20 @@ async def accept_counter_offer(bid_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="This bid doesn't have a counter-offer")
 
     ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
 
     now = datetime.utcnow()
+
+    # Save original price before updating (for history tracking)
+    original_driver_price = bid.proposed_price
 
     # Accept the counter-offer price
     bid.status = BidStatus.ACCEPTED
     bid.proposed_price = bid.customer_counter_price
     bid.is_counter_offer = True
-    bid.original_price = bid.proposed_price
+    if not bid.original_price:  # Only set if not already set
+        bid.original_price = original_driver_price
     bid.accepted_at = now
 
     # Match the ride
@@ -1156,6 +1162,51 @@ async def accept_counter_offer(bid_id: int, db: Session = Depends(get_db)):
         other_bid.customer_response = "Another bid was accepted"
 
     db.commit()
+
+    # Send push notification to customer - COUNTER ACCEPTED
+    try:
+        driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+        driver_name = "Your driver"
+        if driver:
+            driver_name = f"{driver.first_name}".strip() or "Your driver"
+
+        send_push_notification(
+            user_type="customer",
+            user_id=ride_request.customer_id,
+            title="Driver Accepted Your Offer!",
+            body=f"{driver_name} accepted ${bid.customer_counter_price:.0f}. Pickup in ~{bid.estimated_arrival_minutes or 10} min",
+            data={
+                "type": "counter_accepted",
+                "ride_request_id": str(ride_request.id),
+                "request_id": ride_request.request_id,
+                "final_price": str(bid.customer_counter_price),
+                "driver_name": driver_name
+            },
+            db=db
+        )
+        logger.info(f"Push notification sent to customer {ride_request.customer_id} - counter accepted")
+    except Exception as e:
+        logger.error(f"Failed to send push notification to customer: {e}")
+
+    # Send ride matched email to customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+        if customer and customer.email and driver:
+            send_ride_matched_email(
+                to_email=customer.email,
+                customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
+                request_id=ride_request.request_id,
+                driver_name=f"{driver.first_name} {driver.last_name}",
+                driver_phone=driver.phone or "",
+                driver_vehicle=bid.driver_vehicle or "",
+                final_price=ride_request.final_price,
+                eta_minutes=bid.estimated_arrival_minutes or 10,
+                pickup_address=ride_request.pickup_address
+            )
+            logger.info(f"Ride matched email sent to {customer.email}")
+    except Exception as e:
+        logger.error(f"Failed to send ride matched email: {e}")
 
     return {
         "success": True,

@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import EatFairShared
 import CoreLocation
+import UIKit
 import os
 
 private let logger = Logger(subsystem: "com.dollorai.delivery", category: "RideBiddingViewModel")
@@ -86,6 +87,8 @@ class RideBiddingViewModel: ObservableObject {
     private func setupRefreshTimer() {
         // Poll every 5 seconds for real-time updates
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            // Only poll when app is active
+            guard UIApplication.shared.applicationState == .active else { return }
             self?.refreshData()
         }
     }
@@ -93,6 +96,18 @@ class RideBiddingViewModel: ObservableObject {
     func refreshData() {
         fetchAvailableRequests()
         fetchMyBids()
+    }
+
+    /// Stop the background refresh timer (call on view disappear)
+    func stopRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+
+    /// Restart the background refresh timer (call on view appear)
+    func startRefreshTimer() {
+        guard refreshTimer == nil else { return }
+        setupRefreshTimer()
     }
 
     // MARK: - Fetch Available Ride Requests

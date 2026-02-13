@@ -6,7 +6,7 @@ import EatFairShared
 /// Matches web app RideBidding.tsx "Available Requests" tab
 struct AvailableRideRequestsView: View {
     @StateObject private var viewModel = RideBiddingViewModel()
-    @StateObject private var locationManager = LocationManager.shared
+    @ObservedObject private var locationManager = LocationManager.shared
     @State private var selectedRequest: RideRequestForBidding?
     @State private var showBidSheet = false
     @State private var viewMode: ViewMode = .list
@@ -54,21 +54,30 @@ struct AvailableRideRequestsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        viewModel.isLoading = true
+                        // Manual refresh - loading state controlled by refreshData()
                         viewModel.refreshData()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            viewModel.isLoading = false
-                        }
                     }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.blue)
+                        }
                     }
+                    .disabled(viewModel.isLoading)
+                    .accessibilityLabel("Refresh ride requests")
                 }
             }
             .onAppear {
+                viewModel.startRefreshTimer()
                 viewModel.fetchAvailableRequests()
                 locationManager.requestPermission()
                 locationManager.getCurrentLocation()
+            }
+            .onDisappear {
+                // Stop background refresh when leaving view
+                viewModel.stopRefreshTimer()
             }
             .sheet(isPresented: $showBidSheet) {
                 if let request = selectedRequest {
@@ -87,15 +96,19 @@ struct AvailableRideRequestsView: View {
                             userInfo: ["type": hasActiveRide ? "ride" : "delivery"]
                         )
                     }
+                    .accessibilityLabel("View your active work")
                     Button("OK", role: .cancel) {}
+                        .accessibilityLabel("Dismiss error")
                 } else {
                     Button("OK", role: .cancel) {}
+                        .accessibilityLabel("Dismiss error")
                 }
             } message: {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
             .alert("Success", isPresented: $viewModel.showSuccess) {
                 Button("OK", role: .cancel) {}
+                    .accessibilityLabel("Dismiss success message")
             } message: {
                 Text(viewModel.successMessage ?? "")
             }
@@ -158,6 +171,7 @@ struct AvailableRideRequestsView: View {
                             }
                         }
                     }
+                    .accessibilityLabel("Sort by \(option.rawValue)")
                 }
             } label: {
                 HStack(spacing: 4) {
@@ -171,6 +185,8 @@ struct AvailableRideRequestsView: View {
                 .background(Color.blue.opacity(0.1))
                 .cornerRadius(8)
             }
+            .accessibilityLabel("Sort requests by \(sortBy.rawValue)")
+            .accessibilityHint("Tap to change sort order")
 
             Spacer()
 
@@ -184,6 +200,8 @@ struct AvailableRideRequestsView: View {
                         .background(viewMode == .list ? Color.blue : Color.clear)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("List view")
+                .accessibilityHint(viewMode == .list ? "Currently selected" : "Show requests as a list")
 
                 Button(action: { viewMode = .map }) {
                     Image(systemName: "map")
@@ -193,6 +211,8 @@ struct AvailableRideRequestsView: View {
                         .background(viewMode == .map ? Color.blue : Color.clear)
                         .cornerRadius(8)
                 }
+                .accessibilityLabel("Map view")
+                .accessibilityHint(viewMode == .map ? "Currently selected" : "Show requests on a map")
             }
             .padding(4)
             .background(Theme.lightGrey)
@@ -299,6 +319,8 @@ struct AvailableRideRequestsView: View {
                 .background(Color.blue)
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Refresh ride requests")
+            .accessibilityHint("Check for new available ride requests")
 
             Spacer()
         }
@@ -537,6 +559,8 @@ struct RideRequestCard: View {
                 .background(Color.blue)
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Submit bid for this ride")
+            .accessibilityHint("Place your bid to pick up this rider")
             .padding()
         }
         .background(Theme.cardBackground)
@@ -631,6 +655,8 @@ struct RideRequestsMapView: View {
                                 .offset(y: -4)
                         }
                     }
+                    .accessibilityLabel("Ride request for \(Int(request.suggested_price ?? 0)) dollars")
+                    .accessibilityHint("Tap to submit a bid")
                 }
             }
         }
