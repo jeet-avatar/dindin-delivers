@@ -13464,6 +13464,39 @@ async def rate_ride_customer(
     return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
 
 
+@app.post("/api/rides/{ride_id}/tip")
+async def tip_ride_driver(
+    ride_id: int,
+    tip_amount: float = 0,
+    tip_type: str = "post_ride",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Add tip to driver for a completed ride.
+    100% of tip goes to driver.
+    Used by Android/iOS customer apps.
+    """
+    from models import RideRequest
+
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Update tip amount on ride
+    current_tip = getattr(ride, 'tip_amount', 0) or 0
+    ride.tip_amount = current_tip + tip_amount
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"${tip_amount:.2f} tip added for your driver",
+        "ride_id": ride_id,
+        "tip_amount": tip_amount,
+        "driver_new_earnings": tip_amount  # 100% to driver
+    }
+
+
 # ==================== RIDE BIDDING ROUTES (in bid_routes.py) ====================
 # Legacy endpoints removed 2026-02-07 - all bid routes now in bid_routes.py
 # See: bid_routes.py for /api/rides/request/{id}/bids, /bid/{id}/respond, etc.

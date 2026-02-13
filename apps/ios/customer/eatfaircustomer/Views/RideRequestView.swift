@@ -267,6 +267,8 @@ struct RideBottomSheet: View {
                         .font(.title3)
                         .foregroundColor(.gray)
                 }
+                .accessibilityLabel("Close ride request")
+                .accessibilityHint("Returns to the home screen")
 
                 Spacer()
 
@@ -318,6 +320,8 @@ struct RideBottomSheet: View {
                     }
                     .padding()
                 }
+                .accessibilityLabel("Select pickup location")
+                .accessibilityHint("Opens location search to set where to be picked up")
 
                 // Connector
                 HStack {
@@ -360,6 +364,8 @@ struct RideBottomSheet: View {
                     }
                     .padding()
                 }
+                .accessibilityLabel("Select dropoff location")
+                .accessibilityHint("Opens location search to set your destination")
             }
 
             Divider()
@@ -555,6 +561,8 @@ struct RideBottomSheet: View {
                     .cornerRadius(12)
                 }
                 .disabled(!viewModel.canRequestRide)
+                .accessibilityLabel("Find driver with offer of \(String(format: "$%.2f", viewModel.estimatedFare))")
+                .accessibilityHint("Searches for available drivers near your pickup location")
 
                 // Make Custom Offer Button
                 Button(action: { showNegotiateSheet = true }) {
@@ -575,6 +583,8 @@ struct RideBottomSheet: View {
                     )
                 }
                 .disabled(!viewModel.canRequestRide)
+                .accessibilityLabel("Make a different offer")
+                .accessibilityHint("Opens negotiation to offer a custom fare amount")
 
                 // Info text - P2P matchmaking disclaimer with tiered pricing
                 HStack(spacing: 4) {
@@ -809,6 +819,7 @@ struct PreRequestNegotiationSheet: View {
                     Button("Cancel") {
                         isPresented = false
                     }
+                    .accessibilityLabel("Cancel custom offer")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -830,6 +841,8 @@ struct PreRequestNegotiationSheet: View {
                         .cornerRadius(12)
                     }
                     .disabled(currentOffer == nil)
+                    .accessibilityLabel(currentOffer != nil ? "Request ride with \(String(format: "$%.0f", currentOffer!)) offer" : "Enter an amount to request")
+                    .accessibilityHint("Sends your custom fare offer to drivers")
                 }
                 .padding()
                 .background(Color(.systemBackground))
@@ -875,6 +888,7 @@ struct RideLocationSearchView: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
                         }
+                        .accessibilityLabel("Clear search")
                     }
                 }
                 .padding()
@@ -919,6 +933,8 @@ struct RideLocationSearchView: View {
                     .padding()
                 }
                 .disabled(isGettingLocation)
+                .accessibilityLabel("Use current location")
+                .accessibilityHint("Sets your current GPS location as the address")
 
                 Divider()
                     .padding(.horizontal)
@@ -969,6 +985,7 @@ struct RideLocationSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel location search")
                 }
             }
         }
@@ -1263,6 +1280,17 @@ struct RideStatusCard: View {
     @State private var showNegotiateSheet = false
     @State private var customerOfferAmount: String = ""
 
+    // Completion flow states
+    @State private var selectedRating: Int = 0
+    @State private var ratingFeedback: String = ""
+    @State private var selectedTipAmount: Double = 0
+    @State private var customTipAmount: String = ""
+    @State private var showCustomTip = false
+    @State private var isSubmittingRating = false
+    @State private var isSubmittingTip = false
+    @State private var ratingSubmitted = false
+    @State private var tipSubmitted = false
+
     var statusText: String {
         switch viewModel.currentStep {
         case .waitingForDriver:
@@ -1337,6 +1365,8 @@ struct RideStatusCard: View {
                             .font(.title2)
                             .foregroundColor(.red.opacity(0.7))
                     }
+                    .accessibilityLabel("Cancel ride")
+                    .accessibilityHint("Opens confirmation to cancel your ride request")
                 }
             }
             .padding(.horizontal)
@@ -1376,6 +1406,8 @@ struct RideStatusCard: View {
                                 .background(Color.green)
                                 .cornerRadius(8)
                         }
+                        .accessibilityLabel("View driver bids")
+                        .accessibilityHint("Shows available drivers and their fare offers")
                     }
                 }
                 .padding(.horizontal)
@@ -1443,6 +1475,8 @@ struct RideStatusCard: View {
                                     .background(Color.green)
                                     .clipShape(Circle())
                             }
+                            .accessibilityLabel("Call driver")
+                            .accessibilityHint("Places a phone call to your driver")
                         }
                     }
 
@@ -1568,6 +1602,8 @@ struct RideStatusCard: View {
                                     .background(Color.green)
                                     .cornerRadius(10)
                                 }
+                                .accessibilityLabel("Accept driver's offer")
+                                .accessibilityHint("Confirms the driver's fare and books the ride")
 
                                 Button(action: { showNegotiateSheet = true }) {
                                     HStack {
@@ -1582,6 +1618,8 @@ struct RideStatusCard: View {
                                     .background(Color.orange.opacity(0.15))
                                     .cornerRadius(10)
                                 }
+                                .accessibilityLabel("Counter offer")
+                                .accessibilityHint("Opens negotiation to make a counter offer")
                             }
                         }
                         .padding()
@@ -1766,18 +1804,9 @@ struct RideStatusCard: View {
                     .padding(.horizontal)
             }
 
-            // Complete Button (when ride is done)
+            // MARK: - Ride Completed Thank You Section
             if viewModel.currentStep == .completed {
-                Button(action: { viewModel.resetRide() }) {
-                    Text("Done")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal)
+                rideCompletedSection
             }
 
             Spacer().frame(height: 20)
@@ -1834,6 +1863,429 @@ struct RideStatusCard: View {
                     .font(.title3)
                     .foregroundColor(.gray)
             )
+    }
+
+    // MARK: - Ride Completed Section (Thank You Screen)
+    private var rideCompletedSection: some View {
+        VStack(spacing: 20) {
+            Divider()
+
+            // Celebration Header
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.green)
+                }
+
+                Text("Ride Complete!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("Thank you for riding with Dollor")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 8)
+
+            // Trip Summary Card
+            VStack(spacing: 12) {
+                HStack {
+                    Text("TRIP SUMMARY")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    if let ride = viewModel.activeRide {
+                        Text("Ride #\(ride.rideNumber)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                // Pickup → Dropoff
+                HStack(spacing: 12) {
+                    VStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 12, height: 12)
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 2, height: 30)
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.green)
+                    }
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Pickup")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text(viewModel.pickupAddress?.fullAddress ?? "Unknown")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Dropoff")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text(viewModel.dropoffAddress?.fullAddress ?? "Unknown")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .padding()
+            .background(Color.gray.opacity(0.05))
+            .cornerRadius(12)
+            .padding(.horizontal)
+
+            // Fare Breakdown
+            VStack(spacing: 10) {
+                HStack {
+                    Text("FARE BREAKDOWN")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+
+                FareLineItem(label: "Ride Fare", amount: viewModel.estimatedFare)
+                FareLineItem(label: "Connection Fee", amount: viewModel.platformFee)
+
+                Divider()
+
+                HStack {
+                    Text("Total Paid")
+                        .font(.headline)
+                    Spacer()
+                    Text("$\(String(format: "%.2f", viewModel.totalAmount))")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "info.circle")
+                        .font(.caption2)
+                    Text("Driver earned $\(String(format: "%.2f", viewModel.estimatedFare - AppConfig.shared.calculateRidesharePlatformFee(fareAmount: viewModel.estimatedFare))) (96% of fare)")
+                        .font(.caption2)
+                }
+                .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color.gray.opacity(0.05))
+            .cornerRadius(12)
+            .padding(.horizontal)
+
+            // Rate Driver Section
+            if !ratingSubmitted {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("RATE YOUR DRIVER")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+
+                    // Driver info row
+                    if let driver = viewModel.acceptedDriver {
+                        HStack(spacing: 12) {
+                            if let photoUrl = driver.photo_url,
+                               let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                                AsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 50, height: 50)
+                                        .clipShape(Circle())
+                                } placeholder: {
+                                    driverPhotoPlaceholder
+                                }
+                            } else {
+                                driverPhotoPlaceholder
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(driver.name ?? "Your Driver")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                if let vehicle = driver.vehicle_make {
+                                    Text("\(driver.vehicle_color ?? "") \(vehicle) \(driver.vehicle_model ?? "")")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+
+                    // Star Rating
+                    HStack(spacing: 8) {
+                        ForEach(1...5, id: \.self) { star in
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                    selectedRating = star
+                                }
+                            }) {
+                                Image(systemName: star <= selectedRating ? "star.fill" : "star")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(star <= selectedRating ? .yellow : .gray.opacity(0.4))
+                                    .scaleEffect(star <= selectedRating ? 1.1 : 1.0)
+                            }
+                            .accessibilityLabel("\(star) star\(star == 1 ? "" : "s")")
+                        }
+                    }
+                    .padding(.vertical, 8)
+
+                    // Optional feedback
+                    if selectedRating > 0 {
+                        TextField("Add a comment (optional)", text: $ratingFeedback)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(10)
+
+                        // Submit Rating Button
+                        Button(action: submitRating) {
+                            HStack {
+                                if isSubmittingRating {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                    Text("Submit \(selectedRating)-Star Rating")
+                                }
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                        }
+                        .disabled(isSubmittingRating)
+                        .accessibilityLabel("Submit rating")
+                        .accessibilityHint("Sends your \(selectedRating)-star rating to the driver")
+                    }
+                }
+                .padding()
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            } else {
+                // Rating submitted confirmation
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Thanks for rating \(selectedRating) stars!")
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
+
+            // Add Tip Section
+            if !tipSubmitted {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("ADD A TIP")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("100% goes to driver")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+
+                    // Quick Tip Buttons
+                    HStack(spacing: 12) {
+                        ForEach([2.0, 5.0, 10.0], id: \.self) { amount in
+                            Button(action: {
+                                withAnimation {
+                                    selectedTipAmount = amount
+                                    showCustomTip = false
+                                }
+                            }) {
+                                Text("$\(Int(amount))")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(selectedTipAmount == amount ? .white : .primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(selectedTipAmount == amount ? Color.orange : Color.gray.opacity(0.1))
+                                    .cornerRadius(12)
+                            }
+                            .accessibilityLabel("$\(Int(amount)) tip")
+                        }
+
+                        // Custom Amount Button
+                        Button(action: {
+                            withAnimation {
+                                showCustomTip = true
+                                selectedTipAmount = 0
+                            }
+                        }) {
+                            Text("Other")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(showCustomTip ? .white : .primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(showCustomTip ? Color.orange : Color.gray.opacity(0.1))
+                                .cornerRadius(12)
+                        }
+                        .accessibilityLabel("Custom tip amount")
+                    }
+
+                    // Custom Tip Input
+                    if showCustomTip {
+                        HStack {
+                            Text("$")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            TextField("Amount", text: $customTipAmount)
+                                .keyboardType(.decimalPad)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+
+                    // Submit Tip Button
+                    let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
+                    if tipAmount > 0 {
+                        Button(action: submitTip) {
+                            HStack {
+                                if isSubmittingTip {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "heart.fill")
+                                    Text("Add $\(String(format: "%.2f", tipAmount)) Tip")
+                                }
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.orange)
+                            .cornerRadius(10)
+                        }
+                        .disabled(isSubmittingTip)
+                        .accessibilityLabel("Add tip")
+                        .accessibilityHint("Sends $\(String(format: "%.2f", tipAmount)) tip to your driver")
+                    }
+
+                    // Skip Tip Button
+                    Button(action: {
+                        tipSubmitted = true
+                    }) {
+                        Text("Skip Tip")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .accessibilityLabel("Skip tip")
+                }
+                .padding()
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            } else if selectedTipAmount > 0 || (Double(customTipAmount) ?? 0) > 0 {
+                // Tip submitted confirmation
+                let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
+                HStack(spacing: 8) {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.orange)
+                    Text("$\(String(format: "%.2f", tipAmount)) tip sent to your driver!")
+                        .font(.subheadline)
+                        .foregroundColor(.orange)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
+            }
+
+            // Done Button
+            Button(action: { viewModel.resetRide() }) {
+                Text("Done")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal)
+            .accessibilityLabel("Complete ride")
+            .accessibilityHint("Closes this ride and returns to home screen")
+        }
+    }
+
+    // MARK: - Rating & Tip Actions
+
+    private func submitRating() {
+        guard selectedRating > 0 else { return }
+        guard let rideId = viewModel.activeRide?.rideId else {
+            ratingSubmitted = true
+            return
+        }
+
+        isSubmittingRating = true
+
+        // Call the backend API to submit rating
+        P2PAPIService.shared.submitRideRating(
+            rideId: rideId,
+            rating: selectedRating,
+            comment: ratingFeedback.isEmpty ? nil : ratingFeedback
+        ) { result in
+            DispatchQueue.main.async {
+                isSubmittingRating = false
+                ratingSubmitted = true
+            }
+        }
+    }
+
+    private func submitTip() {
+        let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
+        guard tipAmount > 0 else { return }
+        guard let rideId = viewModel.activeRide?.rideId else {
+            tipSubmitted = true
+            return
+        }
+
+        isSubmittingTip = true
+
+        // Call the backend API to submit tip
+        P2PAPIService.shared.submitRideTip(
+            rideId: rideId,
+            amount: tipAmount
+        ) { result in
+            DispatchQueue.main.async {
+                isSubmittingTip = false
+                tipSubmitted = true
+            }
+        }
     }
 
     private func callDriver(_ phone: String) {
@@ -2030,6 +2482,8 @@ struct DriverBidsSheet: View {
                                 DriverBidCard(bid: bid, onAccept: {
                                     viewModel.acceptBid(bid)
                                     dismiss()
+                                }, onCounter: {
+                                    viewModel.showCounterOffer(for: bid)
                                 }, onReject: {
                                     viewModel.rejectBid(bid)
                                 })
@@ -2047,6 +2501,150 @@ struct DriverBidsSheet: View {
             }
         }
         .presentationDetents([.large])
+        .sheet(isPresented: $viewModel.showCounterSheet) {
+            if let bid = viewModel.selectedBidForCounter {
+                BidCounterSheet(viewModel: viewModel, bid: bid)
+            }
+        }
+    }
+}
+
+// MARK: - Bid Counter Sheet
+struct BidCounterSheet: View {
+    @ObservedObject var viewModel: RideRequestViewModel
+    let bid: RideBid
+    @Environment(\.dismiss) private var dismiss
+    @State private var counterPrice: String = ""
+    @State private var counterMessage: String = ""
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                // Header info
+                VStack(spacing: 8) {
+                    Text("Counter Offer")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Make a counter-offer to \(bid.driver_name ?? "the driver")")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 20)
+
+                // Current price display
+                VStack(spacing: 4) {
+                    Text("Driver's offer")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("$\(String(format: "%.2f", bid.proposed_price))")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(12)
+
+                // Counter price input
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your counter price")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    HStack {
+                        Text("$")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        TextField("0.00", text: $counterPrice)
+                            .font(.title2)
+                            .keyboardType(.decimalPad)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+
+                    // Show remaining counters
+                    Text("\(viewModel.customerCountersRemaining) counter offers remaining")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+
+                // Optional message
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Message (optional)")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    TextField("Add a message for the driver...", text: $counterMessage)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                }
+
+                // Warning display
+                if let warning = viewModel.counterOfferWarning {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(warning)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                }
+
+                Spacer()
+
+                // Submit button
+                Button(action: submitCounter) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Submit Counter Offer")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(isValidPrice ? Color.blue : Color.gray)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+                .disabled(!isValidPrice || viewModel.isLoading)
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        viewModel.showCounterSheet = false
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .onAppear {
+            // Pre-fill with a reasonable counter (e.g., 90% of driver's price)
+            let suggestedCounter = bid.proposed_price * 0.9
+            counterPrice = String(format: "%.2f", suggestedCounter)
+        }
+    }
+
+    private var isValidPrice: Bool {
+        guard let price = Double(counterPrice), price > 0 else { return false }
+        return price < bid.proposed_price
+    }
+
+    private func submitCounter() {
+        guard let price = Double(counterPrice) else { return }
+        viewModel.counterBid(bid, counterPrice: price, message: counterMessage.isEmpty ? nil : counterMessage)
+        dismiss()
     }
 }
 
@@ -2054,6 +2652,7 @@ struct DriverBidsSheet: View {
 struct DriverBidCard: View {
     let bid: RideBid
     let onAccept: () -> Void
+    let onCounter: () -> Void
     let onReject: () -> Void
 
     var body: some View {
@@ -2116,16 +2715,35 @@ struct DriverBidCard: View {
 
                 Spacer()
 
-                // Price
+                // Price and Status
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("$\(String(format: "%.2f", bid.proposed_price))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
 
-                    Text("Offered")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    // Show negotiation status
+                    if bid.status == "countered" {
+                        Text("Countered")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    } else if let round = bid.negotiation_round, round > 1 {
+                        Text("Round \(round)/2")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    } else {
+                        Text("Offered")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    // Show if this is driver's final offer
+                    if bid.is_final_round == true {
+                        Text("Final Offer")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
                 }
             }
 
@@ -2147,34 +2765,87 @@ struct DriverBidCard: View {
                 .cornerRadius(8)
             }
 
-            // Action Buttons
-            HStack(spacing: 12) {
-                Button(action: onReject) {
-                    HStack {
-                        Image(systemName: "xmark")
-                        Text("Decline")
+            // Customer's counter price (if shown)
+            if let counterPrice = bid.customer_counter_price {
+                HStack {
+                    Text("Your counter:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("$\(String(format: "%.2f", counterPrice))")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                    Spacer()
+                    if bid.status == "countered" {
+                        Text("Waiting for driver...")
+                            .font(.caption)
+                            .foregroundColor(.orange)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.red)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(10)
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
+            }
 
-                Button(action: onAccept) {
-                    HStack {
-                        Image(systemName: "checkmark")
-                        Text("Accept")
+            // Action Buttons - show different buttons based on bid status
+            if bid.status == "countered" && bid.last_offer_by == "customer" {
+                // Waiting for driver response - no actions available
+                HStack {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundColor(.orange)
+                    Text("Waiting for driver's response...")
+                        .font(.subheadline)
+                        .foregroundColor(.orange)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(10)
+            } else {
+                // Normal action buttons
+                HStack(spacing: 8) {
+                    Button(action: onReject) {
+                        HStack {
+                            Image(systemName: "xmark")
+                            Text("Decline")
+                        }
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(10)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.green)
-                    .cornerRadius(10)
+
+                    Button(action: onCounter) {
+                        HStack {
+                            Image(systemName: "arrow.left.arrow.right")
+                            Text("Counter")
+                        }
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(10)
+                    }
+
+                    Button(action: onAccept) {
+                        HStack {
+                            Image(systemName: "checkmark")
+                            Text("Accept")
+                        }
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.green)
+                        .cornerRadius(10)
+                    }
                 }
             }
         }

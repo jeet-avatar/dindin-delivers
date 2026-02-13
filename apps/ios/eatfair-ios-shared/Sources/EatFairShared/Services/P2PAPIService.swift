@@ -5416,6 +5416,125 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Counter a driver's bid with a new price (Customer API)
+    /// Uses /rides/bid/{id}/respond with action="counter"
+    public func counterDriverBid(
+        bidId: Int,
+        counterPrice: Double,
+        message: String? = nil,
+        completion: @escaping (Result<CounterBidResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/respond") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "action": "counter",
+            "counter_price": counterPrice
+        ]
+        if let msg = message {
+            body["message"] = msg
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    logger.error("counterDriverBid network error: \(error)")
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.serverError("No data received")))
+                    return
+                }
+
+                // Check for error response first
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let detail = json["detail"] as? String {
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(CounterBidResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    logger.error("counterDriverBid decode error: \(error)")
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Driver submits counter-offer to customer (Driver API)
+    /// Uses /rides/bid/{id}/driver-counter
+    public func driverSubmitCounter(
+        bidId: Int,
+        counterPrice: Double,
+        message: String? = nil,
+        completion: @escaping (Result<DriverCounterResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)/driver-counter") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["counter_price": counterPrice]
+        if let msg = message {
+            body["message"] = msg
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    logger.error("driverSubmitCounter network error: \(error)")
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.serverError("No data received")))
+                    return
+                }
+
+                // Check for error response first
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let detail = json["detail"] as? String {
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(DriverCounterResponse.self, from: data)
+                    completion(.success(response))
+                } catch {
+                    logger.error("driverSubmitCounter decode error: \(error)")
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Accept customer's counter-offer
     public func acceptCounterOffer(
         bidId: Int,
@@ -8773,6 +8892,30 @@ public struct RideBid: Identifiable, Codable {
     public let expires_at: String?
     public let created_at: String?
     public let ride_request: RideRequestForBidding?
+    // Multi-round negotiation fields
+    public let negotiation_round: Int?
+    public let last_offer_by: String?
+    public let is_final_round: Bool?
+}
+
+/// Response for customer counter-offer
+public struct CounterBidResponse: Codable {
+    public let success: Bool
+    public let message: String?
+    public let bid: RideBid?
+    public let negotiation_round: Int?
+    public let customer_counters_remaining: Int?
+    public let rounds_remaining_this_bid: Int?
+    public let warning: String?
+}
+
+/// Response for driver counter-offer
+public struct DriverCounterResponse: Codable {
+    public let success: Bool
+    public let message: String?
+    public let bid: RideBid?
+    public let negotiation_round: Int?
+    public let is_final_round: Bool?
 }
 
 // MARK: - Customer Address Model (for saved delivery addresses)
@@ -10356,6 +10499,137 @@ extension P2PAPIService {
         }.resume()
     }
 
+    // MARK: - Ride Rating & Tip APIs
+
+    /// Submit driver rating for a completed ride
+    public func submitRideRating(
+        rideId: Int,
+        rating: Int,
+        comment: String? = nil,
+        completion: @escaping (Result<P2PRatingResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/\(rideId)/rate") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "rating": rating
+        ]
+        if let comment = comment {
+            body["comment"] = comment
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to submit rating")))
+                    }
+                    return
+                }
+
+                // Parse success response
+                do {
+                    let ratingResponse = try JSONDecoder().decode(P2PRatingResponse.self, from: data)
+                    completion(.success(ratingResponse))
+                } catch {
+                    // Even if parsing fails, treat as success if HTTP was OK
+                    let fallbackResponse = P2PRatingResponse(
+                        success: true,
+                        message: "Rating submitted",
+                        newDriverRating: nil
+                    )
+                    completion(.success(fallbackResponse))
+                }
+            }
+        }.resume()
+    }
+
+    /// Submit tip for a completed ride (100% goes to driver)
+    public func submitRideTip(
+        rideId: Int,
+        amount: Double,
+        completion: @escaping (Result<P2PTipResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/\(rideId)/tip") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "tip_amount": amount,
+            "tip_type": "post_ride"
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to submit tip")))
+                    }
+                    return
+                }
+
+                // Parse success response
+                do {
+                    let tipResponse = try JSONDecoder().decode(P2PTipResponse.self, from: data)
+                    completion(.success(tipResponse))
+                } catch {
+                    // Even if parsing fails, treat as success if HTTP was OK
+                    let fallbackResponse = P2PTipResponse(
+                        success: true,
+                        message: "Tip submitted",
+                        tipAmount: amount
+                    )
+                    completion(.success(fallbackResponse))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Order Chat APIs
 
     /// Send chat message for an order
@@ -11363,13 +11637,20 @@ public struct P2PRefundStatusResponse: Codable {
 public struct P2PRatingResponse: Codable {
     public let success: Bool
     public let message: String
-    public let orderId: Int
+    public let orderId: Int?
     public let newDriverRating: Double?
 
     enum CodingKeys: String, CodingKey {
         case success, message
         case orderId = "order_id"
         case newDriverRating = "new_driver_rating"
+    }
+
+    public init(success: Bool, message: String, orderId: Int? = nil, newDriverRating: Double? = nil) {
+        self.success = success
+        self.message = message
+        self.orderId = orderId
+        self.newDriverRating = newDriverRating
     }
 }
 
@@ -11389,7 +11670,7 @@ public struct P2PRestaurantRatingResponse: Codable {
 public struct P2PTipResponse: Codable {
     public let success: Bool
     public let message: String
-    public let orderId: Int
+    public let orderId: Int?
     public let tipAmount: Double
     public let driverNewEarnings: Double?
 
@@ -11398,6 +11679,14 @@ public struct P2PTipResponse: Codable {
         case orderId = "order_id"
         case tipAmount = "tip_amount"
         case driverNewEarnings = "driver_new_earnings"
+    }
+
+    public init(success: Bool, message: String, orderId: Int? = nil, tipAmount: Double, driverNewEarnings: Double? = nil) {
+        self.success = success
+        self.message = message
+        self.orderId = orderId
+        self.tipAmount = tipAmount
+        self.driverNewEarnings = driverNewEarnings
     }
 }
 
