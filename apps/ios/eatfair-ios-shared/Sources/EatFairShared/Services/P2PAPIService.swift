@@ -5722,6 +5722,154 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Cancel Ride Request (Customer)
+
+    /// Cancel a ride request (customer only)
+    public func cancelRideRequest(
+        rideRequestId: Int,
+        reason: String? = nil,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/cancel") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let reason = reason {
+            let body: [String: Any] = ["reason": reason]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   (200...299).contains(httpResponse.statusCode) {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to cancel ride")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Customer Ride History
+
+    /// Fetch customer's ride request history
+    public func getCustomerRideRequests(
+        customerId: Int,
+        status: String? = nil,
+        limit: Int = 20,
+        offset: Int = 0,
+        completion: @escaping (Result<[RideRequestForBidding], Error>) -> Void
+    ) {
+        var urlComponents = URLComponents(string: "\(baseURL)/rides/customer/\(customerId)/requests")
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+        if let status = status {
+            queryItems.append(URLQueryItem(name: "status", value: status))
+        }
+        urlComponents?.queryItems = queryItems
+
+        guard let url = urlComponents?.url else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(CustomerRideRequestsResponse.self, from: data)
+                    completion(.success(decoded.requests))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Update Bid (Driver)
+
+    /// Update an existing pending bid (driver only)
+    public func updateBid(
+        bidId: Int,
+        proposedPrice: Double,
+        message: String? = nil,
+        completion: @escaping (Result<RideBidResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/bid/\(bidId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["proposed_price": proposedPrice]
+        if let message = message {
+            body["message"] = message
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(RideBidResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Fare Negotiation APIs (Rideshare Only - $1+$1 Model)
 
     /// Submit a fare counter-offer (driver or customer)
@@ -8801,6 +8949,15 @@ public struct RideBidResponse: Codable {
 public struct DriverBidsResponse: Codable {
     public let success: Bool
     public let bids: [RideBid]
+}
+
+/// Customer's ride request history response
+public struct CustomerRideRequestsResponse: Codable {
+    public let success: Bool
+    public let requests: [RideRequestForBidding]
+    public let total: Int?
+    public let limit: Int?
+    public let offset: Int?
 }
 
 /// Customer's ride request bids response (incoming driver bids)
