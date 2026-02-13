@@ -2479,14 +2479,20 @@ struct DriverBidsSheet: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.incomingBids, id: \.id) { bid in
-                                DriverBidCard(bid: bid, onAccept: {
-                                    viewModel.acceptBid(bid)
-                                    dismiss()
-                                }, onCounter: {
-                                    viewModel.showCounterOffer(for: bid)
-                                }, onReject: {
-                                    viewModel.rejectBid(bid)
-                                })
+                                DriverBidCard(
+                                    bid: bid,
+                                    isLoading: viewModel.isLoading,
+                                    onAccept: {
+                                        viewModel.acceptBid(bid)
+                                        // Don't dismiss here - let acceptBid handle it
+                                    },
+                                    onCounter: {
+                                        viewModel.showCounterOffer(for: bid)
+                                    },
+                                    onReject: {
+                                        viewModel.rejectBid(bid)
+                                    }
+                                )
                             }
                         }
                         .padding()
@@ -2651,6 +2657,7 @@ struct BidCounterSheet: View {
 // MARK: - Driver Bid Card
 struct DriverBidCard: View {
     let bid: RideBid
+    let isLoading: Bool
     let onAccept: () -> Void
     let onCounter: () -> Void
     let onReject: () -> Void
@@ -2818,6 +2825,8 @@ struct DriverBidCard: View {
                         .background(Color.red.opacity(0.1))
                         .cornerRadius(10)
                     }
+                    .disabled(isLoading)
+                    .opacity(isLoading ? 0.5 : 1.0)
 
                     Button(action: onCounter) {
                         HStack {
@@ -2832,10 +2841,18 @@ struct DriverBidCard: View {
                         .background(Color.orange.opacity(0.1))
                         .cornerRadius(10)
                     }
+                    .disabled(isLoading)
+                    .opacity(isLoading ? 0.5 : 1.0)
 
                     Button(action: onAccept) {
                         HStack {
-                            Image(systemName: "checkmark")
+                            if isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "checkmark")
+                            }
                             Text("Accept")
                         }
                         .font(.caption)
@@ -2843,9 +2860,10 @@ struct DriverBidCard: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.green)
+                        .background(isLoading ? Color.gray : Color.green)
                         .cornerRadius(10)
                     }
+                    .disabled(isLoading)
                 }
             }
         }

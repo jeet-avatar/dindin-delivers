@@ -460,8 +460,17 @@ class RideRequestViewModel: ObservableObject {
 
     /// Accept a driver's bid
     func acceptBid(_ bid: RideBid) {
+        // Prevent double-tap race condition
+        guard !isLoading else { return }
+
         isLoading = true
         selectedBid = bid
+
+        // Clear any stale negotiation state to prevent race conditions
+        isNegotiating = false
+        driverOfferAmount = nil
+        showCounterSheet = false
+        selectedBidForCounter = nil
 
         p2pService.acceptDriverBid(bidId: bid.id) { [weak self] result in
             guard let self = self else { return }
@@ -562,6 +571,13 @@ class RideRequestViewModel: ObservableObject {
     @Published var selectedBidForCounter: RideBid?
 
     func counterBid(_ bid: RideBid, counterPrice: Double, message: String? = nil) {
+        // Prevent double-tap and counter while already accepted
+        guard !isLoading else { return }
+        guard acceptedDriver == nil else {
+            showErrorMessage("You've already accepted a driver.")
+            return
+        }
+
         isLoading = true
         selectedBidForCounter = bid
 
