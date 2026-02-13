@@ -70,11 +70,17 @@ class RideRequestViewModel: ObservableObject {
         case completed
     }
 
+    // Connection Status (for polling failure detection)
+    @Published var showConnectionWarning = false
+
     // MARK: - Private Properties
     private let p2pService = P2PAPIService.shared
     private var trackingTimer: Timer?
     private var negotiationTimer: Timer?
     private var bidPollingTimer: Timer?
+    private var trackingFailureCount = 0
+    private var negotiationFailureCount = 0
+    private let maxFailuresBeforeWarning = 3
 
     // MARK: - Pricing Constants (from AppConfig - matches backend pricing_config.py)
     // All pricing values come from centralized AppConfig - no hardcodes!
@@ -654,14 +660,20 @@ class RideRequestViewModel: ObservableObject {
 
         p2pService.trackMyRide(rideId: rideId) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 switch result {
                 case .success(let tracking):
-                    self?.rideTracking = tracking
-                    self?.updateRideStep(from: tracking.status)
+                    self.rideTracking = tracking
+                    self.updateRideStep(from: tracking.status)
+                    self.trackingFailureCount = 0  // Reset on success
+                    self.showConnectionWarning = false
 
-                case .failure:
-                    // Silent failure for tracking
-                    break
+                case .failure(let error):
+                    self.trackingFailureCount += 1
+                    logger.debug("Tracking poll failed (\(self.trackingFailureCount)): \(error.localizedDescription)")
+                    if self.trackingFailureCount >= self.maxFailuresBeforeWarning {
+                        self.showConnectionWarning = true
+                    }
                 }
             }
         }
@@ -713,13 +725,19 @@ class RideRequestViewModel: ObservableObject {
 
         p2pService.getRideNegotiationStatus(rideId: rideId) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 switch result {
                 case .success(let status):
-                    self?.handleNegotiationStatusUpdate(status)
+                    self.handleNegotiationStatusUpdate(status)
+                    self.negotiationFailureCount = 0  // Reset on success
+                    self.showConnectionWarning = false
 
-                case .failure:
-                    // Silent failure for polling
-                    break
+                case .failure(let error):
+                    self.negotiationFailureCount += 1
+                    logger.debug("Negotiation poll failed (\(self.negotiationFailureCount)): \(error.localizedDescription)")
+                    if self.negotiationFailureCount >= self.maxFailuresBeforeWarning {
+                        self.showConnectionWarning = true
+                    }
                 }
             }
         }

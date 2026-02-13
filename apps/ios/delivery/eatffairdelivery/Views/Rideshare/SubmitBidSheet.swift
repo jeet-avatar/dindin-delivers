@@ -105,6 +105,7 @@ struct SubmitBidSheet: View {
                 // Dismiss sheet when bid is successfully submitted
                 if success {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        viewModel.showSuccess = false  // Reset flag to prevent re-trigger
                         dismiss()
                         onDismiss()
                     }

@@ -279,7 +279,7 @@ async def create_ride_request(data: CreateRideRequestInput, db: Session = Depend
             driver_ids=None  # Broadcast to all drivers
         ))
     except Exception as e:
-        print(f"WebSocket broadcast error: {e}")
+        logger.error(f"WebSocket broadcast error: {e}")
 
     # Send confirmation email to customer
     try:
@@ -427,7 +427,7 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
                 match_details=serialize_bid(bid)
             ))
         except Exception as e:
-            print(f"WebSocket broadcast error: {e}")
+            logger.error(f"WebSocket broadcast error: {e}")
 
         # Get driver for response and email
         driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
@@ -534,7 +534,7 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
                 details={"message": bid.customer_response}
             ))
         except Exception as e:
-            print(f"WebSocket broadcast error: {e}")
+            logger.error(f"WebSocket broadcast error: {e}")
 
         return {
             "success": True,
@@ -633,7 +633,7 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
                 }
             ))
         except Exception as e:
-            print(f"WebSocket broadcast error: {e}")
+            logger.error(f"WebSocket broadcast error: {e}")
 
         response = {
             "success": True,
@@ -911,7 +911,7 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
             bid_data=serialize_bid(bid)
         ))
     except Exception as e:
-        print(f"WebSocket broadcast error: {e}")
+        logger.error(f"WebSocket broadcast error: {e}")
 
     # Send email notification to customer about new bid
     try:
@@ -1103,7 +1103,7 @@ async def driver_counter_offer(bid_id: int, data: DriverCounterInput, db: Sessio
             }
         ))
     except Exception as e:
-        print(f"WebSocket broadcast error: {e}")
+        logger.error(f"WebSocket broadcast error: {e}")
 
     return {
         "success": True,
