@@ -1309,6 +1309,8 @@ class RideRequest(Base):
     # Bidding Window
     bidding_expires_at = Column(DateTime)  # When bidding closes
     max_bids = Column(Integer, default=10)  # Max bids to accept
+    customer_counter_count = Column(Integer, default=0)  # Track total counters (max 3)
+    low_bid_warning_shown = Column(Boolean, default=False)  # Track if warning was shown
 
     # Broadcast
     broadcast_radius_km = Column(Float, default=10.0)
@@ -1365,6 +1367,11 @@ class RideBid(Base):
     is_counter_offer = Column(Boolean, default=False)
     counter_to_bid_id = Column(Integer, ForeignKey("ride_bids.id"), nullable=True)
     original_price = Column(Float)  # Price before counter-offer
+
+    # Multi-round negotiation tracking
+    negotiation_round = Column(Integer, default=1)  # 1=initial, 2=counter, 3=final
+    last_offer_by = Column(String(20), default="driver")  # 'driver' or 'customer'
+    round_counter = Column(Integer, default=0)  # Total back-and-forth count
 
     # Status
     status = Column(SQLEnum(BidStatus), default=BidStatus.PENDING)
