@@ -1417,6 +1417,7 @@ struct FareNegotiationSheet: View {
     @ObservedObject var viewModel: DeliveryViewModel
     @Environment(\.dismiss) var dismiss
     @State private var counterOffer: String = ""
+    @State private var isSubmitting = false
 
     private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
 
@@ -1572,38 +1573,60 @@ struct FareNegotiationSheet: View {
                     // Submit Your Price
                     Button(action: {
                         if let offer = Double(counterOffer), offer > 0 {
+                            isSubmitting = true
                             viewModel.submitCounterOffer(rideId: ride.rideId, counterFare: offer)
-                            dismiss()
                         }
                     }) {
-                        Text("Send My Price to Rider")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Double(counterOffer) ?? 0 > 0 ? Color.blue : Color.gray)
-                            .cornerRadius(12)
+                        HStack {
+                            if isSubmitting {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text("Send My Price to Rider")
+                            }
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background((Double(counterOffer) ?? 0 > 0 && !isSubmitting) ? Color.blue : Color.gray)
+                        .cornerRadius(12)
                     }
-                    .disabled((Double(counterOffer) ?? 0) <= 0)
+                    .disabled((Double(counterOffer) ?? 0) <= 0 || isSubmitting)
                     .accessibilityLabel("Send your price to rider")
                     .accessibilityHint("Submit your counter offer for this ride")
 
                     // Accept Rider's Offer (use customer's negotiated price if available)
                     Button(action: {
+                        isSubmitting = true
                         viewModel.acceptCustomerFare(rideId: ride.rideId, fare: ride.displayPrice)
-                        dismiss()
                     }) {
-                        Text("Accept Rider's $\(String(format: "%.2f", ride.displayPrice)) Offer")
-                            .font(.headline)
-                            .foregroundColor(ride.hasCustomerOffer ? .white : .blue)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(ride.hasCustomerOffer ? Color.green : Color.blue.opacity(0.1))
-                            .cornerRadius(12)
+                        HStack {
+                            if isSubmitting {
+                                ProgressView()
+                                    .tint(ride.hasCustomerOffer ? .white : .blue)
+                            } else {
+                                Text("Accept Rider's $\(String(format: "%.2f", ride.displayPrice)) Offer")
+                            }
+                        }
+                        .font(.headline)
+                        .foregroundColor(ride.hasCustomerOffer ? .white : .blue)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(ride.hasCustomerOffer ? Color.green : Color.blue.opacity(0.1))
+                        .cornerRadius(12)
                     }
+                    .disabled(isSubmitting)
                     .accessibilityLabel("Accept rider's offer of \(String(format: "%.2f", ride.displayPrice)) dollars")
                 }
                 .padding()
+                .onChange(of: viewModel.isLoading) { _, loading in
+                    // Dismiss when loading completes (success or failure)
+                    if !loading && isSubmitting {
+                        isSubmitting = false
+                        dismiss()
+                    }
+                }
         }
     }
 }
