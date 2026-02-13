@@ -101,6 +101,15 @@ struct SubmitBidSheet: View {
                 // Pre-fill with suggested price
                 proposedPrice = String(format: "%.0f", suggestedPrice)
             }
+            .onChange(of: viewModel.showSuccess) { _, success in
+                // Dismiss sheet when bid is successfully submitted
+                if success {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        dismiss()
+                        onDismiss()
+                    }
+                }
+            }
         }
     }
 
@@ -584,14 +593,6 @@ struct SubmitBidSheet: View {
             estimatedArrivalMinutes: estimatedArrival,
             message: message.isEmpty ? nil : message
         )
-
-        // Dismiss after short delay to show success
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            if !viewModel.showError {
-                dismiss()
-                onDismiss()
-            }
-        }
     }
 }
 
