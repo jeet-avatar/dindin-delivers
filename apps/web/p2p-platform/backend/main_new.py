@@ -4342,6 +4342,260 @@ async def stripe_connect_webhook(
     return {"success": True, "event_type": event_type}
 
 
+# =============================================================================
+# DRIVER PAYOUTS - Stripe Connect Transfers
+# =============================================================================
+
+@app.post("/api/rides/{ride_id}/complete-and-pay")
+async def complete_ride_and_pay_driver(
+    ride_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Complete a ride and transfer payment to driver via Stripe Connect.
+
+    This endpoint:
+    1. Marks the ride as completed
+    2. Creates a Stripe Transfer to the driver's connected account
+    3. Records the transfer ID for tracking
+
+    Used after customer payment is captured.
+    """
+    import stripe
+    import os
+
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    from models import RideRequest as RideRequestDB, RideRequestStatus
+
+    # Get the ride request
+    ride = db.query(RideRequestDB).filter(RideRequestDB.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    if not ride.driver_id:
+        raise HTTPException(status_code=400, detail="No driver assigned to this ride")
+
+    # Get the driver
+    driver = db.query(Driver).filter(Driver.id == ride.driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Driver has not completed Stripe Connect onboarding"
+        )
+
+    if not driver.stripe_onboarded:
+        raise HTTPException(
+            status_code=400,
+            detail="Driver's Stripe account is not fully onboarded"
+        )
+
+    # Calculate driver payout
+    # Driver gets: ride fare - platform fee + 100% of tip
+    ride_fare = float(ride.suggested_price or 0)
+    platform_fee = float(ride.platform_fee or 2.0)
+    tip = float(ride.tip or 0)
+
+    driver_payout = round(ride_fare - platform_fee + tip, 2)
+    driver_payout_cents = int(driver_payout * 100)
+
+    if driver_payout_cents <= 0:
+        raise HTTPException(status_code=400, detail="Invalid payout amount")
+
+    try:
+        # Create Stripe Transfer to driver's connected account
+        transfer = stripe.Transfer.create(
+            amount=driver_payout_cents,
+            currency="usd",
+            destination=driver.stripe_account_id,
+            description=f"Ride {ride.request_id} payout",
+            metadata={
+                "ride_id": str(ride_id),
+                "ride_request_id": ride.request_id,
+                "driver_id": str(driver.id),
+                "ride_fare": str(ride_fare),
+                "platform_fee": str(platform_fee),
+                "tip": str(tip)
+            }
+        )
+
+        # Update ride record with transfer info
+        ride.status = RideRequestStatus.COMPLETED
+        ride.driver_payout = driver_payout
+        ride.stripe_transfer_id = transfer.id
+        ride.completed_at = datetime.utcnow()
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"Ride completed and ${driver_payout:.2f} transferred to driver",
+            "transfer": {
+                "id": transfer.id,
+                "amount": driver_payout,
+                "currency": "usd",
+                "driver_id": driver.id,
+                "driver_name": f"{driver.first_name} {driver.last_name}",
+                "status": "paid"
+            },
+            "breakdown": {
+                "ride_fare": ride_fare,
+                "platform_fee": platform_fee,
+                "tip": tip,
+                "driver_payout": driver_payout
+            }
+        }
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe transfer failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment transfer failed: {str(e)}")
+
+
+@app.post("/api/rides/{ride_id}/tip")
+async def add_ride_tip(
+    ride_id: int,
+    tip_amount: float = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    Add or update tip for a completed ride.
+    Customer can tip after the ride is completed.
+
+    If driver has Stripe Connect, tip is transferred immediately.
+    """
+    import stripe
+    import os
+
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    from models import RideRequest as RideRequestDB
+
+    if tip_amount < 0:
+        raise HTTPException(status_code=400, detail="Tip amount cannot be negative")
+
+    ride = db.query(RideRequestDB).filter(RideRequestDB.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Update tip in database
+    old_tip = float(ride.tip or 0)
+    ride.tip = tip_amount
+
+    # If driver has Stripe Connect and ride is completed, transfer the tip difference
+    if ride.driver_id:
+        driver = db.query(Driver).filter(Driver.id == ride.driver_id).first()
+
+        if driver and driver.stripe_account_id and driver.stripe_onboarded:
+            tip_difference = tip_amount - old_tip
+
+            if tip_difference > 0:
+                tip_cents = int(tip_difference * 100)
+
+                try:
+                    transfer = stripe.Transfer.create(
+                        amount=tip_cents,
+                        currency="usd",
+                        destination=driver.stripe_account_id,
+                        description=f"Tip for ride {ride.request_id}",
+                        metadata={
+                            "ride_id": str(ride_id),
+                            "type": "tip",
+                            "driver_id": str(driver.id)
+                        }
+                    )
+
+                    db.commit()
+
+                    return {
+                        "success": True,
+                        "message": f"Tip of ${tip_amount:.2f} added and transferred to driver",
+                        "tip_amount": tip_amount,
+                        "transfer_id": transfer.id,
+                        "driver_name": f"{driver.first_name} {driver.last_name}"
+                    }
+
+                except stripe.error.StripeError as e:
+                    logger.error(f"Tip transfer failed: {str(e)}")
+                    # Still save the tip even if transfer fails
+                    db.commit()
+                    return {
+                        "success": True,
+                        "message": f"Tip of ${tip_amount:.2f} saved (transfer pending)",
+                        "tip_amount": tip_amount,
+                        "transfer_pending": True,
+                        "error": str(e)
+                    }
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Tip of ${tip_amount:.2f} added",
+        "tip_amount": tip_amount,
+        "transfer_pending": True,
+        "note": "Driver payout will be processed when ride is completed"
+    }
+
+
+@app.get("/api/drivers/{driver_id}/payout-history")
+async def get_driver_payout_history(
+    driver_id: int,
+    limit: int = Query(20, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Get driver's payout history from completed rides.
+    """
+    from models import RideRequest as RideRequestDB, RideRequestStatus
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Get completed rides with payouts
+    completed_rides = db.query(RideRequestDB).filter(
+        RideRequestDB.driver_id == driver_id,
+        RideRequestDB.status == RideRequestStatus.COMPLETED,
+        RideRequestDB.driver_payout.isnot(None)
+    ).order_by(RideRequestDB.completed_at.desc()).limit(limit).all()
+
+    payouts = []
+    total_earnings = 0
+    total_tips = 0
+
+    for ride in completed_rides:
+        payout = float(ride.driver_payout or 0)
+        tip = float(ride.tip or 0)
+        total_earnings += payout
+        total_tips += tip
+
+        payouts.append({
+            "id": ride.id,
+            "request_id": ride.request_id,
+            "completed_at": ride.completed_at.isoformat() if ride.completed_at else None,
+            "pickup": ride.pickup_address,
+            "dropoff": ride.dropoff_address,
+            "ride_fare": float(ride.suggested_price or 0),
+            "platform_fee": float(ride.platform_fee or 0),
+            "tip": tip,
+            "payout": payout,
+            "stripe_transfer_id": ride.stripe_transfer_id
+        })
+
+    return {
+        "driver_id": driver_id,
+        "driver_name": f"{driver.first_name} {driver.last_name}",
+        "stripe_connected": driver.stripe_account_id is not None,
+        "stripe_onboarded": driver.stripe_onboarded or False,
+        "total_earnings": round(total_earnings, 2),
+        "total_tips": round(total_tips, 2),
+        "payout_count": len(payouts),
+        "payouts": payouts
+    }
+
+
 @app.get("/drivers/{driver_id}/documents")
 def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
     """Get driver documents status (iOS app compatible endpoint)"""
