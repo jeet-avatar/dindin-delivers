@@ -3686,8 +3686,18 @@ def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str =
 
 
 @app.get("/erp/drivers/{driver_id}")
-def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
-    """Get driver profile by ID (iOS app compatible endpoint)"""
+def get_driver_profile_by_id(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get driver profile by ID (requires valid JWT token)"""
+    # Validate JWT token
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -3735,7 +3745,7 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "profile_image": driver.photo_url,
         "photo_url": driver.photo_url,
         "profile_image_url": driver.photo_url,
-        "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
+        "vehicle_photo_url": driver.vehicle_photo_url,
         # Documents
         "license_number": driver.license_number,
         "drivers_license": driver.drivers_license,
@@ -3753,10 +3763,10 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "stripe_onboarded": driver.stripe_onboarded,
         "stripe_account_connected": driver.stripe_account_id is not None,
         # Address fields
-        "street": driver.street if hasattr(driver, 'street') else None,
-        "city": driver.city if hasattr(driver, 'city') else None,
-        "state": driver.state if hasattr(driver, 'state') else None,
-        "zip_code": driver.zip_code if hasattr(driver, 'zip_code') else None,
+        "street": driver.street,
+        "city": driver.city,
+        "state": driver.state,
+        "zip_code": driver.zip_code,
         # Timestamps
         "created_at": driver.created_at.isoformat() if driver.created_at else None,
         "approved_at": driver.approved_at.isoformat() if driver.approved_at else None,
