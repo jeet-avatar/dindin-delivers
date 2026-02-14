@@ -3722,6 +3722,8 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "is_online": driver.is_online,
         "latitude": driver.current_latitude,
         "longitude": driver.current_longitude,
+        "current_lat": driver.current_latitude,
+        "current_lng": driver.current_longitude,
         # Vehicle
         "vehicle_type": driver.vehicle_type,
         "vehicle_make": driver.vehicle_make,
@@ -4023,6 +4025,311 @@ def post_driver_status(
         "is_online": driver.is_online,
         "status": driver.status.value if driver.status else "pending"
     }
+
+
+# ==================== STRIPE CONNECT FOR DRIVERS ====================
+# Stripe Connect Express accounts for driver payouts
+
+@app.post("/api/drivers/{driver_id}/stripe/connect")
+def create_driver_stripe_account(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a Stripe Connect Express account for a driver.
+    This is step 1 of driver payout onboarding.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Check if driver already has a Stripe account
+    if driver.stripe_account_id:
+        return {
+            "success": True,
+            "message": "Stripe account already exists",
+            "stripe_account_id": driver.stripe_account_id,
+            "onboarded": driver.stripe_onboarded
+        }
+
+    try:
+        # Create Stripe Connect Express account
+        account = stripe.Account.create(
+            type="express",
+            country="US",
+            email=driver.email,
+            capabilities={
+                "card_payments": {"requested": True},
+                "transfers": {"requested": True},
+            },
+            business_type="individual",
+            business_profile={
+                "mcc": "4121",  # Taxicabs/Limousines
+                "product_description": "Delivery and rideshare driver services"
+            },
+            metadata={
+                "driver_id": str(driver.id),
+                "driver_code": driver.driver_id,
+                "platform": "dollor.ai"
+            }
+        )
+
+        # Save Stripe account ID to driver record
+        driver.stripe_account_id = account.id
+        driver.updated_at = datetime.utcnow()
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Stripe Connect account created",
+            "stripe_account_id": account.id,
+            "onboarded": False
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.get("/api/drivers/{driver_id}/stripe/onboarding-link")
+def get_driver_stripe_onboarding_link(
+    driver_id: int,
+    return_url: str = Query(default="https://www.dollor.ai/driver/profile"),
+    refresh_url: str = Query(default="https://www.dollor.ai/driver/profile"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a Stripe Connect onboarding link for the driver.
+    The driver uses this link to complete their payout setup including bank account.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Create Stripe account if doesn't exist
+    if not driver.stripe_account_id:
+        try:
+            account = stripe.Account.create(
+                type="express",
+                country="US",
+                email=driver.email,
+                capabilities={
+                    "card_payments": {"requested": True},
+                    "transfers": {"requested": True},
+                },
+                business_type="individual",
+                metadata={
+                    "driver_id": str(driver.id),
+                    "driver_code": driver.driver_id,
+                    "platform": "dollor.ai"
+                }
+            )
+            driver.stripe_account_id = account.id
+            db.commit()
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+
+    try:
+        # Create Account Link for onboarding
+        account_link = stripe.AccountLink.create(
+            account=driver.stripe_account_id,
+            refresh_url=refresh_url,
+            return_url=return_url,
+            type="account_onboarding",
+        )
+
+        return {
+            "success": True,
+            "onboarding_url": account_link.url,
+            "expires_at": account_link.expires_at,
+            "stripe_account_id": driver.stripe_account_id
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.get("/api/drivers/{driver_id}/stripe/status")
+def get_driver_stripe_status(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the driver's Stripe Connect account status including bank account info.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        return {
+            "success": True,
+            "has_stripe_account": False,
+            "onboarded": False,
+            "bank_account_linked": False,
+            "payouts_enabled": False,
+            "message": "No Stripe account. Call POST /api/drivers/{id}/stripe/connect to create one."
+        }
+
+    try:
+        # Retrieve Stripe account details
+        account = stripe.Account.retrieve(driver.stripe_account_id)
+
+        # Check if account is fully onboarded
+        is_onboarded = account.charges_enabled and account.payouts_enabled
+
+        # Update driver record if onboarding status changed
+        if is_onboarded and not driver.stripe_onboarded:
+            driver.stripe_onboarded = True
+            driver.updated_at = datetime.utcnow()
+            db.commit()
+
+        # Get bank account info if available
+        bank_info = None
+        if account.external_accounts and account.external_accounts.data:
+            for ext_account in account.external_accounts.data:
+                if ext_account.object == "bank_account":
+                    bank_info = {
+                        "bank_name": ext_account.bank_name,
+                        "last4": ext_account.last4,
+                        "routing_number": ext_account.routing_number,
+                        "account_holder_name": ext_account.account_holder_name,
+                        "account_holder_type": ext_account.account_holder_type,
+                        "status": ext_account.status
+                    }
+                    break
+
+        return {
+            "success": True,
+            "has_stripe_account": True,
+            "stripe_account_id": driver.stripe_account_id,
+            "onboarded": is_onboarded,
+            "charges_enabled": account.charges_enabled,
+            "payouts_enabled": account.payouts_enabled,
+            "bank_account_linked": bank_info is not None,
+            "bank_account": bank_info,
+            "details_submitted": account.details_submitted,
+            "requirements": {
+                "currently_due": account.requirements.currently_due if account.requirements else [],
+                "eventually_due": account.requirements.eventually_due if account.requirements else [],
+                "pending_verification": account.requirements.pending_verification if account.requirements else []
+            }
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.post("/api/drivers/{driver_id}/stripe/dashboard-link")
+def get_driver_stripe_dashboard_link(
+    driver_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a link to the driver's Stripe Express dashboard.
+    Drivers can use this to view payouts, update bank info, etc.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        raise HTTPException(status_code=400, detail="Driver has no Stripe account")
+
+    try:
+        # Create login link for Express dashboard
+        login_link = stripe.Account.create_login_link(driver.stripe_account_id)
+
+        return {
+            "success": True,
+            "dashboard_url": login_link.url,
+            "message": "Use this link to access your Stripe dashboard"
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.post("/api/webhooks/stripe-connect")
+async def stripe_connect_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Handle Stripe Connect webhooks for driver account updates.
+    Configure this endpoint in Stripe Dashboard > Webhooks for Connect.
+    """
+    import stripe
+    import os
+
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    webhook_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET", os.getenv("STRIPE_WEBHOOK_SECRET"))
+
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    event_type = event["type"]
+    event_data = event["data"]["object"]
+
+    # Handle account.updated event - fired when account status changes
+    if event_type == "account.updated":
+        account_id = event_data.get("id")
+
+        # Find driver with this Stripe account
+        driver = db.query(Driver).filter(Driver.stripe_account_id == account_id).first()
+
+        if driver:
+            # Check if onboarding is complete
+            charges_enabled = event_data.get("charges_enabled", False)
+            payouts_enabled = event_data.get("payouts_enabled", False)
+
+            if charges_enabled and payouts_enabled:
+                driver.stripe_onboarded = True
+                driver.updated_at = datetime.utcnow()
+                db.commit()
+                print(f"Driver {driver.id} completed Stripe Connect onboarding")
+
+    # Handle payout events
+    elif event_type == "payout.paid":
+        account_id = event_data.get("account") or event.get("account")
+        amount = event_data.get("amount", 0) / 100  # Convert cents to dollars
+
+        driver = db.query(Driver).filter(Driver.stripe_account_id == account_id).first()
+        if driver:
+            print(f"Payout of ${amount} sent to driver {driver.id}")
+
+    elif event_type == "payout.failed":
+        account_id = event_data.get("account") or event.get("account")
+
+        driver = db.query(Driver).filter(Driver.stripe_account_id == account_id).first()
+        if driver:
+            print(f"Payout failed for driver {driver.id}: {event_data.get('failure_message')}")
+
+    return {"success": True, "event_type": event_type}
 
 
 @app.get("/drivers/{driver_id}/documents")
@@ -5523,8 +5830,10 @@ def get_driver_dashboard_v5(
                 "this_month": round(month_data["deliveries"] * 1.0, 2)
             },
             "payment_methods": {
-                "instant_pay_available": True,
-                "bank_account_linked": True
+                "instant_pay_available": driver.stripe_onboarded if hasattr(driver, 'stripe_onboarded') else False,
+                "bank_account_linked": driver.stripe_account_id is not None and (driver.stripe_onboarded if hasattr(driver, 'stripe_onboarded') else False),
+                "stripe_account_id": driver.stripe_account_id if hasattr(driver, 'stripe_account_id') else None,
+                "requires_setup": not (driver.stripe_account_id is not None and (driver.stripe_onboarded if hasattr(driver, 'stripe_onboarded') else False))
             }
         }
     except HTTPException:
