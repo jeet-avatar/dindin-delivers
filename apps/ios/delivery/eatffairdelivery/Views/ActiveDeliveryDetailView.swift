@@ -38,6 +38,8 @@ struct ActiveDeliveryDetailView: View {
                                 .clipShape(Circle())
                                 .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                         }
+                        .accessibilityLabel(isMapExpanded ? "Collapse map" : "Expand map")
+                        .accessibilityHint(isMapExpanded ? "Shrink the map view" : "Enlarge the map view")
                         .padding()
                     }
                     
@@ -271,7 +273,9 @@ struct ActiveDeliveryDetailView: View {
                         .cornerRadius(12)
                     }
                     .disabled(order.customerPhone?.isEmpty != false)
-                    
+                    .accessibilityLabel("Call customer")
+                    .accessibilityHint("Make a phone call to the customer")
+
                     // Primary Action Button
                     Button(action: {
                         if orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver {
@@ -293,6 +297,8 @@ struct ActiveDeliveryDetailView: View {
                         .background(actionColor)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel(actionText)
+                    .accessibilityHint(orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? "Mark this delivery as completed" : "Confirm you have picked up the order")
                 }
                 .padding()
                 .background(Theme.cardBackground)
@@ -302,9 +308,11 @@ struct ActiveDeliveryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Complete Delivery", isPresented: $showingCompleteAlert) {
             Button("Cancel", role: .cancel) {}
+                .accessibilityLabel("Cancel and go back")
             Button("Confirm") {
                 viewModel.markAsDelivered(order)
             }
+            .accessibilityLabel("Confirm delivery completed")
         } message: {
             Text("Have you delivered the order to the customer?")
         }
@@ -595,6 +603,8 @@ struct DetailSectionCard: View {
                         .font(.title2)
                         .foregroundColor(Theme.statusInfo)
                 }
+                .accessibilityLabel("Navigate to \(title.lowercased())")
+                .accessibilityHint("Open maps with directions")
             }
         }
         .padding()

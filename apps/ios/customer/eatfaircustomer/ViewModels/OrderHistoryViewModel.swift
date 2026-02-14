@@ -56,7 +56,7 @@ class OrderHistoryViewModel: ObservableObject {
                     orderLogger.info("Fetched \(self.orders.count) orders from P2P backend")
 
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to load your order history. Please try again."
                     orderLogger.error("Error fetching orders: \(error.localizedDescription)")
                 }
             }
@@ -114,8 +114,9 @@ class OrderHistoryViewModel: ObservableObject {
                     }
 
                 case .failure(let error):
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = "Unable to cancel this order. Please try again or contact support."
                     self.showError = true
+                    orderLogger.error("Error cancelling order: \(error.localizedDescription)")
                 }
             }
         }

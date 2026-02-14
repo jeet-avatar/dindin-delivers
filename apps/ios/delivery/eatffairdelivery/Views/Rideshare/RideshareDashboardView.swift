@@ -63,6 +63,7 @@ struct RideshareDashboardView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundColor(.blue)
                     }
+                    .accessibilityLabel("Refresh rideshare data")
                 }
             }
             .onAppear {
@@ -76,15 +77,19 @@ struct RideshareDashboardView: View {
                             selectedTab = .active
                         }
                     }
+                    .accessibilityLabel("View your active work")
                     Button("OK", role: .cancel) {}
+                        .accessibilityLabel("Dismiss error")
                 } else {
                     Button("OK", role: .cancel) {}
+                        .accessibilityLabel("Dismiss error")
                 }
             } message: {
                 Text(viewModel.errorMessage ?? "An error occurred")
             }
             .alert("Success", isPresented: $viewModel.showSuccess) {
                 Button("OK", role: .cancel) {}
+                    .accessibilityLabel("Dismiss success message")
             } message: {
                 Text(viewModel.successMessage ?? "")
             }
@@ -134,6 +139,8 @@ struct RideshareDashboardView: View {
                         }
                     )
                 }
+                .accessibilityLabel("\(tab.rawValue) tab, \(countForTab(tab)) items")
+                .accessibilityHint(selectedTab == tab ? "Currently selected" : "Tap to view \(tab.rawValue.lowercased())")
             }
         }
         .background(Theme.cardBackground)
@@ -257,6 +264,8 @@ struct AvailableRequestsContent: View {
                 .background(Color.blue)
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Refresh ride requests")
+            .accessibilityHint("Check for new available ride requests")
 
             Spacer()
         }

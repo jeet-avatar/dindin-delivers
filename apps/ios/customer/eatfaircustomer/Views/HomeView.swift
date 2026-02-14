@@ -111,6 +111,8 @@ struct HomeView: View {
                         }
                     }
                 }
+                .accessibilityLabel("Change delivery address")
+                .accessibilityHint("Opens address selection")
 
                 Spacer()
 
@@ -128,6 +130,8 @@ struct HomeView: View {
                     }
                 }
                 .padding(.trailing, 8)
+                .accessibilityLabel("Notifications")
+                .accessibilityHint("View your notifications")
 
                 // Profile
                 NavigationLink(destination: ProfileView()) {
@@ -157,6 +161,8 @@ struct HomeView: View {
                         .foregroundColor(voiceSearch.isListening ? .red : Theme.brandGreen)
                         .padding(.trailing, 4)
                 }
+                .accessibilityLabel("Voice search")
+                .accessibilityHint("Search for restaurants using your voice")
             }
             .padding()
             .background(Color(.systemGray6))
@@ -445,6 +451,8 @@ struct HomeView: View {
                         viewModel.fetchRestaurants()
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityLabel("Retry loading restaurants")
+                    .accessibilityHint("Attempts to reload the restaurant list")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 50)
@@ -638,6 +646,8 @@ struct CategoryButton: View {
                     .foregroundColor(isSelected ? Theme.brandGreen : .primary)
             }
         }
+        .accessibilityLabel("\(name) category")
+        .accessibilityHint(isSelected ? "Currently selected. Tap to deselect" : "Tap to filter by \(name)")
     }
 }
 
@@ -1174,6 +1184,7 @@ struct MultiRestaurantInfoSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Close information sheet")
                 }
             }
         }
@@ -1264,6 +1275,8 @@ struct VoiceSearchSheet: View {
                                 .foregroundColor(.white)
                         }
                     }
+                    .accessibilityLabel(voiceSearch.isListening ? "Stop listening" : "Start voice search")
+                    .accessibilityHint(voiceSearch.isListening ? "Stops recording your voice" : "Begins listening for your search")
                 }
 
                 // Status Text
@@ -1327,6 +1340,8 @@ struct VoiceSearchSheet: View {
                         .cornerRadius(12)
                     }
                     .padding(.horizontal)
+                    .accessibilityLabel("Search for \(voiceSearch.transcribedText)")
+                    .accessibilityHint("Searches restaurants matching your voice input")
 
                     Button(action: {
                         voiceSearch.transcribedText = ""
@@ -1336,6 +1351,8 @@ struct VoiceSearchSheet: View {
                             .font(.subheadline)
                             .foregroundColor(Theme.brandGreen)
                     }
+                    .accessibilityLabel("Try voice search again")
+                    .accessibilityHint("Clears current result and starts listening again")
                 }
 
                 Spacer().frame(height: 20)
@@ -1348,6 +1365,7 @@ struct VoiceSearchSheet: View {
                         voiceSearch.stopListening()
                         dismiss()
                     }
+                    .accessibilityLabel("Close voice search")
                 }
             }
             .navigationDestination(isPresented: $navigateToSearch) {
