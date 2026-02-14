@@ -19184,6 +19184,80 @@ def admin_cleanup_pending_orders(
     }
 
 
+@app.post("/api/admin/cleanup/all-incomplete")
+def admin_cleanup_all_incomplete(
+    db: Session = Depends(get_db)
+):
+    """
+    Admin endpoint to cancel ALL incomplete orders and ride requests.
+    This is more aggressive than /cleanup/pending-orders.
+
+    Cancels:
+    - Orders NOT in: DELIVERED, CANCELLED
+    - Rides NOT in: COMPLETED, CANCELLED, EXPIRED
+    - Also cancels any bids that are still PENDING
+    """
+    from models import Order, OrderStatus, RideRequest, RideRequestStatus, RideBid, BidStatus
+
+    # Cancel all incomplete orders
+    cancelled_order_count = 0
+    completed_statuses = [OrderStatus.DELIVERED, OrderStatus.CANCELLED]
+
+    try:
+        incomplete_orders = db.query(Order).filter(
+            ~Order.status.in_(completed_statuses)
+        ).all()
+
+        for order in incomplete_orders:
+            order.status = OrderStatus.CANCELLED
+            order.updated_at = datetime.utcnow()
+            cancelled_order_count += 1
+    except Exception as e:
+        logger.warning(f"Could not cancel incomplete orders: {e}")
+
+    # Cancel all incomplete ride requests
+    cancelled_ride_count = 0
+    ride_completed_statuses = [
+        RideRequestStatus.COMPLETED,
+        RideRequestStatus.CANCELLED,
+        RideRequestStatus.EXPIRED
+    ]
+
+    try:
+        incomplete_rides = db.query(RideRequest).filter(
+            ~RideRequest.status.in_(ride_completed_statuses)
+        ).all()
+
+        for ride in incomplete_rides:
+            ride.status = RideRequestStatus.CANCELLED
+            cancelled_ride_count += 1
+    except Exception as e:
+        logger.warning(f"Could not cancel incomplete rides: {e}")
+
+    # Cancel all pending bids
+    cancelled_bid_count = 0
+    try:
+        pending_bids = db.query(RideBid).filter(
+            RideBid.status == BidStatus.PENDING
+        ).all()
+
+        for bid in pending_bids:
+            bid.status = BidStatus.EXPIRED
+            cancelled_bid_count += 1
+    except Exception as e:
+        logger.warning(f"Could not cancel pending bids: {e}")
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "All incomplete orders, rides, and bids cancelled",
+        "orders_cancelled": cancelled_order_count,
+        "rides_cancelled": cancelled_ride_count,
+        "bids_cancelled": cancelled_bid_count
+    }
+
+
 # ============================================================
 # ADMIN INSPECTION ENDPOINTS
 # ============================================================
