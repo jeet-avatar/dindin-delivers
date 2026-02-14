@@ -4323,6 +4323,19 @@ async def stripe_connect_webhook(
                 db.commit()
                 print(f"Driver {driver.id} completed Stripe Connect onboarding")
 
+        # Also check vendors table
+        if not driver:
+            vendor = db.query(Vendor).filter(Vendor.stripe_account_id == account_id).first()
+            if vendor:
+                charges_enabled = event_data.get("charges_enabled", False)
+                payouts_enabled = event_data.get("payouts_enabled", False)
+
+                if charges_enabled and payouts_enabled:
+                    vendor.stripe_onboarding_complete = True
+                    vendor.updated_at = datetime.utcnow()
+                    db.commit()
+                    print(f"Vendor {vendor.id} completed Stripe Connect onboarding")
+
     # Handle payout events
     elif event_type == "payout.paid":
         account_id = event_data.get("account") or event.get("account")
@@ -4340,6 +4353,252 @@ async def stripe_connect_webhook(
             print(f"Payout failed for driver {driver.id}: {event_data.get('failure_message')}")
 
     return {"success": True, "event_type": event_type}
+
+
+# ==================== STRIPE CONNECT FOR VENDORS ====================
+# Stripe Connect Express accounts for restaurant/vendor payouts
+
+@app.post("/api/vendors/{vendor_id}/stripe/connect")
+def create_vendor_stripe_account(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a Stripe Connect Express account for a vendor/restaurant.
+    This is step 1 of vendor payout onboarding.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Check if vendor already has a Stripe account
+    if vendor.stripe_account_id:
+        return {
+            "success": True,
+            "message": "Stripe account already exists",
+            "stripe_account_id": vendor.stripe_account_id,
+            "onboarded": vendor.stripe_onboarding_complete or False
+        }
+
+    try:
+        # Determine business type from vendor record or default to company
+        biz_type = getattr(vendor, 'business_type', None) or "company"
+
+        # Create Stripe Connect Express account
+        account = stripe.Account.create(
+            type="express",
+            country="US",
+            email=vendor.email,
+            capabilities={
+                "card_payments": {"requested": True},
+                "transfers": {"requested": True},
+            },
+            business_type=biz_type,
+            business_profile={
+                "mcc": "5812",  # Eating Places, Restaurants
+                "product_description": "Restaurant food delivery and dine-in services"
+            },
+            metadata={
+                "vendor_id": str(vendor.id),
+                "vendor_name": vendor.name or "",
+                "platform": "dollor.ai"
+            }
+        )
+
+        # Save Stripe account ID to vendor record
+        vendor.stripe_account_id = account.id
+        vendor.updated_at = datetime.utcnow()
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Stripe Connect account created",
+            "stripe_account_id": account.id,
+            "onboarded": False
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.get("/api/vendors/{vendor_id}/stripe/onboarding-link")
+def get_vendor_stripe_onboarding_link(
+    vendor_id: int,
+    return_url: str = Query(default="https://www.dollor.ai/partner/settings"),
+    refresh_url: str = Query(default="https://www.dollor.ai/partner/settings"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a Stripe Connect onboarding link for the vendor.
+    The vendor uses this link to complete their payout setup including bank account.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Create Stripe account if doesn't exist
+    if not vendor.stripe_account_id:
+        try:
+            biz_type = getattr(vendor, 'business_type', None) or "company"
+            account = stripe.Account.create(
+                type="express",
+                country="US",
+                email=vendor.email,
+                capabilities={
+                    "card_payments": {"requested": True},
+                    "transfers": {"requested": True},
+                },
+                business_type=biz_type,
+                business_profile={
+                    "mcc": "5812",
+                    "product_description": "Restaurant food delivery and dine-in services"
+                },
+                metadata={
+                    "vendor_id": str(vendor.id),
+                    "vendor_name": vendor.name or "",
+                    "platform": "dollor.ai"
+                }
+            )
+            vendor.stripe_account_id = account.id
+            db.commit()
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+
+    try:
+        # Create Account Link for onboarding
+        account_link = stripe.AccountLink.create(
+            account=vendor.stripe_account_id,
+            refresh_url=refresh_url,
+            return_url=return_url,
+            type="account_onboarding",
+        )
+
+        return {
+            "success": True,
+            "onboarding_url": account_link.url,
+            "expires_at": account_link.expires_at,
+            "stripe_account_id": vendor.stripe_account_id
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.get("/api/vendors/{vendor_id}/stripe/status")
+def get_vendor_stripe_status(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the vendor's Stripe Connect account status including bank account info.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.stripe_account_id:
+        return {
+            "success": True,
+            "has_stripe_account": False,
+            "onboarded": False,
+            "bank_account_linked": False,
+            "payouts_enabled": False,
+            "message": "No Stripe account. Call POST /api/vendors/{id}/stripe/connect to create one."
+        }
+
+    try:
+        # Retrieve Stripe account details
+        account = stripe.Account.retrieve(vendor.stripe_account_id)
+
+        # Check if account is fully onboarded
+        is_onboarded = account.charges_enabled and account.payouts_enabled
+
+        # Update vendor record if onboarding status changed
+        if is_onboarded and not vendor.stripe_onboarding_complete:
+            vendor.stripe_onboarding_complete = True
+            vendor.updated_at = datetime.utcnow()
+            db.commit()
+
+        # Get bank account info if available
+        bank_info = None
+        if account.external_accounts and account.external_accounts.data:
+            for ext_account in account.external_accounts.data:
+                if ext_account.object == "bank_account":
+                    bank_info = {
+                        "bank_name": ext_account.bank_name,
+                        "last4": ext_account.last4,
+                        "routing_number": ext_account.routing_number,
+                        "account_holder_name": ext_account.account_holder_name,
+                        "account_holder_type": ext_account.account_holder_type,
+                        "status": ext_account.status
+                    }
+                    break
+
+        return {
+            "success": True,
+            "has_stripe_account": True,
+            "stripe_account_id": vendor.stripe_account_id,
+            "onboarded": is_onboarded,
+            "charges_enabled": account.charges_enabled,
+            "payouts_enabled": account.payouts_enabled,
+            "bank_account_linked": bank_info is not None,
+            "bank_account": bank_info,
+            "details_submitted": account.details_submitted,
+            "requirements": {
+                "currently_due": account.requirements.currently_due if account.requirements else [],
+                "eventually_due": account.requirements.eventually_due if account.requirements else [],
+                "pending_verification": account.requirements.pending_verification if account.requirements else []
+            }
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+
+
+@app.post("/api/vendors/{vendor_id}/stripe/dashboard-link")
+def get_vendor_stripe_dashboard_link(
+    vendor_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a link to the vendor's Stripe Express dashboard.
+    Vendors can use this to view payouts, update bank info, etc.
+    """
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.stripe_account_id:
+        raise HTTPException(status_code=400, detail="Vendor has no Stripe account")
+
+    try:
+        # Create login link for Express dashboard
+        login_link = stripe.Account.create_login_link(vendor.stripe_account_id)
+
+        return {
+            "success": True,
+            "dashboard_url": login_link.url,
+            "message": "Use this link to access your Stripe dashboard"
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
 
 
 # =============================================================================
@@ -4373,11 +4632,13 @@ async def complete_ride_and_pay_driver(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    if not ride.driver_id:
+    # Use matched_driver_id (correct field name in RideRequest model)
+    driver_id = getattr(ride, 'matched_driver_id', None) or getattr(ride, 'driver_id', None)
+    if not driver_id:
         raise HTTPException(status_code=400, detail="No driver assigned to this ride")
 
     # Get the driver
-    driver = db.query(Driver).filter(Driver.id == ride.driver_id).first()
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
@@ -4484,8 +4745,10 @@ async def add_ride_tip(
     ride.tip = tip_amount
 
     # If driver has Stripe Connect and ride is completed, transfer the tip difference
-    if ride.driver_id:
-        driver = db.query(Driver).filter(Driver.id == ride.driver_id).first()
+    # Use matched_driver_id (the correct field name in RideRequest model)
+    driver_id = getattr(ride, 'matched_driver_id', None) or getattr(ride, 'driver_id', None)
+    if driver_id:
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
 
         if driver and driver.stripe_account_id and driver.stripe_onboarded:
             tip_difference = tip_amount - old_tip
@@ -4554,12 +4817,16 @@ async def get_driver_payout_history(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # Get completed rides with payouts
-    completed_rides = db.query(RideRequestDB).filter(
-        RideRequestDB.driver_id == driver_id,
-        RideRequestDB.status == RideRequestStatus.COMPLETED,
-        RideRequestDB.driver_payout.isnot(None)
-    ).order_by(RideRequestDB.completed_at.desc()).limit(limit).all()
+    try:
+        # Get completed rides with payouts (use matched_driver_id which is the correct field)
+        completed_rides = db.query(RideRequestDB).filter(
+            RideRequestDB.matched_driver_id == driver_id,
+            RideRequestDB.status == RideRequestStatus.COMPLETED
+        ).order_by(RideRequestDB.created_at.desc()).limit(limit).all()
+    except Exception as e:
+        # If query fails (columns don't exist yet), return empty
+        logger.warning(f"Payout history query failed: {e}")
+        completed_rides = []
 
     payouts = []
     total_earnings = 0
