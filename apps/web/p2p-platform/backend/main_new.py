@@ -4563,10 +4563,13 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    # Get user and update password
-    user = db.query(User).filter(User.email == request.email).first()
+    # Get CUSTOMER user record (must match role filter used by customer login)
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.CUSTOMER).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Fallback: try any user with this email (for accounts without explicit role)
+        user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Account not found")
 
     # Update password
     user.password_hash = get_password_hash(request.new_password)
@@ -4639,12 +4642,12 @@ def driver_confirm_password_reset(request: DriverPasswordResetConfirm, db: Sessi
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    # Get user and update password
-    user = db.query(User).filter(User.email == request.email).first()
+    # Get DRIVER user record (must match role filter used by driver login)
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Driver account not found")
 
-    # Update password
+    # Update password on the correct user record
     user.password_hash = get_password_hash(request.new_password)
     db.commit()
 
@@ -4709,9 +4712,10 @@ def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Sessi
     if reset_data["code"] != request.code:
         raise HTTPException(status_code=400, detail="Invalid reset code")
 
-    user = db.query(User).filter(User.email == request.email).first()
+    # Get VENDOR user record (must match role filter used by vendor login)
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Partner account not found")
 
     user.password_hash = get_password_hash(request.new_password)
     db.commit()
