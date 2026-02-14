@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Avatar, Typography, Row, Col, Button, List, Switch, Tag, Spin, message } from 'antd';
+import { Card, Avatar, Typography, Row, Col, Button, List, Switch, Tag, Spin, message, Modal, Form, Input, Divider } from 'antd';
 import {
   UserOutlined,
   CarOutlined,
@@ -14,10 +14,14 @@ import {
   QuestionCircleOutlined,
   LogoutOutlined,
   CheckCircleOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  HomeOutlined,
+  EnvironmentOutlined,
+  PhoneOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getDriverProfile, getCurrentDriverId, DriverProfile as DriverProfileType } from '../../api/api';
+import { getDriverProfile, getCurrentDriverId, updateDriverProfile, DriverProfile as DriverProfileType } from '../../api/api';
 
 const { Title, Text } = Typography;
 
@@ -39,6 +43,9 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [driverData, setDriverData] = useState<DriverProfileType | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchDriverProfile();
@@ -57,6 +64,40 @@ const Profile: React.FC = () => {
       message.error('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditModal = () => {
+    if (driverData) {
+      form.setFieldsValue({
+        first_name: driverData.first_name,
+        last_name: driverData.last_name,
+        phone: driverData.phone || driverData.phone_number,
+        street: driverData.street || '',
+        city: driverData.city || '',
+        state: driverData.state || '',
+        zip_code: driverData.zip_code || '',
+      });
+      setEditModalVisible(true);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
+      const driverId = getCurrentDriverId();
+      if (driverId) {
+        await updateDriverProfile(driverId, values);
+        message.success('Profile updated successfully');
+        setEditModalVisible(false);
+        fetchDriverProfile(); // Refresh the data
+      }
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      message.error(error.response?.data?.detail || 'Failed to update profile');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -156,7 +197,7 @@ const Profile: React.FC = () => {
               <CheckCircleOutlined /> {driverData?.status === 'approved' ? 'Verified Driver' : 'Pending Verification'}
             </Tag>
           </div>
-          <Button icon={<EditOutlined />} className="edit-btn">Edit</Button>
+          <Button icon={<EditOutlined />} className="edit-btn" onClick={openEditModal}>Edit</Button>
         </div>
 
         {/* Stats */}
@@ -288,6 +329,92 @@ const Profile: React.FC = () => {
           )}
         />
       </Card>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        title={<><EditOutlined /> Edit Profile</>}
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setEditModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="save"
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={saving}
+            onClick={handleSaveProfile}
+          >
+            Save Changes
+          </Button>
+        ]}
+        width={500}
+      >
+        <Form form={form} layout="vertical">
+          <Divider orientation="left"><UserOutlined /> Personal Info</Divider>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="first_name"
+                label="First Name"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input prefix={<UserOutlined />} placeholder="First Name" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="last_name"
+                label="Last Name"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input prefix={<UserOutlined />} placeholder="Last Name" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="phone"
+            label="Phone Number"
+          >
+            <Input prefix={<PhoneOutlined />} placeholder="Phone Number" />
+          </Form.Item>
+
+          <Divider orientation="left"><HomeOutlined /> Address</Divider>
+          <Form.Item
+            name="street"
+            label="Street Address"
+          >
+            <Input prefix={<EnvironmentOutlined />} placeholder="123 Main St" />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item
+                name="city"
+                label="City"
+              >
+                <Input placeholder="City" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item
+                name="state"
+                label="State"
+              >
+                <Input placeholder="CA" maxLength={2} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="zip_code"
+                label="ZIP Code"
+              >
+                <Input placeholder="92688" maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
 
       {/* Logout Button */}
       <Button

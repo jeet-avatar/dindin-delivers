@@ -493,6 +493,12 @@ export interface DriverProfile {
   vehicle_year?: number;
   vehicle_color?: string;
   license_plate?: string;
+  vehicle_photo_url?: string;
+  // Address
+  street?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   // Documents
   drivers_license?: boolean;
   drivers_license_url?: string;
