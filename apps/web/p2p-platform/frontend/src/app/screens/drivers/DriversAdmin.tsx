@@ -19,6 +19,12 @@ interface Driver {
   vehicle_year: number;
   vehicle_color: string;
   license_plate: string;
+  vehicle_photo_url?: string;
+  // Address
+  street?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   status: string;
   rating: number;
   total_deliveries: number;
@@ -553,6 +559,13 @@ const DriversAdmin: React.FC = () => {
                   </Descriptions.Item>
                   <Descriptions.Item label="License Plate">{selectedDriver.license_plate}</Descriptions.Item>
                   <Descriptions.Item label="Vehicle Type">{selectedDriver.vehicle_type}</Descriptions.Item>
+                  <Descriptions.Item label="Address" span={2}>
+                    {selectedDriver.street ? (
+                      <>{selectedDriver.street}, {selectedDriver.city}, {selectedDriver.state} {selectedDriver.zip_code}</>
+                    ) : (
+                      <Tag color="orange">Not set</Tag>
+                    )}
+                  </Descriptions.Item>
                   <Descriptions.Item label="Rating">
                     <StarFilled style={{ color: '#faad14', marginRight: 4 }} />
                     {selectedDriver.rating?.toFixed(1) || '5.0'}

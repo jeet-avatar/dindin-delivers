@@ -3722,6 +3722,11 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "license_number": driver.license_number,
         "drivers_license_url": driver.drivers_license_url,
         "insurance_url": driver.insurance_url,
+        # Address fields
+        "street": driver.street if hasattr(driver, 'street') else None,
+        "city": driver.city if hasattr(driver, 'city') else None,
+        "state": driver.state if hasattr(driver, 'state') else None,
+        "zip_code": driver.zip_code if hasattr(driver, 'zip_code') else None,
         "created_at": driver.created_at.isoformat() if driver.created_at else None
     }
 
