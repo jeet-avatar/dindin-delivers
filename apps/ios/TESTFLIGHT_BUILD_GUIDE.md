@@ -11,7 +11,7 @@
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
 | **Dollor (Customer)** | `com.dollorai.customer` | 1069 | 1.0 | ✅ On TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 177 | 1.0 | ✅ On TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 178 | 1.0 | ✅ On TestFlight |
 | **Dollor Restaurant** | `com.dollorai.restaurant` | 149 | 1.0 | ✅ On TestFlight |
 
 ---
@@ -20,6 +20,7 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| **Earnings statement showing $0** | EarningsPaymentSection now uses EarningsViewModel (P2P Dashboard API) instead of hardcoded zeros from profile | Build 178 |
 | **P2P Ride Flow Audit** | Complete flow verified between Customer ↔ Driver apps | Build 1067/175 |
 | Push notifications missing for ride events | Added bid accepted, ride started, ride completed notifications | `037fc4a2` |
 | Backend accept-counter missing null check | Added HTTPException 404, fixed original_price bug | `1a41d8ba` |
@@ -155,7 +156,7 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
 | Dollor (Customer) | 1069 | ✅ Uploaded (2026-02-13 17:35 PST) |
-| Dollor Driver | 177 | ✅ Uploaded (2026-02-13 17:35 PST) |
+| Dollor Driver | 178 | ✅ Uploaded (2026-02-13 18:23 PST) |
 | Dollor Restaurant | 149 | ✅ Uploaded (2026-02-13 17:35 PST) |
 
 ### Demo Accounts (For App Store Review)
