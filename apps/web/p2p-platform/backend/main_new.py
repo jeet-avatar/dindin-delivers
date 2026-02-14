@@ -20237,6 +20237,279 @@ app.add_api_route("/erp/analytics/realtime", proxy_realtime_dashboard, methods=[
 app.add_api_route("/api/erp/analytics/realtime", proxy_realtime_dashboard, methods=["GET"])
 app.add_api_route("/erp/analytics/ai-employees", get_ai_employees_analytics, methods=["GET"])
 
+# =============================================================================
+# TAX CALCULATION API
+# =============================================================================
+# Simple state-level tax rates for US states
+# Rates are state-level only (city/county rates can be added later)
+# Last updated: February 2026
+
+US_STATE_TAX_RATES = {
+    "AL": 0.04,    # Alabama
+    "AK": 0.00,    # Alaska (no state sales tax)
+    "AZ": 0.056,   # Arizona
+    "AR": 0.065,   # Arkansas
+    "CA": 0.0725,  # California
+    "CO": 0.029,   # Colorado
+    "CT": 0.0635,  # Connecticut
+    "DE": 0.00,    # Delaware (no sales tax)
+    "FL": 0.06,    # Florida
+    "GA": 0.04,    # Georgia
+    "HI": 0.04,    # Hawaii (GET)
+    "ID": 0.06,    # Idaho
+    "IL": 0.0625,  # Illinois
+    "IN": 0.07,    # Indiana
+    "IA": 0.06,    # Iowa
+    "KS": 0.065,   # Kansas
+    "KY": 0.06,    # Kentucky
+    "LA": 0.0445,  # Louisiana
+    "ME": 0.055,   # Maine
+    "MD": 0.06,    # Maryland
+    "MA": 0.0625,  # Massachusetts
+    "MI": 0.06,    # Michigan
+    "MN": 0.06875, # Minnesota
+    "MS": 0.07,    # Mississippi
+    "MO": 0.04225, # Missouri
+    "MT": 0.00,    # Montana (no sales tax)
+    "NE": 0.055,   # Nebraska
+    "NV": 0.0685,  # Nevada
+    "NH": 0.00,    # New Hampshire (no sales tax)
+    "NJ": 0.06625, # New Jersey
+    "NM": 0.05125, # New Mexico (GRT)
+    "NY": 0.04,    # New York
+    "NC": 0.0475,  # North Carolina
+    "ND": 0.05,    # North Dakota
+    "OH": 0.0575,  # Ohio
+    "OK": 0.045,   # Oklahoma
+    "OR": 0.00,    # Oregon (no sales tax)
+    "PA": 0.06,    # Pennsylvania
+    "RI": 0.07,    # Rhode Island
+    "SC": 0.06,    # South Carolina
+    "SD": 0.045,   # South Dakota
+    "TN": 0.07,    # Tennessee
+    "TX": 0.0625,  # Texas
+    "UT": 0.061,   # Utah
+    "VT": 0.06,    # Vermont
+    "VA": 0.053,   # Virginia
+    "WA": 0.065,   # Washington
+    "WV": 0.06,    # West Virginia
+    "WI": 0.05,    # Wisconsin
+    "WY": 0.04,    # Wyoming
+    "DC": 0.06,    # Washington D.C.
+}
+
+# Major city additional tax rates (approximate - for better accuracy, integrate TaxJar)
+US_CITY_TAX_RATES = {
+    # California cities
+    "CA": {
+        "los angeles": 0.0225,
+        "san francisco": 0.0125,
+        "san diego": 0.0075,
+        "san jose": 0.0125,
+        "oakland": 0.0225,
+        "sacramento": 0.0075,
+        "rancho santa margarita": 0.0075,
+    },
+    # Texas cities
+    "TX": {
+        "houston": 0.02,
+        "dallas": 0.02,
+        "austin": 0.02,
+        "san antonio": 0.02,
+    },
+    # Arizona cities
+    "AZ": {
+        "phoenix": 0.023,
+        "tucson": 0.026,
+        "scottsdale": 0.0175,
+        "tempe": 0.018,
+        "mesa": 0.0175,
+    },
+    # New York
+    "NY": {
+        "new york": 0.045,
+        "new york city": 0.045,
+        "buffalo": 0.04,
+        "albany": 0.04,
+    },
+    # Florida
+    "FL": {
+        "miami": 0.01,
+        "orlando": 0.005,
+        "tampa": 0.015,
+        "jacksonville": 0.005,
+    },
+}
+
+
+class TaxCalculationRequest(BaseModel):
+    subtotal: float = Field(..., description="Order subtotal before tax")
+    state: str = Field(..., min_length=2, max_length=2, description="Two-letter state code")
+    city: Optional[str] = Field(None, description="City name for local tax lookup")
+    zip_code: Optional[str] = Field(None, description="ZIP code (for future city lookup)")
+
+
+class TaxCalculationResponse(BaseModel):
+    subtotal: float
+    state: str
+    state_code: str
+    city: Optional[str]
+    state_tax_rate: float
+    city_tax_rate: float
+    combined_tax_rate: float
+    state_tax_amount: float
+    city_tax_amount: float
+    total_tax_amount: float
+    total_with_tax: float
+    tax_breakdown: dict
+
+
+@app.get("/api/tax/rates")
+async def get_tax_rates(state: Optional[str] = None):
+    """
+    Get tax rates for all US states or a specific state.
+
+    Returns state-level tax rates. For city-level rates, use /api/tax/calculate.
+    """
+    if state:
+        state = state.upper()
+        if state not in US_STATE_TAX_RATES:
+            raise HTTPException(status_code=404, detail=f"Unknown state: {state}")
+
+        city_rates = US_CITY_TAX_RATES.get(state, {})
+        return {
+            "state": state,
+            "state_rate": US_STATE_TAX_RATES[state],
+            "state_rate_percent": f"{US_STATE_TAX_RATES[state] * 100:.2f}%",
+            "city_rates": {
+                city: {
+                    "rate": rate,
+                    "rate_percent": f"{rate * 100:.2f}%",
+                    "combined_rate": US_STATE_TAX_RATES[state] + rate,
+                    "combined_percent": f"{(US_STATE_TAX_RATES[state] + rate) * 100:.2f}%"
+                }
+                for city, rate in city_rates.items()
+            },
+            "has_sales_tax": US_STATE_TAX_RATES[state] > 0
+        }
+
+    return {
+        "states": {
+            code: {
+                "rate": rate,
+                "rate_percent": f"{rate * 100:.2f}%",
+                "has_sales_tax": rate > 0
+            }
+            for code, rate in sorted(US_STATE_TAX_RATES.items())
+        },
+        "no_sales_tax_states": ["AK", "DE", "MT", "NH", "OR"],
+        "total_states": len(US_STATE_TAX_RATES)
+    }
+
+
+@app.post("/api/tax/calculate", response_model=TaxCalculationResponse)
+@app.get("/api/tax/calculate")
+async def calculate_tax(
+    subtotal: float = Query(..., description="Order subtotal before tax"),
+    state: str = Query(..., min_length=2, max_length=2, description="Two-letter state code"),
+    city: Optional[str] = Query(None, description="City name for local tax lookup"),
+    zip_code: Optional[str] = Query(None, description="ZIP code (reserved for future use)")
+):
+    """
+    Calculate tax for an order based on delivery location.
+
+    - Supports all 50 US states + DC
+    - Includes city-level taxes for major cities
+    - Returns detailed breakdown for receipts
+
+    Example:
+    - GET /api/tax/calculate?subtotal=50.00&state=CA&city=los%20angeles
+    """
+    state = state.upper()
+
+    # Validate state
+    if state not in US_STATE_TAX_RATES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown state code: {state}. Use two-letter state abbreviation (e.g., CA, TX, NY)"
+        )
+
+    # Get state tax rate
+    state_rate = US_STATE_TAX_RATES[state]
+
+    # Get city tax rate if city provided
+    city_rate = 0.0
+    city_normalized = None
+    if city:
+        city_normalized = city.lower().strip()
+        state_cities = US_CITY_TAX_RATES.get(state, {})
+        city_rate = state_cities.get(city_normalized, 0.0)
+
+    # Calculate taxes
+    combined_rate = state_rate + city_rate
+    state_tax = round(subtotal * state_rate, 2)
+    city_tax = round(subtotal * city_rate, 2)
+    total_tax = round(subtotal * combined_rate, 2)
+    total_with_tax = round(subtotal + total_tax, 2)
+
+    # Build response
+    return TaxCalculationResponse(
+        subtotal=subtotal,
+        state=state,
+        state_code=state,
+        city=city_normalized,
+        state_tax_rate=state_rate,
+        city_tax_rate=city_rate,
+        combined_tax_rate=combined_rate,
+        state_tax_amount=state_tax,
+        city_tax_amount=city_tax,
+        total_tax_amount=total_tax,
+        total_with_tax=total_with_tax,
+        tax_breakdown={
+            "subtotal": f"${subtotal:.2f}",
+            "state_tax": f"${state_tax:.2f} ({state_rate * 100:.2f}%)",
+            "city_tax": f"${city_tax:.2f} ({city_rate * 100:.2f}%)" if city_tax > 0 else None,
+            "total_tax": f"${total_tax:.2f}",
+            "total": f"${total_with_tax:.2f}"
+        }
+    )
+
+
+@app.get("/api/tax/estimate/{state}")
+async def estimate_state_tax(
+    state: str,
+    subtotal: float = Query(100.0, description="Sample subtotal for estimation")
+):
+    """
+    Quick estimate of tax for a state (uses average city rate).
+    Useful for showing "estimated tax" before customer enters full address.
+    """
+    state = state.upper()
+
+    if state not in US_STATE_TAX_RATES:
+        raise HTTPException(status_code=404, detail=f"Unknown state: {state}")
+
+    state_rate = US_STATE_TAX_RATES[state]
+
+    # Calculate average city rate for this state
+    city_rates = US_CITY_TAX_RATES.get(state, {})
+    avg_city_rate = sum(city_rates.values()) / len(city_rates) if city_rates else 0.02  # Default 2% city estimate
+
+    estimated_rate = state_rate + avg_city_rate
+    estimated_tax = round(subtotal * estimated_rate, 2)
+
+    return {
+        "state": state,
+        "subtotal": subtotal,
+        "state_rate": state_rate,
+        "estimated_city_rate": round(avg_city_rate, 4),
+        "estimated_combined_rate": round(estimated_rate, 4),
+        "estimated_tax": estimated_tax,
+        "estimated_total": round(subtotal + estimated_tax, 2),
+        "note": "This is an estimate. Final tax calculated at checkout with exact address."
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
