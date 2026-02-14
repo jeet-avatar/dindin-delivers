@@ -3692,9 +3692,19 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
+    # Count completed rides for this driver
+    total_rides = db.query(RideRequest).filter(
+        RideRequest.matched_driver_id == driver.id,
+        RideRequest.status == RideRequestStatus.COMPLETED
+    ).count()
+
+    status_val = driver.status.value if driver.status else "pending"
+    is_approved = status_val in ("approved", "active", "online")
+
     return {
         "id": driver.id,
         "driver_code": driver.driver_id,
+        "driver_id": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
         "full_name": f"{driver.first_name} {driver.last_name}",
         "first_name": driver.first_name,
@@ -3703,31 +3713,51 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
         "phone": driver.phone,
         "phone_number": driver.phone,
         "date_of_birth": driver.date_of_birth,
-        "status": driver.status.value if driver.status else "pending",
-        "approval_status": driver.status.value if driver.status else "pending",
+        "status": status_val,
+        "approval_status": status_val,
+        "is_approved": is_approved,
         "rating": driver.rating,
         "total_deliveries": driver.total_deliveries,
+        "total_rides": total_rides,
         "is_online": driver.is_online,
         "latitude": driver.current_latitude,
         "longitude": driver.current_longitude,
+        # Vehicle
         "vehicle_type": driver.vehicle_type,
         "vehicle_make": driver.vehicle_make,
         "vehicle_model": driver.vehicle_model,
         "vehicle_year": driver.vehicle_year,
         "vehicle_color": driver.vehicle_color,
         "license_plate": driver.license_plate,
+        # Photos
         "profile_image": driver.photo_url,
         "photo_url": driver.photo_url,
+        "profile_image_url": driver.photo_url,
         "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
+        # Documents
         "license_number": driver.license_number,
+        "drivers_license": driver.drivers_license,
         "drivers_license_url": driver.drivers_license_url,
+        "drivers_license_expiry": driver.drivers_license_expiry.isoformat() if driver.drivers_license_expiry else None,
+        "insurance": driver.insurance,
         "insurance_url": driver.insurance_url,
+        "insurance_expiry": driver.insurance_expiry.isoformat() if driver.insurance_expiry else None,
+        "background_check": driver.background_check,
+        "background_check_date": driver.background_check_date.isoformat() if driver.background_check_date else None,
+        # Verification
+        "verification_status": driver.verification_status,
+        "documents_verified": driver.documents_verified,
+        # Stripe / Payouts
+        "stripe_onboarded": driver.stripe_onboarded,
+        "stripe_account_connected": driver.stripe_account_id is not None,
         # Address fields
         "street": driver.street if hasattr(driver, 'street') else None,
         "city": driver.city if hasattr(driver, 'city') else None,
         "state": driver.state if hasattr(driver, 'state') else None,
         "zip_code": driver.zip_code if hasattr(driver, 'zip_code') else None,
-        "created_at": driver.created_at.isoformat() if driver.created_at else None
+        # Timestamps
+        "created_at": driver.created_at.isoformat() if driver.created_at else None,
+        "approved_at": driver.approved_at.isoformat() if driver.approved_at else None,
     }
 
 
