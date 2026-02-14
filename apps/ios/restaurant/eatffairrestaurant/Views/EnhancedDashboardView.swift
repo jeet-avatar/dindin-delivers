@@ -148,7 +148,7 @@ struct OrdersDashboardView: View {
     private var filteredOrders: [Order] {
         switch selectedFilter {
         case .all:
-            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders + ordersVM.selfDeliveryOrders
+            return ordersVM.newOrders + ordersVM.preparingOrders + ordersVM.readyOrders + ordersVM.deliveringOrders
         case .new:
             return ordersVM.newOrders
         case .preparing:
@@ -156,7 +156,7 @@ struct OrdersDashboardView: View {
         case .ready:
             return ordersVM.readyOrders
         case .delivering:
-            return ordersVM.selfDeliveryOrders
+            return ordersVM.deliveringOrders
         }
     }
 
@@ -252,11 +252,11 @@ struct OrdersDashboardView: View {
 
     private func countForFilter(_ filter: OrderFilter) -> Int {
         switch filter {
-        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count + ordersVM.selfDeliveryOrders.count
+        case .all: return ordersVM.newOrders.count + ordersVM.preparingOrders.count + ordersVM.readyOrders.count + ordersVM.deliveringOrders.count
         case .new: return ordersVM.newOrders.count
         case .preparing: return ordersVM.preparingOrders.count
         case .ready: return ordersVM.readyOrders.count
-        case .delivering: return ordersVM.selfDeliveryOrders.count
+        case .delivering: return ordersVM.deliveringOrders.count
         }
     }
 }
@@ -938,6 +938,89 @@ struct EnhancedOrderCard: View {
                         }
                         .padding(.horizontal)
                         .padding(.bottom)
+                    }
+                }
+            } else if order.status.lowercased() == "out_for_delivery" || order.status.lowercased() == "picked_up" {
+                // Driver is delivering - show delivery status
+                Divider()
+
+                VStack(spacing: 8) {
+                    // Status indicator
+                    HStack {
+                        Image(systemName: "car.fill")
+                            .foregroundColor(RestaurantTheme.brandBlue)
+                        Text("Driver delivering to customer")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(RestaurantTheme.brandBlue)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Driver details
+                    if let driverName = order.driverName, !driverName.isEmpty {
+                        HStack(spacing: 12) {
+                            // Driver avatar
+                            ZStack {
+                                Circle()
+                                    .fill(RestaurantTheme.brandBlue.opacity(0.2))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(RestaurantTheme.brandBlue)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(driverName)
+                                    .font(.headline)
+                                if let driverPhone = order.driverPhone {
+                                    Text(driverPhone)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                if let rating = order.driverRating, rating > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                        Text(String(format: "%.1f", rating))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+
+                            // Call driver button
+                            if let driverPhone = order.driverPhone {
+                                Button(action: {
+                                    let cleanPhone = driverPhone.replacingOccurrences(of: "-", with: "")
+                                        .replacingOccurrences(of: " ", with: "")
+                                        .replacingOccurrences(of: "(", with: "")
+                                        .replacingOccurrences(of: ")", with: "")
+                                    if let url = URL(string: "tel:\(cleanPhone)") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }) {
+                                    Image(systemName: "phone.fill")
+                                        .foregroundColor(.white)
+                                        .padding(10)
+                                        .background(RestaurantTheme.brandBlue)
+                                        .clipShape(Circle())
+                                }
+                                .accessibilityLabel("Call driver")
+                                .accessibilityHint("Opens phone to call the delivery driver")
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
+                    } else {
+                        Text("Order handed off to driver")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.bottom)
                     }
                 }
             } else if order.status.lowercased() == "restaurant_will_deliver" {
