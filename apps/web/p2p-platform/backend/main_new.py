@@ -33,6 +33,7 @@ from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
+    send_password_reset_email,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
     send_driver_assigned_email, send_order_delivered_email,
@@ -4488,7 +4489,14 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
         "expires": datetime.utcnow() + timedelta(minutes=15)
     }
 
-    # In production, send email here
+    # Send email with reset code
+    try:
+        customer = db.query(Customer).filter(Customer.user_id == user.id).first()
+        customer_name = f"{customer.first_name}" if customer else "Customer"
+        send_password_reset_email(request.email, customer_name, code)
+    except Exception as e:
+        print(f"Failed to send customer password reset email: {str(e)}")
+
     print(f"Password reset code for {request.email}: {code}")
 
     return {"success": True, "message": "Reset code sent to your email."}
@@ -4560,16 +4568,9 @@ def driver_request_password_reset(request: DriverPasswordResetRequest, db: Sessi
 
     # Send email with reset code
     try:
-        send_email(
-            to_email=request.email,
-            subject="Dollor Driver - Password Reset Code",
-            html_content=f"""
-            <h2>Password Reset</h2>
-            <p>Your password reset code is: <strong>{code}</strong></p>
-            <p>This code expires in 15 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-            """
-        )
+        driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+        driver_name = f"{driver.first_name}" if driver else "Driver"
+        send_password_reset_email(request.email, driver_name, code)
     except Exception as e:
         print(f"Failed to send driver password reset email: {str(e)}")
 
@@ -4603,6 +4604,73 @@ def driver_confirm_password_reset(request: DriverPasswordResetConfirm, db: Sessi
     db.commit()
 
     # Remove used code
+    del password_reset_codes[request.email]
+
+    return {"success": True, "message": "Password reset successful. You can now login with your new password."}
+
+
+# ============================================================
+# Vendor/Partner Password Reset (matches Android: vendor/password-reset/*)
+# ============================================================
+
+class VendorPasswordResetRequest(BaseModel):
+    email: str
+
+class VendorPasswordResetConfirm(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+@app.post("/api/vendor/password-reset/request")
+def vendor_request_password_reset(request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
+    """Request a vendor password reset - sends code to email"""
+    import random
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user or not user.vendor_id:
+        return {"success": True, "message": "If a partner account exists with this email, a reset code has been sent."}
+
+    code = str(random.randint(100000, 999999))
+
+    from datetime import datetime, timedelta
+    password_reset_codes[request.email] = {
+        "code": code,
+        "expires": datetime.utcnow() + timedelta(minutes=15)
+    }
+
+    try:
+        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+        vendor_name = vendor.business_name if vendor else "Partner"
+        send_password_reset_email(request.email, vendor_name, code)
+    except Exception as e:
+        print(f"Failed to send vendor password reset email: {str(e)}")
+
+    print(f"Vendor password reset code for {request.email}: {code}")
+    return {"success": True, "message": "Reset code sent to your email."}
+
+@app.post("/api/vendor/password-reset/confirm")
+def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
+    """Confirm vendor password reset with code and set new password"""
+    from datetime import datetime
+
+    reset_data = password_reset_codes.get(request.email)
+    if not reset_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+
+    if datetime.utcnow() > reset_data["expires"]:
+        del password_reset_codes[request.email]
+        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+
+    if reset_data["code"] != request.code:
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+
     del password_reset_codes[request.email]
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
