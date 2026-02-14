@@ -1,6 +1,6 @@
 # Dollor.ai iOS TestFlight Build Guide
 
-> **Last Updated**: February 11, 2026
+> **Last Updated**: February 13, 2026
 > **API Contract Version**: 1.0.14
 > **Backend Version**: 1.0.18
 
@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1066 | 1.0 | ✅ Uploaded 2026-02-11 19:44 |
-| **Dollor Driver** | `com.dollorai.delivery` | 174 | 1.0 | ✅ Uploaded 2026-02-11 19:46 |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 146 | 1.0 | ✅ Uploaded 2026-02-11 19:49 |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1068 | 1.0 | ✅ On TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 176 | 1.0 | ✅ On TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 148 | 1.0 | ✅ On TestFlight |
 
 ---
 
@@ -20,6 +20,16 @@
 
 | Issue | Fix | Commit |
 |-------|-----|--------|
+| **P2P Ride Flow Audit** | Complete flow verified between Customer ↔ Driver apps | Build 1067/175 |
+| Push notifications missing for ride events | Added bid accepted, ride started, ride completed notifications | `037fc4a2` |
+| Backend accept-counter missing null check | Added HTTPException 404, fixed original_price bug | `1a41d8ba` |
+| Rating/tip submission ignoring API result | Added proper error handling with switch on result | `1a41d8ba` |
+| Driver app hardcoded 1s loading delay | Replaced with ProgressView + disabled state | `1a41d8ba` |
+| Driver app missing onDisappear | Added stopRefreshTimer() to prevent battery drain | `1a41d8ba` |
+| Driver app missing failure detection | Added connection warning after 3 poll failures | `19f5c7b9` |
+| Driver misses customer counter-offers | Added auto-show counter-offer sheet on new counters | `19f5c7b9` |
+| WebSocket errors using print() | Changed to logger.error() for proper logging | `6f4ed24d` |
+| Missing API methods | Added cancelRideRequest, getCustomerRideRequests, updateBid | `6f4ed24d` |
 | Driver app blank screen on order detail tap | Fixed race condition using `.sheet(item:)` binding instead of `.sheet(isPresented:)` with separate state | Build 173 `3ced8d48` |
 | Error messages not user-friendly (54%) | Converted 53 raw error.localizedDescription to smart user-friendly messages (100% compliance) | Build 1063/171/143 |
 | Customer not notified of bids | Backend v1.0.15 sends push notification when driver bids | Build 168 |
@@ -138,15 +148,15 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 ## TestFlight Testing Verification
 
-**Last Tested**: February 11, 2026
+**Last Tested**: February 13, 2026
 
 ### Build Availability on App Store Connect
 
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
-| Dollor (Customer) | 1066 | ✅ Available for Testing |
-| Dollor Driver | 174 | ✅ Uploaded to TestFlight |
-| Dollor Restaurant | 146 | ✅ Available for Testing |
+| Dollor (Customer) | 1068 | ✅ Uploaded (2026-02-13 16:23 PST) |
+| Dollor Driver | 176 | ✅ Uploaded (2026-02-13 16:23 PST) |
+| Dollor Restaurant | 148 | ✅ Uploaded (2026-02-13 16:23 PST) |
 
 ### Demo Accounts (For App Store Review)
 
@@ -354,12 +364,12 @@ Copy this prompt to continue in a new session:
 ```
 Continuing Dollor.ai iOS development.
 
-## Current State (February 11, 2026)
+## Current State (February 13, 2026)
 
 ### Build Numbers (Uploaded to TestFlight)
-- Customer: 1066 (Bundle: com.dollorai.customer)
-- Driver: 174 (Bundle: com.dollorai.delivery)
-- Restaurant: 146 (Bundle: com.dollorai.restaurant)
+- Customer: 1068 (Bundle: com.dollorai.customer)
+- Driver: 176 (Bundle: com.dollorai.delivery)
+- Restaurant: 148 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
 - API Contract Version: 1.0.14
