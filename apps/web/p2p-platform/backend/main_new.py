@@ -3727,10 +3727,16 @@ def get_driver_profile_by_id(driver_id: int, db: Session = Depends(get_db)):
 
 
 class DriverProfileUpdate(BaseModel):
-    """Request body for driver profile update (iOS app compatible)"""
+    """Request body for driver profile update (iOS app and web portal compatible)"""
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
+    # Address fields
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    # Vehicle fields
     vehicle_type: Optional[str] = None
     vehicle_make: Optional[str] = None
     vehicle_model: Optional[str] = None
@@ -3740,6 +3746,9 @@ class DriverProfileUpdate(BaseModel):
     license_number: Optional[str] = None
     license_expiry: Optional[str] = None
     insurance_expiry: Optional[str] = None
+    # Photo URLs (from document uploads)
+    photo_url: Optional[str] = None
+    vehicle_photo_url: Optional[str] = None
 
     class Config:
         extra = "ignore"  # Ignore extra fields
@@ -3752,6 +3761,10 @@ def update_driver_profile_by_id(
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
     phone: Optional[str] = None,
+    street: Optional[str] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    zip_code: Optional[str] = None,
     vehicle_type: Optional[str] = None,
     vehicle_make: Optional[str] = None,
     vehicle_model: Optional[str] = None,
@@ -3759,9 +3772,11 @@ def update_driver_profile_by_id(
     vehicle_color: Optional[str] = None,
     license_plate: Optional[str] = None,
     license_number: Optional[str] = None,
+    photo_url: Optional[str] = None,
+    vehicle_photo_url: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Update driver profile by ID (iOS app compatible endpoint)
+    """Update driver profile by ID (iOS app and web portal compatible endpoint)
     Accepts both JSON body and query parameters for flexibility.
     """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -3773,6 +3788,10 @@ def update_driver_profile_by_id(
         first_name = body.first_name or first_name
         last_name = body.last_name or last_name
         phone = body.phone or phone
+        street = body.street or street
+        city = body.city or city
+        state = body.state or state
+        zip_code = body.zip_code or zip_code
         vehicle_type = body.vehicle_type or vehicle_type
         vehicle_make = body.vehicle_make or vehicle_make
         vehicle_model = body.vehicle_model or vehicle_model
@@ -3780,14 +3799,28 @@ def update_driver_profile_by_id(
         vehicle_color = body.vehicle_color or vehicle_color
         license_plate = body.license_plate or license_plate
         license_number = body.license_number or license_number
+        photo_url = body.photo_url or photo_url
+        vehicle_photo_url = body.vehicle_photo_url or vehicle_photo_url
 
-    # Update fields if provided
+    # Update personal info
     if first_name is not None:
         driver.first_name = first_name
     if last_name is not None:
         driver.last_name = last_name
     if phone is not None:
         driver.phone = phone
+
+    # Update address fields
+    if street is not None:
+        driver.street = street
+    if city is not None:
+        driver.city = city
+    if state is not None:
+        driver.state = state
+    if zip_code is not None:
+        driver.zip_code = zip_code
+
+    # Update vehicle fields
     if vehicle_type is not None:
         driver.vehicle_type = vehicle_type
     if vehicle_make is not None:
@@ -3803,6 +3836,12 @@ def update_driver_profile_by_id(
     if license_number is not None:
         driver.license_number = license_number
 
+    # Update photo URLs
+    if photo_url is not None:
+        driver.photo_url = photo_url
+    if vehicle_photo_url is not None:
+        driver.vehicle_photo_url = vehicle_photo_url
+
     driver.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(driver)
@@ -3813,7 +3852,11 @@ def update_driver_profile_by_id(
         "driver": {
             "id": driver.id,
             "name": f"{driver.first_name} {driver.last_name}",
-            "email": driver.email
+            "email": driver.email,
+            "street": driver.street,
+            "city": driver.city,
+            "state": driver.state,
+            "zip_code": driver.zip_code
         }
     }
 
@@ -4552,8 +4595,8 @@ def driver_request_password_reset(request: DriverPasswordResetRequest, db: Sessi
     """Request a driver password reset - sends code to email"""
     import random
 
-    # Check if user exists with driver role
-    user = db.query(User).filter(User.email == request.email).first()
+    # Check if user exists with driver role (must match role used by login)
+    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
     if not user or not user.driver_id:
         # Don't reveal whether email exists for security
         return {"success": True, "message": "If a driver account exists with this email, a reset code has been sent."}
@@ -19068,12 +19111,19 @@ def get_admin_drivers(
                 "last_name": d.last_name,
                 "email": d.email,
                 "phone": d.phone,
+                # Address
+                "street": d.street,
+                "city": d.city,
+                "state": d.state,
+                "zip_code": d.zip_code,
+                # Vehicle
                 "vehicle_type": d.vehicle_type,
                 "vehicle_make": d.vehicle_make,
                 "vehicle_model": d.vehicle_model,
                 "vehicle_year": d.vehicle_year,
                 "vehicle_color": d.vehicle_color,
                 "license_plate": d.license_plate,
+                # Status & stats
                 "status": d.status.value if hasattr(d.status, 'value') else str(d.status),
                 "rating": d.rating,
                 "total_deliveries": d.total_deliveries,
@@ -19081,7 +19131,9 @@ def get_admin_drivers(
                 "documents_verified": d.documents_verified,
                 "stripe_onboarded": d.stripe_onboarded,
                 "created_at": d.created_at.isoformat() if d.created_at else None,
-                "photo_url": d.photo_url
+                # Photos
+                "photo_url": d.photo_url,
+                "vehicle_photo_url": d.vehicle_photo_url if hasattr(d, 'vehicle_photo_url') else None
             }
             for d in drivers
         ],
