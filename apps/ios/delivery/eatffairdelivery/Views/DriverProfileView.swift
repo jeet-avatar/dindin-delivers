@@ -68,6 +68,7 @@ struct DriverProfileView: View {
                             .fontWeight(.semibold)
                             .foregroundColor(Theme.brandRed)
                     }
+                    .accessibilityLabel(viewModel.isEditing ? "Done editing profile" : "Edit profile")
                 }
             }
             .onAppear {
@@ -75,6 +76,7 @@ struct DriverProfileView: View {
             }
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK", role: .cancel) { }
+                    .accessibilityLabel("Dismiss error")
             } message: {
                 Text(viewModel.errorMessage)
             }
@@ -319,6 +321,8 @@ struct ProfileTabSelector: View {
                             .background(selectedTab == index ? Theme.brandRed : Theme.cardBackground)
                             .cornerRadius(20)
                     }
+                    .accessibilityLabel("\(tabs[index]) tab")
+                    .accessibilityHint(selectedTab == index ? "Currently selected" : "Tap to view \(tabs[index].lowercased()) information")
                 }
             }
             .padding(.horizontal)
@@ -453,6 +457,7 @@ struct PersonalInfoSection: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
+                .accessibilityLabel("Save profile changes")
             }
         }
         .padding(.bottom, 24)
@@ -651,6 +656,8 @@ struct VehicleDocumentsSection: View {
                             .background(Theme.brandRed)
                             .cornerRadius(10)
                         }
+                        .accessibilityLabel("Upload documents on web")
+                        .accessibilityHint("Opens the web portal for document upload")
                     }
                 }
             }
@@ -673,6 +680,7 @@ struct VehicleDocumentsSection: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
+                .accessibilityLabel("Save vehicle and document changes")
             }
         }
         .padding(.bottom, 24)
@@ -833,23 +841,24 @@ struct VehiclePhotoUploadView: View {
 // MARK: - Earnings & Payment Section
 struct EarningsPaymentSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
+    @StateObject private var earningsViewModel = EarningsViewModel()
 
     var body: some View {
         VStack(spacing: 16) {
-            // Earnings Summary
+            // Earnings Summary - Uses EarningsViewModel for accurate data from P2P Dashboard API
             ProfileCard(title: "Earnings Summary", icon: "dollarsign.circle.fill") {
                 VStack(spacing: 16) {
                     HStack {
                         EarningsStat(
                             title: "This Week",
-                            amount: viewModel.driver?.stats?.weeklyEarnings ?? 0.0
+                            amount: earningsViewModel.weekEarnings
                         )
 
                         Divider().frame(height: 50)
 
                         EarningsStat(
-                            title: "Total Earnings",
-                            amount: viewModel.driver?.stats?.totalEarnings ?? 0.0
+                            title: "This Month",
+                            amount: earningsViewModel.monthEarnings
                         )
                     }
 
@@ -860,7 +869,7 @@ struct EarningsPaymentSection: View {
                             Text("Weekly Deliveries")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
-                            Text("\(viewModel.driver?.stats?.weeklyDeliveries ?? 0)")
+                            Text("\(earningsViewModel.weekDeliveries)")
                                 .font(.title3)
                                 .fontWeight(.bold)
                         }
@@ -871,12 +880,15 @@ struct EarningsPaymentSection: View {
                             Text("Weekly Hours")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
-                            Text(String(format: "%.1f hrs", viewModel.driver?.stats?.weeklyHours ?? 0.0))
+                            Text(String(format: "%.1f hrs", earningsViewModel.weekHours))
                                 .font(.title3)
                                 .fontWeight(.bold)
                         }
                     }
                 }
+            }
+            .onAppear {
+                earningsViewModel.fetchEarnings()
             }
 
             // Bank Account
@@ -982,6 +994,7 @@ struct EarningsPaymentSection: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
                 .disabled(viewModel.isLoading)
+                .accessibilityLabel("Save earnings and payment changes")
             }
         }
         .padding(.bottom, 24)
@@ -1105,12 +1118,15 @@ struct SettingsSection: View {
                 .cornerRadius(12)
                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
             }
+            .accessibilityLabel("Logout from account")
             .padding(.horizontal)
             .alert("Logout", isPresented: $showLogoutAlert) {
                 Button("Cancel", role: .cancel) { }
+                    .accessibilityLabel("Cancel logout")
                 Button("Logout", role: .destructive) {
                     performLogout()
                 }
+                .accessibilityLabel("Confirm logout")
             } message: {
                 Text("Are you sure you want to logout?")
             }
@@ -1127,26 +1143,33 @@ struct SettingsSection: View {
                 .background(Color.red.opacity(0.1))
                 .cornerRadius(12)
             }
+            .accessibilityLabel("Delete account permanently")
+            .accessibilityHint("This action cannot be undone")
             .padding(.horizontal)
             .disabled(isDeletingAccount)
             .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
                 Button("Cancel", role: .cancel) { }
+                    .accessibilityLabel("Cancel account deletion")
                 Button("Delete", role: .destructive) {
                     showDeleteConfirmation = true
                 }
+                .accessibilityLabel("Proceed with account deletion")
             } message: {
                 Text("Are you sure you want to delete your account? This action cannot be undone. All your data, earnings history, and profile information will be permanently removed.")
             }
             .alert("Final Confirmation", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
+                    .accessibilityLabel("Cancel and keep account")
                 Button("Permanently Delete", role: .destructive) {
                     performAccountDeletion()
                 }
+                .accessibilityLabel("Permanently delete my account")
             } message: {
                 Text("This is your final warning. Your account and all associated data will be permanently deleted. This cannot be reversed.")
             }
             .alert("Error", isPresented: .constant(deleteError != nil)) {
                 Button("OK") { deleteError = nil }
+                    .accessibilityLabel("Dismiss error")
             } message: {
                 Text(deleteError ?? "")
             }
