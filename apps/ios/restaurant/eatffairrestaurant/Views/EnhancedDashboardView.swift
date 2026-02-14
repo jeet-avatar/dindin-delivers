@@ -135,6 +135,8 @@ struct OrdersDashboardView: View {
                         .background(ordersVM.isOnline ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel(ordersVM.isOnline ? "Restaurant is online" : "Restaurant is offline")
+                    .accessibilityHint("Toggles your restaurant's online status")
                 }
             }
             .sheet(item: $showOrderDetail) { order in
@@ -318,6 +320,8 @@ struct FilterTab: View {
             .background(isSelected ? RestaurantTheme.brandOrange.opacity(0.1) : Color.clear)
             .cornerRadius(20)
         }
+        .accessibilityLabel("Filter by \(title), \(count) orders")
+        .accessibilityHint("Shows only \(title.lowercased()) orders")
     }
 }
 
@@ -351,6 +355,7 @@ struct AISuggestionBanner: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .accessibilityLabel("Dismiss suggestion")
             }
             .padding()
             .background(
@@ -576,6 +581,8 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandRed.opacity(0.1))
                         .cornerRadius(10)
                     }
+                    .accessibilityLabel("Reject this order")
+                    .accessibilityHint("Declines the order and notifies the customer")
                     .contentShape(Rectangle())
                     .padding(.horizontal)
 
@@ -605,6 +612,8 @@ struct EnhancedOrderCard: View {
                             .background(RestaurantTheme.brandBlue)
                             .cornerRadius(10)
                         }
+                        .accessibilityLabel("Accept order and send to driver")
+                        .accessibilityHint("Confirms the order and requests a delivery driver")
                         .contentShape(Rectangle())
 
                         // Accept & I'll Deliver
@@ -631,6 +640,8 @@ struct EnhancedOrderCard: View {
                             .background(RestaurantTheme.brandGreen)
                             .cornerRadius(10)
                         }
+                        .accessibilityLabel("Accept order and deliver yourself")
+                        .accessibilityHint("Confirms the order for self-delivery by your restaurant")
                         .contentShape(Rectangle())
                     }
                     .padding(.horizontal)
@@ -722,6 +733,8 @@ struct EnhancedOrderCard: View {
                                         .background(RestaurantTheme.brandBlue)
                                         .clipShape(Circle())
                                 }
+                                .accessibilityLabel("Call driver")
+                                .accessibilityHint("Opens phone to call the delivery driver")
                             }
                         }
                         .padding(.horizontal)
@@ -746,6 +759,8 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandOrange)
                         .cornerRadius(10)
                     }
+                    .accessibilityLabel("Mark order ready for pickup")
+                    .accessibilityHint("Notifies the driver that food is ready")
                     .buttonStyle(.borderless)
                     .padding(.horizontal)
                     .padding(.bottom)
@@ -791,6 +806,8 @@ struct EnhancedOrderCard: View {
                             .background(RestaurantTheme.brandBlue)
                             .cornerRadius(10)
                         }
+                        .accessibilityLabel("Send to driver pool")
+                        .accessibilityHint("Requests a delivery driver for this order")
                         .contentShape(Rectangle())
 
                         // I'll Deliver
@@ -815,6 +832,8 @@ struct EnhancedOrderCard: View {
                             .background(RestaurantTheme.brandGreen)
                             .cornerRadius(10)
                         }
+                        .accessibilityLabel("Deliver this order yourself")
+                        .accessibilityHint("You will deliver this order from your restaurant")
                         .contentShape(Rectangle())
                     }
                     .padding(.horizontal)
@@ -889,6 +908,8 @@ struct EnhancedOrderCard: View {
                                         .background(RestaurantTheme.brandGreen)
                                         .clipShape(Circle())
                                 }
+                                .accessibilityLabel("Call driver")
+                                .accessibilityHint("Opens phone to call the delivery driver")
                             }
                         }
                         .padding(.horizontal)
@@ -971,6 +992,8 @@ struct EnhancedOrderCard: View {
                         .background(RestaurantTheme.brandGreen)
                         .cornerRadius(10)
                     }
+                    .accessibilityLabel("Mark order as delivered")
+                    .accessibilityHint("Confirms the order has been delivered to the customer")
                     .buttonStyle(.borderless)
                     .padding(.horizontal)
                     .padding(.bottom)
@@ -1076,6 +1099,8 @@ struct OrderDetailSheet: View {
                                     .background(RestaurantTheme.brandGreen)
                                     .clipShape(Circle())
                             }
+                            .accessibilityLabel("Call customer")
+                            .accessibilityHint("Opens phone to call the customer")
                         }
                     }
                     .padding()
@@ -1166,6 +1191,8 @@ struct OrderDetailSheet: View {
                             }) {
                                 Text("Reject Order")
                             }
+                            .accessibilityLabel("Reject this order")
+                            .accessibilityHint("Declines the order and notifies the customer")
                             .buttonStyle(DangerButtonStyle())
 
                             Button(action: {
@@ -1174,6 +1201,8 @@ struct OrderDetailSheet: View {
                             }) {
                                 Text("Accept Order")
                             }
+                            .accessibilityLabel("Accept this order")
+                            .accessibilityHint("Confirms you will prepare this order")
                             .buttonStyle(SuccessButtonStyle())
                         }
                         .padding()
@@ -1184,6 +1213,8 @@ struct OrderDetailSheet: View {
                         }) {
                             Text("Mark Ready for Pickup")
                         }
+                        .accessibilityLabel("Mark order ready for pickup")
+                        .accessibilityHint("Notifies the driver that food is ready")
                         .buttonStyle(PrimaryButtonStyle())
                         .padding()
                     } else if order.status.lowercased() == "pending_delivery_decision" {
@@ -1200,6 +1231,8 @@ struct OrderDetailSheet: View {
                                 }) {
                                     Text("Send to Driver")
                                 }
+                                .accessibilityLabel("Send to driver pool")
+                                .accessibilityHint("Requests a delivery driver for this order")
                                 .buttonStyle(SecondaryButtonStyle())
 
                                 Button(action: {
@@ -1208,6 +1241,8 @@ struct OrderDetailSheet: View {
                                 }) {
                                     Text("I'll Deliver")
                                 }
+                                .accessibilityLabel("Deliver this order yourself")
+                                .accessibilityHint("You will deliver this order from your restaurant")
                                 .buttonStyle(SuccessButtonStyle())
                             }
                         }
@@ -1271,6 +1306,8 @@ struct OrderDetailSheet: View {
                                                 .background(RestaurantTheme.brandGreen)
                                                 .clipShape(Circle())
                                         }
+                                        .accessibilityLabel("Call driver")
+                                        .accessibilityHint("Opens phone to call the delivery driver")
                                     }
                                 }
                                 .padding()
@@ -1300,6 +1337,8 @@ struct OrderDetailSheet: View {
                         }) {
                             Text("Mark as Delivered")
                         }
+                        .accessibilityLabel("Mark order as delivered")
+                        .accessibilityHint("Confirms the order has been delivered to the customer")
                         .buttonStyle(SuccessButtonStyle())
                         .padding()
                     }
@@ -1315,16 +1354,22 @@ struct OrderDetailSheet: View {
                         Button(action: { showInvoice = true }) {
                             Label("Invoice", systemImage: "doc.text.fill")
                         }
+                        .accessibilityLabel("View invoice")
+                        .accessibilityHint("Shows the order invoice details")
                         // KOT Reprint Button (only show for preparing/ready orders)
                         if order.status == "Preparing" || order.status == "Ready" {
                             Button(action: { reprintKOT() }) {
                                 Label("Print", systemImage: "printer.fill")
                             }
+                            .accessibilityLabel("Reprint kitchen order ticket")
+                            .accessibilityHint("Sends the order to the kitchen printer again")
                         }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Done")
+                        .accessibilityHint("Closes the order details")
                 }
             }
             .sheet(isPresented: $showInvoice) {
@@ -1551,11 +1596,14 @@ struct OrderInvoiceView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
+                        .accessibilityLabel("Close invoice")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showShareSheet = true }) {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
+                    .accessibilityLabel("Share invoice")
+                    .accessibilityHint("Opens sharing options for this invoice")
                 }
             }
             .sheet(isPresented: $showShareSheet) {

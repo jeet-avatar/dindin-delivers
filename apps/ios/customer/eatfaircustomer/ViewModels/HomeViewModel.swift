@@ -105,7 +105,7 @@ class HomeViewModel: ObservableObject {
                     }
                 case .failure(let error):
                     logger.error("❌ P2P API error: \(error.localizedDescription)")
-                    self?.errorMessage = "Network error: \(error.localizedDescription)"
+                    self?.errorMessage = "Unable to load restaurants. Please check your connection and try again."
                     self?.isLoading = false
                 }
             }

@@ -51,6 +51,8 @@ struct RestaurantDetailView: View {
                                 .background(Circle().fill(Theme.brandBlack.opacity(0.7)))
                                 .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
                         }
+                        .accessibilityLabel("Go back")
+                        .accessibilityHint("Returns to the previous screen")
                         Spacer()
                         Button(action: { showMenuSearch = true }) {
                             Image(systemName: "magnifyingglass")
@@ -59,6 +61,8 @@ struct RestaurantDetailView: View {
                                 .padding()
                                 .background(Circle().fill(Theme.brandBlack.opacity(0.5)))
                         }
+                        .accessibilityLabel("Search menu")
+                        .accessibilityHint("Opens menu search")
                     }
                     .padding(.top, 40)
                     .padding(.horizontal)
@@ -222,6 +226,7 @@ struct RestaurantDetailView: View {
         .edgesIgnoringSafeArea(.top)
         .alert("Cart Full", isPresented: $showCartFull) {
             Button("OK", role: .cancel) { }
+                .accessibilityLabel("Dismiss cart full alert")
         } message: {
             Text("You can order from up to 3 restaurants at a time. Remove items from another restaurant to add from here.")
         }
@@ -395,6 +400,7 @@ struct MenuSearchSheet: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
                         }
+                        .accessibilityLabel("Clear search")
                     }
                 }
                 .padding()
@@ -445,6 +451,7 @@ struct MenuSearchSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Close menu search")
                 }
             }
         }
@@ -513,6 +520,8 @@ struct MenuItemCard: View {
                         .shadow(radius: 1)
                 }
                 .padding(.top, 4)
+                .accessibilityLabel("Add \(item.name) to cart")
+                .accessibilityHint("Opens customization options for this item")
             }
 
             Spacer()
@@ -651,11 +660,14 @@ struct MenuItemDetailSheet: View {
             }
             .padding()
             .padding(.bottom, 20)
+            .accessibilityLabel("Add to cart for \(String(format: "$%.2f", item.price))")
+            .accessibilityHint("Adds this item to your cart")
         }
         .background(Color.white)
         .cornerRadius(20)
         .alert("Cart Full", isPresented: $showCartFullError) {
             Button("OK", role: .cancel) { }
+                .accessibilityLabel("Dismiss cart full alert")
         } message: {
             Text("You can order from up to 3 restaurants. Remove items from another restaurant first.")
         }

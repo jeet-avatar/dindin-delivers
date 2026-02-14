@@ -47,3 +47,99 @@ struct Theme {
 
 // Note: Color.init(hex:) extension is provided by EatFairShared module
 // Do NOT duplicate it here to avoid "ambiguous use of init(hex:)" error
+
+// MARK: - Corner Radius
+extension Theme {
+    static let cornerRadiusSmall: CGFloat = 8
+    static let cornerRadiusMedium: CGFloat = 12
+    static let cornerRadiusLarge: CGFloat = 16
+    static let cornerRadiusXL: CGFloat = 20
+}
+
+// MARK: - Spacing
+extension Theme {
+    static let spacingXS: CGFloat = 4
+    static let spacingS: CGFloat = 8
+    static let spacingM: CGFloat = 12
+    static let spacingL: CGFloat = 16
+    static let spacingXL: CGFloat = 20
+    static let spacingXXL: CGFloat = 24
+}
+
+// MARK: - Shadows
+extension Theme {
+    static let cardShadow = Color.black.opacity(0.1)
+    static let cardShadowRadius: CGFloat = 8
+}
+
+// MARK: - Custom Button Styles
+struct PrimaryButtonStyle: ButtonStyle {
+    var isEnabled: Bool = true
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(isEnabled ? Theme.brandGreen : Color.gray)
+            .cornerRadius(Theme.cornerRadiusMedium)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.semibold)
+            .foregroundColor(Theme.brandGreen)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(Theme.brandGreen.opacity(0.1))
+            .cornerRadius(Theme.cornerRadiusMedium)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+    }
+}
+
+struct SuccessButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(Theme.success)
+            .cornerRadius(Theme.cornerRadiusMedium)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+    }
+}
+
+struct DangerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .fontWeight(.semibold)
+            .foregroundColor(Theme.error)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(Theme.error.opacity(0.1))
+            .cornerRadius(Theme.cornerRadiusMedium)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+    }
+}
+
+// MARK: - Card Modifier
+struct CardStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(Color(.systemBackground))
+            .cornerRadius(Theme.cornerRadiusLarge)
+            .shadow(color: Theme.cardShadow, radius: Theme.cardShadowRadius, x: 0, y: 4)
+    }
+}
+
+extension View {
+    func cardStyle() -> some View {
+        modifier(CardStyle())
+    }
+}

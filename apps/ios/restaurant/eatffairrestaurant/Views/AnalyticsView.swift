@@ -80,6 +80,8 @@ struct AnalyticsView: View {
                             .background(selectedPeriod == period ? RestaurantTheme.brandOrange : Color.gray.opacity(0.1))
                             .cornerRadius(20)
                     }
+                    .accessibilityLabel("View \(period.rawValue) analytics")
+                    .accessibilityHint("Shows analytics for \(period.rawValue.lowercased())")
                 }
             }
         }

@@ -87,6 +87,8 @@ struct RestaurantSettingsView: View {
                                 .font(.subheadline)
                                 .foregroundColor(RestaurantTheme.brandOrange)
                         }
+                        .accessibilityLabel("Edit restaurant profile")
+                        .accessibilityHint("Opens form to edit your restaurant information")
                     }
                     .padding(.vertical, 8)
 
@@ -479,6 +481,8 @@ struct RestaurantSettingsView: View {
                             Spacer()
                         }
                     }
+                    .accessibilityLabel("Sign out")
+                    .accessibilityHint("Signs you out of your restaurant account")
 
                     // Delete Account (Apple App Store Guideline 5.1.1)
                     Button(role: .destructive) {
@@ -495,6 +499,8 @@ struct RestaurantSettingsView: View {
                             Spacer()
                         }
                     }
+                    .accessibilityLabel("Delete account")
+                    .accessibilityHint("Permanently deletes your restaurant account and all data")
                     .disabled(isDeletingAccount)
                 }
 
@@ -971,6 +977,8 @@ struct EditRestaurantProfileView: View {
                     Button("Upload Logo") {
                         showImagePicker = true
                     }
+                    .accessibilityLabel("Upload restaurant logo")
+                    .accessibilityHint("Opens photo picker to select a logo image")
                     .frame(maxWidth: .infinity)
                 }
                 .photosPicker(isPresented: $showImagePicker, selection: .init(get: { nil }, set: { item in
@@ -987,12 +995,16 @@ struct EditRestaurantProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel")
+                        .accessibilityHint("Discards changes and closes this screen")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         // Save changes
                         dismiss()
                     }
+                    .accessibilityLabel("Save profile changes")
+                    .accessibilityHint("Saves your restaurant profile updates")
                     .fontWeight(.semibold)
                 }
             }
@@ -1037,6 +1049,8 @@ struct OperatingHoursView: View {
                             }
                         }
                     }
+                    .accessibilityLabel("Copy Monday hours to all days")
+                    .accessibilityHint("Applies Monday's schedule to every day of the week")
 
                     Button("Set All to Weekday Hours (Mon-Fri)") {
                         if let monday = hours.first {
@@ -1047,6 +1061,8 @@ struct OperatingHoursView: View {
                             }
                         }
                     }
+                    .accessibilityLabel("Set weekday hours")
+                    .accessibilityHint("Applies Monday's schedule to Monday through Friday")
                 }
             }
             .navigationTitle("Operating Hours")
@@ -1054,6 +1070,8 @@ struct OperatingHoursView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel")
+                        .accessibilityHint("Discards changes and closes this screen")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
@@ -1061,6 +1079,8 @@ struct OperatingHoursView: View {
                         viewModel.saveOperatingHours(hours)
                         dismiss()
                     }
+                    .accessibilityLabel("Save operating hours")
+                    .accessibilityHint("Saves your restaurant's business hours")
                     .fontWeight(.semibold)
                     .disabled(isSaving)
                 }
@@ -1128,6 +1148,8 @@ struct NotificationSettingsView: View {
                         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
                         UNUserNotificationCenter.current().add(request)
                     }
+                    .accessibilityLabel("Test notification")
+                    .accessibilityHint("Sends a test notification to verify your settings")
                 }
             }
             .navigationTitle("Notifications")
@@ -1135,6 +1157,8 @@ struct NotificationSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Done")
+                        .accessibilityHint("Closes notification settings")
                 }
             }
         }
@@ -1181,6 +1205,8 @@ struct PaymentSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .accessibilityLabel("Done")
+                        .accessibilityHint("Closes payment settings")
                 }
             }
         }
@@ -1253,6 +1279,8 @@ struct FAQItem: View {
                         .foregroundColor(.gray)
                 }
             }
+            .accessibilityLabel(question)
+            .accessibilityHint(isExpanded ? "Tap to collapse answer" : "Tap to expand answer")
 
             if isExpanded {
                 Text(answer)
@@ -1395,6 +1423,8 @@ struct LegalDocumentView: View {
                         .background(Theme.brandGreen)
                         .cornerRadius(12)
                     }
+                    .accessibilityLabel("View full \(title)")
+                    .accessibilityHint("Opens the complete document in your browser")
                     .padding(.horizontal)
                 }
 

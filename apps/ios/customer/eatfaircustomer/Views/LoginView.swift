@@ -80,6 +80,8 @@ struct LoginView: View {
                             .cornerRadius(6)
                         }
                         .disabled(authViewModel.isLoading)
+                        .accessibilityLabel("Sign in with Apple")
+                        .accessibilityHint("Uses your Apple ID to sign in securely")
 
                         // Google Sign In Button (White with border)
                         Button(action: {
@@ -108,6 +110,8 @@ struct LoginView: View {
                             .cornerRadius(6)
                         }
                         .disabled(authViewModel.isLoading)
+                        .accessibilityLabel("Sign in with Google")
+                        .accessibilityHint("Uses your Google account to sign in")
                     }
                     .padding(.horizontal, 24)
 
@@ -181,6 +185,8 @@ struct LoginView: View {
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(primaryGreen)
                             }
+                            .accessibilityLabel("Forgot password")
+                            .accessibilityHint("Opens password reset form")
                         }
                         .padding(.horizontal, 24)
                         .padding(.top, 4)
@@ -217,6 +223,8 @@ struct LoginView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, isSignUp ? 24 : 16)
                     .disabled(authViewModel.isLoading)
+                    .accessibilityLabel(isSignUp ? "Create account" : "Continue to sign in")
+                    .accessibilityHint(isSignUp ? "Creates your new account" : "Signs in with your email and password")
 
                     // Error Message
                     if let errorMessage = authViewModel.errorMessage {
@@ -253,6 +261,8 @@ struct LoginView: View {
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(primaryGreen)
                         }
+                        .accessibilityLabel(isSignUp ? "Switch to log in" : "Switch to sign up")
+                        .accessibilityHint(isSignUp ? "Shows the login form" : "Shows the registration form")
                     }
                     .padding(.top, 24)
 
@@ -298,6 +308,8 @@ struct LoginView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                    .accessibilityLabel("Demo login for testing")
+                    .accessibilityHint("Signs in with demo account credentials")
                     #endif
 
                     // Footer Links - Clickable
@@ -469,6 +481,8 @@ struct ForgotPasswordView: View {
                     .cornerRadius(6)
                     .padding(.horizontal, 24)
                     .disabled(authViewModel.isLoading || resetEmail.isEmpty)
+                    .accessibilityLabel("Send password reset code")
+                    .accessibilityHint("Sends a reset code to your email address")
 
                     Spacer()
                 }
@@ -477,7 +491,8 @@ struct ForgotPasswordView: View {
                 authViewModel.resetPasswordResetState()
                 dismiss()
             }
-            .foregroundColor(primaryGreen))
+            .foregroundColor(primaryGreen)
+            .accessibilityLabel("Cancel password reset"))
         }
     }
 }
@@ -543,6 +558,8 @@ struct ResetCodeEntryView: View {
                     .cornerRadius(6)
                     .padding(.horizontal, 24)
                     .disabled(authViewModel.isLoading || authViewModel.resetCode.isEmpty || authViewModel.newPassword.isEmpty)
+                    .accessibilityLabel("Reset password")
+                    .accessibilityHint("Confirms your new password using the reset code")
 
                     Spacer()
                 }
@@ -551,7 +568,8 @@ struct ResetCodeEntryView: View {
                 authViewModel.resetPasswordResetState()
                 dismiss()
             }
-            .foregroundColor(primaryGreen))
+            .foregroundColor(primaryGreen)
+            .accessibilityLabel("Cancel reset code entry"))
             .onChange(of: authViewModel.passwordResetSuccess) { oldValue, newValue in
                 if newValue {
                     dismiss()

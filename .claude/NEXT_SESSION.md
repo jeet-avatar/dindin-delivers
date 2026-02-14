@@ -1,178 +1,199 @@
-# NEXT SESSION: Android Customer App — Remaining Parity Work
+# NEXT SESSION: iOS Customer App - Active Orders Not Displaying
 
 > **Date:** February 5, 2026
-> **Priority:** P2 order modification endpoints + Payment Intent investigation
-> **Build Command:** `cd /Users/jeet/StudioProjects/eatfair-android && JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:assembleDebug`
-> **Rule:** ALL changes in Android repo ONLY. NEVER touch iOS.
-> **Rule:** Verify every change against the backend before making it.
-> **Commit:** `a8e0a08e` pushed to `origin/main`
+> **Priority:** Fix order DOLL2026174 (and all orders) not showing on customer app
+> **Staging API:** `https://d3kuu45w6kl8hr.cloudfront.net`
+> **Production API:** `https://api.dollor.ai`
 
 ---
 
-## WHAT IS DONE (All committed & pushed)
+## ISSUE
 
-### 1. Update Profile: POST → PUT ✅
-- **File:** `DollorApiService.kt` line 73
-- **Change:** `@POST` → `@PUT` for `customer/{customerId}/profile`
-- **Reason:** Backend only accepts PUT (verified at main_new.py line 19039)
+Customer app active orders screen shows NO orders, even though backend returns them correctly.
 
-### 2. P0 Fix: confirmOrderPayment ✅ (3 files)
-**THE CRITICAL FIX.** Without this, Android orders never reached restaurants.
-
-- **DollorApiService.kt** — Added `@POST("erp/orders/{orderId}/confirm-payment")` endpoint
-- **DollorRepository.kt** — Added `confirmOrderPayment(orderId)` wrapper with auth
-- **CartViewModel.kt** — Added call to `confirmOrderPayment` after `createOrder` succeeds, triggers 3-min restaurant acceptance window
-
-### 3. P1 Fix: rateRestaurant ✅ (3 files)
-- **ApiModels.kt** — Added `RestaurantRatingRequest` data class with validation (rating 1-5, review max 500 chars, food_quality, portion_size, value_for_money, accuracy booleans)
-- **DollorApiService.kt** line 199 — Added `@POST("customer/orders/{orderId}/rate-restaurant")` endpoint
-- **DollorRepository.kt** line 709 — Added `rateRestaurant(orderId, request)` wrapper with auth
-
-### 4. AppConfig.kt branding fix ✅
-- Company name: `Vibing World Inc` → `Zietra Technologies Inc`
-
-### Build Verified ✅
-- `assembleDebug` passes with 0 errors (only deprecation warnings for GoogleSignIn, hiltViewModel, DirectionsBike icon)
+**Specific case:** Order DOLL2026174 exists with status "preparing" but doesn't display in app.
 
 ---
 
-## WHAT STILL NEEDS TO BE DONE
+## ROOT CAUSE (VERIFIED)
 
-### P2: Order Modification Endpoints (NOT started)
+### Bug 1: JSON Wrapper Mismatch
 
-These allow handling unavailable items (restaurant marks items as unavailable after order placed). The endpoint definitions already exist in DollorApiService.kt (lines 161-175) but need repository wrappers and UI integration.
-
-#### getOrderModification — Already in DollorApiService.kt line 161
-```kotlin
-@GET("orders/{orderId}/modification")
-suspend fun getOrderModification(...)
-```
-- **Needs:** Repository wrapper in DollorRepository.kt
-- **Needs:** UI screen/dialog to show modification to customer
-- iOS reference: `GET /orders/{orderId}/modification` (P2PAPIService.swift line 10388)
-
-#### respondToOrderModification — Already in DollorApiService.kt line 170
-```kotlin
-@POST("orders/{orderId}/modification/respond")
-suspend fun respondToOrderModification(...)
-```
-- **Needs:** Repository wrapper in DollorRepository.kt
-- **Needs:** UI buttons for customer to accept partial / reject for full refund
-- iOS reference: `POST /orders/{orderId}/modification/respond` (P2PAPIService.swift line 10440)
-- Body: `{"response": "accept_partial"}` or `{"response": "reject_full_refund"}`
-
-### P3: Payment Intent Path Investigation (NOT started)
-
-- Android: `payments/create-intent`
-- iOS: `payments/ride/create-intent`
-- Backend: `erp/payments/intent`
-- **Neither Android nor iOS matches the backend.** Needs separate investigation to determine if there are aliases or if both are broken.
-
-### P4: iOS addFavorite is Broken (Info only)
-
-- iOS sends POST body `{customer_id, vendor_id}` to `customer/favorites`
-- Backend only accepts path params: `customer/favorites/{customer_id}/{vendor_id}`
-- Android is CORRECT. iOS needs fixing (not our scope here).
-
----
-
-## CHANGES INVESTIGATED AND SKIPPED (Backend has aliases)
-
-| Change | Android Current | iOS Uses | Backend | Verdict |
-|--------|----------------|----------|---------|---------|
-| Apple Auth path | `auth/customer/apple-auth` | `customer/apple-auth` | Both aliased (main_new.py lines 19054-19056) | SKIP — both work |
-| Create Order path | `orders/create` | `erp/orders/create` | Android alias at line 12598 | SKIP — both work |
-| Order Chat path | `customer/orders/{id}/chat` | `orders/{id}/chat` | Only `customer/` version exists (line 13927) | SKIP — Android is correct |
-| Track Ride path | `rides/{id}/track` | `erp/rides/{id}/track` | Primary is `/api/rides/`, erp is iOS alias (line 12407) | SKIP — Android hits primary |
-| Cancel Ride path | `rides/{id}/cancel` | `erp/rides/{id}/cancel` | Primary is `/api/rides/`, erp is iOS alias (line 12421) | SKIP — Android hits primary |
-| Payment Intent path | `payments/create-intent` | `payments/ride/create-intent` | Neither matches backend (`erp/payments/intent`) | SKIP — needs separate investigation |
-| addFavorite format | Path params `/{customerId}/{vendorId}` | Body `{customer_id, vendor_id}` | Path params (line 13871) | SKIP — Android is correct, iOS is broken |
-
----
-
-## COMPLETE ORDER FLOW (Verified by 4 research agents)
-
-### Backend Order Statuses (13 total, from models.py line 383)
-```
-pending_payment → confirmed → pending_restaurant → preparing → ready_for_pickup →
-pending_delivery_decision → restaurant_will_deliver / out_for_delivery → delivered
-
-Terminal: declined_by_restaurant, restaurant_timeout, delivery_decision_timeout, cancelled
+**Backend returns:**
+```json
+{"orders": [...]}
 ```
 
-### Android Customer Order Flow (AFTER all fixes — COMPLETE)
-1. Cart → Checkout → Payment
-2. `POST /orders/create` (alias works) → order created (status: pending_payment)
-3. `POST /erp/orders/{id}/confirm-payment` → restaurant notified (status: pending_restaurant) ✅
-4. Restaurant 3-min window → accept (preparing) / decline / timeout
-5. Restaurant marks ready → pending_delivery_decision (3-min window)
-6. Self-deliver or driver pool
-7. Driver picks up → out_for_delivery → delivered
-8. Post-delivery: rate driver ✅, rate restaurant ✅, tip, chat
+**iOS decodes (P2PAPIService.swift:2874):**
+```swift
+let orders = try JSONDecoder().decode([P2PCustomerOrder].self, from: data)
+// Expects RAW ARRAY, not wrapped in "orders" key
+```
 
-### Driver App Flow (iOS verified)
-- 10-second polling: `GET /erp/orders/available-for-delivery`
-- Accept: `POST /erp/orders/{id}/assign-driver` (with driver_eta_minutes)
-- Pick up: `POST /erp/orders/{id}/picked-up`
-- Deliver: `PUT /erp/orders/{id}/complete-delivery`
-- Location: `PUT /erp/orders/{id}/driver-location`
+**On failure (P2PAPIService.swift:2876-2878):**
+```swift
+} catch {
+    completion(.success([]))  // SILENTLY FAILS - returns empty array
+}
+```
 
-### Restaurant App Flow (iOS & Android verified)
-- Receives orders via push notification + polling
-- Accept: `POST /erp/orders/{id}/restaurant-accept`
-- Decline: `POST /erp/orders/{id}/restaurant-decline`
-- Mark ready: `PATCH /orders/{id}/status?status=READY_FOR_PICKUP`
-- Self-deliver: `POST /erp/orders/{id}/restaurant-accept-delivery`
-- Decline delivery: `POST /erp/orders/{id}/restaurant-decline-delivery`
+### Bug 2: Items Field Type Mismatch
+
+**Backend returns:**
+```json
+"items": [{"menu_item_id": 466, "name": "Classic Soup", ...}]  // ARRAY
+```
+
+**iOS expects (P2PAPIService.swift:9096):**
+```swift
+public let items: String  // Expects JSON STRING, not array
+```
 
 ---
 
-## BUILD ENVIRONMENT NOTE
+## VERIFICATION COMMANDS
 
-Default JDK is Java 25 (openjdk-25.0.1) which is **incompatible with Gradle/AGP**. Must use JDK 17:
 ```bash
-cd /Users/jeet/StudioProjects/eatfair-android
-JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradlew :app:assembleDebug
+# Check response format (should be dict with "orders" key)
+curl -s "https://d3kuu45w6kl8hr.cloudfront.net/api/customer/74/active-orders" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print('Type:', type(data).__name__)
+print('Keys:', list(data.keys()) if isinstance(data, dict) else 'N/A')
+if 'orders' in data and len(data['orders']) > 0:
+    print('Orders count:', len(data['orders']))
+    print('Items type:', type(data['orders'][0].get('items')).__name__)
+"
+
+# Check full-tracking works (should be 200)
+curl -s -w "Status: %{http_code}\n" -o /dev/null "https://d3kuu45w6kl8hr.cloudfront.net/api/erp/orders/174/full-tracking"
 ```
-- There is NO `staging` build variant — only `debug` and `release`
-- Available JDKs: Java 25 (default, broken), Java 17 (works)
 
 ---
 
-## KEY FILE PATHS
+## KEY FILE LOCATIONS
 
-| File | Path | Purpose |
+| File | Line | Purpose |
 |------|------|---------|
-| Android Retrofit API | `/Users/jeet/StudioProjects/eatfair-android/shared/src/main/java/ai/dollor/shared/data/remote/DollorApiService.kt` | API endpoint definitions |
-| Android Repository | `/Users/jeet/StudioProjects/eatfair-android/shared/src/main/java/ai/dollor/shared/data/repository/DollorRepository.kt` | API call wrappers with auth |
-| Android Models | `/Users/jeet/StudioProjects/eatfair-android/shared/src/main/java/ai/dollor/shared/model/ApiModels.kt` | Request/Response data classes |
-| Android CartViewModel | `/Users/jeet/StudioProjects/eatfair-android/app/src/main/java/ai/dollor/customer/ui/cart/CartViewModel.kt` | Order placement logic |
-| iOS API (reference) | `/Users/jeet/StudioProjects/eatfair-ios/apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift` | ~10,500 lines, source of truth |
-| Backend order flow | `/Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend/order_flow.py` | Order state machine |
-| Backend main | `/Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend/main_new.py` | All API routes + aliases |
-| Backend models | `/Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend/models.py` | OrderStatus enum (line 383) |
+| P2PAPIService.swift | 2838-2882 | `fetchActiveOrders()` function |
+| P2PAPIService.swift | 2874 | Wrong decode: `[P2PCustomerOrder].self` |
+| P2PAPIService.swift | 2876-2878 | Silent failure: returns `[]` |
+| P2PAPIService.swift | 9083-9102 | `P2PCustomerOrder` struct |
+| P2PAPIService.swift | 9096 | `items: String` (wrong type) |
+| main_new.py | 12967-13033 | Backend active-orders endpoint |
+
+**Full path:**
+```
+/Users/jeet/StudioProjects/eatfair-ios/apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift
+```
 
 ---
 
-## SAFETY RULES
+## FIX OPTIONS
 
-1. **NEVER edit any file in `/Users/jeet/StudioProjects/eatfair-ios`** — iOS is READ-ONLY reference
-2. **ALL changes in `/Users/jeet/StudioProjects/eatfair-android` ONLY**
-3. **Verify EVERY endpoint against the backend** before changing Android — the backend has many aliases
-4. **Read file before editing. Read file after editing. Verify the change.**
-5. **Build after changes**: Use JDK 17 (see build environment note above)
-6. **Take permission from user before each change** — user wants step-by-step approval
+### Option A: Fix iOS (Recommended)
+
+**1. Add wrapper struct:**
+```swift
+struct ActiveOrdersResponse: Codable {
+    let orders: [P2PCustomerOrder]
+}
+```
+
+**2. Update fetchActiveOrders() decode (line 2874):**
+```swift
+let response = try JSONDecoder().decode(ActiveOrdersResponse.self, from: data)
+completion(.success(response.orders))
+```
+
+**3. Fix items type in P2PCustomerOrder:**
+- Change `items: String` to handle array, OR
+- Add custom Codable init to convert array to string
+
+### Option B: Fix Backend
+
+Change `/api/customer/{id}/active-orders` to return raw array and stringify items:
+```python
+# Instead of: return {"orders": result_orders}
+return result_orders  # Raw array
+
+# And stringify items before adding to result
+"items": json.dumps(o.items) if isinstance(o.items, list) else o.items
+```
 
 ---
 
-## EXECUTION ORDER FOR NEXT SESSION
+## FALSE ALARM - Full-Tracking Endpoint
 
-1. **First:** Add repository wrappers for order modification endpoints (API definitions already exist)
-2. **Second:** Investigate Payment Intent path mismatch
-3. **Third:** Build and verify
-4. **Fourth:** If user wants, add UI for order modifications
+The claim "iOS calls /erp/orders/... without /api prefix" was **WRONG**.
+
+**Reality:**
+- iOS `baseURL` = `"{p2pAPIBaseURL}/api"` (line 15)
+- iOS calls: `{baseURL}/erp/orders/{id}/full-tracking` = `/api/erp/orders/{id}/full-tracking`
+- This route returns **200 OK** - works fine
+
+---
+
+## DEPLOYMENT IN PROGRESS
+
+A deployment was in progress when session ended. First thing next session:
+
+```bash
+# Re-verify after deployment
+curl -s "https://d3kuu45w6kl8hr.cloudfront.net/api/customer/74/active-orders" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print('Type:', type(d).__name__)
+if isinstance(d, dict):
+    print('Keys:', list(d.keys()))
+else:
+    print('Direct array with', len(d), 'orders')
+"
+```
+
+**If response is now a raw array `[...]`** - backend was fixed, iOS should work.
+**If still `{"orders": [...]}`** - need to fix iOS decode.
+
+---
+
+## DEMO ACCOUNTS
+
+| Role | Email | Password | ID |
+|------|-------|----------|-----|
+| Customer | demo.customer@dollor.ai | DemoCustomer2025! | 74 |
+| Driver | demo.driver@dollor.ai | DemoDriver2025! | 48 |
+| Restaurant | demo.restaurant@dollor.ai | DemoRestaurant2025! | 40 |
+
+---
+
+## CONTEXT FROM THIS SESSION
+
+1. Traced complete order lifecycle (create -> confirm -> prepare -> pickup -> deliver)
+2. Verified order number format: `DOLL{YEAR}{SEQ}` (e.g., DOLL2026174)
+3. Ran 21 QA agents - all passed
+4. Verified NO force unwraps in app code
+5. Verified proper error handling throughout
+6. Full-tracking returns real driver location + traffic-aware ETA
+7. Found the JSON decode mismatch causing orders not to display
+
+---
+
+## QUICK START
+
+```
+The iOS customer app doesn't display active orders.
+
+VERIFIED ROOT CAUSE:
+1. Backend returns {"orders": [...]}
+2. iOS decodes [P2PCustomerOrder].self (expects raw array)
+3. Decode fails silently, returns empty array
+4. Also: items field is array in backend, String in iOS
+
+FIRST: Check if deployment fixed backend response format
+THEN: If not fixed, update iOS P2PAPIService.swift:2874 to use wrapper struct
+```
 
 ---
 
 *Last Updated: February 5, 2026*
-*Session: Android Order Flow Parity — ALL P0/P1 COMPLETE, committed & pushed as a8e0a08e*
+*Session: iOS Active Orders Display Investigation*

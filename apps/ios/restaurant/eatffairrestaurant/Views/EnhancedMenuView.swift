@@ -70,6 +70,8 @@ struct EnhancedMenuView: View {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(RestaurantTheme.brandOrange)
                     }
+                    .accessibilityLabel("Add menu item")
+                    .accessibilityHint("Opens form to add a new menu item")
                 }
             }
             .sheet(isPresented: $showAddItem) {
@@ -151,6 +153,7 @@ struct EnhancedMenuView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.gray)
                 }
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(12)
@@ -226,6 +229,8 @@ struct CategoryTab: View {
             .background(isSelected ? RestaurantTheme.brandOrange.opacity(0.1) : Color.clear)
             .cornerRadius(20)
         }
+        .accessibilityLabel("Category \(title), \(count) items")
+        .accessibilityHint("Filters menu to show only \(title) items")
     }
 }
 
@@ -369,15 +374,18 @@ struct MenuItemCard: View {
                         Button(action: onEdit) {
                             Label("Edit Item", systemImage: "pencil")
                         }
+                        .accessibilityLabel("Edit \(item.name)")
 
                         Button(role: .destructive, action: { showDeleteConfirm = true }) {
                             Label("Delete Item", systemImage: "trash")
                         }
+                        .accessibilityLabel("Delete \(item.name)")
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .font(.title3)
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityLabel("More options for \(item.name)")
                 }
             }
             .padding()
@@ -495,6 +503,8 @@ struct AddEditMenuItemView: View {
                             } label: {
                                 Label("Remove Photo", systemImage: "trash")
                             }
+                            .accessibilityLabel("Remove photo")
+                            .accessibilityHint("Removes the current menu item photo")
                             .font(.caption)
                         }
                     }
@@ -562,6 +572,8 @@ struct AddEditMenuItemView: View {
                                 Spacer()
                             }
                         }
+                        .accessibilityLabel("Delete this menu item")
+                        .accessibilityHint("Permanently removes this item from your menu")
                     }
                 }
             }
@@ -570,12 +582,16 @@ struct AddEditMenuItemView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityLabel("Cancel")
+                        .accessibilityHint("Discards changes and closes this screen")
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         saveItem()
                     }
+                    .accessibilityLabel("Save menu item")
+                    .accessibilityHint("Saves the menu item to your menu")
                     .fontWeight(.semibold)
                     .disabled(name.isEmpty || price.isEmpty)
                 }
