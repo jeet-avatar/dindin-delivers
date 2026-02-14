@@ -3451,12 +3451,13 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
     try:
         from sqlalchemy import text
 
-        # Query ride from database
+        # Query ride from database - include all driver vehicle/photo fields
         result = db.execute(
             text("""
                 SELECT r.id, r.status, r.driver_id, r.pickup_address, r.dropoff_address,
                        d.first_name, d.last_name, d.rating, d.vehicle_type,
-                       d.vehicle_make, d.vehicle_model, d.vehicle_year, d.license_plate, d.phone
+                       d.vehicle_make, d.vehicle_model, d.vehicle_year, d.license_plate, d.phone,
+                       d.vehicle_color, d.photo_url, d.vehicle_photo_url
                 FROM rides r
                 LEFT JOIN drivers d ON r.driver_id = d.id
                 WHERE r.id = :ride_id OR r.ride_id = :ride_id
@@ -3475,7 +3476,7 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
             "message": "Searching for a driver..."
         }
 
-        # If driver assigned, include driver info
+        # If driver assigned, include driver info with actual vehicle data
         if result[2]:  # driver_id exists
             ride_data["driver"] = {
                 "id": result[2],
@@ -3485,10 +3486,11 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
                     "make": result[9] or "Unknown",
                     "model": result[10] or "Vehicle",
                     "year": result[11] or 2020,
-                    "color": "Unknown",
+                    "color": result[14] or "Unknown",  # d.vehicle_color
                     "license_plate": result[12] or "N/A"
                 },
-                "photo_url": None,
+                "photo_url": result[15],  # d.photo_url
+                "vehicle_photo_url": result[16],  # d.vehicle_photo_url
                 "phone": result[13] or None,
                 "eta_minutes": 5  # Calculate from location service
             }
@@ -13300,7 +13302,7 @@ async def track_ride(
                 "driver_vehicle": driver_vehicle,
                 "driver_vehicle_color": driver.vehicle_color,
                 "driver_license_plate": driver.license_plate,
-                "driver_vehicle_photo_url": None,  # Vehicle photo not stored separately
+                "driver_vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
                 "driver_rating": driver.rating,
                 "eta_minutes": eta_minutes
             })
@@ -13312,11 +13314,13 @@ async def track_ride(
                 "phone": driver.phone,
                 "rating": driver.rating,
                 "photo_url": driver.photo_url,
+                "vehicle_photo_url": driver.vehicle_photo_url if hasattr(driver, 'vehicle_photo_url') else None,
                 "latitude": driver.current_latitude,
                 "longitude": driver.current_longitude,
                 "vehicle_make": driver.vehicle_make,
                 "vehicle_model": driver.vehicle_model,
                 "vehicle_color": driver.vehicle_color,
+                "vehicle_year": driver.vehicle_year,
                 "vehicle_plate": driver.license_plate
             }
 
