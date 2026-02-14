@@ -106,6 +106,17 @@ class OrdersViewModel: ObservableObject {
             .sorted { $0.placedAt < $1.placedAt }
     }
 
+    /// All orders currently being delivered (by driver OR self-delivery)
+    var deliveringOrders: [Order] {
+        allOrders.filter {
+            let status = $0.status.lowercased()
+            return status == "restaurant_will_deliver" ||
+                   status == "out_for_delivery" ||
+                   status == "picked_up"
+        }
+        .sorted { $0.placedAt < $1.placedAt }
+    }
+
     var completedOrders: [Order] {
         allOrders.filter {
             let status = $0.status.lowercased()
