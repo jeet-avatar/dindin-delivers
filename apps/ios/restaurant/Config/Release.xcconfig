@@ -1,0 +1,3 @@
+// Release wrapper – chains Pods + Production environment
+#include "../Pods/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.release.xcconfig"
+#include "../../Config/Production.xcconfig"

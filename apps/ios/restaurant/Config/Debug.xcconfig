@@ -1,0 +1,3 @@
+// Debug wrapper – chains Pods + Staging environment
+#include "../Pods/Target Support Files/Pods-eatffairrestaurant/Pods-eatffairrestaurant.debug.xcconfig"
+#include "../../Config/Staging.xcconfig"
