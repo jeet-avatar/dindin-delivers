@@ -940,8 +940,8 @@ struct EnhancedOrderCard: View {
                         .padding(.bottom)
                     }
                 }
-            } else if order.status.lowercased() == "out_for_delivery" || order.status.lowercased() == "picked_up" {
-                // Driver is delivering - show delivery status
+            } else if order.status.lowercased() == "ontheway" || order.status.lowercased() == "pickedup" {
+                // Driver is delivering - show delivery status (mapped from out_for_delivery/picked_up)
                 Divider()
 
                 VStack(spacing: 8) {
