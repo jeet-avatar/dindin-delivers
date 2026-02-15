@@ -1,7 +1,3 @@
-import os
-
-private let logger = Logger(subsystem: "com.dollorai.customer", category: "MultiRestaurantCheckoutView")
-
 import SwiftUI
 import PassKit
 import CoreLocation
@@ -35,7 +31,6 @@ struct MultiRestaurantCheckoutView: View {
     @State private var promotionCode = ""
     @State private var discount: Double = 0.0
     @State private var appliedPromoCode: String?
-    @State private var appliedPromoName: String?  // Promo name (e.g., "Buy One Get One Free")
     @State private var deliveryInstructions = ""
 
     // UI State
@@ -58,7 +53,6 @@ struct MultiRestaurantCheckoutView: View {
     @State private var stripePaymentSheet: PaymentSheet?
     @State private var stripePaymentReady = false
     @State private var isLoadingStripe = false
-    @State private var showStripePaymentSheet = false
 
     private var currentTip: Double {
         if useCustomTip, let tip = Double(customTip) {
@@ -82,9 +76,6 @@ struct MultiRestaurantCheckoutView: View {
                             // Order Summary Header
                             orderSummaryHeader
 
-                            // Promo Code (moved up for visibility)
-                            promoCodeSection
-
                             // Delivery Address
                             deliveryAddressSection
 
@@ -96,6 +87,9 @@ struct MultiRestaurantCheckoutView: View {
 
                             // Tip Selection
                             tipSelectionSection
+
+                            // Promo Code
+                            promoCodeSection
 
                             // Price Breakdown
                             priceBreakdownSection
@@ -112,8 +106,6 @@ struct MultiRestaurantCheckoutView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .accessibilityLabel("Cancel checkout")
-                        .accessibilityHint("Returns to your cart without placing order")
                 }
             }
             .sheet(isPresented: $showLocationPicker) {
@@ -128,22 +120,6 @@ struct MultiRestaurantCheckoutView: View {
             }
             .sheet(isPresented: $showFeeBreakdown) {
                 FeeBreakdownDetailView()
-            }
-            .onChange(of: showStripePaymentSheet) { _, shouldShow in
-                if shouldShow, let sheet = stripePaymentSheet {
-                    // Get the topmost view controller to present from
-                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                       let rootVC = windowScene.windows.first?.rootViewController {
-                        var topVC = rootVC
-                        while let presented = topVC.presentedViewController {
-                            topVC = presented
-                        }
-                        sheet.present(from: topVC) { result in
-                            showStripePaymentSheet = false
-                            onStripePaymentCompletion(result: result)
-                        }
-                    }
-                }
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
@@ -242,7 +218,6 @@ struct MultiRestaurantCheckoutView: View {
                     }
                     .font(.subheadline)
                     .foregroundColor(.green)
-                    .accessibilityLabel("Change delivery address")
                 }
             } else {
                 Button(action: { showLocationPicker = true }) {
@@ -256,8 +231,6 @@ struct MultiRestaurantCheckoutView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .accessibilityLabel("Add delivery address")
-                .accessibilityHint("Opens address selection to add a new delivery address")
             }
         }
         .padding()
@@ -381,8 +354,6 @@ struct MultiRestaurantCheckoutView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                 }
-                .accessibilityLabel("Add new payment card")
-                .accessibilityHint("Opens form to add a new credit or debit card")
 
                 // Cash on Delivery
                 PaymentMethodRow(
@@ -500,36 +471,19 @@ struct MultiRestaurantCheckoutView: View {
                 .foregroundColor(.white)
                 .cornerRadius(10)
                 .disabled(promotionCode.isEmpty)
-                .accessibilityLabel("Apply promo code")
-                .accessibilityHint("Applies the entered promotional code to your order")
             }
 
             if discount > 0, let code = appliedPromoCode {
-                VStack(spacing: 4) {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("'\(code)' applied!")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                        Spacer()
-                        Text("-$\(String(format: "%.2f", discount))")
-                            .fontWeight(.bold)
-                            .foregroundColor(.green)
-                    }
-                    // Show promo name (e.g., "Buy One Get One Free")
-                    if let promoName = appliedPromoName {
-                        HStack {
-                            Image(systemName: "tag.fill")
-                                .foregroundColor(.orange)
-                                .font(.caption2)
-                            Text(promoName)
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .fontWeight(.medium)
-                            Spacer()
-                        }
-                    }
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("'\(code)' applied!")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                    Spacer()
+                    Text("-$\(String(format: "%.2f", discount))")
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
                 }
                 .padding(.horizontal)
             }
@@ -557,8 +511,6 @@ struct MultiRestaurantCheckoutView: View {
                     .font(.caption2)
                     .foregroundColor(.green)
                 }
-                .accessibilityLabel("View fee details")
-                .accessibilityHint("Shows breakdown of all fees in your order")
             }
 
             VStack(spacing: 8) {
@@ -775,8 +727,6 @@ struct MultiRestaurantCheckoutView: View {
             }
             .disabled(!isValidOrder || isProcessing)
             .padding()
-            .accessibilityLabel("\(payButtonTitle) for \(String(format: "$%.2f", max(0, finalTotal)))")
-            .accessibilityHint("Completes your order and processes payment")
         }
         .background(Color.white)
     }
@@ -823,7 +773,7 @@ struct MultiRestaurantCheckoutView: View {
                     }
                 case .failure(let error):
                     #if DEBUG
-                    logger.info("[Checkout] Failed to load cards: \(error)")
+                    print("[Checkout] Failed to load cards: \(error)")
                     #endif
                     self.savedCards = []
                 }
@@ -850,9 +800,7 @@ struct MultiRestaurantCheckoutView: View {
                 case .success(let response):
                     discount = response.discountAmount
                     appliedPromoCode = response.promotionCode
-                    appliedPromoName = response.promotionName
-                    // Save promo name to cart VM for success screen
-                    cartVM.lastOrderPromoName = response.promotionName
+                    // Show success feedback
                 case .failure(let error):
                     let errorMsg = (error as? P2PAPIError)?.localizedDescription ?? error.localizedDescription
                     errorMessage = errorMsg.contains("Invalid") || errorMsg.contains("not active") ? errorMsg : "Invalid or expired promo code"
@@ -898,11 +846,6 @@ struct MultiRestaurantCheckoutView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let paymentIntentData):
-                    #if DEBUG
-                    logger.info("[ApplePay] PaymentIntent received successfully")
-                    logger.info("[ApplePay] Publishable key prefix: \(String(paymentIntentData.publishableKey.prefix(20)))...")
-                    logger.info("[ApplePay] Client secret prefix: \(String(paymentIntentData.clientSecret.prefix(20)))...")
-                    #endif
 
                     // Set the publishable key
                     STPAPIClient.shared.publishableKey = paymentIntentData.publishableKey
@@ -913,10 +856,6 @@ struct MultiRestaurantCheckoutView: View {
                         country: "US",
                         currency: "USD"
                     )
-
-                    // Required: Set supported payment networks
-                    request.supportedNetworks = [.visa, .masterCard, .amex, .discover]
-                    request.merchantCapabilities = [.capability3DS, .capabilityCredit, .capabilityDebit]
 
                     // Helper to round Double to 2 decimal places for Apple Pay
                     func roundedAmount(_ value: Double) -> NSDecimalNumber {
@@ -939,27 +878,12 @@ struct MultiRestaurantCheckoutView: View {
                     request.paymentSummaryItems = paymentItems
 
                     // Check if Apple Pay is available
-                    #if DEBUG
-                    logger.info("[ApplePay] Checking canSubmitPaymentRequest...")
-                    logger.info("[ApplePay] Merchant ID: merchant.com.dolloraiai")
-                    logger.info("[ApplePay] Supported networks: \(request.supportedNetworks)")
-                    logger.info("[ApplePay] Total amount: \(self.finalTotal)")
-                    #endif
-
                     guard StripeAPI.canSubmitPaymentRequest(request) else {
-                        #if DEBUG
-                        logger.info("[ApplePay] ERROR: canSubmitPaymentRequest returned false")
-                        logger.info("[ApplePay] PKPaymentAuthorizationController.canMakePayments: \(PKPaymentAuthorizationController.canMakePayments())")
-                        #endif
                         self.isProcessing = false
-                        self.errorMessage = "Apple Pay is not available on this device. Please ensure you have a card added to your Wallet."
+                        self.errorMessage = "Apple Pay is not available on this device"
                         self.showError = true
                         return
                     }
-
-                    #if DEBUG
-                    logger.info("[ApplePay] canSubmitPaymentRequest passed, presenting Apple Pay sheet...")
-                    #endif
 
                     // Create Stripe Apple Pay context
                     StripeApplePayHandler.shared.handleApplePay(
@@ -967,42 +891,21 @@ struct MultiRestaurantCheckoutView: View {
                         clientSecret: paymentIntentData.clientSecret
                     ) { success, error in
                         DispatchQueue.main.async {
-                            #if DEBUG
-                            logger.info("[ApplePay] Payment result - success: \(success), error: \(String(describing: error))")
-                            #endif
                             if success {
                                 self.placeOrder()
                             } else {
                                 self.isProcessing = false
                                 if let error = error {
-                                    #if DEBUG
-                                    logger.info("[ApplePay] ERROR: \(error.localizedDescription)")
-                                    #endif
-                                    let errMsg = error.localizedDescription.lowercased()
-                                    if errMsg.contains("cancelled") || errMsg.contains("canceled") {
-                                        self.errorMessage = nil
-                                    } else if errMsg.contains("declined") {
-                                        self.errorMessage = "Payment declined. Please check your card or try another method."
-                                    } else {
-                                        self.errorMessage = "Apple Pay could not be completed. Please try again."
-                                    }
+                                    self.errorMessage = error.localizedDescription
                                 }
-                                self.showError = self.errorMessage != nil
+                                self.showError = error != nil
                             }
                         }
                     }
 
                 case .failure(let error):
-                    #if DEBUG
-                    logger.info("[ApplePay] PaymentIntent creation failed: \(error.localizedDescription)")
-                    #endif
                     self.isProcessing = false
-                    let errMsg = error.localizedDescription.lowercased()
-                    if errMsg.contains("network") || errMsg.contains("connection") {
-                        self.errorMessage = "Unable to connect. Please check your internet connection."
-                    } else {
-                        self.errorMessage = "Unable to initialize payment. Please try again."
-                    }
+                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
                 }
             }
@@ -1026,17 +929,6 @@ struct MultiRestaurantCheckoutView: View {
                 self.isLoadingStripe = false
                 switch result {
                 case .success(let keys):
-                    // Check for demo mode (App Store review) - skip Stripe and place order directly
-                    if keys.isDemoPayment {
-                        logger.info("[Checkout] Demo account detected - bypassing Stripe payment")
-                        self.stripePaymentReady = true
-                        // If we're processing, skip payment and place order directly
-                        if self.isProcessing {
-                            self.placeOrder()
-                        }
-                        return
-                    }
-
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()
@@ -1055,18 +947,8 @@ struct MultiRestaurantCheckoutView: View {
                     self.stripePaymentSheet = PaymentSheet(paymentIntentClientSecret: keys.paymentIntent, configuration: configuration)
                     self.stripePaymentReady = true
 
-                    // If we're processing, present the sheet now that it's ready
-                    if self.isProcessing {
-                        self.showStripePaymentSheet = true
-                    }
-
                 case .failure(let error):
-                    let errMsg = error.localizedDescription.lowercased()
-                    if errMsg.contains("network") || errMsg.contains("connection") {
-                        self.errorMessage = "Unable to connect. Please check your internet connection."
-                    } else {
-                        self.errorMessage = "Unable to initialize payment. Please try again."
-                    }
+                    self.errorMessage = "Failed to initialize payment: \(error.localizedDescription)"
                     self.showError = true
                 }
             }
@@ -1081,52 +963,48 @@ struct MultiRestaurantCheckoutView: View {
             isProcessing = false
         case .failed(let error):
             isProcessing = false
-            let errMsg = error.localizedDescription.lowercased()
-            if errMsg.contains("declined") || errMsg.contains("insufficient") {
-                errorMessage = "Payment declined. Please check your card or try another method."
-            } else if errMsg.contains("expired") {
-                errorMessage = "Card has expired. Please update your payment method."
-            } else {
-                errorMessage = "Payment could not be completed. Please try again."
-            }
+            errorMessage = "Payment failed: \(error.localizedDescription)"
             showError = true
         }
     }
 
     private func processStripePayment() {
+        // Stripe PaymentSheet is handled via PaymentSheet.PaymentButton
+        // This is a fallback for manual trigger if needed
         isProcessing = true
-
-        if stripePaymentSheet != nil && stripePaymentReady {
-            // PaymentSheet is ready, present it
-            showStripePaymentSheet = true
-        } else if !isLoadingStripe {
-            // Prepare the payment sheet first, then present when ready
+        if stripePaymentSheet == nil {
             prepareStripePaymentSheet()
         }
     }
 
     private func placeOrder() {
+        print("🛒 [PlaceOrder] Starting order placement...")
+
         guard let address = addressViewModel.selectedAddress else {
+            print("❌ [PlaceOrder] No address selected!")
             errorMessage = "Please select a delivery address"
             showError = true
             isProcessing = false
             return
         }
 
+        print("✅ [PlaceOrder] Address found: \(address.street)")
+
         #if DEBUG
         // DUMMY MODE: Simulate order placement without requiring login or Firestore (DEBUG only)
         if useDummyPayments {
             // Simulate a brief delay for order processing
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                logger.debug("=== DUMMY ORDER PLACED ===")
-                logger.debug("Items: \(self.cartVM.totalItemCount)")
-                logger.debug("Subtotal: $\(String(format: "%.2f", self.cartVM.subtotal))")
-                logger.debug("Total: $\(String(format: "%.2f", self.finalTotal))")
-                logger.debug("==========================")
+                print("=== DUMMY ORDER PLACED ===")
+                print("Items: \(self.cartVM.totalItemCount)")
+                print("Subtotal: $\(String(format: "%.2f", self.cartVM.subtotal))")
+                print("Total: $\(String(format: "%.2f", self.finalTotal))")
+                print("==========================")
 
-                // Signal order placed - MainAppView will handle sheet dismissal and success screen
+                // Signal order placed - MainAppView will show success screen
                 self.isProcessing = false
                 self.cartVM.orderPlaced = true
+                self.dismiss()  // Dismiss checkout sheet so fullScreenCover can show
             }
             return
         }
@@ -1144,6 +1022,8 @@ struct MultiRestaurantCheckoutView: View {
             landmark: deliveryInstructions.isEmpty ? address.instructions : deliveryInstructions
         )
 
+        print("📤 [PlaceOrder] Calling cartVM.placeOrder()...")
+
         cartVM.placeOrder(
             deliveryAddress: deliveryAddress,
             deliveryInstructions: deliveryInstructions,
@@ -1156,28 +1036,38 @@ struct MultiRestaurantCheckoutView: View {
                 isProcessing = false
 
                 switch result {
-                case .success:
-                    #if DEBUG
-                    logger.info("[OrderFlow] ✅ Backend order placed successfully")
-                    logger.info("[OrderFlow] Setting orderPlaced = true")
-                    #endif
-                    // Signal order placed - MainAppView will handle sheet dismissal and success screen
+                case .success(let orderNumber):
+                    print("✅ [PlaceOrder] Order placed successfully! Order #\(orderNumber)")
+                    print("🎉 [PlaceOrder] Setting orderPlaced = true")
+                    // Signal order placed - MainAppView will show success screen
                     cartVM.orderPlaced = true
+                    print("🎉 [PlaceOrder] orderPlaced is now: \(cartVM.orderPlaced)")
+                    dismiss()  // Dismiss checkout sheet so fullScreenCover can show
                 case .failure(let error):
-                    #if DEBUG
-                    logger.info("[OrderFlow] ❌ Backend order failed: \(error.localizedDescription)")
-                    #endif
-                    let errMsg = error.localizedDescription.lowercased()
-                    if errMsg.contains("closed") || errMsg.contains("unavailable") {
-                        errorMessage = "Restaurant is currently closed. Please try again later."
-                    } else if errMsg.contains("out of stock") || errMsg.contains("unavailable") {
-                        errorMessage = "Some items are no longer available. Please update your cart."
-                    } else {
-                        errorMessage = "Unable to place order. Please try again."
-                    }
+                    print("❌ [PlaceOrder] Order failed: \(error.localizedDescription)")
+                    errorMessage = error.localizedDescription
                     showError = true
                 }
             }
+        }
+    }
+}
+
+// MARK: - Apple Pay Delegate
+class ApplePayDelegate: NSObject, PKPaymentAuthorizationControllerDelegate {
+    static let shared = ApplePayDelegate()
+    var onCompletion: ((Bool) -> Void)?
+
+    func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
+        // In production, send payment.token to your server for processing
+        // For now, simulate success
+        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
+        onCompletion?(true)
+    }
+
+    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
+        controller.dismiss {
+            // Payment sheet dismissed
         }
     }
 }
@@ -1280,6 +1170,25 @@ struct PriceRow: View {
 // MARK: - Add Card View (uses StripeAddCardView from PaymentMethodsView)
 // AddCardView is now StripeAddCardView which uses real Stripe integration
 
+// MARK: - Fee Breakdown Detail View
+struct FeeBreakdownDetailView: View {
+    var body: some View {
+        NavigationView {
+            List {
+                Section("How Your Payment Is Split") {
+                    Label("Restaurant gets your food subtotal", systemImage: "fork.knife")
+                    Label("Driver keeps 100% of delivery fee + tips", systemImage: "car.fill")
+                    Label("Dollor.ai charges a flat $1 matchmaking fee", systemImage: "dollarsign.circle")
+                    Label("Tax goes to local/state government", systemImage: "building.columns")
+                    Label("Stripe processes the payment securely", systemImage: "creditcard")
+                }
+            }
+            .navigationTitle("Fee Breakdown")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 // MARK: - Money Flow Chip
 struct MoneyFlowChip: View {
     let label: String
@@ -1288,76 +1197,17 @@ struct MoneyFlowChip: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(label)
+            Text(String(format: "$%.2f", amount))
                 .font(.caption2)
-                .foregroundColor(.secondary)
-            Text("$\(String(format: "%.2f", amount))")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(color)
+                .fontWeight(.bold)
+            Text(label)
+                .font(.system(size: 8))
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(color.opacity(0.1))
+        .background(color.opacity(0.15))
+        .foregroundColor(color)
         .cornerRadius(8)
-    }
-}
-
-// MARK: - Fee Breakdown Detail View
-struct FeeBreakdownDetailView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("How Your Payment is Distributed")) {
-                    FeeRow(title: "Restaurant", description: "Food cost goes directly to the restaurant", icon: "fork.knife", color: .green)
-                    FeeRow(title: "Driver", description: "Delivery fee + tips go 100% to your driver", icon: "car.fill", color: .blue)
-                    FeeRow(title: "Tax", description: "Sales tax collected for your state", icon: "percent", color: .gray)
-                    FeeRow(title: "Platform Fee", description: "$1 matchmaking fee to Dollor.ai", icon: "app.fill", color: .orange)
-                    FeeRow(title: "Processing", description: "Card processing fee (Stripe)", icon: "creditcard.fill", color: .purple)
-                }
-
-                Section(header: Text("Our Promise")) {
-                    Text("Dollor.ai only charges a flat $1 matchmaking fee. Drivers keep 100% of delivery fees and tips. No hidden charges.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .navigationTitle("Fee Breakdown")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .accessibilityLabel("Close fee breakdown")
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Fee Row
-private struct FeeRow: View {
-    let title: String
-    let description: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 

@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1070 | 1.0 | ✅ On TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 179 | 1.0 | ✅ On TestFlight |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 151 | 1.0 | ✅ On TestFlight |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1071 | 1.0 | ✅ On TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 180 | 1.0 | ✅ On TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 154 | 1.0 | ✅ On TestFlight |
 
 ---
 
@@ -155,9 +155,9 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
-| Dollor (Customer) | 1070 | ✅ Uploaded (2026-02-14 15:10 PST) |
-| Dollor Driver | 179 | ✅ Uploaded (2026-02-14 15:12 PST) |
-| Dollor Restaurant | 151 | ✅ Uploaded (2026-02-14 15:58 PST) |
+| Dollor (Customer) | 1071 | ✅ Uploaded (2026-02-14 20:10 PST) |
+| Dollor Driver | 180 | ✅ Uploaded (2026-02-14 20:10 PST) |
+| Dollor Restaurant | 154 | ✅ Uploaded (2026-02-14 20:20 PST) |
 
 ### Demo Accounts (For App Store Review)
 
