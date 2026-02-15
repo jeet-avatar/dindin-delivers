@@ -110,9 +110,12 @@ class OrdersViewModel: ObservableObject {
     var deliveringOrders: [Order] {
         allOrders.filter {
             let status = $0.status.lowercased()
+            // Note: Backend status gets mapped in P2PVendorOrder.toOrder():
+            // "out_for_delivery" -> "OnTheWay"
+            // "picked_up" -> "PickedUp"
             return status == "restaurant_will_deliver" ||
-                   status == "out_for_delivery" ||
-                   status == "picked_up"
+                   status == "ontheway" ||
+                   status == "pickedup"
         }
         .sorted { $0.placedAt < $1.placedAt }
     }
