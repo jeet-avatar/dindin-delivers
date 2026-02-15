@@ -12,13 +12,19 @@
 3. **WE ARE A MATCHMAKING SERVICE** - Not a delivery company, not a TNC. This is legally critical.
 4. **ASK BEFORE MAJOR CHANGES** - Get approval before architectural changes or new dependencies.
 
-### Anti-Hallucination Rules (VERIFIED)
-| Rule | Wrong | Correct |
-|------|-------|---------|
-| Customer status | `status=CustomerStatus.X` | `is_active` Boolean |
-| Driver vehicle | `vehicle_registration` field | Does NOT exist |
-| Platform fee | 15% commission | $1 flat / $1-$3 tiered |
-| Registration | `first_name/last_name` | `name` field only |
+### Anti-Hallucination Rules (VERIFIED Feb 15, 2026)
+| Rule | Wrong | Correct | Source |
+|------|-------|---------|--------|
+| Customer status | `status=CustomerStatus.X` | `is_active` Boolean | `models.py:624` |
+| Driver vehicle | `vehicle_registration` field | Does NOT exist | `models.py:721-726` |
+| Platform fee | 15% commission | $1 flat / $1-$3 fare-tiered | `rideshare_payments.py:36` |
+| **Customer** registration | `first_name/last_name` | `name` or `full_name` (single field) | `main_new.py:2523` |
+| **Driver** registration | single `name` field | `first_name` + `last_name` (separate) | `main_new.py:1956` |
+| **Vendor** registration | single `name` field | `full_name` or `name` + `restaurant_name` | `main_new.py:1444` |
+| Rideshare driver fee | Driver pays $0 | Driver pays $1/$2/$3 (fare-tiered) | `rideshare_payments.py:79` |
+| Food driver fee | Driver pays commission | Driver pays **$0** (keeps 100%) | `main_new.py:6431` |
+
+> Full verified reference: `.claude/docs/GROUND_TRUTH.md`
 
 ---
 
@@ -50,13 +56,15 @@ Vendor:   demo.restaurant@dollor.ai / DemoRestaurant2025!
 ```
 Create demo accounts: `POST /api/demo/setup`
 
-### Pricing Model (Matchmaking Fees)
-| Service | Customer Pays | Provider Pays | Driver Keeps |
-|---------|---------------|---------------|--------------|
-| **Food Delivery** | $1 flat | $1 per restaurant | 100% of delivery + tips |
-| **Rideshare ≤$35** | $1 | - | Fare - $1 + tips |
-| **Rideshare $35-70** | $2 | - | Fare - $2 + tips |
-| **Rideshare >$70** | $3 | - | Fare - $3 + tips |
+### Pricing Model (Matchmaking Fees - Fare-Tiered, Model A)
+| Service | Customer Pays | Restaurant/Driver Pays | Driver Keeps |
+|---------|---------------|------------------------|--------------|
+| **Food Delivery** | $1 service fee | Restaurant: $1/order | 100% of delivery fee + tips |
+| **Rideshare ≤$35** | Fare + $1 | Driver: $1 from fare | Fare - $1 + tips |
+| **Rideshare $35-70** | Fare + $2 | Driver: $2 from fare | Fare - $2 + tips |
+| **Rideshare >$70** | Fare + $3 | Driver: $3 from fare | Fare - $3 + tips |
+
+> Source: `rideshare_payments.py:36-43`, `order_flow.py:400-401`
 
 ---
 
@@ -161,6 +169,7 @@ For detailed information, see `.claude/docs/`:
 | `05-DEPLOYMENT.md` | CI/CD pipeline, AWS infrastructure, security scanning |
 | `06-APP_STORE.md` | iOS/Android submission requirements, demo accounts |
 | `07-EVENT_ARCHITECTURE.md` | CQRS, Kafka, H3 location system, error codes |
+| `GROUND_TRUTH.md` | **Backend-verified facts with file:line refs (anti-hallucination)** |
 | `99-CHANGELOG.md` | Historical implementation phases |
 
 ### Ollama Training (`.claude/training/`)
@@ -215,5 +224,5 @@ Routes:
 
 ---
 
-*Last Updated: December 26, 2025*
+*Last Updated: February 15, 2026*
 *Token Count: ~800 (down from 33,000)*
