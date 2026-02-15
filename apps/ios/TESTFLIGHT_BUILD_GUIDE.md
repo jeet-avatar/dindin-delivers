@@ -10,9 +10,9 @@
 
 | App | Bundle ID | Build | Version | Status |
 |-----|-----------|-------|---------|--------|
-| **Dollor (Customer)** | `com.dollorai.customer` | 1069 | 1.0 | ✅ On TestFlight |
-| **Dollor Driver** | `com.dollorai.delivery` | 178 | 1.0 | ✅ On TestFlight |
-| **Dollor Restaurant** | `com.dollorai.restaurant` | 149 | 1.0 | ✅ On TestFlight |
+| **Dollor (Customer)** | `com.dollorai.customer` | 1070 | 1.0 | ✅ On TestFlight |
+| **Dollor Driver** | `com.dollorai.delivery` | 179 | 1.0 | ✅ On TestFlight |
+| **Dollor Restaurant** | `com.dollorai.restaurant` | 151 | 1.0 | ✅ On TestFlight |
 
 ---
 
@@ -149,15 +149,15 @@ When a driver accepts an order, their photo and vehicle details are passed to bo
 
 ## TestFlight Testing Verification
 
-**Last Tested**: February 13, 2026
+**Last Tested**: February 14, 2026
 
 ### Build Availability on App Store Connect
 
 | App | Build | TestFlight Status |
 |-----|-------|-------------------|
-| Dollor (Customer) | 1069 | ✅ Uploaded (2026-02-13 17:35 PST) |
-| Dollor Driver | 178 | ✅ Uploaded (2026-02-13 18:23 PST) |
-| Dollor Restaurant | 149 | ✅ Uploaded (2026-02-13 17:35 PST) |
+| Dollor (Customer) | 1070 | ✅ Uploaded (2026-02-14 15:10 PST) |
+| Dollor Driver | 179 | ✅ Uploaded (2026-02-14 15:12 PST) |
+| Dollor Restaurant | 151 | ✅ Uploaded (2026-02-14 15:58 PST) |
 
 ### Demo Accounts (For App Store Review)
 
@@ -368,9 +368,9 @@ Continuing Dollor.ai iOS development.
 ## Current State (February 13, 2026)
 
 ### Build Numbers (Uploaded to TestFlight)
-- Customer: 1069 (Bundle: com.dollorai.customer)
-- Driver: 177 (Bundle: com.dollorai.delivery)
-- Restaurant: 149 (Bundle: com.dollorai.restaurant)
+- Customer: 1070 (Bundle: com.dollorai.customer)
+- Driver: 179 (Bundle: com.dollorai.delivery)
+- Restaurant: 151 (Bundle: com.dollorai.restaurant)
 
 ### Backend Status
 - API Contract Version: 1.0.14
