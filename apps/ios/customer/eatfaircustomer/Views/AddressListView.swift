@@ -3,7 +3,7 @@ import CoreLocation
 import EatFairShared
 
 struct AddressListView: View {
-    @StateObject var viewModel = AddressViewModel()
+    @EnvironmentObject var viewModel: AddressViewModel
     @State private var showingAddAddress = false
 
     var body: some View {
