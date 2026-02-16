@@ -1,0 +1,61 @@
+Dollor is the fairest delivery and rideshare app - order food from multiple restaurants or book a ride, all with transparent pricing where you see exactly where your money goes.
+
+FOOD DELIVERY
+
+Order from Multiple Restaurants:
+- Add items from up to 3 restaurants in one order
+- One driver, one delivery, one checkout
+- Perfect for groups with different cravings
+
+Fair for Everyone:
+- Drivers keep 100% of delivery fees and tips
+- Restaurants pay just $1 per order (no percentage cuts)
+- You pay only $1 platform fee per restaurant
+
+RIDESHARE
+
+Peer-to-Peer Rides:
+- Connect directly with independent drivers
+- Drivers set their own rates
+- 96% of your fare goes to the driver
+
+Simple Pricing:
+- $1-$3 tiered connection fee based on trip cost
+- No surge pricing
+- Transparent fare breakdown before you book
+
+TRANSPARENT PRICING
+
+See exactly where your money goes:
+- Food cost goes 100% to restaurants
+- Delivery fees and tips go 100% to drivers
+- Platform fees clearly shown
+- No hidden charges
+
+FEATURES
+
+- Apple Pay for fast, secure checkout
+- Real-time order and ride tracking
+- Save favorite restaurants and addresses
+- Schedule orders and rides in advance
+- AI Food Assistant to help you decide
+
+HOW IT WORKS
+
+Food Delivery:
+1. Browse restaurants near you
+2. Add items from up to 3 restaurants
+3. Checkout with Apple Pay or card
+4. Track your order in real-time
+
+Rideshare:
+1. Enter pickup and dropoff locations
+2. See transparent fare breakdown
+3. Find a driver and confirm
+4. Track your ride in real-time
+
+ABOUT DOLLOR
+
+Dollor.ai is a matchmaking platform connecting customers with local restaurants, riders with independent drivers. We believe everyone deserves fair treatment - customers, restaurants, and drivers alike.
+
+Questions? Contact us at support@dollor.ai

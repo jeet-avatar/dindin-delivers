@@ -1,0 +1,59 @@
+{
+  "family": "dollor-notification-service",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskRole",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "notification-service",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8009,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "PORT", "value": "8009"},
+        {"name": "ENVIRONMENT", "value": "production"},
+        {"name": "SMTP_HOST", "value": "email-smtp.us-east-1.amazonaws.com"},
+        {"name": "SMTP_PORT", "value": "587"},
+        {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"},
+        {"name": "FROM_NAME", "value": "Dollor.ai"}
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/database-v2-gd1oKf:DATABASE_URL::"
+        },
+        {
+          "name": "SMTP_USER",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_USER::"
+        },
+        {
+          "name": "SMTP_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_PASSWORD::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/dollor-notification-service",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8009/api/notifications/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
