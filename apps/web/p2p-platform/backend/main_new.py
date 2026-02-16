@@ -3712,27 +3712,41 @@ def get_driver_profile_by_id(driver_id: int, token: str = Depends(oauth2_scheme)
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # Count completed rides for this driver
-    total_rides = db.query(RideRequest).filter(
-        RideRequest.matched_driver_id == driver.id,
-        RideRequest.status == RideRequestStatus.COMPLETED
-    ).count()
+    # Count completed rides for this driver (defensive: table/column may not exist)
+    total_rides = 0
+    try:
+        total_rides = db.query(RideRequest).filter(
+            RideRequest.matched_driver_id == driver.id,
+            RideRequest.status == RideRequestStatus.COMPLETED
+        ).count()
+    except Exception:
+        db.rollback()  # Reset session state after failed query
 
-    status_val = driver.status.value if driver.status else "pending"
+    try:
+        status_val = driver.status.value if driver.status else "pending"
+    except Exception:
+        status_val = "pending"
     is_approved = status_val in ("approved", "active", "online")
+
+    def safe_iso(dt):
+        """Safely convert a date/datetime to ISO string."""
+        try:
+            return dt.isoformat() if dt else None
+        except Exception:
+            return str(dt) if dt else None
 
     return {
         "id": driver.id,
         "driver_code": driver.driver_id,
         "driver_id": driver.driver_id,
-        "name": f"{driver.first_name} {driver.last_name}",
-        "full_name": f"{driver.first_name} {driver.last_name}",
+        "name": f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
+        "full_name": f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
         "first_name": driver.first_name,
         "last_name": driver.last_name,
         "email": driver.email,
         "phone": driver.phone,
         "phone_number": driver.phone,
-        "date_of_birth": driver.date_of_birth,
+        "date_of_birth": safe_iso(driver.date_of_birth),
         "status": status_val,
         "approval_status": status_val,
         "is_approved": is_approved,
@@ -3760,12 +3774,12 @@ def get_driver_profile_by_id(driver_id: int, token: str = Depends(oauth2_scheme)
         "license_number": driver.license_number,
         "drivers_license": driver.drivers_license,
         "drivers_license_url": driver.drivers_license_url,
-        "drivers_license_expiry": driver.drivers_license_expiry.isoformat() if driver.drivers_license_expiry else None,
+        "drivers_license_expiry": safe_iso(driver.drivers_license_expiry),
         "insurance": driver.insurance,
         "insurance_url": driver.insurance_url,
-        "insurance_expiry": driver.insurance_expiry.isoformat() if driver.insurance_expiry else None,
+        "insurance_expiry": safe_iso(driver.insurance_expiry),
         "background_check": driver.background_check,
-        "background_check_date": driver.background_check_date.isoformat() if driver.background_check_date else None,
+        "background_check_date": safe_iso(driver.background_check_date),
         # Verification
         "verification_status": driver.verification_status,
         "documents_verified": driver.documents_verified,
@@ -3778,8 +3792,8 @@ def get_driver_profile_by_id(driver_id: int, token: str = Depends(oauth2_scheme)
         "state": driver.state,
         "zip_code": driver.zip_code,
         # Timestamps
-        "created_at": driver.created_at.isoformat() if driver.created_at else None,
-        "approved_at": driver.approved_at.isoformat() if driver.approved_at else None,
+        "created_at": safe_iso(driver.created_at),
+        "approved_at": safe_iso(driver.approved_at),
     }
 
 
