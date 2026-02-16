@@ -4714,92 +4714,9 @@ async def complete_ride_and_pay_driver(
         raise HTTPException(status_code=500, detail=f"Payment transfer failed: {str(e)}")
 
 
-@app.post("/api/rides/{ride_id}/tip")
-async def add_ride_tip(
-    ride_id: int,
-    tip_amount: float = Body(..., embed=True),
-    db: Session = Depends(get_db)
-):
-    """
-    Add or update tip for a completed ride.
-    Customer can tip after the ride is completed.
 
-    If driver has Stripe Connect, tip is transferred immediately.
-    """
-    import stripe
-    import os
-
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    from models import RideRequest as RideRequestDB
-
-    if tip_amount < 0:
-        raise HTTPException(status_code=400, detail="Tip amount cannot be negative")
-
-    ride = db.query(RideRequestDB).filter(RideRequestDB.id == ride_id).first()
-    if not ride:
-        raise HTTPException(status_code=404, detail="Ride not found")
-
-    # Update tip in database
-    old_tip = float(ride.tip or 0)
-    ride.tip = tip_amount
-
-    # If driver has Stripe Connect and ride is completed, transfer the tip difference
-    # Use matched_driver_id (the correct field name in RideRequest model)
-    driver_id = getattr(ride, 'matched_driver_id', None) or getattr(ride, 'driver_id', None)
-    if driver_id:
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-
-        if driver and driver.stripe_account_id and driver.stripe_onboarded:
-            tip_difference = tip_amount - old_tip
-
-            if tip_difference > 0:
-                tip_cents = int(tip_difference * 100)
-
-                try:
-                    transfer = stripe.Transfer.create(
-                        amount=tip_cents,
-                        currency="usd",
-                        destination=driver.stripe_account_id,
-                        description=f"Tip for ride {ride.request_id}",
-                        metadata={
-                            "ride_id": str(ride_id),
-                            "type": "tip",
-                            "driver_id": str(driver.id)
-                        }
-                    )
-
-                    db.commit()
-
-                    return {
-                        "success": True,
-                        "message": f"Tip of ${tip_amount:.2f} added and transferred to driver",
-                        "tip_amount": tip_amount,
-                        "transfer_id": transfer.id,
-                        "driver_name": f"{driver.first_name} {driver.last_name}"
-                    }
-
-                except stripe.error.StripeError as e:
-                    logger.error(f"Tip transfer failed: {str(e)}")
-                    # Still save the tip even if transfer fails
-                    db.commit()
-                    return {
-                        "success": True,
-                        "message": f"Tip of ${tip_amount:.2f} saved (transfer pending)",
-                        "tip_amount": tip_amount,
-                        "transfer_pending": True,
-                        "error": str(e)
-                    }
-
-    db.commit()
-
-    return {
-        "success": True,
-        "message": f"Tip of ${tip_amount:.2f} added",
-        "tip_amount": tip_amount,
-        "transfer_pending": True,
-        "note": "Driver payout will be processed when ride is completed"
-    }
+# REMOVED: Duplicate broken add_ride_tip endpoint (used ride.tip which doesn't exist)
+# The correct tip endpoint is at POST /api/rides/{ride_id}/tip (tip_ride_driver) below line 14461
 
 
 @app.get("/api/drivers/{driver_id}/payout-history")
@@ -16068,6 +15985,75 @@ async def rate_order_restaurant(
         "order_id": order_id,
         "new_restaurant_rating": round(new_avg, 1),
         "total_ratings": new_total
+    }
+
+
+@app.get("/api/vendors/{vendor_id}/reviews")
+async def get_vendor_reviews(
+    vendor_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get reviews for a vendor. Used by Android/iOS restaurant apps.
+    Returns list of reviews with customer names and order info.
+    """
+    from models import RestaurantRating, Vendor, Customer, Order
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    ratings = (
+        db.query(RestaurantRating)
+        .filter(RestaurantRating.vendor_id == vendor_id)
+        .order_by(RestaurantRating.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    total_count = db.query(RestaurantRating).filter(
+        RestaurantRating.vendor_id == vendor_id
+    ).count()
+
+    reviews = []
+    for r in ratings:
+        customer = db.query(Customer).filter(Customer.id == r.customer_id).first()
+        customer_name = customer.name if customer else "Customer"
+
+        # Get order items if available
+        order = db.query(Order).filter(Order.id == r.order_id).first()
+        items_ordered = []
+        if order and hasattr(order, 'items') and order.items:
+            try:
+                import json
+                order_items = json.loads(order.items) if isinstance(order.items, str) else order.items
+                items_ordered = [item.get("name", "") for item in order_items if isinstance(item, dict)]
+            except Exception:
+                pass
+
+        reviews.append({
+            "id": r.id,
+            "customer_name": customer_name,
+            "rating": r.rating,
+            "review": r.review,
+            "food_quality": r.food_quality,
+            "portion_size": r.portion_size,
+            "value_for_money": r.value_for_money,
+            "accuracy": r.accuracy,
+            "order_id": r.order_id,
+            "items_ordered": items_ordered,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        })
+
+    return {
+        "reviews": reviews,
+        "total": total_count,
+        "average_rating": vendor.average_rating or 0.0,
+        "total_ratings": vendor.total_ratings or 0
     }
 
 
