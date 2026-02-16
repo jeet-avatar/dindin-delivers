@@ -447,7 +447,10 @@ struct DriverLoginView: View {
     /// Generate random nonce for Apple Sign-In security
     /// Issue #10 Fixed: Replaced fatalError with graceful fallback for nonce generation
     private func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
+        let charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz"
+        guard length > 0 else {
+            return String((0..<32).compactMap { _ in charset.randomElement() })
+        }
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
 
@@ -463,9 +466,9 @@ struct DriverLoginView: View {
             return String(fallbackNonce)
         }
 
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        let charsetArray: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
         let nonce = randomBytes.map { byte in
-            charset[Int(byte) % charset.count]
+            charsetArray[Int(byte) % charsetArray.count]
         }
         return String(nonce)
     }
