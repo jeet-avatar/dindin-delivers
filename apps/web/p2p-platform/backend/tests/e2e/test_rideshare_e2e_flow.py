@@ -1,0 +1,591 @@
+"""
+E2E Rideshare Regression Test - Full Lifecycle
+===============================================
+
+Covers the complete rideshare flow:
+  Fare estimate → Ride request → Driver views → Bid → Customer views bids →
+  Customer counters → Driver counters → Customer accepts → Chat → Driver location →
+  Pickup (start) → Tracking → Dropoff (complete) → Stripe payment → Rating → Tip
+
+Plus edge-case tests: low bid rejection, max counter limit, active ride guard,
+cancel with bid expiry, expired bidding window, and tiered pricing verification.
+"""
+
+import pytest
+from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock
+
+from models import (
+    Customer, Driver, DriverStatus, RideRequest, RideBid,
+    RideRequestStatus, BidStatus, Order, OrderStatus,
+)
+from main_new import get_password_hash
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def test_customer(db_session):
+    """Create a test customer for rideshare tests."""
+    customer = Customer(
+        first_name="Alice",
+        last_name="Rider",
+        email=f"alice.rider.{datetime.now().timestamp()}@test.com",
+        phone="+14155550100",
+        password_hash=get_password_hash("CustomerPass123!"),
+        is_active=True,
+    )
+    db_session.add(customer)
+    db_session.commit()
+    db_session.refresh(customer)
+    return customer
+
+
+@pytest.fixture
+def mock_stripe():
+    with patch("rideshare_payments.stripe.PaymentIntent.create") as mock_pi, \
+         patch("rideshare_payments.stripe.Transfer.create") as mock_transfer:
+        mock_pi.return_value = MagicMock(
+            id="pi_test_123", client_secret="pi_test_secret"
+        )
+        mock_transfer.return_value = MagicMock(id="tr_test_456")
+        yield {"payment_intent": mock_pi, "transfer": mock_transfer}
+
+
+@pytest.fixture
+def mock_notifications():
+    """Suppress all async broadcasts, push notifications, and emails."""
+    with patch("bid_routes.send_push_notification"), \
+         patch("bid_routes.send_ride_request_confirmation_email"), \
+         patch("bid_routes.send_ride_bid_received_email"), \
+         patch("bid_routes.send_ride_matched_email"), \
+         patch("bid_routes.send_ride_started_email"), \
+         patch("bid_routes.send_ride_completed_email"), \
+         patch("bid_routes.send_ride_cancelled_email"), \
+         patch("bid_routes.asyncio.create_task"):
+        yield
+
+
+# SF coordinates used throughout tests
+PICKUP_LAT, PICKUP_LNG = 37.7749, -122.4194   # Downtown SF
+DROPOFF_LAT, DROPOFF_LNG = 37.6213, -122.3790  # SFO Airport
+
+
+# ---------------------------------------------------------------------------
+# Happy-path: full 17-step lifecycle
+# ---------------------------------------------------------------------------
+
+class TestRideshareE2EFlow:
+    """Complete end-to-end regression for the rideshare lifecycle."""
+
+    def test_full_rideshare_flow(
+        self, client, db_session, test_customer, test_driver,
+        auth_headers, mock_stripe, mock_notifications,
+    ):
+        customer = test_customer
+        driver = test_driver
+
+        # ── Step 1: Fare Estimate ────────────────────────────────────────
+        resp = client.post("/api/rides/estimate", json={
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "ride_type": "standard",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        estimate = data["estimate"]
+        assert "subtotal" in estimate
+        assert "platform_fee" in estimate
+        assert "suggested_bids" in estimate
+        assert len(estimate["suggested_bids"]) > 0
+        suggested_price = estimate["subtotal"]
+
+        # ── Step 2: Create Ride Request ──────────────────────────────────
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St, San Francisco, CA",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "pickup_place_name": "Downtown SF",
+            "dropoff_address": "SFO Airport, San Francisco, CA",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "dropoff_place_name": "SFO Airport",
+            "ride_type": "standard",
+            "customer_max_price": 40.00,
+            "bidding_duration_minutes": 5,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        ride = data["ride_request"]
+        assert ride["status"] == "open"
+        assert ride["request_id"].startswith("RIDE")
+        assert ride["suggested_price"] > 0
+        ride_id = ride["id"]
+
+        # ── Step 3: Driver Views Available Rides ─────────────────────────
+        resp = client.get("/api/rides/available", params={
+            "driver_id": driver.id,
+            "latitude": 37.78,
+            "longitude": -122.41,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["count"] >= 1
+        found = [r for r in data["available_requests"] if r["id"] == ride_id]
+        assert len(found) == 1
+        assert found[0]["already_bid"] is False
+
+        # ── Step 4: Driver Submits Bid ───────────────────────────────────
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+            "message": "I'm nearby and ready!",
+            "estimated_arrival_minutes": 8,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        bid = data["bid"]
+        assert bid["status"] == "pending"
+        assert bid["proposed_price"] == 25.00
+        bid_id = bid["id"]
+
+        # Verify ride request moved to BIDDING
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.BIDDING
+
+        # ── Step 5: Customer Views Bids ──────────────────────────────────
+        resp = client.get(f"/api/rides/request/{ride_id}/bids")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_bids"] == 1
+        assert data["bidding_open"] is True
+        assert data["bids"][0]["proposed_price"] == 25.00
+
+        # ── Step 6: Customer Counters (Round 1) ─────────────────────────
+        resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+            "action": "counter",
+            "counter_price": 20.00,
+            "message": "Can you do $20?",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["customer_counters_remaining"] == 2  # 3 - 1
+
+        db_session.expire_all()
+        bid_obj = db_session.query(RideBid).get(bid_id)
+        assert bid_obj.status == BidStatus.COUNTERED
+
+        # ── Step 7: Driver Counter-Offers (Round 2) ─────────────────────
+        resp = client.post(f"/api/rides/bid/{bid_id}/driver-counter", json={
+            "counter_price": 22.00,
+            "message": "Meet in the middle at $22?",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["is_final_round"] is True
+
+        db_session.expire_all()
+        bid_obj = db_session.query(RideBid).get(bid_id)
+        assert bid_obj.status == BidStatus.PENDING
+        assert bid_obj.proposed_price == 22.00
+
+        # ── Step 8: Customer Accepts Final Price ─────────────────────────
+        resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+            "action": "accept",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["fare"] == 22.00
+        assert data["driver"] is not None
+        assert data["driver"]["id"] == driver.id
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.MATCHED
+        assert ride_obj.matched_driver_id == driver.id
+        assert ride_obj.final_price == 22.00
+
+        # ── Step 9: Chat – Customer Sends Message ────────────────────────
+        resp = client.post(
+            f"/api/p2p/ride-requests/{ride_id}/chat",
+            json={
+                "message": "I'm at the blue building",
+                "sender_type": "customer",
+            },
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert "message_id" in data
+
+        # ── Step 10: Chat – Get Messages ─────────────────────────────────
+        resp = client.get(f"/api/p2p/ride-requests/{ride_id}/chat")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "messages" in data
+
+        # ── Step 11: Driver Location Update ──────────────────────────────
+        resp = client.post("/api/driver/location", json={
+            "driver_id": driver.id,
+            "latitude": 37.775,
+            "longitude": -122.418,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+
+        db_session.expire_all()
+        driver_obj = db_session.query(Driver).get(driver.id)
+        assert driver_obj.current_latitude == 37.775
+        assert driver_obj.current_longitude == -122.418
+
+        # ── Step 12: Driver Starts Ride (Pickup) ─────────────────────────
+        resp = client.post(f"/api/rides/request/{ride_id}/start")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.IN_PROGRESS
+
+        # ── Step 13: Ride Tracking ───────────────────────────────────────
+        resp = client.get(f"/api/rides/request/{ride_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ride_request"]["status"] == "in_progress"
+        assert data["ride_request"].get("matched_driver") is not None
+
+        # ── Step 14: Driver Completes Ride (Dropoff) ─────────────────────
+        resp = client.post(f"/api/rides/request/{ride_id}/complete")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["final_price"] == 22.00
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.COMPLETED
+        assert ride_obj.completed_at is not None
+
+        # ── Step 15: Payment – Create Payment Intent ─────────────────────
+        resp = client.post("/api/payments/ride/create-intent", json={
+            "ride_request_id": ride_id,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["fare"] == 22.00
+        assert data["tier_fee"] == 1.00          # fare ≤ $35 → $1
+        assert data["customer_pays"] == 23.00     # 22 + 1
+        assert data["driver_receives"] == 21.00   # 22 - 1
+        assert data["platform_earns"] == 2.00     # 1 × 2
+
+        # Verify Stripe mock called with 2300 cents
+        mock_stripe["payment_intent"].assert_called_once()
+        call_kwargs = mock_stripe["payment_intent"].call_args
+        assert call_kwargs[1]["amount"] == 2300  # $23.00 in cents
+
+        # ── Step 16: Customer Rates Driver ───────────────────────────────
+        resp = client.post(
+            f"/api/rides/{ride_id}/rate",
+            params={"rating": 5, "comment": "Great ride!"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["rating"] == 5
+
+        # ── Step 17: Customer Tips Driver ────────────────────────────────
+        resp = client.post(
+            f"/api/rides/{ride_id}/tip",
+            params={"tip_amount": 5.00, "tip_type": "post_ride"},
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["tip_amount"] == 5.00
+
+
+# ---------------------------------------------------------------------------
+# Edge-case & validation tests
+# ---------------------------------------------------------------------------
+
+class TestRideshareEdgeCases:
+
+    def test_low_bid_rejection(
+        self, client, db_session, test_customer, test_driver,
+        mock_notifications,
+    ):
+        """Counter with price < 40% of suggested → 400."""
+        customer = test_customer
+        driver = test_driver
+
+        # Create ride
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        })
+        ride_id = resp.json()["ride_request"]["id"]
+        suggested = resp.json()["ride_request"]["suggested_price"]
+
+        # Driver bids
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": suggested,
+        })
+        bid_id = resp.json()["bid"]["id"]
+
+        # Customer counters with < 40% of suggested → 400
+        low_price = round(suggested * 0.3, 2)
+        resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+            "action": "counter",
+            "counter_price": low_price,
+        })
+        assert resp.status_code == 400
+        assert "too low" in resp.json()["detail"].lower()
+
+    def test_max_counter_limit(
+        self, client, db_session, test_customer, test_driver,
+        mock_notifications,
+    ):
+        """4th customer counter → 400 'Maximum 3 counter-offers reached'."""
+        customer = test_customer
+        driver = test_driver
+
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        })
+        ride_id = resp.json()["ride_request"]["id"]
+        suggested = resp.json()["ride_request"]["suggested_price"]
+
+        # Driver bids
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": suggested,
+        })
+        bid_id = resp.json()["bid"]["id"]
+
+        # Manually set counter count to 3 (simulate 3 prior counters)
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        ride_obj.customer_counter_count = 3
+        db_session.commit()
+
+        # 4th counter → 400
+        resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+            "action": "counter",
+            "counter_price": round(suggested * 0.8, 2),
+        })
+        assert resp.status_code == 400
+        assert "Maximum 3 counter-offers" in resp.json()["detail"]
+
+    def test_driver_cannot_bid_with_active_ride(
+        self, client, db_session, test_customer, test_driver,
+        mock_notifications,
+    ):
+        """Driver with an active ride cannot bid on new requests."""
+        customer = test_customer
+        driver = test_driver
+
+        # Create an active ride for this driver
+        active_ride = RideRequest(
+            request_id="RIDE2026999999",
+            customer_id=customer.id,
+            pickup_address="A",
+            pickup_latitude=37.78,
+            pickup_longitude=-122.41,
+            dropoff_address="B",
+            dropoff_latitude=37.62,
+            dropoff_longitude=-122.38,
+            status=RideRequestStatus.IN_PROGRESS,
+            matched_driver_id=driver.id,
+        )
+        db_session.add(active_ride)
+        db_session.commit()
+
+        # Create a new ride request (from a different customer)
+        customer2 = Customer(
+            first_name="Bob",
+            last_name="Passenger",
+            email=f"bob.{datetime.now().timestamp()}@test.com",
+            phone="+14155550200",
+            password_hash=get_password_hash("Pass123!"),
+            is_active=True,
+        )
+        db_session.add(customer2)
+        db_session.commit()
+        db_session.refresh(customer2)
+
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer2.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        })
+        new_ride_id = resp.json()["ride_request"]["id"]
+
+        # Driver with active ride tries to bid → 400
+        resp = client.post(f"/api/rides/request/{new_ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+        })
+        assert resp.status_code == 400
+        assert "active ride" in resp.json()["detail"].lower()
+
+    def test_cancel_ride_request(
+        self, client, db_session, test_customer, test_driver,
+        mock_notifications,
+    ):
+        """Cancel an OPEN ride → all pending bids get expired."""
+        customer = test_customer
+        driver = test_driver
+
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        })
+        ride_id = resp.json()["ride_request"]["id"]
+
+        # Driver bids
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+        })
+        bid_id = resp.json()["bid"]["id"]
+
+        # Cancel
+        resp = client.post(f"/api/rides/request/{ride_id}/cancel")
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.CANCELLED
+
+        bid_obj = db_session.query(RideBid).get(bid_id)
+        assert bid_obj.status == BidStatus.EXPIRED
+
+    def test_bid_on_expired_window(
+        self, client, db_session, test_customer, test_driver,
+        mock_notifications,
+    ):
+        """Bid after the bidding window expired → 400."""
+        customer = test_customer
+        driver = test_driver
+
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        })
+        ride_id = resp.json()["ride_request"]["id"]
+
+        # Manually expire the bidding window
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        ride_obj.bidding_expires_at = datetime.utcnow() - timedelta(minutes=1)
+        db_session.commit()
+
+        # Attempt to bid → 400
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+        })
+        assert resp.status_code == 400
+        assert "closed" in resp.json()["detail"].lower()
+
+    def test_tiered_pricing_tiers(
+        self, client, db_session, test_customer, test_driver,
+        mock_stripe, mock_notifications,
+    ):
+        """Verify $1/$2/$3 tier fees at $30, $50, and $80 fares."""
+        customer = test_customer
+        driver = test_driver
+
+        test_cases = [
+            (30.00, 1.00),   # Tier 1: fare ≤ $35 → $1
+            (50.00, 2.00),   # Tier 2: $35 < fare ≤ $70 → $2
+            (80.00, 3.00),   # Tier 3: fare > $70 → $3
+        ]
+
+        for fare, expected_fee in test_cases:
+            # Create ride request
+            resp = client.post("/api/rides/request", json={
+                "customer_id": customer.id,
+                "pickup_address": "A",
+                "pickup_latitude": PICKUP_LAT,
+                "pickup_longitude": PICKUP_LNG,
+                "dropoff_address": "B",
+                "dropoff_latitude": DROPOFF_LAT,
+                "dropoff_longitude": DROPOFF_LNG,
+                "bidding_duration_minutes": 5,
+            })
+            rid = resp.json()["ride_request"]["id"]
+
+            # Set the final price and status directly for payment test
+            db_session.expire_all()
+            ride_obj = db_session.query(RideRequest).get(rid)
+            ride_obj.final_price = fare
+            ride_obj.status = RideRequestStatus.COMPLETED
+            ride_obj.matched_driver_id = driver.id
+            db_session.commit()
+
+            # Reset stripe mock call count
+            mock_stripe["payment_intent"].reset_mock()
+
+            resp = client.post("/api/payments/ride/create-intent", json={
+                "ride_request_id": rid,
+            })
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["tier_fee"] == expected_fee, (
+                f"Fare ${fare}: expected tier_fee ${expected_fee}, got ${data['tier_fee']}"
+            )
+            assert data["customer_pays"] == fare + expected_fee
+            assert data["driver_receives"] == fare - expected_fee
+            assert data["platform_earns"] == expected_fee * 2

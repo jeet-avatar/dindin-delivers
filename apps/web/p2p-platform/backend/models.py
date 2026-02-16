@@ -1328,6 +1328,9 @@ class RideRequest(Base):
     driver_paid_at = Column(DateTime)  # When driver received payout
     stripe_transfer_id = Column(String(255))  # Stripe Connect transfer ID
 
+    # Tip
+    tip_amount = Column(Float, default=0.0)  # Customer tip for driver (100% to driver)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
