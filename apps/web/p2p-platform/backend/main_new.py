@@ -3242,7 +3242,12 @@ def estimate_fare(request: FareEstimateRequest):
         "shared": {"base": 1.50, "per_mile": 1.00, "per_min": 0.20}
     }
 
-    ride_pricing = pricing.get(request.ride_type, pricing["standard"])
+    if request.ride_type not in pricing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid ride_type '{request.ride_type}'. Valid types: {', '.join(pricing.keys())}"
+        )
+    ride_pricing = pricing[request.ride_type]
 
     # Estimate time (assume 25 mph average speed)
     estimated_minutes = max(5, int((distance_miles / 25) * 60))
