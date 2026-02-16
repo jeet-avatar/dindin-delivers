@@ -8,9 +8,9 @@ IDENTITY & LEGAL:
 3. ONLY support@dollor.ai is authorized for Firebase, plists, configs. No other emails in production configs.
 
 REGISTRATION RULES:
-4. Customer: name or full_name (single field) - main_new.py:2523
-5. Driver: first_name + last_name (SEPARATE fields) - main_new.py:1956
-6. Vendor: full_name or name + restaurant_name or business_name - main_new.py:1444
+4. Customer: name or full_name (single field) - main_new.py:2527
+5. Driver: first_name + last_name (SEPARATE fields) - main_new.py:1957
+6. Vendor: full_name or name + restaurant_name or business_name - main_new.py:1445
 7. Customer status: is_active Boolean, NOT CustomerStatus enum - models.py:624
 8. No vehicle_registration field exists. Use vehicle_type, vehicle_make, etc. - models.py:721-726
 
@@ -42,7 +42,7 @@ RIDESHARE PRICING (FARE-TIERED):
 27. Fare $35-70: $2 fee from both (platform $4)
 28. Fare > $70: $3 fee from both (platform $6) - rideshare_payments.py:36-43
 29. Fare formula: max(minFare, baseFare + distance*perMile + duration*perMinute)
-30. Values: baseFare=$2.50, perMile=$1.15, perMinute=$0.18, minFare=$5.00 - AppConfig.swift:262-265
+30. iOS values: baseFare=$2.50, perMile=$1.15, perMinute=$0.18, minFare=$5.00 - AppConfig.swift:262-265. Backend pricing_config.py matches iOS. Note: main_new.py:3239 estimate endpoint uses different rates ($1.50/mi, $0.25/min)
 31. Cancellation: base $5, driver en route $5, in progress $10 - AppConfig.swift:266-268
 32. Surge: enabled, max 3.0x multiplier (rideshare) - AppConfig.swift:269-270
 
@@ -57,8 +57,8 @@ TAX:
 38. Key: CA 7.25%, NY 8.875% (aligned iOS+backend), TX 6.25%, FL 6% - order_flow.py:512-565, AppConfig.swift:605-619
 
 STRIPE INTEGRATION:
-39. Driver Stripe Connect: Express account, MCC 4121 (Taxicabs) - main_new.py:4043
-40. Vendor Stripe Connect: Express account, MCC 5812 (Restaurants) - main_new.py:4361
+39. Driver Stripe Connect: Express account, MCC 4121 (Taxicabs) - main_new.py:4091
+40. Vendor Stripe Connect: Express account, MCC 5812 (Restaurants) - main_new.py:4412
 41. Webhooks: /api/webhooks/stripe (payment events), /api/webhooks/stripe-connect (account events)
 42. Stripe fee: 2.9% + $0.30 per transaction - stripe_integration.py:550-640
 43. Invoice format: INV-{YYYYMMDD}-{sequence:05d} - stripe_integration.py:435
@@ -66,7 +66,7 @@ STRIPE INTEGRATION:
 
 RIDESHARE FLOW:
 45. Request: POST /api/rides/request → status=open - bid_routes.py:222
-46. Available: GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z
+46. Available: GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z - main_new.py:14495, also bid_routes.py:709
 47. Bid: POST /api/rides/request/{id}/bid with proposed_price - bid_routes.py:772
 48. Respond: POST /api/rides/bid/{bid_id}/respond (accept/reject/counter) - bid_routes.py:370
 49. Driver counter: POST /api/rides/bid/{bid_id}/driver-counter - bid_routes.py:1034
@@ -75,8 +75,8 @@ RIDESHARE FLOW:
 52. Complete: POST /api/rides/request/{id}/complete (in_progress→completed) - bid_routes.py:1342
 53. Payment: POST /api/payments/ride/create-intent - rideshare_payments.py:61
 54. Tip: POST /api/rides/{ride_id}/tip with tip_amount param. Stored in RideRequest.tip_amount
-55. Rate: POST /api/rides/{ride_id}/rate with rating (1-5) and optional comment
-56. Chat: POST/GET /api/p2p/ride-requests/{id}/chat
+55. Rate: POST /api/rides/{ride_id}/rate with rating (1-5) and optional comment - main_new.py:14373
+56. Chat: GET /api/p2p/ride-requests/{id}/chat (main_new.py:14595), POST same path (main_new.py:14609)
 57. Cancel: POST /api/rides/request/{id}/cancel - only open/bidding rides - bid_routes.py:656
 
 FEATURE FLAGS:

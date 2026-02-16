@@ -8,10 +8,10 @@
 ## 1. REGISTRATION FIELDS (Per User Type)
 
 ### Customer Registration
-- **Endpoint:** `POST /api/auth/customer/register` (`main_new.py:2619`)
+- **Endpoint:** `POST /api/auth/customer/register` (`main_new.py:2622`)
 - **Request fields:** `email` (required), `password` (required), `name` OR `full_name` (one required), `phone` (optional)
 - **DB storage:** `first_name` + `last_name` (split from name), `email`, `phone`, `is_active=True`
-- **Name field:** Single `name` or `full_name` in request, split into `first_name`/`last_name` in DB (`main_new.py:2684`)
+- **Name field:** Single `name` or `full_name` in request, split into `first_name`/`last_name` in DB (`main_new.py:2677`)
 
 ### Driver Registration
 - **Endpoint:** `POST /api/auth/driver/register` (`main_new.py:2079`)
@@ -33,7 +33,7 @@
 - **Field:** `is_active` Boolean on Customer model (`models.py:624`)
 - **Login check:** `if not customer.is_active: raise 403` (`main_new.py:2594`)
 - **NOT an enum.** `CustomerStatus` enum exists (`models.py:564`) but is NEVER used on Customer model
-- **Default:** `True` at registration (`main_new.py:2691`)
+- **Default:** `True` at registration (`main_new.py:2695`)
 
 ### Driver
 - **Field:** `status` using `DriverStatus` enum (`models.py:690-696`)
@@ -98,10 +98,10 @@
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| Base fare | $2.50 | `AppConfig.swift:262` |
-| Per mile rate | $1.15 | `AppConfig.swift:263` |
-| Per minute rate | $0.18 | `AppConfig.swift:264` |
-| Minimum fare | $5.00 | `AppConfig.swift:265` |
+| Base fare | $2.50 | `AppConfig.swift:262`, `pricing_config.py:22` |
+| Per mile rate | $1.15 | `AppConfig.swift:263`, `pricing_config.py:23` |
+| Per minute rate | $0.18 | `AppConfig.swift:264`, `pricing_config.py:24` |
+| Minimum fare | $5.00 | `AppConfig.swift:265` ($8.00 in `pricing_config.py:25`) |
 | Surge max (rideshare) | 3.0x | `AppConfig.swift:270` |
 
 **Formula:** `max(minFare, baseFare + (distance × perMile) + (duration × perMinute))`
@@ -224,8 +224,8 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 ### Full Lifecycle
 1. **Estimate:** `POST /api/rides/estimate` with pickup/dropoff coords (`bid_routes.py:1438`)
 2. **Request:** `POST /api/rides/request` → status=`open`, request_id=`RIDE-...` (`bid_routes.py:222`)
-3. **Available:** `GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z` (`bid_routes.py`)
-4. **Bid:** `POST /api/rides/request/{id}/bid` with proposed_price >= 40% of suggested (`bid_routes.py:772`)
+3. **Available:** `GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z` (`main_new.py:14495`, also `bid_routes.py:709`)
+4. **Bid:** `POST /api/rides/request/{id}/bid` with proposed_price (no floor for drivers; 40% floor only applies to customer counter-offers at `bid_routes.py:574`) (`bid_routes.py:772`)
 5. **View Bids:** `GET /api/rides/request/{id}/bids`
 6. **Respond:** `POST /api/rides/bid/{bid_id}/respond` action=`accept`/`reject`/`counter` (`bid_routes.py:370`)
 7. **Driver Counter:** `POST /api/rides/bid/{bid_id}/driver-counter` (`bid_routes.py:1034`)
@@ -233,23 +233,23 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 9. **Start:** `POST /api/rides/request/{id}/start` matched→in_progress (`bid_routes.py:1276`)
 10. **Complete:** `POST /api/rides/request/{id}/complete` in_progress→completed (`bid_routes.py:1342`)
 11. **Payment:** `POST /api/payments/ride/create-intent` (`rideshare_payments.py:61`)
-12. **Complete+Pay:** `POST /api/rides/{ride_id}/complete-and-pay` (`main_new.py:4608`)
+12. **Complete+Pay:** `POST /api/rides/{ride_id}/complete-and-pay` (`main_new.py:4618`)
 13. **Tip:** `POST /api/rides/{ride_id}/tip` with tip_amount → `RideRequest.tip_amount`
-14. **Rate:** `POST /api/rides/{ride_id}/rate` rating (1-5), comment (`main_new.py:14363`)
+14. **Rate:** `POST /api/rides/{ride_id}/rate` rating (1-5), comment (`main_new.py:14373`)
 
 ### Communication
-- **Send:** `POST /api/p2p/ride-requests/{id}/chat` message + sender_type (`main_new.py:14585`)
-- **Get:** `GET /api/p2p/ride-requests/{id}/chat` (`main_new.py:14631`)
+- **Get:** `GET /api/p2p/ride-requests/{id}/chat` (`main_new.py:14595`)
+- **Send:** `POST /api/p2p/ride-requests/{id}/chat` message + sender_type (`main_new.py:14609`)
 - **Alias:** `POST/GET /api/chat/messages/{ride_id}`
 
 ### Driver Location
 - **Auth:** `PUT /api/auth/driver/location?latitude=X&longitude=Z` (`main_new.py:2498`)
-- **Android:** `POST /api/driver/location` JSON body (`main_new.py:19056`)
+- **Android:** `POST /api/driver/location` JSON body (`main_new.py:19066`)
 
 ### Cancellation & Guards
 - `POST /api/rides/request/{id}/cancel` - only `open`/`bidding` rides (`bid_routes.py:656`)
 - Driver cannot bid with active ride (in_progress/matched) → 400
-- Bid rejected if `proposed_price < 40%` of suggested fare
+- Customer counter-offer rejected if `counter_price < 40%` of suggested fare (`bid_routes.py:574`). No price floor on driver initial bids.
 - Max 3 counter-offers → 400
 
 ---
@@ -324,8 +324,8 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 ### Stripe Connect Accounts
 | User Type | Account Type | Business Type | MCC | Source |
 |-----------|-------------|---------------|-----|--------|
-| Driver | Express | individual | 4121 (Taxicabs) | `main_new.py:4043` |
-| Vendor | Express | company | 5812 (Restaurants) | `main_new.py:4361` |
+| Driver | Express | individual | 4121 (Taxicabs) | `main_new.py:4091` |
+| Vendor | Express | company | 5812 (Restaurants) | `main_new.py:4412` |
 
 ### Stripe Endpoints
 | Endpoint | Purpose | Source |
@@ -334,17 +334,17 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 | `POST /api/orders` | Order payment intent (Apple/Google Pay) | `stripe_integration.py:156` |
 | `POST /api/payments/ride/create-intent` | Rideshare payment | `rideshare_payments.py:61` |
 | `POST /api/erp/payments/intent` | Main payment intent (w/ customer) | `main_new.py:16654` |
-| `GET /api/drivers/{id}/stripe/create-account` | Create driver Stripe | `main_new.py:4043` |
-| `GET /api/drivers/{id}/stripe/onboarding-link` | Driver Stripe onboarding | `main_new.py:4107` |
-| `GET /api/drivers/{id}/stripe/status` | Driver Stripe status | `main_new.py:4169` |
-| `POST /api/vendors/{id}/stripe/create-account` | Create vendor Stripe | `main_new.py:4361` |
-| `GET /api/vendors/{id}/stripe/onboarding-link` | Vendor Stripe onboarding | `main_new.py:4428` |
+| `GET /api/drivers/{id}/stripe/create-account` | Create driver Stripe | `main_new.py:4091` |
+| `GET /api/drivers/{id}/stripe/onboarding-link` | Driver Stripe onboarding | `main_new.py:4117` |
+| `GET /api/drivers/{id}/stripe/status` | Driver Stripe status | `main_new.py:4179` |
+| `POST /api/vendors/{id}/stripe/create-account` | Create vendor Stripe | `main_new.py:4412` |
+| `GET /api/vendors/{id}/stripe/onboarding-link` | Vendor Stripe onboarding | `main_new.py:4438` |
 
 ### Webhooks
 | Endpoint | Events | Source |
 |----------|--------|--------|
 | `POST /api/webhooks/stripe` | `payment_intent.succeeded`, `payment_intent.payment_failed` | `stripe_integration.py:323` |
-| `POST /api/webhooks/stripe-connect` | `account.updated`, `payout.paid`, `payout.failed` | `main_new.py:4278` |
+| `POST /api/webhooks/stripe-connect` | `account.updated`, `payout.paid`, `payout.failed` | `main_new.py:4288` |
 
 ### Stripe Fees & Limits
 - Processing fee: **2.9% + $0.30** per transaction (`stripe_integration.py:550-640`)
@@ -397,3 +397,6 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 5. **Restaurant `todayRevenue` bug:** Case-sensitive comparison against backend lowercase values.
 6. **EnterpriseNetworkLayer.swift** hardcodes `eatfair-p2p` Firebase project ID (legacy fallback).
 7. **GoogleMapsConfig.swift** lists `com.dollorai.driver` as bundle ID restriction but actual driver bundle ID is `com.dollorai.delivery`.
+8. **UT (Utah) tax rate mismatch:** iOS `AppConfig.swift:616` has 0.061 (6.1%), backend `order_flow.py:542` has 0.0485 (4.85%). Backend is authoritative.
+9. **Three fare rate sets coexist:** iOS+`pricing_config.py` ($2.50/$1.15/$0.18), `main_new.py:3239` estimate endpoint ($2.50/$1.50/$0.25), `order_flow.py:492` legacy ($2.00/$1.00/$0.15). `pricing_config.py` is canonical for bid suggested prices.
+10. **Dynamic pricing flag conflict:** `Production.xcconfig` has `ENABLE_DYNAMIC_PRICING = YES` but `AppConfig.swift` defaults `isDynamicPricingEnabled = false`. Runtime `/api/config` response controls actual behavior.
