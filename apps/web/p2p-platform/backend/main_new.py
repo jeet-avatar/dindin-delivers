@@ -8,6 +8,7 @@ Version: 1.0.1
 """
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, WebSocket, WebSocketDisconnect, Header, Body, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -159,6 +160,74 @@ async def fix_cors_headers(request, call_next):
     if "access-control-allow-origin" not in response.headers and "access-control-allow-credentials" in response.headers:
         del response.headers["access-control-allow-credentials"]
     return response
+
+# ===================== ADMIN AUTH MIDDLEWARE =====================
+# SECURITY: All /api/admin/* endpoints require admin authentication by default.
+# This is a safety net — even if an endpoint forgets Depends(get_current_user),
+# the middleware blocks unauthenticated access. Defense in depth.
+#
+# Accepts EITHER:
+#   1. Bearer token (JWT) with admin role
+#   2. ADMIN_SECRET_KEY query param (for migration/ops endpoints)
+#
+# Exempt:
+#   - /api/admin/login (login endpoint itself)
+#   - /api/admin/set-document-status (uses body-based secret, has own auth check)
+#   - OPTIONS requests (CORS preflight)
+
+_ADMIN_AUTH_EXEMPT_PATHS = {
+    "/api/admin/login",
+    "/api/admin/set-document-status",
+}
+
+@app.middleware("http")
+async def admin_auth_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Only apply to /api/admin/* routes
+    if not path.startswith("/api/admin"):
+        return await call_next(request)
+
+    # Exempt specific paths and OPTIONS preflight
+    if path in _ADMIN_AUTH_EXEMPT_PATHS or request.method == "OPTIONS":
+        return await call_next(request)
+
+    # Auth method 1: Valid admin JWT Bearer token
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email = payload.get("sub")
+            if email:
+                from database import get_db as _get_db
+                db = next(_get_db())
+                try:
+                    user = db.query(User).filter(User.email == email).first()
+                    if user and user.role == UserRole.ADMIN:
+                        return await call_next(request)
+                finally:
+                    db.close()
+        except JWTError:
+            pass
+        # Token present but invalid or not admin
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Admin access required"}
+        )
+
+    # Auth method 2: ADMIN_SECRET_KEY query param (for ops/migration endpoints)
+    secret_key = request.query_params.get("secret_key")
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    if expected_key and secret_key and secret_key == expected_key:
+        return await call_next(request)
+
+    # No valid auth provided
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "Admin authentication required"},
+        headers={"WWW-Authenticate": "Bearer"}
+    )
 
 # Mount static files for serving uploaded documents
 # Creates uploads directory if it doesn't exist
