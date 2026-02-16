@@ -3732,6 +3732,10 @@ public class P2PAPIService: ObservableObject {
         firstName: String? = nil,
         lastName: String? = nil,
         phone: String? = nil,
+        street: String? = nil,
+        city: String? = nil,
+        state: String? = nil,
+        zipCode: String? = nil,
         vehicleType: String? = nil,
         vehicleMake: String? = nil,
         vehicleModel: String? = nil,
@@ -3762,6 +3766,10 @@ public class P2PAPIService: ObservableObject {
         if let firstName = firstName { body["first_name"] = firstName }
         if let lastName = lastName { body["last_name"] = lastName }
         if let phone = phone { body["phone"] = phone }
+        if let street = street { body["street"] = street }
+        if let city = city { body["city"] = city }
+        if let state = state { body["state"] = state }
+        if let zipCode = zipCode { body["zip_code"] = zipCode }
         if let vehicleType = vehicleType { body["vehicle_type"] = vehicleType }
         if let vehicleMake = vehicleMake { body["vehicle_make"] = vehicleMake }
         if let vehicleModel = vehicleModel { body["vehicle_model"] = vehicleModel }

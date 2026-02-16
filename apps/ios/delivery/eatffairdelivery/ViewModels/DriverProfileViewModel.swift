@@ -316,6 +316,40 @@ class DriverProfileViewModel: ObservableObject {
         email = data["email"] as? String ?? ""
         phone = data["phone"] as? String ?? data["phone_number"] as? String ?? ""
 
+        // Date of birth
+        if let dobString = data["date_of_birth"] as? String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+            dateOfBirth = formatter.date(from: dobString)
+        }
+
+        // Address fields
+        street = data["street"] as? String ?? ""
+        city = data["city"] as? String ?? ""
+        state = data["state"] as? String ?? ""
+        zipCode = data["zip_code"] as? String ?? ""
+
+        // Vehicle fields
+        vehicleType = data["vehicle_type"] as? String ?? "Car"
+        vehicleMake = data["vehicle_make"] as? String ?? ""
+        vehicleModel = data["vehicle_model"] as? String ?? ""
+        vehicleYear = data["vehicle_year"] as? Int ?? Calendar.current.component(.year, from: Date())
+        vehicleColor = data["vehicle_color"] as? String ?? ""
+        licensePlate = data["license_plate"] as? String ?? ""
+
+        // License & Insurance
+        licenseNumber = data["license_number"] as? String ?? ""
+        if let licExpStr = data["drivers_license_expiry"] as? String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+            licenseExpiration = formatter.date(from: licExpStr)
+        }
+        if let insExpStr = data["insurance_expiry"] as? String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+            insuranceExpiration = formatter.date(from: insExpStr)
+        }
+
         // Approval status
         let approvalStatus = data["status"] as? String ?? data["approval_status"] as? String ?? "pending"
         let isApproved = approvalStatus == "approved" || approvalStatus == "active"
@@ -650,6 +684,10 @@ class DriverProfileViewModel: ObservableObject {
             firstName: firstName.isEmpty ? nil : firstName,
             lastName: lastName.isEmpty ? nil : lastName,
             phone: phone.isEmpty ? nil : phone,
+            street: street.isEmpty ? nil : street,
+            city: city.isEmpty ? nil : city,
+            state: state.isEmpty ? nil : state,
+            zipCode: zipCode.isEmpty ? nil : zipCode,
             vehicleType: vehicleType.isEmpty ? nil : vehicleType,
             vehicleMake: vehicleMake.isEmpty ? nil : vehicleMake,
             vehicleModel: vehicleModel.isEmpty ? nil : vehicleModel,
