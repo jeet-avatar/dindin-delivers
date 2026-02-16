@@ -301,6 +301,22 @@ else
     else
         report "QA_KB QA Gate (line $QA_GATE_LINENUM)" "FAIL" "found Build $QA_GATE_BUILDS, expected Build $EXPECTED_SLASH"
     fi
+
+    # Footer line - "Build 1073/183/156" in QA System version footer
+    QA_FOOTER=$(grep -n "QA System.*Build " "$QA_KB" | head -1 || true)
+    QA_FOOTER_LINENUM=$(echo "$QA_FOOTER" | cut -d: -f1)
+    QA_FOOTER_BUILDS=$(echo "$QA_FOOTER" | grep -oE "Build [0-9]+/[0-9]+/[0-9]+" | sed 's/Build //' || true)
+
+    if [[ -z "$QA_FOOTER_BUILDS" ]]; then
+        report "QA_KB footer" "SKIP" "pattern not found"
+    elif [[ "$QA_FOOTER_BUILDS" == "$EXPECTED_SLASH" ]]; then
+        report "QA_KB footer (line $QA_FOOTER_LINENUM)" "PASS" ""
+    elif $FIX_MODE; then
+        sed -i '' "${QA_FOOTER_LINENUM}s|Build [0-9]*/[0-9]*/[0-9]*|Build ${EXPECTED_SLASH}|" "$QA_KB"
+        report "QA_KB footer (line $QA_FOOTER_LINENUM)" "FIXED" "Build $QA_FOOTER_BUILDS → Build $EXPECTED_SLASH"
+    else
+        report "QA_KB footer (line $QA_FOOTER_LINENUM)" "FAIL" "found Build $QA_FOOTER_BUILDS, expected Build $EXPECTED_SLASH"
+    fi
 fi
 
 # ============================================================
