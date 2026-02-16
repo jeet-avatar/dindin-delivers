@@ -6124,66 +6124,105 @@ def get_driver_dashboard(
 
     driver_name = f"{driver.first_name} {driver.last_name}"
 
-    # Active delivery (mock - in production, query active orders)
+    # Active delivery - query real orders assigned to this driver
     active_delivery = None
-    if driver.is_online:
-        # Simulate active delivery with 30% probability when online
-        import random
-        if random.random() < 0.3:
-            active_delivery = {
-                "id": f"DEL-{datetime.utcnow().strftime('%Y')}-{random.randint(100, 999)}",
-                "restaurant": random.choice(["Pasta Paradise", "Burger Bliss", "Sushi Supreme", "Taco Town"]),
-                "customer": random.choice(["John Smith", "Jane Doe", "Alex Johnson", "Sam Wilson"]),
-                "address": f"{random.randint(100, 999)} {random.choice(['Main', 'Oak', 'Pine', 'Elm'])} Street, Apt {random.randint(1, 20)}",
-                "items": random.randint(1, 5),
-                "total": round(random.uniform(15.0, 60.0), 2),
-                "distance": f"{round(random.uniform(0.5, 5.0), 1)} mi",
-                "estimated_time": f"{random.randint(10, 30)} min",
-                "status": random.choice(["accepted", "picked_up", "en_route"])
-            }
+    active_order = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status.in_([
+            OrderStatus.CONFIRMED, OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY
+        ])
+    ).order_by(Order.created_at.desc()).first()
 
-    # Pending deliveries nearby (mock)
+    if active_order:
+        vendor = db.query(Vendor).filter(Vendor.id == active_order.vendor_id).first() if active_order.vendor_id else None
+        items_count = 0
+        if active_order.items:
+            try:
+                items_data = json.loads(active_order.items) if isinstance(active_order.items, str) else active_order.items
+                items_count = len(items_data) if isinstance(items_data, list) else 0
+            except (json.JSONDecodeError, TypeError):
+                pass
+        status_map = {
+            OrderStatus.CONFIRMED: "accepted",
+            OrderStatus.PREPARING: "accepted",
+            OrderStatus.READY_FOR_PICKUP: "accepted",
+            OrderStatus.OUT_FOR_DELIVERY: "picked_up"
+        }
+        active_delivery = {
+            "id": active_order.order_number or f"ORD-{active_order.id}",
+            "restaurant": vendor.restaurant_name if vendor else "Restaurant",
+            "customer": active_order.customer_name or "Customer",
+            "address": active_order.delivery_address or "",
+            "items": items_count,
+            "total": float(active_order.total_amount or 0),
+            "distance": "N/A",
+            "estimated_time": "15-25 min",
+            "status": status_map.get(active_order.status, "accepted"),
+            "delivery_instructions": active_order.delivery_instructions or "",
+            "customer_phone": active_order.customer_phone or "",
+            "payout": float(active_order.delivery_fee or 0) + float(active_order.tip or 0)
+        }
+
+    # Pending deliveries - query real unassigned orders
     pending_deliveries = []
     if driver.is_online:
-        import random
-        restaurants = ["Burger Bliss", "Sushi Supreme", "Pizza Palace", "Taco Town", "Thai Delight"]
-        streets = ["Oak Avenue", "Pine Road", "Maple Drive", "Cedar Lane", "Birch Way"]
+        available_orders = db.query(Order).filter(
+            Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
+            Order.driver_id.is_(None)
+        ).order_by(Order.created_at.desc()).limit(10).all()
 
-        for i in range(random.randint(2, 5)):
+        for order in available_orders:
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
             pending_deliveries.append({
-                "id": f"DEL-{datetime.utcnow().strftime('%Y')}-{random.randint(100, 999)}",
-                "restaurant": random.choice(restaurants),
-                "address": f"{random.randint(100, 999)} {random.choice(streets)}",
-                "distance": f"{round(random.uniform(0.5, 4.0), 1)} mi",
-                "payout": round(random.uniform(5.0, 15.0), 2),
-                "eta": f"{random.randint(15, 35)} min"
+                "id": order.order_number or f"ORD-{order.id}",
+                "restaurant": vendor.restaurant_name if vendor else "Restaurant",
+                "address": order.delivery_address or "",
+                "distance": "N/A",
+                "payout": float(order.delivery_fee or 0) + float(order.tip or 0),
+                "eta": "15-25 min"
             })
 
-    # Today's stats
-    total_deliveries = driver.total_deliveries or 0
+    # Today's stats - query real completed orders for today
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_completed = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.updated_at >= today_start
+    ).all()
 
-    # Simulate today's portion (roughly 1/30 of total, with some randomness)
-    import random
-    today_deliveries = min(random.randint(0, 15), total_deliveries)
-    today_earnings = round(today_deliveries * random.uniform(8.0, 15.0), 2)
+    today_deliveries = len(today_completed)
+    today_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in today_completed)
 
     # Hours online today (based on when they went online)
     hours_online = 0.0
     if driver.is_online and driver.went_online_at:
         hours_online = round((datetime.utcnow() - driver.went_online_at).total_seconds() / 3600, 1)
 
+    total_deliveries = driver.total_deliveries or 0
+
     today_stats = {
         "deliveries": today_deliveries,
-        "earnings": today_earnings,
+        "earnings": round(today_earnings, 2),
         "hours_online": hours_online,
-        "acceptance_rate": random.randint(85, 100)
+        "acceptance_rate": 100
     }
 
-    # Weekly progress (mock goals)
+    # Weekly stats - query real completed orders for this week
+    week_start = today_start - timedelta(days=today_start.weekday())  # Monday
+    week_completed = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status == OrderStatus.DELIVERED,
+        Order.updated_at >= week_start
+    ).all()
+
+    week_deliveries = len(week_completed)
+    week_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in week_completed)
+
     weekly_stats = {
-        "deliveries": {"current": min(total_deliveries, 45), "goal": 50},
-        "earnings": {"current": round(min(total_deliveries * 12.5, 680), 2), "goal": 800},
-        "hours": {"current": round(min(hours_online * 7, 32), 1), "goal": 40}
+        "deliveries": {"current": week_deliveries, "goal": 50},
+        "earnings": {"current": round(week_earnings, 2), "goal": 800},
+        "hours": {"current": round(hours_online, 1), "goal": 40}
     }
 
     return {
@@ -19137,19 +19176,32 @@ def get_available_deliveries_android(db: Session = Depends(get_db)):
                 time_diff = (estimated_ready_at - datetime.now()).total_seconds() / 60
                 minutes_until_ready = max(0, int(time_diff))
 
+            # Parse items for display
+            items_list = []
+            if order.items:
+                try:
+                    items_list = json.loads(order.items) if isinstance(order.items, str) else (order.items if isinstance(order.items, list) else [])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             deliveries.append({
                 "id": order.id,
                 "order_id": order.order_number,
                 "restaurant_name": vendor.restaurant_name if vendor else "Unknown Restaurant",
                 "restaurant_address": vendor.street if vendor else "",
                 "delivery_address": order.delivery_address,
+                "delivery_instructions": order.delivery_instructions or "",
+                "customer_name": order.customer_name or "Customer",
+                "customer_phone": order.customer_phone or "",
+                "items": items_list,
+                "items_count": len(items_list),
                 "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
                 "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
                 "dropoff_latitude": order.delivery_latitude,
                 "dropoff_longitude": order.delivery_longitude,
                 "total_amount": float(order.total_amount) if order.total_amount else 0,
                 "estimated_distance": 0,
-                "estimated_earnings": float(order.total_amount) * 0.8 if order.total_amount else 0,
+                "estimated_earnings": float(order.delivery_fee or 0) + float(order.tip or 0),
                 "status": order.status.value if order.status else "unknown",
                 "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
                 # Early Driver Notification fields
@@ -19224,16 +19276,18 @@ def get_driver_deliveries_history(
             "order_number": order.order_number,
             "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
             "customer_name": order.customer_name or "Customer",
+            "customer_phone": order.customer_phone or "",
             "delivery_address": order.delivery_address,
+            "delivery_instructions": order.delivery_instructions or "",
             "items_count": items_count,
             "total_amount": float(order.total_amount) if order.total_amount else 0,
             "payout": float(order.delivery_fee or 0) + float(order.tip or 0),
             "tip": float(order.tip) if order.tip else 0,
-            "distance": "N/A",  # Would need distance calculation
+            "distance": "N/A",
             "status": order.status.value if order.status else "unknown",
             "date": order.created_at.strftime("%Y-%m-%d") if order.created_at else None,
             "time": order.created_at.strftime("%I:%M %p") if order.created_at else None,
-            "rating": None  # Would need rating system
+            "rating": None
         })
 
     return deliveries
@@ -19298,13 +19352,24 @@ def get_driver_active_delivery(
         OrderStatus.OUT_FOR_DELIVERY: "picked_up"
     }
 
+    # Parse items for display
+    items_list = []
+    if active_order.items:
+        try:
+            items_list = json.loads(active_order.items) if isinstance(active_order.items, str) else (active_order.items if isinstance(active_order.items, list) else [])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return {
         "id": active_order.id,
         "order_id": active_order.order_number,
         "restaurant_name": vendor.restaurant_name if vendor else "Restaurant",
         "restaurant_address": vendor.street if vendor else "",
         "customer_name": active_order.customer_name or "Customer",
+        "customer_phone": active_order.customer_phone or "",
         "delivery_address": active_order.delivery_address,
+        "delivery_instructions": active_order.delivery_instructions or "",
+        "items": items_list,
         "items_count": items_count,
         "distance": "N/A",
         "estimated_time": "15-25 min",
