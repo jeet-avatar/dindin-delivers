@@ -3400,12 +3400,13 @@ async def request_ride(
             dropoff_place_name=dropoff.get('address', 'Dropoff'),
             estimated_distance_km=distance_km,
             estimated_duration_minutes=estimated_minutes,
-            ride_type="standard",
+            ride_type=request.ride_type or "standard",
             suggested_price=ride_fare,
             customer_max_price=total_fare * 1.2,  # 20% buffer
             customer_preferred_price=ride_fare,
             status=RideRequestStatus.OPEN,
             platform_fee=customer_platform_fee,
+            tip_amount=tip,
             broadcast_radius_km=15.0
         )
         db.add(new_ride_request)
