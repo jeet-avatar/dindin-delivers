@@ -33,27 +33,23 @@ import com.eatfair.driver.ui.theme.DollorDriverColors
  * - Delete Account with two-step confirmation (Apple App Store Guideline 5.1.1)
  */
 
-data class DriverProfile(
-    val id: Int = 0,
-    val name: String = "Driver",
-    val email: String = "driver@dollor.ai",
-    val phone: String = "+1 (555) 123-4567",
-    val rating: Float = 4.9f,
-    val totalRides: Int = 342,
-    val memberSince: String = "March 2024"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onLogout: () -> Unit
+    driverName: String,
+    driverEmail: String,
+    driverPhone: String,
+    onLogout: () -> Unit,
+    onDeleteAccount: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
 
-    val profile = remember { DriverProfile() }
+    val displayName = driverName.ifBlank { "Driver" }
+    val initial = displayName.first().uppercase()
 
     LazyColumn(
         modifier = Modifier
@@ -91,7 +87,7 @@ fun ProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = profile.name.first().uppercase(),
+                            text = initial,
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.Bold
                             ),
@@ -103,7 +99,7 @@ fun ProfileScreen(
 
                     // Name
                     Text(
-                        text = profile.name,
+                        text = displayName,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold
                         ),
@@ -111,72 +107,31 @@ fun ProfileScreen(
                     )
 
                     // Email
-                    Text(
-                        text = profile.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = DollorDriverColors.Gray500
-                    )
-
-                    // Phone
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = DollorDriverColors.Blue,
-                            modifier = Modifier.size(16.dp)
-                        )
+                    if (driverEmail.isNotBlank()) {
                         Text(
-                            text = profile.phone,
+                            text = driverEmail,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = DollorDriverColors.Gray600
+                            color = DollorDriverColors.Gray500
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Rating and Rides
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = DollorDriverColors.Orange,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = profile.rating.toString(),
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = DollorDriverColors.Gray900
-                                )
-                            }
-                            Text(
-                                text = "Rating",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = DollorDriverColors.Gray500
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = profile.totalRides.toString(),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = DollorDriverColors.Gray900
+                    // Phone
+                    if (driverPhone.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = DollorDriverColors.Blue,
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Total Rides",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = DollorDriverColors.Gray500
+                                text = driverPhone,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = DollorDriverColors.Gray600
                             )
                         }
                     }
@@ -204,19 +159,19 @@ fun ProfileScreen(
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
                     label = "Today",
-                    value = "$127.50",
+                    value = "$0.00",
                     color = DollorDriverColors.Green
                 )
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
                     label = "This Week",
-                    value = "$847.00",
+                    value = "$0.00",
                     color = DollorDriverColors.Blue
                 )
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
                     label = "Total",
-                    value = "$12,450",
+                    value = "$0.00",
                     color = DollorDriverColors.Orange
                 )
             }
@@ -248,14 +203,14 @@ fun ProfileScreen(
                         subtitle = "View detailed earnings",
                         onClick = { /* TODO */ }
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
                         icon = Icons.Outlined.DirectionsCar,
                         title = "Vehicle Information",
                         subtitle = "Manage your vehicle",
                         onClick = { /* TODO */ }
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
                         icon = Icons.Outlined.Description,
                         title = "Documents",
@@ -292,14 +247,14 @@ fun ProfileScreen(
                         subtitle = "App preferences",
                         onClick = { /* TODO */ }
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
                         icon = Icons.Outlined.Notifications,
                         title = "Notifications",
                         subtitle = "Manage alerts",
                         onClick = { /* TODO */ }
                     )
-                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
                         icon = Icons.Outlined.Help,
                         title = "Help & Support",
@@ -337,7 +292,7 @@ fun ProfileScreen(
             }
         }
 
-        // Delete Account Button (Apple App Store Guideline 5.1.1)
+        // Delete Account Button (Apple App Store Guideline 5.1.1 / Google Play policy)
         item {
             OutlinedButton(
                 onClick = { showDeleteAccountDialog = true },
@@ -378,12 +333,7 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Member since ${profile.memberSince}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = DollorDriverColors.Gray400
-                )
-                Text(
-                    text = "Dollor Driver App v1.0.0",
+                    text = "Dollor Driver App v1.0.12",
                     style = MaterialTheme.typography.bodySmall,
                     color = DollorDriverColors.Gray400
                 )
@@ -464,7 +414,9 @@ fun ProfileScreen(
     // Delete Account Final Confirmation Dialog
     if (showDeleteConfirmDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
+            onDismissRequest = {
+                if (!isDeleting) showDeleteConfirmDialog = false
+            },
             icon = {
                 Icon(
                     imageVector = Icons.Default.DeleteForever,
@@ -481,18 +433,38 @@ fun ProfileScreen(
                 )
             },
             text = {
-                Text(
-                    "Are you absolutely sure? Your account and all associated data will be permanently deleted.",
-                    textAlign = TextAlign.Center
-                )
+                Column {
+                    Text(
+                        "Are you absolutely sure? Your account and all associated data will be permanently deleted.",
+                        textAlign = TextAlign.Center
+                    )
+                    deleteError?.let { error ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = error,
+                            color = DollorDriverColors.Error,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         isDeleting = true
-                        // TODO: Call delete account API
-                        showDeleteConfirmDialog = false
-                        onLogout()
+                        deleteError = null
+                        onDeleteAccount(
+                            {
+                                // onSuccess - ViewModel resets state to Idle which triggers login screen
+                                isDeleting = false
+                                showDeleteConfirmDialog = false
+                            },
+                            { error ->
+                                isDeleting = false
+                                deleteError = error
+                            }
+                        )
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = DollorDriverColors.Error
@@ -606,4 +578,3 @@ private fun ProfileMenuItem(
         )
     }
 }
-

@@ -49,8 +49,8 @@ android {
         applicationId = "ai.dollor.driver"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 13
+        versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -70,12 +70,14 @@ android {
             versionNameSuffix = "-staging"
             buildConfigField("Boolean", "IS_PRODUCTION", "false")
             buildConfigField("String", "API_BASE_URL", "\"https://d3kuu45w6kl8hr.cloudfront.net/api\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"107524350806-5kauv5lbp58hvsob7tsuuvrin99ql2bj.apps.googleusercontent.com\"")
             resValue("string", "app_name", "Dollor Driver Staging")
         }
         create("production") {
             dimension = "environment"
             buildConfigField("Boolean", "IS_PRODUCTION", "true")
             buildConfigField("String", "API_BASE_URL", "\"https://api.dollor.ai/api\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"65740760476-31o2a074qeh2nsc6hlbt8peqpmivmq32.apps.googleusercontent.com\"")
         }
     }
 
@@ -87,6 +89,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             // Use release signing config if keystore is configured
             val keystorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH", "")
             if (keystorePath.isNotEmpty()) {
@@ -142,6 +147,9 @@ dependencies {
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
+
+    // Google Sign-In
+    implementation(libs.play.services.auth)
 
     // Networking for rideshare API
     implementation(libs.okhttp)
