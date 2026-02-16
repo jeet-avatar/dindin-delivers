@@ -146,6 +146,20 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
+# CORS fix: Ensure Vary: Origin is always present so CloudFront caches per-origin,
+# and strip allow-credentials when no allow-origin is set (non-matching origins).
+@app.middleware("http")
+async def fix_cors_headers(request, call_next):
+    response = await call_next(request)
+    # Always set Vary: Origin so CloudFront/CDN caches separate versions per origin
+    vary = response.headers.get("vary", "")
+    if "Origin" not in vary:
+        response.headers["vary"] = f"{vary}, Origin" if vary else "Origin"
+    # Don't leak allow-credentials without allow-origin
+    if "access-control-allow-origin" not in response.headers and "access-control-allow-credentials" in response.headers:
+        del response.headers["access-control-allow-credentials"]
+    return response
+
 # Mount static files for serving uploaded documents
 # Creates uploads directory if it doesn't exist
 import os
@@ -20019,11 +20033,15 @@ def get_admin_drivers(
     status: Optional[str] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get all drivers for admin management.
+    Get all drivers for admin management. Requires admin authentication.
     """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Driver, DriverStatus
 
     query = db.query(Driver)
@@ -20111,12 +20129,16 @@ def admin_set_driver_documents(
     drivers_license: bool = Query(True, description="Set driver's license as verified"),
     insurance: bool = Query(True, description="Set insurance as verified"),
     photo: bool = Query(True, description="Set photo as uploaded"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint to directly set driver document verification status.
-    Used for testing and manual verification bypass.
+    Used for testing and manual verification bypass. Requires admin authentication.
     """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Driver
 
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -20162,13 +20184,17 @@ def admin_set_driver_documents(
 @app.post("/api/admin/drivers/{driver_id}/verify")
 def admin_verify_driver(
     driver_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Admin endpoint to directly mark a driver as verified.
     Sets documents_verified=True, verification_status='verified', and status='approved'.
-    Used for demo accounts and testing.
+    Used for demo accounts and testing. Requires admin authentication.
     """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
     from models import Driver, DriverStatus
 
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
