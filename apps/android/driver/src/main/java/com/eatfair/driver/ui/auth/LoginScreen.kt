@@ -1,6 +1,6 @@
 package com.eatfair.driver.ui.auth
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -31,14 +32,18 @@ import com.eatfair.driver.ui.theme.DollorDriverColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit
+    loginState: LoginState,
+    onLogin: (email: String, password: String) -> Unit,
+    onGoogleSignInClick: () -> Unit,
+    onClearError: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
+
+    val isLoading = loginState is LoginState.Loading
+    val errorMessage = (loginState as? LoginState.Error)?.message
 
     Box(
         modifier = Modifier
@@ -112,7 +117,7 @@ fun LoginScreen(
                         value = email,
                         onValueChange = {
                             email = it
-                            errorMessage = null
+                            if (errorMessage != null) onClearError()
                         },
                         label = { Text("Email") },
                         leadingIcon = {
@@ -132,6 +137,7 @@ fun LoginScreen(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         ),
                         singleLine = true,
+                        enabled = !isLoading,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = DollorDriverColors.Blue,
                             unfocusedBorderColor = DollorDriverColors.Gray300
@@ -145,7 +151,7 @@ fun LoginScreen(
                         value = password,
                         onValueChange = {
                             password = it
-                            errorMessage = null
+                            if (errorMessage != null) onClearError()
                         },
                         label = { Text("Password") },
                         leadingIcon = {
@@ -174,10 +180,13 @@ fun LoginScreen(
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 focusManager.clearFocus()
-                                // Trigger login
+                                if (email.isNotBlank() && password.isNotBlank()) {
+                                    onLogin(email.trim(), password)
+                                }
                             }
                         ),
                         singleLine = true,
+                        enabled = !isLoading,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = DollorDriverColors.Blue,
                             unfocusedBorderColor = DollorDriverColors.Gray300
@@ -202,12 +211,10 @@ fun LoginScreen(
                     Button(
                         onClick = {
                             if (email.isBlank() || password.isBlank()) {
-                                errorMessage = "Please enter email and password"
+                                // Let the ViewModel handle this via the caller if needed,
+                                // but we can show a local hint
                             } else {
-                                isLoading = true
-                                // TODO: Implement actual login API call
-                                // For now, simulate login
-                                onLoginSuccess()
+                                onLogin(email.trim(), password)
                             }
                         },
                         modifier = Modifier
@@ -217,7 +224,7 @@ fun LoginScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = DollorDriverColors.Blue
                         ),
-                        enabled = !isLoading
+                        enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
@@ -231,6 +238,58 @@ fun LoginScreen(
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold
                                 )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Divider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = DollorDriverColors.Gray300)
+                        Text(
+                            text = "  or  ",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DollorDriverColors.Gray500
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = DollorDriverColors.Gray300)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Google Sign-In Button
+                    OutlinedButton(
+                        onClick = onGoogleSignInClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = DollorDriverColors.White
+                        ),
+                        border = BorderStroke(1.dp, DollorDriverColors.Gray300),
+                        enabled = !isLoading
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "G",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDB4437) // Google Red
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Continue with Google",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = DollorDriverColors.Gray900
                             )
                         }
                     }

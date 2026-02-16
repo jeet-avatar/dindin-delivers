@@ -22,7 +22,8 @@ import com.eatfair.driver.ui.theme.DollorDriverColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverHomeScreen(
-    navController: NavHostController
+    navController: NavHostController,
+    driverName: String? = null
 ) {
     var isOnline by remember { mutableStateOf(true) }
 
@@ -47,7 +48,7 @@ fun DriverHomeScreen(
                         color = DollorDriverColors.Gray500
                     )
                     Text(
-                        text = "Driver",
+                        text = driverName?.ifBlank { null } ?: "Driver",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold
                         ),
