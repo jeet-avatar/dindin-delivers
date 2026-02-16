@@ -11,7 +11,7 @@ echo "────────────────────────�
 echo "STEP 1: Setup Backend"
 echo "────────────────────────────────────────────────────────────"
 echo ""
-echo "cd /Users/jeet/doordash-p2p/backend"
+echo "cd backend"
 echo "python3 -m venv venv"
 echo "source venv/bin/activate"
 echo "pip install --upgrade pip"

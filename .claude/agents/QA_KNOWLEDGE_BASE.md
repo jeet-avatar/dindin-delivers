@@ -1,11 +1,13 @@
 # Dollor.ai QA Knowledge Base
 
-> **Last Updated:** February 11, 2026 @ 19:30 PST (34-Agent QA System)
+> **Last Updated:** February 15, 2026 @ 21:30 PST (34-Agent QA System)
 > **Backend Version:** 1.0.18
+> **iOS Builds:** Customer 1072 | Driver 182 | Restaurant 155 (all v1.0)
 > **Production API:** https://api.dollor.ai
 > **Staging API:** https://d3kuu45w6kl8hr.cloudfront.net
-> **Source:** All data captured from PRODUCTION API responses
+> **Source:** All data captured from PRODUCTION API + iOS source code
 > **Error Message Fix:** 53 patterns converted to user-friendly (100% compliance)
+> **Anti-Hallucination:** 60 rules + 69 Q&A pairs (Ollama dollor-customer model)
 
 ---
 
@@ -13,14 +15,14 @@
 
 | Metric | Value | Verified |
 |--------|-------|----------|
-| Status | healthy | ✅ 2026-02-11 |
-| Database | connected | ✅ 2026-02-11 |
+| Status | healthy | ✅ 2026-02-15 |
+| Database | connected | ✅ 2026-02-15 |
 | Version | 1.0.18 | ✅ DEPLOYED |
 | Build | 2026-02-11-negotiation-round-fix | ✅ DEPLOYED |
 
 **Raw Production Response:**
 ```json
-{"status":"healthy","service":"p2p-backend","version":"1.0.18","build":"2026-02-11-negotiation-round-fix","timestamp":"2026-02-11T03:12:46.527846","database":"connected"}
+{"status":"healthy","service":"p2p-backend","version":"1.0.18","build":"2026-02-11-negotiation-round-fix","timestamp":"2026-02-16T04:33:04.986923","database":"connected"}
 ```
 
 ---
@@ -292,10 +294,10 @@ PENDING (10 min) → ACCEPTED (customer accepts)
 | Addresses | `/api/customer/{id}/addresses` | List addresses |
 | Logout | Clear tokens | Navigate to login |
 
-### Driver App (5 Tabs) - Updated 2026-02-10
+### Driver App (5 Tabs) - Updated 2026-02-15
 
 **Bundle ID:** `com.dollorai.delivery`
-**Current Build:** 165
+**Current Build:** 182
 **Main Entry:** `DriverDashboardView.swift`
 
 #### Tab Structure (DriverDashboardView.swift lines 15-55)
@@ -439,15 +441,20 @@ apps/ios/delivery/eatffairdelivery/
     └── LocationManager.swift          # GPS tracking
 ```
 
-#### Driver App Critical Fixes (Build 165)
+#### Driver App Critical Fixes (Build 165-182)
 
-| Issue | File | Lines | Fix |
-|-------|------|-------|-----|
-| Wrong header during pickup | MyDeliveriesView.swift | 766-768 | Added `isPickedUp` computed property |
-| ETA to wrong location | MyDeliveriesView.swift | 801-825 | Calculate ETA to restaurant OR customer |
-| Map highlighting wrong dest | MyDeliveriesView.swift | 976-1018 | Dynamic marker sizing based on status |
-| Wrong action button | MyDeliveriesView.swift | 899-925 | "Confirm Pickup" vs "Complete Delivery" |
-| Driver accepting while busy | Backend bid_routes.py | 702-719 | Busy check for ALL active statuses |
+| Issue | Build | File | Fix |
+|-------|-------|------|-----|
+| Wrong header during pickup | 165 | MyDeliveriesView.swift:766-768 | Added `isPickedUp` computed property |
+| ETA to wrong location | 165 | MyDeliveriesView.swift:801-825 | Calculate ETA to restaurant OR customer |
+| Map highlighting wrong dest | 165 | MyDeliveriesView.swift:976-1018 | Dynamic marker sizing based on status |
+| Wrong action button | 165 | MyDeliveriesView.swift:899-925 | "Confirm Pickup" vs "Complete Delivery" |
+| Driver accepting while busy | 165 | bid_routes.py:702-719 | Busy check for ALL active statuses |
+| Missing Firebase config | 182 | GoogleService-Info.plist | Added Firebase plist for Driver app |
+| Info.plist URL scheme | 182 | Info.plist | Fixed CFBundleURLSchemes for Google Sign-In |
+| Charset variable crash | 182 | DriverLoginView.swift | Fixed undefined `charset` variable |
+| Duplicate tip endpoint | 182 | main_new.py:4717 | Removed shadow `add_ride_tip` (used `ride.tip` which doesn't exist) |
+| tip_amount column | 182 | models.py | Added `tip_amount` Float column to RideRequest model |
 
 #### Driver Busy Check Protection Matrix (Backend v1.0.13)
 
@@ -541,10 +548,10 @@ if message.contains("active ride") || message.contains("active delivery") {
 **Backend Contract Dependency:**
 iOS smart alerts depend on backend error messages containing "active ride" or "active delivery". Changes to these strings in bid_routes.py or order_flow.py require iOS coordination.
 
-### Restaurant App (5 Tabs) - Updated 2026-02-10
+### Restaurant App (5 Tabs) - Updated 2026-02-15
 
 **Total Lines:** 11,411
-**Build:** 140 (on TestFlight)
+**Build:** 155 (on TestFlight)
 **Main File:** `EnhancedDashboardView.swift` (1,691 lines)
 
 #### 5-Tab Structure (EnhancedDashboardView.swift:15-50)
@@ -753,20 +760,62 @@ delivered
 
 ---
 
-## 6. Pricing Model Validation
+## 6. Pricing Model Validation (GROUND_TRUTH Section 4)
 
-| Fee Type | Amount | Who Pays | Notes |
-|----------|--------|----------|-------|
-| Platform Fee (Food) | $1.00 | Customer | Per restaurant |
-| Platform Fee (Ride ≤$35) | $1.00 | Customer | Tiered |
-| Platform Fee (Ride $35-70) | $2.00 | Customer | Tiered |
-| Platform Fee (Ride >$70) | $3.00 | Customer | Tiered |
-| Restaurant Fee | $1.00 | Restaurant | Per restaurant |
-| Driver Commission | 0% | - | Driver keeps 100% |
+### Food Delivery Fees
+
+| Fee Type | Amount | Who Pays | Source |
+|----------|--------|----------|--------|
+| Customer service fee | **$1.00 flat** | Customer | `order_flow.py:400`, `AppConfig.swift:98` |
+| Restaurant platform fee | **$1.00 flat** | Restaurant | `order_flow.py:401`, `AppConfig.swift:99` |
+| Driver commission | **$0.00** | - | Driver keeps 100% of delivery fee + tips |
+| Small order fee | **$2.00** | Customer | Orders under $10 (`AppConfig.swift:66-67`) |
+| Max restaurants/order | **3** | Customer | Extra stop: $2.00 (`AppConfig.swift:62-64`) |
+
+### Delivery Fee (100% to driver)
+
+| Constant | Value | Source |
+|----------|-------|--------|
+| Base fee | $2.49 | `order_flow.py:405` |
+| Per mile | $0.50 | `order_flow.py:406`, `AppConfig.swift:237` |
+| Minimum | $2.99 | `order_flow.py:407`, `AppConfig.swift:61` |
+| Maximum | $12.99 | `order_flow.py:408`, `AppConfig.swift:238` |
+| Max distance | 15 miles | `AppConfig.swift:241` |
+
+### Rideshare Fees (BOTH sides pay)
+
+| Fare Range | Customer Pays | Driver Pays | Platform Total | Source |
+|-----------|--------------|------------|----------------|--------|
+| **<= $35** | Fare + **$1** | Fare - **$1** | **$2** | `rideshare_payments.py:36-43` |
+| **$35-$70** | Fare + **$2** | Fare - **$2** | **$4** | `rideshare_payments.py:36-43` |
+| **> $70** | Fare + **$3** | Fare - **$3** | **$6** | `rideshare_payments.py:36-43` |
+
+### Rideshare Fare Formula
+`max($5.00, $2.50 + distance × $1.15/mi + duration × $0.18/min)` (`AppConfig.swift:262-265`)
+
+### Cancellation Fees
+
+| Scenario | Fee | Source |
+|----------|-----|--------|
+| Base cancellation | $5.00 | `AppConfig.swift:266` |
+| Driver en route | $5.00 | `AppConfig.swift:267` |
+| Ride in progress | $10.00 | `AppConfig.swift:268` |
+
+### Tips
+- **100% to driver** - `tipPlatformFee = 0.00` (`AppConfig.swift:101`)
+- Rideshare: $0, $2, $5, $10 options (`AppConfig.swift:244`)
+- Delivery: 0%, 15%, 20%, 25% options, default 15% (`AppConfig.swift:239,245`)
+- Stored in `RideRequest.tip_amount` (Float, `models.py`)
+
+### Surge Pricing
+- Rideshare: max 3.0x (`AppConfig.swift:270`)
+- Delivery: max 2.0x (`order_flow.py:442`)
+- Feature flag `isDynamicPricingEnabled`: **false** (`AppConfig.swift:347`)
 
 **Anti-Pattern Check:** Code should NOT contain:
 - `commission = 0.15` or `15%`
 - `platform_fee = subtotal * X`
+- `ride.tip` (wrong field - use `ride_request.tip_amount`)
 
 ---
 
@@ -774,16 +823,21 @@ delivered
 
 | App | Bundle ID | Build | Version | Uploaded |
 |-----|-----------|-------|---------|----------|
-| Customer | com.dollorai.customer | 1060 | 1.0 | 2026-02-10 |
-| Driver | com.dollorai.delivery | **168** | 1.0 | 2026-02-11 |
-| Restaurant | com.dollorai.restaurant | 140 | 1.0 | 2026-02-10 |
+| Customer | com.dollorai.customer | **1072** | 1.0 | 2026-02-15 |
+| Driver | com.dollorai.delivery | **182** | 1.0 | 2026-02-15 |
+| Restaurant | com.dollorai.restaurant | **155** | 1.0 | 2026-02-15 |
 
-**QA Gate:** Build 168 includes:
+**QA Gate - Build 1072/182/155 includes:**
 - Smart error handling for driver bid blocking
 - Logger fixes across all ViewModels
 - Clean ride number format (RIDE2026000XXX)
 - Driver busy check (prevents bidding with active ride/delivery)
-- **ActiveDeliveryFullScreen fix** - isPickedUp pattern for status-aware UI
+- ActiveDeliveryFullScreen fix - isPickedUp pattern for status-aware UI
+- **Driver Firebase GoogleService-Info.plist** added
+- **Driver Info.plist URL scheme** fixed for Google Sign-In
+- **Duplicate tip endpoint removed** (`main_new.py:4717` shadow fixed)
+- **tip_amount column** added to RideRequest model (replaces non-existent `ride.tip`)
+- **xcconfig environment switching** (Debug=Staging, Release=Production)
 
 ---
 
@@ -946,5 +1000,110 @@ curl -s "https://api.dollor.ai/api/v5/driver/48/dashboard" | jq '.today, .this_w
 
 ---
 
-*Generated for Dollor.ai QA Team - Updated February 11, 2026*
-*34-Agent QA System v4.2.0*
+## 12. Firebase Configuration (Per App)
+
+| App | Bundle ID | Google App ID | OAuth Client ID |
+|-----|-----------|---------------|-----------------|
+| Customer | `com.dollorai.customer` | `1:65740760476:ios:973eaffa167f09b142d459` | `65740760476-0cnsrucn1tvadbf193cgio2siosnjg02` |
+| Driver | `com.dollorai.delivery` | `1:65740760476:ios:c030082ee8edb97742d459` | `65740760476-q3k21qkra9rm84de8eehsjsc42uo2lun` |
+| Restaurant | `com.dollorai.restaurant` | `1:65740760476:ios:17093713b66b4d8e42d459` | `65740760476-notp45u35afmee902jqkrkqhkp9lo1t2` |
+
+- **Project:** `dollorai-production` (number `65740760476`)
+- **Owner:** `support@dollor.ai` (ONLY authorized email)
+- **Storage:** `dollorai-production.firebasestorage.app`
+
+---
+
+## 13. Stripe Integration
+
+### Stripe Connect Accounts
+
+| User Type | Account Type | MCC | Source |
+|-----------|-------------|-----|--------|
+| Driver | Express (individual) | 4121 (Taxicabs) | `main_new.py:4043` |
+| Vendor | Express (company) | 5812 (Restaurants) | `main_new.py:4361` |
+
+### Key Stripe Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/payments/ride/create-intent` | Rideshare payment intent |
+| `POST /api/erp/payments/intent` | Food order payment intent |
+| `GET /api/drivers/{id}/stripe/create-account` | Create driver Stripe account |
+| `GET /api/drivers/{id}/stripe/onboarding-link` | Driver Stripe onboarding |
+| `POST /api/vendors/{id}/stripe/create-account` | Create vendor Stripe account |
+| `POST /api/webhooks/stripe` | Payment events webhook |
+| `POST /api/webhooks/stripe-connect` | Account events webhook |
+
+### Stripe Constants
+- Fee: **2.9% + $0.30** per transaction
+- Invoice format: `INV-{YYYYMMDD}-{sequence:05d}`
+- Demo accounts bypass Stripe: `demo.customer/driver/restaurant@dollor.ai`
+
+---
+
+## 14. Tax Rates (KNOWN DISCREPANCY)
+
+| Context | Rate | Source |
+|---------|------|--------|
+| iOS hardcoded default | **8%** | `AppConfig.swift:60` |
+| Backend /api/config | **9%** | `main_new.py:1070` |
+| Backend DEFAULT_TAX_RATE | **6%** | `order_flow.py:568` |
+| Actual checkout | **Per-state** | `order_flow.py:512-565` |
+
+**Key State Rates:**
+
+| State | Backend | iOS |
+|-------|---------|-----|
+| California | 7.25% | 7.25% |
+| New York | **8.875%** | **8%** (MISMATCH) |
+| Texas | 6.25% | 6.25% |
+| Florida | 6% | 6% |
+
+**Zero tax states:** AK, DE, MT, NH, OR
+
+---
+
+## 15. Company & Legal
+
+| Field | Value |
+|-------|-------|
+| Company | Zietra Technologies Inc |
+| Email | `support@dollor.ai` |
+| Phone | `+1-800-365-5671` |
+| Terms | `https://api.dollor.ai/terms` |
+| Privacy | `https://api.dollor.ai/privacy` |
+| Driver Terms | `https://dollor.ai/driver-terms` |
+| Restaurant Terms | `https://dollor.ai/restaurant-terms` |
+| Default location | Irvine, CA (33.6846, -117.8265) |
+| Driver earnings display | 96% |
+
+---
+
+## 16. Known Inconsistencies (from GROUND_TRUTH)
+
+1. **Three rideshare fee models coexist:** Model A (fare-tiered, canonical), Model B (distance-tiered), Model C (flat $1)
+2. **Tax rate mismatch:** iOS 8%, backend config 9%, DEFAULT_TAX_RATE 6%. NY: 8.875% vs 8%
+3. **Surge cap mismatch:** Delivery 2.0x vs Rideshare 3.0x (different services, by design)
+4. **Restaurant `todayRevenue` bug:** Case-sensitive comparison vs backend lowercase values → always $0
+5. **GoogleMapsConfig.swift** lists `com.dollorai.driver` but actual bundle is `com.dollorai.delivery`
+
+---
+
+## 17. Anti-Hallucination Training System
+
+| Component | Count | File |
+|-----------|-------|------|
+| Modelfile system rules | 60 | `.claude/training/Modelfile` |
+| JSONL Q&A pairs | 69 | `.claude/training/ground-truth-verified.jsonl` |
+| GROUND_TRUTH sections | 16 | `.claude/docs/GROUND_TRUTH.md` |
+
+**Coverage:** Registration fields, pricing (food + rideshare), tax rates, Stripe, Firebase, iOS configs, rideshare flow, tips, cancellation fees, company/legal, feature flags, environment URLs, bundle IDs, entitlements
+
+**Rebuild:** `ollama create dollor-customer -f .claude/training/Modelfile`
+**Test:** `ollama run dollor-customer "What is the customer service fee?"`
+
+---
+
+*Generated for Dollor.ai QA Team - Updated February 15, 2026*
+*34-Agent QA System v4.3.0 (Build 1072/182/155)*

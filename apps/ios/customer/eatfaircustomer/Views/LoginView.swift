@@ -314,13 +314,13 @@ struct LoginView: View {
 
                     // Footer Links - Clickable
                     HStack(spacing: 8) {
-                        Link("Terms of Use", destination: URL(string: "https://api.dollor.ai/terms")!)
+                        Link("Terms of Use", destination: URL(string: AppConstants.termsOfServiceURL)!)
                             .font(.system(size: 13))
                             .foregroundColor(primaryGreen)
                         Text("·")
                             .font(.system(size: 13))
                             .foregroundColor(borderColor)
-                        Link("Privacy Policy", destination: URL(string: "https://api.dollor.ai/privacy")!)
+                        Link("Privacy Policy", destination: URL(string: AppConstants.privacyPolicyURL)!)
                             .font(.system(size: 13))
                             .foregroundColor(primaryGreen)
                     }

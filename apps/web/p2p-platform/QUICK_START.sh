@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$SCRIPT_DIR/backend"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
+
 echo "🔍 Checking system status..."
 echo ""
 
@@ -51,7 +56,7 @@ echo ""
 
 # Check Python
 echo "Checking Python:"
-cd /Users/jeet/doordash-p2p/backend
+cd "$BACKEND_DIR"
 if [ -d "venv" ]; then
     echo "  ✓ Virtual environment exists"
     source venv/bin/activate
@@ -88,7 +93,7 @@ echo ""
 
 # Start backend
 echo "🚀 Starting backend server..."
-cd /Users/jeet/doordash-p2p/backend
+cd "$BACKEND_DIR"
 source venv/bin/activate
 python -m uvicorn main_new:app --reload --port 3000 > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
@@ -115,7 +120,7 @@ echo ""
 
 # Start frontend
 echo "🚀 Starting frontend server..."
-cd /Users/jeet/doordash-p2p/frontend
+cd "$FRONTEND_DIR"
 
 # Install npm dependencies if needed
 if [ ! -d "node_modules" ]; then

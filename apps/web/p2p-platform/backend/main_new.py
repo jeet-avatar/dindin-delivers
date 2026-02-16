@@ -1971,6 +1971,9 @@ class DriverLoginResponse(BaseModel):
     driver_code: str
     name: str
     email: str
+    status: Optional[str] = None
+    is_approved: bool = False
+    requires_documents: bool = False
 
     class Config:
         from_attributes = True
@@ -14927,7 +14930,7 @@ async def add_customer_address(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_addresses = customer.saved_addresses or []
+    saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
     # Create new address with ID
     new_id = len(saved_addresses)
@@ -14975,7 +14978,7 @@ async def update_customer_address(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_addresses = customer.saved_addresses or []
+    saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
     # Find and update address
     for i, addr in enumerate(saved_addresses):
@@ -15024,7 +15027,7 @@ async def delete_customer_address(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    saved_addresses = customer.saved_addresses or []
+    saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
     # Find and remove address
     for i, addr in enumerate(saved_addresses):

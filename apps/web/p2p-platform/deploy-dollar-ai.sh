@@ -6,6 +6,9 @@
 
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "========================================"
 echo "Deploying EatFair P2P to dollar.ai"
 echo "========================================"
@@ -14,8 +17,8 @@ echo "========================================"
 S3_BUCKET="dollar-ai-frontend"
 CLOUDFRONT_DIST_ID="E1TL8YTTU1SF3A"
 CLOUDFRONT_DOMAIN="d3pus2gxlb5cer.cloudfront.net"
-FRONTEND_DIR="/Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/frontend"
-BACKEND_DIR="/Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
+BACKEND_DIR="$SCRIPT_DIR/backend"
 
 # Deploy Frontend
 echo ""
