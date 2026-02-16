@@ -1,0 +1,121 @@
+name: Deploy Notification Service to ECS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/core/notification-service/**'
+      - 'services/shared/**'
+      - '.github/workflows/deploy-notification-service.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: dollor-notification-service
+  ECS_CLUSTER: dollor-production
+  ECS_SERVICE: dollor-notification-service
+
+jobs:
+  deploy:
+    name: Build and Deploy Notification Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        working-directory: services
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+                       -f core/notification-service/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Render ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infrastructure/ecs/notification-service-task-definition.json
+          container-name: notification-service
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Check if service exists
+        id: check-service
+        run: |
+          SERVICE_STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --query 'services[0].status' --output text 2>/dev/null || echo "MISSING")
+          echo "status=$SERVICE_STATUS" >> $GITHUB_OUTPUT
+
+      - name: Register task definition
+        id: register-task-def
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://${{ steps.render-task-def.outputs.task-definition }} \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Create ECS service (if new)
+        if: steps.check-service.outputs.status != 'ACTIVE'
+        run: |
+          aws ecs create-service \
+            --cluster $ECS_CLUSTER \
+            --service-name $ECS_SERVICE \
+            --task-definition ${{ steps.register-task-def.outputs.arn }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-0364e2a6f013a5a00,subnet-0d10e7d90357dbec8],securityGroups=[sg-0f0300df4ba0989fe],assignPublicIp=DISABLED}"
+
+      - name: Update ECS service (if exists)
+        if: steps.check-service.outputs.status == 'ACTIVE'
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition ${{ steps.register-task-def.outputs.arn }} \
+            --desired-count 1
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE
+
+      - name: Deployment Summary
+        run: |
+          echo "=========================================="
+          echo "Notification Service Deployed!"
+          echo "=========================================="
+          echo "Cluster: $ECS_CLUSTER"
+          echo "Service: $ECS_SERVICE"
+          echo "Image: ${{ steps.build-image.outputs.image }}"
+          echo ""
+          echo "The notification service is now running on port 8009"
+          echo "Health check: /api/notifications/health"

@@ -1,0 +1,43 @@
+Demo Account for App Review:
+- Email: demo.customer@dollor.ai
+- Password: DemoCustomer2025!
+
+TESTING FOOD DELIVERY:
+1. Log in with demo credentials
+2. On home screen, tap "Food"
+3. Browse restaurants and add items to cart
+4. You can add from multiple restaurants (up to 3)
+5. Proceed to checkout
+6. Use Apple Pay (sandbox) or test card
+7. Order confirmation will display
+
+TESTING RIDESHARE:
+1. Log in with demo credentials
+2. On home screen, tap "Ride"
+3. Enter pickup location (or use current location)
+4. Enter dropoff location
+5. View transparent fare breakdown
+6. Tap "Find Driver" to request ride
+7. Note: In demo mode, drivers may not be available
+
+APPLE PAY TESTING:
+- Apple Pay works in sandbox mode
+- Use any test card in Apple Wallet simulator
+
+APP OVERVIEW:
+Dollor is a matchmaking platform with two services:
+1. Food Delivery - connecting customers with restaurants and delivery drivers
+2. Rideshare - connecting riders with independent drivers
+
+We are a matchmaking service, not a delivery company or transportation network company. Drivers are independent contractors who set their own rates.
+
+KEY DIFFERENTIATORS:
+- Drivers keep 100% of delivery fees and tips
+- Transparent pricing shows exactly where money goes
+- Multi-restaurant ordering (up to 3 restaurants per order)
+- $1 flat platform fee per restaurant
+- $1-$3 tiered rideshare connection fee
+
+Developer: Zietra Technologies
+Location: Rancho Santa Margarita, CA 92688
+Contact: support@dollor.ai

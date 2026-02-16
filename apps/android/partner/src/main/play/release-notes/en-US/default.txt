@@ -1,0 +1,7 @@
+Initial release of Dollor.ai Partner app for restaurants.
+
+• Receive and manage orders in real-time
+• Only $1 per order - no commission
+• Easy menu management
+• Order tracking and history
+• Direct payouts via Stripe

@@ -1,0 +1,7 @@
+Initial release of Dollor.ai Driver app.
+
+• Accept food delivery and rideshare requests
+• Keep 96%+ of every fare
+• Real-time navigation
+• Instant payouts via Stripe
+• In-app chat with customers
