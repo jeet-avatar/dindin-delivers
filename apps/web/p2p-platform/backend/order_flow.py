@@ -946,30 +946,33 @@ async def accept_ride(
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
-    ride = db.query(Order).filter(Order.id == ride_id).first()
+    ride = db.query(RideRequestModel).filter(RideRequestModel.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    if ride.driver_id:
+    if ride.matched_driver_id:
         raise HTTPException(status_code=400, detail="Ride already accepted by another driver")
 
     driver = db.query(Driver).filter(Driver.id == request.driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    ride.driver_id = driver.id
-    ride.driver_name = f"{driver.first_name} {driver.last_name}"
-    ride.status = OrderStatus.OUT_FOR_DELIVERY
+    if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED, DriverStatus.ONLINE]:
+        raise HTTPException(status_code=400, detail="Driver is not active")
+
+    ride.matched_driver_id = driver.id
+    ride.status = RideRequestStatus.MATCHED
+    ride.matched_at = datetime.now()
 
     db.commit()
 
     return {
         "success": True,
         "ride_id": ride.id,
-        "ride_number": ride.order_number,
+        "ride_number": ride.request_id,
         "driver_id": driver.id,
-        "driver_name": ride.driver_name,
-        "status": "driver_on_way",
+        "driver_name": f"{driver.first_name} {driver.last_name}",
+        "status": "matched",
         "processed_by": ai_employee["name"]
     }
 
@@ -982,22 +985,22 @@ async def ride_picked_up(
     """
     Driver picked up customer
     """
-    ride = db.query(Order).filter(Order.id == ride_id).first()
+    ride = db.query(RideRequestModel).filter(RideRequestModel.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    # Mark as in transit
-    ride.status = OrderStatus.OUT_FOR_DELIVERY
-    ride.preparing_at = datetime.now()  # Using as pickup time
+    # Mark as in progress
+    ride.status = RideRequestStatus.IN_PROGRESS
+    picked_up_at = datetime.now()
 
     db.commit()
 
     return {
         "success": True,
         "ride_id": ride.id,
-        "ride_number": ride.order_number,
-        "status": "in_transit",
-        "picked_up_at": ride.preparing_at.isoformat()
+        "ride_number": ride.request_id,
+        "status": "in_progress",
+        "picked_up_at": picked_up_at.isoformat()
     }
 
 
@@ -1011,26 +1014,38 @@ async def ride_completed(
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
-    ride = db.query(Order).filter(Order.id == ride_id).first()
+    from rideshare_payments import get_tier_fee
+
+    ride = db.query(RideRequestModel).filter(RideRequestModel.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    ride.status = OrderStatus.DELIVERED
-    ride.delivered_at = datetime.now()
+    if ride.status == RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Ride already completed")
 
-    # Calculate driver earnings
-    driver_earnings = (ride.delivery_fee or 0) + (ride.tip or 0)
+    ride.status = RideRequestStatus.COMPLETED
+    ride.completed_at = datetime.now()
+
+    # Calculate driver earnings with tiered platform fee
+    fare = ride.final_price or ride.suggested_price or 0
+    tier_fee = get_tier_fee(fare)
+    driver_earnings = round(fare - tier_fee + (ride.tip_amount or 0), 2)
+
+    ride.platform_fee = tier_fee * 2  # customer + driver side
+    ride.driver_payout = driver_earnings
 
     db.commit()
 
     return {
         "success": True,
         "ride_id": ride.id,
-        "ride_number": ride.order_number,
+        "ride_number": ride.request_id,
         "status": "completed",
-        "completed_at": ride.delivered_at.isoformat(),
+        "completed_at": ride.completed_at.isoformat(),
+        "fare": fare,
+        "tier_fee": tier_fee,
         "driver_earnings": driver_earnings,
-        "platform_fee": PLATFORM_FEE,  # $1.00 only
+        "platform_fee": tier_fee * 2,
         "processed_by": ai_employee["name"]
     }
 
