@@ -8753,6 +8753,11 @@ public struct P2PDeliveryOrder: Identifiable, Codable {
     public let minutesUntilReady: Int?
     public let isReady: Bool?
 
+    // Delivery details
+    public let deliveryInstructions: String?
+    public let items: [[String: AnyCodable]]?
+    public let itemsCount: Int?
+
     // Driver en-route fields (early driver acceptance)
     public let driverEnRoute: Bool?
     public let driverAcceptedAt: String?
@@ -8790,6 +8795,10 @@ public struct P2PDeliveryOrder: Identifiable, Codable {
         case assignedAt = "assigned_at"
         case pickedUpAt = "picked_up_at"
         case deliveredAt = "delivered_at"
+        // Delivery details
+        case deliveryInstructions = "delivery_instructions"
+        case items
+        case itemsCount = "items_count"
         // ETA fields
         case estimatedPrepMinutes = "estimated_prep_minutes"
         case estimatedReadyAt = "estimated_ready_at"
@@ -11255,6 +11264,228 @@ extension P2PAPIService {
         }.resume()
     }
 
+    // MARK: - Stripe Connect APIs (Driver Payouts)
+
+    /// Create a Stripe Connect Express account for a driver
+    public func createStripeConnectAccount(
+        driverId: Int,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/stripe/connect") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    let detail = json["detail"] as? String ?? "Failed to create Stripe account"
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                    return
+                }
+                completion(.success(json))
+            }
+        }.resume()
+    }
+
+    /// Get Stripe onboarding link for driver to complete payout setup
+    public func getStripeOnboardingLink(
+        driverId: Int,
+        returnUrl: String = "dollor://driver/profile",
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        var components = URLComponents(string: "\(baseURL)/drivers/\(driverId)/stripe/onboarding-link")
+        components?.queryItems = [
+            URLQueryItem(name: "return_url", value: returnUrl),
+            URLQueryItem(name: "refresh_url", value: returnUrl)
+        ]
+
+        guard let url = components?.url else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    let detail = json["detail"] as? String ?? "Failed to get onboarding link"
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                    return
+                }
+                if let onboardingUrl = json["onboarding_url"] as? String {
+                    completion(.success(onboardingUrl))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("No onboarding URL returned")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get the driver's Stripe Connect account status
+    public func getStripeAccountStatus(
+        driverId: Int,
+        completion: @escaping (Result<P2PStripeStatus, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/stripe/status") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to get Stripe status")))
+                    }
+                    return
+                }
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let status = try decoder.decode(P2PStripeStatus.self, from: data)
+                    completion(.success(status))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get Stripe Express dashboard link for driver to manage payouts
+    public func getStripeDashboardLink(
+        driverId: Int,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/stripe/dashboard-link") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    let detail = json["detail"] as? String ?? "Failed to get dashboard link"
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                    return
+                }
+                if let dashboardUrl = json["dashboard_url"] as? String {
+                    completion(.success(dashboardUrl))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("No dashboard URL returned")))
+                }
+            }
+        }.resume()
+    }
+
+    /// Get driver's payout history from completed rides
+    public func getPayoutHistory(
+        driverId: Int,
+        limit: Int = 20,
+        completion: @escaping (Result<P2PPayoutHistoryResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/drivers/\(driverId)/payout-history?limit=\(limit)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to fetch payout history")))
+                    }
+                    return
+                }
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let history = try decoder.decode(P2PPayoutHistoryResponse.self, from: data)
+                    completion(.success(history))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     // MARK: - Cart Management APIs
 
     /// Get the current customer's cart
@@ -12830,6 +13061,110 @@ public struct P2PPaymentHistoryItem: Codable {
     public let type: String
     public let status: String
     public let date: String
+}
+
+// MARK: - Stripe Connect Response Models
+
+public struct P2PStripeStatus: Codable {
+    public let success: Bool
+    public let hasStripeAccount: Bool
+    public let stripeAccountId: String?
+    public let onboarded: Bool
+    public let chargesEnabled: Bool?
+    public let payoutsEnabled: Bool?
+    public let bankAccountLinked: Bool?
+    public let bankAccount: P2PBankAccount?
+    public let detailsSubmitted: Bool?
+    public let requirements: P2PStripeRequirements?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case hasStripeAccount = "has_stripe_account"
+        case stripeAccountId = "stripe_account_id"
+        case onboarded
+        case chargesEnabled = "charges_enabled"
+        case payoutsEnabled = "payouts_enabled"
+        case bankAccountLinked = "bank_account_linked"
+        case bankAccount = "bank_account"
+        case detailsSubmitted = "details_submitted"
+        case requirements
+    }
+}
+
+public struct P2PBankAccount: Codable {
+    public let bankName: String?
+    public let last4: String?
+    public let routingNumber: String?
+    public let accountHolderName: String?
+    public let status: String?
+
+    enum CodingKeys: String, CodingKey {
+        case bankName = "bank_name"
+        case last4
+        case routingNumber = "routing_number"
+        case accountHolderName = "account_holder_name"
+        case status
+    }
+}
+
+public struct P2PStripeRequirements: Codable {
+    public let currentlyDue: [String]?
+    public let eventuallyDue: [String]?
+    public let pendingVerification: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case currentlyDue = "currently_due"
+        case eventuallyDue = "eventually_due"
+        case pendingVerification = "pending_verification"
+    }
+}
+
+// MARK: - Payout History Response Models
+
+public struct P2PPayoutHistoryResponse: Codable {
+    public let driverId: Int
+    public let driverName: String
+    public let stripeConnected: Bool
+    public let stripeOnboarded: Bool
+    public let totalEarnings: Double
+    public let totalTips: Double
+    public let payoutCount: Int
+    public let payouts: [P2PPayout]
+
+    enum CodingKeys: String, CodingKey {
+        case driverId = "driver_id"
+        case driverName = "driver_name"
+        case stripeConnected = "stripe_connected"
+        case stripeOnboarded = "stripe_onboarded"
+        case totalEarnings = "total_earnings"
+        case totalTips = "total_tips"
+        case payoutCount = "payout_count"
+        case payouts
+    }
+}
+
+public struct P2PPayout: Codable {
+    public let id: Int
+    public let requestId: String?
+    public let completedAt: String?
+    public let pickup: String?
+    public let dropoff: String?
+    public let rideFare: Double
+    public let platformFee: Double
+    public let tip: Double
+    public let payout: Double
+    public let stripeTransferId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case requestId = "request_id"
+        case completedAt = "completed_at"
+        case pickup, dropoff
+        case rideFare = "ride_fare"
+        case platformFee = "platform_fee"
+        case tip, payout
+        case stripeTransferId = "stripe_transfer_id"
+    }
 }
 
 // MARK: - Cart Response Models
