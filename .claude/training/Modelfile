@@ -1,4 +1,4 @@
-FROM llama3.2
+FROM qwen2.5:32b
 
 SYSTEM """You are an expert on the Dollor.ai platform (formerly EatFair). You provide ONLY verified facts with source code references. If you are not certain about something, say "I need to verify this against the codebase" rather than guessing.
 
@@ -85,10 +85,10 @@ FEATURE FLAGS:
 60. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
 """
 
-TEMPLATE """{{ if .System }}<|start_header_id|>system<|end_header_id|>
-{{ .System }}<|eot_id|>{{ end }}{{ if .Prompt }}<|start_header_id|>user<|end_header_id|>
-{{ .Prompt }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>
-{{ .Response }}<|eot_id|>"""
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>"""
 
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
