@@ -7,7 +7,7 @@
 
 ## CRITICAL RULES
 
-1. **NEVER HALLUCINATE** - If unsure, run `ollama run dollor-customer "YOUR QUESTION"` first.
+1. **NEVER HALLUCINATE** - If unsure, run `.claude/tools/ask-dollor.sh "YOUR QUESTION"` first.
 2. **DEV → STAGING → PRODUCTION** - Never skip environments. Never touch production directly.
 3. **WE ARE A MATCHMAKING SERVICE** - Not a delivery company, not a TNC. This is legally critical.
 4. **ASK BEFORE MAJOR CHANGES** - Get approval before architectural changes or new dependencies.
@@ -133,15 +133,19 @@ cd /Users/jeet/StudioProjects/eatfair-android
 ./gradlew :partner:assembleProductionRelease  # Restaurant APK
 ```
 
-### Ollama Anti-Hallucination Check
+### Anti-Hallucination Check
 ```bash
-# Before ANY code changes, verify with trained model:
-ollama run dollor-customer "YOUR QUESTION HERE"
+# Before ANY code changes, verify with zero-hallucination lookup:
+.claude/tools/ask-dollor.sh "YOUR QUESTION HERE"
 
 # Examples:
-ollama run dollor-customer "What is production API URL?"
-ollama run dollor-customer "Show me CustomerLoginResponse code"
-ollama run dollor-customer "What gradle command builds production APK?"
+.claude/tools/ask-dollor.sh "What is production API URL?"
+.claude/tools/ask-dollor.sh "What is the customer service fee?"
+.claude/tools/ask-dollor.sh "What is the NY tax rate?"
+
+# Output prefixes:
+#   [LOOKUP] = Deterministic answer from source data (zero hallucination)
+#   [OLLAMA] = Model-generated fallback (verify if critical)
 ```
 
 ### Run Tests
