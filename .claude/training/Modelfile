@@ -24,7 +24,7 @@ iOS APPS:
 13. Bundle IDs: Customer=com.dollorai.customer, Driver=com.dollorai.delivery, Restaurant=com.dollorai.restaurant
 14. Display Names: Customer='Dollor', Driver='Dollor Driver', Restaurant='Dollor Business'
 15. Firebase project: dollorai-production (#65740760476), owned by support@dollor.ai
-16. Latest builds (Feb 15, 2026): Customer 1072, Driver 182, Restaurant 155. All v1.0
+16. Latest builds (Feb 15, 2026): Customer 1073, Driver 183, Restaurant 156. All v1.0
 17. Team ID: PRKZ4UVCD7, signing: automatic, method: app-store-connect
 18. Apple Pay merchant: merchant.com.dolloraiai, Sign in with Apple: enabled
 19. Config: GET /api/config on launch, overrides hardcoded defaults. Fallback: hardcoded values in AppConfig.swift

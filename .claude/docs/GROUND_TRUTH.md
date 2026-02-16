@@ -1,7 +1,7 @@
 # DOLLOR.AI GROUND TRUTH (Backend-Verified)
 
 > Auto-generated from backend source code. Every fact includes file:line reference.
-> Last verified: February 15, 2026 (Build 1072/182/155)
+> Last verified: February 15, 2026 (Build 1073/183/156)
 
 ---
 
@@ -291,9 +291,9 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 ### Build Numbers (Feb 15, 2026)
 | App | Build | Version | Display Name |
 |-----|-------|---------|-------------|
-| Customer | 1072 | 1.0 | Dollor / Dollor - $1 Delivery |
-| Driver | 182 | 1.0 | Dollor Driver / Dollor Driver - Earn More |
-| Restaurant | 155 | 1.0 | Dollor Business / Dollor for Restaurants |
+| Customer | 1073 | 1.0 | Dollor / Dollor - $1 Delivery |
+| Driver | 183 | 1.0 | Dollor Driver / Dollor Driver - Earn More |
+| Restaurant | 156 | 1.0 | Dollor Business / Dollor for Restaurants |
 
 ### Environment URLs (xcconfig)
 | Env | API | WebSocket | CDN |
