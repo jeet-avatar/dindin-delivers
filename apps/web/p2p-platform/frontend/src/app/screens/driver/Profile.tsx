@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Avatar, Typography, Row, Col, Button, List, Switch, Tag, Spin, message, Modal, Form, Input, Divider } from 'antd';
+import { Card, Avatar, Typography, Row, Col, Button, List, Switch, Tag, Spin, message, Modal, Form, Input, Divider, Descriptions } from 'antd';
 import {
   UserOutlined,
   CarOutlined,
@@ -18,7 +18,10 @@ import {
   HomeOutlined,
   EnvironmentOutlined,
   PhoneOutlined,
-  SaveOutlined
+  SaveOutlined,
+  CalendarOutlined,
+  IdcardOutlined,
+  MailOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getDriverProfile, getCurrentDriverId, updateDriverProfile, DriverProfile as DriverProfileType } from '../../api/api';
@@ -100,40 +103,6 @@ const Profile: React.FC = () => {
       setSaving(false);
     }
   };
-
-  const menuItems = [
-    {
-      key: 'personal',
-      icon: <UserOutlined />,
-      label: 'Personal Information',
-      description: 'Name, email, phone number',
-    },
-    {
-      key: 'vehicle',
-      icon: <CarOutlined />,
-      label: 'Vehicle Information',
-      description: driverData ? `${driverData.vehicle_make || ''} ${driverData.vehicle_model || ''}`.trim() || 'Not set' : 'Not set',
-    },
-    {
-      key: 'documents',
-      icon: <FileTextOutlined />,
-      label: 'Documents',
-      description: 'License, insurance, registration',
-      badge: driverData && !driverData.drivers_license ? 1 : 0,
-    },
-    {
-      key: 'bank',
-      icon: <BankOutlined />,
-      label: 'Bank & Payouts',
-      description: 'Payment methods and history',
-    },
-    {
-      key: 'ratings',
-      icon: <StarOutlined />,
-      label: 'Ratings & Reviews',
-      description: `${driverData?.rating?.toFixed(1) || '5.0'} average rating`,
-    },
-  ];
 
   const settingsItems = [
     {
@@ -262,16 +231,95 @@ const Profile: React.FC = () => {
         </div>
       </Card>
 
-      {/* Profile Menu */}
+      {/* Personal Information */}
+      <Card className="detail-card">
+        <div className="section-header">
+          <Text strong style={{ fontSize: 16 }}>
+            <UserOutlined /> Personal Information
+          </Text>
+          <Button type="link" size="small" onClick={openEditModal}>Edit</Button>
+        </div>
+        <Descriptions column={{ xs: 1, sm: 2 }} size="small" colon={false}>
+          <Descriptions.Item label={<><UserOutlined /> First Name</>}>
+            {driverData?.first_name || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label={<><UserOutlined /> Last Name</>}>
+            {driverData?.last_name || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label={<><MailOutlined /> Email</>}>
+            {driverData?.email || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label={<><PhoneOutlined /> Phone</>}>
+            {driverData?.phone || driverData?.phone_number || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label={<><CalendarOutlined /> Date of Birth</>}>
+            {driverData?.date_of_birth ? new Date(driverData.date_of_birth).toLocaleDateString('en-US') : '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label={<><IdcardOutlined /> License #</>}>
+            {driverData?.license_number || '--'}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
+
+      {/* Address */}
+      <Card className="detail-card">
+        <div className="section-header">
+          <Text strong style={{ fontSize: 16 }}>
+            <HomeOutlined /> Address
+          </Text>
+          <Button type="link" size="small" onClick={openEditModal}>Edit</Button>
+        </div>
+        <Descriptions column={1} size="small" colon={false}>
+          <Descriptions.Item label={<><EnvironmentOutlined /> Street</>}>
+            {driverData?.street || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="City / State / ZIP">
+            {[driverData?.city, driverData?.state, driverData?.zip_code].filter(Boolean).join(', ') || '--'}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
+
+      {/* Vehicle Information */}
+      <Card className="detail-card">
+        <div className="section-header">
+          <Text strong style={{ fontSize: 16 }}>
+            <CarOutlined /> Vehicle Information
+          </Text>
+        </div>
+        <Descriptions column={{ xs: 1, sm: 2 }} size="small" colon={false}>
+          <Descriptions.Item label="Make">
+            {driverData?.vehicle_make || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Model">
+            {driverData?.vehicle_model || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Year">
+            {driverData?.vehicle_year || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Color">
+            {driverData?.vehicle_color || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="License Plate">
+            {driverData?.license_plate || '--'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Type">
+            {driverData?.vehicle_type || '--'}
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
+
+      {/* Quick Links */}
       <Card className="menu-card">
         <List
-          dataSource={menuItems}
+          dataSource={[
+            { key: 'documents', icon: <FileTextOutlined />, label: 'Documents', description: 'License, insurance, registration', badge: driverData && !driverData.drivers_license ? 1 : 0 },
+            { key: 'bank', icon: <BankOutlined />, label: 'Bank & Payouts', description: 'Payment methods and history', badge: 0 },
+            { key: 'ratings', icon: <StarOutlined />, label: 'Ratings & Reviews', description: `${driverData?.rating?.toFixed(1) || '5.0'} average rating`, badge: 0 },
+          ]}
           renderItem={(item) => (
             <List.Item className="menu-item" onClick={() => {
               if (item.key === 'documents') {
                 navigate('/driver/documents');
-              } else {
-                console.log(item.key);
               }
             }}>
               <div className="menu-item-content">
@@ -473,6 +521,17 @@ const Profile: React.FC = () => {
         .documents-card {
           border-radius: 16px;
           margin-bottom: 20px;
+        }
+        .detail-card {
+          border-radius: 16px;
+          margin-bottom: 20px;
+        }
+        .detail-card .ant-descriptions-item-label {
+          color: #8c8c8c;
+          font-size: 13px;
+        }
+        .detail-card .ant-descriptions-item-content {
+          font-weight: 500;
         }
         .section-header {
           display: flex;
