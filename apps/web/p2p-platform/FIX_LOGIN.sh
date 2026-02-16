@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Fix Login Issue Script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "🔧 Fixing login issue..."
 
-cd /Users/jeet/doordash-p2p/backend
+cd "$SCRIPT_DIR/backend"
 
 # Activate virtual environment
 source venv/bin/activate

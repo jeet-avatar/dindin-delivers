@@ -3,6 +3,9 @@
 # DoorDash P2P - Complete Startup Script
 # This script checks and starts all required services
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 echo "🚀 DoorDash P2P - Startup Script"
 echo "================================"
 echo ""
@@ -16,7 +19,7 @@ NC='\033[0m' # No Color
 # Check if we're in the right directory
 if [ ! -f "backend/main_new.py" ]; then
     echo -e "${RED}❌ Error: Please run this script from the project root directory${NC}"
-    echo "   cd /Users/jeet/doordash-p2p"
+    echo "   cd to the p2p-platform directory"
     exit 1
 fi
 
@@ -99,11 +102,11 @@ echo ""
 echo "📋 Quick Start Commands:"
 echo ""
 echo "Backend (Terminal 1):"
-echo "  cd /Users/jeet/doordash-p2p/backend"
+echo "  cd backend"
 echo "  uvicorn main_new:app --reload --port 3000"
 echo ""
 echo "Frontend (Terminal 2):"
-echo "  cd /Users/jeet/doordash-p2p/frontend"
+echo "  cd frontend"
 echo "  npm run dev"
 echo ""
 echo "🌐 Access URLs:"

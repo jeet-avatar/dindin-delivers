@@ -66,6 +66,10 @@
         {
           "name": "SMTP_PASSWORD",
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_PASSWORD::"
+        },
+        {
+          "name": "FIREBASE_CREDENTIALS_JSON",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/staging/firebase-creds-bEdTVv"
         }
       ],
       "logConfiguration": {

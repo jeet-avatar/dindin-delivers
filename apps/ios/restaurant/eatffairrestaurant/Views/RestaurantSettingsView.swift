@@ -288,7 +288,7 @@ struct RestaurantSettingsView: View {
                             }
                         }
 
-                        Link(destination: URL(string: "https://admin.dollor.ai")!) {
+                        Link(destination: URL(string: AppConstants.adminPanelURL)!) {
                             HStack {
                                 Image(systemName: "globe")
                                 Text("Go to Admin Portal")

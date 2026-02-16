@@ -1,9 +1,11 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "🚀 Starting DoorDash P2P Frontend..."
 echo ""
 
-cd /Users/jeet/doordash-p2p/frontend
+cd "$SCRIPT_DIR/frontend"
 
 # Kill existing process on port 5173
 if lsof -ti:5173 > /dev/null 2>&1; then

@@ -21,6 +21,7 @@ requests==2.32.3
 pillow==11.0.0
 boto3==1.35.80
 apscheduler==3.10.4
+firebase-admin==6.4.0
 
 # Testing dependencies
 pytest==8.3.4

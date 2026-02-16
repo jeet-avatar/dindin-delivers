@@ -593,6 +593,9 @@ public struct AppConstants {
     public static let privacyPolicyURL = "https://api.dollor.ai/privacy"
     public static let driverTermsURL = "https://dollor.ai/driver-terms"
     public static let restaurantTermsURL = "https://dollor.ai/restaurant-terms"
+    public static let driverApplicationURL = "https://dollor.ai/driver-application"
+    public static let adminPanelURL = "https://admin.dollor.ai"
+    public static let appDownloadURL = "https://dollor.ai/app"
 }
 
 // MARK: - State Tax Rates (matches pricing_config.py STATE_TAX_RATES)

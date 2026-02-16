@@ -1422,7 +1422,7 @@ struct RideStatusCard: View {
                     HStack(spacing: 12) {
                         // Driver Photo
                         if let photoUrl = driver.photo_url,
-                           let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                           let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "\(AppConfig.shared.cdnBaseURL)\(photoUrl)") {
                             AsyncImage(url: url) { image in
                                 image
                                     .resizable()
@@ -1485,7 +1485,7 @@ struct RideStatusCard: View {
                         HStack(spacing: 12) {
                             // Vehicle Photo
                             if let vehiclePhotoUrl = driver.vehicle_photo_url,
-                               let url = URL(string: vehiclePhotoUrl.hasPrefix("http") ? vehiclePhotoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(vehiclePhotoUrl)") {
+                               let url = URL(string: vehiclePhotoUrl.hasPrefix("http") ? vehiclePhotoUrl : "\(AppConfig.shared.cdnBaseURL)\(vehiclePhotoUrl)") {
                                 AsyncImage(url: url) { image in
                                     image
                                         .resizable()
@@ -2001,7 +2001,7 @@ struct RideStatusCard: View {
                     if let driver = viewModel.acceptedDriver {
                         HStack(spacing: 12) {
                             if let photoUrl = driver.photo_url,
-                               let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                               let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "\(AppConfig.shared.cdnBaseURL)\(photoUrl)") {
                                 AsyncImage(url: url) { image in
                                     image
                                         .resizable()
@@ -2682,7 +2682,7 @@ struct DriverBidCard: View {
             HStack(spacing: 12) {
                 // Driver Photo
                 if let photoUrl = bid.driver_photo_url,
-                   let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "https://d3kuu45w6kl8hr.cloudfront.net\(photoUrl)") {
+                   let url = URL(string: photoUrl.hasPrefix("http") ? photoUrl : "\(AppConfig.shared.cdnBaseURL)\(photoUrl)") {
                     AsyncImage(url: url) { image in
                         image
                             .resizable()

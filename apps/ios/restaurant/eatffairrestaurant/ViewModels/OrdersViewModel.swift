@@ -123,7 +123,7 @@ class OrdersViewModel: ObservableObject {
     var completedOrders: [Order] {
         allOrders.filter {
             let status = $0.status.lowercased()
-            return status == "delivered" || status == "picked_up" || status == "out_for_delivery"
+            return status == "delivered" || status == "pickedup" || status == "ontheway"
         }
         .sorted { $0.placedAt > $1.placedAt }
     }
@@ -143,8 +143,9 @@ class OrdersViewModel: ObservableObject {
         return allOrders
             .filter {
                 let orderDate = Date(timeIntervalSince1970: TimeInterval($0.placedAt) / 1000)
+                let status = $0.status.lowercased()
                 return calendar.isDate(orderDate, inSameDayAs: today) &&
-                       ($0.status == "Delivered" || $0.status == "Ready" || $0.status == "Picked Up")
+                       (status == "delivered" || status == "ready" || status == "ready_for_pickup" || status == "pickedup" || status == "ontheway")
             }
             .reduce(0) { $0 + $1.total }
     }

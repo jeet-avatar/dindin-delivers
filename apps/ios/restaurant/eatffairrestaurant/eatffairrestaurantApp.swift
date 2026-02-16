@@ -27,7 +27,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         GMSPlacesClient.provideAPIKey(GoogleMapsConfig.currentKey)
 
         // Configure Firebase (for messaging only - auth uses P2P backend)
-        FirebaseApp.configure()
+        // Safety check: Only configure if GoogleService-Info.plist bundle ID matches app bundle ID
+        if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+           let plist = NSDictionary(contentsOfFile: path),
+           let plistBundleId = plist["BUNDLE_ID"] as? String,
+           plistBundleId == Bundle.main.bundleIdentifier {
+            FirebaseApp.configure()
+        } else {
+            // Log mismatch for debugging - app will work without Firebase features
+            logger.warning("GoogleService-Info.plist BUNDLE_ID mismatch or missing, skipping Firebase")
+        }
 
         // Load app configuration
         AppConfig.shared.fetchConfig()
@@ -161,6 +170,10 @@ struct EatffairrestaurantApp: App {
                 .onAppear {
                     // Clear badge on app launch
                     NotificationManager.shared.clearBadge()
+                }
+                .onOpenURL { url in
+                    // Handle Google Sign-In URL callback
+                    GIDSignIn.sharedInstance.handle(url)
                 }
         }
     }

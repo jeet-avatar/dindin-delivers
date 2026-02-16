@@ -469,7 +469,7 @@ struct VehicleDocumentsSection: View {
     @ObservedObject var viewModel: DriverProfileViewModel
     @State private var showWebVerification = false
 
-    private let webVerificationURL = "https://dollor.ai/driver-application"
+    private let webVerificationURL = AppConstants.driverApplicationURL
 
     var body: some View {
         VStack(spacing: 16) {
