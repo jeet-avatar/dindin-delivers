@@ -27,6 +27,20 @@ public class AppConfig: ObservableObject {
         return "https://api.dollor.ai"
     }()
 
+    /// CDN base URL for media assets (driver photos, vehicle photos, etc.)
+    /// Loaded from Info.plist CDN_URL (set via xcconfig)
+    /// Fallback: production API base URL
+    @Published public var cdnBaseURL: String = {
+        if let url = Bundle.main.object(forInfoDictionaryKey: "CDN_URL") as? String, !url.isEmpty {
+            return url
+        }
+        // Fallback to API base URL if CDN not configured
+        if let apiUrl = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !apiUrl.isEmpty {
+            return apiUrl
+        }
+        return "https://api.dollor.ai"
+    }()
+
     // MARK: - Microservice URLs (derived from base URL)
     /// Negotiation service for real-time price negotiation between drivers and customers
     public var negotiationServiceURL: String {
@@ -43,7 +57,7 @@ public class AppConfig: ObservableObject {
 
     // MARK: - Published Properties (hardcoded defaults, can be fetched from P2P API)
     // NOTE: These defaults MUST match pricing_config.py in the backend
-    @Published public var taxRate: Double = 0.08  // 8% tax (matches backend DEFAULT_TAX_RATE)
+    @Published public var taxRate: Double = 0.06  // 6% default tax (matches backend DEFAULT_TAX_RATE in order_flow.py:568)
     @Published public var baseDeliveryFee: Double = 2.99  // Delivery fee (matches backend DELIVERY_FEE_CONFIG.base_fee)
     @Published public var extraStopFee: Double = 2.0
     @Published public var platformFeePerRestaurant: Double = 1.0  // $1 platform fee (matches PLATFORM_FEE_CONFIG.flat_fee)
@@ -593,7 +607,7 @@ public struct StateTaxRates {
         "KY": 0.06, "LA": 0.0445, "ME": 0.055, "MD": 0.06,
         "MA": 0.0625, "MI": 0.06, "MN": 0.06875, "MS": 0.07,
         "MO": 0.04225, "MT": 0.0, "NE": 0.055, "NV": 0.0685,
-        "NH": 0.0, "NJ": 0.06625, "NM": 0.05125, "NY": 0.08,
+        "NH": 0.0, "NJ": 0.06625, "NM": 0.05125, "NY": 0.08875,
         "NC": 0.0475, "ND": 0.05, "OH": 0.0575, "OK": 0.045,
         "OR": 0.0, "PA": 0.06, "RI": 0.07, "SC": 0.06,
         "SD": 0.045, "TN": 0.07, "TX": 0.0625, "UT": 0.061,
