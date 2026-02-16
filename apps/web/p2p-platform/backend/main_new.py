@@ -968,6 +968,7 @@ def _run_startup_migrations():
         ("ride_requests", "payment_completed_at", "TIMESTAMP"),
         ("ride_requests", "driver_paid_at", "TIMESTAMP"),
         ("ride_requests", "stripe_transfer_id", "VARCHAR(255)"),
+        ("ride_requests", "tip_amount", "FLOAT DEFAULT 0"),
         # Early Driver Notification columns - orders table
         ("orders", "estimated_prep_minutes", "INTEGER"),
         ("orders", "estimated_ready_at", "TIMESTAMP"),
@@ -1067,7 +1068,7 @@ def get_app_config():
     """
     return {
         # Tax Rate
-        "taxRate": 0.09,  # 9% tax
+        "taxRate": 0.06,  # 6% default tax (matches DEFAULT_TAX_RATE in order_flow.py:568)
 
         # $1 Dollar Store Fee Structure - World's First!
         # ==============================================
@@ -4658,7 +4659,7 @@ async def complete_ride_and_pay_driver(
     # Driver gets: ride fare - platform fee + 100% of tip
     ride_fare = float(ride.suggested_price or 0)
     platform_fee = float(ride.platform_fee or 2.0)
-    tip = float(ride.tip or 0)
+    tip = float(ride.tip_amount or 0)
 
     driver_payout = round(ride_fare - platform_fee + tip, 2)
     driver_payout_cents = int(driver_payout * 100)
@@ -4751,7 +4752,7 @@ async def get_driver_payout_history(
 
     for ride in completed_rides:
         payout = float(ride.driver_payout or 0)
-        tip = float(ride.tip or 0)
+        tip = float(ride.tip_amount or 0)
         total_earnings += payout
         total_tips += tip
 
