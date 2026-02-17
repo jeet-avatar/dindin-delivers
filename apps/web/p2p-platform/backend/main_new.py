@@ -2066,25 +2066,33 @@ def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
     """Driver login - authenticates driver and returns token"""
     print(f"Driver login attempt for: {form_data.username}")
 
-    # Find user with DRIVER role
+    # Find user with DRIVER role first
     user = db.query(User).filter(
         User.email == form_data.username,
         User.role == UserRole.DRIVER
     ).first()
 
     if not user:
-        # Debug: Check if user exists with any role
+        # Also check for users with any role who have a linked driver account
+        # (Google Sign-In creates users with role=user but links a driver_id)
         any_user = db.query(User).filter(User.email == form_data.username).first()
-        if any_user:
-            print(f"User exists but wrong role: {any_user.role}, id={any_user.id}")
+        if any_user and any_user.driver_id:
+            user = any_user
+            print(f"User {form_data.username} has role={any_user.role.value} but has driver_id={any_user.driver_id}, allowing driver login")
+        elif any_user:
+            print(f"User exists but no driver account linked: role={any_user.role}, id={any_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         else:
             print(f"No user found with email: {form_data.username}")
-        print(f"Driver user not found: {form_data.username}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     print(f"Found user id={user.id}, role={user.role}, driver_id={user.driver_id}")
 
@@ -3277,38 +3285,29 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     return R * c
 
 
-def calculate_tiered_platform_fee(distance_miles: float) -> tuple[float, str]:
-    """
-    Calculate tiered platform fee based on distance.
-
-    Tiered pricing model:
-    - 0-10 miles: $1
-    - 10-20 miles: $2
-    - 20-30 miles: $3
-    - 30+ miles: $3 (capped)
-
-    Returns: (fee_amount, tier_description)
-    """
-    if distance_miles <= 10:
-        return 1.00, "0-10 miles"
-    elif distance_miles <= 20:
-        return 2.00, "10-20 miles"
+def get_fare_tier_description(fare: float) -> str:
+    """Get human-readable tier description for a fare amount."""
+    if fare <= 35.00:
+        return "fare <= $35"
+    elif fare <= 70.00:
+        return "fare $35-$70"
     else:
-        return 3.00, "20+ miles"
+        return "fare > $70"
 
 
 @app.post("/api/erp/rides/estimate-fare")
 def estimate_fare(request: FareEstimateRequest):
     """
-    Estimate fare for a ride - Tiered distance-based platform fee model
+    Estimate fare for a ride - Fare-tiered platform fee model (canonical)
 
-    Platform fee structure:
-    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
-    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
-    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
+    Platform fee structure (based on FARE AMOUNT, not distance):
+    - Fare <= $35: $1 from customer + $1 from driver = $2 platform revenue
+    - Fare $35-70: $2 from customer + $2 from driver = $4 platform revenue
+    - Fare > $70: $3 from customer + $3 from driver = $6 platform revenue
 
-    Customer pays: Base fare + distance rate + time estimate + tiered platform fee
-    Driver receives: Base fare + distance + time - tiered platform fee
+    Customer pays: Ride fare + platform fee
+    Driver receives: Ride fare - platform fee + 100% of tips
+    Source: rideshare_payments.py:36-43
     """
     # Calculate distance
     distance_km = calculate_distance_km(
@@ -3317,9 +3316,9 @@ def estimate_fare(request: FareEstimateRequest):
     )
     distance_miles = distance_km * 0.621371
 
-    # Pricing based on ride type
+    # Pricing based on ride type (canonical rates from pricing_config.py)
     pricing = {
-        "standard": {"base": 2.50, "per_mile": 1.50, "per_min": 0.25},
+        "standard": {"base": 2.50, "per_mile": 1.15, "per_min": 0.18},
         "premium": {"base": 5.00, "per_mile": 2.50, "per_min": 0.40},
         "xl": {"base": 4.00, "per_mile": 2.00, "per_min": 0.35},
         "shared": {"base": 1.50, "per_mile": 1.00, "per_min": 0.20}
@@ -3343,8 +3342,9 @@ def estimate_fare(request: FareEstimateRequest):
     # Ride fare (before platform fees)
     ride_fare = round(base_fare + distance_fare + time_fare, 2)
 
-    # Tiered platform fees based on distance
-    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    # Fare-tiered platform fees (canonical: rideshare_payments.py:36-43)
+    platform_fee = get_tier_fee(ride_fare)
+    fee_tier = get_fare_tier_description(ride_fare)
     customer_platform_fee = platform_fee
     driver_platform_fee = platform_fee
 
@@ -3385,10 +3385,10 @@ async def request_ride(
     """
     Request a new ride - creates ride request and matches with available drivers
 
-    Tiered platform fee model:
-    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
-    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
-    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
+    Fare-tiered platform fee model (canonical: rideshare_payments.py:36-43):
+    - Fare <= $35: $1 from customer + $1 from driver = $2 platform revenue
+    - Fare $35-70: $2 from customer + $2 from driver = $4 platform revenue
+    - Fare > $70: $3 from customer + $3 from driver = $6 platform revenue
     """
     import random
     import string
@@ -3432,23 +3432,23 @@ async def request_ride(
     )
     distance_miles = distance_km * 0.621371
 
-    # Fare calculation
+    # Fare calculation (canonical rates from pricing_config.py)
     base_fare = 2.50
-    distance_fare = distance_miles * 1.50
+    distance_fare = distance_miles * 1.15
     estimated_minutes = max(5, int((distance_miles / 25) * 60))
-    time_fare = estimated_minutes * 0.25
+    time_fare = estimated_minutes * 0.18
     ride_fare = round(base_fare + distance_fare + time_fare, 2)
 
-    # Tiered platform fees based on distance
-    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    # Fare-tiered platform fees (canonical: rideshare_payments.py:36-43)
+    platform_fee = get_tier_fee(ride_fare)
     customer_platform_fee = platform_fee
     driver_platform_fee = platform_fee
 
-    # Driver earnings = ride fare - tiered platform fee + 100% of tip
+    # Driver earnings = ride fare - fare-tiered platform fee + 100% of tip
     tip = request.tip or 0
     driver_earnings = round(ride_fare - driver_platform_fee + tip, 2)
 
-    # Customer total = ride fare + tiered platform fee + tip
+    # Customer total = ride fare + fare-tiered platform fee + tip
     total_fare = round(ride_fare + customer_platform_fee + tip, 2)
 
     # Get or create customer ID from token
@@ -3612,12 +3612,13 @@ def estimate_fare_frontend(
     tip: float = 0
 ):
     """
-    Frontend-compatible fare estimate endpoint with tiered distance-based pricing
+    Frontend-compatible fare estimate endpoint with fare-tiered platform fees
 
-    Platform fee structure:
-    - 0-10 miles: $1 from customer + $1 from driver = $2 platform revenue
-    - 10-20 miles: $2 from customer + $2 from driver = $4 platform revenue
-    - 20-30+ miles: $3 from customer + $3 from driver = $6 platform revenue (capped)
+    Platform fee structure (based on FARE AMOUNT, not distance):
+    - Fare <= $35: $1 from customer + $1 from driver = $2 platform revenue
+    - Fare $35-70: $2 from customer + $2 from driver = $4 platform revenue
+    - Fare > $70: $3 from customer + $3 from driver = $6 platform revenue
+    Source: rideshare_payments.py:36-43
     """
     if not all([pickup_lat, pickup_lng, dropoff_lat, dropoff_lng]):
         raise HTTPException(status_code=400, detail="Missing coordinate parameters")
@@ -3626,10 +3627,10 @@ def estimate_fare_frontend(
     distance_miles = distance_km * 0.621371
     estimated_minutes = max(5, int((distance_miles / 25) * 60))
 
-    # Calculate fare
+    # Calculate fare (canonical rates from pricing_config.py)
     base_fare = 2.50
-    distance_fee = distance_miles * 1.50
-    time_fee = estimated_minutes * 0.25
+    distance_fee = distance_miles * 1.15
+    time_fee = estimated_minutes * 0.18
     ride_fare = round(base_fare + distance_fee + time_fee, 2)
 
     # Tax (state-based)
@@ -3637,8 +3638,9 @@ def estimate_fare_frontend(
     tax_rate = tax_rates.get(state_code, 0.07)
     tax_amount = round(ride_fare * tax_rate, 2)
 
-    # Tiered platform fees based on distance
-    platform_fee, fee_tier = calculate_tiered_platform_fee(distance_miles)
+    # Fare-tiered platform fees (canonical: rideshare_payments.py:36-43)
+    platform_fee = get_tier_fee(ride_fare)
+    fee_tier = get_fare_tier_description(ride_fare)
     driver_platform_fee = platform_fee
 
     # Driver earnings
@@ -13942,7 +13944,7 @@ from bid_routes import router as bid_router
 app.include_router(bid_router)
 
 # Include Rideshare Payment routes (Stripe integration for drivers)
-from rideshare_payments import router as rideshare_payments_router
+from rideshare_payments import router as rideshare_payments_router, get_tier_fee
 app.include_router(rideshare_payments_router)
 
 # Include Matchmaking routes (Wyoming - Legal P2P without TNC)

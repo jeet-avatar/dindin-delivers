@@ -66,8 +66,8 @@
 |-----|--------|---------------|-----------|
 | Customer service fee | **$1.00 flat** | `order_flow.py:400` | `AppConfig.swift:98` |
 | Restaurant platform fee | **$1.00 flat** | `order_flow.py:401` | `AppConfig.swift:99` |
-| Driver commission | **$0.00** (keeps 100%) | `main_new.py:6431` | `AppConfig.swift:100` |
-| Platform revenue/order | **$2.00** | `main_new.py:8143` | |
+| Driver commission | **$0.00** (keeps 100%) | `main_new.py:6286` (payout=delivery_fee+tip) | `AppConfig.swift:100` |
+| Platform revenue/order | **$2.00** | `order_flow.py:2744` | |
 | Small order fee | **$2.00** (orders < $10) | | `AppConfig.swift:66-67` |
 | Max restaurants/order | **3** | | `AppConfig.swift:64` |
 | Extra stop fee | **$2.00** | | `AppConfig.swift:62` |
