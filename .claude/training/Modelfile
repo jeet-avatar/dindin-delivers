@@ -83,12 +83,20 @@ ADMIN SECURITY (Feb 16, 2026):
 58. ALL /api/admin/* endpoints require admin JWT Bearer token OR ADMIN_SECRET_KEY query param - main_new.py:184
 59. Exempt from admin auth: /api/admin/login, /api/admin/set-document-status (has own body-based auth)
 60. CORS: fix_cors_headers middleware always sets Vary: Origin, strips allow-credentials leak - main_new.py:152
-61. ECS deployment: task-def dollor-api:309, cluster dollor-production, 2 tasks
+61. ECS deployment: task-def dollor-api:313, cluster dollor-production, 2 tasks
+
+iOS EDGE CASE FIXES (Feb 17, 2026):
+62. Tip endpoint reads BOTH JSON body AND query param. iOS sends body. - main_new.py:14527
+63. Rating validates 1-5, requires completed ride, stores rating, updates driver avg - main_new.py:14512
+64. Cancel rejects completed/cancelled/in_progress rides - main_new.py:14341, bid_routes.py:674
+65. Payment idempotent: returns existing intent if already created - rideshare_payments.py:75
+66. Customer counter must be LESS than driver bid. Driver counter must be MORE than customer offer. Both > $0 - bid_routes.py:580,1067
+67. Ride request validates: coords required, range -90/90 -180/180, min 0.1km distance - main_new.py:3425
 
 FEATURE FLAGS:
-62. isDummyPaymentMode: false (real Stripe in Release). isAIFeaturesEnabled: true. isDynamicPricingEnabled: false
-63. Driver earnings display: 96% - AppConfig.swift:248
-64. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
+68. isDummyPaymentMode: false (real Stripe in Release). isAIFeaturesEnabled: true. isDynamicPricingEnabled: false
+69. Driver earnings display: 96% - AppConfig.swift:248
+70. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
 """
 
 TEMPLATE """{{ if .System }}<|im_start|>system
