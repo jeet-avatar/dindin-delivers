@@ -433,15 +433,45 @@ All return `401 Unauthorized` without valid auth:
 
 ---
 
-## 17. KNOWN INCONSISTENCIES
+## 17. iOS EDGE CASE FIXES (Feb 17, 2026)
 
-1. **Three rideshare fee models coexist:** Model A (fare-tiered, `rideshare_payments.py`), Model B (distance-tiered, `main_new.py:3193`), Model C (flat $1, `order_flow.py:489`). Model A is canonical.
-2. ~~**Tax rate mismatch**~~ **RESOLVED (Feb 15, 2026):** All three sources aligned at 6% (iOS AppConfig.swift:60, backend /api/config main_new.py:1071, DEFAULT_TAX_RATE order_flow.py:568). NY aligned at 8.875% on both backend and iOS.
+### Bugs Fixed (commit `e3253cd3`, task-def `dollor-api:313`)
+| Bug | Before | After | Source |
+|-----|--------|-------|--------|
+| **Tip body ignored** | iOS `{"tip_amount":5}` returned $0 | Reads body AND query param | `main_new.py:14527` |
+| **Rating stub** | Always returned 5, no validation | Validates 1-5, stores rating, updates driver avg | `main_new.py:14512` |
+| **Cancel completed ride** | Returned success on completed/cancelled | Returns 400 error | `main_new.py:14341`, `bid_routes.py:674` |
+| **Double payment** | Created duplicate Stripe intents | Returns existing intent (idempotent) | `rideshare_payments.py:75` |
+| **Counter > bid** | Customer could counter $25 on $18 bid | Must be less than driver's bid | `bid_routes.py:580` |
+| **$0 counter** | Driver could counter $0 | Must be > $0 | `bid_routes.py:1067` |
+| **Ride request 500s** | Empty dict/null coords/same location → 500 | Returns 400 with message | `main_new.py:3425-3460` |
+
+### iOS vs Backend Endpoint Mapping (Verified)
+| Feature | iOS Endpoint | ERP Endpoint | Status |
+|---------|-------------|-------------|--------|
+| Fare estimate | `POST /api/rides/estimate` | `POST /api/erp/rides/estimate-fare` | Both work |
+| Request ride | `POST /api/rides/request` | `POST /api/erp/rides/request` | Both work (different formats) |
+| Tip | `POST /api/rides/{id}/tip` (body) | Same (query param) | Both work now |
+| Rating | `POST /api/rides/{id}/rate` (body) | N/A | Fixed - reads body |
+| Cancel | `POST /api/erp/rides/{id}/cancel` | Same + `POST /api/rides/request/{id}/cancel` | Both work |
+| Track | `GET /api/erp/rides/{id}/track` | Same | Works |
+| Chat | `POST /api/p2p/ride-requests/{id}/chat` | Same | Requires auth |
+
+### DB Columns Added
+- `ride_requests.customer_rating` (INTEGER) — 1-5 stars from customer
+- `ride_requests.customer_comment` (TEXT) — Optional review text
+
+---
+
+## 18. KNOWN INCONSISTENCIES
+
+1. ~~**Three rideshare fee models coexist**~~ **RESOLVED (Feb 16, 2026):** Wrong distance-based Model B deleted. Only Model A (fare-tiered, `rideshare_payments.py:36-43`) and Model C (flat $1 for food delivery, `order_flow.py:489`) remain.
+2. ~~**Tax rate mismatch**~~ **RESOLVED (Feb 15, 2026):** All three sources aligned at 6%. NY aligned at 8.875%.
 3. **Surge cap mismatch:** Backend delivery 2.0x vs iOS rideshare 3.0x (different services).
 4. **order_flow.py status map incomplete:** Missing 6 newer statuses at line 2270-2278.
-5. **Restaurant `todayRevenue` bug:** Case-sensitive comparison against backend lowercase values.
+5. ~~**Restaurant `todayRevenue` bug**~~ **RESOLVED (Feb 16, 2026).**
 6. **EnterpriseNetworkLayer.swift** hardcodes `eatfair-p2p` Firebase project ID (legacy fallback).
 7. **GoogleMapsConfig.swift** lists `com.dollorai.driver` as bundle ID restriction but actual driver bundle ID is `com.dollorai.delivery`.
 8. **UT (Utah) tax rate mismatch:** iOS `AppConfig.swift:616` has 0.061 (6.1%), backend `order_flow.py:542` has 0.0485 (4.85%). Backend is authoritative.
-9. **Three fare rate sets coexist:** iOS+`pricing_config.py` ($2.50/$1.15/$0.18), `main_new.py:3239` estimate endpoint ($2.50/$1.50/$0.25), `order_flow.py:492` legacy ($2.00/$1.00/$0.15). `pricing_config.py` is canonical for bid suggested prices.
+9. ~~**Three fare rate sets coexist**~~ **RESOLVED (Feb 16, 2026):** All aligned to $2.50/$1.15/$0.18.
 10. **Dynamic pricing flag conflict:** `Production.xcconfig` has `ENABLE_DYNAMIC_PRICING = YES` but `AppConfig.swift` defaults `isDynamicPricingEnabled = false`. Runtime `/api/config` response controls actual behavior.
