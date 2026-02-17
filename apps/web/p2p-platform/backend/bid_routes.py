@@ -1419,6 +1419,45 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
 
     db.commit()
 
+    # Auto-trigger driver payout via Stripe Connect (non-blocking)
+    try:
+        import stripe
+        import os
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+        # Demo rides: skip Stripe, just mark payment status
+        if ride_request.stripe_payment_intent_id and ride_request.stripe_payment_intent_id.startswith("demo_"):
+            ride_request.payment_status = "demo"
+            ride_request.payment_completed_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Ride {ride_request.id} is demo — skipping Stripe payout")
+        else:
+            driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+            if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                payout_cents = int(ride_request.driver_payout * 100)
+                if payout_cents > 0:
+                    transfer = stripe.Transfer.create(
+                        amount=payout_cents,
+                        currency="usd",
+                        destination=driver.stripe_account_id,
+                        description=f"Ride {ride_request.request_id} payout",
+                        metadata={
+                            "ride_id": str(ride_request.id),
+                            "ride_request_id": ride_request.request_id,
+                            "driver_id": str(driver.id),
+                            "fare": str(final_price),
+                            "platform_fee": str(platform_fee),
+                        }
+                    )
+                    ride_request.stripe_transfer_id = transfer.id
+                    ride_request.driver_paid_at = datetime.utcnow()
+                    db.commit()
+                    logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
+            else:
+                logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
+    except Exception as e:
+        logger.error(f"Ride {ride_request.id} auto-payout failed (non-blocking): {e}")
+
     # Send ride completed email with receipt to customer
     try:
         customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
