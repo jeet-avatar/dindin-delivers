@@ -248,39 +248,15 @@ os.makedirs("uploads/vendor_documents", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
-# SECURITY: Protect auth endpoints from brute force attacks
-from collections import defaultdict
-import time
-import threading
+# SECURITY: Protect auth endpoints from brute force attacks (Redis-backed, shared across workers/tasks)
+from cache import rate_limit_check
 
 class RateLimiter:
-    """Simple in-memory rate limiter with sliding window"""
+    """Redis-backed rate limiter with sliding window (shared across all workers and ECS tasks)"""
 
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests = defaultdict(list)
-        self.lock = threading.Lock()
-
-    def is_allowed(self, key: str) -> bool:
-        """Check if request is allowed for the given key (IP or email)"""
-        now = time.time()
-        with self.lock:
-            # Clean old requests
-            self.requests[key] = [t for t in self.requests[key] if now - t < self.window_seconds]
-            # Check limit
-            if len(self.requests[key]) >= self.max_requests:
-                return False
-            # Record this request
-            self.requests[key].append(now)
-            return True
-
-    def get_retry_after(self, key: str) -> int:
-        """Get seconds until the rate limit resets"""
-        if not self.requests[key]:
-            return 0
-        oldest = min(self.requests[key])
-        return max(0, int(self.window_seconds - (time.time() - oldest)))
 
 # Rate limiters for different endpoints
 auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
@@ -291,10 +267,10 @@ def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
     # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
     forwarded = request.headers.get("X-Forwarded-For")
     client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
-    key = f"{key_prefix}:{client_ip}"
+    key = f"ratelimit:{key_prefix}:{client_ip}"
 
-    if not limiter.is_allowed(key):
-        retry_after = limiter.get_retry_after(key)
+    is_allowed, retry_after = rate_limit_check(key, limiter.max_requests, limiter.window_seconds)
+    if not is_allowed:
         raise HTTPException(
             status_code=429,
             detail=f"Too many requests. Please try again in {retry_after} seconds.",
@@ -1202,6 +1178,9 @@ async def startup_event():
     _run_startup_migrations()
     # Start background scheduler for restaurant timeout checks
     start_timeout_scheduler()
+    # Capture the running event loop for the WebSocket Redis subscriber thread
+    from websocket_server import capture_event_loop
+    capture_event_loop()
 
 
 @app.on_event("shutdown")
@@ -5603,8 +5582,9 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     }
 
 
-# In-memory storage for password reset codes (in production, use Redis or database)
-password_reset_codes = {}
+# Password reset codes — Redis-backed with in-memory fallback
+from cache import store_reset_code, get_reset_code, delete_reset_code, REDIS_AVAILABLE as _REDIS_UP
+password_reset_codes = {}  # in-memory fallback when Redis is unavailable
 
 class CustomerPasswordResetRequest(BaseModel):
     email: str
@@ -5628,12 +5608,13 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
 
-    # Store code with timestamp (expires in 15 minutes)
-    from datetime import datetime, timedelta
-    password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
+    # Store code in Redis (15 min TTL), fall back to in-memory
+    if not store_reset_code(request.email, code, 900):
+        from datetime import datetime, timedelta
+        password_reset_codes[request.email] = {
+            "code": code,
+            "expires": datetime.utcnow() + timedelta(minutes=15)
+        }
 
     # Send email with reset code
     try:
@@ -5652,22 +5633,24 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     """Confirm password reset with code and set new password"""
     from datetime import datetime
 
-    # Check if code exists and is valid
-    reset_data = password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
+    # Check Redis first, fall back to in-memory
+    redis_code = get_reset_code(request.email)
+    if redis_code:
+        if redis_code != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
+    else:
+        reset_data = password_reset_codes.get(request.email)
+        if not reset_data:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        if datetime.utcnow() > reset_data["expires"]:
+            del password_reset_codes[request.email]
+            raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+        if reset_data["code"] != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
 
     # Get CUSTOMER user record (must match role filter used by customer login)
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.CUSTOMER).first()
     if not user:
-        # Fallback: try any user with this email (for accounts without explicit role)
         user = db.query(User).filter(User.email == request.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -5676,8 +5659,9 @@ def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: S
     user.password_hash = get_password_hash(request.new_password)
     db.commit()
 
-    # Remove used code
-    del password_reset_codes[request.email]
+    # Remove used code from both stores
+    delete_reset_code(request.email)
+    password_reset_codes.pop(request.email, None)
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
@@ -5708,12 +5692,13 @@ def driver_request_password_reset(request: DriverPasswordResetRequest, db: Sessi
     # Generate 6-digit code
     code = str(random.randint(100000, 999999))
 
-    # Store code with timestamp (expires in 15 minutes)
-    from datetime import datetime, timedelta
-    password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
+    # Store code in Redis (15 min TTL), fall back to in-memory
+    if not store_reset_code(request.email, code, 900):
+        from datetime import datetime, timedelta
+        password_reset_codes[request.email] = {
+            "code": code,
+            "expires": datetime.utcnow() + timedelta(minutes=15)
+        }
 
     # Send email with reset code
     try:
@@ -5731,29 +5716,32 @@ def driver_confirm_password_reset(request: DriverPasswordResetConfirm, db: Sessi
     """Confirm driver password reset with code and set new password"""
     from datetime import datetime
 
-    # Check if code exists and is valid
-    reset_data = password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
+    # Check Redis first, fall back to in-memory
+    redis_code = get_reset_code(request.email)
+    if redis_code:
+        if redis_code != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
+    else:
+        reset_data = password_reset_codes.get(request.email)
+        if not reset_data:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        if datetime.utcnow() > reset_data["expires"]:
+            del password_reset_codes[request.email]
+            raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+        if reset_data["code"] != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
 
     # Get DRIVER user record (must match role filter used by driver login)
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
     if not user:
         raise HTTPException(status_code=404, detail="Driver account not found")
 
-    # Update password on the correct user record
     user.password_hash = get_password_hash(request.new_password)
     db.commit()
 
-    # Remove used code
-    del password_reset_codes[request.email]
+    # Remove used code from both stores
+    delete_reset_code(request.email)
+    password_reset_codes.pop(request.email, None)
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
@@ -5781,11 +5769,13 @@ def vendor_request_password_reset(request: VendorPasswordResetRequest, db: Sessi
 
     code = str(random.randint(100000, 999999))
 
-    from datetime import datetime, timedelta
-    password_reset_codes[request.email] = {
-        "code": code,
-        "expires": datetime.utcnow() + timedelta(minutes=15)
-    }
+    # Store code in Redis (15 min TTL), fall back to in-memory
+    if not store_reset_code(request.email, code, 900):
+        from datetime import datetime, timedelta
+        password_reset_codes[request.email] = {
+            "code": code,
+            "expires": datetime.utcnow() + timedelta(minutes=15)
+        }
 
     try:
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
@@ -5802,16 +5792,20 @@ def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Sessi
     """Confirm vendor password reset with code and set new password"""
     from datetime import datetime
 
-    reset_data = password_reset_codes.get(request.email)
-    if not reset_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
-
-    if datetime.utcnow() > reset_data["expires"]:
-        del password_reset_codes[request.email]
-        raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
-
-    if reset_data["code"] != request.code:
-        raise HTTPException(status_code=400, detail="Invalid reset code")
+    # Check Redis first, fall back to in-memory
+    redis_code = get_reset_code(request.email)
+    if redis_code:
+        if redis_code != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
+    else:
+        reset_data = password_reset_codes.get(request.email)
+        if not reset_data:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        if datetime.utcnow() > reset_data["expires"]:
+            del password_reset_codes[request.email]
+            raise HTTPException(status_code=400, detail="Reset code has expired. Please request a new one.")
+        if reset_data["code"] != request.code:
+            raise HTTPException(status_code=400, detail="Invalid reset code")
 
     # Get VENDOR user record (must match role filter used by vendor login)
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.VENDOR).first()
@@ -5821,7 +5815,9 @@ def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Sessi
     user.password_hash = get_password_hash(request.new_password)
     db.commit()
 
-    del password_reset_codes[request.email]
+    # Remove used code from both stores
+    delete_reset_code(request.email)
+    password_reset_codes.pop(request.email, None)
 
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
@@ -9597,6 +9593,14 @@ def get_vendors(
     db: Session = Depends(get_db)
 ):
     """Get all vendors - public endpoint for dev mode, includes iOS compatibility fields"""
+    from cache import cache_json_get, cache_json_set
+
+    # Cache unfiltered requests for 30s
+    if not status and not risk_rating:
+        cached = cache_json_get("vendors:all")
+        if cached is not None:
+            return cached
+
     from models import Vendor, VendorStatus, RiskRating
     from stock_images import get_stock_image_for_restaurant
 
@@ -9690,6 +9694,10 @@ def get_vendors(
             print(f"Error processing vendor {v.id}: {e}")
             continue
 
+    # Cache unfiltered result for 30s
+    if not status and not risk_rating:
+        cache_json_set("vendors:all", result, ttl=30)
+
     return result
 
 
@@ -9707,6 +9715,15 @@ def get_published_vendors(
     Used by iOS, Android, and Web customer apps to list restaurants.
     This endpoint is PUBLIC - no authentication required.
     """
+    from cache import cache_json_get, cache_json_set
+
+    # Cache default requests (all platforms, first page) for 30s
+    cache_key = f"vendors:published:{platform}:{limit}:{offset}"
+    if platform == "all" and offset == 0:
+        cached = cache_json_get(cache_key)
+        if cached is not None:
+            return cached
+
     from models import Vendor, VendorStatus
     from models_extended import Promotion
     from stock_images import get_stock_image_for_restaurant
@@ -9820,7 +9837,7 @@ def get_published_vendors(
             "active_promotion": active_promo
         })
 
-    return {
+    response = {
         # iOS compatibility
         "success": True,
         "count": total,
@@ -9836,6 +9853,12 @@ def get_published_vendors(
         # Also keep "vendors" for backward compatibility with admin portal
         "vendors": restaurants
     }
+
+    # Cache default requests for 30s
+    if platform == "all" and offset == 0:
+        cache_json_set(cache_key, response, ttl=30)
+
+    return response
 
 
 @app.get("/api/vendors/{vendor_id}", response_model=VendorResponse)
@@ -12943,6 +12966,14 @@ def get_vendor_menu(
     db: Session = Depends(get_db)
 ):
     try:
+        from cache import cache_json_get, cache_json_set
+
+        # Cache unfiltered menu requests for 60s
+        cache_key = f"menu:{vendor_id}:{category or 'all'}:{available_only}"
+        cached = cache_json_get(cache_key)
+        if cached is not None:
+            return cached
+
         from models import VendorMenuItem
         from stock_images import get_stock_image_for_dish
 
@@ -13000,6 +13031,8 @@ def get_vendor_menu(
                 "customizations": item.customizations if hasattr(item, 'customizations') and item.customizations else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None
             })
+
+        cache_json_set(cache_key, result, ttl=60)
         return result
     except Exception as e:
         import traceback

@@ -24,7 +24,8 @@
         {"name": "SMTP_HOST", "value": "email-smtp.us-east-1.amazonaws.com"},
         {"name": "SMTP_PORT", "value": "587"},
         {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"},
-        {"name": "DOCUMENT_VERIFICATION_PROVIDER", "value": "persona"}
+        {"name": "DOCUMENT_VERIFICATION_PROVIDER", "value": "persona"},
+        {"name": "REDIS_URL", "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379/0"}
       ],
       "secrets": [
         {

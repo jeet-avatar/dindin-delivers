@@ -11,12 +11,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")
 
+# Pool sizing: db.t3.micro max_connections ≈ 112
+# 4 workers × 2 ECS tasks = 8 processes → 12 per process = 96 total (under 112)
 engine = create_engine(
     DATABASE_URL,
-    pool_size=20,
-    max_overflow=40,
+    pool_size=5,
+    max_overflow=7,
     pool_pre_ping=True,
     pool_recycle=1800,
+    pool_timeout=10,
     connect_args={"options": "-c statement_timeout=30000"}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
