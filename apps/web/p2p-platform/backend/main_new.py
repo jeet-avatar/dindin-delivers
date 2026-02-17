@@ -312,6 +312,13 @@ def sanitize_text(text: Optional[str]) -> Optional[str]:
         return text
     return _HTML_TAG_RE.sub('', text).strip()
 
+
+def _require_admin_secret(secret_key: Optional[str] = None):
+    """Verify ADMIN_SECRET_KEY for demo/admin endpoints"""
+    expected = os.getenv("ADMIN_SECRET_KEY")
+    if expected and (not secret_key or secret_key != expected):
+        raise HTTPException(status_code=403, detail="Admin secret key required")
+
 # Health Check Endpoint
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
@@ -360,6 +367,53 @@ async def health_ready(db: Session = Depends(get_db)):
 async def health_live():
     """Liveness probe - checks if service is running"""
     return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
+
+@app.post("/api/admin/backfill-payouts")
+async def backfill_payouts(secret_key: str = Query(...), db: Session = Depends(get_db)):
+    """Backfill platform_fee and driver_payout for completed rides"""
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    if not expected_key or secret_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid secret key")
+
+    from sqlalchemy import text
+    results = []
+
+    # Get all completed rides missing driver_payout
+    rows = db.execute(text("""
+        SELECT id, final_price, suggested_price, platform_fee, driver_payout
+        FROM ride_requests
+        WHERE status = 'completed'::riderequeststatus
+    """)).fetchall()
+
+    updated = 0
+    for row in rows:
+        rid, fp, sp, pf, dp = row
+        price = float(fp or sp or 0)
+        if price <= 35:
+            correct_fee = 1.00
+        elif price <= 70:
+            correct_fee = 2.00
+        else:
+            correct_fee = 3.00
+        correct_payout = round(price - correct_fee, 2)
+
+        needs_update = (pf is None or dp is None or float(pf) != correct_fee or float(dp) != correct_payout)
+        results.append({
+            "id": rid, "price": price,
+            "old_fee": float(pf) if pf else None,
+            "old_payout": float(dp) if dp else None,
+            "new_fee": correct_fee, "new_payout": correct_payout,
+            "needs_update": needs_update
+        })
+        if needs_update:
+            db.execute(text(
+                "UPDATE ride_requests SET platform_fee = :fee, driver_payout = :payout WHERE id = :id"
+            ), {"fee": correct_fee, "payout": correct_payout, "id": rid})
+            updated += 1
+
+    db.commit()
+    return {"updated": updated, "total_completed": len(rows), "details": results}
+
 
 # Database Migration Endpoint (protected with secret key)
 @app.post("/api/admin/migrate")
@@ -1137,6 +1191,29 @@ def _run_startup_migrations():
                     conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))  # nosemgrep: avoid-sqlalchemy-text
                 except Exception as e:
                     print(f"Migration {table}.{col_name}: {e}")
+            # Backfill platform_fee and driver_payout for ALL completed rides
+            # Fare-tiered Model A: ≤$35 → $1, $35-$70 → $2, >$70 → $3
+            try:
+                result = conn.execute(text("""
+                    UPDATE ride_requests
+                    SET platform_fee = CASE
+                            WHEN COALESCE(final_price, suggested_price, 0) <= 35 THEN 1.00
+                            WHEN COALESCE(final_price, suggested_price, 0) <= 70 THEN 2.00
+                            ELSE 3.00
+                        END,
+                        driver_payout = ROUND(CAST(COALESCE(final_price, suggested_price, 0) - CASE
+                            WHEN COALESCE(final_price, suggested_price, 0) <= 35 THEN 1.00
+                            WHEN COALESCE(final_price, suggested_price, 0) <= 70 THEN 2.00
+                            ELSE 3.00
+                        END AS NUMERIC), 2)
+                    WHERE status = 'completed'::riderequeststatus
+                      AND (driver_payout IS NULL OR platform_fee IS NULL)
+                """))
+                if result.rowcount > 0:
+                    print(f"Backfilled platform_fee/driver_payout for {result.rowcount} completed rides")
+            except Exception as e:
+                print(f"Backfill platform_fee: {e}")
+
             conn.commit()
             print("Database migrations completed successfully")
     except Exception as e:
@@ -3862,7 +3939,7 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
 
 # Ride rating endpoint
 @app.post("/api/erp/rides/{ride_id}/rate")
-async def rate_ride(ride_id: int, request: Request, db: Session = Depends(get_db)):
+async def rate_ride(ride_id: int, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Rate a completed ride (ERP endpoint).
     Accepts JSON body: {"rating": 1-5, "feedback": "optional", "rated_by": "customer"}
@@ -14731,7 +14808,7 @@ async def rate_ride_customer(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    # SECURITY: Verify the authenticated user owns this ride
+    # SECURITY: Only customers can rate, and only their own rides
     customer_id = None
     try:
         token = request.headers.get("authorization", "").replace("Bearer ", "")
@@ -14739,7 +14816,9 @@ async def rate_ride_customer(
         customer_id = payload.get("customer_id")
     except Exception:
         pass
-    if customer_id and ride.customer_id != customer_id:
+    if not customer_id:
+        raise HTTPException(status_code=403, detail="Only customers can rate rides")
+    if ride.customer_id != customer_id:
         raise HTTPException(status_code=403, detail="You can only rate your own rides")
 
     # Verify ride is completed
@@ -14816,7 +14895,7 @@ async def tip_ride_driver(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    # SECURITY: Verify the authenticated user owns this ride
+    # SECURITY: Only customers can tip, and only on their own rides
     customer_id = None
     try:
         token = request.headers.get("authorization", "").replace("Bearer ", "")
@@ -14824,7 +14903,9 @@ async def tip_ride_driver(
         customer_id = payload.get("customer_id")
     except Exception:
         pass
-    if customer_id and ride.customer_id != customer_id:
+    if not customer_id:
+        raise HTTPException(status_code=403, detail="Only customers can tip on rides")
+    if ride.customer_id != customer_id:
         raise HTTPException(status_code=403, detail="You can only tip on your own rides")
 
     # Update tip amount on ride
@@ -18588,8 +18669,9 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
 
 
 @app.post("/api/demo/recreate-customer")
-def recreate_demo_customer(db: Session = Depends(get_db)):
+def recreate_demo_customer(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """Delete and recreate demo customer account to fix corrupted data."""
+    _require_admin_secret(secret_key)
     try:
         # Delete existing demo customer
         db.execute(text("DELETE FROM customers WHERE email = 'demo.customer@dollor.ai'"))
@@ -18623,7 +18705,6 @@ def recreate_demo_customer(db: Session = Depends(get_db)):
                 "success": True,
                 "customer_id": demo_customer.id,
                 "email": "demo.customer@dollor.ai",
-                "password": demo_password,
                 "message": "Demo customer recreated and verified"
             }
         else:
@@ -18634,8 +18715,9 @@ def recreate_demo_customer(db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/force-reset-passwords")
-def force_reset_demo_passwords(db: Session = Depends(get_db)):
+def force_reset_demo_passwords(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """Force reset all demo account passwords and verify they work."""
+    _require_admin_secret(secret_key)
     results = {"reset": [], "verified": [], "failed": []}
 
     demo_accounts = [
@@ -18676,19 +18758,14 @@ def force_reset_demo_passwords(db: Session = Depends(get_db)):
     return {
         "success": len(results["failed"]) == 0,
         "results": results,
-        "message": "All demo passwords reset and verified" if len(results["failed"]) == 0 else "Some accounts failed",
-        "credentials": {
-            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
-            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
-            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
-            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
-        }
+        "message": "All demo passwords reset and verified" if len(results["failed"]) == 0 else "Some accounts failed"
     }
 
 
 @app.get("/api/demo/debug-driver-login")
-def debug_driver_login(db: Session = Depends(get_db)):
+def debug_driver_login(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """Debug why driver login is failing"""
+    _require_admin_secret(secret_key)
     email = "demo.driver@dollor.ai"
     password = "DemoDriver2025!"
 
@@ -18744,8 +18821,9 @@ def debug_driver_login(db: Session = Depends(get_db)):
 
 
 @app.get("/api/demo/debug-customer-login")
-def debug_customer_login(db: Session = Depends(get_db)):
+def debug_customer_login(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """Debug why customer login is failing"""
+    _require_admin_secret(secret_key)
     email = "demo.customer@dollor.ai"
     password = "DemoCustomer2025!"
 
@@ -18784,11 +18862,12 @@ def debug_customer_login(db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/fix-driver-login")
-def fix_driver_login(db: Session = Depends(get_db)):
+def fix_driver_login(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """
     Fix demo driver login by ensuring User record exists with correct password and role.
     The driver login endpoint (/api/auth/driver/login) requires a User with role=DRIVER.
     """
+    _require_admin_secret(secret_key)
     try:
         driver_email = "demo.driver@dollor.ai"
         driver_password = "DemoDriver2025!"
@@ -18878,12 +18957,13 @@ def fix_driver_login(db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/update-driver-profile")
-def update_demo_driver_profile(db: Session = Depends(get_db)):
+def update_demo_driver_profile(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """
     Update the demo driver (Marcus Johnson) with complete profile details.
     This ensures all driver details are properly populated and flow through
     to Customer and Restaurant apps during order tracking.
     """
+    _require_admin_secret(secret_key)
     try:
         driver_email = "demo.driver@dollor.ai"
         driver = db.query(Driver).filter(Driver.email == driver_email).first()
@@ -18971,7 +19051,7 @@ def update_demo_driver_profile(db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/setup-support-customer")
-def setup_support_customer(db: Session = Depends(get_db)):
+def setup_support_customer(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """
     Create or update support@dollor.ai as a customer account for web login testing.
 
@@ -18979,6 +19059,7 @@ def setup_support_customer(db: Session = Depends(get_db)):
     - main_new.py (queries customers table directly)
     - auth-service microservice (queries users table with role='CUSTOMER')
     """
+    _require_admin_secret(secret_key)
     try:
         customer_email = "support@dollor.ai"
         customer_password = "DemoDollor123!"
@@ -19069,7 +19150,6 @@ def setup_support_customer(db: Session = Depends(get_db)):
                 "action": "created" if not existing_customer else "updated",
                 "customer_id": customer_id,
                 "email": customer_email,
-                "password": customer_password,
                 "message": "Support customer account created/updated in BOTH customers and users tables",
                 "tables_updated": ["customers", "users"],
                 "verification": {
@@ -19110,11 +19190,12 @@ def debug_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/clear-driver-bids")
-def clear_demo_driver_bids(db: Session = Depends(get_db)):
+def clear_demo_driver_bids(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """
     Clear all old bids for the demo driver (ID 48).
     This resets the driver to a clean state for testing.
     """
+    _require_admin_secret(secret_key)
     try:
         from models import RideBid, Driver, RideRequest, RideRequestStatus
 
@@ -19215,7 +19296,7 @@ def cleanup_expired_bids(db: Session = Depends(get_db)):
 
 
 @app.post("/api/demo/create-order")
-def create_demo_order(db: Session = Depends(get_db)):
+def create_demo_order(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """
     Create a complete demo order for testing the full flow:
     1. Customer places order at Apple restaurant
@@ -19226,6 +19307,7 @@ def create_demo_order(db: Session = Depends(get_db)):
 
     This endpoint creates a ready-for-pickup order that the demo driver can see.
     """
+    _require_admin_secret(secret_key)
     try:
         import json
         import random
@@ -19841,8 +19923,11 @@ def get_driver_earnings_by_id(
 
     now = datetime.utcnow()
 
-    # Helper function to calculate period earnings
+    # Helper function to calculate period earnings (food delivery + rideshare)
     def calc_period_earnings(start_dt, end_dt=None):
+        from models import RideRequest, RideRequestStatus
+
+        # --- Food delivery earnings (Order table) ---
         query = db.query(Order).filter(
             Order.driver_id == driver_id,
             Order.status == OrderStatus.DELIVERED,
@@ -19852,15 +19937,36 @@ def get_driver_earnings_by_id(
             query = query.filter(Order.created_at < end_dt)
         orders = query.all()
 
-        deliveries = len(orders)
-        base_pay = sum(float(o.delivery_fee or 0) for o in orders)
-        tips = sum(float(o.tip or 0) for o in orders)
-        bonuses = 0  # TODO: Add bonus tracking
+        food_deliveries = len(orders)
+        food_base = sum(float(o.delivery_fee or 0) for o in orders)
+        food_tips = sum(float(o.tip or 0) for o in orders)
+
+        # --- Rideshare earnings (RideRequest table) ---
+        rr_query = db.query(RideRequest).filter(
+            RideRequest.matched_driver_id == driver_id,
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.created_at >= start_dt
+        )
+        if end_dt:
+            rr_query = rr_query.filter(RideRequest.created_at < end_dt)
+        rides = rr_query.all()
+
+        ride_count = len(rides)
+        ride_base = sum(float(r.driver_payout or (float(r.final_price or r.suggested_price or 0) - 1.0)) for r in rides)
+        ride_tips = sum(float(r.tip_amount or 0) for r in rides)
+
+        # --- Combined totals ---
+        deliveries = food_deliveries + ride_count
+        base_pay = food_base + ride_base
+        tips = food_tips + ride_tips
+        bonuses = 0
         total = base_pay + tips + bonuses
-        hours = deliveries * 0.5  # Estimate 30 min per delivery
+        hours = food_deliveries * 0.5 + ride_count * 0.4  # ~30 min/delivery, ~24 min/ride
 
         return {
             "deliveries": deliveries,
+            "rides": ride_count,
+            "food_deliveries": food_deliveries,
             "gross_earnings": round(total, 2),
             "base_pay": round(base_pay, 2),
             "tips": round(tips, 2),
@@ -19900,7 +20006,8 @@ def get_driver_earnings_by_id(
     prev_start = start_date - timedelta(days=days)
     prev_data = calc_period_earnings(prev_start, start_date)
 
-    # Calculate daily breakdown (last 7 days)
+    # Calculate daily breakdown (last 7 days) - food + rideshare
+    from models import RideRequest, RideRequestStatus
     daily_breakdown = []
     day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     for i in range(7):
@@ -19913,13 +20020,22 @@ def get_driver_earnings_by_id(
             Order.created_at >= day_start,
             Order.created_at < day_end
         ).all()
-        day_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in day_orders)
+        day_rides = db.query(RideRequest).filter(
+            RideRequest.matched_driver_id == driver_id,
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.created_at >= day_start,
+            RideRequest.created_at < day_end
+        ).all()
+        food_earnings = sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in day_orders)
+        ride_earnings = sum(float(r.driver_payout or (float(r.final_price or r.suggested_price or 0) - 1.0)) + float(r.tip_amount or 0) for r in day_rides)
+        total_tasks = len(day_orders) + len(day_rides)
         daily_breakdown.append({
             "day": day_names[day_date.weekday()],
             "date": day_date.strftime("%Y-%m-%d"),
             "deliveries": len(day_orders),
-            "earnings": round(day_earnings, 2),
-            "hours": round(len(day_orders) * 0.5, 1)
+            "rides": len(day_rides),
+            "earnings": round(food_earnings + ride_earnings, 2),
+            "hours": round(len(day_orders) * 0.5 + len(day_rides) * 0.4, 1)
         })
 
     # Driver ratings

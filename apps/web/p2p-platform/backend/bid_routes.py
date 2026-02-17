@@ -1405,6 +1405,18 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
 
     ride_request.status = RideRequestStatus.COMPLETED
     ride_request.completed_at = datetime.utcnow()
+
+    # Calculate and persist platform fee + driver payout (fare-tiered Model A)
+    final_price = float(ride_request.final_price or ride_request.suggested_price or 0)
+    if final_price <= 35:
+        platform_fee = 1.00
+    elif final_price <= 70:
+        platform_fee = 2.00
+    else:
+        platform_fee = 3.00
+    ride_request.platform_fee = platform_fee
+    ride_request.driver_payout = round(final_price - platform_fee, 2)
+
     db.commit()
 
     # Send ride completed email with receipt to customer
@@ -1412,15 +1424,6 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
         customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
         driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
         if customer and customer.email and driver:
-            # Calculate platform fee based on fare tier
-            final_price = ride_request.final_price or 0
-            if final_price <= 35:
-                platform_fee = 1.00
-            elif final_price <= 70:
-                platform_fee = 2.00
-            else:
-                platform_fee = 3.00
-
             # Convert km to miles for receipt
             distance_miles = (ride_request.estimated_distance_km or 0) * 0.621371
 
