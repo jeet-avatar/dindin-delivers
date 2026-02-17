@@ -3913,26 +3913,23 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
 
 
 # Ride rating endpoint
+class ERPRideRatingRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5, description="Rating 1-5 stars")
+    feedback: Optional[str] = Field(None, description="Optional feedback comment")
+    comment: Optional[str] = Field(None, description="Alias for feedback")
+    rated_by: str = Field("customer", description="Who is rating")
+
 @app.post("/api/erp/rides/{ride_id}/rate")
-async def rate_ride(ride_id: int, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Rate a completed ride (ERP endpoint).
     Accepts JSON body: {"rating": 1-5, "feedback": "optional", "rated_by": "customer"}
     """
     from models import RideRequest, RideRequestStatus
 
-    # Parse JSON body
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    rating = body.get("rating", 5)
-    feedback = body.get("feedback", body.get("comment", ""))
-    rated_by = body.get("rated_by", "customer")
-
-    if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
-        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
-    rating = int(round(rating))
+    rating = body.rating
+    feedback = body.feedback or body.comment or ""
+    rated_by = body.rated_by
 
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
@@ -14752,9 +14749,14 @@ async def track_customer_order(
     }
 
 
+class RideRatingRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5, description="Rating 1-5 stars")
+    comment: Optional[str] = Field(None, description="Optional review comment")
+
 @app.post("/api/rides/{ride_id}/rate")
 async def rate_ride_customer(
     ride_id: int,
+    body: RideRatingRequest,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -14766,18 +14768,8 @@ async def rate_ride_customer(
     """
     from models import RideRequest, Driver
 
-    # Parse body (iOS sends JSON)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    rating = body.get("rating", 5)
-    comment = body.get("comment", None)
-
-    # Validate rating range
-    if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
-        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
-    rating = int(round(rating))  # Clamp to integer
+    rating = body.rating
+    comment = body.comment
 
     # Verify ride exists
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
@@ -14829,10 +14821,13 @@ async def rate_ride_customer(
     }
 
 
+class RideTipRequest(BaseModel):
+    tip_amount: float = Field(..., gt=0, le=500, description="Tip amount in dollars")
+
 @app.post("/api/rides/{ride_id}/tip")
 async def tip_ride_driver(
     ride_id: int,
-    tip_amount: float = Query(0, alias="tip_amount"),
+    body: RideTipRequest,
     request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -14841,31 +14836,11 @@ async def tip_ride_driver(
     Add tip to driver for a completed ride.
     100% of tip goes to driver.
     Used by Android/iOS customer apps.
-    Accepts tip_amount from query param OR JSON body (iOS sends body).
+    Accepts JSON body: {"tip_amount": 3.00}
     """
     from models import RideRequest
 
-    # iOS sends tip_amount in JSON body; Android/curl may use query param
-    actual_tip = tip_amount
-    if request and actual_tip == 0:
-        try:
-            body = await request.json()
-            actual_tip = float(body.get("tip_amount", 0))
-        except Exception:
-            pass
-
-    if actual_tip <= 0:
-        return {
-            "success": True,
-            "message": "$0.00 tip added for your driver",
-            "ride_id": ride_id,
-            "tip_amount": 0.0,
-            "driver_new_earnings": 0.0
-        }
-
-    # SECURITY: Cap tip at $500 to prevent financial abuse
-    if actual_tip > 500:
-        raise HTTPException(status_code=400, detail="Tip amount cannot exceed $500.00")
+    actual_tip = body.tip_amount
 
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
