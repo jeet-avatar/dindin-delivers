@@ -375,20 +375,17 @@ async def backfill_payouts(secret_key: str = Query(...), db: Session = Depends(g
     if not expected_key or secret_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid secret key")
 
-    from sqlalchemy import text
+    from models import RideRequest, RideRequestStatus
     results = []
 
-    # Get all completed rides missing driver_payout
-    rows = db.execute(text("""
-        SELECT id, final_price, suggested_price, platform_fee, driver_payout
-        FROM ride_requests
-        WHERE status = 'completed'::riderequeststatus
-    """)).fetchall()
+    # Get all completed rides using ORM (avoids enum cast issues)
+    rides = db.query(RideRequest).filter(
+        RideRequest.status == RideRequestStatus.COMPLETED
+    ).all()
 
     updated = 0
-    for row in rows:
-        rid, fp, sp, pf, dp = row
-        price = float(fp or sp or 0)
+    for r in rides:
+        price = float(r.final_price or r.suggested_price or 0)
         if price <= 35:
             correct_fee = 1.00
         elif price <= 70:
@@ -397,22 +394,23 @@ async def backfill_payouts(secret_key: str = Query(...), db: Session = Depends(g
             correct_fee = 3.00
         correct_payout = round(price - correct_fee, 2)
 
-        needs_update = (pf is None or dp is None or float(pf) != correct_fee or float(dp) != correct_payout)
+        old_fee = float(r.platform_fee) if r.platform_fee is not None else None
+        old_payout = float(r.driver_payout) if r.driver_payout is not None else None
+        needs_update = (old_fee != correct_fee or old_payout != correct_payout)
+
         results.append({
-            "id": rid, "price": price,
-            "old_fee": float(pf) if pf else None,
-            "old_payout": float(dp) if dp else None,
+            "id": r.id, "price": price,
+            "old_fee": old_fee, "old_payout": old_payout,
             "new_fee": correct_fee, "new_payout": correct_payout,
             "needs_update": needs_update
         })
         if needs_update:
-            db.execute(text(
-                "UPDATE ride_requests SET platform_fee = :fee, driver_payout = :payout WHERE id = :id"
-            ), {"fee": correct_fee, "payout": correct_payout, "id": rid})
+            r.platform_fee = correct_fee
+            r.driver_payout = correct_payout
             updated += 1
 
     db.commit()
-    return {"updated": updated, "total_completed": len(rows), "details": results}
+    return {"updated": updated, "total_completed": len(rides), "details": results}
 
 
 # Database Migration Endpoint (protected with secret key)
@@ -1191,29 +1189,6 @@ def _run_startup_migrations():
                     conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))  # nosemgrep: avoid-sqlalchemy-text
                 except Exception as e:
                     print(f"Migration {table}.{col_name}: {e}")
-            # Backfill platform_fee and driver_payout for ALL completed rides
-            # Fare-tiered Model A: ≤$35 → $1, $35-$70 → $2, >$70 → $3
-            try:
-                result = conn.execute(text("""
-                    UPDATE ride_requests
-                    SET platform_fee = CASE
-                            WHEN COALESCE(final_price, suggested_price, 0) <= 35 THEN 1.00
-                            WHEN COALESCE(final_price, suggested_price, 0) <= 70 THEN 2.00
-                            ELSE 3.00
-                        END,
-                        driver_payout = ROUND(CAST(COALESCE(final_price, suggested_price, 0) - CASE
-                            WHEN COALESCE(final_price, suggested_price, 0) <= 35 THEN 1.00
-                            WHEN COALESCE(final_price, suggested_price, 0) <= 70 THEN 2.00
-                            ELSE 3.00
-                        END AS NUMERIC), 2)
-                    WHERE status = 'completed'::riderequeststatus
-                      AND (driver_payout IS NULL OR platform_fee IS NULL)
-                """))
-                if result.rowcount > 0:
-                    print(f"Backfilled platform_fee/driver_payout for {result.rowcount} completed rides")
-            except Exception as e:
-                print(f"Backfill platform_fee: {e}")
-
             conn.commit()
             print("Database migrations completed successfully")
     except Exception as e:
