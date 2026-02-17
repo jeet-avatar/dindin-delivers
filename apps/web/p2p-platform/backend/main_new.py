@@ -4961,7 +4961,7 @@ async def complete_ride_and_pay_driver(
 
     # Calculate driver payout
     # Driver gets: ride fare - platform fee + 100% of tip
-    ride_fare = float(ride.suggested_price or 0)
+    ride_fare = float(ride.final_price or ride.suggested_price or 0)
     platform_fee = float(ride.platform_fee or 2.0)
     tip = float(ride.tip_amount or 0)
 
@@ -4993,6 +4993,7 @@ async def complete_ride_and_pay_driver(
         ride.driver_payout = driver_payout
         ride.stripe_transfer_id = transfer.id
         ride.completed_at = datetime.utcnow()
+        ride.driver_paid_at = datetime.utcnow()
         db.commit()
 
         return {
@@ -14888,11 +14889,39 @@ async def tip_ride_driver(
     ride.tip_amount = current_tip + actual_tip
     db.commit()
 
+    # Transfer tip to driver via Stripe Connect (only if main payout already happened)
+    tip_transferred = False
+    if ride.stripe_transfer_id:
+        try:
+            driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+            if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                import stripe as stripe_lib
+                import os
+                stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
+                tip_cents = int(actual_tip * 100)
+                if tip_cents > 0:
+                    stripe_lib.Transfer.create(
+                        amount=tip_cents,
+                        currency="usd",
+                        destination=driver.stripe_account_id,
+                        description=f"Ride {ride.request_id} tip",
+                        metadata={
+                            "ride_id": str(ride_id),
+                            "type": "tip",
+                            "tip_amount": str(actual_tip),
+                        }
+                    )
+                    tip_transferred = True
+                    logger.info(f"Ride {ride_id} tip ${actual_tip:.2f} transferred to driver {driver.id}")
+        except Exception as e:
+            logger.error(f"Ride {ride_id} tip transfer failed (tip still saved): {e}")
+
     return {
         "success": True,
         "message": f"${actual_tip:.2f} tip added for your driver",
         "ride_id": ride_id,
         "tip_amount": actual_tip,
+        "tip_transferred": tip_transferred,
         "driver_new_earnings": actual_tip  # 100% to driver
     }
 

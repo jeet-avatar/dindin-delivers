@@ -15,7 +15,7 @@ import uuid
 from dotenv import load_dotenv
 
 from database import get_db
-from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer
+from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer, RideRequest
 from order_flow import get_tax_rate, DEFAULT_TAX_RATE, calculate_delivery_fee, CUSTOMER_SERVICE_FEE
 from email_service import (
     send_order_confirmation_email,
@@ -416,7 +416,17 @@ async def stripe_webhook(
                     )
             except Exception as e:
                 print(f"Order notification error: {e}")
-    
+        else:
+            # Check if this is a ride payment
+            ride = db.query(RideRequest).filter(
+                RideRequest.stripe_payment_intent_id == payment_intent['id']
+            ).first()
+            if ride:
+                ride.payment_status = "succeeded"
+                ride.payment_completed_at = datetime.now()
+                db.commit()
+                print(f"Ride {ride.id} payment confirmed via webhook")
+
     elif event_type == 'payment_intent.payment_failed':
         payment_intent = event_data
         order = db.query(Order).filter(
@@ -427,7 +437,15 @@ async def stripe_webhook(
             order.payment_status = "failed"
             order.status = OrderStatus.CANCELLED
             db.commit()
-    
+        else:
+            ride = db.query(RideRequest).filter(
+                RideRequest.stripe_payment_intent_id == payment_intent['id']
+            ).first()
+            if ride:
+                ride.payment_status = "failed"
+                db.commit()
+                print(f"Ride {ride.id} payment failed via webhook")
+
     return {"status": "success", "event_type": event_type}
 
 # ===================== INVOICE GENERATION =====================
