@@ -3441,6 +3441,7 @@ async def request_ride(
 
     # Fare-tiered platform fees (canonical: rideshare_payments.py:36-43)
     platform_fee = get_tier_fee(ride_fare)
+    fee_tier = get_fare_tier_description(ride_fare)
     customer_platform_fee = platform_fee
     driver_platform_fee = platform_fee
 
