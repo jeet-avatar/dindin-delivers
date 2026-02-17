@@ -25,8 +25,8 @@ from email_service import (
 load_dotenv()
 
 # Initialize Stripe
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_key_here")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_your_webhook_secret")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")  # SECURITY: No hardcoded fallback
 
 router = APIRouter(prefix="/api", tags=["payments"])
 

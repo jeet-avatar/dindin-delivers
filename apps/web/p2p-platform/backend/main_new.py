@@ -149,8 +149,9 @@ app.add_middleware(
 
 # CORS fix: Ensure Vary: Origin is always present so CloudFront caches per-origin,
 # and strip allow-credentials when no allow-origin is set (non-matching origins).
+# SECURITY: Also adds security headers to every response.
 @app.middleware("http")
-async def fix_cors_headers(request, call_next):
+async def fix_cors_and_security_headers(request, call_next):
     response = await call_next(request)
     # Always set Vary: Origin so CloudFront/CDN caches separate versions per origin
     vary = response.headers.get("vary", "")
@@ -159,6 +160,17 @@ async def fix_cors_headers(request, call_next):
     # Don't leak allow-credentials without allow-origin
     if "access-control-allow-origin" not in response.headers and "access-control-allow-credentials" in response.headers:
         del response.headers["access-control-allow-credentials"]
+    # SECURITY HEADERS - prevent XSS, clickjacking, MIME sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Hide server implementation details
+    if "server" in response.headers:
+        response.headers["server"] = "Dollor"
     return response
 
 # ===================== ADMIN AUTH MIDDLEWARE =====================
@@ -288,6 +300,17 @@ def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
             detail=f"Too many requests. Please try again in {retry_after} seconds.",
             headers={"Retry-After": str(retry_after)}
         )
+
+# ===================== INPUT SANITIZATION =====================
+# SECURITY: Strip HTML/script tags from user-supplied text to prevent stored XSS
+import re
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+
+def sanitize_text(text: Optional[str]) -> Optional[str]:
+    """Strip HTML tags from user input to prevent stored XSS attacks"""
+    if not text or not isinstance(text, str):
+        return text
+    return _HTML_TAG_RE.sub('', text).strip()
 
 # Health Check Endpoint
 @app.get("/health")
@@ -1339,7 +1362,9 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/auth/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "admin_login")
     print(f"Login attempt for: {form_data.username}")  # Debug log
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
@@ -1369,7 +1394,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 # Vendor Login
 @app.post("/api/auth/vendor/login")
-def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "vendor_login")
     print(f"Vendor login attempt for: {form_data.username}")
     
     # Find user with VENDOR role
@@ -2064,8 +2091,10 @@ class DriverLoginResponse(BaseModel):
         from_attributes = True
 
 @app.post("/api/auth/driver/login")
-def driver_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
+    # SECURITY: Rate limit login attempts to prevent brute force
+    check_rate_limit(request, auth_rate_limiter, "driver_login")
     print(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role first
@@ -3421,6 +3450,9 @@ async def request_ride(
     if not customer_email:
         customer_email = "guest@dollor.ai"
 
+    # SECURITY: Sanitize user-supplied text to prevent stored XSS
+    customer_name = sanitize_text(customer_name)
+
     # Generate ride ID
     ride_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
@@ -3574,11 +3606,13 @@ async def request_ride(
 
 @app.get("/api/erp/rides/{ride_id}/status")
 def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
-    """Get current status of a ride from database"""
-    try:
-        from sqlalchemy import text
+    """Get current status of a ride from database (checks both rides and ride_requests tables)"""
+    from sqlalchemy import text
+    from models import RideRequest, RideRequestStatus
 
-        # Query ride from database - include all driver vehicle/photo fields
+    # Try legacy rides table first
+    result = None
+    try:
         result = db.execute(
             text("""
                 SELECT r.id, r.status, r.driver_id, r.pickup_address, r.dropoff_address,
@@ -3591,10 +3625,10 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
             """),
             {"ride_id": ride_id}
         ).fetchone()
+    except Exception:
+        db.rollback()
 
-        if not result:
-            raise HTTPException(status_code=404, detail="Ride not found")
-
+    if result:
         ride_data = {
             "ride_id": ride_id,
             "status": result[1] if result[1] else "searching",
@@ -3603,8 +3637,7 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
             "message": "Searching for a driver..."
         }
 
-        # If driver assigned, include driver info with actual vehicle data
-        if result[2]:  # driver_id exists
+        if result[2]:
             ride_data["driver"] = {
                 "id": result[2],
                 "name": f"{result[5]} {result[6][0]}." if result[5] and result[6] else "Driver",
@@ -3613,26 +3646,70 @@ def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
                     "make": result[9] or "Unknown",
                     "model": result[10] or "Vehicle",
                     "year": result[11] or 2020,
-                    "color": result[14] or "Unknown",  # d.vehicle_color
+                    "color": result[14] or "Unknown",
                     "license_plate": result[12] or "N/A"
                 },
-                "photo_url": result[15],  # d.photo_url
-                "vehicle_photo_url": result[16],  # d.vehicle_photo_url
+                "photo_url": result[15],
+                "vehicle_photo_url": result[16],
                 "phone": result[13] or None,
-                "eta_minutes": 5  # Calculate from location service
+                "eta_minutes": 5
             }
             ride_data["eta_minutes"] = 5
             ride_data["message"] = f"Your driver {ride_data['driver']['name']} is on the way!"
 
         return ride_data
-    except HTTPException:
-        raise
-    except Exception as e:
-        # SECURITY: Log the full error but don't expose SQL/system details to client
-        import logging
-        logging.error(f"Ride status query error for {ride_id}: {str(e)}")
-        # Return generic error - don't expose database/SQL details
-        raise HTTPException(status_code=400, detail="Invalid ride ID format")
+
+    # Fallback: check ride_requests table (new bidding flow)
+    try:
+        rr = db.query(RideRequest).filter(RideRequest.id == int(ride_id)).first()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    if not rr:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    ride_data = {
+        "ride_id": ride_id,
+        "status": rr.status.value if rr.status else "open",
+        "driver_id": rr.matched_driver_id,
+        "pickup_address": rr.pickup_address,
+        "dropoff_address": rr.dropoff_address,
+        "suggested_price": float(rr.suggested_price) if rr.suggested_price else None,
+        "final_price": float(rr.final_price) if rr.final_price else None,
+        "tip_amount": float(rr.tip_amount) if rr.tip_amount else 0.0,
+        "customer_rating": rr.customer_rating,
+        "bid_count": len(rr.bids) if rr.bids else 0,
+        "driver": None,
+        "eta_minutes": None,
+        "message": "Searching for a driver..."
+    }
+
+    if rr.matched_driver_id:
+        driver = db.query(Driver).filter(Driver.id == rr.matched_driver_id).first()
+        if driver:
+            ride_data["driver"] = {
+                "id": driver.id,
+                "name": f"{driver.first_name} {driver.last_name[0]}." if driver.first_name and driver.last_name else "Driver",
+                "rating": float(driver.rating) if driver.rating else 4.8,
+                "vehicle": {
+                    "make": getattr(driver, 'vehicle_make', None) or "Unknown",
+                    "model": getattr(driver, 'vehicle_model', None) or "Vehicle",
+                    "year": getattr(driver, 'vehicle_year', None) or 2020,
+                    "color": getattr(driver, 'vehicle_color', None) or "Unknown",
+                    "license_plate": getattr(driver, 'license_plate', None) or "N/A"
+                },
+                "phone": driver.phone or None,
+                "eta_minutes": 5
+            }
+            status_val = rr.status.value if rr.status else ""
+            if status_val == "completed":
+                ride_data["message"] = "Ride completed"
+            elif status_val == "in_progress":
+                ride_data["message"] = f"Your driver {ride_data['driver']['name']} is on the way!"
+            else:
+                ride_data["message"] = f"Driver {ride_data['driver']['name']} matched!"
+
+    return ride_data
 
 
 # Frontend-compatible fare estimate endpoint (uses /estimate instead of /estimate-fare)
@@ -3785,12 +3862,45 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
 
 # Ride rating endpoint
 @app.post("/api/erp/rides/{ride_id}/rate")
-def rate_ride(ride_id: str, rating: int = 5, feedback: str = "", rated_by: str = "customer"):
+async def rate_ride(ride_id: int, request: Request, db: Session = Depends(get_db)):
     """
-    Rate a completed ride
+    Rate a completed ride (ERP endpoint).
+    Accepts JSON body: {"rating": 1-5, "feedback": "optional", "rated_by": "customer"}
     """
-    if rating < 1 or rating > 5:
+    from models import RideRequest, RideRequestStatus
+
+    # Parse JSON body
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    rating = body.get("rating", 5)
+    feedback = body.get("feedback", body.get("comment", ""))
+    rated_by = body.get("rated_by", "customer")
+
+    if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    rating = int(round(rating))
+
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Save rating to ride_requests
+    ride.customer_rating = rating
+    ride.customer_comment = feedback
+
+    # Update driver's average rating
+    if ride.matched_driver_id:
+        driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+        if driver:
+            current_rating = driver.rating or 5.0
+            total_trips = driver.total_deliveries or 0
+            new_rating = round(((current_rating * total_trips) + rating) / (total_trips + 1), 2)
+            driver.rating = new_rating
+            driver.total_deliveries = total_trips + 1
+
+    db.commit()
 
     return {
         "success": True,
@@ -7956,16 +8066,24 @@ def get_orders(
     vendor_id: Optional[int] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all orders with optional filtering.
     Connected to Admin Portal: Orders Management Screen
+    SECURITY: Requires authentication. Non-admin users only see their own orders.
     """
     from models import Order, OrderStatus, Vendor
     import json
 
     query = db.query(Order)
+
+    # SECURITY: Non-admin users can only see their own orders
+    if current_user.role != UserRole.ADMIN:
+        query = query.filter(
+            or_(Order.customer_email == current_user.email, Order.vendor_id == current_user.vendor_id)
+        )
 
     # Apply filters
     if status:
@@ -14388,6 +14506,15 @@ async def cancel_ride(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
+    # SECURITY: Verify the authenticated user owns this ride (admins can cancel any)
+    if current_user.role != UserRole.ADMIN:
+        # Look up customer by email to match against ride
+        owner = db.query(Customer).filter(Customer.email == current_user.email).first()
+        if not owner:
+            raise HTTPException(status_code=403, detail="Only customers or admins can cancel rides")
+        if owner.id != ride.customer_id:
+            raise HTTPException(status_code=403, detail="You can only cancel your own rides")
+
     # Block cancel on completed/cancelled/in_progress rides
     non_cancellable = [RideRequestStatus.COMPLETED, RideRequestStatus.CANCELLED, RideRequestStatus.IN_PROGRESS]
     if ride.status in non_cancellable:
@@ -14416,12 +14543,14 @@ async def cancel_ride(
 @app.get("/api/customer/{customer_id}/active-orders")
 async def get_customer_active_orders(
     customer_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get active orders for a customer.
     Used by Android/iOS customer apps.
     Returns full order details needed for tracking view.
+    SECURITY: Requires auth. Customer can only view their own active orders.
     """
     from models import Order, OrderStatus, Vendor, Customer
     from sqlalchemy import or_, and_
@@ -14429,6 +14558,11 @@ async def get_customer_active_orders(
     # Get customer email for fallback lookup (for orders created before customer_id was set)
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     customer_email = customer.email if customer else None
+
+    # SECURITY: Verify the authenticated user owns this customer_id (admins can view any)
+    if current_user.role != UserRole.ADMIN:
+        if customer and customer.email != current_user.email:
+            raise HTTPException(status_code=403, detail="You can only view your own orders")
 
     # Query by customer_id OR customer_email (for backward compatibility)
     # Use and_() to combine with status filter for proper SQL generation
@@ -14597,6 +14731,17 @@ async def rate_ride_customer(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
+    # SECURITY: Verify the authenticated user owns this ride
+    customer_id = None
+    try:
+        token = request.headers.get("authorization", "").replace("Bearer ", "")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+    except Exception:
+        pass
+    if customer_id and ride.customer_id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only rate your own rides")
+
     # Verify ride is completed
     from models import RideRequestStatus
     if ride.status != RideRequestStatus.COMPLETED:
@@ -14663,9 +14808,24 @@ async def tip_ride_driver(
             "driver_new_earnings": 0.0
         }
 
+    # SECURITY: Cap tip at $500 to prevent financial abuse
+    if actual_tip > 500:
+        raise HTTPException(status_code=400, detail="Tip amount cannot exceed $500.00")
+
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
+
+    # SECURITY: Verify the authenticated user owns this ride
+    customer_id = None
+    try:
+        token = request.headers.get("authorization", "").replace("Bearer ", "")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        customer_id = payload.get("customer_id")
+    except Exception:
+        pass
+    if customer_id and ride.customer_id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only tip on your own rides")
 
     # Update tip amount on ride
     current_tip = getattr(ride, 'tip_amount', 0) or 0
@@ -18186,8 +18346,13 @@ def get_privacy_policy():
 
 # ==================== DEMO ACCOUNT SETUP (App Store Review) ====================
 @app.post("/api/demo/setup")
-def setup_demo_accounts(db: Session = Depends(get_db)):
-    """Create demo accounts for App Store/Play Store review."""
+def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Create demo accounts for App Store/Play Store review.
+    SECURITY: Requires ADMIN_SECRET_KEY to prevent unauthorized account manipulation."""
+    # SECURITY: Require admin secret key
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    if expected_key and (not secret_key or secret_key != expected_key):
+        raise HTTPException(status_code=403, detail="Admin secret key required")
     results = {"created": [], "existing": [], "errors": []}
 
     # --- Demo Customer ---
@@ -18415,15 +18580,10 @@ def setup_demo_accounts(db: Session = Depends(get_db)):
         db.rollback()
         results["errors"].append(f"admin: {str(e)}")
 
+    # SECURITY: Never expose credentials in API responses
     return {
         "success": len(results["errors"]) == 0,
-        "results": results,
-        "credentials": {
-            "customer": {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
-            "driver": {"email": "demo.driver@dollor.ai", "password": "DemoDriver2025!"},
-            "restaurant": {"email": "demo.restaurant@dollor.ai", "password": "DemoRestaurant2025!"},
-            "admin": {"email": "support@dollor.ai", "password": "DollorAdmin2026!"}
-        }
+        "results": results
     }
 
 

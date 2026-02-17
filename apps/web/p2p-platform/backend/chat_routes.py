@@ -9,21 +9,41 @@ Endpoints:
 - GET /api/chat/conversation/{order_id} - Get conversation info
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from jose import jwt, JWTError
 import json
+import os
 
 from database import get_db
 from models import (
     ChatConversation, ChatMessage, MessageSenderType,
-    Order, Driver, OrderStatus
+    Order, Driver, OrderStatus, User
 )
 
-router = APIRouter(prefix="/api/chat", tags=["Chat"])
+# SECURITY: Shared auth dependency for all chat endpoints
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+_ALGORITHM = "HS256"
+
+async def _require_chat_auth(token: Optional[str] = Depends(_oauth2_scheme)):
+    """SECURITY: All chat endpoints require authentication"""
+    if not token or not _SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        if not payload.get("sub"):
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+router = APIRouter(prefix="/api/chat", tags=["Chat"], dependencies=[Depends(_require_chat_auth)])
 
 
 # =========================================================================

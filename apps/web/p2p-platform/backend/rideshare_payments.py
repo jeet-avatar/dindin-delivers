@@ -20,7 +20,7 @@ import logging
 from database import get_db
 from models import RideRequest, RideRequestStatus, Driver, Customer
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payments/ride", tags=["Rideshare Payments"])
