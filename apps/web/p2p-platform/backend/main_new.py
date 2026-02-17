@@ -1052,6 +1052,8 @@ def _run_startup_migrations():
         ("ride_requests", "driver_paid_at", "TIMESTAMP"),
         ("ride_requests", "stripe_transfer_id", "VARCHAR(255)"),
         ("ride_requests", "tip_amount", "FLOAT DEFAULT 0"),
+        ("ride_requests", "customer_rating", "INTEGER"),
+        ("ride_requests", "customer_comment", "TEXT"),
         # Early Driver Notification columns - orders table
         ("orders", "estimated_prep_minutes", "INTEGER"),
         ("orders", "estimated_ready_at", "TIMESTAMP"),
@@ -3422,14 +3424,45 @@ async def request_ride(
     # Generate ride ID
     ride_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
-    # Calculate fare
+    # Validate addresses
     pickup = request.pickup_address
     dropoff = request.dropoff_address
 
-    distance_km = calculate_distance_km(
-        pickup.get('lat', 0), pickup.get('lng', 0),
-        dropoff.get('lat', 0), dropoff.get('lng', 0)
-    )
+    if not pickup or not dropoff:
+        raise HTTPException(status_code=400, detail="Both pickup_address and dropoff_address are required")
+
+    pickup_lat = pickup.get('lat') or pickup.get('latitude') or 0
+    pickup_lng = pickup.get('lng') or pickup.get('longitude') or 0
+    dropoff_lat = dropoff.get('lat') or dropoff.get('latitude') or 0
+    dropoff_lng = dropoff.get('lng') or dropoff.get('longitude') or 0
+
+    # Validate coordinates are present and numeric
+    try:
+        pickup_lat = float(pickup_lat)
+        pickup_lng = float(pickup_lng)
+        dropoff_lat = float(dropoff_lat)
+        dropoff_lng = float(dropoff_lng)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid coordinates: lat/lng must be numbers")
+
+    if pickup_lat == 0 and pickup_lng == 0:
+        raise HTTPException(status_code=400, detail="Pickup coordinates are required")
+    if dropoff_lat == 0 and dropoff_lng == 0:
+        raise HTTPException(status_code=400, detail="Dropoff coordinates are required")
+
+    # Validate coordinate ranges
+    if not (-90 <= pickup_lat <= 90 and -180 <= pickup_lng <= 180):
+        raise HTTPException(status_code=400, detail="Pickup coordinates out of range")
+    if not (-90 <= dropoff_lat <= 90 and -180 <= dropoff_lng <= 180):
+        raise HTTPException(status_code=400, detail="Dropoff coordinates out of range")
+
+    # Calculate distance
+    distance_km = calculate_distance_km(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
+
+    # Validate minimum distance (same pickup/dropoff)
+    if distance_km < 0.1:
+        raise HTTPException(status_code=400, detail="Pickup and dropoff are too close. Minimum distance: 0.1 km")
+
     distance_miles = distance_km * 0.621371
 
     # Fare calculation (canonical rates from pricing_config.py)
@@ -3475,12 +3508,12 @@ async def request_ride(
             customer_name=customer_name,
             customer_phone=request.customer_phone,
             pickup_address=pickup.get('address', pickup.get('street', 'Pickup')),
-            pickup_latitude=pickup.get('lat', 0.0),
-            pickup_longitude=pickup.get('lng', 0.0),
+            pickup_latitude=pickup_lat,
+            pickup_longitude=pickup_lng,
             pickup_place_name=pickup.get('address', 'Pickup'),
             dropoff_address=dropoff.get('address', dropoff.get('street', 'Dropoff')),
-            dropoff_latitude=dropoff.get('lat', 0.0),
-            dropoff_longitude=dropoff.get('lng', 0.0),
+            dropoff_latitude=dropoff_lat,
+            dropoff_longitude=dropoff_lng,
             dropoff_place_name=dropoff.get('address', 'Dropoff'),
             estimated_distance_km=distance_km,
             estimated_duration_minutes=estimated_minutes,
@@ -14347,13 +14380,36 @@ async def cancel_ride(
     """
     Cancel a ride request.
     Used by Android/iOS customer apps.
+    Only open/bidding/matched rides can be cancelled.
     """
+    from models import RideRequest, RideRequestStatus
+
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Block cancel on completed/cancelled/in_progress rides
+    non_cancellable = [RideRequestStatus.COMPLETED, RideRequestStatus.CANCELLED, RideRequestStatus.IN_PROGRESS]
+    if ride.status in non_cancellable:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel ride with status: {ride.status.value}"
+        )
+
+    # Calculate cancellation fee based on ride state
+    cancellation_fee = 0.0
+    if ride.status == RideRequestStatus.MATCHED:
+        cancellation_fee = 5.0  # $5 fee if driver already matched
+
+    ride.status = RideRequestStatus.CANCELLED
+    db.commit()
+
     return {
         "success": True,
         "ride_id": ride_id,
         "status": "cancelled",
         "reason": reason,
-        "cancellation_fee": 0.0
+        "cancellation_fee": cancellation_fee
     }
 
 
@@ -14512,23 +14568,72 @@ async def track_customer_order(
 @app.post("/api/rides/{ride_id}/rate")
 async def rate_ride_customer(
     ride_id: int,
-    rating: int = 5,
-    comment: str = None,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Rate a completed ride (Customer API).
     Used by Android/iOS customer apps.
+    Accepts JSON body: {"rating": 1-5, "comment": "optional"}
     """
-    return {"success": True, "message": "Rating submitted", "ride_id": ride_id, "rating": rating}
+    from models import RideRequest, Driver
+
+    # Parse body (iOS sends JSON)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    rating = body.get("rating", 5)
+    comment = body.get("comment", None)
+
+    # Validate rating range
+    if not isinstance(rating, (int, float)) or rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    rating = int(round(rating))  # Clamp to integer
+
+    # Verify ride exists
+    ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    # Verify ride is completed
+    from models import RideRequestStatus
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail=f"Can only rate completed rides (current: {ride.status.value})")
+
+    # Store rating on ride
+    ride.customer_rating = rating
+    ride.customer_comment = comment
+
+    # Update driver's average rating
+    driver = None
+    if ride.matched_driver_id:
+        driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+        if driver:
+            current_rating = driver.rating or 5.0
+            total_trips = driver.total_deliveries or 0
+            # Rolling average
+            new_rating = round(((current_rating * total_trips) + rating) / (total_trips + 1), 2)
+            driver.rating = new_rating
+            driver.total_deliveries = total_trips + 1
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Rating submitted",
+        "ride_id": ride_id,
+        "rating": rating,
+        "newDriverRating": driver.rating if ride.matched_driver_id and driver else None
+    }
 
 
 @app.post("/api/rides/{ride_id}/tip")
 async def tip_ride_driver(
     ride_id: int,
-    tip_amount: float = 0,
-    tip_type: str = "post_ride",
+    tip_amount: float = Query(0, alias="tip_amount"),
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -14536,8 +14641,27 @@ async def tip_ride_driver(
     Add tip to driver for a completed ride.
     100% of tip goes to driver.
     Used by Android/iOS customer apps.
+    Accepts tip_amount from query param OR JSON body (iOS sends body).
     """
     from models import RideRequest
+
+    # iOS sends tip_amount in JSON body; Android/curl may use query param
+    actual_tip = tip_amount
+    if request and actual_tip == 0:
+        try:
+            body = await request.json()
+            actual_tip = float(body.get("tip_amount", 0))
+        except Exception:
+            pass
+
+    if actual_tip <= 0:
+        return {
+            "success": True,
+            "message": "$0.00 tip added for your driver",
+            "ride_id": ride_id,
+            "tip_amount": 0.0,
+            "driver_new_earnings": 0.0
+        }
 
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
@@ -14545,15 +14669,15 @@ async def tip_ride_driver(
 
     # Update tip amount on ride
     current_tip = getattr(ride, 'tip_amount', 0) or 0
-    ride.tip_amount = current_tip + tip_amount
+    ride.tip_amount = current_tip + actual_tip
     db.commit()
 
     return {
         "success": True,
-        "message": f"${tip_amount:.2f} tip added for your driver",
+        "message": f"${actual_tip:.2f} tip added for your driver",
         "ride_id": ride_id,
-        "tip_amount": tip_amount,
-        "driver_new_earnings": tip_amount  # 100% to driver
+        "tip_amount": actual_tip,
+        "driver_new_earnings": actual_tip  # 100% to driver
     }
 
 

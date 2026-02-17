@@ -73,6 +73,21 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
     if ride.status not in [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS, RideRequestStatus.COMPLETED]:
         raise HTTPException(status_code=400, detail=f"Invalid status: {ride.status.value}")
 
+    # Idempotency: if payment already exists, return existing data
+    if ride.stripe_payment_intent_id and ride.stripe_payment_intent_id != "demo_pi_appstore_review":
+        fare = ride.final_price or ride.suggested_price
+        tier_fee = get_tier_fee(fare)
+        return PaymentResponse(
+            success=True,
+            fare=fare,
+            tier_fee=tier_fee,
+            customer_pays=fare + tier_fee,
+            driver_receives=fare - tier_fee,
+            platform_earns=tier_fee * 2,
+            payment_intent_id=ride.stripe_payment_intent_id,
+            client_secret=None  # Cannot retrieve secret after creation
+        )
+
     fare = ride.final_price or ride.suggested_price
     tier_fee = get_tier_fee(fare)
     customer_pays = fare + tier_fee

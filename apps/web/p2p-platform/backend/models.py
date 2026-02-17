@@ -1331,6 +1331,10 @@ class RideRequest(Base):
     # Tip
     tip_amount = Column(Float, default=0.0)  # Customer tip for driver (100% to driver)
 
+    # Rating
+    customer_rating = Column(Integer)  # 1-5 stars from customer
+    customer_comment = Column(Text)    # Optional review comment
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
