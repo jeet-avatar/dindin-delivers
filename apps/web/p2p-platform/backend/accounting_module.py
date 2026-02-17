@@ -507,7 +507,7 @@ async def get_income_statement(
     food_orders = int(food_data.get("total_orders", 0) or 0)
     food_platform_revenue = food_orders * (CUSTOMER_FEE + RESTAURANT_FEE)  # $2 per order
 
-    # Rideshare: Tiered fees ($1/$2/$3 per side based on distance)
+    # Rideshare: Tiered fees ($1/$2/$3 per side based on fare amount)
     rideshare_platform_revenue = float(ride_data.get("rideshare_platform_fees", 0) or 0)
 
     revenue = {
