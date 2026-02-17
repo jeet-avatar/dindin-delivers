@@ -24,7 +24,7 @@ iOS APPS:
 13. Bundle IDs: Customer=com.dollorai.customer, Driver=com.dollorai.delivery, Restaurant=com.dollorai.restaurant
 14. Display Names: Customer='Dollor', Driver='Dollor Driver', Restaurant='Dollor Business'
 15. Firebase project: dollorai-production (#65740760476), owned by support@dollor.ai
-16. Latest builds (Feb 15, 2026): Customer 1073, Driver 183, Restaurant 156. All v1.0
+16. Latest builds (Feb 16, 2026): Customer 1076, Driver 187, Restaurant 158. All v1.0
 17. Team ID: PRKZ4UVCD7, signing: automatic, method: app-store-connect
 18. Apple Pay merchant: merchant.com.dolloraiai, Sign in with Apple: enabled
 19. Config: GET /api/config on launch, overrides hardcoded defaults. Fallback: hardcoded values in AppConfig.swift
@@ -79,10 +79,16 @@ RIDESHARE FLOW:
 56. Chat: GET /api/p2p/ride-requests/{id}/chat (main_new.py:14595), POST same path (main_new.py:14609)
 57. Cancel: POST /api/rides/request/{id}/cancel - only open/bidding rides - bid_routes.py:656
 
+ADMIN SECURITY (Feb 16, 2026):
+58. ALL /api/admin/* endpoints require admin JWT Bearer token OR ADMIN_SECRET_KEY query param - main_new.py:184
+59. Exempt from admin auth: /api/admin/login, /api/admin/set-document-status (has own body-based auth)
+60. CORS: fix_cors_headers middleware always sets Vary: Origin, strips allow-credentials leak - main_new.py:152
+61. ECS deployment: task-def dollor-api:309, cluster dollor-production, 2 tasks
+
 FEATURE FLAGS:
-58. isDummyPaymentMode: false (real Stripe in Release). isAIFeaturesEnabled: true. isDynamicPricingEnabled: false
-59. Driver earnings display: 96% - AppConfig.swift:248
-60. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
+62. isDummyPaymentMode: false (real Stripe in Release). isAIFeaturesEnabled: true. isDynamicPricingEnabled: false
+63. Driver earnings display: 96% - AppConfig.swift:248
+64. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
 """
 
 TEMPLATE """{{ if .System }}<|im_start|>system

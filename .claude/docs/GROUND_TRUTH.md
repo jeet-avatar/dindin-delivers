@@ -1,7 +1,7 @@
 # DOLLOR.AI GROUND TRUTH (Backend-Verified)
 
 > Auto-generated from backend source code. Every fact includes file:line reference.
-> Last verified: February 15, 2026 (Build 1073/183/156)
+> Last verified: February 16, 2026 (Build 1076/187/158)
 
 ---
 
@@ -288,12 +288,12 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 
 ## 13. iOS APP CONFIGURATION
 
-### Build Numbers (Feb 15, 2026)
+### Build Numbers (Feb 16, 2026)
 | App | Build | Version | Display Name |
 |-----|-------|---------|-------------|
-| Customer | 1073 | 1.0 | Dollor / Dollor - $1 Delivery |
-| Driver | 183 | 1.0 | Dollor Driver / Dollor Driver - Earn More |
-| Restaurant | 156 | 1.0 | Dollor Business / Dollor for Restaurants |
+| Customer | 1076 | 1.0 | Dollor / Dollor - $1 Delivery |
+| Driver | 187 | 1.0 | Dollor Driver / Dollor Driver - Earn More |
+| Restaurant | 158 | 1.0 | Dollor Business / Dollor for Restaurants |
 
 ### Environment URLs (xcconfig)
 | Env | API | WebSocket | CDN |
@@ -366,7 +366,52 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 
 ---
 
-## 15. COMPANY & LEGAL
+## 15. ADMIN SECURITY (Feb 16, 2026)
+
+### Admin Auth Middleware
+All `/api/admin/*` endpoints are secured by `admin_auth_middleware` (`main_new.py:167`).
+
+| Auth Method | How It Works | Source |
+|-------------|-------------|--------|
+| JWT Bearer token | `Authorization: Bearer <token>`, must be `UserRole.ADMIN` | `main_new.py:182-199` |
+| ADMIN_SECRET_KEY | `?secret_key=<key>` query param | `main_new.py:204-208` |
+
+### Exempt Paths (No Auth Required)
+| Path | Reason | Source |
+|------|--------|--------|
+| `/api/admin/login` | Login must be accessible | `main_new.py:165` |
+| `/api/admin/set-document-status` | Has own body-based auth | `main_new.py:166` |
+| `OPTIONS` requests | CORS preflight | `main_new.py:175` |
+
+### Secured Admin Endpoints (13 total)
+All return `401 Unauthorized` without valid auth:
+- `GET /api/admin/drivers` — Driver list with PII
+- `DELETE /api/admin/customers/by-email/{email}` — Customer deletion
+- `GET /api/admin/database/schema` — Full DB schema
+- `GET /api/admin/rideshare/requests` — Ride request PII
+- `GET /api/admin/rideshare/active` — Active ride PII
+- `POST /api/admin/cleanup-expired-bids` — Bid cleanup
+- `POST /api/admin/cleanup/pending-orders` — Order cleanup
+- `POST /api/admin/cleanup/all-incomplete` — Full cleanup
+- `GET /api/admin/api/routes` — API route listing
+- `GET /api/admin/api/duplicates` — Duplicate route detection
+- `POST /api/admin/drivers/{id}/set-documents` — Document status
+- `POST /api/admin/drivers/{id}/verify` — Driver verification
+- `POST /api/admin/migrate` — Database migration
+
+### CORS Security
+| Header | Behavior | Source |
+|--------|----------|--------|
+| `Vary: Origin` | Always set (fixes CloudFront caching) | `main_new.py:155` |
+| `access-control-allow-credentials` | Stripped when no `allow-origin` present | `main_new.py:157` |
+
+### Deployment
+- ECS task-def: `dollor-api:309` (commit `4244c77a`)
+- All changes verified against `api.dollor.ai` in production
+
+---
+
+## 16. COMPANY & LEGAL
 
 | Field | Value | Source |
 |-------|-------|--------|
@@ -388,7 +433,7 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 
 ---
 
-## 16. KNOWN INCONSISTENCIES
+## 17. KNOWN INCONSISTENCIES
 
 1. **Three rideshare fee models coexist:** Model A (fare-tiered, `rideshare_payments.py`), Model B (distance-tiered, `main_new.py:3193`), Model C (flat $1, `order_flow.py:489`). Model A is canonical.
 2. ~~**Tax rate mismatch**~~ **RESOLVED (Feb 15, 2026):** All three sources aligned at 6% (iOS AppConfig.swift:60, backend /api/config main_new.py:1071, DEFAULT_TAX_RATE order_flow.py:568). NY aligned at 8.875% on both backend and iOS.
