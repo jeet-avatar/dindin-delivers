@@ -566,10 +566,21 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
                 detail="Maximum negotiation rounds reached for this bid. Accept, reject, or try another driver."
             )
 
-        # Low bid warning check
+        # Price validation
         suggested_price = ride_request.suggested_price or 15.0
         counter_price = data.counter_price
         warning_message = None
+
+        # Counter must be positive
+        if counter_price <= 0:
+            raise HTTPException(status_code=400, detail="Counter price must be greater than $0")
+
+        # Customer counter should be lower than driver's bid (negotiating down)
+        if counter_price >= bid.proposed_price:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Counter must be less than driver's bid of ${bid.proposed_price:.2f}"
+            )
 
         # Very low bid (< 40% of suggested) - reject with message
         if counter_price < suggested_price * 0.4:
@@ -708,20 +719,16 @@ async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
 
 @router.get("/available")
 async def get_available_ride_requests(
-    driver_id: int,
-    latitude: float,
-    longitude: float,
+    driver_id: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
     radius_km: float = 15.0,
     db: Session = Depends(get_db)
 ):
     """
-    Get available ride requests near the driver for bidding
+    Get available ride requests near the driver for bidding.
+    If driver_id/latitude/longitude not provided, returns all open rides.
     """
-    # Get driver
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
     # Get open and bidding ride requests (BIDDING = at least one driver has bid)
     now = datetime.utcnow()
     open_requests = db.query(RideRequest).filter(
@@ -734,15 +741,21 @@ async def get_available_ride_requests(
         )
     ).all()
 
-    # Filter by distance from driver
     nearby_requests = []
     for request in open_requests:
-        distance = calculate_distance_km(
-            latitude, longitude,
-            request.pickup_latitude, request.pickup_longitude
-        )
-        if distance <= radius_km:
-            # Check if driver already bid on this request
+        # Calculate distance if driver location provided
+        distance = None
+        if latitude is not None and longitude is not None and request.pickup_latitude and request.pickup_longitude:
+            distance = calculate_distance_km(
+                latitude, longitude,
+                request.pickup_latitude, request.pickup_longitude
+            )
+            if distance > radius_km:
+                continue
+
+        # Check if driver already bid on this request
+        existing_bid = None
+        if driver_id is not None:
             existing_bid = db.query(RideBid).filter(
                 and_(
                     RideBid.ride_request_id == request.id,
@@ -751,16 +764,16 @@ async def get_available_ride_requests(
                 )
             ).first()
 
-            request_data = serialize_ride_request(request)
-            request_data["distance_to_pickup_km"] = round(distance, 2)
-            request_data["already_bid"] = existing_bid is not None
-            if existing_bid:
-                request_data["my_bid"] = serialize_bid(existing_bid)
+        request_data = serialize_ride_request(request)
+        request_data["distance_to_pickup_km"] = round(distance, 2) if distance is not None else None
+        request_data["already_bid"] = existing_bid is not None
+        if existing_bid:
+            request_data["my_bid"] = serialize_bid(existing_bid)
 
-            nearby_requests.append(request_data)
+        nearby_requests.append(request_data)
 
-    # Sort by distance (closest first)
-    nearby_requests.sort(key=lambda x: x["distance_to_pickup_km"])
+    # Sort by distance if available (closest first)
+    nearby_requests.sort(key=lambda x: x.get("distance_to_pickup_km") or 999)
 
     return {
         "success": True,
@@ -1050,6 +1063,17 @@ async def driver_counter_offer(bid_id: int, data: DriverCounterInput, db: Sessio
     ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Validate counter price
+    if data.counter_price <= 0:
+        raise HTTPException(status_code=400, detail="Counter price must be greater than $0")
+
+    # Driver counter should be higher than customer's counter (negotiating up)
+    if bid.customer_counter_price and data.counter_price <= bid.customer_counter_price:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Counter must be more than customer's offer of ${bid.customer_counter_price:.2f}"
+        )
 
     MAX_ROUNDS_PER_BID = 2
     if bid.negotiation_round >= MAX_ROUNDS_PER_BID:
