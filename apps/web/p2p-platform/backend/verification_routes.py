@@ -42,8 +42,9 @@ router = APIRouter(prefix="/api/verification", tags=["Document Verification"])
 _ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
 _IS_PRODUCTION = _ENVIRONMENT in ("production", "prod")
 
-# Rate limiting tracking (in production, use Redis)
-_rate_limit_cache: Dict[str, Dict[str, Any]] = {}
+# Rate limiting — Redis-backed (shared across workers), in-memory fallback
+from cache import rate_limit_check as _redis_rate_check, REDIS_AVAILABLE as _REDIS_UP
+_rate_limit_cache: Dict[str, Dict[str, Any]] = {}  # in-memory fallback
 RATE_LIMIT_WINDOW = 3600  # 1 hour
 RATE_LIMIT_MAX_REQUESTS = 10  # Max verification requests per entity per hour
 
@@ -87,16 +88,22 @@ def check_rate_limit(entity_type: str, entity_id: int) -> bool:
     """
     Check if entity has exceeded rate limit for verification requests.
     Returns True if within limit, False if exceeded.
+    Uses Redis if available, falls back to in-memory.
     """
-    key = f"{entity_type}_{entity_id}"
-    now = datetime.now()
+    key = f"verify_ratelimit:{entity_type}_{entity_id}"
 
+    # Try Redis first
+    if _REDIS_UP:
+        is_allowed, _ = _redis_rate_check(key, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW)
+        return is_allowed
+
+    # In-memory fallback
+    now = datetime.now()
     if key not in _rate_limit_cache:
         _rate_limit_cache[key] = {"count": 0, "window_start": now}
 
     cache = _rate_limit_cache[key]
 
-    # Reset window if expired
     if (now - cache["window_start"]).total_seconds() > RATE_LIMIT_WINDOW:
         cache["count"] = 0
         cache["window_start"] = now

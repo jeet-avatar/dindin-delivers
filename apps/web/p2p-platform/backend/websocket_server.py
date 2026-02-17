@@ -15,8 +15,16 @@ from datetime import datetime
 import json
 import asyncio
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
+
+# Redis pub/sub for cross-worker broadcast
+try:
+    from cache import redis_client, REDIS_AVAILABLE
+except ImportError:
+    redis_client = None
+    REDIS_AVAILABLE = False
 
 
 class ConnectionManager:
@@ -119,23 +127,36 @@ class ConnectionManager:
                 self.disconnect(client_id)
 
     async def broadcast_to_topic(self, message: dict, topic: str):
-        """Broadcast a message to all subscribers of a topic."""
-        if topic not in self.subscriptions:
-            return
-
+        """Broadcast a message to all subscribers of a topic.
+        If Redis is available, also publish so other workers receive it."""
         message["topic"] = topic
         message["timestamp"] = datetime.utcnow().isoformat()
+
+        # Publish to Redis for cross-worker delivery
+        if REDIS_AVAILABLE and redis_client and not message.get("_from_redis"):
+            try:
+                redis_client.publish(f"ws:{topic}", json.dumps(message, default=str))
+            except Exception as e:
+                logger.warning(f"Redis publish failed for {topic}: {e}")
+
+        # Deliver to local subscribers
+        await self._deliver_local(message, topic)
+
+    async def _deliver_local(self, message: dict, topic: str):
+        """Deliver a message to subscribers connected to THIS worker."""
+        if topic not in self.subscriptions:
+            return
 
         disconnected = []
         for client_id in self.subscriptions[topic]:
             if client_id in self.active_connections:
                 try:
-                    await self.active_connections[client_id].send_json(message)
+                    msg = {k: v for k, v in message.items() if k != "_from_redis"}
+                    await self.active_connections[client_id].send_json(msg)
                 except Exception as e:
                     logger.error(f"Error broadcasting to {client_id}: {e}")
                     disconnected.append(client_id)
 
-        # Clean up disconnected clients
         for client_id in disconnected:
             self.disconnect(client_id)
 
@@ -190,6 +211,72 @@ class ConnectionManager:
 
 # Global connection manager instance
 manager = ConnectionManager()
+
+
+# ===================== REDIS PUB/SUB LISTENER =====================
+
+# Captured by the main thread's event loop so the subscriber thread can schedule coroutines
+_main_event_loop: asyncio.AbstractEventLoop = None
+
+
+def capture_event_loop():
+    """Call from an async context (e.g. FastAPI lifespan/startup) to capture the running loop."""
+    global _main_event_loop
+    _main_event_loop = asyncio.get_running_loop()
+    logger.info(f"Captured event loop for Redis subscriber: {_main_event_loop}")
+
+
+def _start_redis_subscriber():
+    """Background thread that subscribes to Redis pub/sub and delivers to local WebSocket clients.
+    Reconnects automatically on Redis disconnect with exponential backoff."""
+    if not REDIS_AVAILABLE or not redis_client:
+        logger.info("Redis not available, skipping pub/sub subscriber")
+        return
+
+    import time as _time
+
+    def _listener():
+        import redis as redis_lib
+        import os
+        backoff = 1
+
+        while True:
+            try:
+                sub_client = redis_lib.Redis.from_url(
+                    os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=None,  # blocking subscribe
+                )
+                pubsub = sub_client.pubsub()
+                pubsub.psubscribe("ws:*")
+                logger.info("Redis pub/sub subscriber connected")
+                backoff = 1  # reset on successful connect
+
+                for raw_message in pubsub.listen():
+                    if raw_message["type"] != "pmessage":
+                        continue
+                    try:
+                        topic = raw_message["channel"].removeprefix("ws:")
+                        data = json.loads(raw_message["data"])
+                        data["_from_redis"] = True
+                        # Use captured event loop (set by capture_event_loop)
+                        loop = _main_event_loop
+                        if loop and not loop.is_closed():
+                            asyncio.run_coroutine_threadsafe(
+                                manager._deliver_local(data, topic), loop
+                            )
+                    except Exception as e:
+                        logger.warning(f"Redis subscriber message error: {e}")
+            except Exception as e:
+                logger.error(f"Redis subscriber disconnected: {e}, reconnecting in {backoff}s")
+                _time.sleep(backoff)
+                backoff = min(backoff * 2, 30)  # cap at 30s
+
+    t = threading.Thread(target=_listener, daemon=True, name="redis-ws-subscriber")
+    t.start()
+
+_start_redis_subscriber()
 
 
 # ===================== EVENT BROADCASTING FUNCTIONS =====================
