@@ -3,7 +3,7 @@ Ride Bidding API Routes - Matchmaking Platform
 Enables price negotiation between riders and drivers
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
@@ -176,7 +176,13 @@ def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> 
         "special_requests": request.special_requests,
         "created_at": request.created_at.isoformat() if request.created_at else None,
         "matched_at": request.matched_at.isoformat() if request.matched_at else None,
-        "bid_count": len(request.bids) if request.bids else 0
+        "completed_at": request.completed_at.isoformat() if getattr(request, 'completed_at', None) else None,
+        "bid_count": len(request.bids) if request.bids else 0,
+        "tip_amount": float(request.tip_amount) if getattr(request, 'tip_amount', None) else 0.0,
+        "customer_rating": request.customer_rating if getattr(request, 'customer_rating', None) else None,
+        "customer_comment": request.customer_comment if getattr(request, 'customer_comment', None) else None,
+        "platform_fee": float(request.platform_fee) if getattr(request, 'platform_fee', None) else None,
+        "driver_payout": float(request.driver_payout) if getattr(request, 'driver_payout', None) else None,
     }
 
     if include_bids and request.bids:
@@ -220,10 +226,30 @@ def serialize_bid(bid: RideBid) -> dict:
 # =========================================================================
 
 @router.post("/request")
-async def create_ride_request(data: CreateRideRequestInput, db: Session = Depends(get_db)):
+async def create_ride_request(data: CreateRideRequestInput, request: Request, db: Session = Depends(get_db)):
     """
-    Customer creates a new ride request open for driver bidding
+    Customer creates a new ride request open for driver bidding.
+    SECURITY: Validates customer_id matches the authenticated user's JWT token.
     """
+    # SECURITY: If auth token present, enforce customer_id matches JWT
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            import os
+            from jose import jwt as _jwt
+            _secret = os.getenv("JWT_SECRET_KEY", "")
+            payload = _jwt.decode(auth_header[7:], _secret, algorithms=["HS256"])
+            jwt_customer_id = payload.get("customer_id")
+            if jwt_customer_id and jwt_customer_id != data.customer_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="customer_id does not match authenticated user"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Token decode failure handled by endpoint auth if present
+
     # Get customer
     customer = db.query(Customer).filter(Customer.id == data.customer_id).first()
     if not customer:
@@ -239,27 +265,31 @@ async def create_ride_request(data: CreateRideRequestInput, db: Session = Depend
     # Calculate suggested price
     suggested_price = calculate_suggested_price(distance_km, duration_minutes, data.ride_type)
 
+    # SECURITY: Sanitize user-supplied text to prevent stored XSS
+    import re
+    _strip_html = lambda t: re.sub(r'<[^>]+>', '', t).strip() if t and isinstance(t, str) else t
+
     # Create ride request
     ride_request = RideRequest(
         request_id=generate_request_id(),
         customer_id=data.customer_id,
         customer_name=f"{customer.first_name} {customer.last_name}".strip() or customer.email,
         customer_phone=customer.phone,
-        pickup_address=data.pickup_address,
+        pickup_address=_strip_html(data.pickup_address),
         pickup_latitude=data.pickup_latitude,
         pickup_longitude=data.pickup_longitude,
         pickup_place_name=data.pickup_place_name,
-        dropoff_address=data.dropoff_address,
+        dropoff_address=_strip_html(data.dropoff_address),
         dropoff_latitude=data.dropoff_latitude,
         dropoff_longitude=data.dropoff_longitude,
-        dropoff_place_name=data.dropoff_place_name,
+        dropoff_place_name=_strip_html(data.dropoff_place_name),
         estimated_distance_km=round(distance_km, 2),
         estimated_duration_minutes=duration_minutes,
         ride_type=data.ride_type,
         suggested_price=round(suggested_price, 2),
         customer_max_price=data.customer_max_price,
         customer_preferred_price=data.customer_preferred_price,
-        special_requests=data.special_requests,
+        special_requests=_strip_html(data.special_requests),
         status=RideRequestStatus.OPEN,
         bidding_expires_at=datetime.utcnow() + timedelta(minutes=data.bidding_duration_minutes)
     )

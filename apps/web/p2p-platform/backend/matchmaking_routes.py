@@ -38,7 +38,7 @@ from state_config import (
     OperatingModel
 )
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
 
 router = APIRouter(prefix="/api/matchmaking", tags=["Matchmaking (Wyoming)"])
 

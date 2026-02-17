@@ -3136,7 +3136,7 @@ async def driver_login(
     import os
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "eatfair-driver-secret-key-2024")
+    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
     ALGORITHM = "HS256"
 
     driver = db.query(Driver).filter(Driver.email == request.email).first()
@@ -3192,7 +3192,7 @@ async def driver_register(
     import os
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "eatfair-driver-secret-key-2024")
+    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
     ALGORITHM = "HS256"
 
     # Check if driver already exists
@@ -3316,9 +3316,10 @@ async def get_driver_active_orders(
     return {"success": True, "orders": result}
 
 
-# ==================== Android Compatibility: Pending Orders Alias ====================
+# ==================== Android Compatibility: Available Orders for Driver ====================
 # Android app calls /api/erp/orders/driver/{driver_id}/pending
-# This is an alias for the /active endpoint - returns same data
+# Returns UNASSIGNED orders available for any driver to pick up
+# Response format matches Android AvailableDeliveriesResponse model
 
 @router.get("/orders/driver/{driver_id}/pending")
 async def get_driver_pending_orders(
@@ -3326,63 +3327,83 @@ async def get_driver_pending_orders(
     db: Session = Depends(get_db)
 ):
     """
-    Get driver's pending and assigned orders - Android Driver App compatibility.
-    This endpoint is an alias for /orders/driver/{driver_id}/active.
+    Get available delivery orders for Android Driver App.
+    Returns unassigned orders that any driver can accept.
     Android uses: /api/erp/orders/driver/{driverId}/pending
+    Android model: AvailableDeliveriesResponse { success, count, orders: [AvailableDelivery] }
     """
-    try:
-        # Query orders that are assigned to this driver or ready for pickup
-        orders = db.query(Order).filter(
-            Order.driver_id == driver_id,
-            Order.status.in_([
-                OrderStatus.READY_FOR_PICKUP,
-                OrderStatus.OUT_FOR_DELIVERY
-            ])
-        ).order_by(Order.created_at.desc()).limit(50).all()
+    import math
+    # Get orders available for pickup (no driver assigned yet)
+    orders = db.query(Order).filter(
+        Order.status.in_([OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP]),
+        Order.driver_id.is_(None)
+    ).order_by(Order.created_at.desc()).limit(20).all()
 
-        result = []
-        for order in orders:
-            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-            # Safely parse delivery address
-            delivery_addr = {}
-            if order.delivery_address:
-                try:
-                    delivery_addr = json.loads(order.delivery_address)
-                except (json.JSONDecodeError, TypeError):
-                    delivery_addr = {"address": str(order.delivery_address)}
+    logger.info(f"Android driver available orders query returned {len(orders)} orders")
 
-            result.append({
-                "id": order.id,
-                "order_id": order.id,
-                "order_number": order.order_number,
-                "status": order.status.value,
-                # iOS Driver app expects "restaurant" and "pickup_address" keys
-                "restaurant": vendor.restaurant_name if vendor else "Unknown",
-                "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
-                # Also include restaurant_name/restaurant_address for backward compatibility
-                "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
-                "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
-                "customer_name": order.customer_name,
-                "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
-                "customer_phone": order.customer_phone,
-                "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
-                "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-                # Use JSON coordinates first, fall back to dedicated columns
-                "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
-                "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
-                "estimated_distance": None,
-                "estimated_duration": 30,
-                "delivery_fee": order.delivery_fee,
-                "tip": order.tip,
-                "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-                "assigned_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
-                "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
-                "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
-            })
+    result = []
+    for order in orders:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
 
-        return {"success": True, "orders": result, "count": len(result)}
-    except Exception as e:
-        return {"success": False, "error": str(e), "error_type": type(e).__name__}
+        # Parse delivery address
+        delivery_lat = getattr(order, 'delivery_latitude', None)
+        delivery_lng = getattr(order, 'delivery_longitude', None)
+        delivery_addr_str = order.delivery_address or ""
+        if isinstance(delivery_addr_str, str) and delivery_addr_str.startswith("{"):
+            try:
+                addr_obj = json.loads(delivery_addr_str)
+                delivery_addr_str = ", ".join(filter(None, [
+                    addr_obj.get("street", ""),
+                    addr_obj.get("city", ""),
+                    addr_obj.get("state", "")
+                ]))
+                if not delivery_lat:
+                    delivery_lat = addr_obj.get("latitude")
+                if not delivery_lng:
+                    delivery_lng = addr_obj.get("longitude")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Count items
+        item_count = 0
+        if order.items:
+            try:
+                items = json.loads(order.items) if isinstance(order.items, str) else (order.items if isinstance(order.items, list) else [])
+                item_count = len(items)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        vendor_lat = getattr(vendor, 'latitude', None) if vendor else None
+        vendor_lng = getattr(vendor, 'longitude', None) if vendor else None
+        vendor_addr = ""
+        if vendor:
+            vendor_addr = ", ".join(filter(None, [vendor.street, vendor.city, vendor.state]))
+
+        # Calculate rough distance (Haversine) in miles
+        distance = 0.0
+        if vendor_lat and vendor_lng and delivery_lat and delivery_lng:
+            dlat = math.radians(float(delivery_lat) - float(vendor_lat))
+            dlng = math.radians(float(delivery_lng) - float(vendor_lng))
+            a = math.sin(dlat/2)**2 + math.cos(math.radians(float(vendor_lat))) * math.cos(math.radians(float(delivery_lat))) * math.sin(dlng/2)**2
+            distance = round(3959 * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a)), 1)
+
+        result.append({
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "restaurant_name": vendor.restaurant_name if vendor else "Unknown Restaurant",
+            "restaurant_address": vendor_addr,
+            "restaurant_lat": float(vendor_lat) if vendor_lat else None,
+            "restaurant_lng": float(vendor_lng) if vendor_lng else None,
+            "delivery_address": delivery_addr_str.strip(", ") if delivery_addr_str else "Address pending",
+            "delivery_lat": float(delivery_lat) if delivery_lat else None,
+            "delivery_lng": float(delivery_lng) if delivery_lng else None,
+            "earnings": float(order.delivery_fee or 3.0) + float(order.tip or 0),
+            "distance": distance,
+            "estimated_time": f"{int(distance * 3 + 10)} min" if distance > 0 else "15 min",
+            "item_count": item_count
+        })
+
+    return {"success": True, "orders": result, "count": len(result)}
 
 
 @router.put("/orders/{order_id}/complete-delivery")
