@@ -3924,6 +3924,7 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
     """
     Rate a completed ride (ERP endpoint).
     Accepts JSON body: {"rating": 1-5, "feedback": "optional", "rated_by": "customer"}
+    Only the ride's customer or matched driver can rate.
     """
     from models import RideRequest, RideRequestStatus
 
@@ -3934,6 +3935,13 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
+
+    # SECURITY: Only ride participants (customer or matched driver) can rate
+    user_customer_id = getattr(current_user, 'customer_id', None)
+    user_driver_id = getattr(current_user, 'driver_id', None)
+    is_admin = getattr(current_user, 'role', None) == 'admin'
+    if not is_admin and user_customer_id != ride.customer_id and user_driver_id != ride.matched_driver_id:
+        raise HTTPException(status_code=403, detail="You can only rate rides you participated in")
 
     # Save rating to ride_requests
     ride.customer_rating = rating
@@ -13899,6 +13907,23 @@ async def ride_picked_up_ios_alias(ride_id: int, db: Session = Depends(get_db)):
     iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
     return await ride_picked_up(ride_id, db)
+
+@app.post("/erp/rides/{ride_id}/start")
+@app.post("/api/erp/rides/{ride_id}/start")
+async def start_ride_alias(ride_id: int, db: Session = Depends(get_db)):
+    """Start ride alias for Android/iOS driver apps.
+    Android calls: POST /api/erp/rides/{rideId}/start
+    Accepts MATCHED or IN_PROGRESS status (picked-up may have already set IN_PROGRESS).
+    """
+    from models import RideRequest as RR, RideRequestStatus as RRS
+    ride = db.query(RR).filter(RR.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    if ride.status not in [RRS.MATCHED, RRS.IN_PROGRESS]:
+        raise HTTPException(status_code=400, detail=f"Ride must be matched or in progress (current: {ride.status.value})")
+    ride.status = RRS.IN_PROGRESS
+    db.commit()
+    return {"success": True, "message": "Ride started", "ride_id": ride.id, "status": "in_progress"}
 
 @app.get("/erp/rides/{ride_id}/track")
 @app.get("/api/erp/rides/{ride_id}/track")
