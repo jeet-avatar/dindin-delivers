@@ -108,12 +108,8 @@ WORKDIR /app
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
 
-# Copy only necessary files (not tests, docs, etc.)
-COPY --chown=appuser:appgroup main_new.py .
-COPY --chown=appuser:appgroup models.py .
-COPY --chown=appuser:appgroup email_service.py .
-COPY --chown=appuser:appgroup document_verification_service.py .
-COPY --chown=appuser:appgroup seed_menu_items.py .
+# Copy all Python source files (main_new.py imports 20+ modules)
+COPY --chown=appuser:appgroup *.py ./
 
 # Create necessary directories
 RUN mkdir -p /app/uploads/driver_documents /app/uploads/vendor_documents /tmp && \

@@ -4,8 +4,8 @@
   "executionRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskRole",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "512",
-  "memory": "1024",
+  "cpu": "1024",
+  "memory": "2048",
   "containerDefinitions": [
     {
       "name": "dollor-api",
