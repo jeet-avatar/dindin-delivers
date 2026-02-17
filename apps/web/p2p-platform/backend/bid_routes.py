@@ -671,8 +671,8 @@ async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
 
-    if ride_request.status in [RideRequestStatus.IN_PROGRESS, RideRequestStatus.COMPLETED]:
-        raise HTTPException(status_code=400, detail="Cannot cancel ride that is in progress or completed")
+    if ride_request.status in [RideRequestStatus.IN_PROGRESS, RideRequestStatus.COMPLETED, RideRequestStatus.CANCELLED]:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel ride with status: {ride_request.status.value}")
 
     ride_request.status = RideRequestStatus.CANCELLED
     ride_request.cancelled_at = datetime.utcnow()
