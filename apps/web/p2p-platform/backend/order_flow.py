@@ -1010,7 +1010,8 @@ async def ride_completed(
     db: Session = Depends(get_db)
 ):
     """
-    Ride completed - customer dropped off
+    Ride completed - customer dropped off.
+    Called by Android driver app: POST /api/erp/rides/{rideId}/completed
     """
     ai_employee = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
 
@@ -1026,15 +1027,54 @@ async def ride_completed(
     ride.status = RideRequestStatus.COMPLETED
     ride.completed_at = datetime.now()
 
-    # Calculate driver earnings with tiered platform fee
+    # Calculate driver earnings with tiered platform fee (aligned with bid_routes.py)
     fare = ride.final_price or ride.suggested_price or 0
     tier_fee = get_tier_fee(fare)
-    driver_earnings = round(fare - tier_fee + (ride.tip_amount or 0), 2)
+    tip = float(ride.tip_amount or 0)
+    driver_earnings = round(fare - tier_fee + tip, 2)
 
-    ride.platform_fee = tier_fee * 2  # customer + driver side
+    ride.platform_fee = tier_fee  # driver-side fee only (aligned with bid_routes.py)
     ride.driver_payout = driver_earnings
 
     db.commit()
+
+    # Auto-trigger driver payout via Stripe Connect (non-blocking)
+    try:
+        import stripe
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+        # Demo rides: skip Stripe, just mark payment status
+        if ride.stripe_payment_intent_id and ride.stripe_payment_intent_id.startswith("demo_"):
+            ride.payment_status = "demo"
+            ride.payment_completed_at = datetime.now()
+            db.commit()
+            logging.getLogger(__name__).info(f"Ride {ride.id} is demo — skipping Stripe payout")
+        else:
+            driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+            if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                payout_cents = int(ride.driver_payout * 100)
+                if payout_cents > 0:
+                    transfer = stripe.Transfer.create(
+                        amount=payout_cents,
+                        currency="usd",
+                        destination=driver.stripe_account_id,
+                        description=f"Ride {ride.request_id} payout",
+                        metadata={
+                            "ride_id": str(ride.id),
+                            "ride_request_id": ride.request_id,
+                            "driver_id": str(driver.id),
+                            "fare": str(fare),
+                            "platform_fee": str(tier_fee),
+                        }
+                    )
+                    ride.stripe_transfer_id = transfer.id
+                    ride.driver_paid_at = datetime.now()
+                    db.commit()
+                    logging.getLogger(__name__).info(f"Ride {ride.id} auto-payout ${ride.driver_payout:.2f} to driver {driver.id}")
+            else:
+                logging.getLogger(__name__).info(f"Ride {ride.id} driver not Stripe-onboarded, skipping auto-payout")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Ride {ride.id} auto-payout failed (non-blocking): {e}")
 
     return {
         "success": True,
@@ -1045,7 +1085,11 @@ async def ride_completed(
         "fare": fare,
         "tier_fee": tier_fee,
         "driver_earnings": driver_earnings,
-        "platform_fee": tier_fee * 2,
+        # Fields expected by Android RideCompleteResponse
+        "earnings": driver_earnings,
+        "tip": tip if tip > 0 else None,
+        "total_earned": driver_earnings,
+        "platform_fee": tier_fee,
         "processed_by": ai_employee["name"]
     }
 
