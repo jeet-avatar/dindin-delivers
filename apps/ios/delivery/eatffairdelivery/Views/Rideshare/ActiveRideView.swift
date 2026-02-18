@@ -12,6 +12,7 @@ struct ActiveRideView: View {
     @State private var rideStatus: RideStatus = .matched
     @State private var showCompleteAlert = false
     @State private var position: MapCameraPosition = .automatic
+    @State private var driverRoute: MKRoute?
 
     enum RideStatus: String {
         case matched = "Matched"
@@ -173,12 +174,20 @@ struct ActiveRideView: View {
                     }
                 }
             }
+
+            // Route polyline
+            if let driverRoute = driverRoute {
+                MapPolyline(driverRoute.polyline)
+                    .stroke(.blue, lineWidth: 5)
+            }
         }
         .mapStyle(.standard(elevation: .realistic))
         .mapControls {
             MapUserLocationButton()
             MapCompass()
         }
+        .onAppear { calculateDriverRoute() }
+        .onChange(of: rideStatus) { _, _ in calculateDriverRoute() }
     }
 
     // MARK: - Status Card
@@ -329,7 +338,7 @@ struct ActiveRideView: View {
     private var actionButton: some View {
         switch rideStatus {
         case .matched, .enRouteToPickup:
-            Button(action: { rideStatus = .arrivedAtPickup }) {
+            Button(action: { viewModel.driverArrived(bid); rideStatus = .arrivedAtPickup }) {
                 HStack {
                     Image(systemName: "mappin.circle.fill")
                     Text("I've Arrived")
@@ -438,6 +447,32 @@ struct ActiveRideView: View {
         mapItem.openInMaps(launchOptions: [
             MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
         ])
+    }
+
+    private func calculateDriverRoute() {
+        guard let request = request,
+              let currentCoord = locationManager.currentCoordinate else { return }
+
+        // Destination: dropoff if in progress, pickup otherwise
+        let destCoord: CLLocationCoordinate2D
+        if rideStatus == .inProgress {
+            destCoord = CLLocationCoordinate2D(latitude: request.dropoff.latitude, longitude: request.dropoff.longitude)
+        } else {
+            destCoord = CLLocationCoordinate2D(latitude: request.pickup.latitude, longitude: request.pickup.longitude)
+        }
+
+        let dirRequest = MKDirections.Request()
+        dirRequest.source = MKMapItem(placemark: MKPlacemark(coordinate: currentCoord))
+        dirRequest.destination = MKMapItem(placemark: MKPlacemark(coordinate: destCoord))
+        dirRequest.transportType = .automobile
+
+        MKDirections(request: dirRequest).calculate { response, _ in
+            if let route = response?.routes.first {
+                DispatchQueue.main.async {
+                    self.driverRoute = route
+                }
+            }
+        }
     }
 
     private func updateMapPosition() {

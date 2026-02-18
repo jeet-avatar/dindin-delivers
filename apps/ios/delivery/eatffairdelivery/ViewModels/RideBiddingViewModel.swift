@@ -387,6 +387,28 @@ class RideBiddingViewModel: ObservableObject {
 
     // MARK: - Active Ride Actions
 
+    /// Mark driver arrived at pickup
+    func driverArrived(_ bid: RideBid) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+
+        isLoading = true
+
+        p2pService.driverArrivedAtPickup(rideRequestId: requestId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.showSuccessMessage("Customer has been notified you've arrived!")
+
+                case .failure(let error):
+                    // Non-blocking — still allow local state change
+                    logger.error("Driver arrived notification error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     /// Start ride (picked up passenger)
     func startRide(_ bid: RideBid) {
         guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }

@@ -52,6 +52,7 @@ class RideRequestViewModel: ObservableObject {
     @Published var showBidsSheet = false
     @Published var acceptedDriver: AcceptedDriverInfo?
     @Published var driverETA: Int?  // Estimated arrival in minutes
+    @Published var driverHasArrived = false  // True when driver taps "I've Arrived"
 
     // Payment
     @Published var paymentIntentClientSecret: String?
@@ -667,6 +668,10 @@ class RideRequestViewModel: ObservableObject {
                     self.updateRideStep(from: tracking.status)
                     self.trackingFailureCount = 0  // Reset on success
                     self.showConnectionWarning = false
+                    // Detect driver arrived at pickup
+                    if tracking.driverArrivedAt != nil && !self.driverHasArrived {
+                        self.driverHasArrived = true
+                    }
 
                 case .failure(let error):
                     self.trackingFailureCount += 1
@@ -683,7 +688,7 @@ class RideRequestViewModel: ObservableObject {
         switch status.lowercased() {
         case "open", "bidding", "preparing", "waiting_for_driver":
             currentStep = .waitingForDriver
-        case "matched", "accepted", "driver_assigned", "out_for_delivery":
+        case "matched", "accepted", "driver_assigned", "out_for_delivery", "driver_arrived":
             currentStep = .driverEnRoute
         case "picked_up", "in_progress":
             currentStep = .rideInProgress

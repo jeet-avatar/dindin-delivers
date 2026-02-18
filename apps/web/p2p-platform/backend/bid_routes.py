@@ -1327,6 +1327,52 @@ async def get_driver_bids(
 # RIDE LIFECYCLE
 # =========================================================================
 
+@router.post("/request/{request_id}/arrived")
+async def driver_arrived(request_id: int, db: Session = Depends(get_db)):
+    """Mark that the driver has arrived at pickup location"""
+    ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride_request.status != RideRequestStatus.MATCHED:
+        raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
+
+    ride_request.driver_arrived_at = datetime.utcnow()
+    db.commit()
+
+    # Send push notification to customer - DRIVER ARRIVED
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer:
+            driver_name = "Your driver"
+            if driver:
+                driver_name = f"{driver.first_name}".strip() or "Your driver"
+
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="Your driver has arrived!",
+                body=f"{driver_name} is at the pickup location. Head out to meet them.",
+                data={
+                    "type": "driver_arrived",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "pickup_address": ride_request.pickup_address
+                },
+                db=db
+            )
+            logger.info(f"Push notification sent to customer {ride_request.customer_id} - driver arrived")
+    except Exception as e:
+        logger.error(f"Failed to send driver arrived notification: {e}")
+
+    return {
+        "success": True,
+        "message": "Driver arrived at pickup",
+        "ride_request": serialize_ride_request(ride_request)
+    }
+
+
 @router.post("/request/{request_id}/start")
 async def start_ride(request_id: int, db: Session = Depends(get_db)):
     """Start the matched ride (driver picked up customer)"""

@@ -1339,6 +1339,7 @@ class RideRequest(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     matched_at = Column(DateTime)
+    driver_arrived_at = Column(DateTime)
     completed_at = Column(DateTime)
     cancelled_at = Column(DateTime)
 

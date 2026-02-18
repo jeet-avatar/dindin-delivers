@@ -149,6 +149,7 @@ struct NotificationItem: Identifiable {
         case promotion = "promotion"
         case system = "system"
         case delivery = "delivery"
+        case rideUpdate = "ride"
 
         var icon: String {
             switch self {
@@ -156,6 +157,7 @@ struct NotificationItem: Identifiable {
             case .promotion: return "tag.fill"
             case .system: return "bell.fill"
             case .delivery: return "shippingbox.fill"
+            case .rideUpdate: return "car.fill"
             }
         }
 
@@ -165,6 +167,7 @@ struct NotificationItem: Identifiable {
             case .promotion: return .orange
             case .system: return .gray
             case .delivery: return .green
+            case .rideUpdate: return .purple
             }
         }
     }

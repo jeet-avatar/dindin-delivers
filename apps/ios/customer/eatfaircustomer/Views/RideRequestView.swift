@@ -1216,6 +1216,7 @@ extension MKPlacemark {
 struct RideTrackingView: View {
     @ObservedObject var viewModel: RideRequestViewModel
     @State private var mapPosition: MapCameraPosition = .automatic
+    @State private var route: MKRoute?
 
     var body: some View {
         ZStack {
@@ -1259,15 +1260,56 @@ struct RideTrackingView: View {
                     }
                 }
 
+                // Route polyline
+                if let route = route {
+                    MapPolyline(route.polyline)
+                        .stroke(.blue, lineWidth: 5)
+                }
+
                 UserAnnotation()
             }
             .ignoresSafeArea(edges: .top)
+            .onChange(of: viewModel.rideTracking?.driverLatitude) { _, _ in
+                calculateRoute()
+            }
+            .onAppear { calculateRoute() }
 
             // Bottom Info Card
             VStack {
                 Spacer()
 
                 RideStatusCard(viewModel: viewModel)
+            }
+        }
+    }
+
+    private func calculateRoute() {
+        guard let tracking = viewModel.rideTracking,
+              let driverLat = tracking.driverLatitude,
+              let driverLng = tracking.driverLongitude else { return }
+
+        let driverCoord = CLLocationCoordinate2D(latitude: driverLat, longitude: driverLng)
+
+        // Destination: dropoff if in progress, pickup if en route
+        let destCoord: CLLocationCoordinate2D
+        if viewModel.currentStep == .rideInProgress, let dropoff = viewModel.dropoffAddress {
+            destCoord = CLLocationCoordinate2D(latitude: dropoff.lat, longitude: dropoff.lng)
+        } else if let pickup = viewModel.pickupAddress {
+            destCoord = CLLocationCoordinate2D(latitude: pickup.lat, longitude: pickup.lng)
+        } else {
+            return
+        }
+
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: driverCoord))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destCoord))
+        request.transportType = .automobile
+
+        MKDirections(request: request).calculate { response, _ in
+            if let route = response?.routes.first {
+                DispatchQueue.main.async {
+                    self.route = route
+                }
             }
         }
     }
@@ -1298,6 +1340,9 @@ struct RideStatusCard: View {
         case .driverEnRoute:
             return "Driver accepted and is on the way!"
         case .rideInProgress:
+            if let eta = viewModel.rideTracking?.etaDestinationMinutes {
+                return "In transit — arriving in ~\(eta) min"
+            }
             return "In transit with driver"
         case .completed:
             return "Trip completed!"
@@ -1452,7 +1497,17 @@ struct RideStatusCard: View {
                                 }
                             }
 
-                            if let eta = viewModel.driverETA {
+                            if viewModel.driverHasArrived {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                    Text("Driver has arrived!")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.green)
+                                }
+                            } else if let eta = viewModel.driverETA {
                                 HStack(spacing: 4) {
                                     Image(systemName: "clock.fill")
                                         .font(.caption)

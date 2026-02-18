@@ -5664,6 +5664,39 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Mark driver arrived at pickup location
+    public func driverArrivedAtPickup(
+        rideRequestId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/arrived") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to mark driver arrived")))
+                }
+            }
+        }.resume()
+    }
+
     /// Start a ride (driver picked up passenger)
     public func startRide(
         rideRequestId: Int,
@@ -7024,6 +7057,9 @@ public struct RideTrackingInfo: Codable {
     public let driverLicensePlate: String?
     public let driverVehiclePhotoUrl: String?
     public let driverRating: Double?
+    public let driverArrivedAt: String?
+    public let estimatedDestinationArrival: String?
+    public let etaDestinationMinutes: Int?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -7041,6 +7077,9 @@ public struct RideTrackingInfo: Codable {
         case driverLicensePlate = "driver_license_plate"
         case driverVehiclePhotoUrl = "driver_vehicle_photo_url"
         case driverRating = "driver_rating"
+        case driverArrivedAt = "driver_arrived_at"
+        case estimatedDestinationArrival = "estimated_destination_arrival"
+        case etaDestinationMinutes = "eta_destination_minutes"
     }
 }
 
