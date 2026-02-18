@@ -944,9 +944,10 @@ class RideRequestViewModel: ObservableObject {
 
                 switch result {
                 case .success(let response):
-                    self?.cancellationFee = response.cancellationFee
-                    if response.cancellationFee > 0 {
-                        self?.negotiationMessage = "Cancelled with $\(String(format: "%.2f", response.cancellationFee)) fee"
+                    let fee = response.cancellationFee ?? 0
+                    self?.cancellationFee = fee
+                    if fee > 0 {
+                        self?.negotiationMessage = "Cancelled with $\(String(format: "%.2f", fee)) fee"
                     }
                     self?.resetRide()
 
