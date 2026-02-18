@@ -27,7 +27,8 @@ class RideRequestViewModel: ObservableObject {
     @Published var baseFare: Double = AppConfig.shared.rideBaseFare
     @Published var distanceFee: Double = 0.0
     @Published var timeFee: Double = 0.0
-    @Published var surgeMultiplier: Double = 1.0  // Demand indicator only
+    @Published var surgeMultiplier: Double = 1.0  // Demand multiplier from backend
+    @Published var surgeLabel: String = "Standard"  // Demand label from backend
 
     // Active ride tracking
     @Published var activeRide: RideRequestResponse?
@@ -132,6 +133,8 @@ class RideRequestViewModel: ObservableObject {
     }
 
     /// Fare before tax (driver earnings + platform fee)
+    /// NOTE: Backend /rides/estimate returns breakdown values (baseFare, distanceFee, timeFee) WITHOUT surge.
+    /// Surge is applied here to raw breakdown values. Do NOT remove surgeMultiplier unless backend changes.
     var fareBeforeTax: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
         return max(driverPortion + platformFee, minimumFare)
@@ -255,12 +258,23 @@ class RideRequestViewModel: ObservableObject {
                 self.distanceFee = estimate.breakdown.distanceCost
                 self.timeFee = estimate.breakdown.timeCost
 
+                // Apply surge/demand multiplier from backend
+                if let surge = estimate.surgeMultiplier {
+                    self.surgeMultiplier = surge
+                }
+                if let label = estimate.surgeLabel {
+                    self.surgeLabel = label
+                }
+
                 #if DEBUG
                 logger.info("[RideRequestViewModel] Fare estimate from production API:")
                 logger.debug("  Distance: \(estimate.distanceMiles) miles")
                 logger.debug("  Duration: \(estimate.durationMinutes) min")
                 logger.debug("  Total: $\(estimate.total)")
                 logger.debug("  Platform fee: $\(estimate.platformFee)")
+                if let surge = estimate.surgeMultiplier, surge > 1.0 {
+                    logger.debug("  Surge: \(surge)x (\(estimate.surgeLabel ?? ""))")
+                }
                 #endif
 
             case .failure(let error):

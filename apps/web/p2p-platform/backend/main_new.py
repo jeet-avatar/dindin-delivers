@@ -1159,7 +1159,17 @@ def _run_startup_migrations():
             passenger_rating FLOAT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+        """,
         """
+        CREATE TABLE IF NOT EXISTS ride_chat_messages (
+            id SERIAL PRIMARY KEY,
+            ride_request_id INTEGER NOT NULL REFERENCES ride_requests(id),
+            sender_type VARCHAR(20) NOT NULL,
+            sender_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
     ]
 
     try:
@@ -1210,6 +1220,8 @@ def _run_startup_migrations():
                 "CREATE INDEX IF NOT EXISTS idx_ride_requests_status ON ride_requests (status)",
                 "CREATE INDEX IF NOT EXISTS idx_vendor_payouts_vendor_id ON vendor_payouts (vendor_id)",
                 "CREATE INDEX IF NOT EXISTS idx_driver_payouts_driver_id ON driver_payouts (driver_id)",
+                # --- ride_chat_messages table ---
+                "CREATE INDEX IF NOT EXISTS idx_ride_chat_messages_request_id ON ride_chat_messages (ride_request_id)",
             ]
             for idx_sql in indexes:
                 try:
@@ -15676,11 +15688,26 @@ def get_ride_request_chat(
     db: Session = Depends(get_db)
 ):
     """Get chat messages for a ride request"""
-    # In a full implementation, this would query a RideChatMessage table
+    from models import RideChatMessage
+
+    messages = db.query(RideChatMessage).filter(
+        RideChatMessage.ride_request_id == ride_request_id
+    ).order_by(RideChatMessage.created_at.asc()).all()
+
     return {
         "ride_request_id": ride_request_id,
-        "messages": [],
-        "total": 0
+        "messages": [
+            {
+                "id": msg.id,
+                "ride_request_id": msg.ride_request_id,
+                "sender_type": msg.sender_type,
+                "sender_id": msg.sender_id,
+                "message": msg.message,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None
+            }
+            for msg in messages
+        ],
+        "total": len(messages)
     }
 
 
@@ -15692,17 +15719,31 @@ def send_ride_request_chat(
     current_user: User = Depends(get_current_user)
 ):
     """Send a chat message for a ride request"""
-    # In a full implementation, this would create a RideChatMessage record
+    from models import RideChatMessage
 
-    message_id = ride_request_id * 1000 + 1  # Mock message ID
+    # Determine sender_id based on sender_type
+    if chat_request.sender_type == "customer":
+        sender_id = current_user.customer_id or 0
+    else:
+        sender_id = current_user.driver_id or 0
+
+    chat_msg = RideChatMessage(
+        ride_request_id=ride_request_id,
+        sender_type=chat_request.sender_type,
+        sender_id=sender_id,
+        message=chat_request.message,
+    )
+    db.add(chat_msg)
+    db.commit()
+    db.refresh(chat_msg)
 
     return {
         "success": True,
-        "message_id": message_id,
+        "message_id": chat_msg.id,
         "ride_request_id": ride_request_id,
         "sender_type": chat_request.sender_type,
         "message": chat_request.message,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": chat_msg.created_at.isoformat() if chat_msg.created_at else datetime.utcnow().isoformat()
     }
 
 

@@ -11,6 +11,12 @@ struct OrderHistoryView: View {
     @State private var orderToReorder: Order?
     @State private var navigateToCart = false
     @State private var showCancelSuccess = false
+    @State private var selectedSection: HistorySection = .orders
+
+    enum HistorySection: String, CaseIterable {
+        case orders = "Orders"
+        case rides = "Rides"
+    }
 
     enum OrderFilter: String, CaseIterable {
         case all = "All"
@@ -23,40 +29,20 @@ struct OrderHistoryView: View {
             Theme.brandGrey.edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 0) {
-                // Filter Tabs
-                filterTabs
-
-                // Orders List
-                if viewModel.isLoading {
-                    Spacer()
-                    ProgressView("Loading orders...")
-                    Spacer()
-                } else if filteredOrders.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            ForEach(filteredOrders) { order in
-                                OrderCard(
-                                    order: order,
-                                    onReorder: {
-                                        orderToReorder = order
-                                        showReorderConfirmation = true
-                                    },
-                                    onTrack: {},
-                                    onCancel: {
-                                        viewModel.cancelOrder(order)
-                                    },
-                                    canCancel: viewModel.canCancelOrder(order),
-                                    refundStatus: viewModel.getRefundStatus(for: order),
-                                    onFetchRefundStatus: {
-                                        viewModel.fetchRefundStatus(for: order)
-                                    }
-                                )
-                            }
-                        }
-                        .padding()
+                // Top-level section picker (Orders / Rides)
+                Picker("Section", selection: $selectedSection) {
+                    ForEach(HistorySection.allCases, id: \.self) { section in
+                        Text(section.rawValue).tag(section)
                     }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
+                if selectedSection == .orders {
+                    ordersContent
+                } else {
+                    RideHistorySection()
                 }
             }
         }
@@ -117,6 +103,47 @@ struct OrderHistoryView: View {
                     .padding(24)
                     .background(Color.black.opacity(0.7))
                     .cornerRadius(12)
+                }
+            }
+        }
+    }
+
+    // MARK: - Orders Content
+    private var ordersContent: some View {
+        VStack(spacing: 0) {
+            // Filter Tabs
+            filterTabs
+
+            // Orders List
+            if viewModel.isLoading {
+                Spacer()
+                ProgressView("Loading orders...")
+                Spacer()
+            } else if filteredOrders.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(filteredOrders) { order in
+                            OrderCard(
+                                order: order,
+                                onReorder: {
+                                    orderToReorder = order
+                                    showReorderConfirmation = true
+                                },
+                                onTrack: {},
+                                onCancel: {
+                                    viewModel.cancelOrder(order)
+                                },
+                                canCancel: viewModel.canCancelOrder(order),
+                                refundStatus: viewModel.getRefundStatus(for: order),
+                                onFetchRefundStatus: {
+                                    viewModel.fetchRefundStatus(for: order)
+                                }
+                            )
+                        }
+                    }
+                    .padding()
                 }
             }
         }
@@ -224,6 +251,216 @@ struct OrderHistoryView: View {
                 _ = multiCartViewModel.addToCart(item: menuItem, from: restaurant)
             }
         }
+    }
+}
+
+// MARK: - Ride History Section
+struct RideHistorySection: View {
+    @State private var rides: [RideHistoryItem] = []
+    @State private var isLoading = false
+    @State private var hasMore = false
+    @State private var currentOffset = 0
+    private let pageSize = 20
+
+    var body: some View {
+        Group {
+            if isLoading && rides.isEmpty {
+                VStack {
+                    Spacer()
+                    ProgressView("Loading rides...")
+                    Spacer()
+                }
+            } else if rides.isEmpty {
+                rideEmptyState
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(rides) { ride in
+                            RideHistoryCard(ride: ride)
+                        }
+
+                        if hasMore {
+                            Button(action: loadMoreRides) {
+                                if isLoading {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                } else {
+                                    Text("Load More")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(Theme.brandGreen)
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                }
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .onAppear { loadRides() }
+    }
+
+    private var rideEmptyState: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "car.fill")
+                .font(.system(size: 60))
+                .foregroundColor(Color.gray.opacity(0.5))
+            Text("No rides yet")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(Theme.brandBlack)
+            Text("Your ride history will appear here after your first trip.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
+        }
+    }
+
+    private func loadRides() {
+        isLoading = true
+        currentOffset = 0
+        P2PAPIService.shared.getCustomerRideHistory(limit: pageSize, offset: 0) { result in
+            isLoading = false
+            switch result {
+            case .success(let response):
+                rides = response.rides
+                hasMore = response.has_more
+                currentOffset = response.rides.count
+            case .failure:
+                rides = []
+                hasMore = false
+            }
+        }
+    }
+
+    private func loadMoreRides() {
+        isLoading = true
+        P2PAPIService.shared.getCustomerRideHistory(limit: pageSize, offset: currentOffset) { result in
+            isLoading = false
+            switch result {
+            case .success(let response):
+                rides.append(contentsOf: response.rides)
+                hasMore = response.has_more
+                currentOffset += response.rides.count
+            case .failure:
+                break
+            }
+        }
+    }
+}
+
+// MARK: - Ride History Card
+struct RideHistoryCard: View {
+    let ride: RideHistoryItem
+
+    private var statusColor: Color {
+        switch ride.status {
+        case "completed": return .green
+        case "cancelled": return .red
+        case "in_progress": return .purple
+        case "matched": return .blue
+        default: return .orange
+        }
+    }
+
+    private var statusLabel: String {
+        switch ride.status {
+        case "completed": return "Completed"
+        case "cancelled": return "Cancelled"
+        case "in_progress": return "In Progress"
+        case "matched": return "Matched"
+        case "open": return "Open"
+        case "bidding": return "Bidding"
+        default: return ride.status?.capitalized ?? "Unknown"
+        }
+    }
+
+    private var totalPaid: Double {
+        (ride.fare ?? 0) + (ride.platform_fee ?? 0) + (ride.tip ?? 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header: Date + Status
+            HStack {
+                if let date = ride.date {
+                    Text(date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text(statusLabel)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(statusColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(statusColor.opacity(0.12))
+                    .cornerRadius(6)
+            }
+
+            // Pickup → Dropoff
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text(ride.pickup ?? "Pickup")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.brandBlack)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                    Text(ride.dropoff ?? "Dropoff")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.brandBlack)
+                        .lineLimit(1)
+                }
+            }
+
+            Divider()
+
+            // Footer: Driver + Fare
+            HStack {
+                if let driverName = ride.driver_name {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.circle.fill")
+                            .foregroundColor(.blue)
+                        Text(driverName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+
+                // Fare breakdown
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("$\(String(format: "%.2f", totalPaid))")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.brandBlack)
+                    if let tip = ride.tip, tip > 0 {
+                        Text("incl. $\(String(format: "%.2f", tip)) tip")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 }
 

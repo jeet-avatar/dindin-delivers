@@ -404,19 +404,39 @@ struct RideBottomSheet: View {
                         }
                         Spacer()
                         if viewModel.surgeMultiplier > 1.0 {
-                            Text("\(String(format: "%.1f", viewModel.surgeMultiplier))x")
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.orange)
-                                .cornerRadius(6)
+                            VStack(spacing: 2) {
+                                Text("\(String(format: "%.1f", viewModel.surgeMultiplier))x")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.orange)
+                                    .cornerRadius(6)
+                                Text(viewModel.surgeLabel)
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
                         }
                     }
                     .padding(.vertical, 4)
 
                     Divider()
+
+                    // Surge info banner
+                    if viewModel.surgeMultiplier > 1.0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(.orange)
+                            Text("Prices are \(Int((viewModel.surgeMultiplier - 1) * 100))% higher due to \(viewModel.surgeLabel.lowercased())")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                            Spacer()
+                        }
+                        .padding(8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
 
                     // Suggested Payment Breakdown (Driver sets final price)
                     VStack(spacing: 6) {
@@ -1217,6 +1237,8 @@ struct RideTrackingView: View {
     @ObservedObject var viewModel: RideRequestViewModel
     @State private var mapPosition: MapCameraPosition = .automatic
     @State private var route: MKRoute?
+    @State private var showSOSAlert = false
+    @State private var showShareSheet = false
 
     var body: some View {
         ZStack {
@@ -1274,6 +1296,43 @@ struct RideTrackingView: View {
             }
             .onAppear { calculateRoute() }
 
+            // Safety Buttons (top-right)
+            VStack {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 10) {
+                        Button(action: { showSOSAlert = true }) {
+                            Text("SOS")
+                                .font(.caption)
+                                .fontWeight(.heavy)
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.red)
+                                .clipShape(Circle())
+                                .shadow(color: .red.opacity(0.4), radius: 4)
+                        }
+                        .accessibilityLabel("Emergency SOS")
+                        .accessibilityHint("Calls 911 emergency services")
+
+                        Button(action: { showShareSheet = true }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.callout)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(color: .blue.opacity(0.3), radius: 4)
+                        }
+                        .accessibilityLabel("Share trip")
+                        .accessibilityHint("Share your trip details with someone")
+                    }
+                    .padding(.trailing, 16)
+                    .padding(.top, 60)
+                }
+                Spacer()
+            }
+
             // Bottom Info Card
             VStack {
                 Spacer()
@@ -1281,6 +1340,40 @@ struct RideTrackingView: View {
                 RideStatusCard(viewModel: viewModel)
             }
         }
+        .alert("Emergency SOS", isPresented: $showSOSAlert) {
+            Button("Call 911", role: .destructive) {
+                if let url = URL(string: "tel://911") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will call emergency services (911). Only use in a real emergency.")
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareTripActivityView(shareText: tripShareText)
+        }
+    }
+
+    private var tripShareText: String {
+        var text = "I'm on a Dollor ride!"
+        if let ride = viewModel.activeRide {
+            text += " Ride #\(ride.rideNumber ?? "N/A")"
+        }
+        if let pickup = viewModel.pickupAddress {
+            text += "\nFrom: \(pickup.street)"
+        }
+        if let dropoff = viewModel.dropoffAddress {
+            text += "\nTo: \(dropoff.street)"
+        }
+        if let driver = viewModel.acceptedDriver {
+            text += "\nDriver: \(driver.name ?? "Unknown")"
+            if let plate = driver.license_plate {
+                text += " (\(plate))"
+            }
+        }
+        text += "\n\nShared via Dollor - dollor.ai"
+        return text
     }
 
     private func calculateRoute() {
@@ -1332,6 +1425,7 @@ struct RideStatusCard: View {
     @State private var isSubmittingTip = false
     @State private var ratingSubmitted = false
     @State private var tipSubmitted = false
+    @State private var showChatSheet = false
 
     var statusText: String {
         switch viewModel.currentStep {
@@ -1520,6 +1614,20 @@ struct RideStatusCard: View {
                         }
 
                         Spacer()
+
+                        // Chat button
+                        if viewModel.activeRide?.rideId != nil {
+                            Button(action: { showChatSheet = true }) {
+                                Image(systemName: "message.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.blue)
+                                    .clipShape(Circle())
+                            }
+                            .accessibilityLabel("Chat with driver")
+                            .accessibilityHint("Opens chat with your driver")
+                        }
 
                         if let phone = driver.phone {
                             Button(action: { callDriver(phone) }) {
@@ -1893,6 +2001,17 @@ struct RideStatusCard: View {
         // Incoming Bids Sheet
         .sheet(isPresented: $viewModel.showBidsSheet) {
             DriverBidsSheet(viewModel: viewModel)
+        }
+        // Chat Sheet
+        .sheet(isPresented: $showChatSheet) {
+            if let rideId = viewModel.activeRide?.rideId,
+               let driver = viewModel.acceptedDriver {
+                DriverChatView(
+                    rideRequestId: rideId,
+                    driverName: driver.name ?? "Driver",
+                    driverPhone: driver.phone
+                )
+            }
         }
     }
 
@@ -2952,6 +3071,18 @@ struct DriverBidCard: View {
                 .foregroundColor(.gray)
         }
     }
+}
+
+// MARK: - Share Trip Activity View
+
+struct ShareTripActivityView: UIViewControllerRepresentable {
+    let shareText: String
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Preview

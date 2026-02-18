@@ -5733,7 +5733,7 @@ public class P2PAPIService: ObservableObject {
     /// Complete a ride (driver dropped off passenger)
     public func completeRideRequest(
         rideRequestId: Int,
-        completion: @escaping (Result<Bool, Error>) -> Void
+        completion: @escaping (Result<RideCompletionResponse, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/complete") else {
             completion(.failure(P2PAPIError.invalidURL))
@@ -5754,8 +5754,20 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
+                    do {
+                        let decoded = try JSONDecoder().decode(RideCompletionResponse.self, from: data)
+                        completion(.success(decoded))
+                    } catch {
+                        // Fallback if decoding fails — still treat as success
+                        let fallback = RideCompletionResponse(success: true, message: "Ride completed", ride_request: nil, final_price: nil)
+                        completion(.success(fallback))
+                    }
                 } else {
                     completion(.failure(P2PAPIError.serverError("Failed to complete ride")))
                 }
@@ -5801,6 +5813,188 @@ public class P2PAPIService: ObservableObject {
                     completion(.success(true))
                 } else {
                     completion(.failure(P2PAPIError.serverError("Failed to cancel ride")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Driver Cancel Ride
+
+    /// Driver cancels a matched ride before starting it
+    /// Calls POST /api/rides/request/{id}/driver-cancel
+    public func driverCancelRide(
+        rideRequestId: Int,
+        reason: String?,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/driver-cancel") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [:]
+        if let reason = reason {
+            body["reason"] = reason
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   (200...299).contains(httpResponse.statusCode) {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to cancel ride")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - No-Show
+
+    /// Driver marks passenger as no-show after waiting at pickup
+    /// Calls POST /api/rides/request/{id}/no-show
+    public func markPassengerNoShow(
+        rideRequestId: Int,
+        completion: @escaping (Result<NoShowResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/no-show") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    do {
+                        let decoded = try JSONDecoder().decode(NoShowResponse.self, from: data)
+                        completion(.success(decoded))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                } else {
+                    // Try to parse error detail
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        completion(.failure(P2PAPIError.serverError(detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to mark no-show")))
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Surge Status
+
+    /// Get current surge/demand pricing status
+    public func getSurgeStatus(
+        completion: @escaping (Result<SurgeStatusResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/surge") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(SurgeStatusResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Rate Passenger
+
+    /// Driver rates passenger after ride completion
+    public func ratePassenger(
+        rideRequestId: Int,
+        rating: Int,
+        comment: String? = nil,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/rate-passenger") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = ["rating": rating]
+        if let comment = comment, !comment.isEmpty {
+            body["comment"] = comment
+        }
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    completion(.success(true))
+                } else if let data = data,
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                          let detail = json["detail"] as? String {
+                    completion(.failure(P2PAPIError.serverError(detail)))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to rate passenger")))
                 }
             }
         }.resume()
@@ -5853,6 +6047,55 @@ public class P2PAPIService: ObservableObject {
                 do {
                     let decoded = try JSONDecoder().decode(CustomerRideRequestsResponse.self, from: data)
                     completion(.success(decoded.requests))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Ride History (Customer)
+
+    /// Get customer's ride history with pagination
+    /// Calls GET /api/customer/rides/history (authenticated via customer token)
+    public func getCustomerRideHistory(
+        limit: Int = 20,
+        offset: Int = 0,
+        completion: @escaping (Result<RideHistoryResponse, Error>) -> Void
+    ) {
+        var urlComponents = URLComponents(string: "\(baseURL)/customer/rides/history")
+        urlComponents?.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+
+        guard let url = urlComponents?.url else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(RideHistoryResponse.self, from: data)
+                    completion(.success(decoded))
                 } catch {
                     completion(.failure(error))
                 }
@@ -6927,6 +7170,9 @@ public struct RideFareEstimate: Codable {
     public let messaging: RideMessaging?
     public let rideType: String?
     public let distanceKm: Double?
+    public let surgeMultiplier: Double?
+    public let surgeLabel: String?
+    public let isSurging: Bool?
 
     enum CodingKeys: String, CodingKey {
         case distanceMiles = "distance_miles"
@@ -6940,6 +7186,9 @@ public struct RideFareEstimate: Codable {
         case messaging
         case rideType = "ride_type"
         case distanceKm = "distance_km"
+        case surgeMultiplier = "surge_multiplier"
+        case surgeLabel = "surge_label"
+        case isSurging = "is_surging"
     }
 }
 
@@ -8992,6 +9241,51 @@ public struct RideRequestForBidding: Identifiable, Codable {
     // Note: my_bid removed to avoid circular reference - fetch separately if needed
 }
 
+/// Response from POST /api/rides/request/{id}/complete
+public struct RideCompletionResponse: Codable {
+    public let success: Bool
+    public let message: String?
+    public let ride_request: RideCompletionDetail?
+    public let final_price: Double?
+}
+
+/// Response from POST /api/rides/request/{id}/no-show
+public struct NoShowResponse: Codable {
+    public let success: Bool
+    public let message: String?
+    public let cancellation_fee: Double?
+    public let driver_payout: Double?
+}
+
+/// Surge/demand pricing status
+public struct SurgeStatusResponse: Codable {
+    public let success: Bool
+    public let surge_multiplier: Double
+    public let label: String
+    public let is_surging: Bool
+    public let open_requests: Int
+    public let online_drivers: Int
+    public let message: String
+}
+
+/// Ride detail subset for completion summary
+public struct RideCompletionDetail: Codable {
+    public let id: Int
+    public let request_id: String?
+    public let final_price: Double?
+    public let platform_fee: Double?
+    public let driver_payout: Double?
+    public let tip_amount: Double?
+    public let pickup: RideLocation?
+    public let dropoff: RideLocation?
+    public let estimated_distance_km: Double?
+    public let estimated_duration_minutes: Int?
+    public let customer_name: String?
+    public let customer_rating: Int?
+    public let status: String?
+    public let completed_at: String?
+}
+
 /// Ride bid response
 public struct RideBidResponse: Codable {
     public let success: Bool
@@ -9014,6 +9308,30 @@ public struct CustomerRideRequestsResponse: Codable {
     public let total: Int?
     public let limit: Int?
     public let offset: Int?
+}
+
+/// Ride history item returned by GET /api/customer/rides/history
+public struct RideHistoryItem: Codable, Identifiable {
+    public let id: Int
+    public let pickup: String?
+    public let dropoff: String?
+    public let pickup_lat: Double?
+    public let pickup_lng: Double?
+    public let dropoff_lat: Double?
+    public let dropoff_lng: Double?
+    public let date: String?
+    public let fare: Double?
+    public let platform_fee: Double?
+    public let tip: Double?
+    public let driver_name: String?
+    public let status: String?
+}
+
+/// Response from GET /api/customer/rides/history
+public struct RideHistoryResponse: Codable {
+    public let rides: [RideHistoryItem]
+    public let total: Int
+    public let has_more: Bool
 }
 
 /// Customer's ride request bids response (incoming driver bids)

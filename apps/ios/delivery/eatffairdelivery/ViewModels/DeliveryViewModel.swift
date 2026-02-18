@@ -133,21 +133,26 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Online Status Toggle
     func setOnlineStatus(_ online: Bool) {
-        guard let driverId = p2pService.currentDriverId else {
-            VoiceAssistantManager.shared.speak("Unable to update status. Please log in again.")
-            return
+        isOnline = online
+
+        // Start/stop background location tracking
+        if online {
+            LocationManager.shared.startTracking()
+        } else {
+            LocationManager.shared.stopTracking()
         }
 
-        isOnline = online
-        // Update backend with driver online status
-        p2pService.updateDriverOnlineStatus(driverId: driverId, isOnline: online) { [weak self] result in
+        // Use authenticated driver endpoint
+        p2pService.setDriverOnlineStatus(isOnline: online) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
                     VoiceAssistantManager.shared.speak(online ? "You are now online and receiving orders" : "You are now offline")
-                case .failure:
+                case .failure(let error):
                     self?.isOnline = !online // Revert on failure
-                    self?.handleError(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to update online status"]))
+                    if !online { LocationManager.shared.startTracking() } // Re-start if revert
+                    else { LocationManager.shared.stopTracking() }
+                    self?.handleError(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]))
                 }
             }
         }

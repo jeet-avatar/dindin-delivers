@@ -42,6 +42,9 @@ class RideBiddingViewModel: ObservableObject {
     @Published var selectedCounterOffer: RideBid?
     @Published var showCounterOfferSheet = false
 
+    /// Ride completion data
+    @Published var completionData: RideCompletionDetail?
+
     // MARK: - Computed Properties
 
     /// Bids waiting for customer response
@@ -67,6 +70,9 @@ class RideBiddingViewModel: ObservableObject {
     // Connection Status (for polling failure detection)
     @Published var showConnectionWarning = false
 
+    /// Driver online/offline status
+    @Published var isOnline: Bool = false
+
     // MARK: - Private Properties
 
     private let p2pService = P2PAPIService.shared
@@ -85,6 +91,34 @@ class RideBiddingViewModel: ObservableObject {
         refreshTimer?.invalidate()
         refreshTimer = nil
         cancellables.removeAll()
+    }
+
+    // MARK: - Online Status Toggle
+
+    func setOnlineStatus(_ online: Bool) {
+        isOnline = online
+
+        // Start/stop background location tracking
+        if online {
+            LocationManager.shared.startTracking()
+        } else {
+            LocationManager.shared.stopTracking()
+        }
+
+        p2pService.setDriverOnlineStatus(isOnline: online) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    break
+                case .failure:
+                    self?.isOnline = !online // Revert on failure
+                    if !online { LocationManager.shared.startTracking() }
+                    else { LocationManager.shared.stopTracking() }
+                    self?.errorMessage = "Failed to update online status"
+                    self?.showError = true
+                }
+            }
+        }
     }
 
     // MARK: - Refresh Timer
@@ -239,10 +273,12 @@ class RideBiddingViewModel: ObservableObject {
                     // Show the backend message directly for known blocking errors
                     let message = error.localizedDescription.lowercased()
                     if message.contains("active ride") || message.contains("active delivery") {
-                        // Backend message is clear and actionable - use original case
                         self?.showErrorMessage(error.localizedDescription)
                     } else if message.contains("busy") {
                         self?.showErrorMessage("You already have active work. Complete it first before bidding.")
+                    } else if message.contains("upload") || message.contains("verify") || message.contains("pending verification") || message.contains("approved") {
+                        // Document verification required
+                        self?.showErrorMessage(error.localizedDescription)
                     } else {
                         self?.showErrorMessage("Unable to submit your bid. Please try again.")
                     }
@@ -443,7 +479,8 @@ class RideBiddingViewModel: ObservableObject {
                 self?.isLoading = false
 
                 switch result {
-                case .success:
+                case .success(let response):
+                    self?.completionData = response.ride_request
                     self?.showSuccessMessage("Ride completed! Earnings added.")
                     LocationManager.shared.stopDeliveryTracking()
                     self?.refreshData()
@@ -451,6 +488,74 @@ class RideBiddingViewModel: ObservableObject {
                 case .failure(let error):
                     self?.showErrorMessage("Unable to complete the ride. Please try again or contact support.")
                     logger.error("Complete ride error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Driver Cancel Ride
+
+    func driverCancelRide(_ bid: RideBid, reason: String?) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+
+        isLoading = true
+
+        p2pService.driverCancelRide(rideRequestId: requestId, reason: reason) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success:
+                    self?.showSuccessMessage("Ride cancelled. The rider will be matched with another driver.")
+                    LocationManager.shared.stopDeliveryTracking()
+                    self?.refreshData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Unable to cancel ride. Please try again.")
+                    logger.error("Driver cancel ride error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - No-Show
+
+    func markPassengerNoShow(_ bid: RideBid) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+
+        isLoading = true
+
+        p2pService.markPassengerNoShow(rideRequestId: requestId) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let response):
+                    let payout = response.driver_payout ?? 0
+                    self?.showSuccessMessage("No-show confirmed. You earned $\(String(format: "%.2f", payout)) for your wait time.")
+                    LocationManager.shared.stopDeliveryTracking()
+                    self?.refreshData()
+
+                case .failure(let error):
+                    self?.showErrorMessage(error.localizedDescription)
+                    logger.error("No-show error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Rate Passenger
+
+    func ratePassenger(_ bid: RideBid, rating: Int, comment: String? = nil) {
+        guard let requestId = bid.ride_request?.id ?? Optional(bid.ride_request_id) else { return }
+
+        p2pService.ratePassenger(rideRequestId: requestId, rating: rating, comment: comment) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.showSuccessMessage("Passenger rated successfully")
+                case .failure(let error):
+                    self?.showErrorMessage(error.localizedDescription)
                 }
             }
         }

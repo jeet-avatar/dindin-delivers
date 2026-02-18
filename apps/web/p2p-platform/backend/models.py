@@ -620,6 +620,10 @@ class Customer(Base):
     apple_id = Column(String(255), unique=True, nullable=True, index=True)  # Apple Sign In user ID
     google_id = Column(String(255), unique=True, nullable=True, index=True)  # Google Sign In user ID
 
+    # Rating (from drivers)
+    rating = Column(Float, default=5.0)
+    total_rides = Column(Integer, default=0)
+
     # Status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
@@ -1334,6 +1338,8 @@ class RideRequest(Base):
     # Rating
     customer_rating = Column(Integer)  # 1-5 stars from customer
     customer_comment = Column(Text)    # Optional review comment
+    passenger_rating = Column(Integer)  # 1-5 stars from driver
+    passenger_comment = Column(Text)    # Optional driver comment about passenger
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -1708,3 +1714,15 @@ class PasswordResetToken(Base):
         # Index for finding active tokens by email
         # Index for cleanup of expired tokens
     )
+
+
+class RideChatMessage(Base):
+    """Chat messages between customer and driver during a ride"""
+    __tablename__ = "ride_chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ride_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=False, index=True)
+    sender_type = Column(String(20), nullable=False)  # 'customer' or 'driver'
+    sender_id = Column(Integer, nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -15,7 +15,7 @@ import uuid
 from database import get_db
 from models import (
     RideRequest, RideBid, RideRequestStatus, BidStatus,
-    Customer, Driver
+    Customer, Driver, DriverStatus
 )
 from websocket_server import (
     broadcast_new_ride_request, broadcast_new_bid, broadcast_bid_response,
@@ -118,7 +118,42 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     return R * c
 
 
-def calculate_suggested_price(distance_km: float, duration_minutes: int, ride_type: str) -> float:
+def calculate_demand_multiplier(db: Session) -> tuple:
+    """
+    Calculate demand-based surge multiplier.
+    Based on ratio of open ride requests to online drivers.
+    Returns (multiplier, label) - capped at 1.5x per PricingConfig.
+    """
+    from models import RideRequestStatus
+
+    # Count open/bidding ride requests
+    open_requests = db.query(RideRequest).filter(
+        RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+    ).count()
+
+    # Count online drivers
+    online_drivers = db.query(Driver).filter(Driver.is_online == True).count()
+
+    if online_drivers == 0:
+        if open_requests > 0:
+            return (1.5, "High demand")
+        return (1.0, "Standard")
+
+    ratio = open_requests / online_drivers
+
+    if ratio >= 3.0:
+        return (1.5, "Very high demand")
+    elif ratio >= 2.0:
+        return (1.3, "High demand")
+    elif ratio >= 1.5:
+        return (1.15, "Busy")
+    elif ratio <= 0.3:
+        return (0.9, "Low demand")
+    else:
+        return (1.0, "Standard")
+
+
+def calculate_suggested_price(distance_km: float, duration_minutes: int, ride_type: str, demand_multiplier: float = 1.0) -> float:
     """
     Calculate suggested price using competitive market-rate pricing.
     Uses the DollorPricingEngine for consistent pricing across all platforms.
@@ -136,6 +171,9 @@ def calculate_suggested_price(distance_km: float, duration_minutes: int, ride_ty
         base_price *= 1.5
     elif ride_type == "xl":
         base_price *= 1.25
+
+    # Apply demand/surge multiplier
+    base_price *= demand_multiplier
 
     return round(base_price, 2)
 
@@ -262,8 +300,11 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, db
     )
     duration_minutes = estimate_duration_minutes(distance_km)
 
-    # Calculate suggested price
-    suggested_price = calculate_suggested_price(distance_km, duration_minutes, data.ride_type)
+    # Calculate demand/surge multiplier
+    demand_multiplier, demand_label = calculate_demand_multiplier(db)
+
+    # Calculate suggested price with surge
+    suggested_price = calculate_suggested_price(distance_km, duration_minutes, data.ride_type, demand_multiplier)
 
     # SECURITY: Sanitize user-supplied text to prevent stored XSS
     import re
@@ -359,10 +400,41 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, db
     except Exception as e:
         logger.error(f"Failed to send ride request confirmation email: {e}")
 
-    return {
+    response = {
         "success": True,
         "message": "Ride request created - waiting for driver bids",
         "ride_request": serialize_ride_request(ride_request)
+    }
+
+    # Include surge info
+    if demand_multiplier > 1.0:
+        response["surge"] = {
+            "multiplier": demand_multiplier,
+            "label": demand_label,
+            "message": f"Prices are {int((demand_multiplier - 1) * 100)}% higher due to {demand_label.lower()}"
+        }
+
+    return response
+
+
+@router.get("/surge")
+async def get_surge_status(db: Session = Depends(get_db)):
+    """Get current surge/demand pricing status"""
+    multiplier, label = calculate_demand_multiplier(db)
+
+    open_requests = db.query(RideRequest).filter(
+        RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+    ).count()
+    online_drivers = db.query(Driver).filter(Driver.is_online == True).count()
+
+    return {
+        "success": True,
+        "surge_multiplier": multiplier,
+        "label": label,
+        "is_surging": multiplier > 1.0,
+        "open_requests": open_requests,
+        "online_drivers": online_drivers,
+        "message": f"Prices are {int((multiplier - 1) * 100)}% higher due to {label.lower()}" if multiplier > 1.0 else "Standard pricing"
     }
 
 
@@ -865,6 +937,24 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
     driver = db.query(Driver).filter(Driver.id == data.driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Verify driver is approved/active
+    driver_status = driver.status if isinstance(driver.status, DriverStatus) else DriverStatus(driver.status) if driver.status else None
+    if driver_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:
+        missing_docs = []
+        if not driver.drivers_license:
+            missing_docs.append("driver's license")
+        if not driver.insurance:
+            missing_docs.append("insurance")
+        if not driver.photo_url:
+            missing_docs.append("profile photo")
+
+        if missing_docs:
+            detail = f"Please upload and verify: {', '.join(missing_docs)}"
+        else:
+            detail = "Your documents are pending verification. You'll be notified when approved."
+
+        raise HTTPException(status_code=403, detail=detail)
 
     # Check if driver has an active ride or delivery
     active_ride = db.query(RideRequest).filter(
@@ -1404,6 +1494,144 @@ async def driver_arrived(request_id: int, db: Session = Depends(get_db)):
     }
 
 
+class DriverCancelRequest(BaseModel):
+    reason: Optional[str] = None
+
+@router.post("/request/{request_id}/driver-cancel")
+async def driver_cancel_ride(request_id: int, data: DriverCancelRequest = DriverCancelRequest(), db: Session = Depends(get_db)):
+    """Driver cancels a matched ride before starting it"""
+    ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride_request.status not in [RideRequestStatus.MATCHED]:
+        raise HTTPException(status_code=400, detail=f"Can only cancel matched rides (current: {ride_request.status.value})")
+
+    # Revert ride to OPEN so other drivers can bid
+    ride_request.status = RideRequestStatus.OPEN
+    cancelled_driver_id = ride_request.matched_driver_id
+    ride_request.matched_driver_id = None
+    ride_request.matched_at = None
+    ride_request.driver_arrived_at = None
+
+    # Expire the matched bid
+    matched_bid = db.query(RideBid).filter(
+        and_(
+            RideBid.ride_request_id == request_id,
+            RideBid.driver_id == cancelled_driver_id,
+            RideBid.status == BidStatus.ACCEPTED
+        )
+    ).first()
+    if matched_bid:
+        matched_bid.status = BidStatus.WITHDRAWN
+        matched_bid.customer_response = f"Driver cancelled: {data.reason or 'No reason provided'}"
+
+    db.commit()
+
+    # Notify customer that driver cancelled
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == cancelled_driver_id).first()
+        if customer:
+            driver_name = "Your driver"
+            if driver:
+                driver_name = f"{driver.first_name}".strip() or "Your driver"
+
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="Driver cancelled",
+                body=f"{driver_name} had to cancel. We're finding you another driver.",
+                data={
+                    "type": "ride_cancelled",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "reason": data.reason or ""
+                },
+                db=db
+            )
+    except Exception as e:
+        logger.error(f"Failed to send driver cancel notification: {e}")
+
+    return {
+        "success": True,
+        "message": "Ride cancelled by driver. Ride re-opened for other drivers.",
+        "reason": data.reason
+    }
+
+
+NOSHOW_CANCELLATION_FEE = 5.00
+
+@router.post("/request/{request_id}/no-show")
+async def mark_passenger_no_show(request_id: int, db: Session = Depends(get_db)):
+    """Driver marks passenger as no-show after waiting at pickup"""
+    ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride_request.status != RideRequestStatus.MATCHED:
+        raise HTTPException(status_code=400, detail=f"Ride must be in matched status (current: {ride_request.status.value})")
+
+    # Verify driver has arrived (must have arrived before marking no-show)
+    if not ride_request.driver_arrived_at:
+        raise HTTPException(status_code=400, detail="You must arrive at pickup first before marking no-show")
+
+    # Verify wait time (minimum 5 minutes after arrival)
+    wait_seconds = (datetime.utcnow() - ride_request.driver_arrived_at).total_seconds()
+    if wait_seconds < 300:  # 5 minutes = 300 seconds
+        remaining = int(300 - wait_seconds)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Please wait {remaining} more seconds before marking no-show (minimum 5 minutes)"
+        )
+
+    # Cancel the ride with no-show flag
+    ride_request.status = RideRequestStatus.CANCELLED
+    ride_request.cancelled_at = datetime.utcnow()
+
+    # Apply cancellation fee to customer
+    cancellation_fee = NOSHOW_CANCELLATION_FEE
+    ride_request.platform_fee = cancellation_fee
+
+    # Pay driver a portion for their time
+    ride_request.driver_payout = round(cancellation_fee * 0.8, 2)  # Driver gets 80% of no-show fee
+
+    db.commit()
+
+    # Notify customer
+    try:
+        customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+        if customer:
+            driver_name = "Your driver"
+            if driver:
+                driver_name = f"{driver.first_name}".strip() or "Your driver"
+
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="Ride cancelled — No show",
+                body=f"{driver_name} waited at the pickup but you didn't show up. A ${cancellation_fee:.2f} fee has been applied.",
+                data={
+                    "type": "ride_cancelled",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "reason": "passenger_no_show",
+                    "cancellation_fee": str(cancellation_fee)
+                },
+                db=db
+            )
+    except Exception as e:
+        logger.error(f"Failed to send no-show notification: {e}")
+
+    return {
+        "success": True,
+        "message": "Passenger marked as no-show. Cancellation fee applied.",
+        "cancellation_fee": cancellation_fee,
+        "driver_payout": ride_request.driver_payout
+    }
+
+
 @router.post("/request/{request_id}/start")
 async def start_ride(request_id: int, db: Session = Depends(get_db)):
     """Start the matched ride (driver picked up customer)"""
@@ -1609,7 +1837,7 @@ class FareEstimateInput(BaseModel):
 
 
 @router.post("/estimate")
-async def get_fare_estimate_endpoint(data: FareEstimateInput):
+async def get_fare_estimate_endpoint(data: FareEstimateInput, db: Session = Depends(get_db)):
     """
     Get fare estimate with full breakdown and driver suggestions.
 
@@ -1619,6 +1847,7 @@ async def get_fare_estimate_endpoint(data: FareEstimateInput):
     - Suggested bid prices for drivers
     - Driver earnings information
     - Bid comparison labels for customers
+    - Surge/demand multiplier info
     """
     # Calculate distance
     distance_km = calculate_distance_km(
@@ -1635,6 +1864,9 @@ async def get_fare_estimate_endpoint(data: FareEstimateInput):
         duration_minutes=duration_minutes
     )
 
+    # Calculate demand/surge multiplier from live data
+    surge_multiplier, surge_label = calculate_demand_multiplier(db)
+
     # Apply ride type multiplier to suggested bids
     multiplier = 1.0
     if data.ride_type == "premium":
@@ -1642,16 +1874,24 @@ async def get_fare_estimate_endpoint(data: FareEstimateInput):
     elif data.ride_type == "xl":
         multiplier = 1.25
 
-    if multiplier != 1.0:
-        estimate["subtotal"] = round(estimate["subtotal"] * multiplier, 2)
-        estimate["total"] = round(estimate["total"] * multiplier, 2)
-        estimate["driver_info"]["earnings"] = round(estimate["driver_info"]["earnings"] * multiplier, 2)
+    # Combine ride type and surge multipliers
+    combined_multiplier = multiplier * surge_multiplier
+
+    if combined_multiplier != 1.0:
+        estimate["subtotal"] = round(estimate["subtotal"] * combined_multiplier, 2)
+        estimate["total"] = round(estimate["total"] * combined_multiplier, 2)
+        estimate["driver_info"]["earnings"] = round(estimate["driver_info"]["earnings"] * combined_multiplier, 2)
         for bid in estimate["suggested_bids"]:
-            bid["price"] = round(bid["price"] * multiplier, 2)
-            bid["driver_earnings"] = round(bid["driver_earnings"] * multiplier, 2)
+            bid["price"] = round(bid["price"] * combined_multiplier, 2)
+            bid["driver_earnings"] = round(bid["driver_earnings"] * combined_multiplier, 2)
 
     estimate["ride_type"] = data.ride_type
     estimate["distance_km"] = round(distance_km, 2)
+
+    # Add surge info to estimate
+    estimate["surge_multiplier"] = surge_multiplier
+    estimate["surge_label"] = surge_label
+    estimate["is_surging"] = surge_multiplier > 1.0
 
     return {
         "success": True,
@@ -1727,4 +1967,57 @@ async def get_pricing_tiers():
             "customer": "Pay fair market rates. 96% goes directly to your driver.",
             "driver": "Keep 96%+ of every fare. No commission cuts. Your price, your earnings."
         }
+    }
+
+
+class PassengerRatingRequest(BaseModel):
+    rating: int  # 1-5 stars
+    comment: Optional[str] = None
+
+
+@router.post("/request/{request_id}/rate-passenger")
+async def rate_passenger(
+    request_id: int,
+    body: PassengerRatingRequest,
+    db: Session = Depends(get_db)
+):
+    """Driver rates passenger after ride completion"""
+    ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride_request.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only rate completed rides (current: {ride_request.status.value})"
+        )
+
+    if ride_request.passenger_rating is not None:
+        raise HTTPException(status_code=400, detail="Passenger already rated for this ride")
+
+    rating = body.rating
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    # Store rating on ride
+    ride_request.passenger_rating = rating
+    ride_request.passenger_comment = body.comment
+
+    # Update customer's average rating
+    customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+    if customer:
+        current_rating = customer.rating or 5.0
+        total_rides = customer.total_rides or 0
+        new_rating = round(((current_rating * total_rides) + rating) / (total_rides + 1), 2)
+        customer.rating = new_rating
+        customer.total_rides = total_rides + 1
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Passenger rated successfully",
+        "ride_id": request_id,
+        "rating": rating,
+        "newPassengerRating": customer.rating if customer else None
     }
