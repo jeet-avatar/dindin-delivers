@@ -1,371 +1,317 @@
+import SwiftUI
+import EatFairShared
 import os
 
 private let logger = Logger(subsystem: "com.dollorai.customer", category: "DriverChatView")
 
-import SwiftUI
-import Combine
-import EatFairShared
-
+/// DriverChatView - Chat with driver during a ride (Customer side)
+/// Uses REST API: /api/p2p/ride-requests/{id}/chat
 struct DriverChatView: View {
-    let orderId: String
+    let rideRequestId: Int
     let driverName: String
     let driverPhone: String?
 
-    @StateObject private var viewModel: ChatViewModel
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
+    @State private var messageText = ""
+    @State private var messages: [RideChatMessage] = []
+    @State private var isLoading = true
+    @State private var isSending = false
+    @State private var errorMessage: String?
     @FocusState private var isInputFocused: Bool
+    @State private var pollingTimer: Timer?
 
-    init(orderId: String, driverName: String, driverPhone: String? = nil) {
-        self.orderId = orderId
-        self.driverName = driverName
-        self.driverPhone = driverPhone
-        _viewModel = StateObject(wrappedValue: ChatViewModel(orderId: orderId))
-    }
+    private let quickMessages = [
+        "On my way out!",
+        "I'll be right there",
+        "Where are you exactly?",
+        "I'm at the pickup spot",
+        "Running a few minutes late",
+        "Can you wait a moment?"
+    ]
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            chatHeader
-
-            Divider()
-
-            // Messages
-            messagesView
-
-            // Input
-            messageInput
-        }
-        .navigationBarHidden(true)
-        .onAppear {
-            viewModel.startListening()
-        }
-        .onDisappear {
-            viewModel.stopListening()
-        }
-    }
-
-    // MARK: - Chat Header
-    private var chatHeader: some View {
-        HStack(spacing: 12) {
-            Button(action: { dismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.title2)
-                    .foregroundColor(.primary)
+        NavigationView {
+            VStack(spacing: 0) {
+                messagesScrollView
+                quickMessagesBar
+                inputBar
             }
+            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle(driverName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
 
-            // Driver avatar
-            ZStack {
-                Circle()
-                    .fill(Theme.brandGreen)
-                    .frame(width: 44, height: 44)
-
-                Text(String(driverName.prefix(1)).uppercased())
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-
-                // Online indicator
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 12, height: 12)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 2)
-                    )
-                    .offset(x: 16, y: 16)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(driverName)
-                    .font(.headline)
-                Text("Your Driver")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            // Call button
-            if let phone = driverPhone {
-                Button(action: { callDriver(phone: phone) }) {
-                    Image(systemName: "phone.fill")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .background(Theme.brandGreen)
-                        .clipShape(Circle())
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if let phone = driverPhone, !phone.isEmpty {
+                        Button(action: callDriver) {
+                            Image(systemName: "phone.fill")
+                                .foregroundColor(.green)
+                        }
+                    }
                 }
             }
+            .onAppear {
+                loadMessages()
+                startPolling()
+            }
+            .onDisappear {
+                stopPolling()
+            }
         }
-        .padding()
-        .background(Color.white)
     }
 
-    // MARK: - Messages View
-    private var messagesView: some View {
+    // MARK: - Messages Scroll View
+
+    private var messagesScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    // Quick Actions
-                    quickActionsSection
-
-                    // Messages
-                    ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message, isFromCustomer: message.senderId == viewModel.currentUserId)
-                            .id(message.id)
+                    if isLoading {
+                        ProgressView()
+                            .padding(.top, 40)
+                    } else if let error = errorMessage {
+                        errorStateView(error)
+                    } else if messages.isEmpty {
+                        emptyStateView
+                    } else {
+                        ForEach(messages) { message in
+                            RideChatBubbleCustomer(message: message)
+                                .id(message.id)
+                        }
                     }
                 }
                 .padding()
             }
-            .onChange(of: viewModel.messages.count) {
-                if let lastMessage = viewModel.messages.last {
+            .onChange(of: messages.count) { _, _ in
+                if let lastMessage = messages.last {
                     withAnimation {
                         proxy.scrollTo(lastMessage.id, anchor: .bottom)
                     }
                 }
             }
         }
-        .background(Color(.systemGray6))
     }
 
-    // MARK: - Quick Actions
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Quick Messages")
-                .font(.caption)
+    // MARK: - Error State
+
+    private func errorStateView(_ error: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+
+            Text("Connection Error")
+                .font(.headline)
                 .foregroundColor(.secondary)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    QuickMessageButton(text: "I'm outside", action: { sendQuickMessage("I'm outside waiting") })
-                    QuickMessageButton(text: "Leave at door", action: { sendQuickMessage("Please leave it at the door") })
-                    QuickMessageButton(text: "Call when here", action: { sendQuickMessage("Please call me when you arrive") })
-                    QuickMessageButton(text: "Thanks!", action: { sendQuickMessage("Thank you! 🙏") })
-                }
+            Text(error)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+
+            Button("Retry") {
+                loadMessages()
             }
+            .buttonStyle(.borderedProminent)
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(12)
+        .padding(.top, 60)
     }
 
-    // MARK: - Message Input
-    private var messageInput: some View {
-        HStack(spacing: 12) {
-            // Text field
-            HStack {
-                TextField("Message your driver...", text: $viewModel.newMessage)
-                    .textFieldStyle(.plain)
-                    .focused($isInputFocused)
+    // MARK: - Empty State
 
-                if !viewModel.newMessage.isEmpty {
-                    Button(action: { viewModel.newMessage = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "message.badge.filled.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.gray)
+
+            Text("No messages yet")
+                .font(.headline)
+                .foregroundColor(.secondary)
+
+            Text("Send a message to \(driverName)!")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 60)
+    }
+
+    // MARK: - Quick Messages Bar
+
+    private var quickMessagesBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(quickMessages, id: \.self) { message in
+                    Button(action: { sendMessage(message) }) {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(16)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(.systemGray6))
-            .cornerRadius(24)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+    }
 
-            // Send button
-            Button(action: sendMessage) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(viewModel.newMessage.isEmpty ? .gray : Theme.brandGreen)
+    // MARK: - Input Bar
+
+    private var inputBar: some View {
+        HStack(spacing: 12) {
+            TextField("Type a message...", text: $messageText)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color(UIColor.tertiarySystemGroupedBackground))
+                .cornerRadius(24)
+                .focused($isInputFocused)
+
+            Button(action: { sendMessage(messageText) }) {
+                if isSending {
+                    ProgressView()
+                        .frame(width: 44, height: 44)
+                } else {
+                    Image(systemName: "paperplane.fill")
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(messageText.isEmpty ? Color.gray : Color.blue)
+                        .clipShape(Circle())
+                }
             }
-            .disabled(viewModel.newMessage.isEmpty)
+            .disabled(messageText.isEmpty || isSending)
         }
         .padding()
-        .background(Color.white)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
     }
 
     // MARK: - Actions
-    private func sendMessage() {
-        viewModel.sendMessage()
-    }
 
-    private func sendQuickMessage(_ text: String) {
-        viewModel.newMessage = text
-        viewModel.sendMessage()
-    }
+    private func loadMessages() {
+        isLoading = true
+        errorMessage = nil
 
-    private func callDriver(phone: String) {
-        if let url = URL(string: "tel://\(phone)") {
-            UIApplication.shared.open(url)
+        P2PAPIService.shared.fetchRideChatMessages(rideRequestId: rideRequestId) { result in
+            isLoading = false
+            switch result {
+            case .success(let fetchedMessages):
+                messages = fetchedMessages.sorted { $0.id < $1.id }
+                errorMessage = nil
+            case .failure(let error):
+                logger.info("[DriverChatView] Failed to load messages: \(error)")
+                errorMessage = "Failed to load messages"
+            }
         }
+    }
+
+    private func sendMessage(_ text: String) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        isSending = true
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        P2PAPIService.shared.sendRideChatMessage(
+            rideRequestId: rideRequestId,
+            message: trimmedText,
+            senderType: "customer"
+        ) { result in
+            isSending = false
+            switch result {
+            case .success(let newMessage):
+                messages.append(newMessage)
+                messageText = ""
+                isInputFocused = false
+            case .failure(let error):
+                logger.info("[DriverChatView] Failed to send message: \(error)")
+            }
+        }
+    }
+
+    private func callDriver() {
+        guard let phone = driverPhone, !phone.isEmpty else { return }
+        let cleanPhone = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
+        guard let url = URL(string: "tel://\(cleanPhone)") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func startPolling() {
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+            P2PAPIService.shared.fetchRideChatMessages(rideRequestId: rideRequestId) { result in
+                if case .success(let fetchedMessages) = result {
+                    let sortedMessages = fetchedMessages.sorted { $0.id < $1.id }
+                    if sortedMessages.count != messages.count {
+                        messages = sortedMessages
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopPolling() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
     }
 }
 
-// MARK: - Message Bubble
-struct MessageBubble: View {
-    let message: ChatMessage
-    let isFromCustomer: Bool
+// MARK: - Chat Bubble (Customer perspective)
+
+private struct RideChatBubbleCustomer: View {
+    let message: RideChatMessage
+
+    // In customer app, customer messages are "from me"
+    private var isFromMe: Bool {
+        !message.isFromDriver
+    }
 
     var body: some View {
         HStack {
-            if isFromCustomer { Spacer(minLength: 60) }
+            if isFromMe { Spacer() }
 
-            VStack(alignment: isFromCustomer ? .trailing : .leading, spacing: 4) {
-                Text(message.text)
-                    .font(.subheadline)
-                    .foregroundColor(isFromCustomer ? .white : .primary)
+            VStack(alignment: isFromMe ? .trailing : .leading, spacing: 4) {
+                Text(message.message)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(isFromCustomer ? Theme.brandGreen : Color.white)
-                    .cornerRadius(20)
+                    .background(isFromMe ? Color.blue : Color(UIColor.tertiarySystemGroupedBackground))
+                    .foregroundColor(isFromMe ? .white : .primary)
+                    .cornerRadius(18)
 
-                Text(message.timestamp, style: .time)
+                Text(formatTime(message.createdAt))
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
             }
 
-            if !isFromCustomer { Spacer(minLength: 60) }
-        }
-    }
-}
-
-// MARK: - Quick Message Button
-struct QuickMessageButton: View {
-    let text: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(text)
-                .font(.caption)
-                .foregroundColor(Theme.brandGreen)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Theme.brandGreen.opacity(0.1))
-                .cornerRadius(16)
-        }
-    }
-}
-
-// MARK: - Chat Message Model
-struct ChatMessage: Identifiable, Codable {
-    var id: String
-    var orderId: String
-    var senderId: String
-    var senderName: String
-    var senderType: String // "customer" or "driver"
-    var text: String
-    var timestamp: Date
-    var isRead: Bool
-
-    init(id: String = UUID().uuidString, orderId: String, senderId: String, senderName: String, senderType: String, text: String, timestamp: Date = Date(), isRead: Bool = false) {
-        self.id = id
-        self.orderId = orderId
-        self.senderId = senderId
-        self.senderName = senderName
-        self.senderType = senderType
-        self.text = text
-        self.timestamp = timestamp
-        self.isRead = isRead
-    }
-}
-
-// MARK: - Chat ViewModel
-class ChatViewModel: ObservableObject {
-    @Published var messages: [ChatMessage] = []
-    @Published var newMessage = ""
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-
-    let orderId: String
-    var currentUserId: String {
-        if let customerId = P2PAPIService.shared.currentCustomerId {
-            return String(customerId)
-        }
-        return "customer"
-    }
-    var currentUserName: String {
-        UserDefaults.standard.string(forKey: "customer_name") ?? "Customer"
-    }
-
-    private let p2pService = P2PAPIService.shared
-    private var pollTimer: Timer?
-
-    init(orderId: String) {
-        self.orderId = orderId
-    }
-
-    func startListening() {
-        // Fetch initial messages
-        fetchMessages()
-
-        // Start polling every 3 seconds
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.fetchMessages()
+            if !isFromMe { Spacer() }
         }
     }
 
-    func stopListening() {
-        pollTimer?.invalidate()
-        pollTimer = nil
-    }
+    private func formatTime(_ isoString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-    func fetchMessages() {
-        guard let orderIdInt = Int(orderId) else { return }
-
-        p2pService.fetchChatMessages(orderId: orderIdInt) { [weak self] result in
-            switch result {
-            case .success(let response):
-                let newMessages = response.messages.map { p2pMessage in
-                    ChatMessage(
-                        id: p2pMessage.id,
-                        orderId: self?.orderId ?? "",
-                        senderId: p2pMessage.senderType == "customer" ? (self?.currentUserId ?? "") : "driver",
-                        senderName: p2pMessage.senderType == "customer" ? (self?.currentUserName ?? "Customer") : "Driver",
-                        senderType: p2pMessage.senderType,
-                        text: p2pMessage.message,
-                        timestamp: ISO8601DateFormatter().date(from: p2pMessage.timestamp) ?? Date(),
-                        isRead: true
-                    )
-                }
-                DispatchQueue.main.async {
-                    self?.messages = newMessages
-                }
-            case .failure(let error):
-                #if DEBUG
-                logger.info("[DriverChat] Fetch messages failed: \(error)")
-                #endif
-            }
+        if let date = formatter.date(from: isoString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.timeStyle = .short
+            return displayFormatter.string(from: date)
         }
-    }
 
-    func sendMessage() {
-        guard !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard let orderIdInt = Int(orderId) else { return }
-
-        let messageText = newMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        isLoading = true
-
-        p2pService.sendChatMessage(
-            orderId: orderIdInt,
-            message: messageText,
-            senderType: "customer"
-        ) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                switch result {
-                case .success:
-                    self?.newMessage = ""
-                    self?.fetchMessages()
-                case .failure(let error):
-                    self?.errorMessage = "Message could not be sent. Please try again."
-                    #if DEBUG
-                    logger.info("[DriverChat] Send message failed: \(error)")
-                    #endif
-                }
-            }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: isoString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.timeStyle = .short
+            return displayFormatter.string(from: date)
         }
-    }
 
-    deinit {
-        pollTimer?.invalidate()
+        return ""
     }
 }

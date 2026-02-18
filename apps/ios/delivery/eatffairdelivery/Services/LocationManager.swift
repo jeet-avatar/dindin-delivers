@@ -112,6 +112,11 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
+        // Upgrade to Always permission for background tracking
+        if authorizationStatus == .authorizedWhenInUse {
+            requestAlwaysPermission()
+        }
+
         locationManager.startUpdatingLocation()
         locationManager.startUpdatingHeading()
         isTracking = true

@@ -35,6 +35,9 @@ struct AvailableOrdersView: View {
                 Theme.backgroundGrey.ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // Online/Offline Toggle
+                    onlineToggleBanner
+
                     // Service Mode Toggle (Food Delivery / Rideshare)
                     serviceModeToggle
 
@@ -144,6 +147,32 @@ struct AvailableOrdersView: View {
         default:
             break
         }
+    }
+
+    // MARK: - Online/Offline Toggle Banner
+    private var onlineToggleBanner: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(viewModel.isOnline ? Color.green : Color.red)
+                .frame(width: 12, height: 12)
+
+            Text(viewModel.isOnline ? "Online" : "Offline")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(viewModel.isOnline ? .green : .red)
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { viewModel.isOnline },
+                set: { viewModel.setOnlineStatus($0) }
+            ))
+            .labelsHidden()
+            .tint(.green)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(viewModel.isOnline ? Color.green.opacity(0.08) : Color.red.opacity(0.08))
     }
 
     // MARK: - Service Mode Toggle (Food Delivery / Rideshare)

@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import Combine
 import EatFairShared
 
 /// ActiveRideView - Track and manage an active matched ride
@@ -11,8 +12,27 @@ struct ActiveRideView: View {
     @State private var showChat = false
     @State private var rideStatus: RideStatus = .matched
     @State private var showCompleteAlert = false
+    @State private var showCancelSheet = false
+    @State private var selectedCancelReason: String?
+    @State private var showNoShowAlert = false
+    @State private var noShowTimerSeconds = 300 // 5 minutes
+    @State private var noShowTimerActive = false
     @State private var position: MapCameraPosition = .automatic
     @State private var driverRoute: MKRoute?
+    @State private var timerCancellable: AnyCancellable?
+    @State private var passengerRating: Int = 0
+    @State private var passengerComment: String = ""
+    @State private var hasSubmittedRating = false
+    @State private var showSOSAlert = false
+
+    private let cancelReasons = [
+        "Passenger not at pickup",
+        "Safety concern",
+        "Vehicle issue",
+        "Personal emergency",
+        "Wrong pickup location",
+        "Other"
+    ]
 
     enum RideStatus: String {
         case matched = "Matched"
@@ -81,10 +101,34 @@ struct ActiveRideView: View {
         .navigationTitle("Active Ride")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                if rideStatus == .matched || rideStatus == .enRouteToPickup || rideStatus == .arrivedAtPickup {
+                    Button(action: { showCancelSheet = true }) {
+                        Text("Cancel")
+                            .font(.subheadline)
+                            .foregroundColor(.red)
+                    }
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { showChat = true }) {
-                    Image(systemName: "message.fill")
-                        .foregroundColor(.blue)
+                HStack(spacing: 16) {
+                    Button(action: { showChat = true }) {
+                        Image(systemName: "message.fill")
+                            .foregroundColor(.blue)
+                    }
+
+                    Button(action: { showSOSAlert = true }) {
+                        Text("SOS")
+                            .font(.caption2)
+                            .fontWeight(.heavy)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red)
+                            .cornerRadius(6)
+                    }
+                    .accessibilityLabel("Emergency SOS")
+                    .accessibilityHint("Calls 911 emergency services")
                 }
             }
         }
@@ -105,8 +149,45 @@ struct ActiveRideView: View {
         } message: {
             Text("Confirm that you have dropped off the passenger at their destination.")
         }
+        .confirmationDialog("Cancel Ride", isPresented: $showCancelSheet, titleVisibility: .visible) {
+            ForEach(cancelReasons, id: \.self) { reason in
+                Button(reason, role: reason == "Safety concern" ? nil : .destructive) {
+                    selectedCancelReason = reason
+                    viewModel.driverCancelRide(bid, reason: reason)
+                }
+            }
+            Button("Keep Ride", role: .cancel) {}
+        } message: {
+            Text("Select a reason for cancelling. The ride will be re-opened for other drivers.")
+        }
+        .alert("Mark as No-Show?", isPresented: $showNoShowAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Confirm No-Show", role: .destructive) {
+                viewModel.markPassengerNoShow(bid)
+            }
+        } message: {
+            Text("The passenger will be charged a $5.00 cancellation fee. You will receive $4.00 for your wait time.")
+        }
+        .alert("Emergency SOS", isPresented: $showSOSAlert) {
+            Button("Call 911", role: .destructive) {
+                if let url = URL(string: "tel://911") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will call emergency services (911). Only use in a real emergency.")
+        }
+        .onChange(of: rideStatus) { _, newStatus in
+            if newStatus == .arrivedAtPickup {
+                startNoShowTimer()
+            }
+        }
         .onAppear {
             updateMapPosition()
+            if rideStatus == .arrivedAtPickup {
+                startNoShowTimer()
+            }
         }
     }
 
@@ -352,24 +433,62 @@ struct ActiveRideView: View {
             }
 
         case .arrivedAtPickup:
-            Button(action: startRide) {
-                HStack {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "car.fill")
-                        Text("Start Ride")
+            VStack(spacing: 10) {
+                // No-show timer
+                if noShowTimerActive {
+                    HStack {
+                        Image(systemName: "clock")
+                            .foregroundColor(noShowTimerSeconds <= 0 ? .red : .orange)
+                        if noShowTimerSeconds > 0 {
+                            Text("Waiting: \(noShowTimerSeconds / 60):\(String(format: "%02d", noShowTimerSeconds % 60))")
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                        } else {
+                            Text("Wait time exceeded")
+                                .font(.subheadline)
+                                .foregroundColor(.red)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                Button(action: startRide) {
+                    HStack {
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "car.fill")
+                            Text("Start Ride")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.purple)
+                    .cornerRadius(16)
+                }
+                .disabled(viewModel.isLoading)
+
+                // No-show button appears after timer expires
+                if noShowTimerSeconds <= 0 {
+                    Button(action: { showNoShowAlert = true }) {
+                        HStack {
+                            Image(systemName: "person.slash")
+                            Text("Mark as No-Show")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
                     }
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.purple)
-                .cornerRadius(16)
             }
-            .disabled(viewModel.isLoading)
 
         case .inProgress:
             Button(action: { showCompleteAlert = true }) {
@@ -392,25 +511,183 @@ struct ActiveRideView: View {
             .disabled(viewModel.isLoading)
 
         case .completed:
-            VStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 50))
-                    .foregroundColor(.green)
-                Text("Ride Completed!")
-                    .font(.headline)
-                    .foregroundColor(.green)
-                Text("$\(String(format: "%.2f", driverEarnings)) earned")
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
+            rideCompletionSummary
+                .frame(maxWidth: .infinity)
+                .padding()
+        }
+    }
+
+    // MARK: - Ride Completion Summary
+
+    private var rideCompletionSummary: some View {
+        let completion = viewModel.completionData
+        let fare = completion?.final_price ?? finalPrice
+        let fee = completion?.platform_fee ?? AppConfig.shared.rideshareTier1Fee
+        let payout = completion?.driver_payout ?? max(0, fare - fee)
+        let tip = completion?.tip_amount ?? 0
+
+        return VStack(spacing: 16) {
+            // Header
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 40))
+                .foregroundColor(.green)
+            Text("Ride Completed!")
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(.green)
+
+            Divider()
+
+            // Route summary
+            if let pickup = completion?.pickup?.address ?? request?.pickup.address,
+               let dropoff = completion?.dropoff?.address ?? request?.dropoff.address {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Circle().fill(Color.green).frame(width: 8, height: 8)
+                        Text(pickup).font(.caption).foregroundColor(Theme.textSecondary).lineLimit(1)
+                    }
+                    HStack(spacing: 8) {
+                        Circle().fill(Color.red).frame(width: 8, height: 8)
+                        Text(dropoff).font(.caption).foregroundColor(Theme.textSecondary).lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
+
+            // Distance & duration
+            if let distance = completion?.estimated_distance_km, let duration = completion?.estimated_duration_minutes {
+                let miles = distance * 0.621371
+                HStack {
+                    Label(String(format: "%.1f mi", miles), systemImage: "road.lanes")
+                    Spacer()
+                    Label("\(duration) min", systemImage: "clock")
+                }
+                .font(.caption)
+                .foregroundColor(Theme.textSecondary)
+            }
+
+            Divider()
+
+            // Earnings breakdown
+            VStack(spacing: 8) {
+                earningsRow(label: "Ride Fare", amount: fare)
+                earningsRow(label: "Platform Fee", amount: -fee, color: .red)
+                if tip > 0 {
+                    earningsRow(label: "Tip", amount: tip, color: .green)
+                }
+
+                Divider()
+
+                HStack {
+                    Text("Your Earnings")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text("$\(String(format: "%.2f", payout + tip))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                }
+            }
+
+            // Passenger name
+            if let name = completion?.customer_name ?? request?.customer_name {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.circle.fill")
+                        .foregroundColor(.blue)
+                    Text("Passenger: \(name)")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider()
+
+            // Rate Passenger
+            if hasSubmittedRating {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Passenger rated \(passengerRating)/5")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            } else {
+                VStack(spacing: 12) {
+                    Text("Rate Passenger")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    HStack(spacing: 12) {
+                        ForEach(1...5, id: \.self) { star in
+                            Button(action: { passengerRating = star }) {
+                                Image(systemName: star <= passengerRating ? "star.fill" : "star")
+                                    .font(.title2)
+                                    .foregroundColor(star <= passengerRating ? .yellow : .gray)
+                            }
+                        }
+                    }
+
+                    TextField("Comment (optional)", text: $passengerComment)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    Button(action: submitPassengerRating) {
+                        Text("Submit Rating")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(passengerRating > 0 ? Color.blue : Color.gray)
+                            .cornerRadius(8)
+                    }
+                    .disabled(passengerRating == 0)
+                }
+            }
+        }
+    }
+
+    private func submitPassengerRating() {
+        viewModel.ratePassenger(bid, rating: passengerRating, comment: passengerComment.isEmpty ? nil : passengerComment)
+        hasSubmittedRating = true
+    }
+
+    private func earningsRow(label: String, amount: Double, color: Color = .primary) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(Theme.textSecondary)
+            Spacer()
+            Text(amount >= 0 ? "$\(String(format: "%.2f", amount))" : "-$\(String(format: "%.2f", abs(amount)))")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(color)
         }
     }
 
     // MARK: - Actions
 
+    private func startNoShowTimer() {
+        guard !noShowTimerActive else { return }
+        noShowTimerActive = true
+        noShowTimerSeconds = 300
+
+        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [self] _ in
+                if noShowTimerSeconds > 0 {
+                    noShowTimerSeconds -= 1
+                } else {
+                    timerCancellable?.cancel()
+                }
+            }
+    }
+
     private func startRide() {
+        timerCancellable?.cancel()
+        noShowTimerActive = false
         viewModel.startRide(bid)
         rideStatus = .inProgress
     }
