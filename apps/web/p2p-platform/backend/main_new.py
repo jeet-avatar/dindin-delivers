@@ -1114,6 +1114,10 @@ def _run_startup_migrations():
         ("ride_requests", "tip_amount", "FLOAT DEFAULT 0"),
         ("ride_requests", "customer_rating", "INTEGER"),
         ("ride_requests", "customer_comment", "TEXT"),
+        ("ride_requests", "passenger_rating", "INTEGER"),
+        ("ride_requests", "passenger_comment", "TEXT"),
+        ("customers", "rating", "FLOAT DEFAULT 5.0"),
+        ("customers", "total_rides", "INTEGER DEFAULT 0"),
         # Early Driver Notification columns - orders table
         ("orders", "estimated_prep_minutes", "INTEGER"),
         ("orders", "estimated_ready_at", "TIMESTAMP"),
@@ -6225,22 +6229,27 @@ async def get_customer_ride_history(
 
     rides = []
     for ride in ride_records:
-        pickup = ride.pickup_address or {}
-        dropoff = ride.dropoff_address or {}
+        # Get driver name from matched_driver relationship
+        driver_name = None
+        if ride.matched_driver:
+            driver_name = f"{ride.matched_driver.first_name or ''} {ride.matched_driver.last_name or ''}".strip() or None
+
         rides.append({
             "id": ride.id,
-            "pickup": pickup.get("address", "") if isinstance(pickup, dict) else str(pickup),
-            "dropoff": dropoff.get("address", "") if isinstance(dropoff, dict) else str(dropoff),
-            "pickup_lat": pickup.get("latitude") if isinstance(pickup, dict) else None,
-            "pickup_lng": pickup.get("longitude") if isinstance(pickup, dict) else None,
-            "dropoff_lat": dropoff.get("latitude") if isinstance(dropoff, dict) else None,
-            "dropoff_lng": dropoff.get("longitude") if isinstance(dropoff, dict) else None,
+            "request_id": ride.request_id,
+            "pickup": ride.pickup_address or "",
+            "dropoff": ride.dropoff_address or "",
+            "pickup_lat": ride.pickup_latitude,
+            "pickup_lng": ride.pickup_longitude,
+            "dropoff_lat": ride.dropoff_latitude,
+            "dropoff_lng": ride.dropoff_longitude,
             "date": ride.created_at.strftime("%Y-%m-%d") if ride.created_at else None,
             "fare": float(ride.final_price or ride.suggested_price or 0),
             "platform_fee": float(ride.platform_fee or 0),
             "tip": float(ride.tip_amount or 0),
-            "driver_name": ride.driver_name,
+            "driver_name": driver_name,
             "status": ride.status.value if ride.status else "unknown",
+            "rating": ride.customer_rating,
         })
 
     return {
