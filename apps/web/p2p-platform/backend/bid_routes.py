@@ -23,7 +23,8 @@ from models import (
 from websocket_server import (
     broadcast_new_ride_request, broadcast_new_bid, broadcast_bid_response,
     broadcast_ride_matched, broadcast_ride_request_cancelled,
-    broadcast_bid_update, broadcast_bid_withdrawn, broadcast_counter_offer_response
+    broadcast_bid_update, broadcast_bid_withdrawn, broadcast_counter_offer_response,
+    broadcast_ride_status
 )
 from pricing_config import pricing_engine, get_fare_estimate, get_bid_label
 from email_service import (
@@ -256,7 +257,7 @@ def serialize_bid(bid: RideBid) -> dict:
         "driver_vehicle_year": driver.vehicle_year if driver else None,
         "driver_vehicle_color": driver.vehicle_color if driver else None,
         "driver_license_plate": driver.license_plate if driver else None,
-        "driver_trips": driver.total_rides if driver else None,
+        "driver_trips": driver.total_deliveries if driver else None,
         "proposed_price": bid.proposed_price,
         "message": bid.message,
         "estimated_arrival_minutes": bid.estimated_arrival_minutes,
@@ -279,26 +280,12 @@ def serialize_bid(bid: RideBid) -> dict:
 async def create_ride_request(data: CreateRideRequestInput, request: Request, db: Session = Depends(get_db)):
     """
     Customer creates a new ride request open for driver bidding.
-    SECURITY: Validates customer_id matches the authenticated user's JWT token.
+    SECURITY: Requires JWT auth. Validates customer_id matches token.
     """
-    # SECURITY: If auth token present, enforce customer_id matches JWT
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        try:
-            import os
-            from jose import jwt as _jwt
-            _secret = os.getenv("JWT_SECRET_KEY", "")
-            payload = _jwt.decode(auth_header[7:], _secret, algorithms=["HS256"])
-            jwt_customer_id = payload.get("customer_id")
-            if jwt_customer_id and jwt_customer_id != data.customer_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="customer_id does not match authenticated user"
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            pass  # Token decode failure handled by endpoint auth if present
+    payload = _require_auth(request)
+    jwt_customer_id = payload.get("customer_id")
+    if jwt_customer_id and jwt_customer_id != data.customer_id:
+        raise HTTPException(status_code=403, detail="customer_id does not match authenticated user")
 
     # Get customer
     customer = db.query(Customer).filter(Customer.id == data.customer_id).first()
@@ -451,11 +438,19 @@ async def get_surge_status(db: Session = Depends(get_db)):
 
 
 @router.get("/request/{request_id}")
-async def get_ride_request(request_id: int, db: Session = Depends(get_db)):
-    """Get ride request details with all bids"""
+async def get_ride_request(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Get ride request details with all bids. Requires auth."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Verify caller is a participant (customer, matched driver, or admin)
+    jwt_customer_id = payload.get("customer_id")
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride_request.customer_id and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this ride")
 
     return {
         "success": True,
@@ -466,10 +461,17 @@ async def get_ride_request(request_id: int, db: Session = Depends(get_db)):
 @router.get("/customer/{customer_id}/requests")
 async def get_customer_ride_requests(
     customer_id: int,
+    request: Request,
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Get all ride requests for a customer"""
+    """Get all ride requests for a customer. Requires auth + ownership."""
+    payload = _require_auth(request)
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != customer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this customer's rides")
+
     query = db.query(RideRequest).filter(RideRequest.customer_id == customer_id)
 
     if status:
@@ -488,11 +490,18 @@ async def get_customer_ride_requests(
 
 
 @router.get("/request/{request_id}/bids")
-async def get_bids_for_request(request_id: int, db: Session = Depends(get_db)):
-    """Get all pending bids for a ride request"""
+async def get_bids_for_request(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Get all pending bids for a ride request. Requires auth + ownership."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the ride's customer or admin can view bids
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride_request.customer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view bids for this ride")
 
     # Get pending bids, sorted by price (lowest first), eager-load driver for vehicle info
     bids = db.query(RideBid).options(
@@ -515,14 +524,22 @@ async def get_bids_for_request(request_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/bid/{bid_id}/respond")
-async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Depends(get_db)):
+async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request, db: Session = Depends(get_db)):
     """
-    Customer responds to a driver's bid
+    Customer responds to a driver's bid. Requires auth + ride ownership.
     Actions: accept, reject, counter
     """
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    # Verify caller is the ride's customer
+    ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if ride_request and jwt_role != "admin" and jwt_customer_id != ride_request.customer_id:
+        raise HTTPException(status_code=403, detail="Only the ride's customer can respond to bids")
 
     if bid.status != BidStatus.PENDING:
         raise HTTPException(status_code=400, detail=f"Bid is already {bid.status.value}")
@@ -852,11 +869,18 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
 
 
 @router.post("/request/{request_id}/cancel")
-async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
-    """Customer cancels their ride request"""
+async def cancel_ride_request(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Customer cancels their ride request. Requires auth + ownership."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the ride's customer or admin can cancel
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride_request.customer_id:
+        raise HTTPException(status_code=403, detail="Only the ride's customer can cancel")
 
     if ride_request.status in [RideRequestStatus.IN_PROGRESS, RideRequestStatus.COMPLETED, RideRequestStatus.CANCELLED]:
         raise HTTPException(status_code=400, detail=f"Cannot cancel ride with status: {ride_request.status.value}")
@@ -877,6 +901,27 @@ async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
         bid.customer_response = "Ride request cancelled by customer"
 
     db.commit()
+
+    # Notify matched driver if ride was matched (Task #24)
+    matched_driver_id = ride_request.matched_driver_id
+    if matched_driver_id:
+        try:
+            send_push_notification(
+                user_type="driver",
+                user_id=matched_driver_id,
+                title="Ride cancelled by customer",
+                body=f"Ride {ride_request.request_id} has been cancelled by the customer.",
+                data={
+                    "type": "ride_cancelled",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "reason": "customer_cancelled"
+                },
+                db=db
+            )
+            logger.info(f"Cancellation push sent to matched driver {matched_driver_id}")
+        except Exception as e:
+            logger.error(f"Failed to notify matched driver of cancellation: {e}")
 
     # Send cancellation email to customer
     try:
@@ -906,6 +951,7 @@ async def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
 
 @router.get("/available")
 async def get_available_ride_requests(
+    request: Request,
     driver_id: Optional[int] = None,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
@@ -913,9 +959,17 @@ async def get_available_ride_requests(
     db: Session = Depends(get_db)
 ):
     """
-    Get available ride requests near the driver for bidding.
-    If driver_id/latitude/longitude not provided, returns all open rides.
+    Get available ride requests near the driver for bidding. Requires auth.
     """
+    payload = _require_auth(request)
+    # If driver_id provided, verify it matches the authenticated driver
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if driver_id and jwt_role != "admin" and jwt_driver_id != driver_id:
+        raise HTTPException(status_code=403, detail="driver_id does not match authenticated user")
+    # Use JWT driver_id if not explicitly provided
+    if not driver_id and jwt_driver_id:
+        driver_id = jwt_driver_id
     # Get open and bidding ride requests (BIDDING = at least one driver has bid)
     now = datetime.utcnow()
     open_requests = db.query(RideRequest).filter(
@@ -970,10 +1024,22 @@ async def get_available_ride_requests(
 
 
 @router.post("/request/{request_id}/bid")
-async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depends(get_db)):
+async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, db: Session = Depends(get_db)):
     """
-    Driver submits a bid on a ride request
+    Driver submits a bid on a ride request. Requires auth + driver_id verification.
     """
+    payload = _require_auth(request)
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != data.driver_id:
+        raise HTTPException(status_code=403, detail="driver_id does not match authenticated user")
+
+    # Validate bid price (Task #18)
+    if data.proposed_price is not None and data.proposed_price <= 0:
+        raise HTTPException(status_code=400, detail="Bid price must be greater than $0")
+    if data.proposed_price is not None and data.proposed_price > 10000:
+        raise HTTPException(status_code=400, detail="Bid price exceeds maximum allowed ($10,000)")
+
     # Get ride request
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
@@ -1185,11 +1251,17 @@ async def submit_bid(request_id: int, data: SubmitBidInput, db: Session = Depend
 
 
 @router.put("/bid/{bid_id}")
-async def update_bid(bid_id: int, data: UpdateBidInput, db: Session = Depends(get_db)):
-    """Driver updates their bid (only if still pending)"""
+async def update_bid(bid_id: int, data: UpdateBidInput, request: Request, db: Session = Depends(get_db)):
+    """Driver updates their bid (only if still pending). Requires auth (bid owner)."""
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != bid.driver_id:
+        raise HTTPException(status_code=403, detail="Only the bid owner can update it")
 
     if bid.status != BidStatus.PENDING:
         raise HTTPException(status_code=400, detail=f"Cannot update bid that is {bid.status.value}")
@@ -1210,11 +1282,17 @@ async def update_bid(bid_id: int, data: UpdateBidInput, db: Session = Depends(ge
 
 
 @router.post("/bid/{bid_id}/withdraw")
-async def withdraw_bid(bid_id: int, db: Session = Depends(get_db)):
-    """Driver withdraws their bid"""
+async def withdraw_bid(bid_id: int, request: Request, db: Session = Depends(get_db)):
+    """Driver withdraws their bid. Requires auth (bid owner)."""
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != bid.driver_id:
+        raise HTTPException(status_code=403, detail="Only the bid owner can withdraw it")
 
     if bid.status not in [BidStatus.PENDING, BidStatus.COUNTERED]:
         raise HTTPException(status_code=400, detail=f"Cannot withdraw bid that is {bid.status.value}")
@@ -1250,14 +1328,20 @@ class DriverCounterInput(BaseModel):
 
 
 @router.post("/bid/{bid_id}/driver-counter")
-async def driver_counter_offer(bid_id: int, data: DriverCounterInput, db: Session = Depends(get_db)):
+async def driver_counter_offer(bid_id: int, data: DriverCounterInput, request: Request, db: Session = Depends(get_db)):
     """
-    Driver responds to customer's counter-offer with their own counter (Round 2).
+    Driver responds to customer's counter-offer with their own counter (Round 2). Requires auth.
     This is the final round - customer must accept or reject.
     """
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != bid.driver_id:
+        raise HTTPException(status_code=403, detail="Only the bid owner can counter")
 
     if bid.status != BidStatus.COUNTERED:
         raise HTTPException(status_code=400, detail="Can only counter a bid that has been countered by customer")
@@ -1344,11 +1428,17 @@ async def driver_counter_offer(bid_id: int, data: DriverCounterInput, db: Sessio
 
 
 @router.post("/bid/{bid_id}/accept-counter")
-async def accept_counter_offer(bid_id: int, db: Session = Depends(get_db)):
-    """Driver accepts customer's counter-offer"""
+async def accept_counter_offer(bid_id: int, request: Request, db: Session = Depends(get_db)):
+    """Driver accepts customer's counter-offer. Requires auth (bid owner)."""
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != bid.driver_id:
+        raise HTTPException(status_code=403, detail="Only the bid owner can accept counter")
 
     if bid.status != BidStatus.COUNTERED:
         raise HTTPException(status_code=400, detail="This bid doesn't have a counter-offer")
@@ -1446,11 +1536,17 @@ async def accept_counter_offer(bid_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/bid/{bid_id}/reject-counter")
-async def reject_counter_offer(bid_id: int, db: Session = Depends(get_db)):
-    """Driver rejects customer's counter-offer"""
+async def reject_counter_offer(bid_id: int, request: Request, db: Session = Depends(get_db)):
+    """Driver rejects customer's counter-offer. Requires auth (bid owner)."""
+    payload = _require_auth(request)
     bid = db.query(RideBid).filter(RideBid.id == bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
+
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != bid.driver_id:
+        raise HTTPException(status_code=403, detail="Only the bid owner can reject counter")
 
     if bid.status != BidStatus.COUNTERED:
         raise HTTPException(status_code=400, detail="This bid doesn't have a counter-offer")
@@ -1469,10 +1565,16 @@ async def reject_counter_offer(bid_id: int, db: Session = Depends(get_db)):
 @router.get("/driver/{driver_id}/bids")
 async def get_driver_bids(
     driver_id: int,
+    request: Request,
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Get all bids for a driver"""
+    """Get all bids for a driver. Requires auth + ownership."""
+    payload = _require_auth(request)
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this driver's bids")
     query = db.query(RideBid).options(
         joinedload(RideBid.driver)
     ).filter(RideBid.driver_id == driver_id)
@@ -1505,11 +1607,18 @@ async def get_driver_bids(
 # =========================================================================
 
 @router.post("/request/{request_id}/arrived")
-async def driver_arrived(request_id: int, db: Session = Depends(get_db)):
-    """Mark that the driver has arrived at pickup location"""
+async def driver_arrived(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Mark that the driver has arrived at pickup location. Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin can mark arrived
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can mark arrived")
 
     if ride_request.status != RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
@@ -1543,6 +1652,16 @@ async def driver_arrived(request_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Failed to send driver arrived notification: {e}")
 
+    # Broadcast ride status via WebSocket
+    try:
+        asyncio.create_task(broadcast_ride_status(
+            ride_id=str(ride_request.id),
+            status="driver_arrived",
+            details={"ride_request_id": ride_request.id, "request_id": ride_request.request_id}
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error: {e}")
+
     return {
         "success": True,
         "message": "Driver arrived at pickup",
@@ -1554,11 +1673,18 @@ class DriverCancelRequest(BaseModel):
     reason: Optional[str] = None
 
 @router.post("/request/{request_id}/driver-cancel")
-async def driver_cancel_ride(request_id: int, data: DriverCancelRequest = DriverCancelRequest(), db: Session = Depends(get_db)):
-    """Driver cancels a matched ride before starting it"""
+async def driver_cancel_ride(request_id: int, request: Request, data: DriverCancelRequest = DriverCancelRequest(), db: Session = Depends(get_db)):
+    """Driver cancels a matched ride before starting it. Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin can cancel
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can cancel")
 
     if ride_request.status not in [RideRequestStatus.MATCHED]:
         raise HTTPException(status_code=400, detail=f"Can only cancel matched rides (current: {ride_request.status.value})")
@@ -1609,6 +1735,16 @@ async def driver_cancel_ride(request_id: int, data: DriverCancelRequest = Driver
     except Exception as e:
         logger.error(f"Failed to send driver cancel notification: {e}")
 
+    # WebSocket broadcast: ride reopened after driver cancel
+    try:
+        asyncio.create_task(broadcast_ride_status(
+            ride_id=str(ride_request.id),
+            status="driver_cancelled",
+            details={"ride_request_id": ride_request.id, "request_id": ride_request.request_id, "reason": data.reason or ""}
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error: {e}")
+
     return {
         "success": True,
         "message": "Ride cancelled by driver. Ride re-opened for other drivers.",
@@ -1619,11 +1755,18 @@ async def driver_cancel_ride(request_id: int, data: DriverCancelRequest = Driver
 NOSHOW_CANCELLATION_FEE = 5.00
 
 @router.post("/request/{request_id}/no-show")
-async def mark_passenger_no_show(request_id: int, db: Session = Depends(get_db)):
-    """Driver marks passenger as no-show after waiting at pickup"""
+async def mark_passenger_no_show(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Driver marks passenger as no-show. Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can mark no-show")
 
     if ride_request.status != RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail=f"Ride must be in matched status (current: {ride_request.status.value})")
@@ -1680,6 +1823,16 @@ async def mark_passenger_no_show(request_id: int, db: Session = Depends(get_db))
     except Exception as e:
         logger.error(f"Failed to send no-show notification: {e}")
 
+    # WebSocket broadcast: passenger no-show
+    try:
+        asyncio.create_task(broadcast_ride_status(
+            ride_id=str(ride_request.id),
+            status="passenger_no_show",
+            details={"ride_request_id": ride_request.id, "request_id": ride_request.request_id, "cancellation_fee": cancellation_fee}
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error: {e}")
+
     return {
         "success": True,
         "message": "Passenger marked as no-show. Cancellation fee applied.",
@@ -1689,11 +1842,18 @@ async def mark_passenger_no_show(request_id: int, db: Session = Depends(get_db))
 
 
 @router.post("/request/{request_id}/start")
-async def start_ride(request_id: int, db: Session = Depends(get_db)):
-    """Start the matched ride (driver picked up customer)"""
+async def start_ride(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Start the matched ride (driver picked up customer). Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can start the ride")
 
     if ride_request.status != RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
@@ -1747,6 +1907,16 @@ async def start_ride(request_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Failed to send push notification to customer: {e}")
 
+    # WebSocket broadcast: ride started
+    try:
+        asyncio.create_task(broadcast_ride_status(
+            ride_id=str(ride_request.id),
+            status="in_progress",
+            details={"ride_request_id": ride_request.id, "request_id": ride_request.request_id}
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error: {e}")
+
     return {
         "success": True,
         "message": "Ride started",
@@ -1755,11 +1925,18 @@ async def start_ride(request_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/request/{request_id}/complete")
-async def complete_ride(request_id: int, db: Session = Depends(get_db)):
-    """Complete the ride (driver dropped off customer)"""
+async def complete_ride(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Complete the ride (driver dropped off customer). Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can complete the ride")
 
     if ride_request.status != RideRequestStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail=f"Ride must be in progress first (current: {ride_request.status.value})")
@@ -1888,6 +2065,16 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
             logger.info(f"Push notification sent to customer {ride_request.customer_id} - ride completed")
     except Exception as e:
         logger.error(f"Failed to send push notification to customer: {e}")
+
+    # WebSocket broadcast: ride completed
+    try:
+        asyncio.create_task(broadcast_ride_status(
+            ride_id=str(ride_request.id),
+            status="completed",
+            details={"ride_request_id": ride_request.id, "request_id": ride_request.request_id, "final_price": str(ride_request.final_price)}
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error: {e}")
 
     return {
         "success": True,
@@ -2053,12 +2240,20 @@ class PassengerRatingRequest(BaseModel):
 async def rate_passenger(
     request_id: int,
     body: PassengerRatingRequest,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """Driver rates passenger after ride completion"""
+    """Driver rates passenger after ride completion. Requires auth (matched driver)."""
+    payload = _require_auth(request)
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # Only the matched driver or admin can rate the passenger
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_driver_id != ride_request.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Only the matched driver can rate the passenger")
 
     if ride_request.status != RideRequestStatus.COMPLETED:
         raise HTTPException(
@@ -2119,6 +2314,7 @@ def _require_auth(request: Request) -> dict:
         return payload
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 
 
 @router.get("/request/{request_id}/receipt")
@@ -2468,6 +2664,94 @@ async def get_customer_disputes(customer_id: int, request: Request, db: Session 
             "refund_amount": d.refund_amount,
             "created_at": d.created_at.isoformat()
         } for d in disputes]
+    }
+
+
+class ResolveDisputeInput(BaseModel):
+    resolution: str  # "refund" or "no_refund"
+    refund_amount: Optional[float] = None
+    admin_notes: Optional[str] = None
+
+
+@router.post("/dispute/{dispute_id}/resolve")
+async def resolve_dispute(dispute_id: int, data: ResolveDisputeInput, request: Request, db: Session = Depends(get_db)):
+    """Admin resolves a dispute. Optionally issues a Stripe refund."""
+    payload = _require_auth(request)
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can resolve disputes")
+
+    dispute = db.query(RideDispute).filter(RideDispute.id == dispute_id).first()
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+
+    if dispute.status.value not in ("submitted", "under_review"):
+        raise HTTPException(status_code=400, detail=f"Dispute already resolved (status: {dispute.status.value})")
+
+    if data.resolution == "refund":
+        ride = db.query(RideRequest).filter(RideRequest.id == dispute.ride_request_id).first()
+        refund_amount = data.refund_amount or (float(ride.final_price or 0) if ride else 0)
+        if refund_amount <= 0:
+            raise HTTPException(status_code=400, detail="Refund amount must be greater than $0")
+
+        # Attempt Stripe refund if payment intent exists
+        stripe_refund_id = None
+        if ride and ride.stripe_payment_intent_id and not ride.stripe_payment_intent_id.startswith("demo_"):
+            try:
+                import stripe as stripe_lib
+                import os
+                stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
+                refund = stripe_lib.Refund.create(
+                    payment_intent=ride.stripe_payment_intent_id,
+                    amount=int(refund_amount * 100),
+                    metadata={"dispute_id": str(dispute_id), "ride_id": str(ride.id)}
+                )
+                stripe_refund_id = refund.id
+                logger.info(f"Stripe refund {refund.id} created for dispute {dispute_id}")
+            except Exception as e:
+                logger.error(f"Stripe refund failed for dispute {dispute_id}: {e}")
+                raise HTTPException(status_code=500, detail=f"Stripe refund failed: {str(e)}")
+
+        dispute.status = DisputeStatus.RESOLVED_REFUND
+        dispute.refund_amount = refund_amount
+        dispute.stripe_refund_id = stripe_refund_id
+    elif data.resolution == "no_refund":
+        dispute.status = DisputeStatus.RESOLVED_NO_REFUND
+    else:
+        raise HTTPException(status_code=400, detail="Resolution must be 'refund' or 'no_refund'")
+
+    dispute.admin_notes = data.admin_notes
+    dispute.resolved_at = datetime.utcnow()
+    db.commit()
+
+    # Notify customer of resolution
+    try:
+        if data.resolution == "refund":
+            msg = f"Your dispute has been resolved. A refund of ${dispute.refund_amount:.2f} has been issued."
+        else:
+            msg = "Your dispute has been reviewed. After careful review, no refund will be issued."
+        send_push_notification(
+            user_type="customer",
+            user_id=dispute.customer_id,
+            title="Dispute Resolved",
+            body=msg,
+            data={"type": "dispute_resolved", "dispute_id": str(dispute_id), "resolution": data.resolution},
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Failed to send dispute resolution notification: {e}")
+
+    return {
+        "success": True,
+        "message": f"Dispute resolved: {data.resolution}",
+        "dispute": {
+            "id": dispute.id,
+            "status": dispute.status.value,
+            "refund_amount": dispute.refund_amount,
+            "stripe_refund_id": dispute.stripe_refund_id,
+            "admin_notes": dispute.admin_notes,
+            "resolved_at": dispute.resolved_at.isoformat()
+        }
     }
 
 

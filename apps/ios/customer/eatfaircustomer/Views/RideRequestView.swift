@@ -100,7 +100,19 @@ struct RideRequestView: View {
     }
 
     private func requestRide() {
-        let name = authViewModel.customerName.isEmpty ? "Customer" : authViewModel.customerName
+        // Resolve customer name: viewModel property > UserDefaults > email prefix > last resort
+        var name = authViewModel.customerName
+        if name.isEmpty {
+            name = UserDefaults.standard.string(forKey: "p2p_customer_name") ?? ""
+        }
+        if name.isEmpty, !authViewModel.customerEmail.isEmpty {
+            // Use email prefix (e.g. "john.doe" from "john.doe@example.com")
+            name = authViewModel.customerEmail.components(separatedBy: "@").first ?? ""
+        }
+        if name.isEmpty {
+            // Last resort fallback - should rarely occur since login always sets name
+            name = "Customer"
+        }
         let email = authViewModel.customerEmail
 
         viewModel.requestRide(

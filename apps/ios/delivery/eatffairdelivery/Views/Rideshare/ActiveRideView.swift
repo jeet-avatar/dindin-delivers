@@ -72,7 +72,7 @@ struct ActiveRideView: View {
     }
 
     private var driverEarnings: Double {
-        max(0, finalPrice - AppConfig.shared.rideshareTier1Fee)
+        max(0, finalPrice - AppConfig.shared.calculateRidesharePlatformFee(fareAmount: finalPrice))
     }
 
     private var hasRiderPhone: Bool {
@@ -185,6 +185,18 @@ struct ActiveRideView: View {
             }
         }
         .onAppear {
+            // Initialize rideStatus from backend ride/bid status
+            if let rideRequest = bid.ride_request {
+                switch rideRequest.status {
+                case "in_progress":
+                    rideStatus = .inProgress
+                case "completed":
+                    rideStatus = .completed
+                default:
+                    // "matched", "open", "bidding" — driver is en route or arrived
+                    rideStatus = .matched
+                }
+            }
             updateMapPosition()
             if rideStatus == .arrivedAtPickup {
                 startNoShowTimer()
@@ -437,7 +449,17 @@ struct ActiveRideView: View {
     private var actionButton: some View {
         switch rideStatus {
         case .matched, .enRouteToPickup:
-            Button(action: { viewModel.driverArrived(bid); rideStatus = .arrivedAtPickup }) {
+            Button(action: {
+                let previousStatus = rideStatus
+                rideStatus = .arrivedAtPickup
+                viewModel.driverArrived(bid)
+                // Revert on error (driverArrived is non-blocking, but watch for showError)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    if viewModel.showError {
+                        rideStatus = previousStatus
+                    }
+                }
+            }) {
                 HStack {
                     Image(systemName: "mappin.circle.fill")
                     Text("I've Arrived")
@@ -540,7 +562,7 @@ struct ActiveRideView: View {
     private var rideCompletionSummary: some View {
         let completion = viewModel.completionData
         let fare = completion?.final_price ?? finalPrice
-        let fee = completion?.platform_fee ?? AppConfig.shared.rideshareTier1Fee
+        let fee = completion?.platform_fee ?? AppConfig.shared.calculateRidesharePlatformFee(fareAmount: fare)
         let payout = completion?.driver_payout ?? max(0, fare - fee)
         let tip = completion?.tip_amount ?? 0
 
@@ -706,13 +728,29 @@ struct ActiveRideView: View {
     private func startRide() {
         timerCancellable?.cancel()
         noShowTimerActive = false
-        viewModel.startRide(bid)
+        let previousStatus = rideStatus
         rideStatus = .inProgress
+        viewModel.startRide(bid)
+        // Revert on error after API response
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if viewModel.showError {
+                rideStatus = previousStatus
+                noShowTimerActive = true
+                startNoShowTimer()
+            }
+        }
     }
 
     private func completeRide() {
-        viewModel.completeRide(bid)
+        let previousStatus = rideStatus
         rideStatus = .completed
+        viewModel.completeRide(bid)
+        // Revert on error after API response
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if viewModel.showError {
+                rideStatus = previousStatus
+            }
+        }
     }
 
     private func callRider() {

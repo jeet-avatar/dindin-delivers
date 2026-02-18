@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 import EatFairShared
 
 /// RideshareDashboardView - Main rideshare screen with tabs
@@ -584,6 +585,305 @@ struct ActiveRideCard: View {
         .background(Theme.cardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Ride Request Card
+
+struct RideRequestCard: View {
+    let request: RideRequestForBidding
+    let locationManager: LocationManager
+    let onBid: () -> Void
+
+    private var distanceToPickup: String {
+        if let km = request.distance_to_pickup_km {
+            let miles = km * 0.621371
+            return String(format: "%.1f mi", miles)
+        }
+        return "--"
+    }
+
+    private var tripDistance: String {
+        if let km = request.estimated_distance_km {
+            let miles = km * 0.621371
+            return String(format: "%.1f mi", miles)
+        }
+        return "--"
+    }
+
+    private var tripDuration: String {
+        if let minutes = request.estimated_duration_minutes {
+            return "\(minutes) min"
+        }
+        return "--"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header - Price & Distance
+            HStack {
+                // Suggested Price
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("$\(String(format: "%.0f", request.suggested_price ?? 0))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Text("suggested")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(12)
+
+                Spacer()
+
+                // Distance & Bid Count
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.caption2)
+                        Text("\(distanceToPickup) away")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(Theme.textSecondary)
+
+                    if let bidCount = request.bid_count, bidCount > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.3.fill")
+                                .font(.caption2)
+                            Text("\(bidCount) bid\(bidCount == 1 ? "" : "s")")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(8)
+                    }
+                }
+            }
+            .padding()
+
+            Divider()
+                .padding(.horizontal)
+
+            // Pickup Location
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "person.fill")
+                        .foregroundColor(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("PICKUP")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textSecondary)
+                    Text(request.pickup.address)
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+
+            // Route line
+            HStack {
+                Rectangle()
+                    .fill(Color.blue.opacity(0.3))
+                    .frame(width: 2, height: 24)
+                    .padding(.leading, 32)
+                Spacer()
+            }
+
+            // Dropoff Location
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.red)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("DROP-OFF")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Theme.textSecondary)
+                    Text(request.dropoff.address)
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+
+            // Trip Stats
+            HStack(spacing: 16) {
+                TripStatBadge(icon: "arrow.left.and.right", text: tripDistance, label: "Trip")
+                TripStatBadge(icon: "clock.fill", text: tripDuration, label: "Duration")
+
+                if let specialRequests = request.special_requests, !specialRequests.isEmpty {
+                    TripStatBadge(icon: "note.text", text: "Notes", label: "Special")
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
+
+            Divider()
+                .padding(.horizontal)
+
+            // Bid Button
+            Button(action: onBid) {
+                HStack {
+                    Image(systemName: "hand.raised.fill")
+                    Text("Submit Bid")
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.blue)
+                .cornerRadius(12)
+            }
+            .accessibilityLabel("Submit bid for this ride")
+            .accessibilityHint("Place your bid to pick up this rider")
+            .padding()
+        }
+        .background(Theme.cardBackground)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Trip Stat Badge
+
+struct TripStatBadge: View {
+    let icon: String
+    let text: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption2)
+                Text(text)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.blue)
+
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+// MARK: - Ride Requests Map View
+
+struct RideRequestsMapView: View {
+    let requests: [RideRequestForBidding]
+    let locationManager: LocationManager
+    let onRequestSelected: (RideRequestForBidding) -> Void
+
+    @State private var position: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $position) {
+            // Driver's current location
+            if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
+                Annotation("You", coordinate: coordinate) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: 60, height: 60)
+
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 20, height: 20)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 3))
+                            .shadow(color: .blue.opacity(0.5), radius: 4)
+                    }
+                }
+            }
+
+            // Ride request pickups
+            ForEach(requests) { request in
+                Annotation(
+                    "$\(String(format: "%.0f", request.suggested_price ?? 0))",
+                    coordinate: CLLocationCoordinate2D(
+                        latitude: request.pickup.latitude,
+                        longitude: request.pickup.longitude
+                    )
+                ) {
+                    Button(action: { onRequestSelected(request) }) {
+                        VStack(spacing: 2) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 44, height: 44)
+                                    .shadow(color: Color.blue.opacity(0.4), radius: 6)
+
+                                Text("$\(Int(request.suggested_price ?? 0))")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+
+                            Image(systemName: "arrowtriangle.down.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.blue)
+                                .offset(y: -4)
+                        }
+                    }
+                    .accessibilityLabel("Ride request for \(Int(request.suggested_price ?? 0)) dollars")
+                    .accessibilityHint("Tap to submit a bid")
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+        }
+        .onAppear {
+            updateMapPosition()
+        }
+    }
+
+    private func updateMapPosition() {
+        if let coordinate = locationManager.currentCoordinate, coordinate.isValid {
+            position = .region(MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+            ))
+        }
     }
 }
 

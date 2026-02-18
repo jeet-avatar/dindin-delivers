@@ -51,6 +51,9 @@ class AuthViewModel: NSObject, ObservableObject {
         // Check if already logged in via P2P
         if p2pService.isCustomerLoggedIn {
             self.isAuthenticated = true
+            // Restore customer name/email from UserDefaults (set during login)
+            self.customerName = UserDefaults.standard.string(forKey: "p2p_customer_name") ?? ""
+            self.customerEmail = UserDefaults.standard.string(forKey: "p2p_customer_email") ?? ""
         }
     }
 

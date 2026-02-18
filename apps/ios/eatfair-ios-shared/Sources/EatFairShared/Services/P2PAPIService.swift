@@ -5044,7 +5044,15 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6716,13 +6724,13 @@ public class P2PAPIService: ObservableObject {
     // MARK: - Rideshare Chat APIs (REST - matches Android)
 
     /// Fetch chat messages for a ride request
-    /// Endpoint: GET /api/p2p/ride-requests/{id}/chat
+    /// Endpoint: GET /api/chat/messages/{ride_id}
     /// Uses production URL (api.dollor.ai)
     public func fetchRideChatMessages(
         rideRequestId: Int,
         completion: @escaping (Result<[RideChatMessage], Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/p2p/ride-requests/\(rideRequestId)/chat") else {
+        guard let url = URL(string: "\(baseURL)/chat/messages/\(rideRequestId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -6730,6 +6738,10 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -6759,7 +6771,7 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Send a chat message for a ride request
-    /// Endpoint: POST /api/p2p/ride-requests/{id}/chat
+    /// Endpoint: POST /api/chat/messages/{ride_id}
     /// Uses production URL (api.dollor.ai)
     public func sendRideChatMessage(
         rideRequestId: Int,
@@ -6767,7 +6779,7 @@ public class P2PAPIService: ObservableObject {
         senderType: String, // "customer" or "driver"
         completion: @escaping (Result<RideChatMessage, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/p2p/ride-requests/\(rideRequestId)/chat") else {
+        guard let url = URL(string: "\(baseURL)/chat/messages/\(rideRequestId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -6775,6 +6787,10 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let body: [String: Any] = [
             "message": message,
@@ -7079,19 +7095,19 @@ public struct RidePaymentConfirmation: Codable {
 /// Ride cancellation response
 public struct RideCancellationResponse: Codable {
     public let success: Bool
-    public let rideId: Int
-    public let cancellationFee: Double
-    public let refundAmount: Double
     public let message: String
+    public let rideId: Int?
+    public let cancellationFee: Double?
+    public let refundAmount: Double?
     public let reason: String?
-    public let cancelledAt: String
+    public let cancelledAt: String?
 
     enum CodingKeys: String, CodingKey {
         case success
+        case message
         case rideId = "ride_id"
         case cancellationFee = "cancellation_fee"
         case refundAmount = "refund_amount"
-        case message
         case reason
         case cancelledAt = "cancelled_at"
     }

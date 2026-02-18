@@ -53,7 +53,13 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
 
     // MARK: - Private Properties
 
-    private static let baseWebSocketURL = "wss://api.dollor.ai/ws/"
+    private static var baseWebSocketURL: String {
+        let httpBase = AppConfig.shared.p2pAPIBaseURL
+        let wsBase = httpBase
+            .replacingOccurrences(of: "https://", with: "wss://")
+            .replacingOccurrences(of: "http://", with: "ws://")
+        return "\(wsBase)/ws/"
+    }
     private static let pingInterval: TimeInterval = 30.0
     private static let initialReconnectDelay: TimeInterval = 1.0
     private static let maxReconnectDelay: TimeInterval = 30.0
@@ -72,7 +78,12 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
         get { topicQueue.sync { _subscribedTopics } }
         set { topicQueue.sync { _subscribedTopics = newValue } }
     }
-    private var isReceiving: Bool = false
+    private let receiveQueue = DispatchQueue(label: "ai.dollor.websocket.receive")
+    private var _isReceiving: Bool = false
+    private var isReceiving: Bool {
+        get { receiveQueue.sync { _isReceiving } }
+        set { receiveQueue.sync { _isReceiving = newValue } }
+    }
 
     // MARK: - Initialization
 
