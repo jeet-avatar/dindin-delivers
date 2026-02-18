@@ -97,6 +97,53 @@ FEATURE FLAGS:
 68. isDummyPaymentMode: false (real Stripe in Release). isAIFeaturesEnabled: true. isDynamicPricingEnabled: false
 69. Driver earnings display: 96% - AppConfig.swift:248
 70. Max delivery distance: 15 miles. Nearby radius: ~2 miles (3218.69m) - AppConfig.swift:240-241
+
+RIDESHARE PAYMENT FLOW (Feb 17, 2026):
+71. Stripe webhook handles BOTH food orders AND ride payments. If order lookup fails, falls back to RideRequest lookup by stripe_payment_intent_id - stripe_integration.py:421
+72. Auto-payout on ride completion: After db.commit(), creates stripe.Transfer to driver.stripe_account_id. NON-BLOCKING: failure logs error but doesn't fail completion - bid_routes.py:1422, order_flow.py:1041
+73. Tip transfer: POST /api/rides/{id}/tip creates SEPARATE stripe.Transfer for tip ONLY if main payout already done (stripe_transfer_id exists). Max tip $500 - main_new.py:14892
+74. complete-and-pay uses final_price (negotiated), NOT suggested_price (initial estimate). Formula: float(ride.final_price or ride.suggested_price or 0) - main_new.py:4969
+75. driver_paid_at timestamp: Set ONLY after successful Stripe Transfer creation. NULL means driver not yet paid - bid_routes.py:1453, main_new.py:5001, order_flow.py:1071
+76. Demo rides: If stripe_payment_intent_id starts with "demo_", skip Stripe entirely. Set payment_status="demo" and payment_completed_at - bid_routes.py:1429, order_flow.py:1047
+77. TWO ride completion paths exist: (1) POST /api/rides/request/{id}/complete in bid_routes.py (iOS/web) (2) POST /api/erp/rides/{id}/completed in order_flow.py (Android). BOTH have auto-payout logic
+78. RideRequest.stripe_transfer_id tracks the Stripe Transfer ID for driver payout. Used to determine if tip can be transferred
+79. Platform fee formula FIXED: tier_fee only (NOT tier_fee * 2). ride.platform_fee = tier_fee where tier_fee = $1/$2/$3
+
+ANDROID DRIVER APP:
+80. Android base URL: https://api.dollor.ai/api (includes /api suffix). All Retrofit paths are relative to this - AppConfig.kt:40
+81. Android driver uses /api/erp/* endpoints: /erp/rides/{id}/accept, /erp/rides/{id}/picked-up, /erp/rides/{id}/start, /erp/rides/{id}/completed, /erp/rides/{id}/cancel
+82. POST /api/erp/rides/{id}/start alias endpoint accepts BOTH matched AND in_progress status. Returns {success, message, ride_id, status} - main_new.py:13911
+83. RideCompleteResponse (Android): success (Boolean), status (String), earnings (Double), tip (Double?), total_earned (Double). Backend returns both "earnings" and "driver_earnings" keys for compatibility - order_flow.py:1085
+84. Android Firebase app IDs (dollorai-production #65740760476): customer=1:65740760476:android:b0c5073faa73a1bb42d459, driver=1:65740760476:android:7d9bed1ee685434c42d459, partner=1:65740760476:android:8591cc17fa4f8d4c42d459
+85. ERP rate endpoint (/api/erp/rides/{id}/rate) requires ride participant: customer_id or matched_driver_id must match JWT. Admin bypasses check - main_new.py:3937
+
+iOS CUSTOMER APP:
+86. Bundle ID: com.dollorai.customer. Display: 'Dollor'. Build 1077 v1.0. iOS 17.0+. P2PAPIService.swift: 13,268 lines
+87. Customer registration uses full_name (single field). Driver uses first_name + last_name. Vendor uses full_name + restaurant_name
+88. iOS base URL: {AppConfig.shared.p2pAPIBaseURL}/api. Production: https://api.dollor.ai/api. Staging: https://d3kuu45w6kl8hr.cloudfront.net/api
+89. Auth tokens stored in Keychain via SecureStorage (not just UserDefaults). Migration from UserDefaults happens on init
+90. Customer address endpoints: GET/POST/PUT/DELETE /api/customers/addresses. Body uses snake_case (location_name, zip_code, phone_number, is_default)
+
+iOS DRIVER APP:
+91. Bundle ID: com.dollorai.delivery (NOT com.dollorai.driver). Display: 'Dollor Driver'. Build 187 v1.0
+92. Driver background modes: location + audio + remote-notification (3 modes). Customer app: remote-notification only (1 mode)
+93. Driver profile: GET /erp/drivers/{id}, PUT /drivers/{id}. 40+ fields including address, vehicle, documents, stripe status
+94. Driver dashboard: GET /v5/driver/{driverId}/dashboard. Returns today/thisWeek/thisMonth earnings, tax info, ratings
+
+iOS RESTAURANT APP:
+95. Bundle ID: com.dollorai.restaurant. Display: 'Dollor Business'. Build 159 v1.0
+96. Restaurant 5 tab layout: Orders, Menu, Analytics, AI Insights, Settings
+97. Menu management: CRUD via /api/vendors/{id}/menu. P2PMenuItem name maps to 'item_name' in JSON (CodingKey override)
+98. AI insights: GET /api/vendors/{id}/ai-insights?period=today|week|month|year. Returns demand forecast, popular items, staffing recommendations
+99. Order flow: pending_restaurant (3-min window) → accept/decline → preparing → ready → pending_delivery_decision (3-min window) → self-deliver or request driver
+
+BACKEND & DATABASE:
+100. PostgreSQL with SQLAlchemy 2.0.36. Pool: 20 connections, 40 overflow, 30s timeout, 1800s recycle - database.py:10-21
+101. main_new.py: 21,617 lines. order_flow.py: 4,282. bid_routes.py: 1,653. models.py: 1,710. stripe_integration.py: 693
+102. Startup migrations: 38+ ALTER TABLE ADD COLUMN IF NOT EXISTS across 7 tables. Safe to run repeatedly
+103. 18 enum types in models.py. IMPORTANT: CustomerStatus enum EXISTS but is UNUSED. Use is_active Boolean instead
+104. Order tip column: 'tip'. RideRequest tip column: 'tip_amount'. These are DIFFERENT column names
+105. Security: CORS (environment-aware), admin_auth_middleware (all /admin/*), rate limiting (10 auth/60s), 7 security headers
 """
 
 TEMPLATE """{{ if .System }}<|im_start|>system

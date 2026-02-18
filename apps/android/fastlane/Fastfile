@@ -1,0 +1,59 @@
+default_platform(:android)
+
+platform :android do
+  desc "Upload Customer app to Play Store (internal testing)"
+  lane :deploy_customer do
+    upload_to_play_store(
+      package_name: "ai.dollor.customer",
+      aab: "app/build/outputs/bundle/productionRelease/app-production-release.aab",
+      track: "internal",
+      release_status: "draft",
+      json_key: "/Users/jeet/.config/play-store/service-account.json",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Upload Driver app to Play Store (internal testing)"
+  lane :deploy_driver do
+    upload_to_play_store(
+      package_name: "ai.dollor.driver",
+      aab: "driver/build/outputs/bundle/productionRelease/driver-production-release.aab",
+      track: "internal",
+      release_status: "draft",
+      json_key: "/Users/jeet/.config/play-store/service-account.json",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Upload Partner app to Play Store (internal testing)"
+  lane :deploy_partner do
+    upload_to_play_store(
+      package_name: "ai.dollor.partner",
+      aab: "partner/build/outputs/bundle/productionRelease/partner-production-release.aab",
+      track: "internal",
+      release_status: "draft",
+      json_key: "/Users/jeet/.config/play-store/service-account.json",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Promote Customer app from internal to production"
+  lane :promote_customer do
+    upload_to_play_store(
+      package_name: "ai.dollor.customer",
+      track: "internal",
+      track_promote_to: "production",
+      json_key: "/Users/jeet/.config/play-store/service-account.json",
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

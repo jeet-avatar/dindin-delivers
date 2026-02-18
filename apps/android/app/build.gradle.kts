@@ -52,8 +52,8 @@ android {
         applicationId = "ai.dollor.customer"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 13
+        versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -96,6 +96,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             // Use release signing config if keystore is configured
             val keystorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH", "")
             if (keystorePath.isNotEmpty()) {
