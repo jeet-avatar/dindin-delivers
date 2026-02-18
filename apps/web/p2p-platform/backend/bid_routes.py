@@ -4,18 +4,21 @@ Enables price negotiation between riders and drivers
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 from typing import Optional, List
 from pydantic import BaseModel
 import math
+import re
 import uuid
 
 from database import get_db
 from models import (
     RideRequest, RideBid, RideRequestStatus, BidStatus,
-    Customer, Driver, DriverStatus
+    Customer, Driver, DriverStatus,
+    RideDispute, DisputeStatus, DisputeReason,
+    RecurringRide
 )
 from websocket_server import (
     broadcast_new_ride_request, broadcast_new_bid, broadcast_bid_response,
@@ -236,8 +239,9 @@ def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> 
 
 
 def serialize_bid(bid: RideBid) -> dict:
-    """Serialize bid to dict"""
-    return {
+    """Serialize bid to dict with individual vehicle fields from driver relationship"""
+    driver = getattr(bid, 'driver', None)
+    data = {
         "id": bid.id,
         "bid_id": bid.bid_id,
         "ride_request_id": bid.ride_request_id,
@@ -246,6 +250,13 @@ def serialize_bid(bid: RideBid) -> dict:
         "driver_rating": bid.driver_rating,
         "driver_photo_url": bid.driver_photo_url,
         "driver_vehicle": bid.driver_vehicle,
+        # Individual vehicle fields from Driver relationship
+        "driver_vehicle_make": driver.vehicle_make if driver else None,
+        "driver_vehicle_model": driver.vehicle_model if driver else None,
+        "driver_vehicle_year": driver.vehicle_year if driver else None,
+        "driver_vehicle_color": driver.vehicle_color if driver else None,
+        "driver_license_plate": driver.license_plate if driver else None,
+        "driver_trips": driver.total_rides if driver else None,
         "proposed_price": bid.proposed_price,
         "message": bid.message,
         "estimated_arrival_minutes": bid.estimated_arrival_minutes,
@@ -257,6 +268,7 @@ def serialize_bid(bid: RideBid) -> dict:
         "expires_at": bid.expires_at.isoformat() if bid.expires_at else None,
         "created_at": bid.created_at.isoformat() if bid.created_at else None
     }
+    return data
 
 
 # =========================================================================
@@ -482,8 +494,10 @@ async def get_bids_for_request(request_id: int, db: Session = Depends(get_db)):
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
 
-    # Get pending bids, sorted by price (lowest first)
-    bids = db.query(RideBid).filter(
+    # Get pending bids, sorted by price (lowest first), eager-load driver for vehicle info
+    bids = db.query(RideBid).options(
+        joinedload(RideBid.driver)
+    ).filter(
         and_(
             RideBid.ride_request_id == request_id,
             RideBid.status == BidStatus.PENDING
@@ -625,6 +639,28 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
         except Exception as e:
             logger.error(f"Failed to send push notification to driver: {e}")
 
+        # Push notification to customer — driver en route
+        try:
+            driver_name = f"{driver.first_name}".strip() if driver else "Your driver"
+            eta_minutes = bid.estimated_arrival_minutes or 10
+            vehicle_desc = bid.driver_vehicle or "their vehicle"
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="Driver on the way!",
+                body=f"{driver_name} is heading to you in {vehicle_desc}. ETA: ~{eta_minutes} min",
+                data={
+                    "type": "driver_en_route",
+                    "ride_request_id": str(ride_request.id),
+                    "request_id": ride_request.request_id,
+                    "driver_name": driver_name,
+                    "eta_minutes": str(eta_minutes)
+                },
+                db=db
+            )
+        except Exception as e:
+            logger.error(f"Failed to send driver en-route push to customer: {e}")
+
         # Return iOS AcceptedRideDetails format + backward compatible fields
         return {
             "success": True,
@@ -668,6 +704,24 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, db: Session = Dep
             ))
         except Exception as e:
             logger.error(f"WebSocket broadcast error: {e}")
+
+        # Push notification to driver — bid rejected
+        try:
+            send_push_notification(
+                user_type="driver",
+                user_id=bid.driver_id,
+                title="Bid Not Accepted",
+                body=f"Your ${bid.proposed_price:.2f} bid was not accepted. Keep bidding on other rides!",
+                data={
+                    "type": "bid_rejected",
+                    "bid_id": str(bid.id),
+                    "ride_request_id": str(bid.ride_request_id),
+                    "proposed_price": str(bid.proposed_price)
+                },
+                db=db
+            )
+        except Exception as e:
+            logger.error(f"Failed to send bid rejected push: {e}")
 
         return {
             "success": True,
@@ -1419,7 +1473,9 @@ async def get_driver_bids(
     db: Session = Depends(get_db)
 ):
     """Get all bids for a driver"""
-    query = db.query(RideBid).filter(RideBid.driver_id == driver_id)
+    query = db.query(RideBid).options(
+        joinedload(RideBid.driver)
+    ).filter(RideBid.driver_id == driver_id)
 
     if status:
         try:
@@ -1758,6 +1814,24 @@ async def complete_ride(request_id: int, db: Session = Depends(get_db)):
                     ride_request.driver_paid_at = datetime.utcnow()
                     db.commit()
                     logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
+
+                    # Push notification to driver — payment received
+                    try:
+                        send_push_notification(
+                            user_type="driver",
+                            user_id=driver.id,
+                            title="Payment Received!",
+                            body=f"${ride_request.driver_payout:.2f} from ride {ride_request.request_id} has been transferred to your account.",
+                            data={
+                                "type": "payment_processed",
+                                "ride_request_id": str(ride_request.id),
+                                "request_id": ride_request.request_id,
+                                "amount": str(ride_request.driver_payout)
+                            },
+                            db=db
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send payment push to driver: {e}")
             else:
                 logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
     except Exception as e:
@@ -2021,3 +2095,584 @@ async def rate_passenger(
         "rating": rating,
         "newPassengerRating": customer.rating if customer else None
     }
+
+
+# =========================================================================
+# T2-5: RIDE RECEIPT / INVOICE
+# =========================================================================
+
+import os as _os
+from jose import jwt as _jwt
+
+_JWT_SECRET = _os.getenv("JWT_SECRET_KEY", "")
+
+
+def _require_auth(request: Request) -> dict:
+    """Require JWT auth and return decoded payload. Raises 401 on failure."""
+    if not _JWT_SECRET:
+        raise HTTPException(status_code=500, detail="Server misconfiguration")
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        payload = _jwt.decode(auth_header[7:], _JWT_SECRET, algorithms=["HS256"])
+        return payload
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+@router.get("/request/{request_id}/receipt")
+async def get_ride_receipt(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Get full receipt for a completed ride"""
+    payload = _require_auth(request)
+    ride = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Receipt only available for completed rides")
+
+    # SECURITY: Only ride participants or admin can view receipt
+    jwt_customer_id = payload.get("customer_id")
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride.customer_id and jwt_driver_id != ride.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this receipt")
+
+    driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first() if ride.matched_driver_id else None
+
+    final_price = float(ride.final_price or ride.suggested_price or 0)
+    platform_fee = float(ride.platform_fee or 0)
+    tip = float(ride.tip_amount or 0)
+    driver_payout = float(ride.driver_payout or 0)
+    distance_miles = (ride.estimated_distance_km or 0) * 0.621371
+
+    return {
+        "success": True,
+        "receipt": {
+            "ride_id": ride.id,
+            "request_id": ride.request_id,
+            "status": ride.status.value,
+            "route": {
+                "pickup_address": ride.pickup_address,
+                "dropoff_address": ride.dropoff_address,
+                "distance_miles": round(distance_miles, 1),
+                "duration_minutes": ride.estimated_duration_minutes
+            },
+            "fare_breakdown": {
+                "base_fare": final_price,
+                "platform_fee": platform_fee,
+                "tip": tip,
+                "total": round(final_price + platform_fee + tip, 2)
+            },
+            "payment": {
+                "status": ride.payment_status or "pending",
+                "paid_at": ride.payment_completed_at.isoformat() if ride.payment_completed_at else None
+            },
+            "driver": {
+                "id": driver.id if driver else None,
+                "name": (" ".join(filter(None, [driver.first_name, driver.last_name])).strip() or "Driver") if driver else None,
+                "photo_url": driver.photo_url if driver else None,
+                "rating": driver.rating if driver else None,
+                "vehicle": f"{driver.vehicle_year or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() if driver else None,
+                "license_plate": driver.license_plate if driver else None
+            },
+            "timestamps": {
+                "requested_at": ride.created_at.isoformat() if ride.created_at else None,
+                "matched_at": ride.matched_at.isoformat() if ride.matched_at else None,
+                "completed_at": ride.completed_at.isoformat() if ride.completed_at else None
+            },
+            "rating": {
+                "customer_rating": ride.customer_rating,
+                "customer_comment": ride.customer_comment
+            }
+        }
+    }
+
+
+@router.post("/request/{request_id}/email-receipt")
+async def email_ride_receipt(request_id: int, request: Request, db: Session = Depends(get_db)):
+    """Re-send ride completion email with receipt"""
+    payload = _require_auth(request)
+    ride = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Receipt only available for completed rides")
+
+    # Ownership check
+    jwt_customer_id = payload.get("customer_id")
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride.customer_id and jwt_driver_id != ride.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+    driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first() if ride.matched_driver_id else None
+
+    if not customer or not customer.email:
+        raise HTTPException(status_code=400, detail="Customer email not available")
+
+    final_price = float(ride.final_price or ride.suggested_price or 0)
+    platform_fee = float(ride.platform_fee or 0)
+    distance_miles = (ride.estimated_distance_km or 0) * 0.621371
+
+    customer_name = " ".join(filter(None, [customer.first_name, customer.last_name])).strip() or "Customer"
+    sent = send_ride_completed_email(
+        to_email=customer.email,
+        customer_name=customer_name,
+        request_id=ride.request_id,
+        driver_name=(" ".join(filter(None, [driver.first_name, driver.last_name])).strip() or "Driver") if driver else "Driver",
+        pickup_address=ride.pickup_address,
+        dropoff_address=ride.dropoff_address,
+        final_price=final_price,
+        platform_fee=platform_fee,
+        distance_miles=round(distance_miles, 1),
+        duration_minutes=ride.estimated_duration_minutes or 15
+    )
+
+    return {"success": sent, "message": "Receipt email sent" if sent else "Failed to send email"}
+
+
+# =========================================================================
+# T2-6: DRIVER PAYOUT DASHBOARD
+# =========================================================================
+
+@router.get("/driver/{driver_id}/payout-history")
+async def get_driver_payout_history(
+    driver_id: int,
+    request: Request,
+    period: Optional[str] = "week",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get per-ride payout breakdown for a driver"""
+    payload = _require_auth(request)
+    # Verify driver owns this data or is admin
+    jwt_driver_id = payload.get("driver_id")
+    jwt_role = payload.get("role", "")
+    if jwt_driver_id != driver_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view this driver's payouts")
+
+    # Determine date range
+    now = datetime.utcnow()
+    if start_date and end_date:
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use ISO format.")
+    elif period == "today":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now
+    elif period == "week":
+        start = now - timedelta(days=7)
+        end = now
+    elif period == "month":
+        start = now - timedelta(days=30)
+        end = now
+    else:
+        start = now - timedelta(days=7)
+        end = now
+
+    # Query completed rides for this driver in the period
+    rides = db.query(RideRequest).filter(
+        and_(
+            RideRequest.matched_driver_id == driver_id,
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= start,
+            RideRequest.completed_at <= end
+        )
+    ).order_by(RideRequest.completed_at.desc()).all()
+
+    # Build per-ride breakdown
+    ride_items = []
+    total_gross = 0.0
+    total_fees = 0.0
+    total_tips = 0.0
+    total_net = 0.0
+
+    for ride in rides:
+        fare = float(ride.final_price or ride.suggested_price or 0)
+        fee = float(ride.platform_fee or 0)
+        tip = float(ride.tip_amount or 0)
+        net = float(ride.driver_payout or 0) + tip
+
+        total_gross += fare
+        total_fees += fee
+        total_tips += tip
+        total_net += net
+
+        stripe_status = "paid" if ride.driver_paid_at else ("demo" if ride.payment_status == "demo" else "pending")
+
+        ride_items.append({
+            "ride_id": ride.id,
+            "request_id": ride.request_id,
+            "date": ride.completed_at.isoformat() if ride.completed_at else None,
+            "pickup_address": ride.pickup_address,
+            "dropoff_address": ride.dropoff_address,
+            "fare": fare,
+            "platform_fee": fee,
+            "tip": tip,
+            "net_payout": round(net, 2),
+            "stripe_status": stripe_status
+        })
+
+    ride_count = len(rides)
+    avg_per_ride = round(total_net / ride_count, 2) if ride_count > 0 else 0
+
+    return {
+        "success": True,
+        "period": period,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "summary": {
+            "total_gross": round(total_gross, 2),
+            "total_fees": round(total_fees, 2),
+            "total_tips": round(total_tips, 2),
+            "total_net": round(total_net, 2),
+            "ride_count": ride_count,
+            "avg_per_ride": avg_per_ride
+        },
+        "rides": ride_items
+    }
+
+
+# =========================================================================
+# T2-7: PAYMENT DISPUTE / REFUND
+# =========================================================================
+
+class CreateDisputeInput(BaseModel):
+    ride_request_id: int
+    reason: str  # DisputeReason value
+    description: Optional[str] = None
+
+
+@router.post("/dispute")
+async def create_ride_dispute(
+    data: CreateDisputeInput,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Customer creates a dispute for a completed ride"""
+    payload = _require_auth(request)
+    # Verify ride exists and is completed
+    ride = db.query(RideRequest).filter(RideRequest.id == data.ride_request_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Can only dispute completed rides")
+
+    # SECURITY: Only ride's customer can dispute
+    jwt_customer_id = payload.get("customer_id")
+    if not jwt_customer_id:
+        raise HTTPException(status_code=403, detail="Only customers can create disputes")
+    if jwt_customer_id != ride.customer_id:
+        raise HTTPException(status_code=403, detail="Only the ride's customer can create a dispute")
+
+    # Validate reason
+    try:
+        reason_enum = DisputeReason(data.reason)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid reason. Valid: {[r.value for r in DisputeReason]}"
+        )
+
+    # Check for existing dispute on this ride
+    existing = db.query(RideDispute).filter(
+        RideDispute.ride_request_id == data.ride_request_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="A dispute already exists for this ride")
+
+    _strip = lambda t: re.sub(r'<[^>]+>', '', t).strip() if t and isinstance(t, str) else t
+    dispute = RideDispute(
+        ride_request_id=data.ride_request_id,
+        customer_id=ride.customer_id,
+        reason=reason_enum,
+        description=_strip(data.description),
+        status=DisputeStatus.SUBMITTED
+    )
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    return {
+        "success": True,
+        "message": "Dispute submitted successfully. We'll review within 24-48 hours.",
+        "dispute": {
+            "id": dispute.id,
+            "ride_request_id": dispute.ride_request_id,
+            "reason": dispute.reason.value,
+            "description": dispute.description,
+            "status": dispute.status.value,
+            "created_at": dispute.created_at.isoformat()
+        }
+    }
+
+
+@router.get("/dispute/{dispute_id}")
+async def get_dispute_status(dispute_id: int, request: Request, db: Session = Depends(get_db)):
+    """Get dispute status"""
+    payload = _require_auth(request)
+    dispute = db.query(RideDispute).filter(RideDispute.id == dispute_id).first()
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != dispute.customer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this dispute")
+
+    result = {
+        "id": dispute.id,
+        "ride_request_id": dispute.ride_request_id,
+        "reason": dispute.reason.value,
+        "description": dispute.description,
+        "status": dispute.status.value,
+        "refund_amount": dispute.refund_amount,
+        "resolved_at": dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+        "created_at": dispute.created_at.isoformat(),
+        "updated_at": dispute.updated_at.isoformat()
+    }
+    # Only include admin_notes for admin users
+    if payload.get("role") == "admin":
+        result["admin_notes"] = dispute.admin_notes
+
+    return {"success": True, "dispute": result}
+
+
+@router.get("/customer/{customer_id}/disputes")
+async def get_customer_disputes(customer_id: int, request: Request, db: Session = Depends(get_db)):
+    """List all disputes for a customer"""
+    payload = _require_auth(request)
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_customer_id != customer_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view these disputes")
+    disputes = db.query(RideDispute).filter(
+        RideDispute.customer_id == customer_id
+    ).order_by(RideDispute.created_at.desc()).all()
+
+    return {
+        "success": True,
+        "disputes": [{
+            "id": d.id,
+            "ride_request_id": d.ride_request_id,
+            "reason": d.reason.value,
+            "status": d.status.value,
+            "refund_amount": d.refund_amount,
+            "created_at": d.created_at.isoformat()
+        } for d in disputes]
+    }
+
+
+# =========================================================================
+# T2-8: RECURRING RIDE MATCHING
+# =========================================================================
+
+class CreateRecurringRideInput(BaseModel):
+    pickup_address: str
+    pickup_latitude: float
+    pickup_longitude: float
+    dropoff_address: str
+    dropoff_latitude: float
+    dropoff_longitude: float
+    schedule_days: str  # "mon,wed,fri"
+    schedule_time: str  # "08:30"
+    timezone: Optional[str] = "America/New_York"
+    preferred_driver_id: Optional[int] = None
+    max_price: Optional[float] = None
+    ride_type: Optional[str] = "standard"
+
+
+class UpdateRecurringRideInput(BaseModel):
+    schedule_days: Optional[str] = None
+    schedule_time: Optional[str] = None
+    preferred_driver_id: Optional[int] = None
+    max_price: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+def serialize_recurring_ride(r: RecurringRide) -> dict:
+    return {
+        "id": r.id,
+        "customer_id": r.customer_id,
+        "pickup_address": r.pickup_address,
+        "pickup_latitude": r.pickup_latitude,
+        "pickup_longitude": r.pickup_longitude,
+        "dropoff_address": r.dropoff_address,
+        "dropoff_latitude": r.dropoff_latitude,
+        "dropoff_longitude": r.dropoff_longitude,
+        "schedule_days": r.schedule_days,
+        "schedule_time": r.schedule_time,
+        "timezone": r.timezone,
+        "preferred_driver_id": r.preferred_driver_id,
+        "max_price": r.max_price,
+        "ride_type": r.ride_type,
+        "is_active": r.is_active,
+        "last_triggered_at": r.last_triggered_at.isoformat() if r.last_triggered_at else None,
+        "created_at": r.created_at.isoformat() if r.created_at else None
+    }
+
+
+@router.post("/customer/{customer_id}/recurring-rides")
+async def create_recurring_ride(
+    customer_id: int,
+    data: CreateRecurringRideInput,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Create a recurring ride pattern"""
+    payload = _require_auth(request)
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_customer_id != customer_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Limit recurring rides per customer
+    existing_count = db.query(RecurringRide).filter(RecurringRide.customer_id == customer_id).count()
+    if existing_count >= 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 recurring rides allowed")
+
+    # Validate coordinates
+    for name, val, lo, hi in [
+        ("pickup_latitude", data.pickup_latitude, -90, 90),
+        ("pickup_longitude", data.pickup_longitude, -180, 180),
+        ("dropoff_latitude", data.dropoff_latitude, -90, 90),
+        ("dropoff_longitude", data.dropoff_longitude, -180, 180),
+    ]:
+        if not (lo <= val <= hi):
+            raise HTTPException(status_code=400, detail=f"Invalid {name}: must be between {lo} and {hi}")
+
+    if data.max_price is not None and data.max_price <= 0:
+        raise HTTPException(status_code=400, detail="max_price must be positive")
+
+    # Validate schedule_days
+    valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+    days = [d.strip().lower() for d in data.schedule_days.split(",")]
+    if not all(d in valid_days for d in days):
+        raise HTTPException(status_code=400, detail=f"Invalid days. Use: {valid_days}")
+
+    # Validate schedule_time format
+    try:
+        datetime.strptime(data.schedule_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+
+    _strip = lambda t: re.sub(r'<[^>]+>', '', t).strip() if t and isinstance(t, str) else t
+    recurring = RecurringRide(
+        customer_id=customer_id,
+        pickup_address=_strip(data.pickup_address),
+        pickup_latitude=data.pickup_latitude,
+        pickup_longitude=data.pickup_longitude,
+        dropoff_address=_strip(data.dropoff_address),
+        dropoff_latitude=data.dropoff_latitude,
+        dropoff_longitude=data.dropoff_longitude,
+        schedule_days=",".join(days),
+        schedule_time=data.schedule_time,
+        timezone=data.timezone,
+        preferred_driver_id=data.preferred_driver_id,
+        max_price=data.max_price,
+        ride_type=data.ride_type
+    )
+    db.add(recurring)
+    db.commit()
+    db.refresh(recurring)
+
+    return {
+        "success": True,
+        "message": "Recurring ride created",
+        "recurring_ride": serialize_recurring_ride(recurring)
+    }
+
+
+@router.get("/customer/{customer_id}/recurring-rides")
+async def get_customer_recurring_rides(customer_id: int, request: Request, db: Session = Depends(get_db)):
+    """List all recurring rides for a customer"""
+    payload = _require_auth(request)
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_customer_id != customer_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    rides = db.query(RecurringRide).filter(
+        RecurringRide.customer_id == customer_id
+    ).order_by(RecurringRide.created_at.desc()).all()
+
+    return {
+        "success": True,
+        "recurring_rides": [serialize_recurring_ride(r) for r in rides]
+    }
+
+
+@router.put("/recurring-rides/{ride_id}")
+async def update_recurring_ride(
+    ride_id: int,
+    data: UpdateRecurringRideInput,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Update a recurring ride pattern"""
+    payload = _require_auth(request)
+    recurring = db.query(RecurringRide).filter(RecurringRide.id == ride_id).first()
+    if not recurring:
+        raise HTTPException(status_code=404, detail="Recurring ride not found")
+    # SECURITY: ownership check
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_customer_id != recurring.customer_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if data.schedule_days is not None:
+        valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+        days = [d.strip().lower() for d in data.schedule_days.split(",")]
+        if not all(d in valid_days for d in days):
+            raise HTTPException(status_code=400, detail=f"Invalid days. Use: {valid_days}")
+        recurring.schedule_days = ",".join(days)
+
+    if data.schedule_time is not None:
+        try:
+            datetime.strptime(data.schedule_time, "%H:%M")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+        recurring.schedule_time = data.schedule_time
+
+    if data.preferred_driver_id is not None:
+        recurring.preferred_driver_id = data.preferred_driver_id
+    if data.max_price is not None:
+        if data.max_price <= 0:
+            raise HTTPException(status_code=400, detail="max_price must be positive")
+        recurring.max_price = data.max_price
+    if data.is_active is not None:
+        recurring.is_active = data.is_active
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Recurring ride updated",
+        "recurring_ride": serialize_recurring_ride(recurring)
+    }
+
+
+@router.delete("/recurring-rides/{ride_id}")
+async def delete_recurring_ride(ride_id: int, request: Request, db: Session = Depends(get_db)):
+    """Delete a recurring ride pattern"""
+    payload = _require_auth(request)
+    recurring = db.query(RecurringRide).filter(RecurringRide.id == ride_id).first()
+    if not recurring:
+        raise HTTPException(status_code=404, detail="Recurring ride not found")
+    # SECURITY: ownership check
+    jwt_customer_id = payload.get("customer_id")
+    jwt_role = payload.get("role", "")
+    if jwt_customer_id != recurring.customer_id and jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    db.delete(recurring)
+    db.commit()
+
+    return {"success": True, "message": "Recurring ride deleted"}

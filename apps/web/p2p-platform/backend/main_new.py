@@ -1170,6 +1170,48 @@ def _run_startup_migrations():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS ride_disputes (
+            id SERIAL PRIMARY KEY,
+            ride_request_id INTEGER NOT NULL REFERENCES ride_requests(id),
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            reason VARCHAR(50) NOT NULL,
+            description TEXT,
+            status VARCHAR(50) NOT NULL DEFAULT 'submitted',
+            refund_amount FLOAT,
+            stripe_refund_id VARCHAR(255),
+            admin_notes TEXT,
+            resolved_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS recurring_rides (
+            id SERIAL PRIMARY KEY,
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            pickup_address TEXT NOT NULL,
+            pickup_latitude FLOAT NOT NULL,
+            pickup_longitude FLOAT NOT NULL,
+            dropoff_address TEXT NOT NULL,
+            dropoff_latitude FLOAT NOT NULL,
+            dropoff_longitude FLOAT NOT NULL,
+            schedule_days VARCHAR(50) NOT NULL,
+            schedule_time VARCHAR(10) NOT NULL,
+            timezone VARCHAR(50) DEFAULT 'America/New_York',
+            preferred_driver_id INTEGER REFERENCES drivers(id),
+            max_price FLOAT,
+            ride_type VARCHAR(50) DEFAULT 'standard',
+            is_active BOOLEAN DEFAULT TRUE,
+            last_triggered_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        # Indexes for new tables
+        "CREATE INDEX IF NOT EXISTS idx_ride_disputes_ride_request_id ON ride_disputes(ride_request_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ride_disputes_customer_id ON ride_disputes(customer_id)",
+        "CREATE INDEX IF NOT EXISTS idx_recurring_rides_customer_id ON recurring_rides(customer_id)",
     ]
 
     try:
@@ -15060,27 +15102,31 @@ async def track_ride(
                 vehicle_parts.append(driver.vehicle_model)
             driver_vehicle = " ".join(vehicle_parts) if vehicle_parts else None
 
-            # Calculate ETA based on distance (simple estimate)
-            import math
+            # Calculate ETA using Haversine distance with traffic-adjusted speed
             eta_minutes = None
+            eta_pickup_minutes = None
             eta_destination_minutes = None
 
             if driver.current_latitude and driver.current_longitude:
+                # Average city driving speed: 25 km/h (accounts for traffic/stops)
+                avg_speed_kmh = 25.0
+
                 # ETA to pickup (when driver en route to customer)
                 if ride.pickup_latitude and ride.pickup_longitude:
-                    lat_diff = abs(driver.current_latitude - ride.pickup_latitude)
-                    lng_diff = abs(driver.current_longitude - ride.pickup_longitude)
-                    distance_deg = math.sqrt(lat_diff**2 + lng_diff**2)
-                    distance_km = distance_deg * 111
-                    eta_minutes = max(1, int((distance_km / 30) * 60))
+                    pickup_km = calculate_distance_km(
+                        driver.current_latitude, driver.current_longitude,
+                        ride.pickup_latitude, ride.pickup_longitude
+                    )
+                    eta_pickup_minutes = max(1, int((pickup_km / avg_speed_kmh) * 60))
+                    eta_minutes = eta_pickup_minutes
 
                 # ETA to destination (when ride in progress)
                 if ride.dropoff_latitude and ride.dropoff_longitude:
-                    lat_diff_d = abs(driver.current_latitude - ride.dropoff_latitude)
-                    lng_diff_d = abs(driver.current_longitude - ride.dropoff_longitude)
-                    distance_deg_d = math.sqrt(lat_diff_d**2 + lng_diff_d**2)
-                    distance_km_d = distance_deg_d * 111
-                    eta_destination_minutes = max(1, int((distance_km_d / 30) * 60))
+                    dest_km = calculate_distance_km(
+                        driver.current_latitude, driver.current_longitude,
+                        ride.dropoff_latitude, ride.dropoff_longitude
+                    )
+                    eta_destination_minutes = max(1, int((dest_km / avg_speed_kmh) * 60))
 
             # iOS flat fields
             response.update({
@@ -15091,6 +15137,7 @@ async def track_ride(
                 "driver_longitude": driver.current_longitude,
                 "estimated_arrival": f"{eta_minutes} min" if eta_minutes else None,
                 "estimated_destination_arrival": f"{eta_destination_minutes} min" if eta_destination_minutes else None,
+                "eta_pickup_minutes": eta_pickup_minutes,
                 "eta_destination_minutes": eta_destination_minutes,
                 "driver_vehicle": driver_vehicle,
                 "driver_vehicle_color": driver.vehicle_color,
