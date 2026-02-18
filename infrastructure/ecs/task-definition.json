@@ -50,7 +50,7 @@
         },
         {
           "name": "JWT_SECRET_KEY",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/staging/jwt-secret-AptxQn"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/jwt-secret-kvk9j9"
         },
         {
           "name": "STRIPE_SECRET_KEY",
@@ -70,7 +70,7 @@
         },
         {
           "name": "FIREBASE_CREDENTIALS_JSON",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/staging/firebase-creds-bEdTVv"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/firebase-creds-DG9fC5"
         }
       ],
       "logConfiguration": {

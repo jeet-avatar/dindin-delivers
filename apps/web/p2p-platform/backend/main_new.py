@@ -1303,13 +1303,14 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     hashed_password = get_password_hash(user.password)
+    # SECURITY: Never allow admin role via public registration
     db_user = User(
         email=user.email,
         password_hash=hashed_password,
         full_name=user.full_name,
-        role=UserRole.ADMIN if user.role == "admin" else UserRole.USER
+        role=UserRole.USER
     )
     db.add(db_user)
     db.commit()
@@ -1318,8 +1319,11 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 # Production Admin Setup - creates support@dollor.ai admin
 @app.post("/api/auth/admin/setup-production")
-def setup_production_admin(db: Session = Depends(get_db)):
-    """One-time setup for production admin account"""
+def setup_production_admin(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """One-time setup for production admin account - requires admin secret"""
+    _require_admin_secret(secret_key)
+    if _is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     admin_email = "support@dollor.ai"
     admin_password = "DollorAdmin2026!"
 
@@ -3190,9 +3194,20 @@ def delete_driver_account(
 @app.delete("/api/admin/customers/by-email/{email}")
 def admin_delete_customer_by_email(
     email: str,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    """Admin endpoint to delete customer by email - for testing purposes"""
+    """Admin endpoint to delete customer by email - requires admin auth"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # Only allow admin users (from User table, not customer/driver)
+        admin_email = payload.get("sub")
+        admin_user = db.query(User).filter(User.email == admin_email).first()
+        if not admin_user or admin_user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     customer = db.query(Customer).filter(Customer.email == email).first()
     if not customer:
         raise HTTPException(status_code=404, detail=f"Customer with email {email} not found")
@@ -3326,8 +3341,9 @@ def verify_customer_email(
                 detail="Verification code has expired. Please request a new code."
             )
 
-        # Verify the code
-        if customer.email_verification_code != request.code:
+        # Verify the code (constant-time comparison to prevent timing attacks)
+        import secrets as _secrets
+        if not _secrets.compare_digest(str(customer.email_verification_code), str(request.code)):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid verification code. Please try again."
@@ -3994,7 +4010,7 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
     # SECURITY: Only ride participants (customer or matched driver) can rate
     user_customer_id = getattr(current_user, 'customer_id', None)
     user_driver_id = getattr(current_user, 'driver_id', None)
-    is_admin = getattr(current_user, 'role', None) == 'admin'
+    is_admin = getattr(current_user, 'role', None) == UserRole.ADMIN
     if not is_admin and user_customer_id != ride.customer_id and user_driver_id != ride.matched_driver_id:
         raise HTTPException(status_code=403, detail="You can only rate rides you participated in")
 
@@ -4186,11 +4202,17 @@ def update_driver_profile_by_id(
     license_number: Optional[str] = None,
     photo_url: Optional[str] = None,
     vehicle_photo_url: Optional[str] = None,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Update driver profile by ID (iOS app and web portal compatible endpoint)
     Accepts both JSON body and query parameters for flexibility.
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4377,9 +4399,20 @@ def get_driver_status(
 def post_driver_status(
     driver_id: int,
     is_online: bool = Query(..., description="Set driver online/offline status"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Update driver online/offline status - Used by Android Driver app"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        token_driver_id = payload.get("driver_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_driver_id != driver_id:
+            raise HTTPException(status_code=403, detail="You can only update your own status")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4408,12 +4441,21 @@ def post_driver_status(
 @app.post("/api/drivers/{driver_id}/stripe/connect")
 def create_driver_stripe_account(
     driver_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Create a Stripe Connect Express account for a driver.
     This is step 1 of driver payout onboarding.
     """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4474,12 +4516,29 @@ def get_driver_stripe_onboarding_link(
     driver_id: int,
     return_url: str = Query(default="https://www.dollor.ai/driver/profile"),
     refresh_url: str = Query(default="https://www.dollor.ai/driver/profile"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Generate a Stripe Connect onboarding link for the driver.
     The driver uses this link to complete their payout setup including bank account.
     """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
+    # Validate redirect URLs against allowed domains to prevent open redirect / phishing
+    from urllib.parse import urlparse
+    _ALLOWED_REDIRECT_DOMAINS = {"dollor.ai", "www.dollor.ai", "api.dollor.ai"}
+    for url_val, url_name in [(return_url, "return_url"), (refresh_url, "refresh_url")]:
+        parsed = urlparse(url_val)
+        if parsed.netloc not in _ALLOWED_REDIRECT_DOMAINS:
+            raise HTTPException(status_code=400, detail=f"Invalid {url_name}: domain must be dollor.ai")
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4534,11 +4593,20 @@ def get_driver_stripe_onboarding_link(
 @app.get("/api/drivers/{driver_id}/stripe/status")
 def get_driver_stripe_status(
     driver_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Get the driver's Stripe Connect account status including bank account info.
     """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only view your own Stripe status")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4609,12 +4677,21 @@ def get_driver_stripe_status(
 @app.post("/api/drivers/{driver_id}/stripe/dashboard-link")
 def get_driver_stripe_dashboard_link(
     driver_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Generate a link to the driver's Stripe Express dashboard.
     Drivers can use this to view payouts, update bank info, etc.
     """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only access your own Stripe dashboard")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4726,12 +4803,23 @@ async def stripe_connect_webhook(
 @app.post("/api/vendors/{vendor_id}/stripe/connect")
 def create_vendor_stripe_account(
     vendor_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Create a Stripe Connect Express account for a vendor/restaurant.
     This is step 1 of vendor payout onboarding.
     """
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4795,12 +4883,23 @@ def get_vendor_stripe_onboarding_link(
     vendor_id: int,
     return_url: str = Query(default="https://www.dollor.ai/partner/settings"),
     refresh_url: str = Query(default="https://www.dollor.ai/partner/settings"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Generate a Stripe Connect onboarding link for the vendor.
     The vendor uses this link to complete their payout setup including bank account.
     """
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4860,11 +4959,22 @@ def get_vendor_stripe_onboarding_link(
 @app.get("/api/vendors/{vendor_id}/stripe/status")
 def get_vendor_stripe_status(
     vendor_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Get the vendor's Stripe Connect account status including bank account info.
     """
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only view your own Stripe status")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -4935,12 +5045,23 @@ def get_vendor_stripe_status(
 @app.post("/api/vendors/{vendor_id}/stripe/dashboard-link")
 def get_vendor_stripe_dashboard_link(
     vendor_id: int,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Generate a link to the vendor's Stripe Express dashboard.
     Vendors can use this to view payouts, update bank info, etc.
     """
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only access your own Stripe dashboard")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -5022,7 +5143,18 @@ async def complete_ride_and_pay_driver(
     # Calculate driver payout
     # Driver gets: ride fare - platform fee + 100% of tip
     ride_fare = float(ride.final_price or ride.suggested_price or 0)
-    platform_fee = float(ride.platform_fee or 2.0)
+
+    # Use stored platform_fee if available, otherwise calculate from fare tier
+    # Fare tiers: ≤$35 → $1, $35-$70 → $2, >$70 → $3
+    if ride.platform_fee is not None:
+        platform_fee = float(ride.platform_fee)
+    elif ride_fare <= 35:
+        platform_fee = 1.0
+    elif ride_fare <= 70:
+        platform_fee = 2.0
+    else:
+        platform_fee = 3.0
+
     tip = float(ride.tip_amount or 0)
 
     driver_payout = round(ride_fare - platform_fee + tip, 2)
@@ -5089,11 +5221,19 @@ async def complete_ride_and_pay_driver(
 async def get_driver_payout_history(
     driver_id: int,
     limit: int = Query(20, le=100),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Get driver's payout history from completed rides.
     """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # SECURITY: Verify token belongs to this driver or is admin
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only view your own payout history")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest as RideRequestDB, RideRequestStatus
 
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -5147,8 +5287,13 @@ async def get_driver_payout_history(
 
 
 @app.get("/drivers/{driver_id}/documents")
-def get_driver_documents_by_id(driver_id: int, db: Session = Depends(get_db)):
+def get_driver_documents_by_id(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Get driver documents status (iOS app compatible endpoint)"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -5204,9 +5349,14 @@ async def upload_driver_document_by_id(
     document_type: str = Form(...),
     file: UploadFile = File(...),
     expiry_date: Optional[str] = Form(None),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Upload driver document with Persona verification integration"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from s3_service import get_s3_service
     from document_verification_service import get_verification_service, DocumentType
     import os
@@ -8354,6 +8504,23 @@ def get_order(
 class OrderStatusUpdate(BaseModel):
     status: str
 
+# Valid order status transitions — prevents skipping payment or delivery steps
+_VALID_ORDER_TRANSITIONS = {
+    "PENDING_PAYMENT": {"CONFIRMED", "CANCELLED"},
+    "CONFIRMED": {"PENDING_RESTAURANT", "PREPARING", "CANCELLED"},
+    "PENDING_RESTAURANT": {"PREPARING", "DECLINED_BY_RESTAURANT", "RESTAURANT_TIMEOUT", "CANCELLED"},
+    "DECLINED_BY_RESTAURANT": {"CANCELLED"},
+    "RESTAURANT_TIMEOUT": {"CANCELLED", "PREPARING"},
+    "PREPARING": {"READY_FOR_PICKUP", "CANCELLED"},
+    "READY_FOR_PICKUP": {"PENDING_DELIVERY_DECISION", "OUT_FOR_DELIVERY", "RESTAURANT_WILL_DELIVER"},
+    "PENDING_DELIVERY_DECISION": {"RESTAURANT_WILL_DELIVER", "DELIVERY_DECISION_TIMEOUT", "OUT_FOR_DELIVERY"},
+    "RESTAURANT_WILL_DELIVER": {"OUT_FOR_DELIVERY", "DELIVERED"},
+    "DELIVERY_DECISION_TIMEOUT": {"OUT_FOR_DELIVERY"},
+    "OUT_FOR_DELIVERY": {"DELIVERED"},
+    "DELIVERED": set(),  # Terminal state
+    "CANCELLED": set(),  # Terminal state
+}
+
 @app.patch("/api/orders/{order_id}/status")
 def update_order_status(
     order_id: int,
@@ -8374,19 +8541,37 @@ def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # SECURITY: Verify current user is a participant in this order
+    if current_user.role != UserRole.ADMIN:
+        is_customer = order.customer_email and order.customer_email == current_user.email
+        is_vendor = current_user.vendor_id and order.vendor_id == current_user.vendor_id
+        is_driver = current_user.driver_id and order.driver_id == current_user.driver_id
+        if not (is_customer or is_vendor or is_driver):
+            raise HTTPException(status_code=403, detail="You can only update orders you are involved in")
+
     try:
-        order.status = OrderStatus[status.upper()]
-
-        # Update timestamps based on status
-        if status.upper() == "CONFIRMED":
-            order.confirmed_at = datetime.now()
-        elif status.upper() == "DELIVERED":
-            order.delivered_at = datetime.now()
-        elif status.upper() == "PREPARING":
-            order.preparing_at = datetime.now()
-
+        new_status = OrderStatus[status.upper()]
     except KeyError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+
+    # Enforce valid state transitions
+    current_status_name = order.status.name if order.status else "PENDING_PAYMENT"
+    allowed_transitions = _VALID_ORDER_TRANSITIONS.get(current_status_name, set())
+    if status.upper() not in allowed_transitions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot transition from {current_status_name} to {status.upper()}. Allowed: {', '.join(sorted(allowed_transitions)) or 'none (terminal state)'}"
+        )
+
+    order.status = new_status
+
+    # Update timestamps based on status
+    if status.upper() == "CONFIRMED":
+        order.confirmed_at = datetime.now()
+    elif status.upper() == "DELIVERED":
+        order.delivered_at = datetime.now()
+    elif status.upper() == "PREPARING":
+        order.preparing_at = datetime.now()
 
     db.commit()
 
@@ -9364,12 +9549,11 @@ async def upload_vendor_document_public(
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    # Verify email matches for security
-    # If vendor has no email, accept the provided email and update the record
+    # Verify email matches for security (constant-time comparison)
+    import secrets as _secrets
     if not db_vendor.contact_email:
-        db_vendor.contact_email = contact_email
-        print(f"📧 Updated vendor {vendor_id} email to: {contact_email}")
-    elif db_vendor.contact_email != contact_email:
+        raise HTTPException(status_code=403, detail="Vendor has no email on file. Contact support.")
+    if not _secrets.compare_digest(db_vendor.contact_email.lower(), contact_email.lower()):
         raise HTTPException(status_code=403, detail="Email does not match vendor record")
 
     # Create uploads directory if it doesn't exist
@@ -10356,6 +10540,9 @@ def update_vendor_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # SECURITY: Only admins can change vendor status (approval, suspension, etc.)
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required to change vendor status")
     from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -10860,6 +11047,9 @@ def update_vendor_documents(
 
 @app.delete("/api/vendors/{vendor_id}")
 def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # SECURITY: Only admins can delete vendors
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required to delete vendors")
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -12103,11 +12293,21 @@ def update_vendor_location(
     vendor_id: int,
     latitude: float = Query(..., description="Latitude coordinate"),
     longitude: float = Query(..., description="Longitude coordinate"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Update vendor GPS coordinates.
     """
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only update your own location")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -12130,12 +12330,20 @@ def update_vendor_location(
 def quick_publish_vendor(
     vendor_id: int,
     platforms: str = Query("ios,android,web", description="Comma-separated platforms"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Quick publish endpoint for development/testing.
     Approves and publishes a vendor to specified platforms.
     """
+    # SECURITY: Only admins can quick-publish vendors
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required to publish vendors")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import Vendor, VendorMenuItem, VendorStatus
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -13199,10 +13407,20 @@ def get_menu_categories(vendor_id: int, db: Session = Depends(get_db)):
 def register_mobile_app(
     vendor_id: int,
     app_data: dict,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+    # SECURITY: Verify token belongs to this vendor or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_vendor_id = payload.get("vendor_id")
+        token_role = payload.get("role")
+        if token_role != "admin" and token_vendor_id != vendor_id:
+            raise HTTPException(status_code=403, detail="You can only register your own app")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import Vendor
-    
+
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
@@ -13870,113 +14088,185 @@ app.include_router(order_flow_router)
 # Aliases for iOS Driver app (without /api prefix)
 # iOS baseURL is "https://api.dollor.ai" without /api, so these aliases enable the driver app
 @app.get("/erp/orders/driver/{driver_id}/active")
-async def get_driver_active_orders_alias(driver_id: int, db: Session = Depends(get_db)):
+async def get_driver_active_orders_alias(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - forwards to order_flow.get_driver_active_orders"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only view your own active orders")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/api/drivers/{driver_id}/active-order")
-async def get_driver_active_order_alias(driver_id: int, db: Session = Depends(get_db)):
+async def get_driver_active_order_alias(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - GET /api/drivers/{id}/active-order"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only view your own active orders")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/erp/orders/available-for-delivery")
-async def get_available_orders_alias(db: Session = Depends(get_db)):
+async def get_available_orders_alias(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - get orders available for delivery"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_available_orders(db)
 
 @app.post("/erp/orders/{order_id}/assign-driver")
-async def assign_driver_alias(order_id: int, request: AssignDriverRequest, db: Session = Depends(get_db)):
+async def assign_driver_alias(order_id: int, request: AssignDriverRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - assign driver to order"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await assign_driver(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/picked-up")
-async def picked_up_alias(order_id: int, db: Session = Depends(get_db)):
+async def picked_up_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark order as picked up"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await order_picked_up(order_id, db)
 
 @app.put("/erp/orders/{order_id}/complete-delivery")
-async def complete_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+async def complete_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark delivery as complete"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await complete_delivery(order_id, db)
 
 @app.put("/erp/orders/{order_id}/unassign-driver")
-async def unassign_driver_alias(order_id: int, db: Session = Depends(get_db)):
+async def unassign_driver_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - unassign driver from order"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await unassign_driver(order_id, db)
 
 @app.put("/erp/orders/{order_id}/status")
-async def update_order_status_alias(order_id: int, status: str, db: Session = Depends(get_db)):
+async def update_order_status_alias(order_id: int, status: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - update order status
     iOS calls: PUT /erp/orders/{orderId}/status?status={status}
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await update_order_status(order_id, status, db)
 
 @app.post("/erp/orders/{order_id}/delivered")
-async def order_delivered_alias(order_id: int, db: Session = Depends(get_db)):
+async def order_delivered_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant/Driver app - mark order as delivered
     iOS calls: POST /erp/orders/{orderId}/delivered
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await order_delivered(order_id, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept")
-async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, db: Session = Depends(get_db)):
+async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept order
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept
     Body: {"estimated_prep_minutes": 15}
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_accept(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline")
-async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, db: Session = Depends(get_db)):
+async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline order
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline
     Body: {"reason": "optional reason"}
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_decline(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept-delivery")
-async def restaurant_accept_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+async def restaurant_accept_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept self-delivery
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept-delivery
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_accept_delivery(order_id, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline-delivery")
-async def restaurant_decline_delivery_alias(order_id: int, db: Session = Depends(get_db)):
+async def restaurant_decline_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline self-delivery (send to driver pool)
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_decline_delivery(order_id, db)
 
 # ==================== ADDITIONAL iOS ALIASES ====================
 # These enable iOS apps to call /erp/* paths without /api prefix
 
 @app.post("/erp/orders/create")
-async def create_order_ios_alias(order_data: CreateOrderRequest, db: Session = Depends(get_db)):
+async def create_order_ios_alias(order_data: CreateOrderRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - create order
     iOS calls: POST /erp/orders/create
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await erp_create_order(order_data, db)
 
 @app.post("/erp/orders/{order_id}/confirm-payment")
-async def confirm_payment_ios_alias(order_id: int, db: Session = Depends(get_db)):
+async def confirm_payment_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - confirm payment
     iOS calls: POST /erp/orders/{orderId}/confirm-payment
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await confirm_payment(order_id, db)
 
 @app.get("/erp/orders/{order_id}/driver-location")
-async def get_driver_location_ios_alias(order_id: int, db: Session = Depends(get_db)):
+async def get_driver_location_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - get driver location for order tracking
     iOS calls: GET /erp/orders/{orderId}/driver-location
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_driver_location(order_id, db)
 
 @app.get("/erp/orders/{order_id}/full-tracking")
-async def get_full_order_tracking_ios_alias(order_id: int, db: Session = Depends(get_db)):
+async def get_full_order_tracking_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - get full order tracking with driver, restaurant, and ETA
     iOS calls: GET /erp/orders/{orderId}/full-tracking
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_full_order_tracking(order_id, db)
 
 @app.get("/erp/rides/available")
@@ -13984,36 +14274,53 @@ async def get_full_order_tracking_ios_alias(order_id: int, db: Session = Depends
 async def get_available_rides_ios_alias(
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Alias for iOS Driver app - get available rides
     iOS calls: GET /erp/rides/available
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_available_rides(driver_lat, driver_lng, db)
 
 @app.post("/erp/rides/{ride_id}/accept")
 @app.post("/api/erp/rides/{ride_id}/accept")
-async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, db: Session = Depends(get_db)):
+async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - accept ride
     iOS calls: POST /api/erp/rides/{rideId}/accept
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await accept_ride(ride_id, request, db)
 
 @app.post("/erp/rides/{ride_id}/picked-up")
 @app.post("/api/erp/rides/{ride_id}/picked-up")
-async def ride_picked_up_ios_alias(ride_id: int, db: Session = Depends(get_db)):
+async def ride_picked_up_ios_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark ride picked up
     iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await ride_picked_up(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/start")
 @app.post("/api/erp/rides/{ride_id}/start")
-async def start_ride_alias(ride_id: int, db: Session = Depends(get_db)):
+async def start_ride_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Start ride alias for Android/iOS driver apps.
     Android calls: POST /api/erp/rides/{rideId}/start
     Accepts MATCHED or IN_PROGRESS status (picked-up may have already set IN_PROGRESS).
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest as RR, RideRequestStatus as RRS
     ride = db.query(RR).filter(RR.id == ride_id).first()
     if not ride:
@@ -14026,18 +14333,26 @@ async def start_ride_alias(ride_id: int, db: Session = Depends(get_db)):
 
 @app.get("/erp/rides/{ride_id}/track")
 @app.get("/api/erp/rides/{ride_id}/track")
-async def track_ride_ios_alias(ride_id: int, db: Session = Depends(get_db)):
+async def track_ride_ios_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - track ride
     iOS calls: GET /api/erp/rides/{rideId}/track
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await track_ride(ride_id, db)
 
 @app.get("/erp/rides/{ride_id}/status")
 @app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status_ios_alias(ride_id: str, db: Session = Depends(get_db)):
+def get_ride_status_ios_alias(ride_id: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Alias for iOS apps - get ride status
     iOS calls: GET /api/erp/rides/{rideId}/status
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return get_ride_status(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/cancel")
@@ -14058,6 +14373,7 @@ async def cancel_ride_ios_alias(
 async def negotiate_ride_ios_alias(
     ride_id: int,
     request: dict,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Alias for iOS apps - negotiate fare
@@ -14066,6 +14382,10 @@ async def negotiate_ride_ios_alias(
 
     Returns FareNegotiationResponse format for iOS decode compatibility.
     """
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
@@ -14466,10 +14786,18 @@ async def tip_driver(
     Add tip to driver for an order.
     Used by Android/iOS customer apps.
     """
+    if tip_amount < 0 or tip_amount > 500:
+        raise HTTPException(status_code=400, detail="Tip must be between $0 and $500")
+
     from models import Order
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Only the order's customer can add a tip
+    if current_user.role != UserRole.ADMIN:
+        if not order.customer_email or order.customer_email != current_user.email:
+            raise HTTPException(status_code=403, detail="Only the order's customer can add a tip")
 
     order.tip = (order.tip or 0) + tip_amount
     order.total_amount = (order.total_amount or 0) + tip_amount
@@ -14493,6 +14821,19 @@ async def cancel_order(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # Verify the requesting user owns this order (customer email match) or is an admin
+    if current_user.role != UserRole.ADMIN:
+        if order.customer_email and order.customer_email != current_user.email:
+            # Also check if user is the vendor for this order
+            if not (current_user.vendor_id and order.vendor_id == current_user.vendor_id):
+                raise HTTPException(status_code=403, detail="You can only cancel your own orders")
+
+    # Only allow cancellation from certain states
+    cancellable_states = {"PENDING_PAYMENT", "CONFIRMED", "PENDING_RESTAURANT", "PREPARING"}
+    current_status_name = order.status.name if order.status else "PENDING_PAYMENT"
+    if current_status_name not in cancellable_states:
+        raise HTTPException(status_code=400, detail=f"Order in status {current_status_name} cannot be cancelled")
 
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.utcnow()
@@ -16314,16 +16655,17 @@ async def mark_items_unavailable(
 @app.get("/api/customers/{customer_id}/cards")
 async def get_saved_cards(
     customer_id: int,
+    current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
     """
     Get all saved payment cards for a customer FROM STRIPE.
     PCI Compliant: Card data is stored by Stripe, not in our database.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify token owner matches URL customer_id
+    if current_customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only access your own payment cards")
+    customer = current_customer
 
     # If no Stripe customer, return empty list
     if not customer.stripe_customer_id:
@@ -16374,17 +16716,17 @@ async def get_saved_cards(
 async def add_payment_card(
     customer_id: int,
     request: dict,
+    current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
     """
     Attach a payment method to customer IN STRIPE.
     PCI Compliant: Card tokenization happens on client, we only receive payment_method_id.
     """
-    from models import Customer
-
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify token owner matches URL customer_id
+    if current_customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
+    customer = current_customer
 
     payment_method_id = request.get("payment_method_id")
     if not payment_method_id:
@@ -16431,17 +16773,17 @@ async def add_payment_card(
 async def delete_payment_card(
     customer_id: int,
     card_id: str,
+    current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
     """
     Detach a payment method FROM STRIPE.
     PCI Compliant: Card deletion happens in Stripe, not our database.
     """
-    from models import Customer
-
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify token owner matches URL customer_id
+    if current_customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
+    customer = current_customer
 
     if not customer.stripe_customer_id:
         raise HTTPException(status_code=404, detail="No payment methods found")
@@ -16460,17 +16802,17 @@ async def delete_payment_card(
 async def set_default_card(
     customer_id: int,
     card_id: str,
+    current_customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
     """
     Set default payment method IN STRIPE.
     PCI Compliant: Default card setting stored in Stripe, not our database.
     """
-    from models import Customer
-
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify token owner matches URL customer_id
+    if current_customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
+    customer = current_customer
 
     if not customer.stripe_customer_id:
         raise HTTPException(status_code=404, detail="No payment methods found")
@@ -18425,9 +18767,14 @@ def register_push_token(
     platform: str = Form(...),  # ios or android
     user_type: str = Form(...),  # customer, driver, restaurant
     user_id: int = Form(...),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Register a device token for push notifications."""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     # Store token in database (update existing or create new)
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
@@ -18449,9 +18796,14 @@ def register_push_token(
 def unregister_push_token(
     user_type: str = Query(...),
     user_id: int = Query(...),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Unregister a device token (on logout)."""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
         if customer:
@@ -18870,7 +19222,9 @@ def force_reset_demo_passwords(secret_key: Optional[str] = Query(None), db: Sess
 
 @app.get("/api/demo/debug-driver-login")
 def debug_driver_login(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """Debug why driver login is failing"""
+    """Debug why driver login is failing - disabled in production"""
+    if _is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     _require_admin_secret(secret_key)
     email = "demo.driver@dollor.ai"
     password = "DemoDriver2025!"
@@ -18928,7 +19282,9 @@ def debug_driver_login(secret_key: Optional[str] = Query(None), db: Session = De
 
 @app.get("/api/demo/debug-customer-login")
 def debug_customer_login(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """Debug why customer login is failing"""
+    """Debug why customer login is failing - disabled in production"""
+    if _is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     _require_admin_secret(secret_key)
     email = "demo.customer@dollor.ai"
     password = "DemoCustomer2025!"
@@ -19058,8 +19414,8 @@ def fix_driver_login(secret_key: Optional[str] = Query(None), db: Session = Depe
         }
     except Exception as e:
         db.rollback()
-        import traceback
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+        logging.error(f"Demo setup error: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
 
 
 @app.post("/api/demo/update-driver-profile")
@@ -19152,8 +19508,8 @@ def update_demo_driver_profile(secret_key: Optional[str] = Query(None), db: Sess
         }
     except Exception as e:
         db.rollback()
-        import traceback
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+        logging.error(f"Demo profile update error: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
 
 
 @app.post("/api/demo/setup-support-customer")
@@ -19280,7 +19636,9 @@ def setup_support_customer(secret_key: Optional[str] = Query(None), db: Session 
 
 @app.get("/api/debug/order/{order_id}")
 def debug_order(order_id: int, db: Session = Depends(get_db)):
-    """Debug endpoint to check raw order data from database."""
+    """Debug endpoint to check raw order data - disabled in production."""
+    if _is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return {"error": "Order not found"}
@@ -19563,8 +19921,8 @@ def create_demo_order(secret_key: Optional[str] = Query(None), db: Session = Dep
 
     except Exception as e:
         db.rollback()
-        import traceback
-        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+        logging.error(f"Demo order creation error: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
 
 
 # ==================== ANDROID COMPATIBILITY ENDPOINTS ====================
@@ -20010,6 +20368,7 @@ def get_driver_messages(
 def get_driver_earnings_by_id(
     driver_id: int,
     period: str = Query("week", regex="^(today|week|month|year)$"),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
@@ -20023,6 +20382,13 @@ def get_driver_earnings_by_id(
     - Payout/balance info
     - Payment history
     """
+    # SECURITY: Verify token belongs to this driver or is admin
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
+            raise HTTPException(status_code=403, detail="You can only view your own earnings")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -20417,6 +20783,7 @@ def complete_delivery(
 
 @app.get("/api/admin/rideshare/requests")
 def get_admin_rideshare_requests(
+    token: str = Depends(oauth2_scheme),
     status: Optional[str] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
@@ -20504,10 +20871,9 @@ def get_admin_rideshare_requests(
             }
         }
     except Exception as e:
-        import traceback
+        logging.error(f"Ride admin dashboard error: {e}", exc_info=True)
         return {
-            "error": str(e),
-            "traceback": traceback.format_exc(),
+            "error": "An internal error occurred",
             "rides": [],
             "stats": {"totalRequests": 0, "pendingRequests": 0, "activeRides": 0, "completedRides": 0, "totalRevenue": 0}
         }
@@ -20593,10 +20959,9 @@ def get_admin_active_rides(db: Session = Depends(get_db)):
             }
         }
     except Exception as e:
-        import traceback
+        logging.error(f"Active rides dashboard error: {e}", exc_info=True)
         return {
-            "error": str(e),
-            "traceback": traceback.format_exc(),
+            "error": "An internal error occurred",
             "rides": [],
             "stats": {"activeCount": 0, "driversOnline": 0, "avgRideTime": 0, "totalFaresInProgress": 0}
         }
@@ -20808,8 +21173,17 @@ def admin_verify_driver(
 
 @app.post("/api/admin/cleanup/pending-orders")
 def admin_cleanup_pending_orders(
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+    # Require admin auth
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
+        if not admin_user or admin_user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     """
     Admin endpoint to cancel all old pending orders and ride requests.
     This cleans up stale data that clutters the Restaurant and Driver apps.
@@ -20868,8 +21242,17 @@ def admin_cleanup_pending_orders(
 
 @app.post("/api/admin/cleanup/all-incomplete")
 def admin_cleanup_all_incomplete(
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+    # Require admin auth
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
+        if not admin_user or admin_user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     """
     Admin endpoint to cancel ALL incomplete orders and ride requests.
     This is more aggressive than /cleanup/pending-orders.
@@ -20945,8 +21328,15 @@ def admin_cleanup_all_incomplete(
 # ============================================================
 
 @app.get("/api/admin/database/schema")
-def get_database_schema(db: Session = Depends(get_db)):
-    """Get complete database schema - all tables and columns"""
+def get_database_schema(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get complete database schema - all tables and columns (admin only)"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
+        if not admin_user or admin_user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Admin access required")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     from sqlalchemy import text
 
     try:
@@ -20992,8 +21382,12 @@ def get_database_schema(db: Session = Depends(get_db)):
 
 
 @app.get("/api/admin/api/routes")
-def get_all_api_routes():
-    """Get all API routes with methods and paths"""
+def get_all_api_routes(token: str = Depends(oauth2_scheme)):
+    """Get all API routes with methods and paths (admin only)"""
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     routes = []
     route_set = set()  # For duplicate detection
 

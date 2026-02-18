@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 import logging
 import os
@@ -458,7 +458,7 @@ class CreateOrderRequest(BaseModel):
     items: List[Dict[str, Any]]
     delivery_address: Dict[str, Any]  # Includes street, city, state, zip, latitude, longitude
     delivery_instructions: Optional[str] = None
-    tip: float = 0.0
+    tip: float = Field(default=0.0, ge=0.0, le=500.0, description="Tip amount in dollars (must be non-negative)")
 
 
 class AssignDriverRequest(BaseModel):

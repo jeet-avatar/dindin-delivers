@@ -294,7 +294,8 @@ async def create_order(
                 "customer_name": order_data.customer_name,
                 "customer_email": order_data.customer_email
             },
-            description=f"Order {order_number} from {vendor.restaurant_name or vendor.company_name}"
+            description=f"Order {order_number} from {vendor.restaurant_name or vendor.company_name}",
+            idempotency_key=f"order_{new_order.id}_{order_number}"
         )
         
         # Update order with Stripe info
