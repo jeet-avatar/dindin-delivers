@@ -358,6 +358,7 @@ struct RideHistorySection: View {
 // MARK: - Ride History Card
 struct RideHistoryCard: View {
     let ride: RideHistoryItem
+    @State private var showReceipt = false
 
     private var statusColor: Color {
         switch ride.status {
@@ -456,11 +457,31 @@ struct RideHistoryCard: View {
                     }
                 }
             }
+
+            // View Receipt button for completed rides
+            if ride.status == "completed" {
+                Button(action: { showReceipt = true }) {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text("View Receipt")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.green)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
         }
         .padding(16)
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+        .sheet(isPresented: $showReceipt) {
+            RideReceiptView(rideId: ride.id)
+        }
     }
 }
 

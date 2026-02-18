@@ -166,6 +166,13 @@ public enum NotificationType: String {
     case rideCompleted = "ride_completed"
     case rideCancelled = "ride_cancelled"
     case newRideRequest = "new_ride_request"
+    // Rideshare bidding notifications
+    case newBid = "new_bid"
+    case bidAccepted = "bid_accepted"
+    case bidRejected = "bid_rejected"
+    case counterOffer = "counter_offer"
+    case driverEnRoute = "driver_en_route"
+    case paymentProcessed = "payment_processed"
 
     public var soundName: String {
         switch self {
@@ -175,8 +182,14 @@ public enum NotificationType: String {
             return "order_ready.wav"
         case .driverApproved, .vendorVerified, .rideCompleted:
             return "success.wav"
-        case .driverArrived, .rideStarted, .newRideRequest:
+        case .driverArrived, .rideStarted, .newRideRequest, .driverEnRoute:
             return "new_order.wav"
+        case .newBid, .bidAccepted, .counterOffer:
+            return "new_order.wav"
+        case .paymentProcessed:
+            return "success.wav"
+        case .bidRejected:
+            return "default"
         default:
             return "default"
         }

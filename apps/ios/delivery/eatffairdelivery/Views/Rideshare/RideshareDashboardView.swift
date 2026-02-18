@@ -6,6 +6,7 @@ import EatFairShared
 struct RideshareDashboardView: View {
     @StateObject private var viewModel = RideBiddingViewModel()
     @State private var selectedTab: RideshareTab = .available
+    @State private var showPayoutDashboard = false
 
     enum RideshareTab: String, CaseIterable {
         case available = "Available"
@@ -83,12 +84,23 @@ struct RideshareDashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { viewModel.refreshData() }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
+                    HStack(spacing: 12) {
+                        Button(action: { showPayoutDashboard = true }) {
+                            Image(systemName: "dollarsign.circle")
+                                .foregroundColor(.green)
+                        }
+                        .accessibilityLabel("View payout history")
+
+                        Button(action: { viewModel.refreshData() }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.blue)
+                        }
+                        .accessibilityLabel("Refresh rideshare data")
                     }
-                    .accessibilityLabel("Refresh rideshare data")
                 }
+            }
+            .sheet(isPresented: $showPayoutDashboard) {
+                PayoutDashboardView()
             }
             .onAppear {
                 viewModel.refreshData()

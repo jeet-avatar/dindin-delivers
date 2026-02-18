@@ -169,13 +169,31 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 name: NSNotification.Name("NavigateToPromotions"),
                 object: nil
             )
-        case .driverArrived, .rideStarted, .rideCompleted, .rideCancelled:
+        case .driverArrived, .rideStarted, .rideCompleted, .rideCancelled, .driverEnRoute:
             // Navigate to ride tracking
             if let rideRequestId = payload.rideRequestId {
                 NotificationCenter.default.post(
                     name: NSNotification.Name("NavigateToRideTracking"),
                     object: nil,
                     userInfo: ["rideRequestId": rideRequestId, "type": payload.type.rawValue]
+                )
+            }
+        case .newBid, .counterOffer:
+            // Navigate to ride bids sheet
+            if let rideRequestId = payload.rideRequestId {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToRideBids"),
+                    object: nil,
+                    userInfo: ["rideRequestId": rideRequestId]
+                )
+            }
+        case .paymentProcessed:
+            // Navigate to ride receipt
+            if let rideRequestId = payload.rideRequestId {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToRideReceipt"),
+                    object: nil,
+                    userInfo: ["rideRequestId": rideRequestId]
                 )
             }
         default:
