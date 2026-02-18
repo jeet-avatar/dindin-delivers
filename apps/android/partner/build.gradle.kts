@@ -49,8 +49,8 @@ android {
         applicationId = "ai.dollor.partner"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 13
+        versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -87,6 +87,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             // Use release signing config if keystore is configured
             val keystorePath = localProperties.getProperty("RELEASE_KEYSTORE_PATH", "")
             if (keystorePath.isNotEmpty()) {
@@ -118,23 +121,23 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    
+
     implementation(libs.core.splashscreen)
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.navigation.compose)
-    
+
     implementation(libs.androidx.compose.material.icons.extended)
-    
+
     // Hilt dependencies
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
-    
+
     // Hilt Compose integration
     implementation(libs.androidx.hilt.navigation.compose)
-    
+
     // Coil Image Loading
     implementation(libs.coil.kt.coil.compose)
-    
+
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
 

@@ -6,7 +6,9 @@ Deterministic Q&A system that returns ONLY verified facts from source data.
 Falls back to upgraded Ollama model for semantic/conceptual questions.
 
 Data sources (loaded at startup):
-  1. ground-truth-verified.jsonl — 71 Q&A pairs for exact/fuzzy matching
+  1. All .jsonl files in training/ — 143 Q&A pairs for exact/fuzzy matching
+     (ground-truth-verified.jsonl, customer-rideshare-training.jsonl,
+      driver-rideshare-training.jsonl, android-driver-training.jsonl)
   2. GROUND_TRUTH.md — 16 sections parsed into keyword-indexed dict
   3. order_flow.py — STATE_TAX_RATES dict extracted
   4. pricing_config.py — Pricing constants extracted
@@ -36,19 +38,19 @@ OLLAMA_MODEL = "dollor-customer"
 # ── Data Loading ──────────────────────────────────────────────────────────────
 
 def load_jsonl_pairs() -> list[dict]:
-    """Load Q&A pairs from ground-truth-verified.jsonl."""
-    path = TRAINING_DIR / "ground-truth-verified.jsonl"
+    """Load Q&A pairs from all .jsonl files in the training directory."""
     pairs = []
-    if not path.exists():
+    if not TRAINING_DIR.exists():
         return pairs
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    pairs.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+    for jsonl_file in sorted(TRAINING_DIR.glob("*.jsonl")):
+        with open(jsonl_file) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        pairs.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
     return pairs
 
 
