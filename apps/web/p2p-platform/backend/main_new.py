@@ -1165,8 +1165,47 @@ def _run_startup_migrations():
                     conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))  # nosemgrep: avoid-sqlalchemy-text
                 except Exception as e:
                     print(f"Migration {table}.{col_name}: {e}")
+
+            # Phase 3: Add missing indexes for query performance
+            # All use IF NOT EXISTS — idempotent, safe to run on every startup
+            indexes = [
+                # --- orders table (P0 — most queried table, ~58 queries accelerated) ---
+                "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_vendor_id ON orders (vendor_id)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_driver_id ON orders (driver_id)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders (customer_id)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_customer_email ON orders (customer_email)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_vendor_status ON orders (vendor_id, status)",
+                "CREATE INDEX IF NOT EXISTS idx_orders_driver_status ON orders (driver_id, status)",
+                # --- vendor_menu_items table (P0 — every menu load) ---
+                "CREATE INDEX IF NOT EXISTS idx_menu_items_vendor_id ON vendor_menu_items (vendor_id)",
+                "CREATE INDEX IF NOT EXISTS idx_menu_items_review_status ON vendor_menu_items (review_status)",
+                # --- drivers table (P1 — login, webhooks, dispatch) ---
+                "CREATE INDEX IF NOT EXISTS idx_drivers_email ON drivers (email)",
+                "CREATE INDEX IF NOT EXISTS idx_drivers_is_online ON drivers (is_online)",
+                "CREATE INDEX IF NOT EXISTS idx_drivers_stripe_account ON drivers (stripe_account_id)",
+                "CREATE INDEX IF NOT EXISTS idx_drivers_status ON drivers (status)",
+                # --- vendors table (P1 — customer-facing restaurant list) ---
+                "CREATE INDEX IF NOT EXISTS idx_vendors_published_status ON vendors (is_published, onboarding_status)",
+                "CREATE INDEX IF NOT EXISTS idx_vendors_is_online ON vendors (is_online)",
+                # --- rides table (P2 — created via raw SQL, had ZERO indexes) ---
+                "CREATE INDEX IF NOT EXISTS idx_rides_status ON rides (status)",
+                "CREATE INDEX IF NOT EXISTS idx_rides_customer_id ON rides (customer_id)",
+                "CREATE INDEX IF NOT EXISTS idx_rides_driver_id ON rides (driver_id)",
+                # --- ride_requests & payout tables (P2) ---
+                "CREATE INDEX IF NOT EXISTS idx_ride_requests_status ON ride_requests (status)",
+                "CREATE INDEX IF NOT EXISTS idx_vendor_payouts_vendor_id ON vendor_payouts (vendor_id)",
+                "CREATE INDEX IF NOT EXISTS idx_driver_payouts_driver_id ON driver_payouts (driver_id)",
+            ]
+            for idx_sql in indexes:
+                try:
+                    conn.execute(text(idx_sql))  # nosemgrep: avoid-sqlalchemy-text
+                except Exception as e:
+                    print(f"Index creation: {e}")
+
             conn.commit()
-            print("Database migrations completed successfully")
+            print("Database migrations completed successfully (including Phase 3 indexes)")
     except Exception as e:
         print(f"Migration error: {e}")
 
@@ -3103,6 +3142,43 @@ def delete_customer_account(
         db.commit()
 
         return {"success": True, "message": "Account deleted successfully"}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+
+# ==================== DRIVER ACCOUNT DELETION ====================
+# Required by Google Play Store policy for account deletion
+
+@app.delete("/api/drivers/{driver_id}/delete")
+def delete_driver_account(
+    driver_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Delete driver account - required by Play Store policy"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_driver_id = payload.get("driver_id")
+
+        # Verify the token belongs to the driver being deleted
+        if token_driver_id != driver_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete another user's account"
+            )
+
+        driver = db.query(Driver).filter(Driver.id == driver_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+
+        # Delete the driver
+        db.delete(driver)
+        db.commit()
+
+        return {"success": True, "message": "Driver account deleted successfully"}
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -5928,44 +6004,34 @@ async def get_customer_ride_history(
     customer: Customer = Depends(get_current_customer),
     db: Session = Depends(get_db)
 ):
-    """Get customer's ride history with pagination"""
-    # In production, query from rides table
-    # For now, generate sample data based on total_orders
-    total_rides = customer.total_orders or 0
+    """Get customer's ride history with pagination from real database"""
+    from models import RideRequest as RideRequestDB
+
+    query = db.query(RideRequestDB).filter(
+        RideRequestDB.customer_id == customer.id
+    ).order_by(RideRequestDB.created_at.desc())
+
+    total_rides = query.count()
+    ride_records = query.offset(offset).limit(limit).all()
 
     rides = []
-    import random
-    sample_locations = [
-        ("123 Main St", "Downtown Mall", 12.50),
-        ("456 Oak Avenue", "Airport Terminal B", 28.00),
-        ("789 Pine Road", "Central Station", 15.75),
-        ("321 Elm Street", "University Campus", 9.50),
-        ("654 Maple Drive", "Shopping Center", 18.25),
-        ("987 Cedar Lane", "Medical Center", 22.00),
-        ("147 Birch Way", "Sports Arena", 14.00),
-        ("258 Walnut Court", "Business District", 19.50),
-    ]
-
-    for i in range(offset, min(offset + limit, total_rides)):
-        pickup, dropoff, base_fare = random.choice(sample_locations)
-        days_ago = i + 1
-        ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
-        fare = round(base_fare + random.uniform(-3, 5), 2)
-
+    for ride in ride_records:
+        pickup = ride.pickup_address or {}
+        dropoff = ride.dropoff_address or {}
         rides.append({
-            "id": f"RIDE-{1000 + i}",
-            "pickup": pickup,
-            "dropoff": dropoff,
-            "date": ride_date,
-            "fare": fare,
-            "platform_fee": 1.00,
-            "tip": round(random.uniform(0, 5), 2),
-            "driver_name": random.choice(["John D.", "Maria S.", "James K.", "Sarah L.", "Mike T."]),
-            "driver_rating": round(random.uniform(4.5, 5.0), 1),
-            "driver_photo": None,
-            "status": "completed",
-            "duration_minutes": random.randint(10, 45),
-            "distance_miles": round(random.uniform(1.5, 15.0), 1)
+            "id": ride.id,
+            "pickup": pickup.get("address", "") if isinstance(pickup, dict) else str(pickup),
+            "dropoff": dropoff.get("address", "") if isinstance(dropoff, dict) else str(dropoff),
+            "pickup_lat": pickup.get("latitude") if isinstance(pickup, dict) else None,
+            "pickup_lng": pickup.get("longitude") if isinstance(pickup, dict) else None,
+            "dropoff_lat": dropoff.get("latitude") if isinstance(dropoff, dict) else None,
+            "dropoff_lng": dropoff.get("longitude") if isinstance(dropoff, dict) else None,
+            "date": ride.created_at.strftime("%Y-%m-%d") if ride.created_at else None,
+            "fare": float(ride.final_price or ride.suggested_price or 0),
+            "platform_fee": float(ride.platform_fee or 0),
+            "tip": float(ride.tip_amount or 0),
+            "driver_name": ride.driver_name,
+            "status": ride.status.value if ride.status else "unknown",
         })
 
     return {
@@ -14350,37 +14416,40 @@ async def get_customer_rides(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get customer's rides - alias for /api/customer/rides/history.
+    Get customer's rides from real database.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
+    from models import Customer, RideRequest as RideRequestDB, RideRequestStatus
+
     customer = db.query(Customer).filter(Customer.email == current_user.email).first()
     if not customer:
         return {"rides": [], "total": 0, "has_more": False}
 
-    total_rides = customer.total_orders or 0
+    # Query real ride requests for this customer
+    query = db.query(RideRequestDB).filter(
+        RideRequestDB.customer_id == customer.id
+    ).order_by(RideRequestDB.created_at.desc())
+
+    total_rides = query.count()
+    ride_records = query.offset(offset).limit(limit).all()
+
     rides = []
-    import random
-
-    sample_locations = [
-        ("123 Main St", "Downtown Mall", 12.50),
-        ("456 Oak Avenue", "Airport Terminal B", 28.00),
-        ("789 Pine Road", "Central Station", 15.75),
-    ]
-
-    for i in range(offset, min(offset + limit, total_rides)):
-        pickup, dropoff, base_fare = random.choice(sample_locations)
-        days_ago = i + 1
-        ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
-        fare = round(base_fare + random.uniform(-3, 5), 2)
-
+    for ride in ride_records:
+        pickup = ride.pickup_address or {}
+        dropoff = ride.dropoff_address or {}
         rides.append({
-            "id": f"RIDE-{1000 + i}",
-            "pickup": pickup,
-            "dropoff": dropoff,
-            "date": ride_date,
-            "fare": fare,
-            "status": "completed"
+            "id": ride.id,
+            "pickup": pickup.get("address", "") if isinstance(pickup, dict) else str(pickup),
+            "dropoff": dropoff.get("address", "") if isinstance(dropoff, dict) else str(dropoff),
+            "pickup_lat": pickup.get("latitude") if isinstance(pickup, dict) else None,
+            "pickup_lng": pickup.get("longitude") if isinstance(pickup, dict) else None,
+            "dropoff_lat": dropoff.get("latitude") if isinstance(dropoff, dict) else None,
+            "dropoff_lng": dropoff.get("longitude") if isinstance(dropoff, dict) else None,
+            "date": ride.created_at.strftime("%Y-%m-%d") if ride.created_at else None,
+            "fare": float(ride.final_price or ride.suggested_price or 0),
+            "status": ride.status.value if ride.status else "unknown",
+            "driver_name": ride.driver_name,
+            "tip_amount": float(ride.tip_amount or 0),
         })
 
     return {"rides": rides, "total": total_rides, "has_more": offset + limit < total_rides}
