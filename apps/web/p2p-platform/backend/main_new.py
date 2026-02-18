@@ -14836,24 +14836,55 @@ async def get_customer_rides(
 
     rides = []
     for ride in ride_records:
-        pickup = ride.pickup_address or {}
-        dropoff = ride.dropoff_address or {}
+        # Get driver info from matched_driver relationship
+        driver_name = None
+        driver_info = None
+        if ride.matched_driver:
+            d = ride.matched_driver
+            driver_name = f"{d.first_name or ''} {d.last_name or ''}".strip() or None
+            driver_info = {
+                "id": d.id,
+                "name": driver_name,
+                "phone": d.phone,
+                "rating": float(d.rating or 0),
+                "photo_url": d.photo_url,
+                "vehicle_make": d.vehicle_make,
+                "vehicle_model": d.vehicle_model,
+                "vehicle_color": d.vehicle_color,
+            }
+
+        fare = float(ride.final_price or ride.suggested_price or 0)
+        platform_fee = float(ride.platform_fee or 0)
+
         rides.append({
             "id": ride.id,
-            "pickup": pickup.get("address", "") if isinstance(pickup, dict) else str(pickup),
-            "dropoff": dropoff.get("address", "") if isinstance(dropoff, dict) else str(dropoff),
-            "pickup_lat": pickup.get("latitude") if isinstance(pickup, dict) else None,
-            "pickup_lng": pickup.get("longitude") if isinstance(pickup, dict) else None,
-            "dropoff_lat": dropoff.get("latitude") if isinstance(dropoff, dict) else None,
-            "dropoff_lng": dropoff.get("longitude") if isinstance(dropoff, dict) else None,
-            "date": ride.created_at.strftime("%Y-%m-%d") if ride.created_at else None,
-            "fare": float(ride.final_price or ride.suggested_price or 0),
+            "request_id": ride.request_id,
+            "customer_id": ride.customer_id,
+            "driver_id": ride.matched_driver_id,
             "status": ride.status.value if ride.status else "unknown",
-            "driver_name": ride.driver_name,
+            "pickup_address": ride.pickup_address or "",
+            "dropoff_address": ride.dropoff_address or "",
+            "pickup_lat": ride.pickup_latitude,
+            "pickup_lng": ride.pickup_longitude,
+            "dropoff_lat": ride.dropoff_latitude,
+            "dropoff_lng": ride.dropoff_longitude,
+            "distance_miles": round(ride.estimated_distance_km * 0.621371, 1) if ride.estimated_distance_km else None,
+            "fare_amount": fare,
+            "platform_fee": platform_fee,
+            "driver_earnings": fare - platform_fee if platform_fee else fare,
+            "created_at": ride.created_at.isoformat() if ride.created_at else None,
+            "started_at": ride.matched_at.isoformat() if ride.matched_at else None,
+            "completed_at": ride.completed_at.isoformat() if ride.completed_at else None,
+            "driver": driver_info,
+            "customer_name": ride.customer_name,
+            "customer_phone": ride.customer_phone,
+            # Extra fields for history display
             "tip_amount": float(ride.tip_amount or 0),
+            "driver_name": driver_name,
+            "rating": ride.customer_rating,
         })
 
-    return {"rides": rides, "total": total_rides, "has_more": offset + limit < total_rides}
+    return {"rides": rides, "count": total_rides, "total": total_rides, "has_more": offset + limit < total_rides}
 
 
 @app.post("/api/orders/{order_id}/tip-driver")
