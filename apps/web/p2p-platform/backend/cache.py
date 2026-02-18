@@ -15,14 +15,22 @@ import redis
 logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")
 
 try:
-    redis_client = redis.Redis.from_url(
-        REDIS_URL,
+    _redis_kwargs = dict(
         decode_responses=True,
         socket_connect_timeout=2,
         socket_timeout=2,
         retry_on_timeout=True,
+    )
+    # Enable TLS for production ElastiCache if not already using rediss://
+    if _is_prod and REDIS_URL.startswith("redis://"):
+        _redis_kwargs["ssl"] = True
+        _redis_kwargs["ssl_cert_reqs"] = "none"  # ElastiCache uses AWS-managed certs
+    redis_client = redis.Redis.from_url(
+        REDIS_URL,
+        **_redis_kwargs,
     )
     # Test connection at import time
     redis_client.ping()

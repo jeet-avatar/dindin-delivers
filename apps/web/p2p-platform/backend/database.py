@@ -13,6 +13,12 @@ if not DATABASE_URL:
 
 # Pool sizing: db.t3.micro max_connections ≈ 112
 # 4 workers × 2 ECS tasks = 8 processes → 12 per process = 96 total (under 112)
+# Enforce TLS for RDS connections in production
+_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")
+_connect_args = {"options": "-c statement_timeout=30000"}
+if _is_prod and "sslmode" not in DATABASE_URL:
+    _connect_args["sslmode"] = "require"
+
 engine = create_engine(
     DATABASE_URL,
     pool_size=5,
@@ -20,7 +26,7 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=1800,
     pool_timeout=10,
-    connect_args={"options": "-c statement_timeout=30000"}
+    connect_args=_connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

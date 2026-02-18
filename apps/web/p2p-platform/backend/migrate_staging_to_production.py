@@ -17,6 +17,7 @@ Safety Features:
 """
 
 import argparse
+import os
 import sys
 import logging
 from datetime import datetime
@@ -35,9 +36,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database URLs
-STAGING_DB_URL = "postgresql://dollor_admin:f4QA0dDzfpDXYpSRWsJMbXSD7WwfESKa@dollor-staging.c23qcukqe810.us-east-1.rds.amazonaws.com:5432/dollor_staging"
-PRODUCTION_DB_URL = "postgresql://dolloradmin:Dollor2024SecureDB@dollor-db.c23qcukqe810.us-east-1.rds.amazonaws.com:5432/dollor"
+# Database URLs - MUST be set via environment variables, never hardcoded
+STAGING_DB_URL = os.environ.get("STAGING_DATABASE_URL")
+PRODUCTION_DB_URL = os.environ.get("PRODUCTION_DATABASE_URL")
+
+if not STAGING_DB_URL or not PRODUCTION_DB_URL:
+    print("ERROR: STAGING_DATABASE_URL and PRODUCTION_DATABASE_URL environment variables must be set.")
+    print("Example: STAGING_DATABASE_URL='postgresql://user:pass@host:5432/db' PRODUCTION_DATABASE_URL='...' python migrate_staging_to_production.py --dry-run")
+    sys.exit(1)
 
 
 def create_db_engines():

@@ -99,12 +99,12 @@ class S3Service:
         key: str,
         content_type: Optional[str]
     ) -> Tuple[bool, str, str]:
-        """Upload file to S3"""
+        """Upload file to S3 with private ACL"""
         try:
             extra_args = {}
             if content_type:
                 extra_args['ContentType'] = content_type
-            extra_args['ACL'] = 'public-read'  # Make files publicly accessible
+            extra_args['ACL'] = 'private'
 
             # Use put_object for bytes content
             self.s3_client.put_object(
@@ -114,9 +114,9 @@ class S3Service:
                 **extra_args
             )
 
-            # Generate public URL
-            url = f"{CDN_BASE_URL}/{key}"
-            logger.info(f"File uploaded to S3: {url}")
+            # Store the S3 key for presigned URL generation later
+            url = f"s3://{S3_BUCKET}/{key}"
+            logger.info(f"File uploaded to S3 (private): {key}")
 
             return True, url, "File uploaded successfully to S3"
 
@@ -177,10 +177,21 @@ class S3Service:
                 logger.error(f"Local delete failed: {e}")
                 return False, f"Delete failed: {str(e)}"
 
-    def get_file_url(self, key: str) -> str:
-        """Get the public URL for a file"""
+    def get_file_url(self, key: str, expires_in: int = 3600) -> str:
+        """Get a presigned URL for a file (expires in 1 hour by default)"""
         if self.use_s3:
-            return f"{CDN_BASE_URL}/{key}"
+            # Strip s3:// prefix if present
+            if key.startswith(f"s3://{S3_BUCKET}/"):
+                key = key[len(f"s3://{S3_BUCKET}/"):]
+            try:
+                return self.s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': S3_BUCKET, 'Key': key},
+                    ExpiresIn=expires_in
+                )
+            except Exception as e:
+                logger.error(f"Failed to generate presigned URL: {e}")
+                return f"{CDN_BASE_URL}/{key}"
         else:
             return f"/uploads/{key}"
 
