@@ -1726,3 +1726,89 @@ class RideChatMessage(Base):
     sender_id = Column(Integer, nullable=False)
     message = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# =============================================================================
+# RIDE DISPUTE - Payment dispute/refund tracking
+# =============================================================================
+
+class DisputeStatus(enum.Enum):
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    RESOLVED_REFUND = "resolved_refund"
+    RESOLVED_NO_REFUND = "resolved_no_refund"
+    CLOSED = "closed"
+
+
+class DisputeReason(enum.Enum):
+    WRONG_ROUTE = "wrong_route"
+    OVERCHARGED = "overcharged"
+    SAFETY_CONCERN = "safety_concern"
+    DRIVER_BEHAVIOR = "driver_behavior"
+    OTHER = "other"
+
+
+class RideDispute(Base):
+    """Customer dispute on a completed ride"""
+    __tablename__ = "ride_disputes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ride_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    reason = Column(SQLEnum(DisputeReason, native_enum=False), nullable=False)
+    description = Column(Text)
+    status = Column(SQLEnum(DisputeStatus, native_enum=False), nullable=False, default=DisputeStatus.SUBMITTED)
+    refund_amount = Column(Float)
+    stripe_refund_id = Column(String(255))
+    admin_notes = Column(Text)
+    resolved_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    ride_request = relationship("RideRequest")
+    customer = relationship("Customer")
+
+
+# =============================================================================
+# RECURRING RIDE - Saved ride patterns for P2P matchmaking
+# =============================================================================
+
+class RecurringRide(Base):
+    """Saved recurring ride pattern for automatic matching"""
+    __tablename__ = "recurring_rides"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+
+    # Pickup
+    pickup_address = Column(Text, nullable=False)
+    pickup_latitude = Column(Float, nullable=False)
+    pickup_longitude = Column(Float, nullable=False)
+
+    # Dropoff
+    dropoff_address = Column(Text, nullable=False)
+    dropoff_latitude = Column(Float, nullable=False)
+    dropoff_longitude = Column(Float, nullable=False)
+
+    # Schedule
+    schedule_days = Column(String(50), nullable=False)  # "mon,wed,fri"
+    schedule_time = Column(String(10), nullable=False)   # "08:30"
+    timezone = Column(String(50), default="America/New_York")
+
+    # Preferences
+    preferred_driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    max_price = Column(Float)
+    ride_type = Column(String(50), default="standard")
+
+    # State
+    is_active = Column(Boolean, default=True)
+    last_triggered_at = Column(DateTime)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    customer = relationship("Customer")
+    preferred_driver = relationship("Driver")
