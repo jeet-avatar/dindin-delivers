@@ -4131,6 +4131,14 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
     if not is_admin and user_customer_id != ride.customer_id and user_driver_id != ride.matched_driver_id:
         raise HTTPException(status_code=403, detail="You can only rate rides you participated in")
 
+    # Verify ride is completed
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail=f"Can only rate completed rides (current: {ride.status.value})")
+
+    # Prevent double-rating (re-rating would inflate total_deliveries)
+    if ride.customer_rating is not None:
+        raise HTTPException(status_code=400, detail="This ride has already been rated")
+
     # Save rating to ride_requests
     ride.customer_rating = rating
     ride.customer_comment = feedback
@@ -15448,6 +15456,10 @@ async def rate_ride_customer(
     if ride.status != RideRequestStatus.COMPLETED:
         raise HTTPException(status_code=400, detail=f"Can only rate completed rides (current: {ride.status.value})")
 
+    # Prevent double-rating (re-rating would inflate total_deliveries)
+    if ride.customer_rating is not None:
+        raise HTTPException(status_code=400, detail="You have already rated this ride")
+
     # Store rating on ride
     ride.customer_rating = rating
     ride.customer_comment = comment
@@ -15512,6 +15524,11 @@ async def tip_ride_driver(
         raise HTTPException(status_code=403, detail="Only customers can tip on rides")
     if ride.customer_id != customer_id:
         raise HTTPException(status_code=403, detail="You can only tip on your own rides")
+
+    # Only allow tipping on completed rides
+    from models import RideRequestStatus
+    if ride.status != RideRequestStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail=f"Can only tip on completed rides (current: {ride.status.value})")
 
     # Update tip amount on ride
     current_tip = getattr(ride, 'tip_amount', 0) or 0

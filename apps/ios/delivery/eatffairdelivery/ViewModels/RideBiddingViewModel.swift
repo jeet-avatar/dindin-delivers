@@ -357,18 +357,14 @@ class RideBiddingViewModel: ObservableObject {
 
     /// Accept a customer's counter-offer
     func acceptCounterOffer(_ bid: RideBid) {
-        guard let counterPrice = bid.customer_counter_price else {
+        guard bid.customer_counter_price != nil else {
             showErrorMessage("Invalid counter-offer")
             return
         }
 
         isLoading = true
 
-        p2pService.respondToCounterOffer(
-            bidId: bid.id,
-            action: "accept",
-            counterPrice: counterPrice
-        ) { [weak self] result in
+        p2pService.acceptCounterOffer(bidId: bid.id) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -401,11 +397,7 @@ class RideBiddingViewModel: ObservableObject {
     func rejectCounterOffer(_ bid: RideBid) {
         isLoading = true
 
-        p2pService.respondToCounterOffer(
-            bidId: bid.id,
-            action: "reject",
-            counterPrice: nil
-        ) { [weak self] result in
+        p2pService.rejectCounterOffer(bidId: bid.id) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 

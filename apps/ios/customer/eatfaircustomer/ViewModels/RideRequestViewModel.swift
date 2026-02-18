@@ -138,7 +138,7 @@ class RideRequestViewModel: ObservableObject {
     /// Surge is applied here to raw breakdown values. Do NOT remove surgeMultiplier unless backend changes.
     var fareBeforeTax: Double {
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
-        return max(driverPortion + platformFee, minimumFare)
+        return max(driverPortion, minimumFare) + platformFee
     }
 
     /// What driver receives (fare - driver's platform fee + tip)
