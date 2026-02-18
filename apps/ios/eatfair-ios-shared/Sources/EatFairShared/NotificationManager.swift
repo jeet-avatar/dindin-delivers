@@ -160,6 +160,12 @@ public enum NotificationType: String {
     // Vendor verification notifications
     case vendorVerified = "vendor_verified"
     case vendorRejected = "vendor_rejected"
+    // Rideshare notifications
+    case driverArrived = "driver_arrived"
+    case rideStarted = "ride_started"
+    case rideCompleted = "ride_completed"
+    case rideCancelled = "ride_cancelled"
+    case newRideRequest = "new_ride_request"
 
     public var soundName: String {
         switch self {
@@ -167,8 +173,10 @@ public enum NotificationType: String {
             return "new_order.wav"
         case .orderReady:
             return "order_ready.wav"
-        case .driverApproved, .vendorVerified:
+        case .driverApproved, .vendorVerified, .rideCompleted:
             return "success.wav"
+        case .driverArrived, .rideStarted, .newRideRequest:
+            return "new_order.wav"
         default:
             return "default"
         }
@@ -182,6 +190,7 @@ public struct NotificationPayload {
     public let title: String
     public let body: String
     public let orderId: String?
+    public let rideRequestId: String?
     public let data: [String: Any]
 
     public init?(from userInfo: [AnyHashable: Any]) {
@@ -192,6 +201,7 @@ public struct NotificationPayload {
             self.title = userInfo["title"] as? String ?? "EatFair"
             self.body = userInfo["body"] as? String ?? ""
             self.orderId = userInfo["orderId"] as? String
+            self.rideRequestId = userInfo["ride_request_id"] as? String
             self.data = userInfo as? [String: Any] ?? [:]
             return
         }
@@ -200,6 +210,7 @@ public struct NotificationPayload {
         self.title = userInfo["title"] as? String ?? ""
         self.body = userInfo["body"] as? String ?? ""
         self.orderId = userInfo["orderId"] as? String
+        self.rideRequestId = userInfo["ride_request_id"] as? String
         self.data = userInfo as? [String: Any] ?? [:]
     }
 }

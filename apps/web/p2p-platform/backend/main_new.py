@@ -546,6 +546,15 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
             db.rollback()
             errors.append(f"ride_requests.{col_name}: {str(e)}")
 
+    # Migration: Add driver_arrived_at timestamp to ride_requests
+    try:
+        db.execute(text("ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS driver_arrived_at TIMESTAMP"))  # nosemgrep: avoid-sqlalchemy-text
+        db.commit()
+        migrations_run.append("ride_requests.driver_arrived_at")
+    except Exception as e:
+        db.rollback()
+        errors.append(f"ride_requests.driver_arrived_at: {str(e)}")
+
     # Migration: Add multi-round negotiation columns to ride_requests
     ride_request_negotiation_columns = [
         ("customer_counter_count", "INTEGER DEFAULT 0"),
@@ -3696,6 +3705,56 @@ async def request_ride(
         logging.error(f"Failed to persist ride request: {e}")
         ride_db_id = None
         request_id = f"RIDE{dt.utcnow().strftime('%Y')}000000"
+
+    # Notify nearby online drivers about new ride
+    try:
+        import math as _math
+        nearby_drivers = db.query(Driver).filter(
+            Driver.is_online == True,
+            Driver.is_active == True,
+            Driver.current_latitude.isnot(None),
+            Driver.current_longitude.isnot(None)
+        ).all()
+
+        pickup_lat = float(pickup.get("lat", 0))
+        pickup_lng = float(pickup.get("lng", 0))
+        notified_count = 0
+
+        for d in nearby_drivers:
+            # Haversine-lite: ~15km radius
+            lat_diff = abs(d.current_latitude - pickup_lat)
+            lng_diff = abs(d.current_longitude - pickup_lng)
+            dist_km = _math.sqrt(lat_diff**2 + lng_diff**2) * 111
+            if dist_km <= 15:
+                try:
+                    send_push_notification(
+                        user_type="driver",
+                        user_id=d.id,
+                        title="New ride request nearby!",
+                        body=f"${ride_fare:.2f} fare, {round(distance_miles, 1)} mi trip. Open the app to bid.",
+                        data={
+                            "type": "new_ride_request",
+                            "ride_request_id": str(ride_db_id),
+                            "request_id": request_id,
+                            "fare": str(ride_fare),
+                            "pickup_address": pickup.get("address", "")
+                        },
+                        db=db
+                    )
+                    notified_count += 1
+                except Exception:
+                    pass
+
+        if ride_db_id:
+            try:
+                new_ride_request.drivers_notified = notified_count
+                db.commit()
+            except Exception:
+                db.rollback()
+
+        logger.info(f"Ride {request_id}: notified {notified_count} nearby drivers")
+    except Exception as e:
+        logger.error(f"Failed to notify drivers for ride {request_id}: {e}")
 
     # Return ride confirmation
     return {
@@ -14284,31 +14343,44 @@ async def get_available_rides_ios_alias(
         jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-    return await get_available_rides(driver_lat, driver_lng, db)
+    from bid_routes import get_available_ride_requests as _get_available
+    return await _get_available(driver_lat=driver_lat, driver_lng=driver_lng, db=db)
 
 @app.post("/erp/rides/{ride_id}/accept")
 @app.post("/api/erp/rides/{ride_id}/accept")
 async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Alias for iOS Driver app - accept ride
+    """Alias for iOS Driver app - accept ride (legacy - actual flow uses bid system).
+    This sets status to MATCHED directly for backward compatibility.
     iOS calls: POST /api/erp/rides/{rideId}/accept
     """
     try:
         jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-    return await accept_ride(ride_id, request, db)
+    from models import RideRequest as RR, RideRequestStatus as RRS
+    ride = db.query(RR).filter(RR.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    if ride.status not in [RRS.OPEN, RRS.BIDDING]:
+        raise HTTPException(status_code=400, detail=f"Ride is not available (current: {ride.status.value})")
+    ride.status = RRS.MATCHED
+    ride.matched_driver_id = request.driver_id
+    ride.matched_at = datetime.utcnow()
+    db.commit()
+    return {"success": True, "message": "Ride accepted", "ride_id": ride.id, "status": "matched"}
 
 @app.post("/erp/rides/{ride_id}/picked-up")
 @app.post("/api/erp/rides/{ride_id}/picked-up")
 async def ride_picked_up_ios_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Alias for iOS Driver app - mark ride picked up
+    """Alias for iOS Driver app - mark ride picked up (transitions to IN_PROGRESS).
     iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
     try:
         jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-    return await ride_picked_up(ride_id, db)
+    from bid_routes import start_ride as _start_ride
+    return await _start_ride(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/start")
 @app.post("/api/erp/rides/{ride_id}/start")
@@ -14937,16 +15009,26 @@ async def track_ride(
             driver_vehicle = " ".join(vehicle_parts) if vehicle_parts else None
 
             # Calculate ETA based on distance (simple estimate)
+            import math
             eta_minutes = None
-            if driver.current_latitude and driver.current_longitude and ride.pickup_latitude and ride.pickup_longitude:
-                # Simple distance calculation for ETA
-                import math
-                lat_diff = abs(driver.current_latitude - ride.pickup_latitude)
-                lng_diff = abs(driver.current_longitude - ride.pickup_longitude)
-                distance_deg = math.sqrt(lat_diff**2 + lng_diff**2)
-                # Rough estimate: 1 degree ≈ 111km, average speed 30km/h in city
-                distance_km = distance_deg * 111
-                eta_minutes = max(1, int((distance_km / 30) * 60))
+            eta_destination_minutes = None
+
+            if driver.current_latitude and driver.current_longitude:
+                # ETA to pickup (when driver en route to customer)
+                if ride.pickup_latitude and ride.pickup_longitude:
+                    lat_diff = abs(driver.current_latitude - ride.pickup_latitude)
+                    lng_diff = abs(driver.current_longitude - ride.pickup_longitude)
+                    distance_deg = math.sqrt(lat_diff**2 + lng_diff**2)
+                    distance_km = distance_deg * 111
+                    eta_minutes = max(1, int((distance_km / 30) * 60))
+
+                # ETA to destination (when ride in progress)
+                if ride.dropoff_latitude and ride.dropoff_longitude:
+                    lat_diff_d = abs(driver.current_latitude - ride.dropoff_latitude)
+                    lng_diff_d = abs(driver.current_longitude - ride.dropoff_longitude)
+                    distance_deg_d = math.sqrt(lat_diff_d**2 + lng_diff_d**2)
+                    distance_km_d = distance_deg_d * 111
+                    eta_destination_minutes = max(1, int((distance_km_d / 30) * 60))
 
             # iOS flat fields
             response.update({
@@ -14956,6 +15038,8 @@ async def track_ride(
                 "driver_latitude": driver.current_latitude,
                 "driver_longitude": driver.current_longitude,
                 "estimated_arrival": f"{eta_minutes} min" if eta_minutes else None,
+                "estimated_destination_arrival": f"{eta_destination_minutes} min" if eta_destination_minutes else None,
+                "eta_destination_minutes": eta_destination_minutes,
                 "driver_vehicle": driver_vehicle,
                 "driver_vehicle_color": driver.vehicle_color,
                 "driver_license_plate": driver.license_plate,
@@ -14987,6 +15071,9 @@ async def track_ride(
                     "latitude": driver.current_latitude,
                     "longitude": driver.current_longitude
                 }
+
+    # Driver arrival timestamp (set when driver taps "I've Arrived")
+    response["driver_arrived_at"] = ride.driver_arrived_at.isoformat() if ride.driver_arrived_at else None
 
     # Add ride location info for Android
     response["ride_request_id"] = ride.id
