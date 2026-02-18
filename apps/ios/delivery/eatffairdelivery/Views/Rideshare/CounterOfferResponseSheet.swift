@@ -13,7 +13,7 @@ struct CounterOfferResponseSheet: View {
     @State private var newCounterPrice: String = ""
     @FocusState private var isPriceFocused: Bool
 
-    private var platformFee: Double { AppConfig.shared.rideshareTier1Fee }
+    private var platformFee: Double { AppConfig.shared.calculateRidesharePlatformFee(fareAmount: customerCounterPrice) }
 
     private var customerCounterPrice: Double {
         bid.customer_counter_price ?? 0
@@ -331,12 +331,13 @@ struct CounterOfferResponseSheet: View {
             }
 
             if newCounterAmount > 0 {
+                let newCounterFee = AppConfig.shared.calculateRidesharePlatformFee(fareAmount: newCounterAmount)
                 HStack {
                     Text("You'll receive:")
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                     Spacer()
-                    Text("$\(String(format: "%.2f", max(0, newCounterAmount - platformFee)))")
+                    Text("$\(String(format: "%.2f", max(0, newCounterAmount - newCounterFee)))")
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
@@ -387,10 +388,10 @@ struct CounterOfferResponseSheet: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(newCounterAmount > platformFee ? Color.blue : Color.gray)
+                    .background(newCounterAmount > 0 ? Color.blue : Color.gray)
                     .cornerRadius(16)
                 }
-                .disabled(newCounterAmount <= platformFee || viewModel.isLoading)
+                .disabled(newCounterAmount <= 0 || viewModel.isLoading)
 
                 // Cancel Counter
                 Button(action: {

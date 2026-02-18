@@ -8,6 +8,8 @@ struct ProfileView: View {
     @State private var showLanguageSheet = false
     @AppStorage("app_selected_language") private var selectedLanguage = "English"
 
+    @State private var showRecurringRides = false
+
     // Account deletion states (Apple App Store Guideline 5.1.1)
     @State private var showDeleteAccountAlert = false
     @State private var showDeleteConfirmation = false
@@ -146,6 +148,10 @@ struct ProfileView: View {
                                 Divider()
                                 NavigationLink(destination: HelpSupportView()) {
                                     ProfileOptionRow(icon: "questionmark.circle.fill", title: "Help & Support")
+                                }
+                                Divider()
+                                Button(action: { showRecurringRides = true }) {
+                                    ProfileOptionRow(icon: "repeat.circle.fill", title: "Recurring Rides")
                                 }
                             }
                             .background(Color.white)
@@ -338,6 +344,9 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showLanguageSheet) {
                 LanguageSelectionSheet(selectedLanguage: $selectedLanguage, languages: availableLanguages)
+            }
+            .sheet(isPresented: $showRecurringRides) {
+                RecurringRidesView()
             }
             .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
                 Button("Cancel", role: .cancel) { }

@@ -77,6 +77,7 @@ class RideRequestViewModel: ObservableObject {
 
     // MARK: - Private Properties
     private let p2pService = P2PAPIService.shared
+    private let wsManager = WebSocketManager.shared
     private var trackingTimer: Timer?
     private var negotiationTimer: Timer?
     private var bidPollingTimer: Timer?
@@ -195,6 +196,7 @@ class RideRequestViewModel: ObservableObject {
         trackingTimer?.invalidate()
         negotiationTimer?.invalidate()
         bidPollingTimer?.invalidate()
+        wsManager.disconnect()
     }
 
     // MARK: - Set Pickup Location
@@ -429,7 +431,10 @@ class RideRequestViewModel: ObservableObject {
 
         logger.info("Starting bid polling for request \(requestId)")
 
-        // Fetch immediately, then poll every 5 seconds
+        // Connect WebSocket for real-time bid updates
+        connectWebSocket(rideId: requestId)
+
+        // Fetch immediately, then poll (slower if WS connected)
         fetchIncomingBids(requestId: requestId)
 
         bidPollingTimer?.invalidate()
@@ -440,6 +445,8 @@ class RideRequestViewModel: ObservableObject {
                 self.stopBidPolling()
                 return
             }
+            // Skip poll if WebSocket is delivering real-time updates
+            if self.wsManager.isConnected { return }
             self.fetchIncomingBids(requestId: requestId)
         }
     }
@@ -449,6 +456,46 @@ class RideRequestViewModel: ObservableObject {
         logger.info("Stopping bid polling")
         bidPollingTimer?.invalidate()
         bidPollingTimer = nil
+    }
+
+    /// Connect WebSocket for real-time bid and ride status updates
+    private func connectWebSocket(rideId: Int) {
+        guard let customerId = p2pService.currentCustomerId else { return }
+
+        wsManager.onNewBid = { [weak self] data in
+            guard let self = self,
+                  let bidRideId = data["ride_request_id"] as? Int,
+                  bidRideId == rideId else { return }
+            logger.info("[WS] New bid received for ride \(rideId)")
+            self.fetchIncomingBids(requestId: rideId)
+        }
+
+        wsManager.onRideStatusUpdate = { [weak self] data in
+            guard let self = self else { return }
+            if let status = data["status"] as? String {
+                logger.info("[WS] Ride status update: \(status)")
+                if status == "driver_arrived" {
+                    DispatchQueue.main.async { self.driverHasArrived = true }
+                }
+            }
+        }
+
+        wsManager.onDriverLocation = { [weak self] data in
+            guard let self = self else { return }
+            if let eta = data["eta_minutes"] as? Int {
+                DispatchQueue.main.async { self.driverETA = eta }
+            }
+        }
+
+        wsManager.onETAUpdate = { [weak self] data in
+            guard let self = self else { return }
+            if let eta = data["eta_pickup_minutes"] as? Int {
+                DispatchQueue.main.async { self.driverETA = eta }
+            }
+        }
+
+        wsManager.connect(clientType: "customer", entityId: customerId)
+        wsManager.subscribe(topic: "ride:\(rideId)")
     }
 
     /// Fetch incoming bids for the current ride request
@@ -494,74 +541,76 @@ class RideRequestViewModel: ObservableObject {
         selectedBidForCounter = nil
 
         p2pService.acceptDriverBid(bidId: bid.id) { [weak self] result in
-            guard let self = self else { return }
-            self.isLoading = false
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
 
-            switch result {
-            case .success(let response):
-                logger.info("Bid accepted: \(response.message)")
+                switch result {
+                case .success(let response):
+                    logger.info("Bid accepted: \(response.message)")
 
-                // Stop polling for more bids
-                self.stopBidPolling()
-                self.showBidsSheet = false
-                self.incomingBids = []
+                    // Stop polling for more bids
+                    self.stopBidPolling()
+                    self.showBidsSheet = false
+                    self.incomingBids = []
 
-                // Store driver info from the bid
-                self.acceptedDriver = AcceptedDriverInfo(
-                    id: bid.driver_id,
-                    name: bid.driver_name,
-                    phone: nil,
-                    rating: bid.driver_rating,
-                    photo_url: bid.driver_photo_url,
-                    vehicle_make: nil,
-                    vehicle_model: nil,
-                    vehicle_color: nil,
-                    vehicle_year: nil,
-                    license_plate: nil,
-                    vehicle_photo_url: nil
-                )
+                    // Store driver info from the bid
+                    self.acceptedDriver = AcceptedDriverInfo(
+                        id: bid.driver_id,
+                        name: bid.driver_name,
+                        phone: nil,
+                        rating: bid.driver_rating,
+                        photo_url: bid.driver_photo_url,
+                        vehicle_make: nil,
+                        vehicle_model: nil,
+                        vehicle_color: nil,
+                        vehicle_year: nil,
+                        license_plate: nil,
+                        vehicle_photo_url: nil
+                    )
 
-                // Parse vehicle info from driver_vehicle string (e.g., "Toyota Camry")
-                if let vehicle = bid.driver_vehicle {
-                    let parts = vehicle.split(separator: " ")
-                    if parts.count >= 2 {
-                        self.acceptedDriver = AcceptedDriverInfo(
-                            id: bid.driver_id,
-                            name: bid.driver_name,
-                            phone: nil,
-                            rating: bid.driver_rating,
-                            photo_url: bid.driver_photo_url,
-                            vehicle_make: String(parts[0]),
-                            vehicle_model: parts.dropFirst().joined(separator: " "),
-                            vehicle_color: nil,
-                            vehicle_year: nil,
-                            license_plate: nil,
-                            vehicle_photo_url: nil
-                        )
+                    // Parse vehicle info from driver_vehicle string (e.g., "Toyota Camry")
+                    if let vehicle = bid.driver_vehicle {
+                        let parts = vehicle.split(separator: " ")
+                        if parts.count >= 2 {
+                            self.acceptedDriver = AcceptedDriverInfo(
+                                id: bid.driver_id,
+                                name: bid.driver_name,
+                                phone: nil,
+                                rating: bid.driver_rating,
+                                photo_url: bid.driver_photo_url,
+                                vehicle_make: String(parts[0]),
+                                vehicle_model: parts.dropFirst().joined(separator: " "),
+                                vehicle_color: nil,
+                                vehicle_year: nil,
+                                license_plate: nil,
+                                vehicle_photo_url: nil
+                            )
+                        }
                     }
+
+                    // Use the driver's response if available
+                    if let driver = response.driver {
+                        self.acceptedDriver = driver
+                    }
+
+                    self.driverETA = bid.estimated_arrival_minutes ?? response.estimated_arrival_minutes
+
+                    // Transition to driver en route step
+                    self.currentStep = .driverEnRoute
+                    self.negotiationMessage = nil  // Status bar already shows "Driver accepted"
+
+                case .failure(let error):
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("expired") || errorMsg.contains("no longer") {
+                        self.showErrorMessage("This bid has expired. Please select another driver.")
+                    } else if errorMsg.contains("accepted") || errorMsg.contains("unavailable") {
+                        self.showErrorMessage("This driver is no longer available. Please select another.")
+                    } else {
+                        self.showErrorMessage("Unable to accept this bid. Please try again.")
+                    }
+                    logger.error("Accept bid error: \(error.localizedDescription)")
                 }
-
-                // Use the driver's response if available
-                if let driver = response.driver {
-                    self.acceptedDriver = driver
-                }
-
-                self.driverETA = bid.estimated_arrival_minutes ?? response.estimated_arrival_minutes
-
-                // Transition to driver en route step
-                self.currentStep = .driverEnRoute
-                self.negotiationMessage = nil  // Status bar already shows "Driver accepted"
-
-            case .failure(let error):
-                let errorMsg = error.localizedDescription.lowercased()
-                if errorMsg.contains("expired") || errorMsg.contains("no longer") {
-                    self.showErrorMessage("This bid has expired. Please select another driver.")
-                } else if errorMsg.contains("accepted") || errorMsg.contains("unavailable") {
-                    self.showErrorMessage("This driver is no longer available. Please select another.")
-                } else {
-                    self.showErrorMessage("Unable to accept this bid. Please try again.")
-                }
-                logger.error("Accept bid error: \(error.localizedDescription)")
             }
         }
     }
@@ -569,16 +618,18 @@ class RideRequestViewModel: ObservableObject {
     /// Reject a driver's bid
     func rejectBid(_ bid: RideBid) {
         p2pService.rejectDriverBid(bidId: bid.id) { [weak self] result in
-            guard let self = self else { return }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
 
-            switch result {
-            case .success:
-                // Remove the rejected bid from the list
-                self.incomingBids.removeAll { $0.id == bid.id }
-                logger.info("Bid rejected successfully")
+                switch result {
+                case .success:
+                    // Remove the rejected bid from the list
+                    self.incomingBids.removeAll { $0.id == bid.id }
+                    logger.info("Bid rejected successfully")
 
-            case .failure(let error):
-                logger.error("Failed to reject bid: \(error.localizedDescription)")
+                case .failure(let error):
+                    logger.error("Failed to reject bid: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -603,53 +654,55 @@ class RideRequestViewModel: ObservableObject {
         selectedBidForCounter = bid
 
         p2pService.counterDriverBid(bidId: bid.id, counterPrice: counterPrice, message: message) { [weak self] result in
-            guard let self = self else { return }
-            self.isLoading = false
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.isLoading = false
 
-            switch result {
-            case .success(let response):
-                if response.success {
-                    logger.info("Counter-offer sent: \(response.message ?? "")")
+                switch result {
+                case .success(let response):
+                    if response.success {
+                        logger.info("Counter-offer sent: \(response.message ?? "")")
 
-                    // Update negotiation state
-                    self.customerCountersRemaining = response.customer_counters_remaining ?? (self.customerCountersRemaining - 1)
-                    self.currentNegotiationRound = response.negotiation_round ?? self.currentNegotiationRound
-                    self.counterOfferWarning = response.warning
+                        // Update negotiation state
+                        self.customerCountersRemaining = response.customer_counters_remaining ?? (self.customerCountersRemaining - 1)
+                        self.currentNegotiationRound = response.negotiation_round ?? self.currentNegotiationRound
+                        self.counterOfferWarning = response.warning
 
-                    // Show warning if present
-                    if let warning = response.warning {
-                        self.negotiationMessage = warning
-                    } else {
-                        self.negotiationMessage = "Counter-offer of $\(String(format: "%.2f", counterPrice)) sent. Waiting for driver..."
-                    }
-
-                    // Update the bid in the list with new status
-                    if let updatedBid = response.bid {
-                        if let index = self.incomingBids.firstIndex(where: { $0.id == bid.id }) {
-                            self.incomingBids[index] = updatedBid
+                        // Show warning if present
+                        if let warning = response.warning {
+                            self.negotiationMessage = warning
+                        } else {
+                            self.negotiationMessage = "Counter-offer of $\(String(format: "%.2f", counterPrice)) sent. Waiting for driver..."
                         }
+
+                        // Update the bid in the list with new status
+                        if let updatedBid = response.bid {
+                            if let index = self.incomingBids.firstIndex(where: { $0.id == bid.id }) {
+                                self.incomingBids[index] = updatedBid
+                            }
+                        }
+
+                        // Close the counter sheet
+                        self.showCounterSheet = false
+                        self.isNegotiating = true
+
+                        // Start polling for driver's response
+                        self.startNegotiationPolling()
+                    } else {
+                        self.showErrorMessage(response.message ?? "Failed to send counter-offer")
                     }
 
-                    // Close the counter sheet
-                    self.showCounterSheet = false
-                    self.isNegotiating = true
-
-                    // Start polling for driver's response
-                    self.startNegotiationPolling()
-                } else {
-                    self.showErrorMessage(response.message ?? "Failed to send counter-offer")
+                case .failure(let error):
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("expired") {
+                        self.showErrorMessage("This bid has expired. Please select another driver.")
+                    } else if errorMsg.contains("limit") || errorMsg.contains("maximum") {
+                        self.showErrorMessage("You've reached the maximum counter-offers for this bid.")
+                    } else {
+                        self.showErrorMessage("Unable to send counter-offer. Please try again.")
+                    }
+                    logger.error("Counter-offer failed: \(error)")
                 }
-
-            case .failure(let error):
-                let errorMsg = error.localizedDescription.lowercased()
-                if errorMsg.contains("expired") {
-                    self.showErrorMessage("This bid has expired. Please select another driver.")
-                } else if errorMsg.contains("limit") || errorMsg.contains("maximum") {
-                    self.showErrorMessage("You've reached the maximum counter-offers for this bid.")
-                } else {
-                    self.showErrorMessage("Unable to send counter-offer. Please try again.")
-                }
-                logger.error("Counter-offer failed: \(error)")
             }
         }
     }
@@ -718,6 +771,7 @@ class RideRequestViewModel: ObservableObject {
         trackingTimer?.invalidate()
         trackingTimer = nil
         stopNegotiationPolling()
+        stopBidPolling()
     }
 
     // MARK: - Negotiation Status Polling
@@ -807,6 +861,13 @@ class RideRequestViewModel: ObservableObject {
     // MARK: - Reset
     func resetRide() {
         stopTracking()
+        // Disconnect WebSocket FIRST, then clear handlers
+        wsManager.disconnect()
+        wsManager.onNewBid = nil
+        wsManager.onRideStatusUpdate = nil
+        wsManager.onDriverLocation = nil
+        wsManager.onETAUpdate = nil
+
         pickupAddress = nil
         dropoffAddress = nil
         notes = ""
@@ -815,6 +876,48 @@ class RideRequestViewModel: ObservableObject {
         rideTracking = nil
         isRideActive = false
         currentStep = .selectPickup
+
+        // Fare estimate state
+        estimatedDistance = 0.0
+        estimatedDuration = 0.0
+        baseFare = AppConfig.shared.rideBaseFare
+        distanceFee = 0.0
+        timeFee = 0.0
+        surgeMultiplier = 1.0
+        surgeLabel = "Standard"
+
+        // Bid/driver state
+        incomingBids = []
+        selectedBid = nil
+        acceptedDriver = nil
+        driverETA = nil
+        driverHasArrived = false
+
+        // Negotiation state
+        isNegotiating = false
+        driverOfferAmount = nil
+        showNegotiationSheet = false
+        negotiationMessage = nil
+        initialFareOffer = nil
+        counterOfferWarning = nil
+        customerCountersRemaining = 3
+        currentNegotiationRound = 1
+        showCounterSheet = false
+        selectedBidForCounter = nil
+
+        // Payment state
+        paymentIntentClientSecret = nil
+        showPaymentSheet = false
+
+        // Cancellation state
+        showCancelSheet = false
+        cancellationFee = 0.0
+        cancellationReason = ""
+
+        // Connection state
+        showConnectionWarning = false
+        trackingFailureCount = 0
+        negotiationFailureCount = 0
     }
 
     // MARK: - Helpers

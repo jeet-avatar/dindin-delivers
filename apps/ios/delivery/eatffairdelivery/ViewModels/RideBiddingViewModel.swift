@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import EatFairShared
 import CoreLocation
 import UIKit
@@ -62,9 +61,9 @@ class RideBiddingViewModel: ObservableObject {
         myBids.filter { $0.status == "countered" }
     }
 
-    /// Platform connection fee
-    var platformFee: Double {
-        AppConfig.shared.rideshareTier1Fee
+    /// Platform connection fee (fare-tiered: $1/$2/$3)
+    func platformFee(for fareAmount: Double) -> Double {
+        AppConfig.shared.calculateRidesharePlatformFee(fareAmount: fareAmount)
     }
 
     // Connection Status (for polling failure detection)
@@ -76,8 +75,8 @@ class RideBiddingViewModel: ObservableObject {
     // MARK: - Private Properties
 
     private let p2pService = P2PAPIService.shared
+    private let wsManager = WebSocketManager.shared
     private var refreshTimer: Timer?
-    private var cancellables = Set<AnyCancellable>()
     private var pollingFailureCount = 0
     private let maxFailuresBeforeWarning = 3
 
@@ -85,12 +84,17 @@ class RideBiddingViewModel: ObservableObject {
 
     init() {
         setupRefreshTimer()
+        connectWebSocket()
     }
 
     deinit {
         refreshTimer?.invalidate()
         refreshTimer = nil
-        cancellables.removeAll()
+        // Clear handlers only — don't disconnect the shared singleton
+        wsManager.onNewBid = nil
+        wsManager.onBidResponse = nil
+        wsManager.onRideStatusUpdate = nil
+        wsManager.onPaymentUpdate = nil
     }
 
     // MARK: - Online Status Toggle
@@ -124,12 +128,49 @@ class RideBiddingViewModel: ObservableObject {
     // MARK: - Refresh Timer
 
     private func setupRefreshTimer() {
-        // Poll every 5 seconds for real-time updates
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             // Only poll when app is active
             guard UIApplication.shared.applicationState == .active else { return }
-            self?.refreshData()
+            // Skip poll if WebSocket is delivering real-time updates
+            if self.wsManager.isConnected { return }
+            self.refreshData()
         }
+    }
+
+    /// Connect WebSocket for real-time ride request and bid response updates
+    private func connectWebSocket() {
+        guard let driverId = p2pService.currentDriverId else { return }
+
+        wsManager.onNewBid = { [weak self] data in
+            // "new_bid" here means new ride request available
+            guard let self = self else { return }
+            logger.info("[WS] New ride request received")
+            self.fetchAvailableRequests()
+        }
+
+        wsManager.onBidResponse = { [weak self] data in
+            guard let self = self else { return }
+            if let status = data["status"] as? String {
+                logger.info("[WS] Bid response: \(status)")
+                self.fetchMyBids()
+            }
+        }
+
+        wsManager.onRideStatusUpdate = { [weak self] data in
+            guard let self = self else { return }
+            logger.info("[WS] Ride status update received")
+            self.refreshData()
+        }
+
+        wsManager.onPaymentUpdate = { [weak self] data in
+            guard let self = self else { return }
+            logger.info("[WS] Payment update received")
+            self.refreshData()
+        }
+
+        wsManager.connect(clientType: "driver", entityId: driverId)
+        wsManager.subscribe(topic: "driver:\(driverId)")
     }
 
     func refreshData() {
@@ -575,7 +616,7 @@ class RideBiddingViewModel: ObservableObject {
 
     /// Calculate driver earnings after platform fee
     func calculateEarnings(proposedPrice: Double) -> Double {
-        return max(0, proposedPrice - platformFee)
+        return max(0, proposedPrice - platformFee(for: proposedPrice))
     }
 
     /// Format distance for display

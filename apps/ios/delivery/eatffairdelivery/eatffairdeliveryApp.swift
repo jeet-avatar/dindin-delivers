@@ -178,6 +178,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 object: nil,
                 userInfo: ["approved": false, "rejected": true]
             )
+        case .newRideRequest:
+            // Navigate to available ride requests
+            NotificationCenter.default.post(
+                name: NSNotification.Name("NavigateToAvailableRides"),
+                object: nil
+            )
+        case .bidAccepted, .driverArrived, .rideStarted:
+            // Navigate to active ride
+            if let rideRequestId = payload.rideRequestId {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToActiveRide"),
+                    object: nil,
+                    userInfo: ["rideRequestId": rideRequestId]
+                )
+            }
+        case .bidRejected, .counterOffer:
+            // Navigate to my bids to see updates
+            NotificationCenter.default.post(
+                name: NSNotification.Name("NavigateToMyBids"),
+                object: nil
+            )
+        case .paymentProcessed:
+            // Refresh earnings dashboard
+            NotificationCenter.default.post(
+                name: NSNotification.Name("RefreshEarnings"),
+                object: nil
+            )
         default:
             break
         }

@@ -7308,7 +7308,14 @@ public struct RideTrackingInfo: Codable {
     public let driverRating: Double?
     public let driverArrivedAt: String?
     public let estimatedDestinationArrival: String?
+    public let etaPickupMinutes: Int?
     public let etaDestinationMinutes: Int?
+
+    /// Current ETA in minutes (pickup before pickup, destination during ride)
+    public var currentETAMinutes: Int? {
+        if status == "in_progress" { return etaDestinationMinutes }
+        return etaPickupMinutes ?? etaDestinationMinutes
+    }
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -7328,6 +7335,7 @@ public struct RideTrackingInfo: Codable {
         case driverRating = "driver_rating"
         case driverArrivedAt = "driver_arrived_at"
         case estimatedDestinationArrival = "estimated_destination_arrival"
+        case etaPickupMinutes = "eta_pickup_minutes"
         case etaDestinationMinutes = "eta_destination_minutes"
     }
 }
@@ -9412,6 +9420,13 @@ public struct RideBid: Identifiable, Codable {
     public let driver_rating: Double?
     public let driver_photo_url: String?
     public let driver_vehicle: String?
+    // Individual vehicle fields from Driver relationship
+    public let driver_vehicle_make: String?
+    public let driver_vehicle_model: String?
+    public let driver_vehicle_year: Int?
+    public let driver_vehicle_color: String?
+    public let driver_license_plate: String?
+    public let driver_trips: Int?
     public let proposed_price: Double
     public let message: String?
     public let estimated_arrival_minutes: Int?
@@ -9427,6 +9442,16 @@ public struct RideBid: Identifiable, Codable {
     public let negotiation_round: Int?
     public let last_offer_by: String?
     public let is_final_round: Bool?
+
+    /// Formatted vehicle string from individual fields
+    public var vehicleDescription: String? {
+        if let make = driver_vehicle_make, let model = driver_vehicle_model {
+            var parts = [make, model]
+            if let year = driver_vehicle_year { parts.insert(String(year), at: 0) }
+            return parts.joined(separator: " ")
+        }
+        return driver_vehicle
+    }
 }
 
 /// Response for customer counter-offer
@@ -11156,6 +11181,355 @@ extension P2PAPIService {
                         tipAmount: amount
                     )
                     completion(.success(fallbackResponse))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Ride Receipt APIs
+
+    /// Fetch receipt for a completed ride
+    public func fetchRideReceipt(
+        rideId: Int,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideId)/receipt") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to fetch receipt")))
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Re-send receipt email for a completed ride
+    public func emailRideReceipt(
+        rideId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideId)/email-receipt") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 400 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to send email")))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Driver Payout APIs
+
+    /// Fetch payout history for a driver with period filter
+    public func fetchPayoutHistory(
+        driverId: Int,
+        period: String = "week",
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/driver/\(driverId)/payout-history?period=\(period)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to fetch payout history")))
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Ride Dispute APIs
+
+    /// Create a dispute for a ride
+    public func createRideDispute(
+        rideRequestId: Int,
+        reason: String,
+        description: String,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/dispute") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "ride_request_id": rideRequestId,
+            "reason": reason,
+            "description": description
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create dispute")))
+                    }
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Fetch disputes for a customer
+    public func fetchMyDisputes(
+        customerId: Int,
+        completion: @escaping (Result<[[String: Any]], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/customer/\(customerId)/disputes") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to fetch disputes")))
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let disputes = json["disputes"] as? [[String: Any]] {
+                    completion(.success(disputes))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Fetch a specific dispute status
+    public func fetchDisputeStatus(
+        disputeId: Int,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/dispute/\(disputeId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to fetch dispute status")))
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Recurring Ride APIs
+
+    /// Create a recurring ride pattern
+    public func createRecurringRide(
+        customerId: Int,
+        pickupAddress: String,
+        pickupLatitude: Double,
+        pickupLongitude: Double,
+        dropoffAddress: String,
+        dropoffLatitude: Double,
+        dropoffLongitude: Double,
+        scheduleDays: String,
+        scheduleTime: String,
+        timezone: String,
+        maxPrice: Double? = nil,
+        preferredDriverId: Int? = nil,
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/customer/\(customerId)/recurring-rides") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "pickup_address": pickupAddress,
+            "pickup_latitude": pickupLatitude,
+            "pickup_longitude": pickupLongitude,
+            "dropoff_address": dropoffAddress,
+            "dropoff_latitude": dropoffLatitude,
+            "dropoff_longitude": dropoffLongitude,
+            "schedule_days": scheduleDays,
+            "schedule_time": scheduleTime,
+            "timezone": timezone
+        ]
+        if let maxPrice = maxPrice { body["max_price"] = maxPrice }
+        if let driverId = preferredDriverId { body["preferred_driver_id"] = driverId }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create recurring ride")))
+                    }
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    completion(.success(json))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Fetch recurring rides for a customer
+    public func fetchRecurringRides(
+        customerId: Int,
+        completion: @escaping (Result<[[String: Any]], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/customer/\(customerId)/recurring-rides") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    completion(.failure(P2PAPIError.serverError("Failed to fetch recurring rides")))
+                    return
+                }
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let rides = json["recurring_rides"] as? [[String: Any]] {
+                    completion(.success(rides))
+                } else {
+                    completion(.failure(P2PAPIError.decodingError))
+                }
+            }
+        }.resume()
+    }
+
+    /// Delete a recurring ride
+    public func deleteRecurringRide(
+        recurringRideId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/recurring-rides/\(recurringRideId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 400 {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to delete recurring ride")))
                 }
             }
         }.resume()

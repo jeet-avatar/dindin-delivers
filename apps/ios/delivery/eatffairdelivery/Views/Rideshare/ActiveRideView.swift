@@ -19,6 +19,7 @@ struct ActiveRideView: View {
     @State private var noShowTimerActive = false
     @State private var position: MapCameraPosition = .automatic
     @State private var driverRoute: MKRoute?
+    @State private var etaMinutes: Int?
     @State private var timerCancellable: AnyCancellable?
     @State private var passengerRating: Int = 0
     @State private var passengerComment: String = ""
@@ -291,6 +292,23 @@ struct ActiveRideView: View {
                 .cornerRadius(12)
 
                 Spacer()
+
+                // ETA
+                if let eta = etaMinutes, rideStatus != .completed {
+                    VStack(spacing: 2) {
+                        Text("\(eta)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.blue)
+                        Text(rideStatus == .inProgress ? "min left" : "min away")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(10)
+                }
 
                 // Earnings
                 VStack(alignment: .trailing, spacing: 2) {
@@ -747,6 +765,7 @@ struct ActiveRideView: View {
             if let route = response?.routes.first {
                 DispatchQueue.main.async {
                     self.driverRoute = route
+                    self.etaMinutes = max(1, Int(route.expectedTravelTime / 60))
                 }
             }
         }

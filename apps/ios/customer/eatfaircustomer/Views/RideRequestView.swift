@@ -1296,6 +1296,31 @@ struct RideTrackingView: View {
             }
             .onAppear { calculateRoute() }
 
+            // ETA Overlay (top-left)
+            VStack {
+                HStack {
+                    if let tracking = viewModel.rideTracking,
+                       let eta = tracking.currentETAMinutes {
+                        VStack(spacing: 2) {
+                            Text("\(eta)")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text(tracking.status == "in_progress" ? "min to arrive" : "min away")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(0.75))
+                        .cornerRadius(16)
+                        .padding(.leading, 16)
+                        .padding(.top, 8)
+                    }
+                    Spacer()
+                }
+                Spacer()
+            }
+
             // Safety Buttons (top-right)
             VStack {
                 HStack {
@@ -2888,8 +2913,33 @@ struct DriverBidCard: View {
                         }
                     }
 
-                    // Vehicle
-                    if let vehicle = bid.driver_vehicle {
+                    // Vehicle details
+                    if let make = bid.driver_vehicle_make, let model = bid.driver_vehicle_model {
+                        HStack(spacing: 4) {
+                            if let color = bid.driver_vehicle_color {
+                                Circle()
+                                    .fill(Color.secondary.opacity(0.3))
+                                    .frame(width: 10, height: 10)
+                                    .overlay(
+                                        Circle().stroke(Color.secondary, lineWidth: 0.5)
+                                    )
+                            }
+                            Text([bid.driver_vehicle_year.map { String($0) }, make, model]
+                                .compactMap { $0 }.joined(separator: " "))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        if let plate = bid.driver_license_plate {
+                            Text(plate)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.gray.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                    } else if let vehicle = bid.driver_vehicle {
                         Text(vehicle)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
