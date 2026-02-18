@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import EatFairShared
 import CoreLocation
 import UIKit
