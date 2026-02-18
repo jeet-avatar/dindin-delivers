@@ -85,7 +85,7 @@ eatfair-ios/                          # PRIMARY REPO
 
 eatfair-android/                      # ANDROID REPO (separate)
 ├── app/                              # Customer App (Kotlin)
-├── orderapp/                         # Driver App
+├── driver/                           # Driver App
 └── partner/                          # Restaurant App
 ```
 
@@ -121,16 +121,16 @@ npm run dev
 ```bash
 cd /Users/jeet/StudioProjects/eatfair-android
 
-# Debug builds (Staging)
-./gradlew :app:assembleStagingDebug       # Customer
-./gradlew :orderapp:assembleStagingDebug  # Driver
-./gradlew :partner:assembleStagingDebug   # Restaurant
+# Debug builds
+./gradlew :app:assembleDebug       # Customer
+./gradlew :driver:assembleDebug    # Driver
+./gradlew :partner:assembleDebug   # Restaurant
 
-# Production Release (Play Store)
-./gradlew :app:assembleProductionRelease      # Customer APK
-./gradlew :app:bundleProductionRelease        # Customer AAB
-./gradlew :orderapp:assembleProductionRelease # Driver APK
-./gradlew :partner:assembleProductionRelease  # Restaurant APK
+# Release (Play Store)
+./gradlew :app:assembleRelease      # Customer APK
+./gradlew :app:bundleRelease        # Customer AAB
+./gradlew :driver:assembleRelease   # Driver APK
+./gradlew :partner:assembleRelease  # Restaurant APK
 ```
 
 ### Anti-Hallucination Check
@@ -155,7 +155,7 @@ cd apps/web/p2p-platform/backend
 pytest tests/ -v
 
 # Android staging tests
-./gradlew :app:testStagingDebugUnitTest
+./gradlew :app:testDebugUnitTest
 ```
 
 ---
