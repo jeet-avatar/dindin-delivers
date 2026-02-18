@@ -311,9 +311,40 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, db
     except Exception as e:
         logger.error(f"WebSocket broadcast error: {e}")
 
+    distance_miles = round(distance_km * 0.621371, 1)
+
+    # Send push notification to online drivers with FCM tokens
+    try:
+        online_drivers = db.query(Driver).filter(
+            Driver.is_online == True,
+            Driver.fcm_token.isnot(None)
+        ).all()
+
+        for driver in online_drivers:
+            try:
+                send_push_notification(
+                    user_type="driver",
+                    user_id=driver.id,
+                    title="New Ride Request!",
+                    body=f"Pickup: {data.pickup_address[:50]} — ~{distance_miles} mi, est. ${suggested_price:.0f}",
+                    data={
+                        "type": "new_ride_request",
+                        "ride_request_id": str(ride_request.id),
+                        "request_id": ride_request.request_id,
+                        "pickup_address": data.pickup_address,
+                        "dropoff_address": data.dropoff_address,
+                        "fare_estimate": str(round(suggested_price, 2))
+                    },
+                    db=db
+                )
+            except Exception as driver_err:
+                logger.warning(f"Failed to push to driver {driver.id}: {driver_err}")
+        logger.info(f"Push sent to {len(online_drivers)} online drivers for ride {ride_request.request_id}")
+    except Exception as e:
+        logger.error(f"Failed to send ride request push to drivers: {e}")
+
     # Send confirmation email to customer
     try:
-        distance_miles = round(distance_km * 0.621371, 1)  # Convert km to miles
         send_ride_request_confirmation_email(
             to_email=customer.email,
             customer_name=f"{customer.first_name} {customer.last_name}".strip() or "Customer",
