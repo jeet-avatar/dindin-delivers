@@ -1,320 +1,180 @@
-# Dollor.ai Technology Stack
+# Technology Stack
 
-> Comprehensive documentation of programming languages, frameworks, dependencies, and build tools used across the Dollor.ai platform.
+**Analysis Date:** 2026-02-18
 
----
+## Languages
 
-## Programming Languages
+**Primary:**
+- Python 3.11 - Backend API (`apps/web/p2p-platform/backend/`)
+- Swift 5.0 - iOS apps (`apps/ios/customer/`, `apps/ios/delivery/`, `apps/ios/restaurant/`)
+- Kotlin 2.1.0 - Android apps (`apps/android/app/`, `apps/android/driver/`, `apps/android/partner/`)
+- TypeScript 5.5.3 - Admin portal (`apps/web/p2p-platform/frontend/`)
 
-| Language | Version | Usage |
-|----------|---------|-------|
-| **Swift** | 5.5+ | iOS applications (Customer, Driver, Restaurant apps) |
-| **Python** | 3.8+ | Backend API, microservices, automation scripts |
-| **TypeScript** | 5.5.3 | Admin Portal frontend |
-| **Ruby** | 3.x | Build automation (Fastlane, CocoaPods) |
+**Secondary:**
+- HCL (Terraform) - Infrastructure (`infrastructure/terraform/`)
+- YAML - Kubernetes / GitHub Actions CI/CD
+- SQL - Database migrations (inline via SQLAlchemy)
 
----
+## Runtime
 
-## iOS Applications
+**Backend:**
+- Python 3.11-slim-bookworm (Docker via `apps/web/p2p-platform/backend/Dockerfile.optimized`)
+- 4 uvicorn workers with `--loop uvloop --http httptools` in production
+- Port 8080
 
-### Minimum Deployment Targets
+**Android:**
+- minSdk 24 (Android 7.0), targetSdk/compileSdk 35 (Android 15)
+- JVM 17
 
-| Target | Version |
-|--------|---------|
-| iOS | 15.0 |
-| macOS (for development) | 10.15 (Catalina) |
-| Swift Tools | 5.5 |
+**iOS:**
+- iOS 15.0 minimum (CocoaPods target), Xcode project targets iOS 17.0
+- Swift Package Manager for Firebase SDK (via `apps/ios/eatfair-ios-shared/Package.swift`)
+- CocoaPods for Google Maps/Places (via `apps/ios/customer/Podfile`)
 
-### Package Managers
+**Frontend:**
+- Node.js 20 (required for CI, declared in `apps/web/p2p-platform/frontend/package.json`)
+- Vite 7.2.4 dev server / build tool
 
-#### Swift Package Manager (SPM)
+## Package Manager
 
-Primary package manager for iOS dependencies. Managed via Xcode project settings.
+**Backend:**
+- pip with `requirements.txt`
+- Lockfile: Not present (no `requirements.lock`)
 
-**Shared Package (`EatFairShared`):**
-```swift
-// Package.swift - swift-tools-version:5.5
-dependencies: [
-    .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0")
-]
-```
+**Frontend:**
+- npm
+- Lockfile: `package-lock.json` present
 
-**SPM Dependencies:**
-| Package | Version | Purpose |
-|---------|---------|---------|
-| Firebase iOS SDK | 12.0.0+ | Authentication, Firestore, Messaging |
-| Stripe iOS SPM | Latest | Payment processing |
-| Google Sign-In iOS | Latest | Google authentication |
-| Swift Protobuf | Latest | Protocol buffer support |
+**iOS:**
+- Swift Package Manager (Firebase) + CocoaPods (Google Maps/Places)
 
-#### CocoaPods
+**Android:**
+- Gradle 8.7.3 with `libs.versions.toml` version catalog
 
-Used for Google Maps SDK (not available via SPM).
+## Frameworks
 
-**Podfile (all 3 apps):**
-```ruby
-platform :ios, '15.0'
-use_frameworks!
+**Backend Core:**
+- FastAPI 0.115.0 - REST API framework (`apps/web/p2p-platform/backend/main_new.py`)
+- SQLAlchemy 2.0.36 ORM - Database access (`apps/web/p2p-platform/backend/database.py`)
+- Pydantic 2.10.0 - Request/response validation
 
-target 'App' do
-  pod 'GoogleMaps', '~> 9.0'
-  pod 'GooglePlaces', '~> 9.0'
-end
-```
+**Microservices (16 services in `services/core/`):**
+- Each uses FastAPI 0.109.0 + SQLAlchemy 2.0.25 independently
+- Services: auth, driver, restaurant, order, ride, notification, payment, chat, call, negotiation, location, menu, pricing, rating, analytics, user-service
 
-**Pod Dependencies:**
-| Pod | Version | Purpose |
-|-----|---------|---------|
-| GoogleMaps | ~> 9.0 | Maps rendering, location display |
-| GooglePlaces | ~> 9.0 | Address search, place autocomplete |
+**iOS:**
+- SwiftUI - All three apps use SwiftUI with MVVM
+- Firebase iOS SDK 12.0.0 (SPM) - Auth, Firestore, Messaging
+- GoogleMaps 9.0 / GooglePlaces 9.0 (CocoaPods)
+- GoogleSignIn (bundled with Firebase)
+- Stripe iOS SDK - `apps/ios/customer/eatfaircustomer/Services/PaymentService.swift`
+- EatFairShared (local SPM package) - `apps/ios/eatfair-ios-shared/` (shared models, AppConfig, NotificationManager, Theme)
 
-### Build Tools
+**Android:**
+- Jetpack Compose (BOM 2025.10.01) - All three apps
+- Hilt 2.57.2 - Dependency injection
+- Retrofit 2.9.0 + OkHttp 4.12.0 - REST networking (`apps/android/shared/src/main/java/com/eatfair/shared/data/remote/`)
+- Gson 2.10.1 - JSON deserialization
+- Room 2.8.3 - Local SQLite database
+- Firebase BOM 32.7.0 - Auth, Firestore, Messaging, Analytics
+- Stripe Android 21.29.0 - Payments
+- Google Maps Compose 6.12.1, Play Services Location 21.3.0
+- Google Sign-In (play-services-auth 21.3.0)
+- Accompanist 0.36.0 - Pager, Permissions
+- Coil 2.7.0 - Image loading
+- DataStore Preferences 1.1.7 - Local key-value storage
+- Coroutines 1.9.0 - Async
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **Xcode** | 15.0+ | Primary IDE and build system |
-| **Fastlane** | ~> 2.219 | Automated builds, TestFlight uploads |
-| **CocoaPods** | ~> 1.14 | Pod dependency management |
-| **xcodebuild** | Built-in | Command-line builds |
+**Frontend (Admin Portal):**
+- React 18.3.1 with TypeScript
+- React Router DOM 6.18.0
+- Ant Design 5.27.4 - UI component library
+- Tailwind CSS 3.4.1 - Utility CSS
+- Chart.js 4.4.0 + react-chartjs-2 - Analytics charts
+- Axios 1.12.2 - HTTP client
 
-**Gemfile (Ruby dependencies):**
-```ruby
-source "https://rubygems.org"
+**Testing:**
+- Backend: pytest 8.3.4, pytest-asyncio 0.25.0, pytest-cov 6.0.0
+- Frontend: Vitest 1.3.0, @testing-library/react 14.2.0
+- iOS: XCTest (built-in)
+- Android: JUnit 4.13.2, Espresso 3.7.0
 
-gem "fastlane", "~> 2.219"
-gem "cocoapods", "~> 1.14"
+## Key Dependencies
 
-# Ruby 4.0 compatibility
-gem "ostruct"
-gem "logger"
-gem "csv"
-gem "base64"
-gem "bigdecimal"
-```
+**Critical Backend:**
+- `stripe==11.3.0` - Payment processing and Stripe Connect payouts
+- `firebase-admin==6.4.0` - Push notifications via FCM
+- `redis[hiredis]==5.0.1` - Caching, rate limiting, password reset codes (`apps/web/p2p-platform/backend/cache.py`)
+- `boto3==1.35.80` - AWS S3 file uploads (`apps/web/p2p-platform/backend/s3_service.py`)
+- `python-jose[cryptography]==3.4.0` - JWT authentication
+- `passlib[bcrypt]==1.7.4` + `bcrypt==4.2.1` - Password hashing
+- `httpx==0.27.2` - Async HTTP client (Google Maps API calls)
+- `reportlab==4.2.5` - PDF invoice generation
+- `apscheduler==3.10.4` - Background task scheduling
+- `pillow==11.0.0` - Image processing
 
-### iOS SDK Dependencies (via SPM + Pods)
+**Infrastructure Libraries:**
+- `psycopg2-binary==2.9.10` - PostgreSQL driver
+- `uvicorn[standard]==0.32.0` - ASGI server (includes uvloop, httptools)
+- `python-multipart==0.0.17` - File upload support
+- `aiofiles==24.1.0` - Async file I/O
 
-| SDK | Purpose | Integration |
-|-----|---------|-------------|
-| FirebaseAuth | User authentication | SPM |
-| FirebaseFirestore | Cloud database | SPM |
-| FirebaseMessaging | Push notifications | SPM |
-| Stripe | Payments (Apple Pay, Cards) | SPM |
-| GoogleMaps | Map rendering | CocoaPods |
-| GooglePlaces | Location autocomplete | CocoaPods |
-| GoogleSignIn | Google OAuth | SPM |
+## Configuration
 
----
+**Backend Environment Variables (loaded via `python-dotenv`):**
+- `DATABASE_URL` - PostgreSQL connection string (required, from AWS Secrets Manager in prod)
+- `JWT_SECRET_KEY` - JWT signing key
+- `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PUBLISHABLE_KEY`
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET`
+- `REDIS_URL` - ElastiCache URL (`redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379/0` in prod)
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `FROM_EMAIL`
+- `FIREBASE_CREDENTIALS_JSON` - Firebase Admin SDK credentials
+- `PERSONA_API_KEY` / `PERSONA_TEMPLATE_ID` - Document verification
+- `ADMIN_SECRET_KEY` / `DASHBOARD_SECRET` - Admin auth
+- `ENVIRONMENT` - `production` | `staging` | `development`
+- `DOCUMENT_VERIFICATION_PROVIDER` - `persona` (default in prod)
 
-## Backend (Python)
+**iOS xcconfig-based configuration:**
+- `apps/ios/Config/Development.xcconfig` - dev-api.dollor.ai
+- `apps/ios/Config/Staging.xcconfig` - d3kuu45w6kl8hr.cloudfront.net
+- `apps/ios/Config/Production.xcconfig` - api.dollor.ai
+- Keys: `API_BASE_URL`, `CDN_URL`
+- `GOOGLE_MAPS_API_KEY` - loaded into GMSServices at launch
+- Stripe publishable key - hardcoded in build or xcconfig
 
-### Main Backend (`apps/web/p2p-platform/backend`)
+**Android - `local.properties` (not committed):**
+- `GOOGLE_MAPS_API_KEY`
+- `STRIPE_PUBLISHABLE_KEY`
+- `RELEASE_KEYSTORE_PATH` / `RELEASE_KEYSTORE_PASSWORD` / `RELEASE_KEY_ALIAS` / `RELEASE_KEY_PASSWORD`
+- Build flavors inject `API_BASE_URL` per environment (`apps/android/app/build.gradle.kts:79-88`)
 
-**Python Version:** 3.8+
+**Build Config Files:**
+- `apps/web/p2p-platform/backend/Dockerfile.optimized` - Production Docker build (multi-stage, use `--target production`)
+- `apps/web/p2p-platform/backend/requirements.txt`
+- `apps/android/gradle/libs.versions.toml`
+- `apps/ios/EatFair.xcworkspace` - Xcode workspace
 
-**requirements.txt:**
-```
-# Core Framework
-fastapi==0.104.1
-uvicorn[standard]==0.32.0
-python-dotenv==1.0.0
+## Platform Requirements
 
-# Database & ORM
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+**Development:**
+- Python 3.11+, pip, virtualenv
+- Xcode 15+ (Swift 5.0, iOS 17.0)
+- Android Studio + JDK 17
+- Node.js 20+
+- Docker (for backend container builds)
+- CocoaPods (iOS Google Maps)
 
-# Authentication & Security
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.2
-python-jose[cryptography]==3.4.0
-python-multipart==0.0.12
-
-# Validation
-pydantic==2.5.0
-pydantic-settings==2.1.0
-email-validator==2.1.0
-
-# Payments
-stripe==11.3.0
-
-# Document Generation
-reportlab==4.0.7
-
-# HTTP Clients
-httpx==0.25.2
-requests==2.31.0
-
-# Web Scraping
-beautifulsoup4==4.12.2
-lxml==4.9.3
-
-# File Handling
-aiofiles==23.2.1
-pillow==10.4.0
-
-# AWS Integration
-boto3==1.35.0
-
-# Scheduling
-apscheduler==3.10.4
-
-# Date/Time
-python-dateutil==2.8.2
-
-# Testing
-pytest==8.3.4
-pytest-cov==5.0.0
-pytest-asyncio==0.24.0
-pytest-xdist==3.5.0
-coverage[toml]>=7.0,<7.7
-```
-
-### Microservices Dependencies
-
-Common dependencies across microservices in `services/core/`:
-
-| Category | Packages | Purpose |
-|----------|----------|---------|
-| **Framework** | fastapi==0.109.0, uvicorn==0.27.0 | Web API framework |
-| **Database** | sqlalchemy==2.0.25, psycopg2-binary==2.9.9, asyncpg==0.29.0 | PostgreSQL ORM |
-| **Migrations** | alembic==1.13.1 | Database migrations |
-| **Security** | python-jose==3.3.0, passlib==1.7.4, bcrypt==4.0.1 | JWT, password hashing |
-| **Validation** | pydantic==2.5.3, email-validator==2.1.0 | Data validation |
-| **CQRS** | aiokafka==0.10.0, elasticsearch==8.11.0, redis==5.0.1 | Event sourcing, read models |
-| **Observability** | opentelemetry-api==1.22.0, prometheus-client==0.19.0 | Distributed tracing, metrics |
-| **Logging** | structlog==24.1.0 | Structured logging |
-| **HTTP** | httpx==0.26.0 | Async HTTP client |
-
-### Database
-
-| Database | Usage |
-|----------|-------|
-| **PostgreSQL** | Primary relational database (via SQLAlchemy) |
-| **Redis** | Caching, session storage |
-| **Elasticsearch** | Search, read model optimization (CQRS) |
+**Production:**
+- AWS ECS Fargate - Backend (cluster: `dollor-production`, service: `dollor-api-service`)
+- AWS ECR - Container registry (`134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api`)
+- AWS RDS PostgreSQL `db.t3.micro` (~112 max connections) - `dollor/production/database-v2-*` secret
+- AWS ElastiCache Redis - `dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379`
+- AWS S3 - `dollor-ai-uploads` (uploads), `dollar-ai-frontend` (static assets)
+- AWS CloudFront - CDN and API gateway (`cdn.dollor.ai`, staging: `d3kuu45w6kl8hr.cloudfront.net`)
+- AWS Secrets Manager - All production secrets
+- Apple App Store Connect - iOS distribution (Team ID: `PRKZ4UVCD7`)
+- Google Play Store - Android distribution
 
 ---
 
-## Frontend (Admin Portal)
-
-**Location:** `apps/web/p2p-platform/frontend`
-
-### package.json Dependencies
-
-**Production Dependencies:**
-```json
-{
-  "@headlessui/react": "^1.7.17",
-  "antd": "^5.27.4",
-  "axios": "^1.12.2",
-  "chart.js": "^4.4.0",
-  "date-fns": "^2.30.0",
-  "file-saver": "^2.0.5",
-  "html-to-image": "^1.11.13",
-  "lucide-react": "^0.344.0",
-  "moment": "^2.30.1",
-  "react": "^18.3.1",
-  "react-chartjs-2": "^5.2.0",
-  "react-dom": "^18.3.1",
-  "react-router-dom": "^6.18.0"
-}
-```
-
-**Dev Dependencies:**
-```json
-{
-  "@eslint/js": "^9.9.1",
-  "@testing-library/jest-dom": "^6.4.0",
-  "@testing-library/react": "^14.2.0",
-  "@testing-library/user-event": "^14.5.0",
-  "@types/react": "^18.3.5",
-  "@types/react-dom": "^18.3.0",
-  "@vitejs/plugin-react": "^4.3.1",
-  "@vitest/coverage-v8": "^1.3.0",
-  "autoprefixer": "^10.4.18",
-  "eslint": "^9.9.1",
-  "eslint-plugin-react-hooks": "^5.1.0-rc.0",
-  "eslint-plugin-react-refresh": "^0.4.11",
-  "globals": "^15.9.0",
-  "happy-dom": "^13.3.0",
-  "postcss": "^8.4.35",
-  "tailwindcss": "^3.4.1",
-  "typescript": "^5.5.3",
-  "typescript-eslint": "^8.3.0",
-  "vite": "^7.2.4",
-  "vitest": "^1.3.0"
-}
-```
-
-### Build Tools
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **Vite** | 7.2.4 | Build tool, dev server |
-| **TypeScript** | 5.5.3 | Type checking |
-| **ESLint** | 9.9.1 | Code linting |
-| **Vitest** | 1.3.0 | Unit testing |
-| **PostCSS** | 8.4.35 | CSS processing |
-| **Tailwind CSS** | 3.4.1 | Utility-first CSS |
-| **Autoprefixer** | 10.4.18 | CSS vendor prefixes |
-
----
-
-## Environment Configurations
-
-### iOS xcconfig Files
-
-Located in `/apps/ios/Config/`:
-
-| Environment | API URL | Features |
-|-------------|---------|----------|
-| **Development** | `https://dev-api.dollor.ai` | Debug logging, mock data, dummy payments |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` | Debug logging, real payments |
-| **Production** | `https://api.dollor.ai` | No debug, real payments, analytics |
-
-### Backend Environment Variables
-
-Key environment variables (from `.env.example`):
-- `DATABASE_URL` - PostgreSQL connection string
-- `ENVIRONMENT` - production/staging/development
-- `STRIPE_SECRET_KEY` - Stripe API key
-- `AWS_*` - AWS credentials for S3
-- `FIREBASE_*` - Firebase credentials for push notifications
-
----
-
-## CI/CD & Deployment
-
-### iOS
-
-| Tool | Purpose |
-|------|---------|
-| **Fastlane** | Automated builds and TestFlight uploads |
-| **Match** | Certificate and profile management |
-| **App Store Connect API** | Programmatic uploads |
-
-### Backend
-
-| Tool | Purpose |
-|------|---------|
-| **Docker** | Containerization |
-| **AWS CloudFront** | CDN and staging deployment |
-| **uvicorn** | ASGI server |
-
----
-
-## Summary by Component
-
-| Component | Languages | Key Frameworks | Package Manager |
-|-----------|-----------|----------------|-----------------|
-| **Customer App** | Swift | SwiftUI, Firebase, Stripe | SPM, CocoaPods |
-| **Driver App** | Swift | SwiftUI, Firebase, GoogleMaps | SPM, CocoaPods |
-| **Restaurant App** | Swift | SwiftUI, Firebase | SPM, CocoaPods |
-| **Shared Package** | Swift | Firebase | SPM |
-| **Main Backend** | Python | FastAPI, SQLAlchemy | pip |
-| **Microservices** | Python | FastAPI, Kafka, Redis | pip |
-| **Admin Portal** | TypeScript | React, Vite, Tailwind | npm |
-
----
-
-*Last Updated: January 2026*
+*Stack analysis: 2026-02-18*

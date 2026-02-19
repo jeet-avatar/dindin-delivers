@@ -1,566 +1,215 @@
-# Dollor.ai Architecture Documentation
-
-> Comprehensive documentation of architecture patterns, data flow, and system design across the Dollor.ai platform.
-
----
-
-## Table of Contents
-
-1. [High-Level Architecture](#high-level-architecture)
-2. [iOS Architecture (MVVM)](#ios-architecture-mvvm)
-3. [Shared Code Architecture](#shared-code-architecture)
-4. [Backend Architecture](#backend-architecture)
-5. [Database Architecture](#database-architecture)
-6. [API Communication Patterns](#api-communication-patterns)
-7. [State Management](#state-management)
-8. [Data Flow](#data-flow)
-
----
-
-## High-Level Architecture
-
-```
-+-------------------+     +-------------------+     +-------------------+
-|   Customer App    |     |    Driver App     |     |  Restaurant App   |
-|    (iOS/Swift)    |     |    (iOS/Swift)    |     |    (iOS/Swift)    |
-+--------+----------+     +--------+----------+     +--------+----------+
-         |                         |                         |
-         +-------------------------+-------------------------+
-                                   |
-                    +-----------------------------+
-                    |      EatFairShared          |
-                    |   (Swift Package Library)   |
-                    +-------------+---------------+
-                                  |
-                    +-------------v---------------+
-                    |        P2P Backend          |
-                    |     (FastAPI/Python)        |
-                    +-------------+---------------+
-                                  |
-         +------------------------+------------------------+
-         |                        |                        |
-+--------v--------+    +----------v---------+    +---------v---------+
-|   PostgreSQL    |    |  Firebase (Auth)   |    |    Stripe API     |
-|   (Primary DB)  |    |  Push Notifications|    |    (Payments)     |
-+-----------------+    +--------------------+    +-------------------+
-```
-
----
-
-## iOS Architecture (MVVM)
-
-All three iOS apps follow the **Model-View-ViewModel (MVVM)** architecture pattern with SwiftUI.
-
-### Directory Structure
-
-```
-eatfaircustomer/
-├── eatfaircustomerApp.swift    # App entry point, AppDelegate
-├── ContentView.swift           # Root view controller
-├── Models/                     # Local data models
-├── ViewModels/                 # Business logic (ObservableObject)
-│   ├── AuthViewModel.swift
-│   ├── HomeViewModel.swift
-│   ├── MenuViewModel.swift
-│   ├── MultiRestaurantCartViewModel.swift
-│   ├── OrderHistoryViewModel.swift
-│   ├── OrderTrackingViewModel.swift
-│   ├── RideRequestViewModel.swift
-│   └── AddressViewModel.swift
-├── Views/                      # SwiftUI views
-│   ├── HomeView.swift
-│   ├── LoginView.swift
-│   ├── MainAppView.swift
-│   ├── RestaurantDetailView.swift
-│   ├── MultiRestaurantCartView.swift
-│   ├── MultiRestaurantCheckoutView.swift
-│   └── ... (35+ view files)
-├── Services/                   # API & external services
-│   ├── PaymentService.swift
-│   ├── ACHPaymentService.swift
-│   ├── LocationManager.swift
-│   └── VoiceSearchService.swift
-└── Theme/                      # UI styling
-```
-
-### MVVM Pattern Implementation
-
-```
-+------------------+     +------------------+     +------------------+
-|       View       |<--->|    ViewModel     |<--->|      Model       |
-|   (SwiftUI)      |     | (ObservableObject)|    |   (Codable)      |
-+------------------+     +------------------+     +------------------+
-        |                        |                       ^
-        | @StateObject           | Calls Services        |
-        | @ObservedObject        v                       |
-        | @EnvironmentObject  +------------------+       |
-        +-------------------->|    P2PAPIService |-------+
-                              |    (Singleton)   |
-                              +------------------+
-```
-
-### Key Architecture Decisions
-
-1. **SwiftUI-First**: Pure SwiftUI views (no UIKit bridging except for Google Maps)
-2. **Singleton Services**: `P2PAPIService.shared`, `AppConfig.shared` for app-wide state
-3. **Keychain Security**: Tokens stored via `SecureStorage` in iOS Keychain
-4. **Environment Objects**: Cart and address state shared across view hierarchy
-5. **Combine Framework**: Async operations using `@Published` and `Combine` publishers
-
-### ViewModel Responsibilities
-
-| ViewModel | Responsibilities |
-|-----------|------------------|
-| `AuthViewModel` | Login, registration, Google/Apple Sign-In, password reset |
-| `HomeViewModel` | Restaurant list, search, filtering, featured items |
-| `MenuViewModel` | Menu items, categories, customization options |
-| `MultiRestaurantCartViewModel` | Multi-vendor cart, item management |
-| `OrderTrackingViewModel` | Real-time order status, driver location |
-| `RideRequestViewModel` | Rideshare requests, fare estimation, bidding |
-| `AddressViewModel` | Saved addresses, delivery location management |
-
----
-
-## Shared Code Architecture
-
-### EatFairShared Package
-
-**Location:** `/apps/ios/eatfair-ios-shared/`
-
-The `EatFairShared` Swift Package provides shared functionality across all three iOS apps.
-
-```
-EatFairShared/
-├── Package.swift               # SPM manifest
-└── Sources/EatFairShared/
-    ├── AppConfig.swift         # Centralized configuration
-    ├── DollorTheme.swift       # UI theme constants
-    ├── ErrorHandler.swift      # Error handling utilities
-    ├── NotificationManager.swift
-    ├── Theme.swift
-    ├── Config/
-    │   └── GoogleMapsConfig.swift
-    ├── Models/
-    │   ├── Address.swift
-    │   ├── AIEmployee.swift
-    │   ├── Driver.swift
-    │   ├── EnhancedModels.swift
-    │   ├── Order.swift
-    │   └── Restaurant.swift
-    ├── Services/
-    │   ├── P2PAPIService.swift       # Main API client (386KB!)
-    │   ├── EnterpriseNetworkLayer.swift
-    │   ├── DollorV3Service.swift
-    │   ├── GoogleMapsService.swift
-    │   ├── LegalService.swift
-    │   ├── AIEmployeeService.swift
-    │   ├── TripBoardService.swift
-    │   ├── CallService.swift
-    │   ├── ChatService.swift
-    │   └── NegotiationService.swift
-    ├── Security/
-    │   └── SecureStorage.swift       # Keychain wrapper
-    └── Utilities/
-        └── ...
-```
-
-### Code Sharing Strategy
-
-| Component | Shared via EatFairShared | App-Specific |
-|-----------|-------------------------|--------------|
-| API Client | P2PAPIService | - |
-| Models | Order, Restaurant, Driver, Address | Local ViewModels |
-| Configuration | AppConfig, Theme | Bundle-specific plist |
-| Security | SecureStorage (Keychain) | - |
-| Notifications | NotificationManager | App-specific handlers |
-| Services | Chat, Call, Negotiation | Payment (app-specific keys) |
-
-### AppConfig Pattern
-
-`AppConfig` provides centralized, environment-aware configuration:
-
-```swift
-public class AppConfig: ObservableObject {
-    public static let shared = AppConfig()
-
-    // Environment-specific URL (from Info.plist via xcconfig)
-    @Published public var p2pAPIBaseURL: String = {
-        if let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String {
-            return url
-        }
-        return "https://api.dollor.ai"  // Production fallback
-    }()
-
-    // Pricing model constants
-    @Published public var foodCustomerFee: Double = 1.00      // $1 flat
-    @Published public var foodRestaurantFee: Double = 1.00    // $1 flat
-    @Published public var rideshareTier1Fee: Double = 1.00    // $1 for fares <= $35
-    @Published public var rideshareTier2Fee: Double = 2.00    // $2 for fares $35-$70
-    @Published public var rideshareTier3Fee: Double = 3.00    // $3 for fares > $70
-}
-```
-
----
-
-## Backend Architecture
-
-### Main Backend (`main_new.py`)
-
-**Location:** `/apps/web/p2p-platform/backend/`
-
-The main backend is a **monolithic FastAPI application** (~632KB) that handles all API endpoints.
-
-```
-backend/
-├── main_new.py           # Main FastAPI app (all routes)
-├── database.py           # SQLAlchemy session factory
-├── models.py             # SQLAlchemy ORM models
-├── models_extended.py    # Additional models
-├── order_flow.py         # Order lifecycle management
-├── bid_routes.py         # Rideshare bidding
-├── chat_routes.py        # Real-time chat
-├── matchmaking_routes.py # Driver-customer matching
-├── stripe_integration.py # Payment processing
-├── email_service.py      # Transactional emails
-├── pricing_config.py     # Pricing engine
-├── promotions.py         # Discount codes
-├── realtime_events.py    # WebSocket events
-└── migrations/           # Alembic migrations
-```
-
-### FastAPI Application Structure
-
-```python
-# main_new.py structure
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI(title="Invoice Management System")
-
-# CORS Configuration (environment-aware)
-app.add_middleware(CORSMiddleware, ...)
-
-# Route groups:
-# - /api/auth/*           - Authentication
-# - /api/customers/*      - Customer management
-# - /api/vendors/*        - Restaurant/vendor management
-# - /api/drivers/*        - Driver management
-# - /api/orders/*         - Order lifecycle
-# - /api/menu/*           - Menu items
-# - /api/rides/*          - Rideshare
-# - /api/payments/*       - Stripe payments
-# - /api/chat/*           - Real-time messaging
-# - /api/negotiation/*    - Price negotiation
-```
-
-### Microservices Architecture (Planned)
-
-Located in `/services/core/`, these are designed for future decomposition:
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| auth-service | 8001 | Customer/driver authentication |
-| user-service | 8002 | User profile management |
-| driver-service | 8003 | Driver profiles, documents, status |
-| restaurant-service | 8004 | Restaurant/vendor management |
-| order-service | 8005 | Order lifecycle (CQRS) |
-| menu-service | 8006 | Menu items, categories |
-| rating-service | 8007 | Reviews and ratings |
-| payment-service | 8008 | Stripe integration |
-| notification-service | 8009 | Push notifications, email |
-| location-service | 8010 | H3 geolocation |
-| pricing-service | 8011 | Dynamic pricing |
-| analytics-service | 8012 | Business intelligence |
-| chat-service | 8013 | Real-time messaging |
-| ride-service | 8014 | Rideshare requests |
-| call-service | 8015 | Privacy-masked calls |
-| negotiation-service | 8016 | Price negotiation |
-
-### CQRS Pattern (Order Service)
-
-The order-service implements **Command Query Responsibility Segregation**:
-
-```
-+-------------+     +----------+     +-------------+
-|   Command   |---->|  Kafka   |---->|   Event     |
-|   Handler   |     |  Events  |     |   Store     |
-+-------------+     +----------+     +------+------+
-                                            |
-                                            v
-                                    +-------+-------+
-                                    | Elasticsearch |
-                                    |  (Read Model) |
-                                    +---------------+
-```
-
----
-
-## Database Architecture
-
-### ORM: SQLAlchemy 2.0
-
-```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-
-Base = declarative_base()
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-```
-
-### Key Database Models
-
-```python
-# models.py - Core entities
-
-class Customer(Base):
-    __tablename__ = "customers"
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), unique=True)
-    is_active = Column(Boolean, default=True)  # NOT an enum!
-    # ...
-
-class Vendor(Base):
-    __tablename__ = "vendors"
-    id = Column(Integer, primary_key=True)
-    company_name = Column(String(255))
-    status = Column(SQLEnum(VendorStatus))
-    # ...
-
-class Driver(Base):
-    __tablename__ = "drivers"
-    id = Column(Integer, primary_key=True)
-    status = Column(SQLEnum(DriverStatus))
-    # ...
-
-class Order(Base):
-    __tablename__ = "orders"
-    id = Column(Integer, primary_key=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"))
-    vendor_id = Column(Integer, ForeignKey("vendors.id"))
-    driver_id = Column(Integer, ForeignKey("drivers.id"))
-    status = Column(SQLEnum(OrderStatus))
-    # ...
-```
-
-### Entity Relationships
-
-```
-Customer (1) ----< (N) Order >---- (1) Vendor
-                      |
-                      +---- (0..1) Driver
-
-Vendor (1) ----< (N) MenuItem
-
-Order (1) ----< (N) OrderItem >---- (1) MenuItem
-
-Driver (1) ----< (N) DriverDocument
-```
-
-### Database Migrations
-
-Using **Alembic** for schema migrations:
-
-```bash
-cd apps/web/p2p-platform/backend
-alembic upgrade head       # Apply migrations
-alembic revision --autogenerate -m "Add new table"  # Generate migration
-```
-
----
-
-## API Communication Patterns
-
-### iOS to Backend Flow
-
-```
-+---------------+
-|   ViewModel   |
-+-------+-------+
-        |
-        | Calls async method
-        v
-+-------+-------+
-| P2PAPIService |  (Singleton)
-+-------+-------+
-        |
-        | URLSession.dataTask
-        v
-+-------+-------+
-|   Backend     |  (FastAPI)
-|   /api/*      |
-+-------+-------+
-        |
-        | JSON Response
-        v
-+-------+-------+
-| Decode to     |
-| Swift Model   |
-+---------------+
-```
-
-### Authentication Flow
-
-1. **Email/Password Login:**
-   ```
-   iOS App -> POST /api/auth/customer/login
-           <- { access_token, customer_id, email, full_name }
-           -> Store token in Keychain
-   ```
-
-2. **Google Sign-In:**
-   ```
-   iOS App -> GIDSignIn SDK -> Google OAuth
-           -> POST /api/auth/google/customer { id_token }
-           <- { access_token, customer_id }
-   ```
-
-3. **Apple Sign-In:**
-   ```
-   iOS App -> AuthenticationServices -> Apple OAuth
-           -> POST /api/auth/apple/customer { identity_token }
-           <- { access_token, customer_id }
-   ```
-
-### Token Management
-
-```swift
-// SecureStorage.swift - Keychain wrapper
-class SecureStorage {
-    static let shared = SecureStorage()
-
-    var customerAccessToken: String? {
-        get { keychain.get("customer_access_token") }
-        set { keychain.set(newValue, forKey: "customer_access_token") }
-    }
-}
-```
-
----
-
-## State Management
-
-### iOS State Management
-
-| State Type | Implementation | Scope |
-|------------|----------------|-------|
-| **View State** | `@State` | Single view |
-| **ViewModel State** | `@StateObject`, `@ObservedObject` | View + children |
-| **App-Wide State** | `@EnvironmentObject` | Entire view hierarchy |
-| **Persistent State** | UserDefaults, Keychain | Between sessions |
-| **Singleton State** | `P2PAPIService.shared` | Global access |
-
-### Environment Object Pattern
-
-```swift
-// App entry point
-@main
-struct eatfaircustomerApp: App {
-    @StateObject private var cartViewModel = MultiRestaurantCartViewModel()
-    @StateObject private var addressViewModel = AddressViewModel()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(cartViewModel)
-                .environmentObject(addressViewModel)
-        }
-    }
-}
-
-// Any child view can access:
-struct RestaurantDetailView: View {
-    @EnvironmentObject var cart: MultiRestaurantCartViewModel
-}
-```
-
-### Backend State Management
-
-- **Session State:** JWT tokens (stateless)
-- **Request State:** SQLAlchemy session per request
-- **Cache State:** Redis for frequently accessed data
-- **Event State:** Kafka for event sourcing (microservices)
-
----
+# Architecture
+
+**Analysis Date:** 2026-02-18
+
+## Pattern Overview
+
+**Overall:** Hybrid Monolith-first with aspirational microservices
+
+**Key Characteristics:**
+- Primary backend is a **single FastAPI monolith** (`main_new.py`, 22K lines) handling all business logic, routing, and data access
+- Backend is split across several "module" files that are `include_router`-ed into the main app: `order_flow.py`, `bid_routes.py`, `stripe_integration.py`, `rideshare_payments.py`, `chat_routes.py`, `matchmaking_routes.py`, `promotions.py`, etc.
+- A parallel **microservices layer** exists in `services/core/` (18 services) but is NOT the active production system — the monolith is what runs in ECS
+- **Four client platforms** all talk to the same backend REST API: iOS (3 apps), Android (3 apps), React admin portal, React customer/driver/vendor web portal
+- Real-time layer uses **WebSockets** (FastAPI + Redis pub/sub for cross-worker broadcast) and Firebase FCM for push notifications
+- **Redis** (AWS ElastiCache) provides rate limiting, session caching, response caching, and WebSocket pub/sub
+
+## Layers
+
+**API Layer (Monolith):**
+- Purpose: All HTTP routing, auth enforcement, input validation, business logic orchestration
+- Location: `apps/web/p2p-platform/backend/main_new.py`
+- Contains: FastAPI route handlers, Pydantic request/response models, middleware (CORS, security headers, admin auth), JWT auth, direct DB access via SQLAlchemy
+- Depends on: `database.py`, `models.py`, all sub-routers, `cache.py`, `email_service.py`
+- Used by: All four client platforms
+
+**Sub-Routers (Business Domain Modules):**
+- Purpose: Domain-specific logic carved out of the monolith into FastAPI `APIRouter` instances
+- Locations:
+  - `apps/web/p2p-platform/backend/order_flow.py` — food delivery order lifecycle (create → restaurant accept → driver assign → deliver)
+  - `apps/web/p2p-platform/backend/bid_routes.py` — rideshare price negotiation (request → bid → counter → match → complete)
+  - `apps/web/p2p-platform/backend/stripe_integration.py` — Stripe PaymentIntents + webhooks for food orders
+  - `apps/web/p2p-platform/backend/rideshare_payments.py` — Stripe PaymentIntents for rides (tiered $1/$2/$3 fees)
+  - `apps/web/p2p-platform/backend/chat_routes.py` — driver/customer in-app chat
+  - `apps/web/p2p-platform/backend/matchmaking_routes.py` — Wyoming legal matchmaking model (cash/Venmo fares)
+  - `apps/web/p2p-platform/backend/accounting_module.py` — double-entry journal entries, payouts
+  - `apps/web/p2p-platform/backend/promotions.py` — promo codes, deals
+  - `apps/web/p2p-platform/backend/verification_routes.py` — driver document verification
+  - `apps/web/p2p-platform/backend/auto_onboarding.py` — vendor onboarding automation
+- Depends on: `database.py`, `models.py`, `websocket_server.py`, `email_service.py`
+
+**Data Layer:**
+- Purpose: SQLAlchemy ORM models and database session management
+- Location: `apps/web/p2p-platform/backend/models.py` (1848 lines), `apps/web/p2p-platform/backend/models_extended.py`
+- Contains: `User`, `Customer`, `Driver`, `Vendor`, `Order`, `RideRequest`, `RideBid`, `Cart`, `CartItem`, `DriverPayout`, `VendorPayout`, `JournalEntry`, `AIEmployee`, `InAppNotification`, `RateLimitEntry`, etc.
+- Depends on: PostgreSQL (RDS) via `apps/web/p2p-platform/backend/database.py`
+- Note: `database.py` configures SQLAlchemy connection pool: 5+7 connections per worker, 4 workers × 2 ECS tasks = 96 connections (under RDS db.t3.micro limit of 112)
+
+**Cache Layer:**
+- Purpose: Redis-backed response caching, distributed rate limiting, WebSocket pub/sub, password reset tokens
+- Location: `apps/web/p2p-platform/backend/cache.py`
+- Contains: `cache_get`, `cache_set`, `rate_limit_check`, `store_reset_code`, `get_reset_code`
+- Depends on: AWS ElastiCache Redis at `dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379`
+- Fallback: Gracefully degrades to no-caching if Redis unavailable
+
+**Real-Time Layer:**
+- Purpose: WebSocket connection management and event broadcasting
+- Location: `apps/web/p2p-platform/backend/websocket_server.py`
+- Contains: `ConnectionManager` class managing subscriptions by topic (`customer:{id}`, `driver:{id}`, `restaurant:{id}`, `order:{id}`, `ride:{id}`)
+- Uses Redis pub/sub to broadcast across 4 uvicorn workers
+
+**iOS Shared Library:**
+- Purpose: Shared code across all 3 iOS apps (models, API client, config, UI components)
+- Location: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/`
+- Contains:
+  - `Services/P2PAPIService.swift` — central HTTP client (~14K lines), handles all REST calls
+  - `AppConfig.swift` — singleton configuration (pricing, URLs, feature flags, fee calculations)
+  - `Security/SecureStorage.swift` — Keychain token storage
+  - `Services/WebSocketManager.swift` — WebSocket connection management
+  - `Models/` — shared response models (Order, Driver, Restaurant, Address)
+  - `Views/` — shared SwiftUI views (payment breakdown, order confirmation, Google map)
+- Package: Swift Package Manager at `apps/ios/eatfair-ios-shared/Package.swift`, depends on Firebase SDK v12+
+
+**Android Shared Module:**
+- Purpose: Shared Kotlin code across 3 Android apps
+- Location: `apps/android/shared/` (referenced by all 3 Android modules)
+- Contains: `AppConfig` (environment-aware URLs), `SecureStorage` (Android Keychain), shared models, Retrofit service interfaces, Hilt DI providers
+- Used by: `:app`, `:driver`, `:partner` Gradle modules
+
+**React Admin Portal (Frontend):**
+- Purpose: Operations dashboard for admin, customer/vendor/driver management, accounting, rideshare monitoring
+- Location: `apps/web/p2p-platform/frontend/src/`
+- Contains: React + TypeScript SPA with Vite, React Router for routing, Tailwind CSS
+- Entry: `apps/web/p2p-platform/frontend/src/main.tsx` → `App.tsx` (all routes) → `app/screens/` + `app/components/`
+- Roles served: Admin, Customer (web portal), Vendor (restaurant portal), Driver (web portal)
+
+**Aspirational Microservices (NOT in production):**
+- Location: `services/core/` — 18 separate FastAPI services
+- Services: `auth-service` (8001), `driver-service` (8003), `restaurant-service` (8004), `order-service` (8005), `payment-service` (8008), `notification-service` (8009), `ride-service` (8014), plus `analytics-service`, `call-service`, `chat-service`, `location-service`, `menu-service`, `negotiation-service`, `pricing-service`, `rating-service`, `user-service`
+- Status: Scaffolded with proper structure (CQRS in `order-service/cqrs/`, Kafka events in `services/shared/events/`) but the monolith is the live system
+- Shared code: `services/shared/common/` (errors, logging, metrics, health, tracing)
 
 ## Data Flow
 
-### Order Placement Flow
+**Food Delivery Order Flow:**
+1. Customer adds items to cart → `POST /api/cart/add` (main_new.py, SQLAlchemy Cart/CartItem)
+2. Customer checkouts → `POST /api/payments/create-order` (stripe_integration.py) → Stripe PaymentIntent created
+3. Payment confirmed → Stripe webhook → `POST /api/payments/stripe-webhook` → Order created in DB with `status=placed`
+4. Restaurant receives push (FCM) + WebSocket broadcast (`restaurant:{vendor_id}`) + email
+5. Restaurant accepts → `POST /api/erp/orders/{id}/restaurant-accept` (order_flow.py) → status=`preparing`
+6. Driver sees available order → `GET /api/erp/orders/available-for-delivery` → claims order
+7. Driver assigned → `POST /api/erp/orders/{id}/assign-driver` → status=`assigned`, customer notified via WebSocket + FCM
+8. Driver picks up → `POST /api/erp/orders/{id}/picked-up` → status=`picked_up`
+9. Driver delivers → `POST /api/erp/orders/{id}/delivered` → status=`delivered` → Stripe auto-transfer to driver's Connect account → JournalEntry created
+10. Customer receives delivery confirmation email + receipt
 
-```
-Customer App                 Backend                    External Services
-     |                          |                              |
-     |-- 1. Add items to cart --|                              |
-     |                          |                              |
-     |-- 2. POST /api/orders -->|                              |
-     |                          |-- 3. Validate order          |
-     |                          |-- 4. Create PaymentIntent -->|-- Stripe
-     |                          |<-- PaymentIntent.client_secret|
-     |<-- Payment required -----|                              |
-     |                          |                              |
-     |-- 5. Stripe confirm ---->|------------------------------>|
-     |                          |<-- Payment success -----------|
-     |                          |                              |
-     |                          |-- 6. Create Order            |
-     |                          |-- 7. Notify Restaurant ----->|-- FCM
-     |                          |-- 8. Send confirmation ----->|-- Email
-     |<-- Order confirmed ------|                              |
-```
+**Rideshare Bidding Flow:**
+1. Customer creates ride request → `POST /api/rides/request` (bid_routes.py) → RideRequest in DB, broadcast to all drivers via WebSocket
+2. Drivers see request → `GET /api/rides/available` → each driver submits bid → `POST /api/rides/bid` → broadcast to customer
+3. Customer accepts bid or counter-offers → `POST /api/rides/bid/{id}/respond` → back-and-forth via WebSocket broadcast
+4. Match confirmed → RideRequest status=`matched`, customer creates payment intent → `POST /api/payments/ride/create-intent` (rideshare_payments.py)
+5. Driver arrives → `POST /api/erp/rides/{id}/arrive`
+6. Customer confirms → `POST /api/erp/rides/{id}/start` → status=`in_progress`
+7. Ride completes → `POST /api/erp/rides/{id}/complete-and-pay` → Stripe charge + auto-transfer to driver Stripe Connect account
+8. Optional tip → `POST /api/payments/ride/tip`, optional rating → `POST /api/erp/rides/{id}/rate`
 
-### Real-Time Updates
+**State Management:**
+- Backend: SQLAlchemy sessions (per-request, no global state), Redis for ephemeral state (rate limits, reset codes, WebSocket pub/sub)
+- iOS: `@ObservedObject` / `@StateObject` pattern, `AppConfig.shared` singleton, `P2PAPIService.shared` singleton
+- Android: Hilt DI + ViewModels + Repository pattern (MVVM), Room DB for local address caching
+- Frontend: React `Context` (`UserContext.tsx`) + component-local state
 
-```
-Backend                    Firebase Cloud Messaging           iOS App
-   |                              |                              |
-   |-- Order status change        |                              |
-   |-- Send FCM notification ---->|                              |
-   |                              |-- Push notification -------->|
-   |                              |                              |-- Display alert
-   |                              |                              |-- Update UI
-```
+## Key Abstractions
 
-### WebSocket Events (Chat/Negotiation)
+**RideRequest + RideBid (Bidding Engine):**
+- Purpose: Core matching primitive for rideshare — customer posts a request, multiple drivers bid, price negotiation via counter-offers
+- Examples: `apps/web/p2p-platform/backend/models.py` (RideRequest, RideBid models), `apps/web/p2p-platform/backend/bid_routes.py` (all bid logic)
+- Pattern: State machine — `RideRequestStatus` enum: `open → matched → in_progress → completed / cancelled`
+- `BidStatus` enum: `pending → accepted / rejected / withdrawn / counter_offered`
 
-```
-Driver App <-----> WebSocket Server <-----> Customer App
-                         |
-                   /api/ws/chat/{order_id}
-                   /api/ws/negotiation/{ride_id}
-```
+**Order (Food Delivery):**
+- Purpose: Food delivery lifecycle entity
+- Examples: `apps/web/p2p-platform/backend/models.py` (Order model at line ~400+), `apps/web/p2p-platform/backend/order_flow.py`
+- Pattern: State machine — `OrderStatus` enum: `placed → accepted → preparing → ready → picked_up → delivered / cancelled`
+
+**AppConfig (Mobile Shared):**
+- Purpose: Centralized singleton for pricing, URLs, feature flags — prevents hardcoded values across all apps
+- iOS: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/AppConfig.swift`
+- Android: `apps/android/shared/` (referenced as `AppConfig.apiBaseUrl`)
+- Pattern: Singleton, loads from Info.plist/BuildConfig, fetches live overrides from `GET /api/config`
+
+**P2PAPIService (iOS) / DollorApiService (Android):**
+- Purpose: Single point of all HTTP calls to backend — no direct URLSession/OkHttp calls in UI code
+- iOS: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift`
+- Android: `apps/android/shared/` (Retrofit-based service)
+- Pattern: Singleton with Combine/coroutines async, auth token from `SecureStorage`
+
+**AI Employees:**
+- Purpose: Named backend "agents" that appear in audit logs and reports (OrderBot Alpha, KitchenBot Beta, DispatchBot Gamma, LedgerBot Delta, QualityBot Epsilon)
+- Examples: `apps/web/p2p-platform/backend/models.py` (AIEmployee, AIEmployeeActivity), `apps/web/p2p-platform/backend/order_flow.py` (AI_EMPLOYEES dict)
+- Pattern: Metadata tagging — actual logic is regular Python functions, AI employee IDs appear in journal entries and activity logs
+
+## Entry Points
+
+**Backend (Primary):**
+- Location: `apps/web/p2p-platform/backend/main_new.py`
+- Triggers: `uvicorn main_new:app --workers 4` in ECS Fargate task (via `Dockerfile.optimized`)
+- Responsibilities: Creates FastAPI app, registers all middleware, mounts all sub-routers, serves static uploads, runs startup DB migrations
+
+**iOS Customer App:**
+- Location: `apps/ios/customer/eatfaircustomer/` (Xcode project)
+- Entry: Standard SwiftUI `@main` App struct
+- Responsibilities: Customer food ordering + rideshare booking
+
+**iOS Driver App:**
+- Location: `apps/ios/delivery/eatffairdelivery/`
+- Entry: Standard SwiftUI `@main` App struct
+- Responsibilities: Food delivery acceptance + rideshare bidding
+
+**iOS Restaurant App:**
+- Location: `apps/ios/restaurant/eatffairrestaurant/`
+- Entry: Standard SwiftUI `@main` App struct
+- Responsibilities: Menu management + order acceptance + analytics
+
+**Android Customer App:**
+- Location: `apps/android/app/src/main/java/com/eatfair/app/`
+- Entry: `DollorApp.kt` (Application class), `MainActivity.kt`
+- Responsibilities: Same as iOS customer app; uses Jetpack Compose
+
+**Android Driver App:**
+- Location: `apps/android/driver/src/main/java/com/eatfair/driver/`
+- Entry: `DriverApp.kt`, `MainActivity.kt`
+
+**Android Restaurant App:**
+- Location: `apps/android/partner/` (Gradle module `:partner`)
+
+**React Admin/Portal:**
+- Location: `apps/web/p2p-platform/frontend/src/main.tsx`
+- Entry: Vite + React, `BrowserRouter` wraps `App.tsx`
+- Responsibilities: Admin operations, vendor onboarding, rideshare monitoring, accounting, customer/driver management
+
+## Error Handling
+
+**Strategy:** Raise `HTTPException` at the route handler level for client errors; Python exceptions propagate as 500s (FastAPI's default). Email/push notification failures are always silent (try/except swallowed).
+
+**Patterns:**
+- Route handlers use `raise HTTPException(status_code=4xx, detail="message")` directly
+- `database.py:get_db()` does `db.rollback()` on exception before re-raising
+- Redis/cache failures are fully swallowed — app continues without caching
+- Firebase FCM failures are logged but never raised
+- `bid_routes.py` helper `_notify_customer()` fails silently: `logger.warning(...)` only
+- Microservices in `services/core/` use `from common import ErrorResponse` with structured error codes (AUTH001, ORD001, etc.) — not yet used in production monolith
+
+## Cross-Cutting Concerns
+
+**Logging:** Python `logging` module at `INFO` level. `logger = logging.getLogger(__name__)` in each module. No structured logging format in the monolith; microservices use `from common import create_logger`.
+
+**Validation:** Pydantic `BaseModel` on all request bodies. Field validators (`@field_validator`) used for security-sensitive fields (price bounds, quantity limits). XSS prevention via HTML tag stripping on user-facing string fields.
+
+**Authentication:** JWT (HS256, 24h expiry) stored in HTTP `Authorization: Bearer` header. Three separate token namespaces (customer, driver, vendor) stored in Keychain (iOS) / Android Keystore (Android). Admin endpoints protected by additional middleware (`admin_auth_middleware`) that runs before route handlers as defense-in-depth.
+
+**Rate Limiting:** Redis-backed rate limiting via `cache.rate_limit_check()`. Applied to all 4 login endpoints (10 req/min per IP). Distributed across all uvicorn workers via shared Redis.
 
 ---
 
-## Security Architecture
-
-### Authentication
-
-- **JWT Tokens:** `python-jose` with HS256
-- **Password Hashing:** bcrypt via `passlib`
-- **Token Storage:** iOS Keychain (never UserDefaults)
-
-### API Security
-
-- **CORS:** Environment-specific allowed origins
-- **Rate Limiting:** `RateLimitEntry` model for distributed limiting
-- **Input Validation:** Pydantic models for all requests
-- **File Upload:** Path traversal prevention, extension whitelist
-
-### Secure Communication
-
-- **HTTPS:** All API calls over TLS
-- **Firebase:** Secure token verification
-- **Stripe:** PCI-compliant payment handling
-
----
-
-## Environment Architecture
-
-| Environment | iOS Config | Backend URL | Features |
-|-------------|------------|-------------|----------|
-| Development | Development.xcconfig | dev-api.dollor.ai | Mock data, debug logging |
-| Staging | Staging.xcconfig | d3kuu45w6kl8hr.cloudfront.net | Real payments, debug logging |
-| Production | Production.xcconfig | api.dollor.ai | Full features, analytics |
-
----
-
-*Last Updated: January 2026*
+*Architecture analysis: 2026-02-18*

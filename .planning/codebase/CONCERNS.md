@@ -1,415 +1,279 @@
-# EatFair iOS Codebase Concerns
+# Codebase Concerns
 
-> **Analysis Date**: January 2026
-> **Codebase**: eatfair-ios (Customer, Driver, Restaurant Apps)
-> **Primary Language**: Swift 5.5+
-
-This document identifies technical debt, security considerations, performance issues, and maintenance concerns in the iOS codebase. It also highlights what is done well.
+**Analysis Date:** 2026-02-18
 
 ---
 
-## Table of Contents
+## Tech Debt
 
-1. [Technical Debt](#1-technical-debt)
-2. [Security Considerations](#2-security-considerations)
-3. [Performance Considerations](#3-performance-considerations)
-4. [Maintenance Concerns](#4-maintenance-concerns)
-5. [What's Done Well](#5-whats-done-well)
-6. [Prioritized Action Items](#6-prioritized-action-items)
+### Backend Monolith (Critical Scale Risk)
 
----
+**`main_new.py` - 22,343-line single file:**
+- Issue: The entire FastAPI backend lives in one file. Routes, business logic, models, middleware, WebSocket handlers, tax tables, demo setup, admin endpoints, and AI insights are all co-located.
+- Files: `apps/web/p2p-platform/backend/main_new.py`
+- Impact: Any change to the file risks merge conflicts; pytest loads the entire file for every test; IDE indexing is slow; no module boundaries between rideshare, food delivery, vendor management, and admin layers
+- Fix approach: Split by domain into routers — `routers/rideshare.py`, `routers/food.py`, `routers/admin.py`, `routers/vendor.py`, `routers/customer.py`. The pattern already exists for `bid_routes.py`, `order_flow.py`, `stripe_integration.py` — extend it.
 
-## 1. Technical Debt
+### iOS API Client Monolith
 
-### 1.1 Deprecated APIs and Legacy Code
+**`P2PAPIService.swift` - 14,126-line single file:**
+- Issue: All API calls, all response models, all Codable structs for every domain (food delivery, rideshare, vendor, driver, customer, admin) are in one Swift file.
+- Files: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift`
+- Impact: Long compile times; every iOS app that imports `EatFairShared` compiles all 14K lines including irrelevant models; naming collisions risk; hard to onboard new developers
+- Fix approach: Split into `FoodDeliveryAPI.swift`, `RideshareAPI.swift`, `VendorAPI.swift`, `DriverAPI.swift`, and `SharedModels.swift` under the same Swift package target.
 
-**Location**: `/apps/ios/eatfair-ios-shared/Sources/EatFairShared/AppConfig.swift`
+### Route Aliases Anti-Pattern
 
-Several properties are marked as deprecated but still present in the codebase:
+**`main_new.py` lines 21994-22061 — manual `app.add_api_route()` block:**
+- Issue: ~70 route aliases added via `app.add_api_route()` at the bottom of the file because stacked `@app.decorator` patterns were failing. Multiple routes (`/api/driver/online/toggle` as both PUT and POST) point to the same handler.
+- Files: `apps/web/p2p-platform/backend/main_new.py:21994-22061`
+- Impact: OpenAPI docs show duplicate routes; unclear which URL clients should use; removing aliases requires auditing all iOS/Android callers
+- Fix approach: Pick canonical URLs per endpoint and update mobile apps; delete duplicates; document the chosen URL in a route registry.
 
-```swift
-// Lines 100-107 - Distance-based pricing (deprecated)
-@Published public var ridesharePlatformFeePerMile: Double = 0.10  // Deprecated
-@Published public var ridesharePlatformFeeMinimum: Double = 1.00  // Deprecated
-@Published public var rideshareDistanceTier1Max: Double = 10.0   // Deprecated
-@Published public var rideshareDistanceTier2Max: Double = 20.0   // Deprecated
-@Published public var rideshareDistanceTier1Fee: Double = 1.00   // Deprecated
-@Published public var rideshareDistanceTier2Fee: Double = 2.00   // Deprecated
-@Published public var rideshareDistanceTier3Fee: Double = 3.00   // Deprecated
+### Deployment: Two Dockerfiles, Wrong One in CI
 
-// Line 50 - Service fee rate (deprecated)
-@Published public var serviceFeeRate: Double = 0.0  // DEPRECATED: Dollor.ai uses flat $1 fees
-```
-
-**Deprecated Methods** (Lines 191-220):
-- `getRideshareTier(distanceMiles:)` - Use `getRideshareTier(fareAmount:)` instead
-- `getRideshareTierName(distanceMiles:)` - Use `getRideshareTierName(fareAmount:)` instead
-- `getRideshareFeeDescription(distanceMiles:)` - Use `getRideshareFeeDescription(fareAmount:)` instead
-- `getRidesharePlatformFeeBreakdown(distanceMiles:)` - Use `getRidesharePlatformFeeBreakdown(fareAmount:)` instead
-
-**Deprecated Model**:
-- `/apps/ios/eatfair-ios-shared/Sources/EatFairShared/Models/Order.swift` (Line 160-161):
-  - `DeliveryOrderStatus` enum marked as deprecated - renamed to `OrderStatus`
-
-**Recommendation**: Remove deprecated properties after confirming no active usage. Create migration script to update any external references.
+**CI uses plain `Dockerfile`; optimized version is manual-only:**
+- Issue: `.github/workflows/deploy-dollar-ai.yml` line 94 runs `docker build ... .` which picks up `Dockerfile` (single uvicorn worker, no uvloop, no httptools). The `Dockerfile.optimized` with 4 workers + uvloop is only used for manual production deploys.
+- Files: `.github/workflows/deploy-dollar-ai.yml:94`, `apps/web/p2p-platform/backend/Dockerfile`, `apps/web/p2p-platform/backend/Dockerfile.optimized`
+- Impact: Every CI-triggered deploy (on push to `main`) runs a single-worker server. Manual deploys with `Dockerfile.optimized --target production` run 4x more workers. Production behavior depends on who deployed.
+- Fix approach: Update CI to use `docker build -f Dockerfile.optimized --target production ...` and retire the legacy `Dockerfile`.
 
 ---
 
-### 1.2 Firebase Remnants
+## Security Considerations
 
-**Issue**: Firebase is still used for Firestore database operations despite transition to P2P API backend.
+### App Store Connect `.p8` Private Keys in Git
 
-**Files with Firebase imports**:
+**Three copies of `AuthKey_JFVA7628SX.p8` committed:**
+- Risk: The App Store Connect API key for `JFVA7628SX` is committed to the repository in three locations. Anyone with repo access can upload builds to App Store Connect, bypass TestFlight review, or revoke the key.
+- Files:
+  - `apps/ios/customer/fastlane/keys/AuthKey_JFVA7628SX.p8`
+  - `apps/ios/delivery/fastlane/keys/AuthKey_JFVA7628SX.p8`
+  - `apps/ios/restaurant/fastlane/keys/AuthKey_JFVA7628SX.p8`
+- Current mitigation: None. `.gitignore` does not exclude `*.p8` files.
+- Recommendations: Revoke key `JFVA7628SX` in App Store Connect immediately. Generate a new key. Store it only in CI secrets (`APP_STORE_CONNECT_API_KEY_KEY` env var as in `.github/workflows/ios-ci.yml.disabled`). Add `*.p8` to `.gitignore`. Clean git history with `git filter-repo`.
 
-| File | Firebase Usage |
-|------|----------------|
-| `eatfaircustomerApp.swift` | FirebaseCore, FirebaseAuth, FirebaseFirestore, FirebaseMessaging |
-| `DatabaseSeeder.swift` | FirebaseFirestore (database seeding) |
-| `MultiRestaurantCheckoutView.swift` | FirebaseFirestore, FirebaseAuth |
-| `MultiRestaurantCartViewModel.swift` | FirebaseAuth |
-| `OrderHistoryView.swift` | FirebaseFirestore |
-| `ProfileView.swift` | FirebaseAuth |
-| `SettingsView.swift` | FirebaseAuth |
-| `MenuViewModel.swift` | FirebaseFirestore |
-| `AIEmployeeService.swift` | FirebaseFirestore, FirebaseAuth |
-| `ChatManager.swift` (delivery app) | FirebaseFirestore, FirebaseAuth |
-| `eatffairrestaurantApp.swift` | FirebaseCore, FirebaseMessaging |
-| `eatffairdeliveryApp.swift` | FirebaseCore, FirebaseAuth, FirebaseMessaging |
+### Production DB Password in git History
 
-**Package.swift Dependency**:
-```swift
-// /apps/ios/eatfair-ios-shared/Package.swift
-.package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0")
-```
+- Risk: `apps/web/p2p-platform/backend/.env` was previously committed (now listed in `.gitignore`). Per MEMORY.md: "Production DB password in `backend/.env` — needs rotation + git history cleanup."
+- Files: `apps/web/p2p-platform/backend/.env` (currently `.gitignore`d but present in git history)
+- Current mitigation: File is gitignored. Password may still be in git history.
+- Recommendations: Rotate the RDS password. Run `git filter-repo --path apps/web/p2p-platform/backend/.env --invert-paths` and force-push. Invalidate any sessions using the old password.
 
-**Recommendation**:
-1. Evaluate which Firebase features are actually needed (Push notifications via FCM is likely required)
-2. Migrate remaining Firestore operations to P2P API
-3. Remove unused Firebase imports to reduce app size
-4. Consider keeping only FirebaseMessaging for push notifications
+### Android Demo Credentials Mismatch
 
----
+**`AppConfig.kt` uses wrong email addresses:**
+- Issue: `AppConfig.DemoCredentials` in the shared Android module has wrong emails: `demo@dollor.ai` (customer), `demodriver@dollor.ai` (driver), `demobusiness@dollor.ai` (vendor). The canonical App Store review credentials are `demo.customer@dollor.ai`, `demo.driver@dollor.ai`, `demo.restaurant@dollor.ai`.
+- Files: `apps/android/shared/src/main/java/com/eatfair/shared/config/AppConfig.kt:107-109`
+- Impact: The Android demo login hints show wrong emails to App Store/Play Store reviewers, causing review failures.
+- Fix approach: Update `CUSTOMER_EMAIL_HINT`, `DRIVER_EMAIL_HINT`, and `VENDOR_EMAIL_HINT` constants to match canonical credentials. Verify `POST /api/demo/setup` creates accounts with these exact emails.
 
-### 1.3 Dead Code and Backup Files
+### DEBUG `print()` Left in Demo Code
 
-**Location**: `/apps/ios/customer/eatfaircustomer/_dead_code_backup/`
-
-Contains 4 backup files that should be removed:
-- `CartView.swift` (replaced by MultiRestaurantCartView)
-- `CartViewModel.swift` (replaced by MultiRestaurantCartViewModel)
-- `DealsView.swift`
-- `CheckoutView.swift` (1,198 lines - replaced by MultiRestaurantCheckoutView)
-
-**Total Size**: ~2,200 lines of dead code
-
-**Recommendation**: Delete the `_dead_code_backup` directory. These files are already in git history if needed.
+- Risk: `print(f"DEBUG create_demo_order: demo_customer.id = ...")` is in production code. CloudWatch logs will contain debug output during App Store review demo flows.
+- Files: `apps/web/p2p-platform/backend/main_new.py:20051`
+- Current mitigation: None — this logs in production.
+- Recommendations: Replace with `logger.debug()` or remove entirely.
 
 ---
 
-### 1.4 TODO and FIXME Comments
+## Known Bugs
 
-**Active TODOs requiring attention**:
+### `platform_fees_paid` Hardcodes $1/delivery for All Order Types
 
-| Location | TODO |
-|----------|------|
-| `NotificationView.swift:226-239` | API endpoint implementation for notifications |
-| `P2PAPIService.swift:8510` | Restaurant self-delivery vs driver delivery upgrade |
-| `P2PAPIService.swift:8726` | Restaurant self-delivery upgrade |
-| `P2PAPIService.swift:8872` | General upgrade for app go-live |
+- Symptoms: The iOS Driver Dashboard v5 endpoint at `GET /api/drivers/{driver_id}/dashboard` returns `platform_fees_paid.today` as `deliveries * 1.0` for ALL order types. Rideshare platform fees are $1/$2/$3 (fare-tiered), not a flat $1.
+- Files: `apps/web/p2p-platform/backend/main_new.py:6967-6970`
+- Trigger: Any driver who completes rideshare rides — their platform fees dashboard will show $1 per ride regardless of fare tier.
+- Workaround: None. The dashboard stat is purely informational but factually wrong for rideshare drivers.
 
-**Recommendation**: Create tracking issues for each TODO before app launch.
+### Health Check Build Tag Stale
 
----
+- Symptoms: `GET /health` returns `"build": "2026-02-11-negotiation-round-fix"` even though many deployments have happened since then (current task-def is `dollor-api:343`).
+- Files: `apps/web/p2p-platform/backend/main_new.py:314`
+- Trigger: Every health check response. Monitoring and support can't distinguish deployment versions.
+- Workaround: Use ECS task definition revision number from CloudWatch as a proxy.
 
-### 1.5 Large Files Needing Refactoring
+### Hardcoded Demo Driver ID 48
 
-| File | Lines | Concern |
-|------|-------|---------|
-| `P2PAPIService.swift` | 10,723 | Monolithic API service - should be split by domain |
-| `TripBoardView.swift` | 2,105 | Large view - extract subviews |
-| `AvailableOrdersView.swift` | 1,875 | Large view |
-| `DriverProfileView.swift` | 1,787 | Large view |
-| `TripBoardService.swift` | 1,733 | Large service |
-| `RideRequestView.swift` | 1,699 | Large view |
-| `HomeView.swift` | 1,441 | Large view |
-| `RestaurantSettingsView.swift` | 1,383 | Large view |
-| `MultiRestaurantCheckoutView.swift` | 1,230 | Large view |
+- Symptoms: The `POST /api/demo/reset-driver` endpoint hardcodes `Driver.id == 48` for all queries. If the demo driver's ID changes (re-seeded DB, new staging environment), the reset silently does nothing.
+- Files: `apps/web/p2p-platform/backend/main_new.py:19896, 19901, 19915, 19920, 19930`
+- Trigger: Running demo reset in any environment where the demo driver isn't id=48.
 
-**Recommendation**: Split `P2PAPIService.swift` into domain-specific services:
-- `CustomerAPIService.swift`
-- `DriverAPIService.swift`
-- `VendorAPIService.swift`
-- `OrderAPIService.swift`
-- `RideshareAPIService.swift`
+### Vendor `is_open` Always Returns `True`
 
----
+- Symptoms: `GET /api/vendors` returns `"is_open": True` for all vendors regardless of configured business hours.
+- Files: `apps/web/p2p-platform/backend/main_new.py:13691`
+- Trigger: Any customer app listing restaurants. Customers can order from "open" restaurants that are actually closed, leading to rejected/cancelled orders.
+- Workaround: None currently implemented.
 
-## 2. Security Considerations
+### Fake Tax EIN on Ride Receipts
 
-### 2.1 What's Done Well (Security)
+- Symptoms: `GET /api/rides/{ride_id}/receipt` returns `"tax_id": "XX-XXXXXXX"` in the legal footer — a placeholder, not the real EIN.
+- Files: `apps/web/p2p-platform/backend/order_flow.py:1219`
+- Trigger: Any customer requesting a ride receipt. This is a compliance risk for tax/legal documentation.
 
-**Secure Token Storage**:
-- Authentication tokens stored in iOS Keychain via `SecureStorage.swift`
-- Uses `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` for proper protection
-- Token migration from UserDefaults to Keychain implemented
+### Fake Insurance Liability in Matchmaking
 
-**API Key Configuration**:
-- Google Maps API key loaded from `Info.plist` or `GoogleService-Info.plist`
-- No hardcoded API keys in source code
-- Proper validation with `starts(with: "AIza")` check
-- `/apps/ios/eatfair-ios-shared/Sources/EatFairShared/Config/GoogleMapsConfig.swift`
-
-**Network Security** (`NetworkSecurity.swift`):
-- TLS 1.2 minimum enforced
-- Cookie handling disabled for sensitive requests
-- Certificate pinning infrastructure ready (currently ATS-only)
-- Stripe certificate pins configured
-
-```swift
-// Good security configuration
-configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
-configuration.httpShouldSetCookies = false
-configuration.httpCookieAcceptPolicy = .never
-configuration.urlCache = nil  // Disabled for sensitive requests
-```
-
-### 2.2 Areas for Improvement
-
-**Certificate Pinning Disabled**:
-```swift
-// NetworkSecurity.swift - Lines 16-28
-"dollor.ai": [
-    // Certificate pinning disabled - using ATS for security
-],
-"api.dollor.ai": [
-    // Certificate pinning disabled - using ATS for security
-],
-```
-
-**Recommendation**: Enable certificate pinning for production before high-value transactions are processed.
-
-**UserDefaults for Non-Sensitive Data**:
-Some data stored in UserDefaults that could be considered semi-sensitive:
-- `p2p_customer_id`
-- `p2p_vendor_id`
-- `p2p_driver_id`
-- User names and emails
-
-**Recommendation**: Review if user IDs should be moved to Keychain.
-
-**Debug Logging in Production**:
-Extensive `#if DEBUG` gated logging exists, which is good. However, some print statements may leak through:
-
-```swift
-// P2PAPIService.swift lines 1327-1398
-print("DEBUG API vendorGoogleAuth: URL = \(fullURL)")
-print("DEBUG API vendorGoogleAuth: Request body = \(body)")
-```
-
-**Recommendation**: Audit all print statements to ensure they're properly gated.
+- Symptoms: `matchmaking_routes.py` hardcodes `insurance_liability=100000.0` with a comment "Placeholder - would come from driver's policy." No actual insurance verification occurs.
+- Files: `apps/web/p2p-platform/backend/matchmaking_routes.py:541`
+- Trigger: Any ride match creation event.
 
 ---
 
-## 3. Performance Considerations
+## Performance Bottlenecks
 
-### 3.1 Large API Service Impact
+### DB Connection Ceiling at 2 ECS Tasks
 
-The 10,723-line `P2PAPIService.swift` file:
-- Increases compile time
-- Makes code navigation difficult
-- Creates potential for merge conflicts
-- Uses 145+ URLSession calls
+- Problem: `db.t3.micro` has ~112 max connections. Pool sizing is `pool_size=5, max_overflow=7` = 12 connections per process. With 4 workers × 2 ECS tasks = 8 processes × 12 = 96 connections, leaving only 16 headroom.
+- Files: `apps/web/p2p-platform/backend/database.py:14-16`
+- Cause: ECS auto-scaling is capped at `max=2` tasks because 3 tasks × 48 connections (4 workers × 12) = 144 > 112 limit.
+- Improvement path: Upgrade to `db.t3.small` (~225 connections), which allows `max=4` ECS tasks. Or add PgBouncer for connection pooling.
 
-**Recommendation**: Refactor into smaller, focused services.
+### Redis Single-Node (No Failover)
 
-### 3.2 Image Loading
+- Problem: Redis is deployed as a single ElastiCache node (`dollor-redis.uwva3u.0001.use1.cache.amazonaws.com`). If it fails, rate limiting silently disables, password reset codes are lost, and response caching stops (though the app falls back gracefully).
+- Files: `apps/web/p2p-platform/backend/cache.py:17`
+- Cause: Single-node ElastiCache deployment (no replication group).
+- Improvement path: Switch to ElastiCache Replication Group with 1 replica and automatic failover. Update `REDIS_URL` to use the cluster endpoint.
 
-Multiple files use basic `AsyncImage` without caching strategy:
-- 180+ files contain image loading code
-- No apparent centralized image caching
+### N+1 Query Risk: Driver Dashboard
 
-**Recommendation**: Implement a shared image caching layer (consider SDWebImage or custom URLCache configuration).
-
-### 3.3 Timer and Network Usage
-
-Files with significant Timer/URLSession usage:
-- `P2PAPIService.swift`: 145 URLSession instances
-- `NegotiationService.swift`: 4 Timer uses (WebSocket keep-alive)
-- `ChatService.swift`: 6 Timer uses
-- `NetworkSecurity.swift`: 9 URLSession configurations
-
-**Potential Issues**:
-- Multiple WebSocket connections may impact battery
-- Timer-based polling could be replaced with server-sent events
-
-**Recommendation**: Review timer usage and consider more efficient patterns.
-
-### 3.4 State Management Overhead
-
-Heavy use of SwiftUI state management:
-- 223+ occurrences of `@State`, `@StateObject`, `@ObservedObject`, `@EnvironmentObject`
-- Some views have 35+ state variables (`TripBoardView.swift`)
-
-**Recommendation**: Consider consolidating state into larger view models for complex views.
+- Problem: The `calc_period_earnings` helper in `GET /api/drivers/{driver_id}/dashboard` calls `db.query(Order).all()` three times sequentially (today, week, month). Each call loads full `Order` objects into memory. As order volume grows, this degrades.
+- Files: `apps/web/p2p-platform/backend/main_new.py:6900-6925`
+- Cause: Three separate DB queries instead of one query with period aggregation.
+- Improvement path: Replace with a single `GROUP BY` aggregation query using `CASE WHEN delivered_at >= :week_start THEN 1 ELSE 0 END` for period bucketing.
 
 ---
 
-## 4. Maintenance Concerns
+## Fragile Areas
 
-### 4.1 Duplicate Code
+### Stale Acceptance/Completion Rate Hardcodes
 
-**LocationManager Duplication**:
-Two separate implementations exist:
-- `customer/eatfaircustomer/Services/LocationManager.swift` (35 lines)
-- `delivery/eatffairdelivery/Services/LocationManager.swift` (441 lines)
+**Driver dashboard returns fabricated operational metrics:**
+- Files: `apps/web/p2p-platform/backend/main_new.py:6951-6952`
+- Why fragile: `"acceptance_rate": 95.0` and `"completion_rate": 98.0` are hardcoded for every driver. iOS displays these as real stats. If acceptance/completion tracking is ever added to the DB, this code will need to be identified and updated — there's no schema-level enforcement.
+- Safe modification: Add `acceptance_rate` and `completion_rate` columns to `Driver` model, default them to `None`, and return `None` vs. a fake number.
 
-**Recommendation**: Move shared location functionality to `eatfair-ios-shared`.
+### `on_time_percentage: 95` Placeholder
 
-**Multiple Codable Implementations**:
-127+ Codable structs/extensions defined across the codebase. Most are in the shared module, which is good, but some duplication exists.
+**Three separate locations return fake on-time data:**
+- Files:
+  - `apps/web/p2p-platform/backend/main_new.py:6961`
+  - `apps/web/p2p-platform/backend/main_new.py:6990`
+  - `apps/web/p2p-platform/backend/main_new.py:20751`
+- Why fragile: Duplicate placeholder values with no test ensuring they match. If one is updated and others are not, drivers see inconsistent on-time percentages depending on which endpoint is called.
 
-### 4.2 Inconsistent Patterns
+### `hasattr` Guards for Model Fields
 
-**Debug Conditionals**:
-Some files use `#if DEBUG` properly, while others use plain `print()` statements.
+**Driver dashboard defensively checks model attribute existence:**
+- Files: `apps/web/p2p-platform/backend/main_new.py:6973-6976`
+- Why fragile: `hasattr(driver, 'stripe_onboarded')` and `hasattr(driver, 'stripe_account_id')` suggest these fields were added to `Driver` model without updating all code paths. If fields are later renamed or removed, `hasattr` silently returns `False` instead of raising an error.
+- Safe modification: Remove `hasattr` guards; rely on `driver.stripe_onboarded` directly (it will raise `AttributeError` if missing, which is detectable).
 
-**WebSocket URL Handling**:
-Two similar patterns for WebSocket URL conversion:
-```swift
-// NegotiationService.swift:266
-.replacingOccurrences(of: "http://", with: "ws://")
+### Inline `from ... import` Inside Functions
 
-// ChatService.swift:304
-.replacingOccurrences(of: "http://", with: "ws://")
-```
-
-**Recommendation**: Create a shared utility for URL scheme conversion.
-
-### 4.3 Missing Documentation
-
-**Files lacking documentation**:
-- Most ViewModels lack comprehensive documentation
-- API response models could use more property documentation
-- Complex business logic in checkout flows needs comments
-
-**Well-documented files** (good examples to follow):
-- `AppConfig.swift` - Excellent pricing model documentation
-- `SecureStorage.swift` - Clear method documentation
-- `GoogleMapsConfig.swift` - API requirements documented
-
-### 4.4 Test Coverage
-
-**Existing Tests**:
-- `eatfaircustomerTests/eatfaircustomerTests.swift` - Unit tests
-- `CustomerAppStagingAPITests.swift` (1,068 lines) - API integration tests
-- `eatffairrestaurantUITests.swift` (1,312 lines) - UI tests
-
-**Missing Tests**:
-- Shared module has limited test coverage
-- ViewModels lack unit tests
-- Payment flows need more test coverage
-
-**Recommendation**: Add unit tests for:
-- `P2PAPIService` critical paths
-- Payment processing
-- Order state management
-
-### 4.5 Dependency Management
-
-**Current Dependencies**:
-- Firebase iOS SDK 12.0.0
-- Stripe iOS (via SPM)
-- Google Sign-In iOS
-- Swift Protobuf
-
-**Concerns**:
-- Firebase SDK is large (increases app size)
-- Multiple build artifacts in checkouts directories consuming disk space
-
-**Recommendation**: Review if all Firebase products are needed. Consider lazy loading for less-used features.
+**Deferred imports scattered through `main_new.py`:**
+- Files: `apps/web/p2p-platform/backend/main_new.py:6361, 12914, 13017, 14435, 14574, 20869, 20890`
+- Why fragile: `from order_flow import send_push_notification` inside function bodies means import errors are only caught at runtime when the code path executes. Circular import issues may be masked.
+- Safe modification: Move all imports to the top of the file or the relevant module, resolving any circular dependencies explicitly.
 
 ---
 
-## 5. What's Done Well
+## Scaling Limits
 
-### 5.1 Architecture Strengths
+### ECS Task Count Hard-Capped at 2
 
-1. **Shared Module**: `eatfair-ios-shared` provides excellent code reuse across all three apps
-2. **Centralized Configuration**: `AppConfig.swift` serves as single source of truth for pricing and API URLs
-3. **Secure Storage**: Proper Keychain usage for sensitive data
-4. **Environment Management**: xcconfig-based environment URLs (Dev/Staging/Production)
+- Current capacity: 2 ECS Fargate tasks × 4 uvicorn workers = 8 processes
+- Limit: Adding a 3rd task would require 144 DB connections (3 × 4 workers × 12), which exceeds `db.t3.micro`'s 112-connection limit
+- Scaling path: Upgrade to `db.t3.small` (225 connections), then set `max=4` in ECS auto-scaling. Alternatively, add PgBouncer sidecar to pool connections before they hit RDS.
 
-### 5.2 Code Quality
+### Single-Region Deployment
 
-1. **SwiftUI Best Practices**: Proper use of `@MainActor` and `DispatchQueue.main`
-2. **Error Handling**: Centralized `ErrorHandler.swift` for consistent messaging
-3. **Type Safety**: Extensive use of Codable protocols
-4. **No Force Unwrapping in Production Code**: Force unwraps (`!`) are limited to test code
-
-### 5.3 Security Practices
-
-1. **No Hardcoded Secrets**: API keys loaded from plist files
-2. **HTTPS Enforcement**: All API calls use HTTPS
-3. **Token Security**: Proper Keychain storage with appropriate accessibility settings
-4. **Debug Code Gating**: `#if DEBUG` used throughout
-
-### 5.4 Documentation
-
-1. **Pricing Model**: Extensively documented in `AppConfig.swift`
-2. **API Configuration**: Clear comments about required Google Cloud APIs
-3. **Bundle IDs**: Documented for each app target
+- Current: All infrastructure in `us-east-1` (ECS, RDS, ElastiCache, ECR)
+- Limit: Any `us-east-1` AZ or regional outage takes the entire platform down
+- Scaling path: Add CloudFront for static assets (already done for frontend). RDS Multi-AZ read replica for read-heavy queries. Long-term: Route 53 latency routing + second region.
 
 ---
 
-## 6. Prioritized Action Items
+## Dependencies at Risk
 
-### High Priority (Before Launch)
+### No Pinned Python Package Versions (Minor Risk)
 
-| Item | File(s) | Effort |
-|------|---------|--------|
-| Implement notification API endpoints | `NotificationView.swift` | Medium |
-| Complete self-delivery logic | `P2PAPIService.swift` | Medium |
-| Delete `_dead_code_backup` directory | Customer app | Low |
-| Enable certificate pinning | `NetworkSecurity.swift` | Medium |
+- Risk: `requirements.txt` may allow `pip install` to upgrade packages unexpectedly in new Docker builds
+- Files: `apps/web/p2p-platform/backend/requirements.txt`
+- Impact: A minor upstream breaking change (e.g., SQLAlchemy 2.x behavior) could cause silent failures on the next build
+- Migration plan: Run `pip freeze > requirements.txt` to pin all transitive dependencies, or use `pip-compile` with `pyproject.toml`
 
-### Medium Priority (Post-Launch)
+### KOT Integration: Clover/Toast Partially Implemented
 
-| Item | File(s) | Effort |
-|------|---------|--------|
-| Refactor `P2PAPIService.swift` into smaller services | Shared module | High |
-| Consolidate `LocationManager` implementations | Customer & Delivery apps | Medium |
-| Add unit tests for ViewModels | All apps | High |
-| Remove deprecated pricing properties | `AppConfig.swift` | Low |
-| Implement image caching | All apps | Medium |
-
-### Low Priority (Future Sprints)
-
-| Item | File(s) | Effort |
-|------|---------|--------|
-| Migrate remaining Firebase Firestore usage to P2P API | Multiple files | High |
-| Split large views into smaller components | Multiple views | Medium |
-| Add comprehensive documentation | ViewModels | Medium |
-| Optimize WebSocket reconnection logic | NegotiationService, ChatService | Medium |
-| Review Firebase SDK usage and remove unused products | Package.swift | Medium |
+- Risk: `kot_integrations.py` includes `CloverIntegration` and `ToastIntegration` classes, but `kot_integrations.py:528-540` has `# TODO: Update our order status based on Square status` and `# TODO: Fetch order details and update our status`. Status sync is one-way.
+- Files: `apps/web/p2p-platform/backend/kot_integrations.py:528-540`
+- Impact: Orders sent to POS systems don't sync status back. Operators must manually reconcile.
 
 ---
 
-## Appendix: Quick Commands
+## Missing Critical Features
 
-```bash
-# Find all TODO comments
-grep -r "TODO" apps/ios --include="*.swift" | grep -v ".build" | grep -v "checkouts"
+### On-Time Delivery Tracking
 
-# Find all deprecated usages
-grep -r "deprecated" apps/ios --include="*.swift" | grep -v ".build"
+- Problem: No mechanism exists to track when a driver picked up or delivered an order vs. the estimated time. Three hardcoded `95` values are returned instead.
+- Blocks: Accurate driver performance scoring, quality control, SLA monitoring.
 
-# Find Firebase imports
-grep -r "import Firebase" apps/ios --include="*.swift" | grep -v ".build" | grep -v "checkouts"
+### Real Business Hours Enforcement
 
-# Count lines in largest files
-find apps/ios -name "*.swift" -type f ! -path "*build*" ! -path "*checkouts*" -exec wc -l {} \; | sort -rn | head -20
-```
+- Problem: Vendor `is_open` status is hardcoded `True` in the listing endpoint (`main_new.py:13691`). The `Vendor` model has a `business_hours` JSON field but it's never evaluated against current time.
+- Blocks: Customers can order from closed restaurants.
+
+### Surge Pricing Implementation
+
+- Problem: `order_flow.py:826` has `# TODO: Add surge pricing based on demand/time`. An endpoint `/api/rideshare/surge-pricing` exists in route definitions but returns 404 in test reports. `GET /api/erp/pricing/surge` is documented in `ENTERPRISE_PRODUCTION_AUDIT.md` but not implemented.
+- Blocks: Revenue optimization during peak demand.
+
+### Real EIN / Legal Entity Data
+
+- Problem: `order_flow.py:1219` returns `"tax_id": "XX-XXXXXXX"` on all ride receipts. `"address": "123 Main Street, San Francisco, CA 94102"` is a placeholder address.
+- Blocks: Legal compliance for tax documentation sent to customers.
+
+### Driver Bonus Tracking
+
+- Problem: `main_new.py:6913` — `bonuses = 0.0  # Future: add bonus tracking`. The bonus field is always zero in driver earnings.
+- Blocks: Driver incentive programs.
 
 ---
 
-*This document should be updated as concerns are addressed or new ones are identified.*
+## Test Coverage Gaps
+
+### No Coverage Enforcement
+
+- What's not tested: There is no `--cov-fail-under` threshold in `pytest.ini` or any CI gate requiring minimum coverage.
+- Files: `apps/web/p2p-platform/backend/pytest.ini`
+- Risk: Coverage can regress to zero without any automated alert.
+- Priority: Medium
+
+### `main_new.py` Largely Untested
+
+- What's not tested: The 22K-line monolith lacks direct unit tests. Test files in `tests/unit/` target specific sub-modules (`test_order_flow.py`, `test_stripe_integration.py`, `test_promotions.py`) but none systematically test the route handlers defined directly in `main_new.py` — vendor management, customer address CRUD, admin endpoints, dashboard routes.
+- Files: `apps/web/p2p-platform/backend/tests/unit/`, `apps/web/p2p-platform/backend/main_new.py`
+- Risk: Regressions in vendor/customer/admin endpoints go undetected.
+- Priority: High
+
+### Test Assertions Accept 404/405 as "Pass"
+
+- What's not tested: Multiple test methods in `test_vendor_endpoints.py` explicitly accept HTTP 404 or 405 as a passing condition: `"Accept 404/405 if endpoint not implemented yet"`.
+- Files: `apps/web/p2p-platform/backend/tests/unit/test_vendor_endpoints.py:35, 43, 163, 214, 238`
+- Risk: Endpoints can be missing entirely and the test suite still passes.
+- Priority: High
+
+### No iOS or Android Automated Tests
+
+- What's not tested: `eatfaircustomerTests/eatfaircustomerTests.swift`, `eatffairdeliveryTests/eatffairdeliveryTests.swift`, and `eatffairrestaurantTests/eatffairrestaurantTests.swift` exist as Xcode test targets but contain only the default XCTest boilerplate. There are no test implementations.
+- Files:
+  - `apps/ios/customer/eatfaircustomerTests/eatfaircustomerTests.swift`
+  - `apps/ios/delivery/eatffairdeliveryTests/eatffairdeliveryTests.swift`
+  - `apps/ios/restaurant/eatffairrestaurantTests/eatffairrestaurantTests.swift`
+- Risk: Any Swift regression that doesn't cause a compile error goes undetected until a human tests the app manually.
+- Priority: High
+
+---
+
+*Concerns audit: 2026-02-18*

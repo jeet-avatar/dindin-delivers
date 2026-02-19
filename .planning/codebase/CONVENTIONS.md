@@ -1,726 +1,356 @@
-# Dollor.ai (EatFair) Code Conventions
+# Coding Conventions
 
-This document captures the naming conventions, code patterns, and style guidelines observed throughout the eatfair-ios codebase.
-
----
-
-## File Naming Conventions
-
-### Swift Files (iOS)
-
-| Type | Convention | Examples |
-|------|------------|----------|
-| Views | `PascalCase` + `View` suffix | `HomeView.swift`, `LoginView.swift`, `RestaurantDetailView.swift` |
-| ViewModels | `PascalCase` + `ViewModel` suffix | `AuthViewModel.swift`, `HomeViewModel.swift`, `OrderTrackingViewModel.swift` |
-| Services | `PascalCase` + `Service` suffix | `P2PAPIService.swift`, `PaymentService.swift`, `ChatService.swift` |
-| Managers | `PascalCase` + `Manager` suffix | `LocationManager.swift`, `NotificationManager.swift`, `ChatManager.swift` |
-| Models | `PascalCase` (entity name) | `Restaurant.swift`, `Order.swift`, `Driver.swift` |
-| Utilities | `PascalCase` (descriptive) | `Calculators.swift`, `EmailValidator.swift`, `DateTimeFormatter.swift` |
-| App Entry | `PascalCase` + `App` suffix | `eatfaircustomerApp.swift`, `eatffairdeliveryApp.swift` |
-| Theme | `Theme` or `DollorTheme` | `Theme.swift`, `DollorTheme.swift` |
-
-### Python Files (Backend)
-
-| Type | Convention | Examples |
-|------|------------|----------|
-| Main module | `snake_case` | `main_new.py`, `database.py`, `models.py` |
-| Services | `snake_case` + descriptive | `email_service.py`, `image_service.py` |
-| Routes | `snake_case` + `_routes` | `bid_routes.py`, `chat_routes.py` |
-| Config | `snake_case` + `_config` | `pricing_config.py`, `endpoint_config.py` |
-| Utilities | `snake_case` | `auto_onboarding.py`, `menu_verification.py` |
-
-### Configuration Files
-
-| Type | Convention | Examples |
-|------|------------|----------|
-| Xcconfig | `PascalCase` | `Development.xcconfig`, `Staging.xcconfig`, `Production.xcconfig` |
-| Plist | `PascalCase` with hyphens | `GoogleService-Info.plist`, `Info.plist` |
-| Environment | `.env` pattern | `.env`, `.env.example` |
+**Analysis Date:** 2026-02-18
 
 ---
 
-## Class & Struct Naming
+## Python Backend (FastAPI)
 
-### ViewModels
+### File Naming
 
-```swift
-// Pattern: [Feature]ViewModel
-class AuthViewModel: NSObject, ObservableObject { }
-class HomeViewModel: ObservableObject { }
-class MultiRestaurantCartViewModel: ObservableObject { }
-class OrderTrackingViewModel: ObservableObject { }
+- Modules use `snake_case`: `bid_routes.py`, `order_flow.py`, `rideshare_payments.py`, `main_new.py`
+- Test files prefixed with `test_`: `test_auth_endpoints.py`, `test_dollor_pricing_model.py`
+- Migration scripts prefixed with action: `add_driver_activation_columns.py`, `migrate_staging_to_production.py`
+- Config/utility: `pricing_config.py`, `state_config.py`, `cache.py`
 
-// Inheritance pattern:
-// - Inherit from NSObject when needed for delegates (e.g., ASAuthorizationControllerDelegate)
-// - Otherwise, plain class conforming to ObservableObject
+### Function Naming
+
+- All functions use `snake_case`
+- Route handler functions named after the resource action: `create_payment_intent`, `health_check`, `get_current_user`
+- Private/internal helpers prefixed with `_`: `_notify_customer`, `_init_firebase`, `_send_fcm_direct`, `_run_startup_migrations`
+- Generator functions named `generate_*`: `generate_request_id`, `generate_clean_bid_id`, `generate_invoice_number`
+
+### Class Naming
+
+- Pydantic request models: `PascalCase` + `Input` suffix: `CreateRideRequestInput`, `SubmitBidInput`, `RespondToBidInput`
+- Pydantic response models: `PascalCase` + `Response` suffix: `PaymentResponse`, `CreatePaymentIntent`
+- SQLAlchemy models: simple `PascalCase`: `User`, `Vendor`, `Driver`, `Customer`, `RideRequest`, `RideBid`
+- Enum types: `PascalCase` + noun: `UserRole`, `VendorStatus`, `RideRequestStatus`, `BidStatus`, `DriverStatus`
+- Factory classes in tests: `PascalCase` + `Factory`: `UserFactory`, `VendorFactory`, `DriverFactory`
+
+### Variable Naming
+
+- All variables use `snake_case`
+- Constants use `SCREAMING_SNAKE_CASE`: `CUSTOMER_SERVICE_FEE`, `DELIVERY_PER_MILE`, `ADMIN_AUTH_EXEMPT_PATHS`
+- Config-level constants defined at module top: `PRODUCTION_ORIGINS`, `STAGING_ORIGINS`, `DEVELOPMENT_ORIGINS`
+
+### SQLAlchemy Model Pattern
+
+```python
+class RideRequest(Base):
+    __tablename__ = "ride_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    status = Column(SQLEnum(RideRequestStatus), default=RideRequestStatus.OPEN)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Foreign keys include table name in field: customer_id, driver_id
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
 ```
 
-### Services
+- All tables use `snake_case` plural: `ride_requests`, `vendor_menu_items`
+- Timestamps always use `datetime.utcnow` (not `datetime.now`)
+- Nullable foreign keys are `nullable=True`
+- Indexed columns declared with `index=True`
 
-```swift
-// Singleton pattern with shared instance
-public class P2PAPIService: ObservableObject {
-    public static let shared = P2PAPIService()
-    private init() { }
-}
+### Pydantic Model Pattern
 
-public final class SecureStorage {
-    public static let shared = SecureStorage()
-    private init() { }
-}
-
-public class ErrorHandler: ObservableObject {
-    public static let shared = ErrorHandler()
-    private init() { }
-}
+```python
+class CreateRideRequestInput(BaseModel):
+    customer_id: int
+    pickup_address: str
+    pickup_latitude: float
+    ride_type: str = "standard"               # Defaults inline
+    customer_max_price: Optional[float] = None  # Optionals default to None
+    bidding_duration_minutes: int = 5          # With inline comment
 ```
 
-### Models
+### FastAPI Endpoint Pattern
 
-```swift
-// Pattern: Entity name, conforming to common protocols
-public struct Restaurant: Identifiable, Codable, Sendable { }
-public struct Order: Identifiable, Codable, Sendable { }
-public struct MenuItem: Identifiable, Codable, Sendable { }
-
-// P2P-specific models use P2P prefix for backend responses
-public struct P2PRestaurant: Codable { }
-public struct P2PMenuItem: Codable { }
-public struct P2PCustomerOrder: Codable { }
+```python
+@router.post("/request", tags=["Ride Bidding"])
+async def create_ride_request(
+    data: CreateRideRequestInput,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Docstring describing the endpoint."""
+    ...
+    return {"success": True, "ride_request": {...}}
 ```
 
-### Theme
+- All success responses include `"success": True` key
+- Error responses use `raise HTTPException(status_code=NNN, detail="message")`
+- Auth passed as `authorization: Optional[str] = Header(None)` (not always a `Depends`)
+- Dependency injection: `db: Session = Depends(get_db)` for database sessions
+- Router prefix defined at router creation: `router = APIRouter(prefix="/api/rides", tags=["Ride Bidding"])`
 
-```swift
-// Nested struct pattern for organization
-public struct DollorTheme {
-    public struct Brand {
-        public static let green = Color(hex: "06C167")
-    }
-    public struct Background { }
-    public struct Text { }
-    public struct Status { }
-}
+### Auth Dependency Pattern
 
-// Usage: DollorTheme.Brand.green, DollorTheme.Status.error
+Three role-specific async dependency functions in `main_new.py`:
+
+```python
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User
+async def get_current_customer(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Customer
+async def get_current_driver(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Driver
+async def get_current_vendor(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Vendor
 ```
+
+- Each raises `HTTPException(status_code=401)` with `WWW-Authenticate: Bearer` header on failure
+- Token payload uses `"sub"` for email and role-specific IDs (`customer_id`, `driver_id`, `vendor_id`)
+- A middleware-level guard (`admin_auth_middleware`) blankets all `/api/admin/*` routes
+
+### Error Handling
+
+- Always use `raise HTTPException(status_code=NNN, detail="message")` for API errors
+- Use HTTP 400 for bad input, 401 for unauth, 403 for forbidden, 404 for not found, 422 for validation, 429 for rate limit, 500 for server errors
+- Internal helper functions that can fail silently use `try/except` with `logger.warning(f"...")`
+- Do not silence errors in route handlers — they must surface to the client
+
+```python
+# Internal helper — fail silently
+def _notify_customer(...):
+    try:
+        ...
+    except Exception as e:
+        logger.warning(f"Failed to create in-app notification: {e}")
+
+# Route handler — raise to client
+if not ride:
+    raise HTTPException(status_code=404, detail="Ride not found")
+```
+
+### Logging
+
+- Module-level logger: `logger = logging.getLogger(__name__)`
+- Root logger configured: `logging.basicConfig(level=logging.INFO)` in `main_new.py`
+- Use `logger.info()` for normal events, `logger.warning()` for recoverable issues, `logger.error()` for failures
+- iOS-style `[ClassName]` prefix in log messages: `logger.error("[AuthViewModel] ERROR: ...")`
+
+### Import Organization
+
+1. Standard library imports (`os`, `json`, `logging`, `datetime`, `typing`, `enum`, `math`, `re`, `uuid`)
+2. Third-party imports (`fastapi`, `sqlalchemy`, `pydantic`, `jose`, `stripe`, `passlib`)
+3. Local application imports (`from database import ...`, `from models import ...`, `from email_service import ...`)
+
+### Comments
+
+- Docstrings on all public functions and route handlers
+- Inline section dividers with `# ===== SECTION NAME =====` for long files
+- Step comments in complex flows: `# ── Step 1: Fare Estimate ────────────`
+- Security annotations: `# SECURITY: ...` for security-relevant code
+- `# noqa` and `pragma: no cover` used sparingly for known exceptions
+
+### Module Structure Pattern
+
+Each route module (`bid_routes.py`, `rideshare_payments.py`, `order_flow.py`):
+1. Module docstring with description
+2. Imports (stdlib → third-party → local)
+3. Module-level logger
+4. Helper functions prefixed with `_`
+5. Router declaration with `prefix` and `tags`
+6. Pydantic models section (marked with `# === PYDANTIC MODELS ===`)
+7. Route handlers
 
 ---
 
-## SwiftUI View Structure
+## iOS Swift
 
-### Standard View Pattern
+### File Naming
+
+- Views: `PascalCase` + `View` suffix: `HomeView.swift`, `LoginView.swift`, `RideReceiptView.swift`
+- ViewModels: `PascalCase` + `ViewModel` suffix: `AuthViewModel.swift`, `RideRequestViewModel.swift`
+- Services: `PascalCase` + `Service` suffix: `PaymentService.swift`, `LocationManager.swift`
+- Models: descriptive `PascalCase`: `MenuItem.swift`
+- Shared library: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/`
+
+### MARK Sections
+
+Every non-trivial Swift file uses `MARK` comments to organize code:
 
 ```swift
-import SwiftUI
-import EatFairShared
-
-struct HomeView: View {
-    // MARK: - State & Environment
-    @StateObject var viewModel = HomeViewModel()
-    @EnvironmentObject var addressViewModel: AddressViewModel
-    @EnvironmentObject var multiCartViewModel: MultiRestaurantCartViewModel
-    @State private var showLocationPicker = false
-    @State private var searchText = ""
-
-    // MARK: - Computed Properties
-    var filteredRestaurants: [Restaurant] { }
-
-    // MARK: - Body
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            // Background
-            Theme.brandGrey.edgesIgnoringSafeArea(.all)
-
-            // Main content
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // MARK: - Header
-                    headerSection
-
-                    // MARK: - Categories
-                    categoriesSection
-
-                    // MARK: - Featured
-                    featuredRestaurantsSection
-                }
-            }
-
-            // Floating elements
-            if viewModel.hasActiveOrder {
-                activeOrderTracker
-            }
-        }
-        .onAppear {
-            viewModel.fetchRestaurants()
-        }
-        .sheet(isPresented: $showLocationPicker) {
-            LocationPickerView()
-        }
-    }
-
-    // MARK: - View Components (extracted as computed properties)
-    private var headerSection: some View {
-        VStack(spacing: 0) {
-            // Header content
-        }
-    }
-
-    private var categoriesSection: some View {
-        // Categories content
-    }
-}
+// MARK: - Configuration
+// MARK: - Secure Storage Keys
+// MARK: - Public Restaurant APIs (Customer App)
+// MARK: - Restaurant App APIs (Menu Management)
+// MARK: - Published Properties
+// MARK: - Private Properties
 ```
 
-### Key Patterns Observed
+### Class/Struct Pattern
 
-1. **MARK comments** for section organization
-2. **Extracted components** as private computed properties (`headerSection`, `categoriesSection`)
-3. **State ordering**: `@StateObject` > `@EnvironmentObject` > `@State` > `@Binding`
-4. **Lifecycle modifiers** at end of body (`.onAppear`, `.sheet`, `.alert`)
-
----
-
-## ViewModel Structure
-
-### Standard ViewModel Pattern
+- ViewModels are `class` conforming to `ObservableObject` with `@Published` properties
+- Models are `struct` conforming to `Codable`, `Identifiable`, and `Sendable`
+- Services are `class` with `static let shared = ServiceName()` singleton
 
 ```swift
-import SwiftUI
-import Combine
-import EatFairShared
-import os.log
-
-private let logger = Logger(subsystem: "com.dollorai.customer", category: "HomeViewModel")
-
-class HomeViewModel: ObservableObject {
-    // MARK: - Published Properties
-    @Published var restaurants: [Restaurant] = []
+class AuthViewModel: NSObject, ObservableObject {
+    @Published var isAuthenticated: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    @Published var hasActiveOrder: Bool = false
-
-    // MARK: - Private Properties
-    private let p2pAPI = P2PAPIService.shared
-    private var cancellables = Set<AnyCancellable>()
-
-    // MARK: - Computed Properties
-    var featuredRestaurants: [Restaurant] {
-        restaurants.sorted { $0.rating > $1.rating }.prefix(5).map { $0 }
-    }
-
-    // MARK: - Public Methods
-    func fetchRestaurants() {
-        isLoading = true
-        errorMessage = nil
-        logger.info("Fetching restaurants...")
-
-        p2pAPI.fetchRestaurants { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                switch result {
-                case .success(let restaurants):
-                    self?.restaurants = restaurants
-                    logger.info("Loaded \(restaurants.count) restaurants")
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                    logger.error("Failed: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    // MARK: - Private Methods
-    private func processData() { }
+    private let p2pService = P2PAPIService.shared
 }
 ```
 
-### Key Patterns
+### Codable / CodingKeys Pattern
 
-1. **Logger initialization** at file scope with category
-2. **@Published properties** for all observable state
-3. **Weak self** in closures to prevent retain cycles
-4. **DispatchQueue.main.async** for UI updates from callbacks
-5. **Result type** handling with switch statement
-
----
-
-## API Endpoint Naming (Backend)
-
-### URL Patterns
-
-```python
-# Pattern: /api/{resource}/{action or id}
-
-# Public endpoints (no auth)
-GET  /api/public/restaurants/{vendor_id}     # Restaurant details
-GET  /api/vendors/published                   # Published restaurants
-
-# Authentication
-POST /api/customers/login                     # Customer login
-POST /api/customers/register                  # Customer register
-POST /api/customers/google-auth               # Google OAuth
-POST /api/customers/apple-auth                # Apple OAuth
-POST /api/drivers/login                       # Driver login
-POST /api/vendors/login                       # Vendor login
-
-# Resource CRUD
-GET  /api/vendors/{id}/menu                   # Get menu items
-POST /api/vendors/{id}/menu                   # Create menu item
-PUT  /api/vendors/{id}/menu/{item_id}         # Update menu item
-DELETE /api/vendors/{id}/menu/{item_id}       # Delete menu item
-
-# Orders
-POST /api/orders/create                       # Create order
-GET  /api/orders/{id}/status                  # Get order status
-PUT  /api/orders/{id}/status                  # Update status
-GET  /api/customers/{id}/orders               # Customer's orders
-
-# Health checks
-GET  /health                                  # Basic health
-GET  /api/health/ready                        # Readiness probe
-GET  /api/health/live                         # Liveness probe
-```
-
-### Response Patterns
-
-```python
-# Success response
-{
-    "success": True,
-    "data": { ... },
-    "message": "Optional success message"
-}
-
-# List response
-{
-    "restaurants": [...],
-    "total": 50,
-    "page": 1,
-    "per_page": 20
-}
-
-# Error response
-{
-    "detail": "Error description"
-}
-# HTTP status codes: 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 429 (rate limit)
-```
-
----
-
-## Error Handling Patterns
-
-### iOS Error Types
+When Swift property names differ from JSON snake_case keys, use explicit `CodingKeys` enum:
 
 ```swift
-// Standardized error enum
-public enum EatFairError: LocalizedError {
-    // Network Errors
-    case networkUnavailable
-    case serverError(String)
-    case timeout
+struct MenuItem: Identifiable, Codable, Sendable {
+    var imageUrl: String?
+    var isAvailable: Bool?
+    var preparationTime: Int?
 
-    // Authentication Errors
-    case notAuthenticated
-    case sessionExpired
-    case invalidCredentials
-
-    // Order Errors
-    case orderNotFound
-    case orderCreationFailed(String)
-    case paymentFailed(String)
-
-    // With descriptions
-    public var errorDescription: String? {
-        switch self {
-        case .networkUnavailable:
-            return "No internet connection."
-        case .serverError(let message):
-            return "Server error: \(message)"
-        // ...
-        }
-    }
-
-    public var isRetryable: Bool {
-        switch self {
-        case .networkUnavailable, .timeout, .serverError:
-            return true
-        default:
-            return false
-        }
+    enum CodingKeys: String, CodingKey {
+        case imageUrl = "image_url"
+        case isAvailable = "is_available"
+        case preparationTime = "prep_time_minutes"
     }
 }
 ```
 
-### Error Handling in Services
+- When encoding outward (POST), use `encoder.keyEncodingStrategy = .convertToSnakeCase`
+- When decoding inward (GET), use `decoder.keyDecodingStrategy = .convertFromSnakeCase`
+- For ambiguous/multi-source fields (e.g. `paymentIntent` vs `clientSecret`), use custom `init(from decoder:)`
+
+### Network Call Pattern (P2PAPIService)
+
+All API calls follow this structure:
 
 ```swift
-// API error enum
-public enum P2PAPIError: Error {
-    case invalidURL
-    case noData
-    case httpError(Int)
-    case decodingError(String)
-    case unauthorized
-}
-
-// Usage in API calls
-func fetchRestaurants(completion: @escaping (Result<[P2PRestaurant], Error>) -> Void) {
-    guard let url = URL(string: "\(baseURL)/vendors/published") else {
+public func fetchX(param: T, completion: @escaping (Result<ResponseType, Error>) -> Void) {
+    guard let url = URL(string: "\(baseURL)/endpoint") else {
         completion(.failure(P2PAPIError.invalidURL))
         return
     }
-
-    URLSession.shared.dataTask(with: url) { data, response, error in
-        if let error = error {
-            completion(.failure(error))
-            return
-        }
-
-        if let httpResponse = response as? HTTPURLResponse {
-            guard (200...299).contains(httpResponse.statusCode) else {
-                completion(.failure(P2PAPIError.httpError(httpResponse.statusCode)))
+    isLoading = true
+    URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        DispatchQueue.main.async {
+            self?.isLoading = false
+            if let error = error {
+                self?.error = error.localizedDescription
+                completion(.failure(error))
                 return
             }
-        }
-
-        guard let data = data else {
-            completion(.failure(P2PAPIError.noData))
-            return
-        }
-
-        do {
-            let response = try JSONDecoder().decode(P2PRestaurantsResponse.self, from: data)
-            completion(.success(response.restaurants))
-        } catch {
-            completion(.failure(error))
+            if let httpResponse = response as? HTTPURLResponse {
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    completion(.failure(P2PAPIError.httpError(httpResponse.statusCode)))
+                    return
+                }
+            }
+            guard let data = data else {
+                completion(.failure(P2PAPIError.noData))
+                return
+            }
+            do {
+                let response = try JSONDecoder().decode(ResponseType.self, from: data)
+                completion(.success(response))
+            } catch {
+                #if DEBUG
+                logger.error("Decode error: \(error)")
+                #endif
+                completion(.failure(error))
+            }
         }
     }.resume()
 }
 ```
 
----
+- **Always** call `DispatchQueue.main.async` before updating `@Published` properties
+- Use `[weak self]` in all closures that capture `self`
+- Debug logging wrapped in `#if DEBUG` blocks
+- Auth tokens from `SecureStorage.shared.*` (Keychain), not `UserDefaults`
 
-## Logging Patterns
-
-### iOS Logging
+### Logging (iOS)
 
 ```swift
-import os.log
-
-// Module-level logger
 private let logger = Logger(subsystem: "com.dollorai.customer", category: "AuthViewModel")
-
-// Usage patterns
-logger.info("User logged in successfully")
-logger.error("Login failed: \(error.localizedDescription)")
-logger.debug("Processing \(items.count) items")
-
-// Conditional debug logging
-#if DEBUG
-print("[AuthViewModel] Debug info: \(debugData)")
-#endif
+logger.error("[AuthViewModel] ERROR: Could not load CLIENT_ID")
+logger.info("fetchRestaurants response (\(data.count) bytes): \(jsonString.prefix(500))")
 ```
 
-### Python Logging
+- Module-level `private let logger` using `os.log.Logger`
+- Subsystem is the bundle ID, category is the class name
 
-```python
-import logging
+### Error Handling (iOS)
 
-# Module configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+```swift
+enum P2PAPIError: Error {
+    case invalidURL
+    case noData
+    case httpError(Int)
+    case serverError(String)
+}
+```
 
-# Usage
-logger.info(f"Processing order {order_id}")
-logger.error(f"Failed to process: {str(e)}")
-logger.warning(f"Deprecated endpoint called: {endpoint}")
+- All API errors map to `P2PAPIError` cases
+- Error detail parsed from `P2PErrorResponse.detail` (matches backend `{"detail": "..."}`)
+- User-visible error messages are human-readable strings set on `@Published var errorMessage: String?`
+
+---
+
+## Response Format Conventions
+
+**All successful API responses** include `"success": true`:
+
+```json
+{"success": true, "ride_request": {...}}
+{"success": true, "count": 3, "available_requests": [...]}
+{"success": true, "bids": [...], "total_bids": 1, "bidding_open": true}
+```
+
+**All error responses** use FastAPI default `{"detail": "message"}` format:
+
+```json
+{"detail": "Ride not found"}
+{"detail": "Could not validate credentials"}
 ```
 
 ---
 
-## Input Validation Patterns
+## Android Kotlin (from project memory — read access restricted)
 
-### Email Validation
+Based on project memory and CLAUDE.md, the key conventions are:
 
-```swift
-// Shared validator in Utilities
-public struct EmailValidator {
-    public static func isValid(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
-    }
+### Gson / @SerializedName Pattern
 
-    public static func getErrorMessage(_ email: String) -> String? {
-        if email.isEmpty { return "Email is required" }
-        if !isValid(email) { return "Please enter a valid email" }
-        return nil
-    }
-}
+Every multi-word field that differs from camelCase MUST have `@SerializedName`:
 
-// Usage in ViewModel
-private func isValidEmail(_ email: String) -> Bool {
-    return EmailValidator.isValid(email)
+```kotlin
+data class NegotiationStatusResponse(
+    @SerializedName("current_fare") val currentFare: Double,
+    @SerializedName("customer_offer") val customerOffer: Double?,
+    @SerializedName("driver_offer") val driverOffer: Double?
+)
+```
+
+- Backend NEVER returns raw arrays — always wraps in objects
+- Wrapper classes required for list responses: `BidsResponseWrapper`, `RideRequestsWrapper`, `ChatMessagesWrapper`
+- Use plain `Gson()` (not custom adapter) — relies on `@SerializedName` for every snake_case field
+
+### Retrofit Service Pattern
+
+```kotlin
+interface CustomerRideshareApiService {
+    @POST("rides/request")
+    suspend fun createRideRequest(@Body request: RideRequestBody): Response<RideRequestResponse>
+
+    @GET("rides/available")
+    suspend fun getAvailableRides(
+        @Query("driver_id") driverId: Int?,
+        @Query("latitude") latitude: Double?,
+        @Query("longitude") longitude: Double?
+    ): Response<AvailableRidesResponse>
 }
 ```
 
-### Password Validation
+### MVVM Structure
 
-```swift
-// Pattern: minimum length + character requirements
-private var isValidPassword: Bool {
-    let specialCharacters = CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;':\",./<>?")
-    return password.count >= 8 &&
-        password.rangeOfCharacter(from: .uppercaseLetters) != nil &&
-        password.rangeOfCharacter(from: .lowercaseLetters) != nil &&
-        password.rangeOfCharacter(from: .decimalDigits) != nil &&
-        password.rangeOfCharacter(from: specialCharacters) != nil
-}
-```
-
-### Phone Validation
-
-```swift
-// E.164 format support
-private var isValidPhone: Bool {
-    let cleanPhone = phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
-    if cleanPhone.hasPrefix("+") {
-        let digitsOnly = cleanPhone.dropFirst()
-        return digitsOnly.count >= 10 && digitsOnly.count <= 15
-    } else {
-        return cleanPhone.count >= 10 && cleanPhone.count <= 15
-    }
-}
-```
+- `Activity`/`Fragment` → `ViewModel` → `Repository` → `ApiService`
+- Modules: `:app` (customer), `:driver` (driver), `:partner` (restaurant), `:shared` (library)
+- Earnings calculation uses `calculateDriverEarnings()` helper (NOT `fare * 0.96`)
 
 ---
 
-## Security Patterns
-
-### Keychain Storage
-
-```swift
-// Use SecureStorage for all tokens
-// Pattern: Enum-based keys, proper access control
-
-public final class SecureStorage {
-    public enum Key: String {
-        case customerAccessToken = "customer_access_token"
-        case driverAccessToken = "driver_access_token"
-        case vendorAccessToken = "vendor_access_token"
-    }
-
-    @discardableResult
-    public func save(_ value: String, for key: Key) -> Bool {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key.rawValue,
-            kSecValueData as String: data,
-            // Security: Only accessible when unlocked, not backed up
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        ]
-        // ...
-    }
-}
-```
-
-### API Key Management
-
-```swift
-// Load from plist, never hardcode
-private var googleClientID: String {
-    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-          let plist = NSDictionary(contentsOfFile: path),
-          let clientID = plist["CLIENT_ID"] as? String else {
-        logger.error("Could not load CLIENT_ID from GoogleService-Info.plist")
-        return ""
-    }
-    return clientID
-}
-
-// Environment-based URLs from xcconfig
-public var p2pAPIBaseURL: String = {
-    if let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !url.isEmpty {
-        return url
-    }
-    return "https://api.dollor.ai"  // Production fallback
-}()
-```
-
----
-
-## Theme & Color Patterns
-
-### Color Definition
-
-```swift
-// Centralized in DollorTheme.swift
-public struct DollorTheme {
-    public struct Brand {
-        public static let green = Color(hex: "06C167")       // Primary
-        public static let orange = Color(hex: "F2994A")      // Secondary
-        public static let blue = Color(hex: "3B82F6")        // Info
-        public static let gold = Color(hex: "FFD700")        // Premium
-        public static let purple = Color(hex: "8B5CF6")      // AI features
-    }
-}
-
-// Color extension for hex support
-extension Color {
-    init(hex: String) {
-        // Implementation
-    }
-}
-```
-
-### Usage Pattern
-
-```swift
-// Direct access
-Text("Welcome")
-    .foregroundColor(DollorTheme.Brand.green)
-
-// Background
-Theme.brandGrey.edgesIgnoringSafeArea(.all)
-
-// Status colors
-Circle()
-    .fill(order.status == .delivered ? DollorTheme.Status.success : DollorTheme.Status.pending)
-```
-
----
-
-## Comment Conventions
-
-### File Headers
-
-```swift
-//
-//  eatfaircustomerApp.swift
-//  Dollor Customer App
-//
-//  Main entry point for the Dollor Customer iOS application.
-//
-//  Created by Dollor.ai Team
-//  Copyright (c) 2024-2026 Dollor.ai. All rights reserved.
-//
-```
-
-### MARK Comments
-
-```swift
-// MARK: - Properties
-// MARK: - Initialization
-// MARK: - Public Methods
-// MARK: - Private Methods
-// MARK: - View Components
-// MARK: - ASAuthorizationControllerDelegate
-```
-
-### Documentation Comments
-
-```swift
-/// Customer Authentication ViewModel
-/// Uses Google Sign-In SDK directly + P2P backend (no Firebase)
-class AuthViewModel: NSObject, ObservableObject {
-
-/// Fetch all published/approved restaurants for customer apps
-/// Uses /api/vendors/published endpoint which returns only approved and published restaurants
-public func fetchRestaurants(completion: @escaping (Result<[P2PRestaurant], Error>) -> Void) {
-```
-
----
-
-## Backend Patterns (Python)
-
-### Pydantic Models
-
-```python
-from pydantic import BaseModel, EmailStr, Field, field_validator
-
-class CustomerCreate(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    full_name: str
-    phone: Optional[str] = None
-
-    @field_validator('phone')
-    def validate_phone(cls, v):
-        if v and not re.match(r'^\+?[0-9]{10,15}$', v):
-            raise ValueError('Invalid phone number format')
-        return v
-```
-
-### Endpoint Structure
-
-```python
-@app.post("/api/customers/register")
-async def customer_register(
-    request: Request,
-    customer: CustomerCreate,
-    db: Session = Depends(get_db)
-):
-    # Rate limiting
-    check_rate_limit(request, registration_rate_limiter, "customer_register")
-
-    # Business logic
-    existing = db.query(Customer).filter(Customer.email == customer.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    # Create entity
-    new_customer = Customer(
-        email=customer.email,
-        password_hash=pwd_context.hash(customer.password),
-        full_name=customer.full_name
-    )
-    db.add(new_customer)
-    db.commit()
-
-    # Return response
-    return {
-        "success": True,
-        "customer_id": new_customer.id,
-        "message": "Registration successful"
-    }
-```
-
----
-
-## Testing Conventions
-
-### Unit Test Files
-
-```
-// Naming: [Module]Tests.swift
-eatfaircustomerTests.swift
-eatffairdeliveryTests.swift
-eatffairrestaurantTests.swift
-```
-
-### Test Structure
-
-```swift
-import XCTest
-@testable import eatfaircustomer
-
-final class eatfaircustomerTests: XCTestCase {
-
-    func testExample() throws {
-        // Test implementation
-    }
-
-    func testPerformanceExample() throws {
-        measure {
-            // Performance test
-        }
-    }
-}
-```
-
----
-
-*Last Updated: January 29, 2026*
+*Convention analysis: 2026-02-18*

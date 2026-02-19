@@ -1,427 +1,424 @@
-# Testing Documentation
+# Testing Patterns
 
-This document outlines the testing infrastructure, frameworks, and practices used in the eatfair-ios codebase.
-
-## Overview
-
-The project employs a multi-layered testing strategy covering:
-- **iOS Apps**: Unit tests and UI tests using Swift Testing framework and XCTest
-- **Backend (P2P Platform)**: Comprehensive pytest-based testing with unit, integration, e2e, and contract tests
+**Analysis Date:** 2026-02-18
 
 ---
 
-## iOS Testing
-
-### Test Frameworks
-
-| Framework | Purpose | Location |
-|-----------|---------|----------|
-| Swift Testing (`Testing`) | Modern unit testing (iOS 17+) | Customer app unit tests |
-| XCTest | UI testing and launch tests | All iOS apps |
-| XCUITest | UI automation testing | `*UITests` targets |
-
-### Test File Locations
-
-```
-apps/ios/
-├── customer/
-│   ├── eatfaircustomerTests/
-│   │   └── eatfaircustomerTests.swift      # Unit tests (Swift Testing)
-│   └── eatfaircustomerUITests/
-│       └── eatfaircustomerUITestsLaunchTests.swift  # UI launch tests
-├── delivery/
-│   ├── eatffairdeliveryTests/
-│   │   └── eatffairdeliveryTests.swift
-│   └── eatffairdeliveryUITests/
-│       └── eatffairdeliveryUITestsLaunchTests.swift
-└── restaurant/
-    ├── eatffairrestaurantTests/
-    │   └── eatffairrestaurantTests.swift
-    └── eatffairrestaurantUITests/
-        └── eatffairrestaurantUITestsLaunchTests.swift
-```
-
-### Unit Test Patterns (Customer App)
-
-The customer app uses the modern **Swift Testing** framework with `@Suite` and `@Test` macros:
-
-```swift
-import Testing
-@testable import eatfaircustomer
-
-@Suite("Cart Calculations")
-struct CartCalculationTests {
-    @Test("Subtotal calculation with single item")
-    func testSubtotalSingleItem() {
-        let cart = TestableCartViewModel()
-        let item = createMenuItem(price: 10.00)
-        cart.addToCart(item: item, from: restaurant)
-        #expect(cart.subtotal == 10.00)
-    }
-}
-```
-
-#### Test Suites in Customer App:
-1. **CartCalculationTests** - Cart pricing, tax, fees, clearing behavior
-2. **AuthValidationTests** - Email, password, phone validation
-3. **OrderNumberFormatTests** - Order number generation format
-
-### Mock/Stub Patterns
-
-**Testable View Models:**
-```swift
-class TestableCartViewModel {
-    var items: [TestMenuItem] = []
-    var restaurant: TestRestaurant?
-
-    private let taxRate = 0.08        // Fixed for testing
-    private let baseDeliveryFee = 2.99
-    private let platformFee = 1.0
-
-    var subtotal: Double { items.reduce(0) { $0 + $1.price } }
-    var tax: Double { subtotal * taxRate }
-}
-```
-
-**Test Data Factories:**
-```swift
-func createMenuItem(id: String = UUID().uuidString, name: String = "Test Item", price: Double) -> TestMenuItem
-func createRestaurant(id: String = "test-restaurant", name: String = "Test Restaurant") -> TestRestaurant
-```
-
-### UI Tests
-
-UI tests use XCTest with screenshot capture for App Store submission:
-
-```swift
-@MainActor
-func testLaunch() throws {
-    let app = XCUIApplication()
-    app.launch()
-
-    let attachment = XCTAttachment(screenshot: app.screenshot())
-    attachment.name = "Launch Screen"
-    attachment.lifetime = .keepAlways
-    add(attachment)
-}
-```
-
-### Running iOS Tests
-
-```bash
-# Run all unit tests for Customer app
-xcodebuild test \
-  -workspace apps/ios/customer/eatfaircustomer.xcworkspace \
-  -scheme eatfaircustomer \
-  -destination 'platform=iOS Simulator,name=iPhone 15'
-
-# Run UI tests
-xcodebuild test \
-  -workspace apps/ios/customer/eatfaircustomer.xcworkspace \
-  -scheme eatfaircustomerUITests \
-  -destination 'platform=iOS Simulator,name=iPhone 15'
-```
-
----
-
-## Backend Testing (P2P Platform)
+## Python Backend Tests
 
 ### Test Framework
 
-- **pytest** (v7+) - Main testing framework
-- **pytest-asyncio** - Async test support
-- **FastAPI TestClient** - API endpoint testing
-- **unittest.mock** - Mocking external services
+**Runner:**
+- pytest 9.0.2
+- Config: `apps/web/p2p-platform/backend/pyproject.toml`
 
-### Configuration
+**Assertion Library:**
+- pytest built-in `assert`
+- `pytest.approx()` for floating point comparisons
 
-**pytest.ini:**
-```ini
-[pytest]
-testpaths = tests
-python_files = test_*.py
-python_classes = Test*
-python_functions = test_*
-addopts = -v --tb=short --strict-markers -ra
+**Run Commands:**
+```bash
+cd apps/web/p2p-platform/backend
+source venv/bin/activate
 
-markers =
-    unit: Unit tests
-    integration: Integration tests requiring running services
-    e2e: End-to-end tests for complete user flows
-    contract: API contract tests for iOS compatibility
-    slow: Tests that take longer than 5 seconds
-    smoke: Quick smoke tests for CI
-    security: Security-related tests
-    asyncio: Async tests
-
-asyncio_mode = auto
-asyncio_default_fixture_loop_scope = function
+pytest tests/ -v                          # Run all tests
+pytest tests/unit/ -v                     # Unit tests only
+pytest tests/integration/ -v              # Integration tests only
+pytest tests/e2e/ -v                      # E2E tests only
+pytest tests/ -v --tb=short -ra           # Default (from pyproject.toml)
+pytest tests/ --cov=. --cov-report=html   # Coverage (outputs to htmlcov/)
+pytest tests/ --cov=. --cov-report=xml    # Coverage XML (outputs coverage.xml)
+pytest tests/ -m unit                     # Run by marker
+pytest tests/ -m "not slow"               # Exclude slow tests
 ```
 
-### Test File Structure
+**Pytest Markers (defined in `pyproject.toml`):**
+- `unit` — Unit tests (no DB, pure logic)
+- `integration` — Integration tests (DB + TestClient)
+- `e2e` — End-to-end flows
+- `slow` — Slow-running tests
+- `security` — Security-related tests
+
+### Test File Organization
 
 ```
-apps/web/p2p-platform/backend/tests/
-├── conftest.py                    # Shared fixtures
-├── unit/
-│   ├── test_auth_endpoints.py
-│   ├── test_driver_endpoints.py
-│   ├── test_vendor_endpoints.py
-│   ├── test_stripe_integration.py
-│   ├── test_dollor_pricing_model.py
-│   ├── test_email_service.py
-│   ├── test_security_helpers.py
-│   ├── test_file_upload_security.py
-│   ├── test_document_verification.py
-│   ├── test_image_service.py
-│   ├── test_promotions.py
-│   ├── test_realtime_events.py
-│   ├── test_api_config.py
-│   ├── test_models.py
-│   └── test_order_flow.py
-├── integration/
-│   ├── test_android_restaurant_e2e_workflow.py
-│   ├── test_approval_to_publish_flow.py
-│   ├── test_document_save_flow.py
-│   └── test_ios_api_contracts.py
-└── e2e/
-    ├── test_rideshare_cross_platform.py
-    └── test_critical_flows.py
+apps/web/p2p-platform/backend/
+├── tests/
+│   ├── conftest.py              # Shared fixtures, factories, DB setup
+│   ├── __init__.py
+│   ├── unit/
+│   │   ├── test_api_config.py           # Config/Pydantic model validation
+│   │   ├── test_auth_endpoints.py       # Authentication endpoint tests
+│   │   ├── test_document_verification.py # Enum + service unit tests
+│   │   ├── test_dollor_pricing_model.py  # 100 pricing logic tests
+│   │   └── test_stripe_integration.py   # Stripe with mocked API
+│   ├── integration/
+│   │   ├── test_ios_api_contracts.py    # iOS/Android contract tests
+│   │   ├── test_android_restaurant_e2e_workflow.py
+│   │   ├── test_approval_to_publish_flow.py
+│   │   └── test_document_save_flow.py
+│   ├── e2e/
+│   │   ├── test_rideshare_e2e_flow.py   # 17-step rideshare lifecycle
+│   │   ├── test_rideshare_cross_platform.py  # Staging-targeted tests
+│   │   └── test_critical_flows.py
+│   └── api/
+│       └── test_endpoints.py            # HTTP contract tests (all endpoints)
+├── test_negotiation_flow.py     # Standalone test (root, not in tests/)
+├── test_order_flow.py           # Standalone test (root, not in tests/)
+└── test_ride_checkout.py        # Standalone test (root, not in tests/)
 ```
 
-### Test Types
+**Naming Patterns:**
+- Files: `test_{domain}.py` or `test_{domain}_{type}.py`
+- Classes: `TestDomainAction` (e.g. `TestUserRegistration`, `TestRideshareFareCalculation`)
+- Functions: `test_{scenario}` with plain English docstring
 
-#### 1. Unit Tests
-Test individual functions and classes in isolation with mocked dependencies.
+### Test Database Setup (`tests/conftest.py`)
 
-```python
-@pytest.fixture
-def mock_vendor(db_session):
-    vendor = Vendor(
-        restaurant_name="Test Restaurant",
-        company_name="Test Company",
-        onboarding_status=VendorStatus.APPROVED,
-    )
-    db_session.add(vendor)
-    db_session.commit()
-    return vendor
+**Session-scoped DB fixture** — tables created once per test session:
 
-@patch('stripe_integration.stripe.PaymentIntent.create')
-def test_create_order_success(mock_stripe_create, db_session, mock_vendor):
-    mock_stripe_create.return_value = type('obj', (object,), {
-        'id': 'pi_test123',
-        'client_secret': 'secret'
-    })()
-    # Test logic...
-```
-
-#### 2. Integration Tests
-Test API endpoints with real database (SQLite in-memory or PostgreSQL test database).
-
-```python
-class TestDriverAPIContracts:
-    def test_driver_registration_response_format(self, client, db_session):
-        driver_data = {
-            "email": f"driver_ios_{datetime.now().timestamp()}@test.com",
-            "password": "TestPassword123!",
-            "name": "iOS Test Driver",
-            "phone": "+14155551234"
-        }
-        response = client.post("/api/auth/driver/register", json=driver_data)
-        assert response.status_code in [200, 201]
-```
-
-#### 3. API Contract Tests
-Ensure backend responses match iOS app expectations.
-
-```python
-def test_menu_response_format(self, client):
-    response = client.get("/api/restaurants/1/menu")
-    if response.status_code == 200:
-        data = response.json()
-        item = data[0]
-        assert "name" in item, "Menu item must have name"
-        assert "price" in item, "Menu item must have price"
-```
-
-#### 4. E2E Tests
-Test complete user flows across multiple services.
-
-```python
-class TestOrderLifecycle:
-    @patch('stripe_integration.stripe.PaymentIntent.create')
-    @patch('stripe_integration.stripe.Webhook.construct_event')
-    def test_complete_order_flow(self, mock_webhook, mock_stripe):
-        # Create order -> Payment -> Webhook -> Invoice
-```
-
-### Shared Fixtures (conftest.py)
-
-**Database Fixtures:**
 ```python
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""
-    Base.metadata.create_all(bind=engine)
+    # Uses SQLite in-memory for local runs
+    # Uses PostgreSQL _test DB in CI (if DATABASE_URL is set)
+    ...
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     yield
     Base.metadata.drop_all(bind=engine)
+```
 
+**Function-scoped DB session** — each test gets a rollback-on-teardown transaction:
+
+```python
 @pytest.fixture(scope="function")
-def db_session(test_db):
-    """Get a test database session with transaction rollback"""
+def db_session(test_db) -> Generator:
     connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
     yield session
     session.close()
-    transaction.rollback()
+    transaction.rollback()  # Clean state for next test
     connection.close()
+```
 
+**TestClient fixture** — overrides DB dependency:
+
+```python
 @pytest.fixture(scope="function")
-def client(db_session):
-    """Get a TestClient with test database"""
+def client(db_session) -> Generator:
     def override_get_db_fixture():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db_fixture
+    app.router.on_startup.clear()  # Prevent init_db from running
     with TestClient(app) as c:
         yield c
+    app.router.on_startup = original_startup_handlers
+    app.dependency_overrides.clear()
 ```
 
-**Entity Factories:**
+### Auth Fixtures
+
+All auth header fixtures in `conftest.py`. Use `create_access_token` from `main_new`:
+
+```python
+@pytest.fixture(scope="function")
+def auth_headers(test_user) -> Dict[str, str]:
+    token = create_access_token(data={"sub": test_user.email})
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="function")
+def driver_auth_headers(test_driver) -> Dict[str, str]:
+    token = create_access_token(data={"sub": test_driver.email, "driver_id": test_driver.id})
+    return {"Authorization": f"Bearer {token}"}
+```
+
+Available fixtures: `auth_headers`, `admin_auth_headers`, `vendor_auth_headers`, `driver_auth_headers`
+
+### Test Suite Structure
+
+```python
+class TestUserRegistration:
+    """Tests for user registration endpoint"""
+
+    def test_register_success(self, client: TestClient, sample_user_data):
+        """Should successfully register a new user"""
+        response = client.post("/register", json=sample_user_data)
+        assert response.status_code in [200, 201, 409]
+        if response.status_code in [200, 201]:
+            data = response.json()
+            assert "access_token" in data or "message" in data
+
+    def test_register_invalid_email(self, client: TestClient):
+        """Should reject invalid email format"""
+        response = client.post("/register", json={"email": "not-valid"})
+        assert response.status_code == 422
+```
+
+- Class per endpoint group or feature area
+- Each method tests exactly one scenario
+- Docstring starts with "Should ..." describing expected behavior
+
+### Mocking
+
+**Framework:** `unittest.mock` (`MagicMock`, `patch`, `AsyncMock`, `Mock`)
+
+**Stripe mocking pattern:**
+
+```python
+@pytest.fixture
+def mock_stripe():
+    with patch("rideshare_payments.stripe.PaymentIntent.create") as mock_pi, \
+         patch("rideshare_payments.stripe.Transfer.create") as mock_transfer:
+        mock_pi.return_value = MagicMock(
+            id="pi_test_123", client_secret="pi_test_secret"
+        )
+        mock_transfer.return_value = MagicMock(id="tr_test_456")
+        yield {"payment_intent": mock_pi, "transfer": mock_transfer}
+```
+
+**Notification mocking pattern (suppress all side effects):**
+
+```python
+@pytest.fixture
+def mock_notifications():
+    """Suppress all async broadcasts, push notifications, and emails."""
+    with patch("bid_routes.send_push_notification"), \
+         patch("bid_routes.send_ride_request_confirmation_email"), \
+         patch("bid_routes.asyncio.create_task"):
+        yield
+```
+
+**What to mock:**
+- All Stripe API calls (`stripe.PaymentIntent.create`, `stripe.Transfer.create`)
+- Push notification calls (`send_push_notification`, `broadcast_*` WebSocket functions)
+- Email functions (`send_ride_*_email`, `send_order_*_email`)
+- External HTTP calls (Google Maps, Firebase)
+- `asyncio.create_task` for background tasks
+
+**What NOT to mock:**
+- Database operations (use test DB with rollback)
+- FastAPI routing / validation
+- SQLAlchemy ORM queries
+- Business logic (pricing calculations, fee tiers)
+
+### Fixtures and Factories
+
+**Data factories in `conftest.py`:**
+
 ```python
 class UserFactory:
+    counter = 0
+
     @classmethod
     def create(cls, db_session, **kwargs) -> User:
+        cls.counter += 1
         defaults = {
-            "email": f"user_{datetime.now().timestamp()}@test.com",
+            "email": f"user_{cls.counter}_{datetime.now().timestamp()}@test.com",
             "password_hash": get_password_hash("Password123!"),
-            "full_name": "Test User",
+            "full_name": f"Test User {cls.counter}",
             "role": UserRole.USER,
         }
         defaults.update(kwargs)
         user = User(**defaults)
         db_session.add(user)
         db_session.commit()
+        db_session.refresh(user)
         return user
-
-class VendorFactory:
-    # Similar pattern for vendors
-
-class DriverFactory:
-    # Similar pattern for drivers
 ```
 
-**Authentication Fixtures:**
-```python
-@pytest.fixture
-def auth_headers(test_user) -> Dict[str, str]:
-    token = create_access_token(data={"sub": test_user.email})
-    return {"Authorization": f"Bearer {token}"}
+Available factories: `UserFactory`, `VendorFactory`, `DriverFactory`
+Used via fixtures: `user_factory`, `vendor_factory`, `driver_factory`
 
-@pytest.fixture
-def vendor_auth_headers(test_vendor) -> Dict[str, str]:
-    token = create_access_token(data={"sub": test_vendor.contact_email})
-    return {"Authorization": f"Bearer {token}"}
+**Pre-built entity fixtures** (function-scoped, already committed to DB):
+- `test_user` — approved User (role=USER)
+- `test_admin` — admin User (role=ADMIN)
+- `test_vendor` — approved Vendor
+- `test_driver` — approved Driver
+
+**Sample data fixtures** (dicts, no DB write):
+- `sample_user_data` — registration payload dict
+- `sample_vendor_data` — vendor registration payload
+- `sample_driver_data` — driver registration payload
+
+**Email uniqueness:** All fixtures and factories append `datetime.now().timestamp()` to email addresses to prevent conflicts across test runs.
+
+### Coverage
+
+**Configuration in `pyproject.toml`:**
+
+```toml
+[tool.coverage.run]
+source = ["."]
+branch = true
+omit = ["*/tests/*", "main_new.py", "order_flow.py", "stripe_integration.py", ...]
 ```
 
-### Running Backend Tests
+**Excluded from coverage** (too large / require DB integration):
+- `main_new.py` (main FastAPI app)
+- `auto_onboarding.py`, `order_flow.py`, `stripe_integration.py`, `database.py`
+- All migration scripts (`add_*.py`, `migrate_*.py`, `create_*.py`)
+- Non-core: `websocket_server.py`, `image_service.py`, `realtime_events.py`
 
+**View Coverage:**
 ```bash
-cd apps/web/p2p-platform/backend
+pytest tests/ --cov=. --cov-report=html
+open htmlcov/index.html
+```
 
-# Activate virtual environment
-source venv/bin/activate
+### Test Types
 
-# Run all tests
-pytest
+**Unit Tests (`tests/unit/`):**
+- No FastAPI TestClient — test pure functions and constants
+- Test pricing constants (`CUSTOMER_SERVICE_FEE == 1.00`)
+- Test Pydantic models with `ValidationError`
+- Test enum values (`VerificationStatus.PENDING == "pending"`)
+- Test calculation functions (`calculate_delivery_fee()`, `calculate_ride_fare()`)
+- Mock all external dependencies
 
-# Run with verbose output
-pytest -v
+**Integration Tests (`tests/integration/`):**
+- Use FastAPI `TestClient` with test database
+- Test endpoint contracts (status codes, response fields, types)
+- Verify iOS/Android JSON field names exist: `assert_response_structure(data, ["access_token", "token_type"])`
+- Test full auth flows (register → login → protected endpoint)
 
-# Run specific test category
-pytest -m unit
-pytest -m integration
-pytest -m e2e
+**E2E Tests (`tests/e2e/`):**
+- Multi-step sequential flows using `client` fixture
+- `test_rideshare_e2e_flow.py`: 17-step rideshare lifecycle (fare estimate → tip)
+- `test_rideshare_cross_platform.py`: Targets **staging URL** (`https://d3kuu45w6kl8hr.cloudfront.net`) — NOT TestClient
+- Steps commented inline: `# ── Step 1: Fare Estimate ────────────`
 
-# Run specific test file
-pytest tests/unit/test_stripe_integration.py
+**Cross-Platform Tests (`tests/test_cross_platform.py`):**
+- Verify same endpoint works identically for iOS and Android clients
+- Checks JSON field names expected by each platform
 
-# Run with coverage
-pytest --cov=. --cov-report=html
+### Common Patterns
 
-# Run only fast tests (exclude slow)
-pytest -m "not slow"
+**Async Testing:**
+```python
+# pyproject.toml sets asyncio_mode = "auto"
+# Async test functions work without @pytest.mark.asyncio decorator
+async def test_async_endpoint(client):
+    ...
+```
 
-# Run smoke tests (for CI)
-pytest -m smoke
+**Multiple valid status codes (lenient assertions):**
+```python
+assert response.status_code in [200, 201, 409]  # 409 if already exists
+assert response.status_code in [400, 401, 403]  # Multiple error paths
+```
+
+**Conditional assertions (when endpoint may not exist):**
+```python
+if response.status_code == 200:
+    data = response.json()
+    assert "access_token" in data
+```
+
+**DB state inspection after API call:**
+```python
+db_session.expire_all()  # Force reload from DB
+ride_obj = db_session.query(RideRequest).get(ride_id)
+assert ride_obj.status == RideRequestStatus.BIDDING
+```
+
+**Floating point assertions:**
+```python
+assert fare_with_tip["driver_earnings"] - fare_no_tip["driver_earnings"] == pytest.approx(5.00, rel=0.01)
+```
+
+**Error response format assertion:**
+```python
+data = response.json()
+assert "detail" in data, "Error response must contain 'detail' field"
 ```
 
 ---
 
-## Microservices Testing
+## iOS Swift Tests
 
-Each microservice has its own test suite:
+### Test Framework
 
-```
-services/core/
-├── auth-service/tests/test_auth_service.py
-├── driver-service/tests/test_driver_service.py
-├── restaurant-service/tests/test_restaurant_service.py
-├── order-service/tests/test_order_service.py
-├── payment-service/tests/test_payment_service.py
-├── location-service/tests/test_location_service.py
-├── menu-service/tests/test_menu_service.py
-├── notification-service/tests/test_notification_service.py
-├── rating-service/tests/test_rating_service.py
-├── ride-service/tests/test_ride_service.py
-├── pricing-service/tests/test_pricing_service.py
-├── analytics-service/tests/test_analytics_service.py
-├── negotiation-service/tests/test_negotiation_service.py
-├── chat-service/tests/test_chat_service.py
-└── call-service/tests/test_call_service.py
+- **Unit/Integration:** Swift Testing (`import Testing`) — newer API using `@Suite` and `@Test`
+- **UI Tests:** XCTest (`import XCTest`)
+- File locations:
+  - Unit tests: `apps/ios/customer/eatfaircustomerTests/eatfaircustomerTests.swift`
+  - UI tests: `apps/ios/customer/eatfaircustomerUITests/eatfaircustomerUITests.swift`
+
+**Run Commands:**
+```bash
+# Run from Xcode or:
+xcodebuild test -scheme eatfaircustomer -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
+### Test Structure (Swift Testing)
+
+```swift
+@Suite("Cart Calculations")
+struct CartCalculationTests {
+
+    let taxRate = 0.08
+    let deliveryFee = 2.99
+    let platformFee = 1.0
+
+    @Test("Subtotal calculation with single item")
+    func testSubtotalSingleItem() {
+        let cart = TestableCartViewModel()
+        let item = createMenuItem(price: 10.00)
+        cart.addToCart(item: item, from: createRestaurant())
+        #expect(cart.subtotal == 10.00)
+    }
+}
+```
+
+- Suites organized by feature area using `@Suite("name")`
+- Tests use `@Test("description")` annotation
+- Assertions use `#expect(condition)` (Swift Testing) or `XCTAssert*` (XCTest)
+- Test helpers are `private func create*()` at the bottom of the test file
+
+### UI Test Structure (XCTest)
+
+```swift
+class eatfaircustomerUITests: XCTestCase {
+    // MARK: - WELCOME SCREEN TESTS
+    func testWelcomeScreenElements() { ... }
+
+    // MARK: - LOGIN SCREEN TESTS
+    func testLoginScreenElements() { ... }
+
+    // MARK: - ACCESSIBILITY TESTS
+    func testAccessibilityIdentifiers() { ... }
+
+    // MARK: - PERFORMANCE TESTS
+    func testLaunchPerformance() { ... }
+
+    // MARK: - HELPER METHODS
+    private func helper() { ... }
+}
+```
+
+- `// MARK:` sections separate test groups within a class
+- Performance tests use `measure { }` blocks
+
+### Staging Integration Tests
+
+`apps/ios/customer/run_staging_tests.swift` — standalone Swift script that hits the live staging URL:
+- Tests against `https://d3kuu45w6kl8hr.cloudfront.net`
+- Not part of Xcode test target — run manually or in CI
+- Organized with `// MARK: - Tests` sections
+
 ---
 
-## Test Coverage
+## QA Scripts
 
-### Current Coverage Areas
+**Location:** `scripts/qa-runner.sh`, `.claude/agents/qa-challenger-agent.sh`
 
-| Component | Coverage Focus |
-|-----------|---------------|
-| Cart Calculations | Subtotal, tax, fees, totals |
-| Authentication | Email/password validation, login flows |
-| Order Flow | Creation, payment, status updates |
-| Stripe Integration | Payment intents, webhooks, invoice generation |
-| Vendor Operations | Menu items, order management |
-| Driver Operations | Registration, location updates |
-| API Contracts | iOS-compatible response formats |
-
-### Gaps and Recommendations
-
-1. **iOS Apps**: Currently have basic unit tests; could benefit from more comprehensive ViewModel testing
-2. **UI Tests**: Launch tests exist but could be expanded for critical user flows
-3. **Performance Tests**: Not currently implemented
-4. **Security Tests**: Partially covered via `test_security_helpers.py` and `test_file_upload_security.py`
+- Bash-based QA runners that issue HTTP requests against staging/production
+- `qa-runner.sh` runs a series of curl-based endpoint checks and writes reports to `.planning/qa-reports/`
+- Report format: `YYYY-MM-DD_HH-MM-SS_pre-deploy/QA_VALIDATION_REPORT.md`
+- These scripts do NOT use any test framework — they are shell-level smoke tests
 
 ---
 
-## CI/CD Integration
-
-Tests are run automatically in the CI/CD pipeline:
-
-1. **Pull Request**: Unit tests + smoke tests
-2. **Merge to Main**: Full test suite
-3. **Staging Deploy**: Integration tests + contract tests
-4. **Production Deploy**: E2E tests + smoke tests
-
----
-
-## Best Practices
-
-1. **Isolation**: Each test uses transaction rollback for database cleanup
-2. **Factories**: Use factories for consistent test data creation
-3. **Mocking**: External services (Stripe, email) are always mocked
-4. **Markers**: Use pytest markers to categorize and selectively run tests
-5. **Contract Testing**: Ensure API responses match iOS model expectations
-6. **Idempotency**: Tests should be runnable in any order
+*Testing analysis: 2026-02-18*
