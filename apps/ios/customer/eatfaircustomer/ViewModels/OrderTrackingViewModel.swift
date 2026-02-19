@@ -295,6 +295,8 @@ class OrderTrackingViewModel: ObservableObject {
             estimatedTime = "15-20 mins"
         case "out_for_delivery":
             estimatedTime = "10-15 mins"
+        case "pending_delivery_proof":
+            estimatedTime = "Completing..."
         case "Delivered":
             estimatedTime = "Arrived"
         default:

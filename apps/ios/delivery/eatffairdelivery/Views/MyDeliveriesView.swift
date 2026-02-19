@@ -127,7 +127,7 @@ struct MyDeliveriesView: View {
         ScrollView {
             VStack(spacing: 20) {
                 // Active Delivery Hero Card (if any)
-                if let activeDelivery = viewModel.myDeliveries.first(where: { DeliveryOrderStatus.from($0.status) == .outForDelivery }) {
+                if let activeDelivery = viewModel.myDeliveries.first(where: { [.outForDelivery, .pendingDeliveryProof].contains(DeliveryOrderStatus.from($0.status)) }) {
                     ActiveDeliveryHeroCard(
                         order: activeDelivery,
                         locationManager: locationManager,
@@ -142,7 +142,7 @@ struct MyDeliveriesView: View {
                 }
 
                 // Other Deliveries
-                let otherDeliveries = viewModel.myDeliveries.filter { DeliveryOrderStatus.from($0.status) != .outForDelivery }
+                let otherDeliveries = viewModel.myDeliveries.filter { ![.outForDelivery, .pendingDeliveryProof].contains(DeliveryOrderStatus.from($0.status)) }
                 if !otherDeliveries.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Pending Pickups")
@@ -171,6 +171,9 @@ struct MyDeliveriesView: View {
         }
         .refreshable {
             viewModel.fetchMyDeliveries()
+        }
+        .sheet(isPresented: $viewModel.showDeliveryProofCamera) {
+            DeliveryProofSheet(viewModel: viewModel)
         }
     }
 }
@@ -411,12 +414,12 @@ struct ActiveDeliveryHeroCard: View {
         .shadow(color: .black.opacity(0.1), radius: 16, x: 0, y: 8)
         .onTapGesture(perform: onTap)
         .confirmationDialog("Complete Delivery?", isPresented: $showCompleteConfirmation) {
-            Button("Confirm Delivered") {
+            Button("Take Photo & Complete") {
                 onComplete()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Have you delivered the order to \(order.customerName)?")
+            Text("You'll take a proof photo at the door to complete delivery to \(order.customerName).")
         }
     }
 
@@ -760,7 +763,7 @@ struct ActiveDeliveryFullScreen: View {
     // Determine if order has been picked up based on status
     private var isPickedUp: Bool {
         let status = OrderStatus.from(order.status)
-        return status == .outForDelivery || status == .restaurantWillDeliver
+        return status == .outForDelivery || status == .restaurantWillDeliver || status == .pendingDeliveryProof
     }
 
     var body: some View {

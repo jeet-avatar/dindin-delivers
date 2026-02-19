@@ -17,9 +17,9 @@ AI Employees:
 - QualityBot Epsilon (AI_EMP_005): Quality monitoring
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, or_, and_
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
@@ -2083,6 +2083,82 @@ def check_delivery_decision_timeouts_job():
         db.close()
 
 
+# ==================== DELIVERY PROOF TIMEOUT (24-HOUR AUTO-RELEASE) ====================
+DELIVERY_PROOF_TIMEOUT_HOURS = 24
+DELIVERY_PROOF_CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes
+
+
+def check_delivery_proof_timeouts_job():
+    """Auto-release payments for orders stuck in PENDING_DELIVERY_PROOF for 24+ hours"""
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now() - timedelta(hours=DELIVERY_PROOF_TIMEOUT_HOURS)
+        stuck_orders = db.query(Order).filter(
+            Order.status == OrderStatus.PENDING_DELIVERY_PROOF,
+            Order.updated_at < cutoff
+        ).all()
+
+        if not stuck_orders:
+            return
+
+        for order in stuck_orders:
+            try:
+                order.status = OrderStatus.DELIVERED
+                order.delivered_at = datetime.now()
+
+                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+                driver = db.query(Driver).filter(Driver.id == order.driver_id).first() if order.driver_id else None
+
+                # Create payout records (same logic as order_delivered)
+                restaurant_payout = order.subtotal - RESTAURANT_PLATFORM_FEE
+                driver_payout_amount = order.delivery_fee + order.tip
+
+                payout_count = db.query(VendorPayout).count()
+                db.add(VendorPayout(
+                    payout_number=f"VP-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}",
+                    vendor_id=order.vendor_id,
+                    period_start=order.created_at,
+                    period_end=datetime.now(),
+                    total_orders=1,
+                    gross_revenue=order.subtotal,
+                    platform_fee=RESTAURANT_PLATFORM_FEE,
+                    stripe_fees=0,
+                    net_payout=restaurant_payout,
+                    status="pending"
+                ))
+
+                if driver:
+                    driver_payout_count = db.query(DriverPayout).count()
+                    db.add(DriverPayout(
+                        payout_number=f"DP-{datetime.now().strftime('%Y%m%d')}-{driver_payout_count + 1:05d}",
+                        driver_id=driver.id,
+                        order_id=order.id,
+                        period_start=order.created_at,
+                        period_end=datetime.now(),
+                        total_deliveries=1,
+                        delivery_fee=order.delivery_fee,
+                        tip=order.tip,
+                        bonus=0,
+                        deductions=0,
+                        net_payout=driver_payout_amount,
+                        status="pending"
+                    ))
+                    driver.total_deliveries += 1
+
+                logger.info(f"Auto-released order {order.order_number} after {DELIVERY_PROOF_TIMEOUT_HOURS}h without proof photo")
+            except Exception as e:
+                logger.error(f"Error auto-releasing order {order.id}: {e}")
+
+        db.commit()
+        logger.info(f"Delivery proof timeout check: {len(stuck_orders)} orders auto-released")
+
+    except Exception as e:
+        logger.error(f"Error in delivery proof timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 # Initialize the background scheduler
 restaurant_timeout_scheduler = BackgroundScheduler()
 restaurant_timeout_scheduler.add_job(
@@ -2099,17 +2175,59 @@ restaurant_timeout_scheduler.add_job(
     name="Check for delivery decision timeouts",
     replace_existing=True
 )
-
+restaurant_timeout_scheduler.add_job(
+    check_delivery_proof_timeouts_job,
+    IntervalTrigger(seconds=DELIVERY_PROOF_CHECK_INTERVAL_SECONDS),
+    id="delivery_proof_timeout_checker",
+    name="Check for delivery proof photo timeouts (24h auto-release)",
+    replace_existing=True
+)
 
 def start_timeout_scheduler():
     """Start the background scheduler for timeout checks"""
     if not restaurant_timeout_scheduler.running:
+        # Import ride cleanup jobs here to avoid circular import
+        # (bid_routes imports from order_flow at module level)
+        from bid_routes import (
+            check_ride_bidding_expiry_job,
+            check_ride_matched_timeout_job,
+            check_ride_in_progress_timeout_job,
+            RIDE_CLEANUP_CHECK_INTERVAL_SECONDS,
+            RIDE_BIDDING_EXPIRY_MINUTES,
+            RIDE_MATCHED_TIMEOUT_MINUTES,
+            RIDE_IN_PROGRESS_TIMEOUT_HOURS,
+        )
+        restaurant_timeout_scheduler.add_job(
+            check_ride_bidding_expiry_job,
+            IntervalTrigger(seconds=RIDE_CLEANUP_CHECK_INTERVAL_SECONDS),
+            id="ride_bidding_expiry_checker",
+            name="Auto-expire OPEN/BIDDING rides past bidding window",
+            replace_existing=True
+        )
+        restaurant_timeout_scheduler.add_job(
+            check_ride_matched_timeout_job,
+            IntervalTrigger(seconds=RIDE_CLEANUP_CHECK_INTERVAL_SECONDS),
+            id="ride_matched_timeout_checker",
+            name="Auto-reopen MATCHED rides where driver didn't arrive",
+            replace_existing=True
+        )
+        restaurant_timeout_scheduler.add_job(
+            check_ride_in_progress_timeout_job,
+            IntervalTrigger(seconds=RIDE_CLEANUP_CHECK_INTERVAL_SECONDS),
+            id="ride_in_progress_timeout_checker",
+            name="Auto-cancel stale IN_PROGRESS rides (2h+)",
+            replace_existing=True
+        )
         restaurant_timeout_scheduler.start()
         logger.info(
             f"Timeout scheduler started. "
             f"Checking every {TIMEOUT_CHECK_INTERVAL_SECONDS}s for: "
             f"restaurant acceptance ({RESTAURANT_ACCEPTANCE_WINDOW_SECONDS}s window), "
-            f"delivery decision ({DELIVERY_DECISION_WINDOW_SECONDS}s window)."
+            f"delivery decision ({DELIVERY_DECISION_WINDOW_SECONDS}s window), "
+            f"delivery proof ({DELIVERY_PROOF_TIMEOUT_HOURS}h auto-release every {DELIVERY_PROOF_CHECK_INTERVAL_SECONDS}s). "
+            f"Rideshare: bidding expiry ({RIDE_BIDDING_EXPIRY_MINUTES}min), "
+            f"matched timeout ({RIDE_MATCHED_TIMEOUT_MINUTES}min), "
+            f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h) every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s."
         )
 
 
@@ -2204,11 +2322,29 @@ async def get_vendor_orders(
     db: Session = Depends(get_db)
 ):
     """
-    Get all orders for a vendor - Called from iOS Restaurant App
-    Includes driver details (name, phone, vehicle) for pickup coordination
+    Get orders for a vendor - Called from iOS Restaurant App.
+    Returns all active orders + delivered/terminal orders from last 48 hours.
+    Includes driver details (name, phone, vehicle) for pickup coordination.
     """
+    # Terminal statuses — only show recent ones (last 48h)
+    terminal_statuses = [
+        OrderStatus.DELIVERED,
+        OrderStatus.CANCELLED,
+        OrderStatus.DECLINED_BY_RESTAURANT,
+        OrderStatus.RESTAURANT_TIMEOUT,
+    ]
+    cutoff_48h = datetime.now() - timedelta(hours=48)
+
+    # Active orders (no time limit) + recent terminal orders
     orders = db.query(Order).filter(
-        Order.vendor_id == vendor_id
+        Order.vendor_id == vendor_id,
+        or_(
+            ~Order.status.in_(terminal_statuses),  # All active orders
+            and_(                                    # Terminal only if recent
+                Order.status.in_(terminal_statuses),
+                Order.created_at >= cutoff_48h
+            )
+        )
     ).order_by(Order.created_at.desc()).limit(100).all()
 
     result = []
@@ -2749,6 +2885,21 @@ async def order_delivered(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # ==================== DELIVERY PROOF PHOTO GATE ====================
+    # If no proof photo uploaded, hold payment and require photo first
+    if not order.delivery_photo_url:
+        order.status = OrderStatus.PENDING_DELIVERY_PROOF
+        order.updated_at = datetime.now()
+        db.commit()
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "status": "pending_delivery_proof",
+            "requires_photo": True,
+            "message": "Please upload a delivery proof photo to complete this delivery"
+        }
+
     # Update order status
     order.status = OrderStatus.DELIVERED
     order.delivered_at = datetime.now()
@@ -2881,6 +3032,35 @@ async def order_delivered(
 
         # Update driver stats
         driver.total_deliveries += 1
+
+        # ==================== AUTO-PAYOUT VIA STRIPE CONNECT ====================
+        try:
+            import stripe
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+            if getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                payout_cents = int(driver_payout * 100)
+                if payout_cents > 0:
+                    transfer = stripe.Transfer.create(
+                        amount=payout_cents,
+                        currency="usd",
+                        destination=driver.stripe_account_id,
+                        description=f"Order {order.order_number} delivery payout",
+                        metadata={
+                            "order_id": str(order.id),
+                            "order_number": order.order_number,
+                            "driver_id": str(driver.id),
+                            "delivery_fee": str(order.delivery_fee),
+                            "tip": str(order.tip),
+                        }
+                    )
+                    driver_payout_record.status = "completed"
+                    driver_payout_record.stripe_transfer_id = getattr(driver_payout_record, 'stripe_transfer_id', None) or transfer.id
+                    logging.info(f"Order {order.order_number} auto-payout ${driver_payout:.2f} to driver {driver.id}")
+            else:
+                logging.info(f"Order {order.order_number} driver {driver.id} not Stripe-onboarded, payout pending manual processing")
+        except Exception as e:
+            logging.error(f"Order {order.order_number} auto-payout failed (non-blocking): {e}")
 
     db.commit()
 
@@ -3460,6 +3640,71 @@ async def complete_delivery(
     Wrapper for the delivered endpoint
     """
     return await order_delivered(order_id, db)
+
+
+@router.post("/orders/{order_id}/delivery-photo")
+async def upload_delivery_photo(
+    order_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload delivery proof photo - Called from iOS Driver/Restaurant App
+    After upload, triggers order completion with payout creation.
+    """
+    from s3_service import get_s3_service
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status == OrderStatus.DELIVERED:
+        raise HTTPException(status_code=400, detail="Order already delivered")
+
+    # Validate file type
+    allowed_types = {"image/jpeg", "image/png", "image/heic", "image/heif"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: JPEG, PNG, HEIC")
+
+    # Read and validate file size (max 10MB)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    # Upload to S3
+    s3_service = get_s3_service()
+    success, url_path, message = await s3_service.upload_file(
+        file_content=content,
+        original_filename=file.filename or "delivery_proof.jpg",
+        folder=f"delivery_proofs/{order_id}",
+        content_type=file.content_type
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {message}")
+
+    # Store photo URL and timestamp
+    order.delivery_photo_url = url_path
+    order.delivery_photo_uploaded_at = datetime.now()
+    db.commit()
+
+    logging.info(f"Delivery proof photo uploaded for order {order.order_number}: {url_path}")
+
+    # If order was waiting for proof, complete the delivery now
+    if order.status == OrderStatus.PENDING_DELIVERY_PROOF:
+        return await order_delivered(order_id, db)
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "delivery_photo_url": url_path,
+        "requires_photo": False,
+        "message": "Delivery proof photo uploaded successfully"
+    }
 
 
 @router.put("/orders/{order_id}/unassign-driver")
@@ -4149,6 +4394,8 @@ async def get_full_order_tracking(
             estimated_delivery = "10-15 mins"
     elif order.status == OrderStatus.DELIVERED:
         estimated_delivery = "Delivered"
+    elif order.status == OrderStatus.PENDING_DELIVERY_PROOF:
+        estimated_delivery = "Completing Delivery..."
     elif order.status in [OrderStatus.READY_FOR_PICKUP, OrderStatus.PENDING_DELIVERY_DECISION]:
         estimated_delivery = "15-20 mins"
     elif order.status == OrderStatus.PREPARING:
@@ -4171,7 +4418,8 @@ async def get_full_order_tracking(
             "tip": order.tip,
             "total": order.total_amount,
             "delivery_address": delivery_addr,
-            "delivery_instructions": order.delivery_instructions
+            "delivery_instructions": order.delivery_instructions,
+            "delivery_photo_url": order.delivery_photo_url
         },
         "restaurant": {
             "id": vendor.id if vendor else None,

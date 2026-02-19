@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Combine
 import EatFairShared
 import os
@@ -35,6 +36,12 @@ class OrdersViewModel: ObservableObject {
     // P2P Backend Integration
     @Published var p2pVendorId: Int?  // Numeric vendor ID for P2P backend
     private var p2pRefreshTimer: Timer?
+
+    // MARK: - Delivery Proof Photo (Self-Delivery)
+    @Published var showDeliveryProofCamera = false
+    @Published var pendingDeliveryOrder: Order?
+    @Published var deliveryProofImage: UIImage?
+    @Published var isUploadingProof = false
 
     enum BusyLevel: String {
         case slow = "Slow"
@@ -449,7 +456,7 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
-    /// Restaurant marks self-delivery order as delivered
+    /// Restaurant marks self-delivery order as delivered — triggers proof photo requirement
     func markOrderDelivered(_ order: Order) {
         guard let idString = order.id else {
             errorMessage = "Order ID not found. Please refresh."
@@ -468,8 +475,14 @@ class OrdersViewModel: ObservableObject {
         p2pAPI.restaurantCompleteDelivery(orderId: orderIdInt) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success:
-                    self?.fetchP2POrders() // Refresh orders
+                case .success(let response):
+                    if response.requiresPhoto {
+                        self?.pendingDeliveryOrder = order
+                        self?.deliveryProofImage = nil
+                        self?.showDeliveryProofCamera = true
+                    } else {
+                        self?.fetchP2POrders()
+                    }
                 case .failure(let error):
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("already") || errorMsg.contains("completed") {
@@ -481,6 +494,49 @@ class OrdersViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Upload proof photo and complete self-delivery
+    func submitDeliveryWithProof() {
+        guard let order = pendingDeliveryOrder,
+              let orderId = order.id,
+              let orderIdInt = Int(orderId),
+              let image = deliveryProofImage else { return }
+
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            errorMessage = "Failed to process photo. Please retake."
+            showError = true
+            return
+        }
+
+        isUploadingProof = true
+
+        p2pAPI.uploadDeliveryPhoto(orderId: orderIdInt, imageData: imageData) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isUploadingProof = false
+
+                switch result {
+                case .success:
+                    self?.pendingDeliveryOrder = nil
+                    self?.deliveryProofImage = nil
+                    self?.showDeliveryProofCamera = false
+                    self?.fetchP2POrders()
+
+                case .failure(let error):
+                    self?.errorMessage = "Failed to upload proof photo. Please try again."
+                    self?.showError = true
+                    logger.error("Upload delivery proof error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Cancel the proof photo flow
+    func cancelDeliveryProof() {
+        pendingDeliveryOrder = nil
+        deliveryProofImage = nil
+        showDeliveryProofCamera = false
+        isUploadingProof = false
     }
 
     func markOrderReady(_ order: Order) {

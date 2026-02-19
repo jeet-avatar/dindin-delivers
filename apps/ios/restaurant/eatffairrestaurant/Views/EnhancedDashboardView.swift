@@ -142,6 +142,9 @@ struct OrdersDashboardView: View {
             .sheet(item: $showOrderDetail) { order in
                 OrderDetailSheet(order: order, ordersVM: ordersVM)
             }
+            .sheet(isPresented: $ordersVM.showDeliveryProofCamera) {
+                RestaurantDeliveryProofSheet(viewModel: ordersVM)
+            }
         }
     }
 
@@ -1056,16 +1059,16 @@ struct EnhancedOrderCard: View {
                         .padding(.horizontal)
                     }
 
-                    // Mark Delivered button
+                    // Mark Delivered button (requires proof photo)
                     Button {
                         #if DEBUG
-                        logger.info("✅ Mark Delivered button tapped for order \(order.orderId)")
+                        logger.info("Mark Delivered button tapped for order \(order.orderId)")
                         #endif
                         onMarkDelivered?()
                     } label: {
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Mark as Delivered")
+                            Image(systemName: "camera.fill")
+                            Text("Photo & Mark Delivered")
                         }
                         .font(.subheadline)
                         .fontWeight(.semibold)

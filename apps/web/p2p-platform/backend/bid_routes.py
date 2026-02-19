@@ -13,7 +13,7 @@ import math
 import re
 import uuid
 
-from database import get_db
+from database import get_db, SessionLocal
 from models import (
     RideRequest, RideBid, RideRequestStatus, BidStatus,
     Customer, Driver, DriverStatus,
@@ -2960,3 +2960,197 @@ async def delete_recurring_ride(ride_id: int, request: Request, db: Session = De
     db.commit()
 
     return {"success": True, "message": "Recurring ride deleted"}
+
+
+# ==================== RIDE TIMEOUT / CLEANUP JOBS ====================
+# These run as background scheduler jobs (registered in order_flow.py)
+
+# Configurable timeouts
+RIDE_BIDDING_EXPIRY_MINUTES = 5       # OPEN/BIDDING rides auto-expire after bidding window closes
+RIDE_MATCHED_TIMEOUT_MINUTES = 10     # MATCHED rides auto-cancel if driver doesn't start within 10 min
+RIDE_IN_PROGRESS_TIMEOUT_HOURS = 2    # IN_PROGRESS rides flagged/cancelled if not completed in 2 hours
+RIDE_CLEANUP_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
+
+
+def check_ride_bidding_expiry_job():
+    """
+    Auto-expire OPEN/BIDDING rides whose bidding window has closed.
+    Rides with bidding_expires_at in the past but still OPEN/BIDDING
+    are transitioned to EXPIRED status.
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        expired_rides = db.query(RideRequest).filter(
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
+            RideRequest.bidding_expires_at.isnot(None),
+            RideRequest.bidding_expires_at < now
+        ).all()
+
+        if not expired_rides:
+            return
+
+        expired_count = 0
+        for ride in expired_rides:
+            ride.status = RideRequestStatus.EXPIRED
+            ride.updated_at = now
+            expired_count += 1
+            logger.info(
+                f"Ride {ride.request_id} auto-expired: bidding window closed "
+                f"({ride.bidding_expires_at.isoformat()})"
+            )
+
+            # Also expire any pending bids on this ride
+            pending_bids = db.query(RideBid).filter(
+                RideBid.ride_request_id == ride.id,
+                RideBid.status == BidStatus.PENDING
+            ).all()
+            for bid in pending_bids:
+                bid.status = BidStatus.EXPIRED
+                bid.updated_at = now
+
+        db.commit()
+        logger.info(f"Ride bidding expiry check: {expired_count} rides expired")
+
+    except Exception as e:
+        logger.error(f"Error in ride bidding expiry check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def check_ride_matched_timeout_job():
+    """
+    Auto-cancel MATCHED rides where the driver hasn't started within 10 minutes.
+    Reopens the ride for other drivers by resetting to OPEN status.
+    Notifies the customer.
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        cutoff = now - timedelta(minutes=RIDE_MATCHED_TIMEOUT_MINUTES)
+
+        stale_matched = db.query(RideRequest).filter(
+            RideRequest.status == RideRequestStatus.MATCHED,
+            RideRequest.matched_at.isnot(None),
+            RideRequest.matched_at < cutoff,
+            RideRequest.driver_arrived_at.is_(None)  # Driver never arrived
+        ).all()
+
+        if not stale_matched:
+            return
+
+        reopened_count = 0
+        for ride in stale_matched:
+            elapsed_min = (now - ride.matched_at).total_seconds() / 60
+
+            # Reset ride to OPEN for other drivers
+            old_driver_id = ride.matched_driver_id
+            ride.status = RideRequestStatus.OPEN
+            ride.matched_driver_id = None
+            ride.matched_bid_id = None
+            ride.final_price = None
+            ride.matched_at = None
+            ride.updated_at = now
+            # Extend bidding window by 5 more minutes
+            ride.bidding_expires_at = now + timedelta(minutes=RIDE_BIDDING_EXPIRY_MINUTES)
+            reopened_count += 1
+
+            # Mark the accepted bid as expired
+            if old_driver_id:
+                accepted_bid = db.query(RideBid).filter(
+                    RideBid.ride_request_id == ride.id,
+                    RideBid.driver_id == old_driver_id,
+                    RideBid.status == BidStatus.ACCEPTED
+                ).first()
+                if accepted_bid:
+                    accepted_bid.status = BidStatus.EXPIRED
+                    accepted_bid.updated_at = now
+
+            logger.info(
+                f"Ride {ride.request_id} reopened: matched driver {old_driver_id} "
+                f"didn't arrive after {elapsed_min:.0f} min (limit: {RIDE_MATCHED_TIMEOUT_MINUTES} min)"
+            )
+
+            # Send push notification to customer
+            try:
+                customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+                if customer and hasattr(customer, 'push_token') and customer.push_token:
+                    from order_flow import send_push_notification
+                    asyncio.run(send_push_notification(
+                        customer.push_token,
+                        "Driver Unavailable",
+                        f"Your driver didn't respond in time. Your ride has been reopened for other drivers.",
+                        {"type": "ride_reopened", "ride_id": str(ride.id)}
+                    ))
+            except Exception as push_err:
+                logger.warning(f"Failed to send push for ride {ride.request_id}: {push_err}")
+
+        db.commit()
+        logger.info(f"Ride matched timeout check: {reopened_count} rides reopened")
+
+    except Exception as e:
+        logger.error(f"Error in ride matched timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def check_ride_in_progress_timeout_job():
+    """
+    Auto-flag/cancel IN_PROGRESS rides that have been running for 2+ hours.
+    These are likely abandoned — driver accepted but never completed.
+    Cancels the ride and notifies admin for manual review.
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        cutoff = now - timedelta(hours=RIDE_IN_PROGRESS_TIMEOUT_HOURS)
+
+        stale_rides = db.query(RideRequest).filter(
+            RideRequest.status == RideRequestStatus.IN_PROGRESS,
+            RideRequest.updated_at < cutoff
+        ).all()
+
+        if not stale_rides:
+            return
+
+        cancelled_count = 0
+        for ride in stale_rides:
+            elapsed_hours = (now - ride.updated_at).total_seconds() / 3600
+            ride.status = RideRequestStatus.CANCELLED
+            ride.cancelled_at = now
+            ride.updated_at = now
+            # Add a note about auto-cancellation
+            note = f"[AUTO-CANCELLED] Ride in progress for {elapsed_hours:.1f} hours without completion."
+            ride.special_requests = f"{ride.special_requests or ''}\n{note}".strip()
+            cancelled_count += 1
+
+            logger.warning(
+                f"Ride {ride.request_id} auto-cancelled: in_progress for "
+                f"{elapsed_hours:.1f} hours (limit: {RIDE_IN_PROGRESS_TIMEOUT_HOURS}h). "
+                f"Driver: {ride.matched_driver_id}, Customer: {ride.customer_id}"
+            )
+
+            # Notify customer
+            try:
+                customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+                if customer and hasattr(customer, 'push_token') and customer.push_token:
+                    from order_flow import send_push_notification
+                    asyncio.run(send_push_notification(
+                        customer.push_token,
+                        "Ride Cancelled",
+                        f"Your ride was automatically cancelled due to inactivity. Please request a new ride.",
+                        {"type": "ride_auto_cancelled", "ride_id": str(ride.id)}
+                    ))
+            except Exception as push_err:
+                logger.warning(f"Failed to send push for ride {ride.request_id}: {push_err}")
+
+        db.commit()
+        logger.info(f"Ride in-progress timeout check: {cancelled_count} rides auto-cancelled")
+
+    except Exception as e:
+        logger.error(f"Error in ride in-progress timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()

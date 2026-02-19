@@ -36,6 +36,7 @@ public enum OrderStatus: String, CaseIterable {
     case deliveryDecisionTimeout = "delivery_decision_timeout"
 
     case outForDelivery = "out_for_delivery"
+    case pendingDeliveryProof = "pending_delivery_proof"
     case delivered = "delivered"
     case cancelled = "cancelled"
 
@@ -67,6 +68,8 @@ public enum OrderStatus: String, CaseIterable {
             return "Sent to Drivers"
         case .outForDelivery:
             return "Out for Delivery"
+        case .pendingDeliveryProof:
+            return "Completing Delivery"
         case .delivered:
             return "Delivered"
         case .cancelled:
@@ -175,6 +178,8 @@ public enum OrderStatus: String, CaseIterable {
             return .deliveryDecisionTimeout
         case "out for delivery":
             return .outForDelivery
+        case "completing delivery", "pending delivery proof":
+            return .pendingDeliveryProof
         // Note: "delivered" and "cancelled" are rawValues, matched at line 134
         case "action required":
             return .pendingModification
