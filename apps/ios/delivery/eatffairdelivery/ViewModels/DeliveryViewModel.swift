@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Combine
 import EatFairShared
 import os
@@ -36,6 +37,12 @@ class DeliveryViewModel: ObservableObject {
     @Published var weeklyEarnings: Double = 0.0
     @Published var weeklyDeliveries: Int = 0
     @Published var isOnline: Bool = false
+
+    // MARK: - Delivery Proof Photo
+    @Published var showDeliveryProofCamera = false
+    @Published var pendingDeliveryOrder: Order?
+    @Published var deliveryProofImage: UIImage?
+    @Published var isUploadingProof = false
 
     // Computed property for average per trip
     var averagePerTrip: Double {
@@ -454,8 +461,8 @@ class DeliveryViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Mark as Delivered
-    /// Marks an order as delivered
+    // MARK: - Mark as Delivered (triggers photo requirement)
+    /// Initiates delivery completion — backend will require a proof photo
     func markAsDelivered(_ order: Order) {
         guard let orderId = order.id, let orderIdInt = Int(orderId) else { return }
 
@@ -466,10 +473,17 @@ class DeliveryViewModel: ObservableObject {
                 self?.isLoading = false
 
                 switch result {
-                case .success:
-                    // Stop location tracking since delivery is complete
-                    LocationManager.shared.stopDeliveryTracking()
-                    self?.refreshAllData()
+                case .success(let response):
+                    if response.requiresPhoto {
+                        // Backend requires proof photo — open camera
+                        self?.pendingDeliveryOrder = order
+                        self?.deliveryProofImage = nil
+                        self?.showDeliveryProofCamera = true
+                    } else {
+                        // Completed without photo (e.g. photo was already uploaded)
+                        LocationManager.shared.stopDeliveryTracking()
+                        self?.refreshAllData()
+                    }
 
                 case .failure(let error):
                     self?.showErrorMessage("Unable to complete delivery. Please try again or contact support.")
@@ -477,6 +491,49 @@ class DeliveryViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Uploads proof photo and completes the delivery
+    func submitDeliveryWithProof() {
+        guard let order = pendingDeliveryOrder,
+              let orderId = order.id,
+              let orderIdInt = Int(orderId),
+              let image = deliveryProofImage else { return }
+
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            showErrorMessage("Failed to process photo. Please retake.")
+            return
+        }
+
+        isUploadingProof = true
+
+        p2pService.uploadDeliveryPhoto(orderId: orderIdInt, imageData: imageData) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isUploadingProof = false
+
+                switch result {
+                case .success:
+                    // Delivery completed with proof
+                    LocationManager.shared.stopDeliveryTracking()
+                    self?.pendingDeliveryOrder = nil
+                    self?.deliveryProofImage = nil
+                    self?.showDeliveryProofCamera = false
+                    self?.refreshAllData()
+
+                case .failure(let error):
+                    self?.showErrorMessage("Failed to upload proof photo. Please try again.")
+                    logger.error("Upload delivery proof error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// Cancel the proof photo flow without completing delivery
+    func cancelDeliveryProof() {
+        pendingDeliveryOrder = nil
+        deliveryProofImage = nil
+        showDeliveryProofCamera = false
+        isUploadingProof = false
     }
 
     // MARK: - Cancel Delivery

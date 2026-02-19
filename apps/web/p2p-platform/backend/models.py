@@ -399,6 +399,7 @@ class OrderStatus(enum.Enum):
     RESTAURANT_WILL_DELIVER = "restaurant_will_deliver"      # Restaurant chose to self-deliver
     DELIVERY_DECISION_TIMEOUT = "delivery_decision_timeout"  # No response - goes to drivers
     OUT_FOR_DELIVERY = "out_for_delivery"
+    PENDING_DELIVERY_PROOF = "pending_delivery_proof"  # Driver must upload proof photo before payout
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
@@ -479,6 +480,10 @@ class Order(Base):
     delivered_at = Column(DateTime)
     dispatched_at = Column(DateTime)  # When driver was assigned
     cancelled_at = Column(DateTime)  # When order was cancelled
+
+    # Delivery Proof Photo
+    delivery_photo_url = Column(String(500))
+    delivery_photo_uploaded_at = Column(DateTime)
 
     # Prep Time ETA for Early Driver Notification
     estimated_prep_minutes = Column(Integer, nullable=True)  # e.g., 15 minutes

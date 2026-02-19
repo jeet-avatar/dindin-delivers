@@ -649,6 +649,7 @@ async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get
         "PENDING_DELIVERY_DECISION",
         "RESTAURANT_WILL_DELIVER",
         "DELIVERY_DECISION_TIMEOUT",
+        "PENDING_DELIVERY_PROOF",
     ]
 
     for status_value in new_order_statuses:
@@ -1124,6 +1125,9 @@ def _run_startup_migrations():
         ("orders", "driver_en_route", "BOOLEAN DEFAULT FALSE"),
         ("orders", "driver_accepted_at", "TIMESTAMP"),
         ("orders", "driver_eta_to_restaurant", "INTEGER"),
+        # Delivery proof photo columns
+        ("orders", "delivery_photo_url", "VARCHAR(500)"),
+        ("orders", "delivery_photo_uploaded_at", "TIMESTAMP"),
     ]
 
     # Tables to create if they don't exist
@@ -10113,12 +10117,14 @@ def get_published_vendors(
         Vendor.onboarding_status == VendorStatus.APPROVED
     )
 
-    # Optional platform filter
+    # Optional platform filter — NULL means published on ALL platforms
     if platform != "all":
-        # Check if vendor is published on specific platform
-        # Match both formats: "ios,android,web" and '["ios", "android", "web"]'
+        from sqlalchemy import or_
         query = query.filter(
-            Vendor.published_platforms.like(f'%{platform}%')
+            or_(
+                Vendor.published_platforms.is_(None),
+                Vendor.published_platforms.like(f'%{platform}%')
+            )
         )
 
     total = query.count()
@@ -14864,6 +14870,8 @@ def get_customer_orders(
             "dispatched_at": (order.dispatched_at.isoformat() + "Z") if order.dispatched_at else None,
             "picked_up_at": (order.picked_up_at.isoformat() + "Z") if order.picked_up_at else None,
             "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
+            # Delivery proof photo
+            "delivery_photo_url": getattr(order, 'delivery_photo_url', None),
             # Estimated delivery time (30 min from created_at if not delivered)
             "estimated_delivery_time": (order.created_at + timedelta(minutes=30)).isoformat() + "Z" if order.created_at and not order.delivered_at else None,
         })

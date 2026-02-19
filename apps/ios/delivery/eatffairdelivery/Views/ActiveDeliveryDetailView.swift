@@ -278,7 +278,7 @@ struct ActiveDeliveryDetailView: View {
 
                     // Primary Action Button
                     Button(action: {
-                        if orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver {
+                        if orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver || orderStatus == .pendingDeliveryProof {
                             showingCompleteAlert = true
                         } else {
                             viewModel.markAsPickedUp(order)
@@ -309,12 +309,15 @@ struct ActiveDeliveryDetailView: View {
         .alert("Complete Delivery", isPresented: $showingCompleteAlert) {
             Button("Cancel", role: .cancel) {}
                 .accessibilityLabel("Cancel and go back")
-            Button("Confirm") {
+            Button("Take Photo & Complete") {
                 viewModel.markAsDelivered(order)
             }
-            .accessibilityLabel("Confirm delivery completed")
+            .accessibilityLabel("Take delivery proof photo")
         } message: {
-            Text("Have you delivered the order to the customer?")
+            Text("You'll need to take a photo of the delivery at the door before completing.")
+        }
+        .sheet(isPresented: $viewModel.showDeliveryProofCamera) {
+            DeliveryProofSheet(viewModel: viewModel)
         }
         .onAppear {
             setupMapRegion()
@@ -341,6 +344,7 @@ struct ActiveDeliveryDetailView: View {
         switch orderStatus {
         case .readyForPickup: return "Heading to Restaurant"
         case .outForDelivery, .restaurantWillDeliver: return "Heading to Customer"
+        case .pendingDeliveryProof: return "Upload Proof Photo"
         case .delivered: return "Order Completed"
         case .cancelled: return "Order Cancelled"
         default: return "Order Pending"
@@ -351,6 +355,7 @@ struct ActiveDeliveryDetailView: View {
         switch orderStatus {
         case .readyForPickup: return "bag"
         case .outForDelivery, .restaurantWillDeliver: return "shippingbox"
+        case .pendingDeliveryProof: return "camera"
         case .delivered: return "checkmark.circle"
         case .cancelled: return "xmark.circle"
         default: return "clock"
@@ -367,16 +372,22 @@ struct ActiveDeliveryDetailView: View {
         }
     }
 
+    private var isDeliveryPhase: Bool {
+        [.outForDelivery, .restaurantWillDeliver, .pendingDeliveryProof].contains(orderStatus)
+    }
+
     var actionText: String {
-        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? "Complete Delivery" : "Start Delivery"
+        if orderStatus == .pendingDeliveryProof { return "Upload Proof Photo" }
+        return isDeliveryPhase ? "Complete Delivery" : "Start Delivery"
     }
 
     var actionIcon: String {
-        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? "checkmark.circle.fill" : "arrow.right.circle.fill"
+        if orderStatus == .pendingDeliveryProof { return "camera.fill" }
+        return isDeliveryPhase ? "checkmark.circle.fill" : "arrow.right.circle.fill"
     }
 
     var actionColor: Color {
-        orderStatus == .outForDelivery || orderStatus == .restaurantWillDeliver ? Theme.statusActive : Theme.statusInfo
+        isDeliveryPhase ? Theme.statusActive : Theme.statusInfo
     }
 
     // MARK: - Helper Functions

@@ -3355,7 +3355,7 @@ public class P2PAPIService: ObservableObject {
     /// POST /api/erp/orders/{orderId}/delivered
     public func restaurantCompleteDelivery(
         orderId: Int,
-        completion: @escaping (Result<Bool, Error>) -> Void
+        completion: @escaping (Result<DeliveryCompletionResponse, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/delivered") else {
             completion(.failure(P2PAPIError.invalidURL))
@@ -3376,10 +3376,18 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
-                } else {
+                guard let data = data,
+                      let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
                     completion(.failure(P2PAPIError.serverError("Failed to mark order as delivered")))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(DeliveryCompletionResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.success(DeliveryCompletionResponse(success: true, requiresPhoto: false)))
                 }
             }
         }.resume()
@@ -4600,13 +4608,13 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    /// Complete a delivery
+    /// Complete a delivery — returns DeliveryCompletionResponse which may require a proof photo
     public func completeDelivery(
         orderId: Int,
-        completion: @escaping (Result<Bool, Error>) -> Void
+        completion: @escaping (Result<DeliveryCompletionResponse, Error>) -> Void
     ) {
-        guard let token = driverToken else {
-            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+        guard let token = driverToken ?? vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Not logged in")))
             return
         }
 
@@ -4626,10 +4634,79 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
-                } else {
+                guard let data = data,
+                      let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
                     completion(.failure(P2PAPIError.serverError("Failed to complete delivery")))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(DeliveryCompletionResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    // Fallback: if decoding fails but status was 200, treat as completed
+                    completion(.success(DeliveryCompletionResponse(success: true, requiresPhoto: false)))
+                }
+            }
+        }.resume()
+    }
+
+    /// Upload delivery proof photo — triggers order completion after upload
+    public func uploadDeliveryPhoto(
+        orderId: Int,
+        imageData: Data,
+        completion: @escaping (Result<DeliveryCompletionResponse, Error>) -> Void
+    ) {
+        guard let token = driverToken ?? vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Not logged in")))
+            return
+        }
+
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/delivery-photo") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        // Add file
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"delivery_proof.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data,
+                      let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    completion(.failure(P2PAPIError.serverError("Photo upload failed (HTTP \(statusCode))")))
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode(DeliveryCompletionResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.success(DeliveryCompletionResponse(success: true, requiresPhoto: false)))
                 }
             }
         }.resume()
@@ -9015,6 +9092,29 @@ public struct DocumentUploadResponse: Codable {
     }
 }
 
+// MARK: - Delivery Completion Response
+
+public struct DeliveryCompletionResponse: Codable {
+    public let success: Bool
+    public let requiresPhoto: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case requiresPhoto = "requires_photo"
+    }
+
+    public init(success: Bool, requiresPhoto: Bool) {
+        self.success = success
+        self.requiresPhoto = requiresPhoto
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
+        self.requiresPhoto = try container.decodeIfPresent(Bool.self, forKey: .requiresPhoto) ?? false
+    }
+}
+
 // MARK: - Delivery Order Models
 
 public struct P2PDeliveryOrdersResponse: Codable {
@@ -9873,6 +9973,8 @@ public struct P2PVendorOrder: Codable, Identifiable {
             mappedStatus = "PickedUp"
         case "out_for_delivery":
             mappedStatus = "OnTheWay"
+        case "pending_delivery_proof":
+            mappedStatus = "OnTheWay"
         case "delivered":
             mappedStatus = "Delivered"
         case "cancelled":
@@ -10043,6 +10145,9 @@ public struct P2PCustomerOrder: Codable, Identifiable {
     public let pickedUpAt: String?
     public let deliveredAt: String?
 
+    // Delivery proof photo
+    public let deliveryPhotoUrl: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -10082,6 +10187,7 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         case readyAt = "ready_at"
         case pickedUpAt = "picked_up_at"
         case deliveredAt = "delivered_at"
+        case deliveryPhotoUrl = "delivery_photo_url"
     }
 
     /// Parse items JSON string into array
@@ -10142,6 +10248,8 @@ public struct P2PCustomerOrder: Codable, Identifiable {
             // Restaurant is self-delivering
             return "OnTheWay"
         case "out_for_delivery":
+            return "OnTheWay"
+        case "pending_delivery_proof":
             return "OnTheWay"
         case "delivered":
             return "Delivered"
@@ -10309,6 +10417,8 @@ public struct P2POrderTracking: Codable {
         case "ready", "ready_for_pickup":
             return "Ready"
         case "out_for_delivery":
+            return "OnTheWay"
+        case "pending_delivery_proof":
             return "OnTheWay"
         case "delivered":
             return "Delivered"
