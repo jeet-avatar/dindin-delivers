@@ -2323,28 +2323,15 @@ async def get_vendor_orders(
 ):
     """
     Get orders for a vendor - Called from iOS Restaurant App.
-    Returns all active orders + delivered/terminal orders from last 48 hours.
+    Returns active orders + delivered/terminal orders from last 48 hours.
     Includes driver details (name, phone, vehicle) for pickup coordination.
     """
-    # Terminal statuses — only show recent ones (last 48h)
-    terminal_statuses = [
-        OrderStatus.DELIVERED,
-        OrderStatus.CANCELLED,
-        OrderStatus.DECLINED_BY_RESTAURANT,
-        OrderStatus.RESTAURANT_TIMEOUT,
-    ]
     cutoff_48h = datetime.now() - timedelta(hours=48)
 
-    # Active orders (no time limit) + recent terminal orders
+    # Fetch recent orders (last 48h), which covers all active + recent terminal
     orders = db.query(Order).filter(
         Order.vendor_id == vendor_id,
-        or_(
-            ~Order.status.in_(terminal_statuses),  # All active orders
-            and_(                                    # Terminal only if recent
-                Order.status.in_(terminal_statuses),
-                Order.created_at >= cutoff_48h
-            )
-        )
+        Order.created_at >= cutoff_48h
     ).order_by(Order.created_at.desc()).limit(100).all()
 
     result = []
