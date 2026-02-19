@@ -101,6 +101,26 @@ from apscheduler.triggers.interval import IntervalTrigger
 logger = logging.getLogger(__name__)
 
 
+def _notify_customer(db: Session, customer_id: int, title: str, message: str,
+                     notification_type: str = "order", reference_id: int = None,
+                     reference_type: str = None):
+    """Create an in-app notification for a customer. Fails silently."""
+    try:
+        from models import InAppNotification
+        notification = InAppNotification(
+            customer_id=customer_id,
+            title=title,
+            message=message,
+            type=notification_type,
+            reference_id=reference_id,
+            reference_type=reference_type
+        )
+        db.add(notification)
+        # Don't commit — caller will commit as part of their transaction
+    except Exception as e:
+        logger.warning(f"Failed to create in-app notification: {e}")
+
+
 # ==================== SERVICE HELPER FUNCTIONS ====================
 
 def trigger_refund(order: "Order", reason: str = "Restaurant timeout") -> bool:
@@ -1397,6 +1417,15 @@ async def confirm_payment(
     # Automatically send to restaurant for acceptance
     order.status = OrderStatus.PENDING_RESTAURANT
     order.sent_to_restaurant_at = datetime.now()
+
+    # In-app notification for customer
+    if order.customer_id:
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
+        _notify_customer(db, order.customer_id,
+                         "Order Confirmed",
+                         f"Your order from {restaurant_name} has been confirmed and sent to the restaurant.",
+                         "order", order.id, "order")
 
     db.commit()
 
@@ -2793,6 +2822,14 @@ async def order_picked_up(
     order.picked_up_at = datetime.now()
     order.driver_en_route = False  # Driver has picked up, no longer en-route
 
+    # In-app notification for customer
+    if order.customer_id:
+        driver_name = order.driver_name or "Your driver"
+        _notify_customer(db, order.customer_id,
+                         "Order On The Way!",
+                         f"{driver_name} picked up your order and is heading to you now.",
+                         "delivery", order.id, "order")
+
     db.commit()
 
     # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
@@ -2896,6 +2933,14 @@ async def order_delivered(
 
     # Get driver
     driver = db.query(Driver).filter(Driver.id == order.driver_id).first() if order.driver_id else None
+
+    # In-app notification for customer
+    if order.customer_id:
+        restaurant_name = vendor.restaurant_name if vendor else "the restaurant"
+        _notify_customer(db, order.customer_id,
+                         "Order Delivered!",
+                         f"Your order from {restaurant_name} has been delivered. Enjoy your meal!",
+                         "delivery", order.id, "order")
 
     # ==================== CREATE ACCOUNTING ENTRIES ====================
 

@@ -235,21 +235,117 @@ struct NotificationRow: View {
 // MARK: - P2PAPIService Extension for Notifications
 extension P2PAPIService {
     func getNotifications(completion: @escaping (Result<[NotificationItem], Error>) -> Void) {
-        // TODO: Implement actual API call when backend endpoint is available
-        // For now, return empty list (graceful degradation)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        guard let token = SecureStorage.shared.customerAccessToken else {
             completion(.success([]))
+            return
         }
+
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/customer/notifications") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.success([]))
+                    return
+                }
+
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let notificationsArray = json["notifications"] as? [[String: Any]] {
+                        let formatter = ISO8601DateFormatter()
+                        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        let fallbackFormatter = ISO8601DateFormatter()
+
+                        let items: [NotificationItem] = notificationsArray.compactMap { dict in
+                            guard let id = dict["id"] as? String,
+                                  let title = dict["title"] as? String,
+                                  let message = dict["message"] as? String else { return nil }
+
+                            let typeStr = dict["type"] as? String ?? "system"
+                            let isRead = dict["is_read"] as? Bool ?? false
+                            let createdAtStr = dict["created_at"] as? String ?? ""
+                            let timestamp = formatter.date(from: createdAtStr)
+                                ?? fallbackFormatter.date(from: createdAtStr)
+                                ?? Date()
+
+                            return NotificationItem(
+                                id: id,
+                                title: title,
+                                message: message,
+                                type: NotificationItem.NotificationType(rawValue: typeStr) ?? .system,
+                                timestamp: timestamp,
+                                isRead: isRead
+                            )
+                        }
+                        completion(.success(items))
+                    } else {
+                        completion(.success([]))
+                    }
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
     }
 
     func markNotificationAsRead(notificationId: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // TODO: Implement actual API call
-        completion(.success(()))
+        guard let token = SecureStorage.shared.customerAccessToken else {
+            completion(.success(()))
+            return
+        }
+
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/customer/notifications/\(notificationId)/read") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { _, _, _ in
+            DispatchQueue.main.async {
+                completion(.success(()))
+            }
+        }.resume()
     }
 
     func clearAllNotifications(completion: @escaping (Result<Void, Error>) -> Void) {
-        // TODO: Implement actual API call
-        completion(.success(()))
+        guard let token = SecureStorage.shared.customerAccessToken else {
+            completion(.success(()))
+            return
+        }
+
+        guard let url = URL(string: "\(AppConfig.shared.p2pAPIBaseURL)/api/customer/notifications") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                completion(.success(()))
+            }
+        }.resume()
     }
 }
 

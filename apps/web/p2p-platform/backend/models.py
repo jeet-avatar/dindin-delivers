@@ -1817,3 +1817,29 @@ class RecurringRide(Base):
     # Relationships
     customer = relationship("Customer")
     preferred_driver = relationship("Driver")
+
+
+# =============================================================================
+# IN-APP NOTIFICATION - Notification history for customers
+# =============================================================================
+
+class InAppNotification(Base):
+    """In-app notification stored for customer notification feed"""
+    __tablename__ = "in_app_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String(50), default="system")  # order, promotion, system, delivery, ride
+    is_read = Column(Boolean, default=False)
+
+    # Optional reference to related entity
+    reference_id = Column(Integer)         # order_id or ride_request_id
+    reference_type = Column(String(50))    # "order" or "ride"
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    customer = relationship("Customer")
