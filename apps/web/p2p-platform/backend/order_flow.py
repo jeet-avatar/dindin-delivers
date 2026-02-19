@@ -19,7 +19,7 @@ AI Employees:
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import text, or_, and_
+from sqlalchemy import text, or_, and_, func
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
@@ -1135,7 +1135,7 @@ async def get_ride_receipt(
         items_data = json.loads(ride.items) if ride.items else []
         fare_breakdown = items_data[0].get("fare_breakdown", {}) if items_data else {}
         receipt_line_items = items_data[0].get("receipt_line_items", []) if items_data else []
-    except:
+    except Exception:
         addr = {}
         fare_breakdown = {}
         receipt_line_items = []
@@ -2054,8 +2054,25 @@ def check_restaurant_timeouts_job():
                     f"Refund required."
                 )
 
-                # TODO: Trigger refund via Stripe
-                # TODO: Send push notification to customer
+                # Trigger refund for timed-out order
+                if order.stripe_payment_intent_id:
+                    refund_success = trigger_refund(order, reason="Restaurant acceptance timeout")
+                    if refund_success:
+                        order.payment_status = "refunded"
+                        logger.info(f"Refund triggered for timed-out order {order.order_number}")
+
+                # Notify customer about timeout
+                try:
+                    send_push_notification(
+                        user_type="customer",
+                        user_id=order.customer_id,
+                        title="Order Cancelled",
+                        body=f"Sorry, the restaurant didn't respond in time. Your payment will be refunded.",
+                        data={"type": "order_timeout", "order_id": str(order.id)},
+                        db=db
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send timeout notification: {e}")
 
         if timed_out_count > 0:
             db.commit()
@@ -4064,8 +4081,8 @@ async def get_driver_location(
     if order.driver_location:
         try:
             driver_location = json.loads(order.driver_location)
-        except:
-            pass
+        except Exception:
+            pass  # JSON/dict parse fallback
 
     # Fallback to driver's current location
     if not driver_location and driver:
@@ -4225,6 +4242,20 @@ async def get_realtime_analytics(
         if prep_times:
             avg_prep_time = round(sum(prep_times) / len(prep_times), 1)
 
+    # Average delivery time (created_at -> delivered_at) for today's completed orders
+    avg_delivery_time = None
+    avg_time_query = db.query(
+        func.avg(
+            func.extract('epoch', Order.delivered_at) - func.extract('epoch', Order.created_at)
+        ) / 60
+    ).filter(
+        Order.status == OrderStatus.DELIVERED,
+        Order.delivered_at >= today_start,
+        Order.delivered_at.isnot(None)
+    ).scalar()
+    if avg_time_query:
+        avg_delivery_time = round(float(avg_time_query), 1)
+
     return {
         "success": True,
         "timestamp": now.isoformat(),
@@ -4251,7 +4282,7 @@ async def get_realtime_analytics(
         },
         "performance": {
             "avg_prep_time_minutes": avg_prep_time,
-            "avg_delivery_time_minutes": None  # TODO: Calculate
+            "avg_delivery_time_minutes": avg_delivery_time
         }
     }
 
@@ -4348,7 +4379,7 @@ async def get_full_order_tracking(
             delivery_addr = json.loads(order.delivery_address)
             delivery_lat = delivery_addr.get("latitude") or delivery_addr.get("lat")
             delivery_lng = delivery_addr.get("longitude") or delivery_addr.get("lng")
-        except:
+        except Exception:
             delivery_addr = {"address": str(order.delivery_address)}
 
     # Fallback to order-level delivery coordinates
@@ -4366,8 +4397,8 @@ async def get_full_order_tracking(
             driver_location = json.loads(order.driver_location)
             driver_lat = driver_location.get("latitude") or driver_location.get("lat")
             driver_lng = driver_location.get("longitude") or driver_location.get("lng")
-        except:
-            pass
+        except Exception:
+            pass  # JSON/dict parse fallback
 
     # Fallback to driver's current location from driver record
     if driver and not driver_lat:
@@ -4381,8 +4412,8 @@ async def get_full_order_tracking(
     if order.items:
         try:
             items = json.loads(order.items)
-        except:
-            pass
+        except Exception:
+            pass  # JSON/dict parse fallback
 
     # Build timeline
     timeline = []
