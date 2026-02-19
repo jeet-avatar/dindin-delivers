@@ -3166,6 +3166,46 @@ async def order_delivered(
     except Exception as e:
         logging.error(f"Failed to send delivery push notification: {e}")
 
+    # ==================== SEND PAYMENT NOTIFICATION TO DRIVER ====================
+    try:
+        if driver and driver_payout > 0:
+            send_push_notification(
+                user_type="driver",
+                user_id=driver.id,
+                title="Payment Received!",
+                body=f"${driver_payout:.2f} from order {order.order_number} has been transferred to your account.",
+                data={
+                    "type": "payment_processed",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "amount": str(driver_payout)
+                },
+                db=db
+            )
+            logging.info(f"Payment notification sent to driver {driver.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send driver payment notification: {e}")
+
+    # ==================== SEND PAYMENT NOTIFICATION TO RESTAURANT ====================
+    try:
+        if vendor and restaurant_payout > 0:
+            send_push_notification(
+                user_type="vendor",
+                user_id=vendor.id,
+                title="Payment Received!",
+                body=f"${restaurant_payout:.2f} from order {order.order_number} has been transferred to your account.",
+                data={
+                    "type": "payment_processed",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "amount": str(restaurant_payout)
+                },
+                db=db
+            )
+            logging.info(f"Payment notification sent to vendor {vendor.id} for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send vendor payment notification: {e}")
+
     # ==================== SEND THANK YOU EMAIL WITH RECEIPT ====================
     try:
         # Parse order items from JSON
