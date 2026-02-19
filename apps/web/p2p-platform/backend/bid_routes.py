@@ -41,6 +41,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _notify_customer(db: Session, customer_id: int, title: str, message: str,
+                     notification_type: str = "ride", reference_id: int = None,
+                     reference_type: str = None):
+    """Create an in-app notification for a customer. Fails silently."""
+    try:
+        from models import InAppNotification
+        notification = InAppNotification(
+            customer_id=customer_id,
+            title=title,
+            message=message,
+            type=notification_type,
+            reference_id=reference_id,
+            reference_type=reference_type
+        )
+        db.add(notification)
+    except Exception as e:
+        logger.warning(f"Failed to create in-app notification: {e}")
+
+
 router = APIRouter(prefix="/api/rides", tags=["Ride Bidding"])
 
 
@@ -580,6 +600,14 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
             other_bid.rejected_at = now
             other_bid.customer_response = "Another bid was accepted"
 
+        # In-app notification: ride matched
+        driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+        driver_name = f"{driver.first_name} {driver.last_name}" if driver and driver.first_name else "A driver"
+        _notify_customer(db, ride_request.customer_id,
+                         "Driver Matched!",
+                         f"{driver_name} accepted your ride for ${bid.proposed_price:.2f}.",
+                         "ride", ride_request.id, "ride")
+
         db.commit()
 
         # Send WebSocket update - ride matched
@@ -592,9 +620,6 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
             ))
         except Exception as e:
             logger.error(f"WebSocket broadcast error: {e}")
-
-        # Get driver for response and email
-        driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
 
         # Build driver info for iOS AcceptedDriverInfo format
         driver_info = None
@@ -1624,6 +1649,15 @@ async def driver_arrived(request_id: int, request: Request, db: Session = Depend
         raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
 
     ride_request.driver_arrived_at = datetime.utcnow()
+
+    # In-app notification: driver arrived
+    driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+    driver_name = f"{driver.first_name}".strip() if driver and driver.first_name else "Your driver"
+    _notify_customer(db, ride_request.customer_id,
+                     "Driver Arrived",
+                     f"{driver_name} is at the pickup location. Head out to meet them.",
+                     "ride", ride_request.id, "ride")
+
     db.commit()
 
     # Send push notification to customer - DRIVER ARRIVED
@@ -1859,6 +1893,13 @@ async def start_ride(request_id: int, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail=f"Ride must be matched first (current: {ride_request.status.value})")
 
     ride_request.status = RideRequestStatus.IN_PROGRESS
+
+    # In-app notification: ride started
+    _notify_customer(db, ride_request.customer_id,
+                     "Ride Started",
+                     "Your ride is in progress. Enjoy the trip!",
+                     "ride", ride_request.id, "ride")
+
     db.commit()
 
     # Send ride started email to customer
@@ -1954,6 +1995,12 @@ async def complete_ride(request_id: int, request: Request, db: Session = Depends
         platform_fee = 3.00
     ride_request.platform_fee = platform_fee
     ride_request.driver_payout = round(final_price - platform_fee, 2)
+
+    # In-app notification: ride completed
+    _notify_customer(db, ride_request.customer_id,
+                     "Ride Complete",
+                     f"You've arrived! Your fare was ${final_price:.2f}. Rate your driver to help improve the community.",
+                     "ride", ride_request.id, "ride")
 
     db.commit()
 

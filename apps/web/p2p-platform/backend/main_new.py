@@ -1212,10 +1212,26 @@ def _run_startup_migrations():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """,
+        # In-app notifications table
+        """
+        CREATE TABLE IF NOT EXISTS in_app_notifications (
+            id SERIAL PRIMARY KEY,
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type VARCHAR(50) DEFAULT 'system',
+            is_read BOOLEAN DEFAULT FALSE,
+            reference_id INTEGER,
+            reference_type VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
         # Indexes for new tables
         "CREATE INDEX IF NOT EXISTS idx_ride_disputes_ride_request_id ON ride_disputes(ride_request_id)",
         "CREATE INDEX IF NOT EXISTS idx_ride_disputes_customer_id ON ride_disputes(customer_id)",
         "CREATE INDEX IF NOT EXISTS idx_recurring_rides_customer_id ON recurring_rides(customer_id)",
+        "CREATE INDEX IF NOT EXISTS idx_in_app_notifications_customer_id ON in_app_notifications(customer_id)",
+        "CREATE INDEX IF NOT EXISTS idx_in_app_notifications_customer_read ON in_app_notifications(customer_id, is_read)",
     ]
 
     try:
@@ -19061,6 +19077,87 @@ def unregister_push_token(
             db.commit()
 
     return {"success": True, "message": "Push token unregistered"}
+
+
+# ==================== IN-APP NOTIFICATION ENDPOINTS ====================
+
+@app.get("/api/customer/notifications")
+def get_customer_notifications(
+    customer: Customer = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    """Get all notifications for the current customer, newest first."""
+    from models import InAppNotification
+    notifications = db.query(InAppNotification).filter(
+        InAppNotification.customer_id == customer.id
+    ).order_by(InAppNotification.created_at.desc()).limit(100).all()
+
+    return {
+        "notifications": [
+            {
+                "id": str(n.id),
+                "title": n.title,
+                "message": n.message,
+                "type": n.type or "system",
+                "is_read": n.is_read,
+                "reference_id": n.reference_id,
+                "reference_type": n.reference_type,
+                "created_at": n.created_at.isoformat() if n.created_at else None
+            }
+            for n in notifications
+        ]
+    }
+
+
+@app.put("/api/customer/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    customer: Customer = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    """Mark a notification as read. Customer can only mark their own."""
+    from models import InAppNotification
+    notification = db.query(InAppNotification).filter(
+        InAppNotification.id == notification_id,
+        InAppNotification.customer_id == customer.id
+    ).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notification.is_read = True
+    db.commit()
+    return {"success": True}
+
+
+@app.delete("/api/customer/notifications")
+def clear_all_notifications(
+    customer: Customer = Depends(get_current_customer),
+    db: Session = Depends(get_db)
+):
+    """Delete all notifications for the current customer."""
+    from models import InAppNotification
+    db.query(InAppNotification).filter(
+        InAppNotification.customer_id == customer.id
+    ).delete()
+    db.commit()
+    return {"success": True}
+
+
+def create_in_app_notification(db: Session, customer_id: int, title: str, message: str,
+                                notification_type: str = "system", reference_id: int = None,
+                                reference_type: str = None):
+    """Helper to create an in-app notification for a customer."""
+    from models import InAppNotification
+    notification = InAppNotification(
+        customer_id=customer_id,
+        title=title,
+        message=message,
+        type=notification_type,
+        reference_id=reference_id,
+        reference_type=reference_type
+    )
+    db.add(notification)
+    db.commit()
+    return notification
 
 
 # ==================== LEGAL DOCUMENT ENDPOINTS ====================
