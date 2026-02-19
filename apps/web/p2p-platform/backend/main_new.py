@@ -10878,7 +10878,7 @@ def get_vendor_publish_checklist(
         {"key": "restaurant_name", "label": "Restaurant Name", "value": db_vendor.restaurant_name},
         {"key": "contact_email", "label": "Contact Email", "value": db_vendor.contact_email},
         {"key": "contact_phone", "label": "Contact Phone", "value": db_vendor.contact_phone},
-        {"key": "address", "label": "Address", "value": db_vendor.city and db_vendor.state},
+        {"key": "address", "label": "Address", "value": (db_vendor.street and db_vendor.street != "None" and db_vendor.city and db_vendor.city != "None")},
     ]
 
     for info in info_checks:
@@ -10890,8 +10890,8 @@ def get_vendor_publish_checklist(
             "status": "complete" if is_complete else "incomplete",
             "message": "Provided" if is_complete else "Missing"
         })
-        # Only restaurant_name and contact_email are required
-        if info["key"] in ["restaurant_name", "contact_email"] and not is_complete:
+        # restaurant_name, contact_email, and address are required
+        if info["key"] in ["restaurant_name", "contact_email", "address"] and not is_complete:
             checklist["ready_to_publish"] = False
 
     # Summary
@@ -12389,6 +12389,10 @@ def admin_publish_vendor(
     if not vendor.menu_verified:
         errors.append("Menu must be verified before publishing")
 
+    # 5. Check address is set (required for delivery/pickup)
+    if not vendor.street or not vendor.city or vendor.street == "None" or vendor.city == "None":
+        errors.append("Restaurant address (street and city) is required before publishing")
+
     # If there are errors, return them
     if errors:
         return {
@@ -12400,7 +12404,8 @@ def admin_publish_vendor(
                 "status_approved": vendor.onboarding_status == VendorStatus.APPROVED,
                 "documents_verified": vendor.documents_verified,
                 "menu_exists": menu_count > 0,
-                "menu_verified": vendor.menu_verified
+                "menu_verified": vendor.menu_verified,
+                "address_set": bool(vendor.street and vendor.city and vendor.street != "None" and vendor.city != "None")
             }
         }
 
