@@ -162,7 +162,9 @@ class Vendor(Base):
     average_prep_time = Column(Integer)  # in minutes
     # Note: image_url column added via migration but not in model to avoid query issues
     # Use stock images via get_stock_image_for_restaurant() in API response
-    
+    logo_url = Column(String(500))
+    banner_url = Column(String(500))
+
     # Primary Contact
     contact_name = Column(String(255))
     contact_email = Column(String(255))

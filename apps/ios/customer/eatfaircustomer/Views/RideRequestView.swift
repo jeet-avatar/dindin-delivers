@@ -6,6 +6,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import Combine
+import FirebaseAuth
 import EatFairShared
 
 /// Uber-style Ride Request View for Customers
@@ -118,7 +119,7 @@ struct RideRequestView: View {
         viewModel.requestRide(
             customerName: name,
             customerEmail: email,
-            customerPhone: ""
+            customerPhone: UserDefaults.standard.string(forKey: "p2p_customer_phone") ?? Auth.auth().currentUser?.phoneNumber ?? ""
         )
     }
 }

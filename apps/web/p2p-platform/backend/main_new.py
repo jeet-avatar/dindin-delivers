@@ -1059,6 +1059,9 @@ def _run_startup_migrations():
         ("vendors", "onfido_applicant_id", "VARCHAR(255)"),
         ("vendors", "veriff_session_id", "VARCHAR(255)"),
         ("vendors", "verification_provider", "VARCHAR(50)"),
+        # Vendor branding columns
+        ("vendors", "logo_url", "VARCHAR(500)"),
+        ("vendors", "banner_url", "VARCHAR(500)"),
         # KOT/POS Integration columns
         ("vendors", "kot_integration_type", "VARCHAR(50) DEFAULT 'none'"),
         ("vendors", "kot_enabled", "BOOLEAN DEFAULT FALSE"),
@@ -4107,17 +4110,8 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        # Return mock tracking if database query fails
-        return {
-            "success": True,
-            "order": {
-                "status": "pending",
-                "ride_id": ride_id
-            },
-            "driver": None,
-            "eta_minutes": None,
-            "error": str(e) if str(e) else None
-        }
+        logger.error(f"Error fetching ride tracking: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching ride tracking: {str(e)}")
 
 
 # Ride rating endpoint
@@ -6235,37 +6229,21 @@ async def get_customer_dashboard(customer: Customer = Depends(get_current_custom
     our_fees = total_rides * 1.0  # $1 per ride
     saved_amount = max(0, estimated_traditional_fees - our_fees)
 
-    # Mock recent rides for display (in production, query from rides table)
-    if total_rides == 0:
-        # Show empty state
-        recent_rides = []
-    else:
-        # Generate sample recent rides based on stats
-        import random
-        sample_locations = [
-            ("123 Main St", "Downtown Mall"),
-            ("456 Oak Avenue", "Airport Terminal B"),
-            ("789 Pine Road", "Central Station"),
-            ("321 Elm Street", "University Campus"),
-            ("654 Maple Drive", "Shopping Center"),
-        ]
+    # Query real recent rides from database
+    from models import RideRequest as RideRequestDB, RideRequestStatus
+    recent_rides_db = db.query(RideRequestDB).filter(
+        RideRequestDB.customer_id == customer_id
+    ).order_by(RideRequestDB.created_at.desc()).limit(5).all()
 
-        for i in range(min(5, total_rides)):
-            pickup, dropoff = random.choice(sample_locations)
-            days_ago = i + 1
-            ride_date = (datetime.utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
-            fare = round(random.uniform(8.0, 35.0), 2)
-
-            recent_rides.append({
-                "id": f"RIDE-{random.randint(1000, 9999)}",
-                "pickup": pickup,
-                "dropoff": dropoff,
-                "date": ride_date,
-                "fare": fare,
-                "driver_name": random.choice(["John D.", "Maria S.", "James K.", "Sarah L.", "Mike T."]),
-                "driver_rating": round(random.uniform(4.5, 5.0), 1),
-                "status": "completed"
-            })
+    for r in recent_rides_db:
+        recent_rides.append({
+            "id": f"RIDE-{r.id}",
+            "pickup": r.pickup_address,
+            "dropoff": r.dropoff_address,
+            "fare": float(r.final_price or r.suggested_price or 0),
+            "status": r.status.value if r.status else "unknown",
+            "date": r.created_at.isoformat() if r.created_at else None
+        })
 
     # Quick destinations (from customer saved addresses or defaults)
     saved_addresses = customer.saved_addresses if customer.saved_addresses else []
@@ -6978,7 +6956,7 @@ def get_driver_dashboard_v5(
                 "overall": driver.rating or 5.0,
                 "total_ratings": driver.total_deliveries or 0,
                 "total_reviews": driver.total_deliveries or 0,
-                "on_time_percentage": 95
+                "on_time_percentage": 95  # Placeholder — no on-time tracking implemented yet
             },
             "tax_info": {
                 "ytd_earnings": round(month_data["gross_earnings"] * 12, 2),
@@ -7007,7 +6985,7 @@ def get_driver_dashboard_v5(
             "today": {"deliveries": 0, "gross_earnings": 0.0, "base_pay": 0.0, "tips": 0.0, "bonuses": 0.0, "active_hours": 0.0},
             "this_week": {"deliveries": 0, "gross_earnings": 0.0, "base_pay": 0.0, "tips": 0.0, "bonuses": 0.0, "active_hours": 0.0},
             "this_month": {"deliveries": 0, "gross_earnings": 0.0, "base_pay": 0.0, "tips": 0.0, "bonuses": 0.0, "active_hours": 0.0},
-            "ratings": {"average": 5.0, "overall": 5.0, "total_ratings": 0, "total_reviews": 0, "on_time_percentage": 95}
+            "ratings": {"average": 5.0, "overall": 5.0, "total_ratings": 0, "total_reviews": 0, "on_time_percentage": 95}  # Placeholder — no on-time tracking implemented yet
         }
 
 
@@ -8845,6 +8823,17 @@ def get_platform_revenue(
         vendor_revenue[vid]["orders"] += 1
         vendor_revenue[vid]["revenue"] += order.total_amount or 0
 
+    # Query rideshare revenue from ride_requests table
+    from models import RideRequest, RideRequestStatus
+    completed_rides = db.query(RideRequest).filter(
+        RideRequest.status == RideRequestStatus.COMPLETED,
+        RideRequest.created_at >= start_date
+    ).all()
+    tier1 = sum(float(r.platform_fee or 0) for r in completed_rides if float(r.final_price or r.suggested_price or 0) <= 35)
+    tier2 = sum(float(r.platform_fee or 0) for r in completed_rides if 35 < float(r.final_price or r.suggested_price or 0) <= 70)
+    tier3 = sum(float(r.platform_fee or 0) for r in completed_rides if float(r.final_price or r.suggested_price or 0) > 70)
+    rideshare_total = tier1 + tier2 + tier3
+
     return {
         "period": period,
         "start_date": start_date.isoformat(),
@@ -8855,7 +8844,7 @@ def get_platform_revenue(
             "pending_orders": pending_orders,
             "cancelled_orders": cancelled_orders,
             "total_gmv": round(total_gmv, 2),
-            "platform_fees_collected": round(total_platform_fees, 2),
+            "platform_fees_collected": round(total_platform_fees + rideshare_total, 2),
             "delivery_fees_collected": round(total_delivery_fees, 2),
             "tips_collected": round(total_tips, 2),
         },
@@ -8866,12 +8855,12 @@ def get_platform_revenue(
                 "total": round(food_delivery_revenue, 2),  # $2 per completed order
             },
             "rideshare": {
-                "tier_1_under_35": 0,  # TODO: Query from ride_requests table
-                "tier_2_35_70": 0,
-                "tier_3_over_70": 0,
-                "total": 0,
+                "tier_1_under_35": round(tier1, 2),
+                "tier_2_35_70": round(tier2, 2),
+                "tier_3_over_70": round(tier3, 2),
+                "total": round(rideshare_total, 2),
             },
-            "total_platform_revenue": round(total_platform_fees, 2),  # Actual from DB
+            "total_platform_revenue": round(total_platform_fees + rideshare_total, 2),
         },
         "driver_earnings": {
             "delivery_fees_to_drivers": round(total_delivery_fees, 2),
@@ -9544,8 +9533,8 @@ class VendorResponse(BaseModel):
             "phone": vendor.contact_phone,
             "rating": 4.5,  # Default rating
             "is_open": True,  # Default to open during business hours
-            "logo_url": None,  # TODO: Add logo_url column to vendors table
-            "banner_url": None,  # TODO: Add banner_url column to vendors table
+            "logo_url": getattr(vendor, 'logo_url', None),
+            "banner_url": getattr(vendor, 'banner_url', None),
             "delivery_time_minutes": vendor.average_prep_time or 30,  # Default 30 min
             "address": f"{vendor.street}, {vendor.city}, {vendor.state} {vendor.zip_code}".strip(", ") if vendor.street else None,
         }
@@ -17360,12 +17349,7 @@ async def proxy_list_rides(
     if result:
         return result
 
-    # Fallback mock data when service unavailable
-    return {
-        "rides": [],
-        "total": 0,
-        "message": "Ride service temporarily unavailable - showing cached data"
-    }
+    raise HTTPException(status_code=503, detail="Ride service temporarily unavailable")
 
 
 @app.get("/api/erp/rides/{ride_id}/eta")
@@ -17375,18 +17359,7 @@ async def proxy_get_ride_eta(ride_id: str):
     if result:
         return result
 
-    # Fallback mock ETA
-    import random
-    return {
-        "ride_id": ride_id,
-        "eta_minutes": random.randint(3, 15),
-        "eta_timestamp": (datetime.utcnow() + timedelta(minutes=random.randint(3, 15))).isoformat(),
-        "driver_location": {
-            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
-            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
-        },
-        "status": "driver_en_route"
-    }
+    raise HTTPException(status_code=503, detail="ETA service temporarily unavailable")
 
 
 @app.get("/api/erp/rides/active-count")
@@ -17396,14 +17369,7 @@ async def proxy_active_rides_count():
     if result:
         return result
 
-    # Fallback mock count
-    import random
-    return {
-        "active_rides": random.randint(50, 200),
-        "available_drivers": random.randint(100, 500),
-        "pending_requests": random.randint(10, 50),
-        "timestamp": datetime.utcnow().isoformat()
-    }
+    raise HTTPException(status_code=503, detail="Ride stats service temporarily unavailable")
 
 
 # Note: POST /api/erp/rides/request is handled by request_ride (line ~2490)
@@ -17448,43 +17414,7 @@ async def proxy_list_restaurants(
     if result:
         return result
 
-    # Fallback mock restaurants
-    return {
-        "restaurants": [
-            {
-                "id": 1,
-                "name": "Demo Restaurant",
-                "cuisine_type": "American",
-                "rating": 4.5,
-                "delivery_time": "20-35 min",
-                "delivery_fee": 2.99,
-                "is_open": True,
-                "address": "123 Main St, San Francisco, CA"
-            },
-            {
-                "id": 2,
-                "name": "Pizza Palace",
-                "cuisine_type": "Italian",
-                "rating": 4.2,
-                "delivery_time": "25-40 min",
-                "delivery_fee": 3.49,
-                "is_open": True,
-                "address": "456 Oak Ave, San Francisco, CA"
-            },
-            {
-                "id": 3,
-                "name": "Sushi Express",
-                "cuisine_type": "Japanese",
-                "rating": 4.7,
-                "delivery_time": "30-45 min",
-                "delivery_fee": 4.99,
-                "is_open": True,
-                "address": "789 Pine St, San Francisco, CA"
-            }
-        ],
-        "total": 3,
-        "message": "Restaurant service temporarily unavailable - showing cached data"
-    }
+    raise HTTPException(status_code=503, detail="Restaurant service temporarily unavailable")
 
 
 @app.get("/api/erp/restaurants/nearby")
@@ -17506,26 +17436,7 @@ async def proxy_nearby_restaurants(
     if result:
         return result
 
-    # Fallback mock nearby restaurants
-    import random
-    return {
-        "restaurants": [
-            {
-                "id": i,
-                "name": f"Restaurant {i}",
-                "cuisine_type": random.choice(["American", "Italian", "Chinese", "Mexican", "Japanese"]),
-                "rating": round(random.uniform(3.5, 5.0), 1),
-                "delivery_time": f"{random.randint(15, 30)}-{random.randint(35, 50)} min",
-                "delivery_fee": round(random.uniform(1.99, 4.99), 2),
-                "distance_miles": round(random.uniform(0.5, radius_miles), 1),
-                "is_open": True
-            }
-            for i in range(1, min(limit + 1, 11))
-        ],
-        "location": {"latitude": lat, "longitude": lng},
-        "radius_miles": radius_miles,
-        "message": "Restaurant service temporarily unavailable - showing cached data"
-    }
+    raise HTTPException(status_code=503, detail="Nearby restaurants service temporarily unavailable")
 
 
 @app.get("/api/erp/restaurants/{restaurant_id}")
@@ -17636,33 +17547,7 @@ async def proxy_get_restaurant_menu(restaurant_id: int):
     if result:
         return result
 
-    # Fallback mock menu
-    return {
-        "restaurant_id": restaurant_id,
-        "categories": [
-            {
-                "name": "Appetizers",
-                "items": [
-                    {"id": 1, "name": "Spring Rolls", "price": 8.99, "description": "Crispy vegetable spring rolls"},
-                    {"id": 2, "name": "Soup of the Day", "price": 5.99, "description": "Chef's daily soup selection"}
-                ]
-            },
-            {
-                "name": "Main Courses",
-                "items": [
-                    {"id": 3, "name": "Grilled Chicken", "price": 16.99, "description": "Herb-marinated grilled chicken"},
-                    {"id": 4, "name": "Pasta Primavera", "price": 14.99, "description": "Fresh vegetables in cream sauce"}
-                ]
-            },
-            {
-                "name": "Desserts",
-                "items": [
-                    {"id": 5, "name": "Chocolate Cake", "price": 7.99, "description": "Rich chocolate layer cake"},
-                    {"id": 6, "name": "Ice Cream", "price": 4.99, "description": "Two scoops, choice of flavor"}
-                ]
-            }
-        ]
-    }
+    raise HTTPException(status_code=503, detail="Menu service temporarily unavailable")
 
 
 # ==================== AUTH SERVICE PROXY ====================
@@ -20861,7 +20746,7 @@ def get_driver_earnings_by_id(
         "three_star": 0,
         "two_star": 0,
         "one_star": 0,
-        "on_time_percentage": 95  # TODO: Calculate from actual data
+        "on_time_percentage": 95  # Placeholder — no on-time tracking implemented yet
     }
 
     # Payout info (mock for now - would need payout table)
