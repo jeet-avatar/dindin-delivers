@@ -1,411 +1,290 @@
-# Dollor.ai (EatFair) Codebase Structure
+# Codebase Structure
 
-This document provides a comprehensive map of the eatfair-ios repository, detailing the directory layout, key files, and where different features are implemented.
+**Analysis Date:** 2026-02-18
+
+## Directory Layout
+
+```
+doordash-p2p/                         # Primary repo (also called eatfair-ios)
+├── apps/
+│   ├── ios/                          # All iOS apps + shared library
+│   │   ├── eatfair-ios-shared/       # Swift Package (shared across all 3 iOS apps)
+│   │   ├── customer/                 # Customer iOS app (com.dollorai.customer / Dollor)
+│   │   ├── delivery/                 # Driver iOS app (com.dollorai.delivery)
+│   │   └── restaurant/               # Restaurant iOS app (com.dollorai.restaurant)
+│   ├── android/                      # Android apps (symlinked/mirror of eatfair-android)
+│   │   ├── app/                      # Customer Android app (ai.dollor.customer)
+│   │   ├── driver/                   # Driver Android app (ai.dollor.driver)
+│   │   └── partner/                  # Restaurant Android app (ai.dollor.partner)
+│   └── web/p2p-platform/
+│       ├── backend/                  # Python FastAPI backend (PRODUCTION — runs in ECS)
+│       └── frontend/                 # React + TypeScript admin/web portal
+├── services/
+│   ├── core/                         # 18 microservices (aspirational, NOT in production)
+│   │   ├── auth-service/             # Port 8001 — JWT auth
+│   │   ├── driver-service/           # Port 8003 — driver profiles
+│   │   ├── restaurant-service/       # Port 8004 — restaurant management
+│   │   ├── order-service/            # Port 8005 — CQRS food orders
+│   │   ├── payment-service/          # Port 8008 — payments
+│   │   ├── notification-service/     # Port 8009 — push/SMS/email
+│   │   ├── ride-service/             # Port 8014 — rideshare
+│   │   ├── analytics-service/
+│   │   ├── call-service/
+│   │   ├── chat-service/
+│   │   ├── location-service/
+│   │   ├── menu-service/
+│   │   ├── negotiation-service/
+│   │   ├── pricing-service/
+│   │   ├── rating-service/
+│   │   └── user-service/
+│   ├── shared/
+│   │   ├── common/                   # Shared Python utilities (errors, logging, health)
+│   │   └── events/                   # Kafka event system (producer, consumer, outbox)
+│   └── api-gateway/                  # Kong/nginx gateway config (aspirational)
+├── infrastructure/
+│   ├── ecs/                          # AWS ECS task definitions (PRODUCTION)
+│   ├── kubernetes/                   # K8s manifests per service (aspirational)
+│   ├── argocd/                       # GitOps ArgoCD apps (dev/staging/production)
+│   ├── helm/                         # Helm charts for backend
+│   └── terraform/                    # (if present) IaC for AWS resources
+├── .claude/
+│   ├── docs/                         # Project documentation (GROUND_TRUTH.md etc.)
+│   ├── tools/                        # ask-dollor.sh anti-hallucination script
+│   └── training/                     # Ollama model training files
+├── .planning/
+│   ├── codebase/                     # Architecture documents (this directory)
+│   ├── quick/                        # Quick-start plans from /gsd:plan-phase
+│   ├── qa-reports/                   # Automated QA snapshots
+│   └── uat-reports/                  # User acceptance test reports
+├── docs/                             # Additional documentation
+├── CLAUDE.md                         # AI employee instructions (project-level)
+└── .github/workflows/                # CI/CD GitHub Actions
+```
+
+## Directory Purposes
+
+**`apps/web/p2p-platform/backend/`:**
+- Purpose: The single production Python backend — ALL business logic lives here
+- Contains: FastAPI app, all domain route modules, SQLAlchemy models, helper services
+- Key files:
+  - `main_new.py` — 22K-line monolith; all routing, auth, middleware
+  - `models.py` — SQLAlchemy ORM (1848 lines); all DB tables
+  - `models_extended.py` — overflow models (promotions, email templates, etc.)
+  - `order_flow.py` — food delivery ERP flow (4664 lines)
+  - `bid_routes.py` — rideshare bidding (3203 lines)
+  - `stripe_integration.py` — Stripe payments + webhooks for food orders
+  - `rideshare_payments.py` — Stripe payments for rides
+  - `chat_routes.py` — in-app chat between customer/driver
+  - `matchmaking_routes.py` — Wyoming legal matchmaking model
+  - `accounting_module.py` — double-entry bookkeeping
+  - `websocket_server.py` — WebSocket connection manager + Redis pub/sub
+  - `cache.py` — Redis client with graceful fallback
+  - `database.py` — SQLAlchemy engine + session factory
+  - `email_service.py` — transactional email sending
+  - `pricing_config.py` — fare calculation engine
+  - `state_config.py` — per-state operating rules
+  - `google_maps_service.py` — ETA and distance calculations
+  - `s3_service.py` — AWS S3 file uploads (driver documents)
+  - `Dockerfile.optimized` — production Docker image (MUST use `--target production`)
+
+**`apps/web/p2p-platform/frontend/src/`:**
+- Purpose: React SPA serving admin, customer web portal, vendor portal, driver portal
+- Contains: Route definitions in `App.tsx`, screens in `app/screens/`, components in `app/components/`, global context in `app/context/`
+- Key files:
+  - `main.tsx` — entry point, BrowserRouter + UserProvider
+  - `App.tsx` — all route definitions by role
+  - `app/screens/` — all page components organized by role/domain
+  - `app/components/layout/` — `MainLayout.tsx` (admin), `VendorLayout.tsx`, `DriverLayout.tsx`, `CustomerLayout.tsx`
+  - `app/context/UserContext.tsx` — global auth state
+  - `app/constants/Apis.tsx` — API base URL and endpoint constants
+
+**`apps/ios/eatfair-ios-shared/Sources/EatFairShared/`:**
+- Purpose: Swift Package shared across all 3 iOS apps
+- Contains:
+  - `Services/P2PAPIService.swift` — complete HTTP client (~14K lines)
+  - `AppConfig.swift` — pricing/URL singleton
+  - `Security/SecureStorage.swift` — Keychain wrapper
+  - `Security/NetworkSecurity.swift` — SSL pinning, cert validation
+  - `Services/WebSocketManager.swift` — WebSocket client
+  - `Services/ChatService.swift` — in-app chat
+  - `Services/NegotiationService.swift` — rideshare price negotiation
+  - `Models/` — response models (Order, Driver, Restaurant, Address, EnhancedModels)
+  - `Views/` — shared SwiftUI views
+  - `Utilities/` — Calculators, DateTimeFormatter, EmailValidator
+  - `Config/GoogleMapsConfig.swift` — Google Maps API key config
+
+**`apps/ios/customer/eatfaircustomer/`:**
+- Purpose: Customer iOS app source
+- Contains: SwiftUI Views in `Views/`, Models in `Models/`, Services in `Services/`
+- Key files: `Views/WelcomeView.swift`, `Views/SearchRestaurantsView.swift`, `Views/MenuItemCustomizationView.swift`
+
+**`apps/ios/delivery/eatffairdelivery/`:**
+- Purpose: Driver iOS app source
+- Contains: SwiftUI Views including rideshare-specific: `Views/Rideshare/MyBidsView.swift`, `Views/ChatView.swift`
+
+**`apps/ios/restaurant/eatffairrestaurant/`:**
+- Purpose: Restaurant iOS app source
+- Contains: `Views/AIEmployeesView.swift` (AI insights dashboard)
+
+**`apps/android/app/src/main/java/com/eatfair/app/`:**
+- Purpose: Android customer app (Kotlin + Jetpack Compose + Hilt)
+- Contains:
+  - `ui/` — Compose screens organized by feature (auth, home, cart, checkout, order, rideshare, chat, etc.)
+  - `data/` — API service clients (`CustomerRideshareApiService.kt`, `AppDatabase.kt`)
+  - `di/` — Hilt DI modules (`AppModule.kt`, `RepoModule.kt`)
+  - `notifications/` — Firebase Messaging service
+  - `constants/` — `Constants.kt` (PricingConfig, AppConstants)
+  - `MainActivity.kt` — Compose entry point
+
+**`apps/android/driver/`:**
+- Purpose: Android driver app
+- Contains: `ui/` screens for home, orders, earnings, auth; `DriverNavGraph.kt`
+
+**`apps/android/partner/`:**
+- Purpose: Android restaurant app
+- Contains: Restaurant-specific Compose screens
+
+**`services/core/`:**
+- Purpose: Scaffolded microservices architecture (not production)
+- Contains: 18 separate FastAPI apps, each with their own `main.py`, `models.py`, `tests/`
+- Note: `order-service/` has full CQRS pattern with `cqrs/commands.py`, `cqrs/queries.py`, `cqrs/projections.py`
+- Generated: No. Committed: Yes.
+
+**`services/shared/`:**
+- Purpose: Shared Python utilities for microservices
+- Contains: `common/` (MicroserviceFactory, error codes, logging), `events/` (Kafka producer/consumer/outbox)
+- Used by: All services in `services/core/` via `sys.path.insert`
+
+## Key File Locations
+
+**Entry Points:**
+- `apps/web/p2p-platform/backend/main_new.py` — Backend FastAPI app creation + all route registration
+- `apps/web/p2p-platform/frontend/src/main.tsx` — React SPA entry
+- `apps/ios/eatfair-ios-shared/Package.swift` — iOS shared library package definition
+- `apps/android/app/src/main/java/com/eatfair/app/DollorApp.kt` — Android customer app Application class
+- `apps/android/driver/src/main/java/com/eatfair/driver/DriverApp.kt` — Android driver Application class
+
+**Configuration:**
+- `apps/web/p2p-platform/backend/.env` — Backend environment variables (DATABASE_URL, JWT secrets, Stripe keys)
+- `apps/ios/Config/` — xcconfig files for iOS build environments (Development/Staging/Production)
+- `apps/android/app/src/staging/` + `apps/android/app/src/production/` — Android build variant configs
+- `apps/web/p2p-platform/frontend/vite.config.ts` — Vite build config
+
+**Core Logic:**
+- `apps/web/p2p-platform/backend/models.py` — All SQLAlchemy ORM models
+- `apps/web/p2p-platform/backend/order_flow.py` — Food delivery business logic + ERP routes
+- `apps/web/p2p-platform/backend/bid_routes.py` — Rideshare bidding engine
+- `apps/web/p2p-platform/backend/rideshare_payments.py` — Tiered payment logic (`get_tier_fee()`)
+- `apps/web/p2p-platform/backend/pricing_config.py` — Fare calculation engine
+- `apps/ios/eatfair-ios-shared/Sources/EatFairShared/AppConfig.swift` — iOS pricing + URL config
+- `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift` — iOS API client
+
+**Testing:**
+- `apps/web/p2p-platform/backend/tests/` — Pytest test suite
+- `apps/web/p2p-platform/backend/qa_regression_tests.py` — Full regression suite
+- `apps/ios/customer/eatfaircustomerTests/CustomerAppStagingAPITests.swift` — iOS staging API tests
+- `apps/android/app/src/test/` + `apps/android/app/src/androidTest/` — Android unit + instrumented tests
+
+## Naming Conventions
+
+**Backend Python Files:**
+- `snake_case.py` for all modules: `order_flow.py`, `bid_routes.py`, `rideshare_payments.py`
+- Route files end in `_routes.py` or are named by domain: `chat_routes.py`, `bid_routes.py`, `verification_routes.py`
+- Service files end in `_service.py`: `email_service.py`, `google_maps_service.py`, `s3_service.py`
+
+**Backend Endpoints:**
+- Customer API: `/api/customer/*` or `/api/customers/*`
+- Vendor API: `/api/vendors/*`
+- Driver API: `/api/erp/drivers/*` or `/api/erp/orders/driver/*`
+- Order flow: `/api/erp/orders/*`
+- Rideshare: `/api/rides/*`
+- Payments: `/api/payments/*`
+- Admin: `/api/admin/*`
+- Matchmaking (Wyoming): `/api/matchmaking/*`
+
+**iOS Swift Files:**
+- `PascalCase.swift` for all Swift files
+- Views end in `View.swift`: `SearchRestaurantsView.swift`, `GoogleMapView.swift`
+- Services end in `Service.swift`: `P2PAPIService.swift`, `ChatService.swift`
+- Models named after entity: `Order.swift`, `Driver.swift`, `Restaurant.swift`
+
+**Android Kotlin Files:**
+- `PascalCase.kt` for all Kotlin files
+- Screens end in `Screen.kt`: `HomeScreen.kt`, `CartScreen.kt`, `RideRequestScreen.kt`
+- ViewModels end in `ViewModel.kt`: `HomeViewModel.kt`, `CartViewModel.kt`
+- DI modules end in `Module.kt`: `AppModule.kt`, `RepoModule.kt`
+
+**React/TypeScript Files:**
+- Screens/components: `PascalCase.tsx`
+- Organized by role: `screens/admin/`, `screens/customer/`, `screens/vendor/`, `screens/driver/`, `screens/public/`
+
+## Where to Add New Code
+
+**New Backend API Endpoint:**
+- If food-delivery related: Add to `apps/web/p2p-platform/backend/order_flow.py` (under the `router = APIRouter(prefix="/api/erp")` router)
+- If rideshare related: Add to `apps/web/p2p-platform/backend/bid_routes.py`
+- If payment related: Add to `apps/web/p2p-platform/backend/stripe_integration.py` or `rideshare_payments.py`
+- If general (auth, profile, admin): Add to `apps/web/p2p-platform/backend/main_new.py` near related endpoints
+- New standalone domain: Create `{domain}_routes.py`, define `router = APIRouter(prefix="/api/{domain}")`, add `app.include_router(router)` at the bottom of `main_new.py` (near line 14750+)
+
+**New DB Table:**
+- Add SQLAlchemy model to `apps/web/p2p-platform/backend/models.py` (or `models_extended.py` for auxiliary models)
+- Add `CREATE INDEX IF NOT EXISTS` in `_run_startup_migrations()` in `main_new.py` if needed
+- SQLAlchemy creates tables on startup via `Base.metadata.create_all(bind=engine, checkfirst=True)`
+
+**New iOS Feature:**
+- Shared API method: Add to `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift`
+- Shared model: Add to `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Models/`
+- App-specific view: Add to appropriate app's `Views/` directory
+
+**New Android Screen:**
+- Customer: `apps/android/app/src/main/java/com/eatfair/app/ui/{feature}/`
+- Driver: `apps/android/driver/src/main/java/com/eatfair/driver/ui/{feature}/`
+- Restaurant: `apps/android/partner/` equivalent
+- Shared API call: Add to shared module's API service (`CustomerRideshareApiService.kt` pattern, or shared Retrofit service)
+
+**New React Admin Screen:**
+- Page component: `apps/web/p2p-platform/frontend/src/app/screens/{role}/`
+- Route: Register in `apps/web/p2p-platform/frontend/src/App.tsx`
+- Reusable component: `apps/web/p2p-platform/frontend/src/app/components/`
+
+**New Test:**
+- Backend: Add pytest test in `apps/web/p2p-platform/backend/tests/`
+- iOS: Add to `eatfaircustomerTests/` (or equivalent for delivery/restaurant app)
+- Android: Add to `app/src/test/` (unit) or `app/src/androidTest/` (instrumented)
+
+## Special Directories
+
+**`apps/web/p2p-platform/backend/uploads/`:**
+- Purpose: Stores uploaded vendor documents (insurance, licenses, menus)
+- Generated: Yes (at runtime via `os.makedirs`)
+- Committed: No (git-ignored). Served via `app.mount("/uploads", StaticFiles(...))`.
+
+**`apps/web/p2p-platform/backend/migrations/`:**
+- Purpose: Alembic migration scripts
+- Generated: Via `alembic revision`
+- Committed: Yes
+
+**`apps/web/p2p-platform/frontend/dist/`:**
+- Purpose: Vite build output
+- Generated: Yes (`npm run build`)
+- Committed: No
+
+**`.planning/`:**
+- Purpose: GSD workflow plans, QA reports, architecture docs
+- Generated: Partially (QA reports auto-generated, plans written by Claude)
+- Committed: Yes
+
+**`.claude/training/`:**
+- Purpose: JSONL training data for Ollama `dollor-customer` model (anti-hallucination)
+- Generated: Manually maintained
+- Committed: Yes
+
+**`apps/ios/eatfair-ios-shared/.build/`:**
+- Purpose: Swift Package Manager build artifacts
+- Generated: Yes
+- Committed: No
 
 ---
 
-## Repository Overview
-
-```
-eatfair-ios/                              # Primary monorepo
-├── .claude/                              # Claude AI configuration and training
-├── .github/                              # GitHub Actions workflows
-├── .planning/                            # Project planning documentation
-├── apps/                                 # All applications
-│   ├── ios/                              # iOS applications (Swift/SwiftUI)
-│   └── web/p2p-platform/                 # Web platform (Python backend + React frontend)
-├── backend/                              # Shared backend utilities
-├── docs/                                 # Project documentation
-├── frontend/                             # Legacy frontend (deprecated)
-├── infrastructure/                       # Kubernetes, Terraform, ArgoCD configs
-├── packages/                             # Shared npm packages
-├── scripts/                              # Automation and deployment scripts
-└── services/                             # Microservices architecture
-```
-
----
-
-## iOS Applications (`/apps/ios/`)
-
-### Directory Structure
-
-```
-apps/ios/
-├── Config/                               # Environment configurations
-│   ├── Development.xcconfig              # Dev environment settings
-│   ├── Staging.xcconfig                  # Staging (TestFlight) settings
-│   └── Production.xcconfig               # Production settings
-├── customer/                             # Customer App
-├── delivery/                             # Driver App
-├── restaurant/                           # Restaurant/Vendor App
-├── eatfair-ios-shared/                   # Shared Swift Package
-├── EatFair.xcworkspace                   # Xcode workspace (all apps)
-├── fastlane/                             # Fastlane deployment configuration
-└── legal/                                # Legal documents (Terms, Privacy)
-```
-
----
-
-### Customer App (`/apps/ios/customer/`)
-
-The main consumer-facing application for ordering food and requesting rides.
-
-```
-customer/
-├── eatfaircustomer/                      # Source code
-│   ├── eatfaircustomerApp.swift          # App entry point, AppDelegate
-│   ├── ContentView.swift                 # Root content view
-│   ├── Info.plist                        # App configuration
-│   ├── GoogleService-Info.plist          # Firebase configuration
-│   ├── Assets.xcassets/                  # Images, colors, app icons
-│   ├── Models/                           # Local data models
-│   │   └── MenuItem.swift                # Local menu item model
-│   ├── ViewModels/                       # MVVM ViewModels
-│   │   ├── AuthViewModel.swift           # Authentication logic
-│   │   ├── HomeViewModel.swift           # Home screen data
-│   │   ├── AddressViewModel.swift        # Address management
-│   │   ├── MenuViewModel.swift           # Restaurant menu data
-│   │   ├── MultiRestaurantCartViewModel.swift  # Multi-restaurant cart
-│   │   ├── OrderTrackingViewModel.swift  # Order tracking
-│   │   ├── OrderHistoryViewModel.swift   # Past orders
-│   │   └── RideRequestViewModel.swift    # Rideshare logic
-│   ├── Views/                            # SwiftUI Views
-│   │   ├── MainAppView.swift             # Tab navigation container
-│   │   ├── HomeView.swift                # Main home screen
-│   │   ├── LoginView.swift               # Login/Register
-│   │   ├── RegisterView.swift            # Registration form
-│   │   ├── ProfileView.swift             # User profile
-│   │   ├── RestaurantDetailView.swift    # Restaurant menu display
-│   │   ├── MultiRestaurantCartView.swift # Shopping cart
-│   │   ├── MultiRestaurantCheckoutView.swift  # Checkout flow
-│   │   ├── OrderHistoryView.swift        # Order history
-│   │   ├── OrderSuccessView.swift        # Order confirmation
-│   │   ├── DeliveryTrackingView.swift    # Live order tracking
-│   │   ├── RideRequestView.swift         # Rideshare booking
-│   │   ├── TripBoardView.swift           # Rideshare trip board
-│   │   ├── SearchRestaurantsView.swift   # Restaurant search
-│   │   ├── SettingsView.swift            # App settings
-│   │   ├── PaymentMethodsView.swift      # Payment management
-│   │   ├── AddressListView.swift         # Saved addresses
-│   │   ├── LocationPickerView.swift      # Address picker
-│   │   └── HelpSupportView.swift         # Help & support
-│   ├── Services/                         # Local services
-│   │   ├── PaymentService.swift          # Stripe payment integration
-│   │   ├── ACHPaymentService.swift       # ACH bank payments
-│   │   ├── LocationManager.swift         # Core Location wrapper
-│   │   ├── VoiceSearchService.swift      # Voice search
-│   │   └── DatabaseSeeder.swift          # Debug data seeding
-│   └── Theme/                            # Local theme overrides
-├── eatfaircustomer.xcodeproj/            # Xcode project
-├── eatfaircustomerTests/                 # Unit tests
-├── eatfaircustomerUITests/               # UI tests
-├── Pods/                                 # CocoaPods dependencies
-├── fastlane/                             # App-specific fastlane config
-└── ExportOptions.plist                   # Archive export settings
-```
-
-**Key Files:**
-- `eatfaircustomerApp.swift` - App lifecycle, Firebase/Google SDK init, push notifications
-- `ViewModels/AuthViewModel.swift` - Google Sign-In, Apple Sign-In, email/password auth
-- `Views/HomeView.swift` - Main dashboard with restaurants, categories, active orders
-- `Views/RideRequestView.swift` - Full rideshare booking UI
-
----
-
-### Driver App (`/apps/ios/delivery/`)
-
-The driver application for accepting deliveries and rideshare trips.
-
-```
-delivery/
-├── eatffairdelivery/                     # Source code
-│   ├── eatffairdeliveryApp.swift         # App entry point
-│   ├── DriverDashboardView.swift         # Main dashboard
-│   ├── DriverLoginView.swift             # Login with Google/Apple/Email
-│   ├── Theme.swift                       # Driver app theme
-│   ├── ViewModels/
-│   │   ├── DeliveryViewModel.swift       # Delivery operations
-│   │   ├── DriverProfileViewModel.swift  # Profile, documents
-│   │   ├── EarningsViewModel.swift       # Earnings tracking
-│   │   └── RideBiddingViewModel.swift    # Rideshare bidding
-│   ├── Views/
-│   │   ├── AvailableOrdersView.swift     # Available deliveries
-│   │   ├── ActiveDeliveryDetailView.swift # Active delivery tracking
-│   │   ├── PickupDropoffView.swift       # Pickup/dropoff workflow
-│   │   ├── MyDeliveriesView.swift        # Delivery history
-│   │   ├── DriverProfileView.swift       # Profile management
-│   │   ├── DriverStatsCard.swift         # Statistics display
-│   │   ├── ChatView.swift                # Customer chat
-│   │   ├── OrderMapDetailView.swift      # Map navigation
-│   │   ├── TermsAndConditionsView.swift  # Legal agreements
-│   │   ├── VoiceAssistantButton.swift    # Voice commands
-│   │   └── Rideshare/                    # Rideshare-specific views
-│   │       ├── RideshareOrdersView.swift
-│   │       ├── BiddingView.swift
-│   │       └── TripDetailView.swift
-│   └── Services/
-│       ├── AuthManager.swift             # Authentication
-│       ├── LocationManager.swift         # GPS tracking
-│       ├── ChatManager.swift             # Real-time chat
-│       └── VoiceAssistantManager.swift   # Voice commands
-├── eatffairdelivery.xcodeproj/
-├── eatffairdeliveryTests/
-└── eatffairdeliveryUITests/
-```
-
-**Key Files:**
-- `DriverLoginView.swift` - Comprehensive auth with Keychain storage
-- `ViewModels/DeliveryViewModel.swift` - Core delivery state management
-- `Views/AvailableOrdersView.swift` - Order selection and acceptance
-
----
-
-### Restaurant App (`/apps/ios/restaurant/`)
-
-The vendor application for managing orders, menu, and analytics.
-
-```
-restaurant/
-├── eatffairrestaurant/                   # Source code
-│   ├── eatffairrestaurantApp.swift       # App entry point
-│   ├── ContentView.swift                 # Navigation controller
-│   ├── Persistence.swift                 # Core Data setup
-│   ├── Theme.swift                       # Restaurant theme
-│   ├── ViewModels/
-│   │   ├── OrdersViewModel.swift         # Order management
-│   │   ├── AnalyticsViewModel.swift      # Business analytics
-│   │   └── AIInsightsViewModel.swift     # AI-powered insights
-│   └── Views/
-│       ├── DashboardView.swift           # Main dashboard
-│       ├── OrdersView.swift              # Active orders
-│       ├── MenuManagementView.swift      # Menu CRUD
-│       ├── AIEmployeesView.swift         # AI employee management
-│       ├── AnalyticsView.swift           # Business analytics
-│       ├── SettingsView.swift            # Restaurant settings
-│       └── ImagePicker.swift             # Photo selection
-├── eatffairrestaurant.xcodeproj/
-├── eatffairrestaurantTests/
-└── Pods/
-```
-
-**Key Files:**
-- `ViewModels/OrdersViewModel.swift` - Real-time order management
-- `Views/AIEmployeesView.swift` - AI workforce management feature
-
----
-
-### Shared Package (`/apps/ios/eatfair-ios-shared/`)
-
-Swift Package providing shared code across all iOS apps.
-
-```
-eatfair-ios-shared/
-├── Package.swift                         # SPM manifest
-└── Sources/EatFairShared/
-    ├── AppConfig.swift                   # Centralized configuration
-    ├── DollorTheme.swift                 # Unified color system
-    ├── Theme.swift                       # Theme helpers
-    ├── ErrorHandler.swift                # Standardized error handling
-    ├── NotificationManager.swift         # Push notification handling
-    ├── Models/
-    │   ├── Restaurant.swift              # Restaurant model
-    │   ├── Order.swift                   # Order model
-    │   ├── Driver.swift                  # Driver model
-    │   ├── Address.swift                 # Address model
-    │   ├── AIEmployee.swift              # AI employee model
-    │   └── EnhancedModels.swift          # Additional models
-    ├── Services/
-    │   ├── P2PAPIService.swift           # Main API client (~386KB)
-    │   ├── EnterpriseNetworkLayer.swift  # Network infrastructure
-    │   ├── GoogleMapsService.swift       # Maps integration
-    │   ├── TripBoardService.swift        # Trip board for rideshare
-    │   ├── DollorV3Service.swift         # V3 API features
-    │   ├── AIEmployeeService.swift       # AI employee API
-    │   ├── LegalService.swift            # Legal document service
-    │   ├── ChatService.swift             # Real-time chat
-    │   ├── CallService.swift             # Privacy-masked calls
-    │   └── NegotiationService.swift      # Price negotiation
-    ├── Security/
-    │   ├── SecureStorage.swift           # Keychain wrapper
-    │   └── NetworkSecurity.swift         # SSL pinning, etc.
-    ├── Utilities/
-    │   ├── Calculators.swift             # Tax, distance, price calculations
-    │   ├── DateTimeFormatter.swift       # Date formatting
-    │   └── EmailValidator.swift          # Email validation
-    ├── Views/
-    │   ├── GoogleMapView.swift           # Maps component
-    │   ├── GooglePlacesSearchView.swift  # Places autocomplete
-    │   ├── V3CheckoutView.swift          # Checkout component
-    │   ├── PaymentBreakdownView.swift    # Price breakdown
-    │   ├── LegalAcceptanceView.swift     # Terms acceptance
-    │   ├── OrderConfirmationViews.swift  # Confirmation screens
-    │   └── ViralFeaturesView.swift       # Sharing/referral features
-    └── Config/
-        └── GoogleMapsConfig.swift        # Maps API config
-```
-
-**Key Files:**
-- `AppConfig.swift` - All environment URLs, pricing configuration
-- `Services/P2PAPIService.swift` - Complete API client (largest file in codebase)
-- `Security/SecureStorage.swift` - Keychain token storage
-- `DollorTheme.swift` - Unified design system colors
-
----
-
-## Backend (`/apps/web/p2p-platform/backend/`)
-
-Python FastAPI backend serving all mobile and web clients.
-
-```
-backend/
-├── main_new.py                           # Primary API (~630KB, all endpoints)
-├── database.py                           # SQLAlchemy database setup
-├── models.py                             # SQLAlchemy ORM models
-├── email_service.py                      # Transactional email sending
-├── document_verification_service.py      # Document verification
-├── pricing_config.py                     # Pricing configuration
-├── image_service.py                      # Image processing
-├── accounting_module.py                  # Financial accounting
-├── bid_routes.py                         # Rideshare bidding API
-├── chat_routes.py                        # Chat API
-├── matchmaking_routes.py                 # Driver-order matching
-├── auto_onboarding.py                    # Automated vendor onboarding
-├── menu_verification.py                  # Menu verification service
-├── menu_importer.py                      # Menu import utilities
-├── investor_tracking.py                  # Investor demo features
-├── alembic/                              # Database migrations
-├── documents/                            # Document templates
-├── legal/                                # Legal document storage
-├── uploads/                              # File uploads
-│   └── vendor_documents/                 # Vendor document uploads
-├── tests/                                # Test suite
-├── .env                                  # Environment variables
-├── .env.example                          # Environment template
-├── Dockerfile                            # Container build
-└── requirements.txt                      # Python dependencies
-```
-
-**Key Files:**
-- `main_new.py` - All API endpoints (authentication, orders, vendors, drivers, etc.)
-- `models.py` - Database schema (User, Vendor, Driver, Customer, Order, etc.)
-- `email_service.py` - Email templates and sending via SES
-
----
-
-## Microservices (`/services/core/`)
-
-Modular microservices architecture (18 services).
-
-```
-services/core/
-├── auth-service/           # Customer authentication (Port 8001)
-├── driver-service/         # Driver profiles, documents (Port 8003)
-├── restaurant-service/     # Restaurant management (Port 8004)
-├── order-service/          # Food order lifecycle (Port 8005)
-├── ride-service/           # Rideshare requests (Port 8014)
-├── notification-service/   # Push, SMS, Email (Port 8009)
-├── payment-service/        # Stripe integration (Port 8006)
-├── pricing-service/        # Dynamic pricing (Port 8007)
-├── location-service/       # Real-time GPS (Port 8008)
-├── menu-service/           # Menu management (Port 8010)
-├── analytics-service/      # Business analytics (Port 8011)
-├── rating-service/         # Reviews and ratings (Port 8012)
-├── chat-service/           # Real-time messaging (Port 8013)
-├── call-service/           # Privacy-masked calls (Port 8015)
-├── negotiation-service/    # Price negotiation (Port 8016)
-├── user-service/           # User profiles (Port 8017)
-└── ai/                     # AI/ML services
-```
-
-Each microservice follows:
-```
-service-name/
-├── main.py                 # FastAPI application
-├── models.py               # Service-specific models
-├── routes/                 # API route handlers
-├── services/               # Business logic
-├── tests/                  # Unit tests
-├── Dockerfile              # Container definition
-└── requirements.txt        # Dependencies
-```
-
----
-
-## Configuration Files
-
-### Environment Configuration
-- `/apps/ios/Config/*.xcconfig` - iOS build configurations
-- `/apps/web/p2p-platform/backend/.env` - Backend environment variables
-
-### Build Configuration
-- `/.github/workflows/` - CI/CD pipelines
-- `/apps/ios/fastlane/` - iOS deployment automation
-- `/infrastructure/` - Kubernetes, Terraform configs
-
-### Project Configuration
-- `/.swiftlint.yml` - Swift linting rules
-- `/.semgrep.yml` - Security scanning rules
-- `/sonar-project.properties` - SonarQube analysis
-
----
-
-## Feature Location Map
-
-| Feature | iOS Location | Backend Location |
-|---------|--------------|------------------|
-| Authentication | `customer/ViewModels/AuthViewModel.swift` | `main_new.py` (customer_login, customer_register) |
-| Restaurant List | `customer/ViewModels/HomeViewModel.swift` | `main_new.py` (/api/vendors/published) |
-| Menu Display | `customer/ViewModels/MenuViewModel.swift` | `main_new.py` (/api/vendors/{id}/menu) |
-| Shopping Cart | `customer/ViewModels/MultiRestaurantCartViewModel.swift` | N/A (client-side only) |
-| Checkout | `customer/Views/MultiRestaurantCheckoutView.swift` | `main_new.py` (/api/orders/create) |
-| Order Tracking | `customer/ViewModels/OrderTrackingViewModel.swift` | `main_new.py` (/api/orders/{id}/status) |
-| Rideshare | `customer/ViewModels/RideRequestViewModel.swift` | `bid_routes.py`, `ride-service/` |
-| Driver Delivery | `delivery/ViewModels/DeliveryViewModel.swift` | `main_new.py` (/api/drivers/*) |
-| Payments | `shared/Services/P2PAPIService.swift` | `payment-service/`, Stripe |
-| Push Notifications | `shared/NotificationManager.swift` | `notification-service/` |
-| Chat | `shared/Services/ChatService.swift` | `chat_routes.py`, `chat-service/` |
-
----
-
-## Data Flow
-
-```
-iOS App                    Backend                     External
-   │                          │                           │
-   ├─► P2PAPIService.swift ──►├─► main_new.py ───────────►├─► PostgreSQL
-   │                          │                           │
-   ├─► GoogleMapsService ────►├─►                        ─►├─► Google Maps API
-   │                          │                           │
-   ├─► PaymentService ───────►├─► payment-service ───────►├─► Stripe
-   │                          │                           │
-   ├─► NotificationManager ──►├─► notification-service ──►├─► Firebase/APNS
-   │                          │                           │
-   └─► SecureStorage (local)  └─► email_service ─────────►└─► AWS SES
-```
-
----
-
-## Build & Deployment
-
-### iOS Build Commands
-```bash
-# Open workspace in Xcode
-open /Users/jeet/StudioProjects/eatfair-ios/apps/ios/EatFair.xcworkspace
-
-# Fastlane builds
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/ios
-bundle exec fastlane customer_staging    # Customer app to TestFlight
-bundle exec fastlane driver_staging      # Driver app to TestFlight
-bundle exec fastlane restaurant_staging  # Restaurant app to TestFlight
-```
-
-### Backend Commands
-```bash
-cd /Users/jeet/StudioProjects/eatfair-ios/apps/web/p2p-platform/backend
-source venv/bin/activate
-uvicorn main_new:app --reload --port 8080
-```
-
----
-
-*Last Updated: January 29, 2026*
+*Structure analysis: 2026-02-18*

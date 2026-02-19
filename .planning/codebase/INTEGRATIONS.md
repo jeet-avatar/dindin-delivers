@@ -1,542 +1,209 @@
-# External Integrations Documentation
+# External Integrations
 
-This document details all external APIs, SDKs, and services integrated into the eatfair-ios platform.
+**Analysis Date:** 2026-02-18
 
----
+## APIs & External Services
 
-## Overview
+**Payments:**
+- Stripe - Payment intents, webhooks, Stripe Connect payouts to drivers
+  - SDK/Client: `stripe==11.3.0` (backend), `stripe-android==21.29.0` (Android), Stripe iOS SDK (iOS)
+  - Backend integration: `apps/web/p2p-platform/backend/stripe_integration.py`
+  - Rideshare payments: `apps/web/p2p-platform/backend/rideshare_payments.py`
+  - Auth env vars: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+  - Webhook endpoint: `POST /api/payments/webhook` (stripe signature verified)
+  - Use cases: order payment intents, ride payment intents, driver Connect payouts on completion, tip transfers
 
-The platform uses a hybrid architecture where:
-- **iOS Apps** communicate primarily with the P2P backend (Dollor.ai)
-- **Firebase** is used only for authentication (not data storage)
-- **External services** are integrated for payments, maps, and communication
+**Maps & Location:**
+- Google Maps Platform - ETA calculations, geocoding, address autocomplete
+  - Backend: `httpx` HTTP calls to Directions API (`apps/web/p2p-platform/backend/google_maps_service.py`)
+  - iOS: `GoogleMaps 9.0` + `GooglePlaces 9.0` via CocoaPods (`apps/ios/customer/Podfile`)
+  - Android: `maps-compose 6.12.1` + `play-services-maps 19.2.0`
+  - Auth: `GOOGLE_MAPS_API_KEY` (backend env var; iOS/Android from `local.properties` or xcconfig)
+  - Google Web Client ID for Google Sign-In is environment-specific (staging vs production in `apps/android/app/build.gradle.kts:80-88`)
 
----
+**Document Verification:**
+- Persona (primary in production) - Driver/vendor identity document verification
+  - SDK/Client: Direct HTTPS API via `httpx` (`apps/web/p2p-platform/backend/document_verification_service.py`)
+  - Also supports Onfido and Veriff (configured via `DOCUMENT_VERIFICATION_PROVIDER`)
+  - Auth env vars: `PERSONA_API_KEY`, `PERSONA_TEMPLATE_ID` (from AWS Secrets Manager in prod)
+  - API: `https://withpersona.com/api/v1`
 
-## Authentication Providers
+**Communications (Microservice):**
+- Twilio - SMS notifications, phone number masking, call routing
+  - SDK/Client: `twilio==8.10.0` in `services/core/notification-service/requirements.txt`
+  - Call masking service: `services/core/call-service/main.py` (port 8019), uses Twilio Proxy
+  - Auth env vars: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (in notification/call services)
 
-### 1. Google Sign-In
+**AI/ML (Local Tooling):**
+- Ollama - Local AI model for anti-hallucination lookups
+  - Training data: `.claude/training/` (Modelfile + JSONL training files)
+  - Model: `dollor-customer`
+  - Used by: `.claude/tools/ask-dollor.sh`
 
-**SDK**: `GoogleSignIn-iOS` (via Swift Package Manager)
+## Data Storage
 
-**Usage**: Customer, Driver, and Restaurant apps support Google OAuth
+**Primary Database:**
+- PostgreSQL on AWS RDS `db.t3.micro`
+  - Connection: `DATABASE_URL` env var → AWS Secrets Manager `dollor/production/database-v2-*`
+  - Client: SQLAlchemy 2.0.36 ORM (`apps/web/p2p-platform/backend/database.py`)
+  - Pool: 5 connections, max_overflow=7, pool_pre_ping=True, pool_recycle=1800s
+  - SSL: required in production (`sslmode=require`)
+  - Statement timeout: 30 seconds
+  - 22+ indexes added via `_run_startup_migrations()` in `main_new.py`
 
-**Implementation** (`AuthViewModel.swift`):
-```swift
-import GoogleSignIn
+**Android Local Database:**
+- Room 2.8.3 SQLite - Offline caching
+  - Location: `apps/android/shared/src/main/java/com/eatfair/shared/data/dao/`
+  - Used for: address storage (`AddressDao`), order caching (`OrderEntity`)
 
-// Client ID loaded from GoogleService-Info.plist - no hardcoded credentials
-private var googleClientID: String {
-    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-          let plist = NSDictionary(contentsOfFile: path),
-          let clientID = plist["CLIENT_ID"] as? String else {
-        return ""
-    }
-    return clientID
-}
+**Caching:**
+- Redis (AWS ElastiCache) - `dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379`
+  - Client: `redis[hiredis]==5.0.1` (`apps/web/p2p-platform/backend/cache.py`)
+  - Use cases: vendor list cache (30s TTL), menu cache (60s TTL), rate limiting (sliding window), password reset codes (900s TTL), WebSocket pub/sub
+  - TLS enabled in production (`ssl=True`, `ssl_cert_reqs="none"` for AWS-managed certs)
+  - Fallback: app continues working if Redis unavailable (all ops return None/False)
 
-func signInWithGoogle() {
-    let config = GIDConfiguration(clientID: googleClientID)
-    GIDSignIn.sharedInstance.configuration = config
+**File Storage:**
+- AWS S3 bucket `dollor-ai-uploads` - Driver/vendor documents, menu images
+  - Client: `boto3==1.35.80` (`apps/web/p2p-platform/backend/s3_service.py`)
+  - Auth: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
+  - CDN URL: `https://cdn.dollor.ai` (prod) via CloudFront
+  - Fallback: local disk `/tmp/dollor_uploads` when S3 not configured
 
-    GIDSignIn.sharedInstance.signIn(withPresenting: viewController) { result, error in
-        // Extract user info and authenticate with P2P backend
-        let googleEmail = result?.user.profile?.email
-        let googleName = result?.user.profile?.name
-        let idToken = result?.user.idToken?.tokenString
+**Firestore (Firebase):**
+- Used for FCM token storage and real-time notification routing
+  - iOS: `db.collection("users").document(userId).setData(["fcmToken": token])` (`apps/ios/customer/eatfaircustomer/eatfaircustomerApp.swift:208`)
+  - Android: `DollorFirebaseMessagingService.kt` in `apps/android/shared/`
 
-        // Send to P2P backend for verification
-        p2pService.customerGoogleAuth(idToken: idToken, ...)
-    }
-}
-```
+## Authentication & Identity
 
-**Configuration File**: `GoogleService-Info.plist` (per app)
-- `/apps/ios/customer/eatfaircustomer/GoogleService-Info.plist`
-- `/apps/ios/delivery/eatffairdelivery/GoogleService-Info.plist`
-- `/apps/ios/restaurant/eatffairrestaurant/GoogleService-Info.plist`
+**Firebase Authentication:**
+- Provider: Firebase project `dollorai-production` (account: `support@dollor.ai`, project #65740760476)
+- iOS: `FirebaseAuth` from firebase-ios-sdk 12.0.0 (SPM)
+- Android: `firebase-auth-ktx` from Firebase BOM 32.7.0
+- Use: Firebase handles Google Sign-In OAuth flow; the resulting Firebase UID / Google ID token is then exchanged with the Dollor.ai backend to issue a JWT
+- Backend role: Verifies Google tokens, creates platform-specific JWTs
+  - Customer: `POST /api/customer/google-auth`
+  - Vendor: `POST /api/vendors/google-auth`
+  - Driver: `POST /api/erp/drivers/login` (email/password + Google)
 
-### 2. Apple Sign-In
+**JWT (Platform Auth):**
+- Library: `python-jose[cryptography]==3.4.0`
+- Secret: `JWT_SECRET_KEY` env var (from AWS Secrets Manager)
+- Issued per user role (customer, driver, vendor, admin)
+- Bearer token in `Authorization` header
 
-**SDK**: `AuthenticationServices` (native iOS framework)
+**Google Sign-In:**
+- iOS: `GoogleSignIn` (bundled via Firebase) + `GIDSignIn.sharedInstance.handle(url)` (`apps/ios/customer/eatfaircustomer/eatfaircustomerApp.swift:94`)
+- Android: `play-services-auth 21.3.0` + `GoogleSignInHelper.kt` in `apps/android/shared/`
 
-**Usage**: Native Sign in with Apple for all iOS apps
-
-**Implementation**:
-```swift
-import AuthenticationServices
-import CryptoKit
-
-// Generate cryptographic nonce for security
-private var currentNonce: String?
-
-func signInWithApple() {
-    let nonce = randomNonceString()
-    currentNonce = nonce
-    let hashedNonce = sha256(nonce)
-
-    let request = ASAuthorizationAppleIDProvider().createRequest()
-    request.requestedScopes = [.fullName, .email]
-    request.nonce = hashedNonce
-
-    let controller = ASAuthorizationController(authorizationRequests: [request])
-    controller.delegate = self
-    controller.performRequests()
-}
-```
-
-### 3. Firebase Authentication
-
-**SDK**: `firebase-ios-sdk` (v12.0.0+)
-
-**Purpose**: Authentication backbone (NOT used for data storage)
-
-**Dependencies** (`Package.swift`):
-```swift
-dependencies: [
-    .package(url: "https://github.com/firebase/firebase-ios-sdk.git", from: "12.0.0")
-],
-targets: [
-    .target(
-        name: "EatFairShared",
-        dependencies: [
-            .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
-            .product(name: "FirebaseMessaging", package: "firebase-ios-sdk"),
-            .product(name: "FirebaseFirestore", package: "firebase-ios-sdk")
-        ]
-    )
-]
-```
-
----
-
-## Payment Integration
-
-### Stripe
-
-**SDK**: `stripe-ios-spm` (via Swift Package Manager)
-
-**Usage**: All payment processing (card, ACH bank transfers, Apple Pay)
-
-**Services**:
-
-#### 1. Standard Card Payments
-```swift
-import StripePaymentSheet
-import Stripe
-
-// Payment sheet configuration
-var configuration = PaymentSheet.Configuration()
-configuration.merchantDisplayName = "Dollor"
-configuration.allowsDelayedPaymentMethods = true
-
-paymentSheet = PaymentSheet(
-    paymentIntentClientSecret: clientSecret,
-    configuration: configuration
-)
-
-paymentSheet?.present(from: viewController) { paymentResult in
-    switch paymentResult {
-    case .completed: // Success
-    case .canceled:  // User cancelled
-    case .failed(let error): // Error
-    }
-}
-```
-
-#### 2. ACH Bank Transfers (`ACHPaymentService.swift`)
-```swift
-class ACHPaymentService {
-    static let shared = ACHPaymentService()
-
-    // Calculate fee comparison (ACH vs Card)
-    func calculateFees(amountCents: Int, completion: @escaping (Result<Fees, Error>) -> Void) {
-        let cardURL = "\(baseURL)/api/enterprise/fees/calculate?payment_method=card"
-        let achURL = "\(baseURL)/api/enterprise/fees/calculate?payment_method=ach"
-        // Fetch and compare fees
-    }
-
-    // Create ACH payment with idempotency protection
-    func createACHPayment(amountCents: Int, customerEmail: String?, orderId: String?) {
-        let idempotencyKey = "\(orderId ?? "ach")-\(amountCents)-\(timestamp)"
-        // POST to /api/enterprise/payments/create
-    }
-
-    // Present Stripe payment sheet for bank account
-    func presentACHPaymentSheet(amountCents: Int, customerEmail: String) {
-        // Uses StripePaymentSheet with bank account enabled
-    }
-}
-```
-
-**Backend Endpoints** (Stripe Integration):
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/orders/create` | Create order + payment intent |
-| `POST /webhook/stripe` | Handle payment webhooks |
-| `POST /api/enterprise/fees/calculate` | Calculate payment fees |
-| `POST /api/enterprise/payments/create` | Create payment intent |
-
-**Webhook Events Handled**:
-- `payment_intent.succeeded`
-- `payment_intent.payment_failed`
-
----
-
-## Maps Integration
-
-### Google Maps
-
-**SDK**: Google Maps REST APIs (via `GoogleMapsService.swift`)
-
-**Base URL**: `https://maps.googleapis.com/maps/api`
-
-**APIs Used**:
-
-#### 1. Directions API
-```swift
-func getDirections(origin: CLLocationCoordinate2D, destination: CLLocationCoordinate2D) {
-    let url = "\(baseURL)/directions/json?origin=\(origin)&destination=\(destination)&mode=driving&departure_time=now&traffic_model=best_guess&key=\(apiKey)"
-    // Returns: distance, duration, polyline, turn-by-turn steps
-}
-```
-
-#### 2. Distance Matrix API
-```swift
-func getDistanceMatrix(origins: [CLLocationCoordinate2D], destinations: [CLLocationCoordinate2D]) {
-    let url = "\(baseURL)/distancematrix/json?origins=\(origins)&destinations=\(destinations)&mode=driving&departure_time=now"
-    // Returns: distance/duration matrix for multiple origin/destination pairs
-}
-```
-
-#### 3. Geocoding API
-```swift
-// Address to coordinates
-func geocodeAddress(address: String) -> GoogleGeocodingResult
-
-// Coordinates to address (reverse)
-func reverseGeocode(coordinate: CLLocationCoordinate2D) -> GoogleGeocodingResult
-```
-
-#### 4. Places Autocomplete API
-```swift
-func getPlaceAutocomplete(input: String, location: CLLocationCoordinate2D?, radius: Int = 50000) {
-    let url = "\(baseURL)/place/autocomplete/json?input=\(input)&types=address&key=\(apiKey)"
-    // Returns: place predictions for address autocompletion
-}
-
-func getPlaceDetails(placeId: String) -> GooglePlaceDetail {
-    // Returns: full address details including street, city, state, zip
-}
-```
-
-**Configuration** (`GoogleMapsConfig`):
-- API key loaded from configuration
-- Key varies by environment (staging/production)
-
----
+**Admin Auth:**
+- Dual-mode middleware (`apps/web/p2p-platform/backend/main_new.py:176-188`):
+  - Bearer JWT with admin role, OR
+  - `ADMIN_SECRET_KEY` query param (for ops/migration endpoints)
+- All `POST /api/admin/*` endpoints secured by default middleware
 
 ## Push Notifications
 
-### Firebase Cloud Messaging (FCM)
+**Firebase Cloud Messaging (FCM):**
+- Backend push sender: `firebase-admin==6.4.0` SDK
+  - Credentials: `FIREBASE_CREDENTIALS_JSON` env var (from AWS Secrets Manager)
+  - Invoked via `send_push_notification()` in `apps/web/p2p-platform/backend/order_flow.py`
+- iOS: `FirebaseMessaging` framework, token registered via `Messaging.messaging().apnsToken`
+- Android: `DollorFirebaseMessagingService` in `apps/android/shared/src/main/java/com/eatfair/shared/notifications/`
+- Notification types: order status updates, driver assigned, ride events (bid, counter-offer, started, completed, cancelled), payment processed, promotions
 
-**SDK**: `FirebaseMessaging` (part of firebase-ios-sdk)
+## Email
 
-**Usage**: Push notifications for orders, rides, driver updates
+**SMTP (AWS SES):**
+- Host: `email-smtp.us-east-1.amazonaws.com:587` (configured in ECS task definition)
+- From: `noreply@dollor.ai`
+- Client: Python `smtplib` with TLS (`apps/web/p2p-platform/backend/email_service.py`)
+- Auth: `SMTP_USER`, `SMTP_PASSWORD` (from AWS Secrets Manager)
+- Sends: order confirmations, vendor approvals, driver approvals, password resets, delivery receipts
+- Retry: 3 attempts with exponential backoff (1s, 2s, 4s)
+- Strict mode: Only sends to registered users in DB
 
-**Implementation**:
-```swift
-import FirebaseMessaging
+## Monitoring & Observability
 
-// Register device token with backend
-func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    Messaging.messaging().apnsToken = deviceToken
-}
+**Logging:**
+- Backend: Python `logging` module (structlog in microservices)
+- CloudWatch Logs: `/ecs/dollor-api` log group (configured in `infrastructure/ecs/task-definition.json:76-82`)
 
-// Send FCM token to P2P backend
-func registerDeviceToken(fcmToken: String) {
-    // POST /api/device/register
-}
-```
+**Metrics (Microservices):**
+- Prometheus + OpenTelemetry in all `services/core/` microservices
+- `prometheus-client==0.19.0`, `opentelemetry-api==1.22.0`
 
-**Backend Integration**:
-```python
-# notification-service handles FCM
-POST /api/notifications/send
-{
-    "device_token": "fcm_token",
-    "title": "Order Update",
-    "body": "Your order is ready for pickup"
-}
-```
+**Health Checks:**
+- ECS health check: `GET /health` → must return 200 within 5s, every 30s, 3 retries
+- Container starts with 60s start period
 
----
+**Error Tracking:**
+- Not detected (no Sentry or similar in requirements.txt)
 
-## Cloud Services
+## CI/CD & Deployment
 
-### AWS CloudFront
+**Hosting:**
+- Backend API: AWS ECS Fargate, cluster `dollor-production`, task family `dollor-api`
+- Staging Backend: AWS EKS cluster `dollor-staging`
+- Frontend (Admin Portal): AWS S3 + CloudFront distribution `E1TL8YTTU1SF3A`
+- iOS apps: Apple TestFlight → App Store (Team `PRKZ4UVCD7`)
+- Android apps: Google Play Store
 
-**Purpose**: CDN for API and static assets
+**CI Pipeline:**
+- GitHub Actions (`.github/workflows/`)
+- Primary deploy workflow: `deploy-dollar-ai.yml` - triggers on push to `main` for `apps/web/p2p-platform/**`
+  - Step 1: Build + deploy frontend to S3 + CloudFront invalidation
+  - Step 2: Build Docker image (`--target production`) → push to ECR → update ECS task definition → deploy
+  - Step 3: (optional) Update EKS staging deployment
+- iOS: Fastlane (`apps/ios/fastlane/Fastfile`) - `customer_testflight`, `driver_testflight`, `restaurant_testflight` lanes
+- Android: Fastlane (`apps/android/fastlane/Fastfile`) + Gradle build commands
 
-**Environments**:
-| Environment | URL |
-|-------------|-----|
-| Staging | `https://d3kuu45w6kl8hr.cloudfront.net` |
-| Production | `https://api.dollor.ai` |
+**Container Registry:**
+- AWS ECR: `134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api`
+- Build requires `--platform linux/amd64` on Apple Silicon
 
-**Configuration** (`AppConfig.swift`):
-```swift
-@Published public var p2pAPIBaseURL: String = {
-    if let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String, !url.isEmpty {
-        return url
-    }
-    // Fallback to production
-    return "https://api.dollor.ai"
-}()
-```
+**Infrastructure as Code:**
+- Terraform modules: `infrastructure/terraform/modules/` (rds, eks, ecr, vpc, s3, cloudwatch, secrets)
+- Kubernetes manifests: `infrastructure/kubernetes/`
+- Helm charts: `infrastructure/helm/backend/`
+- ArgoCD: `infrastructure/argocd/`
 
----
+## Webhooks & Callbacks
 
-## P2P Backend API
+**Incoming:**
+- `POST /api/payments/webhook` - Stripe payment events (order paid, ride payment succeeded/failed)
+  - Verified via `STRIPE_WEBHOOK_SECRET` (Stripe signature header)
+  - Handlers in `apps/web/p2p-platform/backend/stripe_integration.py`
+- Persona document verification webhook - `POST /api/documents/webhook` (via `verification_routes.py`)
 
-### Base Configuration
-
-**API Base URLs** (set via xcconfig):
-- Development: `https://dev-api.dollor.ai`
-- Staging: `https://d3kuu45w6kl8hr.cloudfront.net`
-- Production: `https://api.dollor.ai`
-
-### Microservice URLs
-
-All derived from base URL via `AppConfig`:
-
-```swift
-public var negotiationServiceURL: String { "\(p2pAPIBaseURL)/api/negotiation" }
-public var chatServiceURL: String { "\(p2pAPIBaseURL)/api/chat" }
-public var callServiceURL: String { "\(p2pAPIBaseURL)/api/call" }
-```
-
-### Customer API Endpoints
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/customer/google-auth` | POST | Google OAuth authentication |
-| `/api/customer/apple-auth` | POST | Apple Sign-In authentication |
-| `/api/customer/register` | POST | Email/password registration |
-| `/api/customer/login` | POST | Email/password login |
-| `/api/customer/orders` | GET | List customer orders |
-| `/api/erp/restaurants` | GET | List restaurants |
-| `/api/erp/restaurants/{id}/menu` | GET | Get restaurant menu |
-| `/api/erp/orders/create` | POST | Create new order |
-| `/api/erp/orders/{id}/status` | GET | Get order status |
-
-### Driver API Endpoints
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/erp/drivers/register` | POST | Driver registration |
-| `/api/erp/drivers/login` | POST | Driver login |
-| `/api/erp/drivers/{id}/location` | PUT | Update driver location |
-| `/api/erp/orders/available-for-delivery` | GET | Get available orders |
-| `/api/erp/orders/{id}/assign-driver` | POST | Accept delivery |
-| `/api/erp/orders/driver/{id}/active` | GET | Get active deliveries |
-
-### Vendor/Restaurant API Endpoints
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/vendors/google-auth` | POST | Vendor Google authentication |
-| `/api/vendors/login` | POST | Vendor login |
-| `/api/vendors/orders` | GET | List vendor orders |
-| `/api/vendors/menu` | GET/PUT | Manage menu items |
-| `/api/vendors/{id}/settings` | GET/PUT | Restaurant settings |
-
-### Configuration API
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/config` | GET | Fetch app configuration (fees, rates, flags) |
-
----
-
-## Communication Services
-
-### Chat Service (`ChatService.swift`)
-
-**Purpose**: Real-time messaging between drivers and customers
-
-**Features**:
-- REST API for message history
-- WebSocket for real-time updates
-- Quick reply templates
-- Location sharing
-
-```swift
-public class ChatService: ObservableObject {
-    // Create conversation
-    func createConversation(customerId: String, driverId: String?, rideId: String?, orderId: String?)
-
-    // Send message
-    func sendMessage(conversationId: String, senderId: String, senderType: String, content: String)
-
-    // Share location
-    func sendLocation(conversationId: String, senderId: String, latitude: Double, longitude: Double)
-
-    // WebSocket connection for real-time
-    func connectWebSocket(conversationId: String, participantType: String, participantId: String)
-}
-```
-
-**Endpoints**:
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/chat/conversations` | POST | Create conversation |
-| `/api/chat/conversations/{id}/messages` | GET/POST | Get/send messages |
-| `/api/chat/conversations/{id}/read` | POST | Mark as read |
-| `/ws/chat/{conversationId}` | WebSocket | Real-time updates |
-
-### Call Service (`CallService.swift`)
-
-**Purpose**: Privacy-protected phone calls via number masking
-
-**Features**:
-- Phone number masking
-- Call session management
-- Call logging
-
-```swift
-public class CallService: ObservableObject {
-    // Create call session with masked numbers
-    func createCallSession(
-        customerId: String,
-        customerPhone: String,
-        rideId: String?,
-        driverId: String?,
-        driverPhone: String?
-    )
-
-    // Get masked number to call
-    func getMaskedNumber(sessionId: String, callerType: ParticipantType)
-
-    // Initiate call via system phone app
-    func callMaskedNumber(_ maskedNumber: String) {
-        if let url = URL(string: "tel://\(cleanNumber)") {
-            UIApplication.shared.open(url)
-        }
-    }
-}
-```
-
-**Endpoints**:
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/call/sessions` | POST | Create call session |
-| `/api/call/sessions/{id}` | PUT/DELETE | Update/end session |
-| `/api/call/masked-number` | GET | Get masked phone number |
-| `/api/call/initiate` | POST | Log call initiation |
-| `/api/call/logs/{sessionId}` | GET | Get call history |
-
----
-
-## Viral/Growth Features (V3 API)
-
-### DollorV3Service
-
-**Purpose**: Investor-ready viral features
-
-**Features**:
-- Referral system
-- Group orders
-- Pricing transparency
-
-```swift
-public class DollorV3Service {
-    let baseURL = AppConfig.shared.p2pAPIBaseURL + "/api/v3"
-
-    // Create order with automatic payment splitting
-    func createOrder(_ request: V3CreateOrderRequest) async throws -> V3OrderResponse
-
-    // Get referral code for sharing
-    func getReferralCode(userEmail: String) async throws -> V3ReferralResponse
-
-    // Create group order
-    func createGroupOrder(hostEmail: String, restaurantId: String, groupName: String) async throws -> V3GroupOrderResponse
-}
-```
-
-**Response Models Include Transparency**:
-```swift
-public struct V3OrderResponse: Codable {
-    public let orderId: String
-    public let total: Double
-
-    // Who gets what (transparency)
-    public let restaurantReceives: Double
-    public let driverReceives: Double
-    public let platformReceives: Double
-}
-```
-
----
-
-## Third-Party SDK Summary
-
-| SDK | Version | Purpose | Package Manager |
-|-----|---------|---------|-----------------|
-| Firebase iOS SDK | 12.0.0+ | Auth, Messaging | SPM |
-| GoogleSignIn-iOS | Latest | Google OAuth | SPM |
-| Stripe iOS SPM | Latest | Payments | SPM |
-| GTMAppAuth | Latest | OAuth helper | SPM (Firebase dep) |
-| swift-protobuf | Latest | gRPC support | SPM (Firebase dep) |
-
----
-
-## Security Considerations
-
-1. **API Keys**: Loaded from plist/xcconfig files, never hardcoded
-2. **OAuth Nonces**: Cryptographic nonces for Apple Sign-In security
-3. **Token Storage**: Access tokens stored securely via `SecureStorage`
-4. **Phone Privacy**: Call service uses number masking, never exposes real numbers
-5. **Idempotency**: Payment service uses idempotency keys to prevent duplicates
-6. **HTTPS**: All API communication over HTTPS
-
----
+**Outgoing:**
+- Not detected (backend calls Stripe, Firebase, Google Maps, Persona APIs directly)
 
 ## Environment Configuration
 
-**xcconfig Files**:
-- `Development.xcconfig` - Dev environment URLs
-- `Staging.xcconfig` - Staging environment URLs
-- `Production.xcconfig` - Production environment URLs
+**Required Production Env Vars (from AWS Secrets Manager):**
+- `DATABASE_URL` - PostgreSQL
+- `JWT_SECRET_KEY` - Token signing
+- `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`
+- `SMTP_USER` / `SMTP_PASSWORD`
+- `FIREBASE_CREDENTIALS_JSON`
+- `PERSONA_API_KEY` / `PERSONA_TEMPLATE_ID`
+- `ADMIN_SECRET_KEY` / `DASHBOARD_SECRET`
 
-**Info.plist Keys**:
-- `API_BASE_URL` - Backend API base URL
-- `CLIENT_ID` - Google OAuth client ID (from GoogleService-Info.plist)
+**Non-secret Config (in ECS task definition env):**
+- `REDIS_URL` - ElastiCache endpoint
+- `ENVIRONMENT=production`
+- `SMTP_HOST=email-smtp.us-east-1.amazonaws.com`
+- `SMTP_PORT=587`
+- `FROM_EMAIL=noreply@dollor.ai`
+- `DOCUMENT_VERIFICATION_PROVIDER=persona`
+
+**Secrets Location:**
+- All production secrets: AWS Secrets Manager under `dollor/production/` prefix
+- iOS API keys: xcconfig files (`apps/ios/Config/`)
+- Android API keys: `local.properties` (not committed to git)
 
 ---
 
-## Data Flow Architecture
-
-```
-┌─────────────┐
-│   iOS App   │
-└─────┬───────┘
-      │
-      ▼
-┌─────────────────────────────────────────────┐
-│              P2P Backend API                │
-│         (FastAPI / Python)                  │
-│  ┌─────────────────────────────────────┐   │
-│  │  /api/customer/*  /api/vendors/*    │   │
-│  │  /api/erp/*       /api/v3/*         │   │
-│  └─────────────────────────────────────┘   │
-└─────────────────┬───────────────────────────┘
-                  │
-    ┌─────────────┼─────────────┐
-    │             │             │
-    ▼             ▼             ▼
-┌────────┐  ┌──────────┐  ┌──────────┐
-│ Stripe │  │  Google  │  │ Firebase │
-│  API   │  │ Maps API │  │   FCM    │
-└────────┘  └──────────┘  └──────────┘
-```
+*Integration audit: 2026-02-18*
