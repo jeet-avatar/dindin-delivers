@@ -554,8 +554,9 @@ class VendorPayout(Base):
     coupa_invoice_id = Column(String(100))
     coupa_status = Column(String(50))
     coupa_synced_at = Column(DateTime)
-    
+
     # Payment Details
+    stripe_transfer_id = Column(String(255))
     paid_at = Column(DateTime)
     payment_method = Column(String(50))
     payment_reference = Column(String(255))

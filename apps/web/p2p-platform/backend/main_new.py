@@ -1131,6 +1131,8 @@ def _run_startup_migrations():
         # Delivery proof photo columns
         ("orders", "delivery_photo_url", "VARCHAR(500)"),
         ("orders", "delivery_photo_uploaded_at", "TIMESTAMP"),
+        # Vendor payout Stripe transfer tracking
+        ("vendor_payouts", "stripe_transfer_id", "VARCHAR(255)"),
     ]
 
     # Tables to create if they don't exist

@@ -3059,6 +3059,37 @@ async def order_delivered(
     )
     db.add(vendor_payout)
 
+    # ==================== AUTO-PAYOUT VENDOR VIA STRIPE CONNECT ====================
+    if vendor and restaurant_payout > 0:
+        try:
+            import stripe
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+            if getattr(vendor, 'stripe_account_id', None) and getattr(vendor, 'stripe_onboarding_complete', False):
+                vendor_payout_cents = int(restaurant_payout * 100)
+                if vendor_payout_cents > 0:
+                    vendor_transfer = stripe.Transfer.create(
+                        amount=vendor_payout_cents,
+                        currency="usd",
+                        destination=vendor.stripe_account_id,
+                        description=f"Order {order.order_number} restaurant payout",
+                        metadata={
+                            "order_id": str(order.id),
+                            "order_number": order.order_number,
+                            "vendor_id": str(vendor.id),
+                            "gross_revenue": str(order.subtotal),
+                            "platform_fee": str(RESTAURANT_PLATFORM_FEE),
+                        }
+                    )
+                    vendor_payout.status = "completed"
+                    vendor_payout.paid_at = datetime.now()
+                    vendor_payout.stripe_transfer_id = vendor_transfer.id
+                    logging.info(f"Order {order.order_number} vendor auto-payout ${restaurant_payout:.2f} to vendor {vendor.id}")
+            else:
+                logging.info(f"Order {order.order_number} vendor {vendor.id} not Stripe-onboarded, payout pending manual processing")
+        except Exception as e:
+            logging.error(f"Order {order.order_number} vendor auto-payout failed (non-blocking): {e}")
+
     # ==================== CREATE DRIVER PAYOUT RECORD ====================
 
     if driver:
