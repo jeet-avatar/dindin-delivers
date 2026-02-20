@@ -9857,11 +9857,10 @@ async def upload_vendor_document_public(
     document_type: str = Form(...),
     contact_email: str = Form(...),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
 ):
     """
     Public endpoint for uploading vendor documents during registration.
-    Requires vendor_id and contact_email for verification.
+    Requires vendor_id and contact_email for verification (not JWT).
     Documents are uploaded to ZIP system for verification before approval.
     """
     from models import Vendor
@@ -9942,9 +9941,8 @@ def get_vendor_documents_public(
     vendor_id: int,
     contact_email: str = Query(...),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
 ):
-    """Get vendor document upload status for registration flow"""
+    """Get vendor document upload status for registration flow (email-verified, not JWT)"""
     from models import Vendor
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
