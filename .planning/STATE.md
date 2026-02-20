@@ -2,7 +2,7 @@
 
 **Project**: Dollor.ai Platform
 **Status**: Active — Security Auth Fix
-**Last activity**: 2026-02-20 — Phase 01-01 executed (test fixes committed, CI verification pending)
+**Last activity**: 2026-02-20 — Phase 01 COMPLETE (CI green, 1002/1002 tests pass)
 
 ## Current Phase: 02 — Security Auth Fix
 
@@ -33,12 +33,10 @@
 - Staging first: `dollor-api-staging`
 - Production after: `dollor-api` (currently task-def 370)
 
-## Previous Phase: 01 — Unit Test Fixes (COMPLETE)
-- 17 test failures fixed, 356/356 passing locally
-- Committed and pushed to main: `26ca1312`
-- CI pipeline triggered, awaiting verification (run ID 22213397723)
-- Summary: `.planning/phases/01-unit-test-fixes/01-01-SUMMARY.md`
-- Verification: `.planning/phases/01-unit-test-fixes/VERIFICATION.md`
+## Previous Phase: 01 — Unit Test Fixes (✓ COMPLETE)
+- 18 fixes committed: `26ca1312` (17 assertions) + `9688c0cd` (1 flaky caplog)
+- CI green: 1,002/1,002 tests pass (run 22213511181)
+- Verification: `.planning/phases/01-unit-test-fixes/01-VERIFICATION.md`
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
