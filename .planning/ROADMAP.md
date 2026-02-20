@@ -3,7 +3,7 @@
 ## Current Milestone: v1.1 Security Hardening + Stability
 
 ### Active Phase
-- **Phase 04: Documentation Overhaul** — IN PROGRESS (Plan 1/2 complete)
+- **Phase 04: Documentation Overhaul** — COMPLETE (Plan 2/2 complete)
 
 ### Recently Completed
 - **Phase 03.1: Endpoint Validation & Anti-Hallucination Guardrails** — COMPLETE (2026-02-20)
@@ -49,4 +49,4 @@
   - **Plans:** 2 plans
   - Plans:
     - [x] 04-01-PLAN.md — Fix CLAUDE.md wrong info + iOS xcconfig
-    - [ ] 04-02-PLAN.md — Re-verify GROUND_TRUTH line numbers + update API_ENDPOINTS + fix stale docs
+    - [x] 04-02-PLAN.md — Re-verify GROUND_TRUTH line numbers + update API_ENDPOINTS + fix stale docs

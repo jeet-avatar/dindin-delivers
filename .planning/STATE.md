@@ -1,20 +1,23 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Active — Phase 04 Plan 1/2 COMPLETE, executing Documentation Overhaul
-**Last activity**: 2026-02-20 — Phase 04 Plan 01 COMPLETE (CLAUDE.md fixes + iOS xcconfig)
+**Status**: Active — Phase 04 COMPLETE, Documentation Overhaul finished
+**Last activity**: 2026-02-20 — Phase 04 Plan 02 COMPLETE (GROUND_TRUTH line refs + API docs + QA KB + TIER2)
 
 ## Current Phase: 04 — Documentation Overhaul
 
-### Status: IN PROGRESS (Plan 1/2 complete)
+### Status: COMPLETE (Plan 2/2)
 - Plan 01 COMPLETE: Fixed 6 wrong facts in CLAUDE.md, added security/iOS docs, updated xcconfig
-- Plan 02: Pending (re-verify GROUND_TRUTH line numbers + update API_ENDPOINTS)
-- Summary: `.planning/phases/04-docs-overhaul/04-01-SUMMARY.md`
+- Plan 02 COMPLETE: Re-verified 50+ GROUND_TRUTH line refs, fixed staging URLs in 3 files, updated API auth, fixed TIER2 module names
+- Summaries: `.planning/phases/04-docs-overhaul/04-01-SUMMARY.md`, `.planning/phases/04-docs-overhaul/04-02-SUMMARY.md`
 
 ### Decisions
 - Used em-dashes in CLAUDE.md tables instead of unicode for compatibility
 - Preserved Phase 03.1's API Endpoint Verification section unchanged
 - Did not modify Android build commands (verified correct as-is)
+- Used grep to verify every GROUND_TRUTH line reference individually (non-uniform shifts)
+- Corrected Stripe endpoint paths (create-account -> connect) found during verification
+- Removed /api/rides/estimate from deprecated list (still active)
 
 ## Previous Phases
 - **Phase 03.1: Endpoint Validation Guardrails** — COMPLETE (2026-02-20)
@@ -36,7 +39,7 @@
 ## Roadmap Evolution
 - Phase 03 COMPLETE — staging + production deployed
 - Phase 03.1 COMPLETE — endpoint guardrails, API registry, CLAUDE.md rules
-- Phase 04 IN PROGRESS — Plan 01 complete (CLAUDE.md + xcconfig), Plan 02 pending
+- Phase 04 COMPLETE — All docs updated (CLAUDE.md, GROUND_TRUTH, API_ENDPOINTS, QA KB, TIER2, xcconfig)
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
