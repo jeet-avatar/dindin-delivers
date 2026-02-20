@@ -241,6 +241,174 @@ async def admin_auth_middleware(request: Request, call_next):
         headers={"WWW-Authenticate": "Bearer"}
     )
 
+# ===================== GLOBAL AUTH MIDDLEWARE (Safety Net) =====================
+# SECURITY: Requires valid JWT for ALL non-public routes. Defense in depth —
+# even if a developer forgets Depends(require_any_auth) on an endpoint,
+# this middleware catches unauthenticated access.
+#
+# Modeled after admin_auth_middleware (proven pattern).
+# Added AFTER admin_auth_middleware so /api/admin/* is handled there first.
+#
+# Public paths sourced from SECURITY_AUDIT_2026-02-20.md "Intentionally Public Endpoints"
+
+import re as _re
+
+_PUBLIC_EXACT_PATHS = {
+    # Health checks
+    "/health", "/api/health", "/api/health/ready", "/api/health/live",
+    "/api/erp/health/services",
+
+    # Root
+    "/",
+
+    # Legal pages
+    "/privacy", "/terms",
+    "/api/legal/terms", "/api/legal/privacy",
+    "/api/legal/tos", "/api/legal/privacy-policy",
+
+    # App config
+    "/api/config",
+
+    # Auth — customer
+    "/register",
+    "/api/auth/login", "/api/auth/customer/login", "/api/auth/customer/register",
+    "/api/auth/customer/google", "/api/auth/customer/apple-auth",
+    "/api/customer/apple-auth", "/api/customer/register",
+
+    # Auth — driver
+    "/api/auth/driver/login", "/api/auth/driver/register",
+    "/api/auth/driver/google", "/api/auth/driver/apple-auth",
+
+    # Auth — vendor
+    "/api/auth/vendor/login", "/api/auth/vendor/register",
+    "/api/auth/vendor/demo-login",
+    "/api/auth/vendor/google-auth", "/api/auth/vendor/apple-auth",
+
+    # Auth — admin
+    "/api/admin/login",
+
+    # Auth — admin setup (has own _require_admin_secret check)
+    "/api/auth/admin/setup-production",
+
+    # Password reset
+    "/api/auth/password-reset/request", "/api/auth/password-reset/confirm",
+
+    # Tax (public info)
+    "/api/tax/rates",
+
+    # Public content listings
+    "/api/vendors/published",
+    "/api/promotions/featured", "/api/promotions/active",
+    "/api/rides/surge", "/api/rides/estimate/bid-label", "/api/rides/pricing/tiers",
+    "/api/payments/ride/pricing-info",
+
+    # ERP auth proxies (login/register)
+    "/api/erp/auth/login", "/api/erp/auth/register",
+    "/api/erp/drivers/login", "/api/erp/drivers/register",
+
+    # Fare estimates (public)
+    "/api/erp/rides/estimate-fare", "/api/erp/rides/fare-estimate",
+    "/api/rides/estimate", "/api/erp/rides/estimate",
+
+    # Matchmaking public info
+    "/api/matchmaking/states/live", "/api/matchmaking/connection-fee",
+
+    # Verification public info
+    "/api/verification/providers",
+
+    # Promotions — apply promo code (used during checkout, public)
+    "/api/promotions/apply",
+
+    # WebSocket stats (informational)
+    "/api/websocket/stats",
+
+    # Investor token-gated (not JWT-gated)
+    "/api/investor/request-access", "/api/investor/verify-access", "/api/investor/log-view",
+
+    # Onboarding code-gated flows (not JWT-gated)
+    "/api/onboarding/accept", "/api/onboarding/scrape-menu",
+}
+
+_PUBLIC_PREFIXES = [
+    "/api/public/",           # Public restaurant listings
+    "/api/webhooks/",         # Stripe/Persona/Onfido/Veriff webhooks (signature-verified)
+    "/api/legal/",            # Legal pages
+    "/api/customer/password-reset/",  # Password reset flows
+    "/api/driver/password-reset/",
+    "/api/vendor/password-reset/",
+    "/api/erp/auth/",         # All ERP auth proxies
+    "/uploads/",              # Static files
+    "/api/admin/",            # Handled by admin_auth_middleware (don't double-check)
+    "/api/demo/",             # Demo endpoints have own _require_admin_secret check
+    "/ws/",                   # WebSocket connections
+    "/docs", "/openapi",      # Swagger UI / OpenAPI docs
+    "/redoc",                 # ReDoc
+]
+
+_PUBLIC_PATTERN_PATHS = [
+    # Vendor browsing (GET only): menu, reviews, categories
+    (_re.compile(r"^/api/vendors/\d+/menu(/.*)?$"), {"GET"}),
+    (_re.compile(r"^/api/vendors/\d+/reviews$"), {"GET"}),
+    # Tax calculation endpoints
+    (_re.compile(r"^/api/tax/(calculate|estimate/).*$"), {"GET", "POST"}),
+    # Matchmaking state config/terms
+    (_re.compile(r"^/api/matchmaking/states/.+/config$"), {"GET"}),
+    (_re.compile(r"^/api/matchmaking/states/.+/terms$"), {"GET"}),
+    # Verification required docs
+    (_re.compile(r"^/api/verification/required-documents/.*$"), {"GET"}),
+    # Onboarding code-gated flows (use invitation code, not JWT)
+    (_re.compile(r"^/api/onboarding/confirm/.*$"), {"POST"}),
+    (_re.compile(r"^/api/onboarding/status/.*$"), {"GET"}),
+    (_re.compile(r"^/api/onboarding/upload-menu/.*$"), {"POST"}),
+]
+
+
+@app.middleware("http")
+async def require_auth_middleware(request: Request, call_next):
+    """Global auth middleware — requires valid JWT for all non-public routes."""
+    path = request.url.path
+    method = request.method
+
+    # Always allow CORS preflight
+    if method == "OPTIONS":
+        return await call_next(request)
+
+    # Check exact public paths
+    if path in _PUBLIC_EXACT_PATHS:
+        return await call_next(request)
+
+    # Check public prefixes
+    for prefix in _PUBLIC_PREFIXES:
+        if path.startswith(prefix):
+            return await call_next(request)
+
+    # Check public patterns (regex + method)
+    for pattern, allowed_methods in _PUBLIC_PATTERN_PATHS:
+        if method in allowed_methods and pattern.match(path):
+            return await call_next(request)
+
+    # All other paths: require valid JWT Bearer token
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Authentication required"},
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    try:
+        token = auth_header[7:]
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except (JWTError, Exception):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Invalid or expired token"},
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    return await call_next(request)
+
+
 # Mount static files for serving uploaded documents
 # Creates uploads directory if it doesn't exist
 import os
