@@ -3,10 +3,13 @@
 ## Current Milestone: v1.1 Security Hardening + Stability
 
 ### Active Phase
-- **Phase 02: Security Auth Fix** — Protect ~280 unauthenticated endpoints
-  - Status: PLANNED (verified via code audit, not assumptions)
-  - Evidence: `.planning/SECURITY_AUDIT_2026-02-20.md` (verified against code)
-  - Plan: `.planning/phases/02-security-auth-fix/PLAN.md`
+- **Phase 02: Security Auth Fix** — CODE COMPLETE, Deployment Pending
+  - Status: 8/11 tasks complete (code tasks done; deployment 2D.1-2D.3 deferred)
+  - 170+ endpoints secured with defense-in-depth auth (middleware + per-endpoint Depends)
+  - 6 commits: `ad128e49`, `c3930fb4`, `ae6a3f15`, `f3c0eb31`, `87afad52`, `72dcb376`
+  - 890 tests passing, zero regressions
+  - Summary: `.planning/phases/02-security-auth-fix/02-SUMMARY.md`
+  - Remaining: Docker build, staging deploy, E2E test, production deploy
 
 ### Completed Phases
 - **Phase 01: Unit Test Fixes** — ✓ COMPLETE (2026-02-20)
