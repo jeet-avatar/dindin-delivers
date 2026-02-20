@@ -17,6 +17,14 @@
    - **Promote staging→prod**: `gh workflow run promote-staging-to-production.yml -f confirm_promotion=PROMOTE`
    - Monitor with: `gh run list --workflow=deploy-dollar-ai.yml --limit 5` and `gh run watch`
 
+### API Endpoint Verification (MANDATORY for GSD plans)
+| Rule | Details |
+|------|---------|
+| **NEVER invent API endpoints** | Before including ANY endpoint in a plan, smoke test, or summary, verify it exists with: `grep -rn "the/path" apps/web/p2p-platform/backend/*.py` |
+| **Canonical registry** | Run `python scripts/extract-api-endpoints.py` to regenerate `.planning/API_REGISTRY.md` after any backend route changes |
+| **Known confusions** | `/api/vendors/published` = vendor listings (real), `/api/promotions/featured` = promo deals (real), `/api/vendors/featured` = DOES NOT EXIST |
+| **Smoke test rule** | Every endpoint in a smoke test plan MUST have a `grep` verification in the plan's action block proving the route exists in the backend code |
+
 ### Anti-Hallucination Rules (VERIFIED Feb 15, 2026)
 | Rule | Wrong | Correct | Source |
 |------|-------|---------|--------|
@@ -28,6 +36,7 @@
 | **Vendor** registration | single `name` field | `full_name` or `name` + `restaurant_name` | `main_new.py:1444` |
 | Rideshare driver fee | Driver pays $0 | Driver pays $1/$2/$3 (fare-tiered) | `rideshare_payments.py:79` |
 | Food driver fee | Driver pays commission | Driver pays **$0** (keeps 100%) | `main_new.py:6431` |
+| API endpoints | Guess from memory | Verify with `grep` in backend `*.py` | `scripts/extract-api-endpoints.py` |
 
 > Full verified reference: `.claude/docs/GROUND_TRUTH.md`
 
@@ -233,5 +242,5 @@ Routes:
 
 ---
 
-*Last Updated: February 15, 2026*
+*Last Updated: February 20, 2026*
 *Token Count: ~800 (down from 33,000)*
