@@ -32,3 +32,14 @@
 - Security hardening rounds 1 + 2 deployed
 - Vertical scaling (4 phases) deployed
 - Staging infrastructure built and verified
+
+### Upcoming Phases
+- **Phase 04: Documentation Overhaul** — Fix CLAUDE.md, GROUND_TRUTH, xcconfig, and all stale docs
+  - Goal: Eliminate all wrong/stale/missing info across CLAUDE.md, .claude/docs/, xcconfig, MEMORY.md
+  - Depends on: Phase 02 (code changes that shifted docs)
+  - Directory: `.planning/phases/04-docs-overhaul/`
+  - **Requirements:** [DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06]
+  - **Plans:** 2 plans
+  - Plans:
+    - [ ] 04-01-PLAN.md — Fix CLAUDE.md wrong info + iOS xcconfig + MEMORY.md
+    - [ ] 04-02-PLAN.md — Re-verify GROUND_TRUTH line numbers + update API_ENDPOINTS + fix stale docs
