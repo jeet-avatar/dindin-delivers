@@ -128,7 +128,9 @@ None - no external service configuration required.
 | 1 | GET /health | 200 | 200 | PASS |
 | 2 | POST /api/auth/customer/login (bad creds) | non-401 middleware | 401 (endpoint) | PASS |
 | 3 | POST /api/auth/driver/login (bad creds) | non-401 middleware | 401 (endpoint) | PASS |
-| 4 | GET /api/vendors/featured | 200 | 200 | PASS |
+| 4 | GET /api/vendors/published | 200 | 200 | PASS |
+
+> Note: This table was corrected in Phase 03.1 -- the original incorrectly referenced /api/vendors/featured which never existed. The test actually hit /api/vendors/published.
 | 5 | GET /docs | 200 | 200 | PASS |
 | 6 | GET /openapi.json | 200 | 200 | PASS |
 | 7 | GET /api/vendors/{id}/documents | 200 | 200 | PASS |
