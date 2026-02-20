@@ -337,6 +337,8 @@ _PUBLIC_PREFIXES = [
     "/api/driver/password-reset/",
     "/api/vendor/password-reset/",
     "/api/erp/auth/",         # All ERP auth proxies
+    "/api/vendors/public",    # Public vendor registration + document upload (code-gated)
+    "/api/restaurants",       # Public restaurant browsing
     "/uploads/",              # Static files
     "/api/admin/",            # Handled by admin_auth_middleware (don't double-check)
     "/api/demo/",             # Demo endpoints have own _require_admin_secret check
