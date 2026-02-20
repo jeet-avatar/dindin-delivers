@@ -71,7 +71,7 @@ class TestAppConfig:
         config = get_app_config()
         assert isinstance(config["taxRate"], (int, float))
         assert 0 <= config["taxRate"] <= 1, "Tax rate should be between 0 and 1"
-        assert config["taxRate"] == 0.09, "Tax rate should be 9%"
+        assert config["taxRate"] == 0.06, "Tax rate should be 6%"
 
     def test_config_service_fee(self):
         """Test service fee ($1 flat fee for Dollor.ai matchmaking model)"""

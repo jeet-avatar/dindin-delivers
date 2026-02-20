@@ -149,8 +149,11 @@ class TestEnums:
         assert OrderStatus.DELIVERED.value == "delivered"
         assert OrderStatus.CANCELLED.value == "cancelled"
 
+        # Delivery proof
+        assert OrderStatus.PENDING_DELIVERY_PROOF.value == "pending_delivery_proof"
+
         statuses = [e.value for e in OrderStatus]
-        assert len(statuses) == 13
+        assert len(statuses) == 14
 
     def test_customer_status_enum_values(self):
         """Test CustomerStatus enum has all expected values"""
@@ -168,9 +171,10 @@ class TestEnums:
         assert DriverStatus.ACTIVE.value == "active"
         assert DriverStatus.INACTIVE.value == "inactive"
         assert DriverStatus.SUSPENDED.value == "suspended"
+        assert DriverStatus.ONLINE.value == "online"
 
         statuses = [e.value for e in DriverStatus]
-        assert len(statuses) == 5
+        assert len(statuses) == 6
 
     def test_ai_employee_status_enum_values(self):
         """Test AIEmployeeStatus enum has all expected values"""

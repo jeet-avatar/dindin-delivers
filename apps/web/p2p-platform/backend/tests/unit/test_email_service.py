@@ -32,6 +32,7 @@ import email_service
 class TestSendEmail:
     """Tests for the send_email() function"""
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('email_service.SMTP_HOST', 'smtp.gmail.com')
@@ -55,7 +56,7 @@ class TestSendEmail:
 
         # Assert
         assert result is True
-        mock_smtp_class.assert_called_once_with('smtp.gmail.com', 587)
+        mock_smtp_class.assert_called_once_with('smtp.gmail.com', 587, timeout=30)
         mock_server.starttls.assert_called_once()
         mock_server.login.assert_called_once_with('test@example.com', 'test_password')
         mock_server.sendmail.assert_called_once()
@@ -66,6 +67,7 @@ class TestSendEmail:
         assert call_args[1] == to_email  # to
         assert subject in call_args[2]  # message contains subject
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -149,6 +151,7 @@ class TestSendEmail:
         captured = capsys.readouterr()
         assert "[DEV]" in captured.out or "DEV MODE" in caplog.text
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -168,6 +171,7 @@ class TestSendEmail:
         assert result is False
         assert "SMTP error" in caplog.text or to_email in caplog.text
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -190,6 +194,7 @@ class TestSendEmail:
         assert result is False
         assert "authentication" in caplog.text.lower()
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -212,6 +217,7 @@ class TestSendEmail:
         assert result is False
         assert "SMTP error" in caplog.text or "Failed to send" in caplog.text
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -231,6 +237,7 @@ class TestSendEmail:
         assert result is False
         assert to_email in caplog.text or "Unexpected error" in caplog.text
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('email_service.FROM_EMAIL', 'noreply@dollor.ai')
@@ -261,6 +268,7 @@ class TestSendEmail:
         assert f"To: {to_email}" in message_str
         assert "From: Dollor.ai <noreply@dollor.ai>" in message_str
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -281,6 +289,7 @@ class TestSendEmail:
         assert result is True
         mock_server.sendmail.assert_called_once()
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -508,7 +517,7 @@ class TestSendDriverApprovalEmail:
         # Verify call arguments
         call_args = mock_send_email.call_args[0]
         assert call_args[0] == to_email
-        assert "Approved" in call_args[1]  # Subject mentions approval
+        assert "ACTION REQUIRED" in call_args[1]  # Subject mentions activation requirement
         assert driver_name in call_args[2]  # HTML body
         assert driver_code in call_args[2]
         assert driver_name in call_args[3]  # Text body
@@ -533,7 +542,7 @@ class TestSendDriverApprovalEmail:
         text_body = call_args[3]
         assert driver_code in html_body
         assert driver_code in text_body
-        assert "Your Driver Code" in html_body or "Driver Code" in html_body
+        assert "YOUR DRIVER CODE" in html_body or "Driver Code" in html_body
 
     @patch('email_service.send_email')
     def test_driver_approval_email_contains_login_link(self, mock_send_email):
@@ -550,7 +559,7 @@ class TestSendDriverApprovalEmail:
         assert result is True
         call_args = mock_send_email.call_args[0]
         html_body = call_args[2]
-        assert "https://dollor.ai/driver/login" in html_body
+        assert "dollor.ai/driver/activate" in html_body
 
     @patch('email_service.send_email')
     def test_driver_approval_email_contains_app_download_links(self, mock_send_email):
@@ -737,6 +746,7 @@ class TestEmailEdgeCases:
         assert result is True
         mock_send_email.assert_called_once()
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')
@@ -766,6 +776,7 @@ class TestEmailEdgeCases:
         assert result is True
         mock_server.sendmail.assert_called_once()
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
     @patch('email_service.SMTP_PASSWORD', 'test_password')
     @patch('smtplib.SMTP')

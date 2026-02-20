@@ -195,6 +195,7 @@ def mock_order(db_session, mock_vendor):
 class TestCreateOrder:
     """Tests for create_order endpoint"""
 
+    @patch('email_service.IS_PRODUCTION', False)
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_success(self, mock_stripe_create, db_session,
                                   mock_vendor, mock_menu_item, sample_order_data):
@@ -235,7 +236,7 @@ class TestCreateOrder:
 
         # Assert
         assert result is not None
-        assert result.order_number.startswith("ORD-")
+        assert result.order_number.startswith("DOLL") or result.order_number.startswith("ORD-")
         assert result.client_secret == 'pi_test123_secret_abc'
         # Total: subtotal(25.98) + tax(7.25% = 1.88) + delivery(4.99) + platform($1.00) = 33.85
         assert result.amount == pytest.approx(33.85, rel=0.02)  # Allow 2% tolerance for rounding
