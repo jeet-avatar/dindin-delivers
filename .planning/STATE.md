@@ -1,121 +1,47 @@
 # GSD Project State
 
-**Project**: Dollor.ai iOS Apps
-**Status**: Active - Production Ready
-**Last activity**: 2026-02-11 - Completed quick task 008: QA Knowledge Base 34-agent sync
-**Backend Version**: 1.0.18
-**Build**: 2026-02-09-driver-busy-check-all-flows
+**Project**: Dollor.ai Platform
+**Status**: Active — Security Auth Fix
+**Last activity**: 2026-02-20 — Phase 01-01 executed (test fixes committed, CI verification pending)
 
-## Current Phase
-- Cross-Platform QA Complete - All 24 Agents PASSED
-- P2P Rideshare Full Flow VERIFIED
-- Smart Error Handling VERIFIED (2026-02-09)
+## Current Phase: 02 — Security Auth Fix
 
-### Production Build Status
+### Status: PLANNED — Awaiting Execution
 
-| App | Build | Status | TestFlight |
-|-----|-------|--------|------------|
-| Customer | 1060 | ✅ UPLOADED | Processing |
-| Driver | 165 | ✅ UPLOADED | Processing |
-| Restaurant | 140 | ✅ UPLOADED | Processing |
+**What**: Add authentication to ~280 unprotected API endpoints
+**Why**: 39 critical endpoints verified with ZERO auth (not hallucinated — checked line by line)
+**How**: Hybrid approach — global middleware safety net + router/endpoint-level role auth
 
-### Active Issues
+### Key Verified Findings (Code Proof)
+| Finding | File:Line | Risk |
+|---------|-----------|------|
+| Stripe PaymentIntent without auth | stripe_integration.py:111 | CRITICAL |
+| Order delivered triggers payout, no auth | order_flow.py:2912 | CRITICAL |
+| Customer address IDOR (6 endpoints) | main_new.py:16058-16262 | HIGH |
+| FCM token hijacking (12 endpoints) | main_new.py:18224-18344 | HIGH |
+| GPS spoofing any driver | main_new.py:20264 | HIGH |
+| Push notification to any user | realtime_events.py:229 | HIGH |
 
-None - All critical issues resolved.
+### Plan File
+`.planning/phases/02-security-auth-fix/PLAN.md`
 
-### Deployment Complete (2026-02-10)
-**Backend v1.0.13 deployed and verified:**
-- Driver busy check now covers ALL flows (food orders + ride bidding)
-- Driver can only have ONE active work item at a time
-- Checks all active statuses: PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY
-- Consistent error messages across both flows
-- Full protection matrix tested and verified
+### Prerequisites Before Execution
+1. Fix 4 iOS functions missing auth headers (Task 2C.1)
+2. Verify Android interceptor adds auth globally (Task 2C.2)
 
-### Deployment Complete (2026-02-08)
-**Backend v1.0.12 deployed and verified:**
-- Clean ride number format: `RIDE{year}{6-digit-id}` (e.g., `RIDE2026000107`)
-- Clean bid number format: `BID{year}{6-digit-id}` (e.g., `BID2026000035`)
-- Driver busy check: Prevents bidding while on active ride or delivery
-- Full rideshare flow tested: create → bid → accept → start → complete
-- Invoice/receipt uses ride number correctly
-- All 24 QA agents: PASSED
+### Deployment Target
+- Staging first: `dollor-api-staging`
+- Production after: `dollor-api` (currently task-def 370)
 
-### Resolved (2026-02-10)
-- **Driver could accept multiple food orders** - FIXED in order_flow.py:2429-2450
-- **Ride bidding only checked OUT_FOR_DELIVERY** - FIXED in bid_routes.py to check all active statuses
-- **Inconsistent busy checks between flows** - Both now check PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY
+## Previous Phase: 01 — Unit Test Fixes (COMPLETE)
+- 17 test failures fixed, 356/356 passing locally
+- Committed and pushed to main: `26ca1312`
+- CI pipeline triggered, awaiting verification (run ID 22213397723)
+- Summary: `.planning/phases/01-unit-test-fixes/01-01-SUMMARY.md`
+- Verification: `.planning/phases/01-unit-test-fixes/VERIFICATION.md`
 
-### Resolved (2026-02-07)
-- **Driver details missing in bid accept response** - FIXED in bid_routes.py
-- **Wrong field name `profile_photo_url`** - FIXED to use `photo_url`
-- **iOS AcceptedDriverInfo not populated** - FIXED with full 11-field driver object
-
-### Resolved (2026-02-06)
-- FareNegotiationResponse missing `platform_fee_driver/customer` - FIXED in v1.0.10
-- Android negotiate path 404 - FIXED with alias
-- Stub endpoints not saving to DB - FIXED (customer-negotiate, accept-counter)
-
-### Blockers/Concerns
-- None blocking deployment
-
-### World-Class QA System (34 Agents) ✅ ALL PASSED
-See: [CROSS_PLATFORM_QA_AGENTS.md](./CROSS_PLATFORM_QA_AGENTS.md)
-Report: [qa-challenger-reports/2026-02-06_FULL_QA_REPORT.md](./qa-challenger-reports/2026-02-06_FULL_QA_REPORT.md)
-
-| # | Agent | Status |
-|---|-------|--------|
-| 1 | API Endpoint Validator | ✅ PASS |
-| 2 | UI/Code Quality | ✅ PASS |
-| 3 | E2E Workflow | ✅ PASS |
-| 4 | Dead Code Detection | ✅ PASS |
-| 5 | Security (OWASP) | ✅ PASS |
-| 6 | Test Runner | ✅ PASS |
-| 7 | Database Health | ✅ PASS |
-| 8 | Performance | ✅ PASS |
-| 9 | Dependency Audit | ✅ PASS |
-| 10 | Frontend Data | ✅ PASS |
-| 11 | Frontend Display | ✅ PASS |
-| 12 | Field Mapping | ✅ PASS |
-| 13 | Driver App | ✅ PASS |
-| 14 | Customer App | ✅ PASS |
-| 15 | Restaurant App | ✅ PASS |
-| 16 | Order Lifecycle | ✅ PASS |
-| 17 | API Documentation | ✅ PASS |
-| 18 | Driver Details Flow | ✅ PASS |
-| 19 | Deployment Readiness | ✅ PASS |
-| 20 | TestFlight/Play Store | ✅ PASS |
-| 21 | API Contract | ✅ PASS |
-| 22 | Data Type | ✅ PASS |
-| 23 | QA Challenger (GATE) | ✅ PASS |
-| 24 | Cross-Platform | ✅ PASS |
-| 25 | Error Message Consistency | ✅ PASS |
-| 26 | Logger Compliance | ✅ PASS |
-| 27 | Bid Negotiation Flow | ✅ PASS |
-| 28 | Push Notification | ✅ PASS |
-| 29 | Smart Error UX | ✅ PASS |
-| 30 | UI Consistency | ✅ PASS |
-| 31 | UX Flow | ✅ PASS |
-| 32 | Cross-App Integration | ✅ PASS |
-| 33 | Button Action Validator | ✅ PASS |
-| 34 | Navigation Flow | ✅ PASS |
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 001 | Build Driver app for TestFlight (build 130) | 2026-02-05 | done | [001-driver-testflight-build-130](./quick/001-driver-testflight-build-130/) |
-| 002 | Create 34 Cross-Platform QA Agents | 2026-02-06 | done | [CROSS_PLATFORM_QA_AGENTS.md](./CROSS_PLATFORM_QA_AGENTS.md) |
-| 003 | Production Knowledge Update | 2026-02-06 | done | QA_KNOWLEDGE_BASE.md |
-| 004 | QA: Negotiation Flow Investigation | 2026-02-07 | d4c3153f | [004-qa-negotiation-flow](./quick/004-qa-negotiation-flow-investigation/) |
-| 005 | Cleanup legacy bid handlers (420 lines) | 2026-02-07 | 4eeffd1c | [005-cleanup-legacy-bid](./quick/005-cleanup-legacy-bid-handlers/) |
-| 006 | Driver App QA Analysis - Error Messages & API Contracts | 2026-02-10 | a1a6d9c8 | [006-driver-app-24-agent-qa](./quick/006-driver-app-24-agent-qa/) |
-| 007 | Cross-Platform iOS QA - 24 Agent Run (All 3 Apps) | 2026-02-10 | a0a45cea | [007-run-24-agent-qa-on-all-3-ios-apps](./quick/007-run-24-agent-qa-on-all-3-ios-apps/) |
-| 008 | Update QA Knowledge Base - 34 Agent System | 2026-02-11 | done | [008-update-qa-knowledge-base-with-comprehens](./quick/008-update-qa-knowledge-base-with-comprehens/) |
-
-### Demo Credentials
-
-| App | Email | Password | ID |
-|-----|-------|----------|-----|
-| Customer | demo.customer@dollor.ai | DemoCustomer2025! | 74 |
-| Driver | demo.driver@dollor.ai | DemoDriver2025! | 48 |
-| Restaurant | demo.restaurant@dollor.ai | DemoRestaurant2025! | 40 |
+## Quick Reference
+- Production API: `https://api.dollor.ai`
+- Staging API: `https://d34u5ixl0bulv4.cloudfront.net`
+- ECR: `134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api`
+- ECS cluster: `dollor-production`
