@@ -3,12 +3,14 @@
 ## Current Milestone: v1.1 Security Hardening + Stability
 
 ### Active Phase
-- **Phase 03.1: Endpoint Validation & Anti-Hallucination Guardrails** — NOT YET PLANNED
+- **Phase 03.1: Endpoint Validation & Anti-Hallucination Guardrails** — PLANNED
   - Goal: Create canonical endpoint registry auto-generated from codebase, add validation rules to CLAUDE.md, fix plan/summary files with wrong /api/vendors/featured reference
   - Depends on: Phase 03 (deployment revealed the hallucination)
   - Directory: `.planning/phases/03.1-endpoint-validation-guardrails/`
   - **Requirements:** [GUARD-01, GUARD-02, GUARD-03]
-  - **Plans:** 0 plans (not yet planned)
+  - **Plans:** 1 plan
+  - Plans:
+    - [ ] 03.1-01-PLAN.md — Fix phantom endpoint refs, create extraction script + API registry, add CLAUDE.md guardrails
 
 ### Completed Phases
 - **Phase 03: Deploy Security Auth** — COMPLETE (2026-02-20)
