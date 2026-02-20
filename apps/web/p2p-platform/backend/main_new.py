@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
+from auth_utils import require_any_auth, require_customer, require_driver, require_vendor, require_admin
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
@@ -331,7 +332,8 @@ _PUBLIC_EXACT_PATHS = {
 
 _PUBLIC_PREFIXES = [
     "/api/public/",           # Public restaurant listings
-    "/api/webhooks/",         # Stripe/Persona/Onfido/Veriff webhooks (signature-verified)
+    "/api/webhooks/",         # Stripe webhooks (signature-verified)
+    "/api/verification/webhook/",  # Verification provider webhooks (Persona/Onfido/Veriff — signature-verified)
     "/api/legal/",            # Legal pages
     "/api/customer/password-reset/",  # Password reset flows
     "/api/driver/password-reset/",
@@ -358,6 +360,8 @@ _PUBLIC_PATTERN_PATHS = [
     (_re.compile(r"^/api/matchmaking/states/.+/terms$"), {"GET"}),
     # Verification required docs
     (_re.compile(r"^/api/verification/required-documents/.*$"), {"GET"}),
+    # Verification status check (pre-auth flow)
+    (_re.compile(r"^/api/verification/\w+/\d+/status$"), {"GET"}),
     # Onboarding code-gated flows (use invitation code, not JWT)
     (_re.compile(r"^/api/onboarding/confirm/.*$"), {"POST"}),
     (_re.compile(r"^/api/onboarding/status/.*$"), {"GET"}),
@@ -3795,7 +3799,7 @@ def estimate_fare(request: FareEstimateRequest):
 @app.post("/api/erp/rides/request")
 async def request_ride(
     request: RideRequestModel,
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """
@@ -3810,30 +3814,9 @@ async def request_ride(
     import string
     from datetime import datetime
 
-    # Try to get customer info from token if not provided in request
-    customer_name = request.customer_name
-    customer_email = request.customer_email
-
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            customer_id = payload.get("customer_id")
-            if customer_id:
-                customer = db.query(Customer).filter(Customer.id == customer_id).first()
-                if customer:
-                    if not customer_name:
-                        customer_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
-                    if not customer_email:
-                        customer_email = customer.email
-        except JWTError:
-            pass
-
-    # Fallback if still no customer info
-    if not customer_name:
-        customer_name = "Guest"
-    if not customer_email:
-        customer_email = "guest@dollor.ai"
+    # Get customer info from authenticated customer object
+    customer_name = request.customer_name or f"{customer.first_name or ''} {customer.last_name or ''}".strip() or customer.name or "Guest"
+    customer_email = request.customer_email or customer.email or "guest@dollor.ai"
 
     # SECURITY: Sanitize user-supplied text to prevent stored XSS
     customer_name = sanitize_text(customer_name)
@@ -4611,9 +4594,12 @@ def update_driver_status(
     driver_id: int,
     status: str,
     skip_document_check: bool = Query(False, description="Skip document verification (admin override)"),
+    _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
-    """Update driver status (admin endpoint) - sends approval email when approved"""
+    """Update driver status - sends approval email when approved"""
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your account")
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
@@ -4686,6 +4672,7 @@ def update_driver_status(
 @app.get("/api/drivers/{driver_id}/status")
 def get_driver_status(
     driver_id: int,
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Get driver online/offline status - Used by Android Driver app"""
@@ -5405,6 +5392,7 @@ def get_vendor_stripe_dashboard_link(
 @app.post("/api/rides/{ride_id}/complete-and-pay")
 async def complete_ride_and_pay_driver(
     ride_id: int,
+    _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
@@ -6893,33 +6881,10 @@ def remove_promo_code(current_user: User = Depends(get_current_user), db: Sessio
 
 @app.get("/api/driver/dashboard")
 def get_driver_dashboard(
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver dashboard data with active delivery, pending orders, and stats"""
-
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                # driver_id in JWT is integer ID, not string code
-                if isinstance(driver_id, int):
-                    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-                else:
-                    driver = db.query(Driver).filter(Driver.driver_id == driver_id).first()
-            if not driver:
-                email = payload.get("sub")
-                if email:
-                    driver = db.query(Driver).filter(Driver.email == email).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     driver_name = f"{driver.first_name} {driver.last_name}"
 
@@ -7047,6 +7012,7 @@ def get_driver_dashboard(
 @app.get("/api/v5/driver/{driver_id}/dashboard")
 def get_driver_dashboard_v5(
     driver_id: int,
+    _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
@@ -7059,6 +7025,8 @@ def get_driver_dashboard_v5(
 
     Each DriverEarningsPeriod has: deliveries, gross_earnings, base_pay, tips, bonuses, active_hours
     """
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your dashboard")
     try:
         driver = db.query(Driver).filter(Driver.id == driver_id).first()
         if not driver:
@@ -8729,6 +8697,7 @@ def get_orders(
 @app.get("/api/orders/{order_id}")
 def get_order(
     order_id: int,
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db),
     authorization: str = Header(None)
 ):
@@ -10726,6 +10695,7 @@ async def test_vendor_kot_integration(
 @app.post("/api/erp/orders/{order_id}/print-kot")
 async def manual_print_kot(
     order_id: int,
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
@@ -10999,6 +10969,7 @@ def update_vendor_status(
 @app.get("/api/vendors/{vendor_id}/publish-checklist")
 def get_vendor_publish_checklist(
     vendor_id: int,
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
@@ -11006,6 +10977,8 @@ def get_vendor_publish_checklist(
     This is used by the ZIP Dashboard to show what's needed before approving/publishing.
     Returns checklist items with status (complete/incomplete) and details.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor, VendorMenuItem
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -13676,9 +13649,12 @@ def update_menu_item_customizations(
     vendor_id: int,
     item_id: int,
     customizations: List[MenuItemCustomization],
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """Update customizations for a menu item"""
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import VendorMenuItem
 
     db_menu_item = db.query(VendorMenuItem).filter(
@@ -14257,12 +14233,15 @@ def apply_promotion_code(
 async def upload_vendor_image(
     vendor_id: int,
     file: UploadFile = File(...),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Upload a cover image for a restaurant/vendor.
     Stores in S3 (or local fallback) and updates vendor.image_url.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor
     from s3_service import S3Service
 
@@ -14314,12 +14293,15 @@ async def upload_vendor_image(
 @app.post("/api/vendors/{vendor_id}/assign-stock-image")
 def assign_stock_image_to_vendor(
     vendor_id: int,
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Assign a stock image to a vendor based on cuisine type.
     Used when vendor doesn't have a custom image.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor
     from stock_images import get_stock_image_for_restaurant
 
@@ -14346,12 +14328,15 @@ def assign_stock_image_to_vendor(
 @app.post("/api/vendors/{vendor_id}/menu/assign-stock-images")
 def assign_stock_images_to_menu(
     vendor_id: int,
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Assign stock images to all menu items that don't have images.
     AI Employee task - automatically populates missing images.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import VendorMenuItem
     from stock_images import get_stock_image_for_dish
 
@@ -14916,7 +14901,7 @@ from promotions import router as promotions_router
 app.include_router(promotions_router)
 
 # ===================== AUTH UTILS FOR ROUTER-LEVEL AUTH =====================
-from auth_utils import require_any_auth
+# (auth_utils imported at top of file)
 
 # Include Real-time Events routes (Phoenix AI Employee) — ALL endpoints require auth
 from realtime_events import router as realtime_router
@@ -15863,6 +15848,7 @@ def get_available_ride_requests(
     longitude: Optional[float] = None,
     radius_miles: float = 50.0,
     radius_km: Optional[float] = None,
+    _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get available ride requests for drivers to bid on"""
@@ -16857,6 +16843,7 @@ async def web_mark_messages_read(
 async def web_update_typing_indicator(
     order_id: int,
     request: dict,
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Update typing indicator - Production Web Frontend endpoint"""
@@ -16871,6 +16858,7 @@ async def web_update_typing_indicator(
 @app.get("/api/chat/conversation/{order_id}")
 async def web_get_conversation(
     order_id: int,
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Get conversation info for an order - Production Web Frontend endpoint"""
@@ -16924,9 +16912,12 @@ async def web_get_conversation(
 async def web_get_driver_conversations(
     driver_id: int,
     active_only: bool = True,
+    _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver's conversations - Production Web Frontend endpoint"""
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     from models import ChatConversation
 
     query = db.query(ChatConversation).filter(ChatConversation.driver_id == driver_id)
@@ -16957,9 +16948,12 @@ async def web_get_driver_conversations(
 async def web_get_customer_conversations(
     customer_id: int,
     active_only: bool = True,
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Get customer's conversations - Production Web Frontend endpoint"""
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     from models import ChatConversation
 
     query = db.query(ChatConversation).filter(ChatConversation.customer_id == customer_id)
@@ -20655,28 +20649,10 @@ def get_driver_deliveries_history(
 
 @app.get("/api/driver/active-delivery")
 def get_driver_active_delivery(
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver's current active delivery"""
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-            else:
-                email = payload.get("sub")
-                if email:
-                    driver = db.query(Driver).filter(Driver.email == email).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     # Find active order assigned to this driver
     active_order = db.query(Order).filter(
@@ -20744,28 +20720,10 @@ def get_driver_active_delivery(
 
 @app.get("/api/driver/messages")
 def get_driver_messages(
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver's messages/conversations"""
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-            else:
-                email = payload.get("sub")
-                if email:
-                    driver = db.query(Driver).filter(Driver.email == email).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     # For now, return system messages based on driver status
     # In production, this would query a messages table
@@ -21011,28 +20969,10 @@ def get_driver_earnings_by_id(
 @app.post("/api/v2/driver/deliveries/{delivery_id}/accept")
 def accept_delivery(
     delivery_id: int,
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Accept a delivery order"""
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-            else:
-                email = payload.get("sub")
-                if email:
-                    driver = db.query(Driver).filter(Driver.email == email).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     # Find the order
     order = db.query(Order).filter(Order.id == delivery_id).first()
@@ -21133,24 +21073,10 @@ def accept_delivery(
 @app.post("/api/v2/driver/deliveries/{delivery_id}/pickup")
 def mark_delivery_picked_up(
     delivery_id: int,
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Mark delivery as picked up from restaurant"""
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     order = db.query(Order).filter(Order.id == delivery_id, Order.driver_id == driver.id).first()
     if not order:
@@ -21165,24 +21091,10 @@ def mark_delivery_picked_up(
 @app.post("/api/v2/driver/deliveries/{delivery_id}/complete")
 def complete_delivery(
     delivery_id: int,
-    authorization: Optional[str] = Header(None),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Mark delivery as completed"""
-    # Extract driver from token
-    driver = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            driver_id = payload.get("driver_id")
-            if driver_id:
-                driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        except JWTError:
-            pass
-
-    if not driver:
-        raise HTTPException(status_code=401, detail="Invalid or missing authentication")
 
     order = db.query(Order).filter(Order.id == delivery_id, Order.driver_id == driver.id).first()
     if not order:
