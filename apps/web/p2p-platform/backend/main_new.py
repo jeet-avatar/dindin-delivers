@@ -14730,17 +14730,20 @@ app.include_router(onboarding_router)
 from promotions import router as promotions_router
 app.include_router(promotions_router)
 
-# Include Real-time Events routes (Phoenix AI Employee)
+# ===================== AUTH UTILS FOR ROUTER-LEVEL AUTH =====================
+from auth_utils import require_any_auth
+
+# Include Real-time Events routes (Phoenix AI Employee) — ALL endpoints require auth
 from realtime_events import router as realtime_router
-app.include_router(realtime_router)
+app.include_router(realtime_router, dependencies=[Depends(require_any_auth)])
 
-# Include Menu Verification routes (Aria AI Employee)
+# Include Menu Verification routes (Aria AI Employee) — ALL endpoints require auth
 from menu_verification import router as verification_router
-app.include_router(verification_router)
+app.include_router(verification_router, dependencies=[Depends(require_any_auth)])
 
-# Include Vibing routes (Food Image AI Employee)
+# Include Vibing routes (Food Image AI Employee) — ALL endpoints require auth
 from vibing_routes import router as vibing_router
-app.include_router(vibing_router)
+app.include_router(vibing_router, dependencies=[Depends(require_any_auth)])
 
 # Include Chat routes (Rider-Driver messaging)
 from chat_routes import router as chat_router
