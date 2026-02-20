@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/dollar-ai-deployment
     paths:
       - 'apps/web/p2p-platform/**'
       - '.github/workflows/deploy-dollar-ai.yml'
@@ -19,9 +18,39 @@ env:
   ECS_SERVICE: dollor-api-service
 
 jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run P2P backend tests
+        working-directory: apps/web/p2p-platform/backend
+        env:
+          SECRET_KEY: test-secret-key-for-ci
+          JWT_SECRET_KEY: test-jwt-secret-key-for-ci
+          TESTING: "true"
+        run: |
+          pytest tests/unit/ -v --tb=short
+
   deploy-frontend:
     name: Deploy Frontend to CloudFront
     runs-on: ubuntu-latest
+    needs: run-tests
 
     steps:
       - name: Checkout code
@@ -67,7 +96,7 @@ jobs:
   deploy-ecs:
     name: Deploy Backend to ECS
     runs-on: ubuntu-latest
-    needs: deploy-frontend
+    needs: run-tests
 
     steps:
       - name: Checkout code
@@ -91,7 +120,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker build --target production -f Dockerfile.optimized --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -112,63 +141,10 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
 
-  deploy-eks:
-    name: Deploy Backend to EKS
-    runs-on: ubuntu-latest
-    needs: deploy-ecs
-    continue-on-error: true  # EKS staging is optional - cluster may not exist
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name dollor-staging
-
-      - name: Deploy to EKS
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          # Find the namespace where p2p-backend deployment exists
-          echo "Looking for p2p-backend deployment..."
-          NAMESPACE=$(kubectl get deployments --all-namespaces -o json | jq -r '.items[] | select(.metadata.name=="p2p-backend") | .metadata.namespace' | head -1)
-
-          if [ -z "$NAMESPACE" ] || [ "$NAMESPACE" == "null" ]; then
-            echo "Deployment not found, creating in default namespace..."
-            NAMESPACE="default"
-            # Apply the K8s manifest with updated image tag
-            sed "s|134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" \
-              infrastructure/kubernetes/services/p2p-backend/deployment.yaml | kubectl apply -f -
-          else
-            echo "Found deployment in namespace: $NAMESPACE"
-            # Update existing deployment
-            kubectl set image deployment/p2p-backend \
-              p2p-backend=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-              -n $NAMESPACE
-          fi
-
-          # Wait for rollout to complete
-          kubectl rollout status deployment/p2p-backend -n $NAMESPACE --timeout=300s
-
-          echo "EKS deployment complete!"
-
   notify:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
-    needs: [deploy-frontend, deploy-ecs]  # EKS is optional, don't wait for it
+    needs: [deploy-frontend, deploy-ecs]
     if: always()
 
     steps:
@@ -185,13 +161,3 @@ jobs:
           echo "Deployment Targets:"
           echo "  - Frontend: CloudFront (S3)"
           echo "  - Backend: ECS Fargate (Production)"
-          echo "  - Backend: EKS (Staging)"
-          echo ""
-          echo "Pages deployed:"
-          echo "  - Landing Page: https://dollor.ai/"
-          echo "  - Vendor Login: https://dollor.ai/vendor/login"
-          echo "  - Driver Login: https://dollor.ai/driver/login"
-          echo "  - Restaurant Application: https://dollor.ai/restaurant/apply"
-          echo "  - Driver Application: https://dollor.ai/driver/apply"
-          echo "  - Terms of Service: https://dollor.ai/terms"
-          echo "  - Privacy Policy: https://dollor.ai/privacy"
