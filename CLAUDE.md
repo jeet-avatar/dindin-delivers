@@ -59,7 +59,7 @@ You seamlessly switch between three expert roles:
 ### Environments
 | Environment | URL | Usage |
 |-------------|-----|-------|
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` | Testing, development |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` | Testing, development |
 | **Production** | `https://api.dollor.ai` | Live users |
 
 ### Demo Credentials (App Store Review)
@@ -94,7 +94,7 @@ eatfair-ios/                          # PRIMARY REPO
 │   └── web/p2p-platform/
 │       ├── backend/                  # Python FastAPI (main_new.py)
 │       └── frontend/                 # React Admin Portal
-├── services/core/                    # Microservices (18 total)
+├── services/core/                    # Microservices (16 total)
 └── infrastructure/                   # K8s, Terraform, ArgoCD
 
 eatfair-android/                      # ANDROID REPO (separate)
@@ -147,6 +147,30 @@ cd /Users/jeet/StudioProjects/eatfair-android
 ./gradlew :partner:assembleRelease  # Restaurant APK
 ```
 
+### Build iOS Apps
+```bash
+cd /Users/jeet/doordash-p2p
+
+# Customer App
+xcodebuild -workspace apps/ios/EatFair.xcworkspace \
+  -scheme eatfaircustomer -configuration Staging \
+  -destination 'generic/platform=iOS' build
+
+# Driver App
+xcodebuild -workspace apps/ios/EatFair.xcworkspace \
+  -scheme eatffairdelivery -configuration Staging \
+  -destination 'generic/platform=iOS' build
+
+# Restaurant App (NOTE: scheme may not be shared in workspace;
+# if "scheme not found", use -project apps/ios/restaurant/eatffairrestaurant.xcodeproj instead of -workspace)
+xcodebuild -workspace apps/ios/EatFair.xcworkspace \
+  -scheme eatffairrestaurant -configuration Staging \
+  -destination 'generic/platform=iOS' build
+```
+
+Configs: `apps/ios/Config/` (Development, Staging, Production)
+Bundle IDs: `com.dollorai.customer`, `com.dollorai.delivery`, `com.dollorai.restaurant`
+
 ### Anti-Hallucination Check
 ```bash
 # Before ANY code changes, verify with zero-hallucination lookup:
@@ -174,21 +198,46 @@ pytest tests/ -v
 
 ---
 
+## SECURITY ARCHITECTURE
+
+### Authentication Stack (Phase 02 -- Feb 2026)
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| Global middleware | `main_new.py:367` (`require_auth_middleware`) | Safety net -- blocks unauthenticated requests to non-allowlisted paths |
+| Admin middleware | `main_new.py:196` (`admin_auth_middleware`) | All `/api/admin/*` endpoints require admin JWT or ADMIN_SECRET_KEY |
+| Auth utilities | `auth_utils.py` | Reusable Depends() functions for router/endpoint-level auth |
+| iOS guard-let | `P2PAPIService.swift` | Hard-fail without token (no silent fallback) |
+
+### Auth Utility Functions (`auth_utils.py`)
+
+| Function | Returns | Use Case |
+|----------|---------|----------|
+| `require_any_auth` | JWT payload dict | Router-level -- any valid JWT accepted |
+| `require_customer` | Customer ORM object | Customer-only endpoints |
+| `require_driver` | Driver ORM object | Driver-only endpoints |
+| `require_vendor` | Vendor ORM object | Vendor-only endpoints |
+| `require_admin` | User ORM object | Admin-only endpoints (403 if wrong role) |
+
+### Required Environment Variables
+
+| Variable | Purpose | Crash Behavior |
+|----------|---------|----------------|
+| `JWT_SECRET_KEY` | JWT signing/verification | `RuntimeError` at startup (`main_new.py:848`) |
+| `STRIPE_SECRET_KEY` | Payment processing | Stripe calls fail |
+| `ADMIN_SECRET_KEY` | Admin API access | Admin auth fallback disabled |
+| `DATABASE_URL` | PostgreSQL connection | App won't start |
+
+---
+
 ## DETAILED DOCUMENTATION
 
 For detailed information, see `.claude/docs/`:
 
 | File | Contents |
 |------|----------|
-| `01-BUSINESS_MODEL.md` | Legal positioning, pricing details, matchmaking definition |
-| `02-ARCHITECTURE.md` | Full repo structure, microservices, mobile app mapping |
-| `03-API_ENDPOINTS.md` | All API endpoints including communication services |
-| `04-DEVELOPMENT.md` | Local setup, Docker, environment variables |
-| `05-DEPLOYMENT.md` | CI/CD pipeline, AWS infrastructure, security scanning |
-| `06-APP_STORE.md` | iOS/Android submission requirements, demo accounts |
-| `07-EVENT_ARCHITECTURE.md` | CQRS, Kafka, H3 location system, error codes |
+| `API_ENDPOINTS.md` | API endpoints, auth patterns, demo credentials |
 | `GROUND_TRUTH.md` | **Backend-verified facts with file:line refs (anti-hallucination)** |
-| `99-CHANGELOG.md` | Historical implementation phases |
 
 ### Ollama Training (`.claude/training/`)
 | File | Purpose |
@@ -230,7 +279,7 @@ For detailed information, see `.claude/docs/`:
 
 ```
 URL:      http://localhost:5173/admin (local)
-Email:    admin.invoice@dollor.ai
+Email:    support@dollor.ai
 Password: AdminTest123
 
 Routes:
