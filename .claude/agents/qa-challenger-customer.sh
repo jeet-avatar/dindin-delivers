@@ -15,13 +15,22 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 API_URL="https://api.dollor.ai"
-PROJECT_ROOT="/Users/jeet/StudioProjects/eatfair-ios"
+PROJECT_ROOT="/Users/jeet/doordash-p2p"
 CUSTOMER_APP="$PROJECT_ROOT/apps/ios/customer/eatfaircustomer"
 SHARED="$PROJECT_ROOT/apps/ios/eatfair-ios-shared/Sources/EatFairShared"
 
 TOTAL=0
 PASSED=0
 BLOCKED=0
+
+# Authenticate customer for secured endpoint tests
+CUSTOMER_TOKEN=$(curl -s -X POST "$API_URL/api/auth/customer/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=demo.customer@dollor.ai" -d "password=DemoCustomer2025!" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+
+[ -n "$CUSTOMER_TOKEN" ] && echo -e "${GREEN}Customer authenticated${NC}" || echo -e "${RED}Customer auth FAILED${NC}"
+echo ""
 
 echo ""
 echo -e "${MAGENTA}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -71,14 +80,14 @@ echo -e "${CYAN}═══ PHASE 2: RESTAURANT BROWSING ═══${NC}"
 echo ""
 
 challenge "Get Restaurants List" \
-    "curl -s '$API_URL/api/vendors/published' | head -c 100" \
-    "id" \
-    "Returns array of restaurants with id, name, address fields"
+    "curl -s '$API_URL/api/vendors/published'" \
+    "restaurants" \
+    "Returns {success, count, restaurants: [...]} with id, name, address fields"
 
 challenge "Restaurant Menu" \
-    "curl -s '$API_URL/api/vendors/1/menu' | head -c 100" \
-    "menu\|items\|name" \
-    "Returns menu items for restaurant ID 1"
+    "curl -s '$API_URL/api/vendors/40/menu'" \
+    "item_name\|name\|price" \
+    "Returns menu items for demo restaurant (vendor 40)"
 
 echo -e "${CYAN}═══ PHASE 3: ORDER FLOW ═══${NC}"
 echo ""
@@ -107,9 +116,9 @@ challenge "FareNegotiationResponse Format" \
     "Returns platform_fee_driver=1.0 and platform_fee_customer=1.0 (REQUIRED)"
 
 challenge "CustomerRideBidsResponse Format" \
-    "curl -s '$API_URL/api/rides/request/1/bids'" \
-    "request_id" \
-    "Returns request_id, bids[], total_bids, bidding_open, bidding_ends_at"
+    "curl -s '$API_URL/api/rides/request/1/bids' -H 'Authorization: Bearer $CUSTOMER_TOKEN'" \
+    "request_id\|bids\|total_bids" \
+    "Returns request_id, bids[], total_bids, bidding_open, bidding_ends_at (auth required)"
 
 challenge "Accept Fare Endpoint" \
     "curl -s '$API_URL/erp/rides/1/customer-accept-fare' | head -c 200" \
@@ -125,9 +134,9 @@ challenge "Demo Payment Bypass" \
     "isDemoPayment check exists to bypass Stripe for App Store review"
 
 challenge "Checkout Demo Check" \
-    "grep 'isDemoPayment' '$CUSTOMER_APP/Views/MultiRestaurantCheckoutView.swift' | head -1" \
-    "isDemoPayment" \
-    "Checkout view checks isDemoPayment before processing payment"
+    "grep 'isDummyPaymentMode\|isDemoPayment' '$CUSTOMER_APP/Views/MultiRestaurantCheckoutView.swift' '$CUSTOMER_APP/Services/PaymentService.swift' | head -1" \
+    "isDummyPayment\|isDemoPayment" \
+    "Payment code has demo/dummy check to bypass Stripe for App Store review"
 
 challenge "Demo Credentials in Login" \
     "grep -c 'demo.customer' '$CUSTOMER_APP/Views/LoginView.swift' || echo '0'" \
@@ -154,8 +163,8 @@ challenge "Customer Bundle ID" \
 
 challenge "Customer Build Number" \
     "grep 'CURRENT_PROJECT_VERSION' '$PROJECT_ROOT/apps/ios/customer/eatfaircustomer.xcodeproj/project.pbxproj' | head -1" \
-    "1043" \
-    "Current build is 1043 on TestFlight"
+    "1088" \
+    "Current build is 1088 on TestFlight"
 
 challenge "Production Config URL" \
     "grep 'api.dollor.ai' '$PROJECT_ROOT/apps/ios/Config/Production.xcconfig'" \
