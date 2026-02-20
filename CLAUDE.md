@@ -11,11 +11,14 @@
 2. **DEV → STAGING → PRODUCTION** - Never skip environments. Never touch production directly.
 3. **WE ARE A MATCHMAKING SERVICE** - Not a delivery company, not a TNC. This is legally critical.
 4. **ASK BEFORE MAJOR CHANGES** - Get approval before architectural changes or new dependencies.
-5. **ALWAYS USE CI/CD FOR DEPLOYMENTS** - Never run manual `aws ecs`, `docker build`, or `docker push` for deployments. Use the GitHub Actions workflows:
-   - **Staging**: `gh workflow run deploy-staging.yml --ref main` or push to `staging`/`develop` branch
-   - **Production**: `gh workflow run deploy-dollar-ai.yml` (runs tests → builds → pushes ECR → deploys ECS)
+5. **⚠️ ALWAYS USE CI/CD — NEVER MANUAL DEPLOY ⚠️**
+   - **NEVER** run manual `aws ecs`, `docker build`, `docker push`, or direct ECR/ECS commands
+   - **Step 1 — Push code**: `git push origin main` (always push to remote BEFORE triggering workflows)
+   - **Step 2 — Deploy staging**: `gh workflow run deploy-staging.yml --ref main`
+   - **Step 3 — Deploy production**: `gh workflow run deploy-dollar-ai.yml` (runs tests → Docker build → ECR push → ECS deploy)
    - **Promote staging→prod**: `gh workflow run promote-staging-to-production.yml -f confirm_promotion=PROMOTE`
-   - Monitor with: `gh run list --workflow=deploy-dollar-ai.yml --limit 5` and `gh run watch`
+   - **Monitor**: `gh run list --workflow=deploy-dollar-ai.yml --limit 5` then `gh run watch <run-id>`
+   - **Verify**: `gh run view <run-id>` to confirm all jobs passed before moving on
 
 ### API Endpoint Verification (MANDATORY for GSD plans)
 | Rule | Details |
@@ -251,27 +254,43 @@ For detailed information, see `.claude/docs/`:
 
 ## AI EMPLOYEE PROTOCOLS
 
-### When Implementing Features
-1. Check existing code patterns first
-2. Use shared libraries (error codes, logging)
-3. Test in dev, then staging, then production
-4. Update both iOS AND Android platforms
+### ⚠️ ALL work goes through GSD — NO shortcuts
 
-### When Fixing Bugs
-1. Identify root cause, don't just fix symptoms
-2. Check all platforms (iOS, Android, Backend)
-3. Add regression test
-4. Document the fix
+Every non-trivial task follows this pipeline end-to-end:
 
-### When Deploying
-1. **Dev**: Auto-deploy on PR merge
-2. **Staging**: Manual approval required
-3. **Production**: Exec approval + canary rollout
+| Step | Command | What Happens |
+|------|---------|-------------|
+| 1. **Research** | `/gsd:research-phase N` | Investigate unknowns, study codebase |
+| 2. **Discuss** | `/gsd:discuss-phase N` | Gather context, clarify requirements with user |
+| 3. **Plan** | `/gsd:plan-phase N` | Create PLAN.md with tasks, deps, verification criteria |
+| 4. **Execute** | `/gsd:execute-phase N` | Implement with atomic commits, state tracking |
+| 5. **Test** | `pytest tests/ -v` | Run full test suite, fix any regressions |
+| 6. **Verify** | `/gsd:verify-work N` | Goal-backward verification + UAT |
+| 7. **QA** | `scripts/qa-runner.sh` | Run QA agents, challenger agents, smoke tests |
+| 8. **Push** | `git push origin main` | Push to remote — code MUST be on remote before deploy |
+| 9. **Deploy staging** | `gh workflow run deploy-staging.yml --ref main` | CI/CD builds + deploys to staging ECS |
+| 10. **Smoke test staging** | Curl staging endpoints | Verify staging is healthy before production |
+| 11. **Deploy production** | `gh workflow run deploy-dollar-ai.yml` | CI/CD runs tests → Docker build → ECR → ECS |
+| 12. **Monitor** | `gh run watch <run-id>` | Confirm all jobs pass, tasks HEALTHY |
+| 13. **Complete** | `/gsd:complete-milestone` | Archive phases, update PROJECT.md |
+
+**Skip nothing. NEVER run manual `docker build`, `aws ecs`, `docker push`, or direct ECR/ECS commands.**
+
+### Quick GSD Reference
+| Need | Command |
+|------|---------|
+| Resume previous session | `/gsd:resume-work` |
+| Check progress | `/gsd:progress` |
+| Fix a bug | `/gsd:debug` |
+| Insert urgent work | `/gsd:insert-phase N` |
+| Pause mid-session | `/gsd:pause-work` |
+| Review todos | `/gsd:check-todos` |
+| Map codebase | `/gsd:map-codebase` |
 
 ### When Unsure
 1. Check `.claude/docs/` for detailed documentation
 2. Check existing code for established patterns
-3. **ASK the user** - Better to ask than guess wrong
+3. **ASK the user** — better to ask than guess wrong
 
 ---
 
