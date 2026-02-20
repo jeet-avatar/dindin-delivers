@@ -3,14 +3,14 @@
 ## Current Milestone: v1.1 Security Hardening + Stability
 
 ### Active Phase
-- **Phase 03: Deploy Security Auth** — PLANNED, Ready to Execute
+- **Phase 03: Deploy Security Auth** — IN PROGRESS (Plan 1/2 Complete)
   - Goal: Build, deploy, and verify security auth changes on staging then production
   - Depends on: Phase 02 (code complete)
   - Directory: `.planning/phases/03-deploy-security-auth/`
   - **Requirements:** [DEPLOY-01, DEPLOY-02, DEPLOY-03]
-  - **Plans:** 2 plans
+  - **Plans:** 2 plans (1 complete, 1 pending)
   - Plans:
-    - [ ] 03-01-PLAN.md — Deploy to staging + E2E smoke test + human verification
+    - [x] 03-01-PLAN.md — Deploy to staging + E2E smoke test + human verification (2026-02-20)
     - [ ] 03-02-PLAN.md — Deploy to production + CloudWatch monitoring + human verification
 
 ### Completed Phases
