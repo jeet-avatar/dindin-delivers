@@ -3,7 +3,8 @@ Investor Deck Access Tracking
 Handles email-gated access and view logging for the investor deck
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from auth_utils import require_any_auth
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
 from typing import Optional
@@ -182,7 +183,7 @@ async def log_view(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/views")
-async def get_views():
+async def get_views(_auth: dict = Depends(require_any_auth)):
     """
     Get all investor deck views (admin only - should add auth)
     """

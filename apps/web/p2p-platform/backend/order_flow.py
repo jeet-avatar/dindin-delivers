@@ -18,6 +18,7 @@ AI Employees:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, and_, func
 from datetime import datetime, timedelta
@@ -786,7 +787,8 @@ async def estimate_ride_fare_endpoint(
 @router.post("/rides/request")
 async def request_ride(
     ride_data: RideRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     P2P Ride Request - World-class pricing with dynamic fare calculation.
@@ -959,7 +961,8 @@ async def get_available_rides(
 async def accept_ride(
     ride_id: int,
     request: AssignDriverRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Driver accepts a P2P ride
@@ -1000,7 +1003,8 @@ async def accept_ride(
 @router.post("/rides/{ride_id}/picked-up")
 async def ride_picked_up(
     ride_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Driver picked up customer
@@ -1027,7 +1031,8 @@ async def ride_picked_up(
 @router.post("/rides/{ride_id}/completed")
 async def ride_completed(
     ride_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Ride completed - customer dropped off.
@@ -1119,7 +1124,8 @@ async def ride_completed(
 @router.get("/rides/{ride_id}/receipt")
 async def get_ride_receipt(
     ride_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Generate a detailed receipt for a completed ride.
@@ -1234,7 +1240,8 @@ async def get_ride_receipt(
 @router.post("/orders/create")
 async def create_order(
     order_data: CreateOrderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a new order - Called from iOS Customer App
@@ -1397,7 +1404,8 @@ async def create_order(
 @router.post("/orders/{order_id}/confirm-payment")
 async def confirm_payment(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Confirm payment received - Called after Stripe webhook
@@ -1486,7 +1494,8 @@ class RestaurantAcceptRequest(BaseModel):
 @router.post("/orders/{order_id}/send-to-restaurant")
 async def send_to_restaurant(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Send confirmed order to restaurant for acceptance.
@@ -1530,7 +1539,8 @@ async def send_to_restaurant(
 async def restaurant_accept(
     order_id: int,
     request: Optional[RestaurantAcceptRequest] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Restaurant accepts the order within acceptance window.
@@ -1641,7 +1651,8 @@ async def restaurant_accept(
 async def restaurant_decline(
     order_id: int,
     request: RestaurantDeclineRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Restaurant declines the order within acceptance window.
@@ -1682,7 +1693,8 @@ async def restaurant_decline(
 @router.post("/orders/{order_id}/check-restaurant-timeout")
 async def check_restaurant_timeout(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Check if restaurant acceptance window has expired.
@@ -1745,7 +1757,8 @@ async def check_restaurant_timeout(
 @router.get("/orders/pending-restaurant")
 async def get_pending_restaurant_orders(
     vendor_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get all orders pending restaurant acceptance.
@@ -1792,7 +1805,8 @@ async def get_pending_restaurant_orders(
 @router.post("/orders/{order_id}/request-delivery-decision")
 async def request_delivery_decision(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Called when order is READY_FOR_PICKUP to ask restaurant if they want to self-deliver.
@@ -1835,7 +1849,8 @@ async def request_delivery_decision(
 @router.post("/orders/{order_id}/restaurant-accept-delivery")
 async def restaurant_accept_delivery(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Restaurant accepts to self-deliver the order.
@@ -1929,7 +1944,8 @@ async def restaurant_accept_delivery(
 @router.post("/orders/{order_id}/restaurant-decline-delivery")
 async def restaurant_decline_delivery(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Restaurant declines to self-deliver. Order goes to driver pool.
@@ -1979,7 +1995,8 @@ async def restaurant_decline_delivery(
 @router.get("/orders/pending-delivery-decision")
 async def get_pending_delivery_decision_orders(
     vendor_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get all orders pending delivery decision from restaurant.
@@ -2289,7 +2306,8 @@ def stop_timeout_scheduler():
 @router.post("/orders/{order_id}/start-preparing")
 async def start_preparing(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Restaurant starts preparing order - Called from iOS Restaurant App
@@ -2318,7 +2336,8 @@ async def start_preparing(
 @router.post("/orders/{order_id}/ready-for-pickup")
 async def ready_for_pickup(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Order ready for driver pickup - Called from iOS Restaurant App.
@@ -2365,7 +2384,8 @@ async def ready_for_pickup(
 @router.get("/orders/vendor/{vendor_id}")
 async def get_vendor_orders(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get orders for a vendor - Called from iOS Restaurant App.
@@ -2485,7 +2505,8 @@ async def get_vendor_orders(
 async def update_order_status(
     order_id: int,
     status: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Update order status - Called from iOS Restaurant App
@@ -2553,7 +2574,8 @@ async def update_order_status(
 
 @router.get("/orders/available-for-delivery")
 async def get_available_orders(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get orders ready for driver pickup - Called from iOS Driver App
@@ -2618,7 +2640,8 @@ async def get_available_orders(
 async def assign_driver(
     order_id: int,
     request: AssignDriverRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Assign driver to order - Called from iOS Driver App
@@ -2813,7 +2836,8 @@ async def assign_driver(
 @router.post("/orders/{order_id}/picked-up")
 async def order_picked_up(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Driver picked up order - Called from iOS Driver App
@@ -2912,7 +2936,8 @@ async def order_picked_up(
 @router.post("/orders/{order_id}/delivered")
 async def order_delivered(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Order delivered - Called from iOS Driver App
@@ -3280,7 +3305,8 @@ async def order_delivered(
 
 @router.get("/payouts/pending")
 async def get_pending_payouts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get all pending payouts - Restaurant & Driver
@@ -3321,7 +3347,8 @@ async def get_pending_payouts(
 async def process_payout(
     payout_id: int,
     payout_type: str,  # "vendor" or "driver"
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Process a payout - Mark as completed
@@ -3358,7 +3385,8 @@ async def process_payout(
 @router.get("/journal-entries")
 async def get_journal_entries(
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get journal entries for accounting dashboard
@@ -3397,7 +3425,8 @@ async def get_journal_entries(
 
 @router.get("/drivers")
 async def get_drivers(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get all drivers
@@ -3423,7 +3452,8 @@ async def get_drivers(
 @router.post("/drivers/create")
 async def create_driver(
     driver_data: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a new driver
@@ -3590,7 +3620,8 @@ async def driver_register(
 @router.get("/orders/driver/{driver_id}/active")
 async def get_driver_active_orders(
     driver_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get driver's active deliveries - Called from iOS Driver App
@@ -3668,7 +3699,8 @@ async def get_driver_active_orders(
 @router.get("/orders/driver/{driver_id}/pending")
 async def get_driver_pending_orders(
     driver_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get available delivery orders for Android Driver App.
@@ -3753,7 +3785,8 @@ async def get_driver_pending_orders(
 @router.put("/orders/{order_id}/complete-delivery")
 async def complete_delivery(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Complete delivery - Called from iOS Driver App
@@ -3766,7 +3799,8 @@ async def complete_delivery(
 async def upload_delivery_photo(
     order_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Upload delivery proof photo - Called from iOS Driver/Restaurant App
@@ -3830,7 +3864,8 @@ async def upload_delivery_photo(
 @router.put("/orders/{order_id}/unassign-driver")
 async def unassign_driver(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Driver unassigns from order - Called from iOS Driver App
@@ -3865,7 +3900,8 @@ class DriverLocationUpdate(BaseModel):
 async def update_driver_location(
     order_id: int,
     location: DriverLocationUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Update driver location for order tracking - Called from iOS Driver App
@@ -3900,7 +3936,8 @@ class AutoDispatchConfig(BaseModel):
 async def auto_dispatch_driver(
     order_id: int,
     config: Optional[AutoDispatchConfig] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Uber-like Auto-Dispatch System
@@ -4054,7 +4091,8 @@ async def auto_dispatch_driver(
 async def broadcast_order_to_drivers(
     order_id: int,
     radius_km: float = 5.0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Broadcast order to all nearby drivers (DoorDash/Uber style)
@@ -4129,7 +4167,8 @@ async def broadcast_order_to_drivers(
 @router.get("/orders/{order_id}/driver-location")
 async def get_driver_location(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get current driver location for order tracking
@@ -4183,7 +4222,8 @@ async def get_driver_location(
 async def update_driver_current_location(
     driver_id: int,
     location: DriverLocationUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Update driver's current location (called periodically by driver app)
@@ -4223,7 +4263,8 @@ async def update_driver_current_location(
 async def update_driver_status(
     driver_id: int,
     is_online: bool,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Toggle driver online/offline status
@@ -4251,7 +4292,8 @@ async def update_driver_status(
 
 @router.get("/analytics/realtime")
 async def get_realtime_analytics(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Enterprise real-time dashboard data
@@ -4360,7 +4402,8 @@ async def get_realtime_analytics(
 
 @router.get("/analytics/ai-employees")
 async def get_ai_employee_stats(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     AI Employee performance dashboard
@@ -4425,7 +4468,8 @@ async def get_ai_employee_stats(
 @router.get("/orders/{order_id}/full-tracking")
 async def get_full_order_tracking(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Complete order tracking for customer app
@@ -4587,7 +4631,8 @@ async def update_order_delivery_location(
     order_id: int,
     latitude: float = Query(..., description="Delivery latitude"),
     longitude: float = Query(..., description="Delivery longitude"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Update order delivery coordinates.
@@ -4628,7 +4673,8 @@ async def cleanup_test_orders(
     status: str = Query(..., description="Status of orders to delete (e.g., pending_payment)"),
     vendor_id: Optional[int] = Query(None, description="Optional vendor ID to filter"),
     confirm: bool = Query(False, description="Set to true to actually delete"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Delete test orders by status. Use confirm=true to actually delete.
