@@ -1,28 +1,28 @@
 # DOLLOR.AI GROUND TRUTH (Backend-Verified)
 
 > Auto-generated from backend source code. Every fact includes file:line reference.
-> Last verified: February 16, 2026 (Build 1076/187/158)
+> Last verified: February 20, 2026 (Build 1088/196/164)
 
 ---
 
 ## 1. REGISTRATION FIELDS (Per User Type)
 
 ### Customer Registration
-- **Endpoint:** `POST /api/auth/customer/register` (`main_new.py:2622`)
+- **Endpoint:** `POST /api/auth/customer/register` (`main_new.py:3080`)
 - **Request fields:** `email` (required), `password` (required), `name` OR `full_name` (one required), `phone` (optional)
 - **DB storage:** `first_name` + `last_name` (split from name), `email`, `phone`, `is_active=True`
-- **Name field:** Single `name` or `full_name` in request, split into `first_name`/`last_name` in DB (`main_new.py:2677`)
+- **Name field:** Single `name` or `full_name` in request, split into `first_name`/`last_name` in DB (`main_new.py:3135`)
 
 ### Driver Registration
-- **Endpoint:** `POST /api/auth/driver/register` (`main_new.py:2079`)
+- **Endpoint:** `POST /api/auth/driver/register` (`main_new.py:2540`)
 - **Request fields:** `email`, `password`, `first_name`, `last_name`, `phone` (all required), `vehicle_type`, `license_number`, `date_of_birth` (optional)
-- **DB storage:** `first_name` + `last_name` as SEPARATE columns (`models.py:706-707`)
+- **DB storage:** `first_name` + `last_name` as SEPARATE columns (`models.py:718-719`)
 - **IMPORTANT:** Driver uses `first_name`/`last_name` separately - NOT a single `name` field
 
 ### Vendor Registration
-- **Endpoint:** `POST /api/auth/vendor/register` (`main_new.py:1469`)
+- **Endpoint:** `POST /api/auth/vendor/register` (`main_new.py:1917`)
 - **Request fields:** `email`, `password` (required), `full_name` OR `name` (one required), `restaurant_name` OR `business_name` (one required)
-- **DB storage:** `contact_name` (owner name), `restaurant_name`, `company_name` on Vendor table (`main_new.py:1522`)
+- **DB storage:** `contact_name` (owner name), `restaurant_name`, `company_name` on Vendor table (`main_new.py:1974`)
 - **User table:** `full_name` (single field, `models.py:53`)
 
 ---
@@ -30,27 +30,27 @@
 ## 2. ACTIVE STATUS (Per User Type)
 
 ### Customer
-- **Field:** `is_active` Boolean on Customer model (`models.py:624`)
-- **Login check:** `if not customer.is_active: raise 403` (`main_new.py:2594`)
-- **NOT an enum.** `CustomerStatus` enum exists (`models.py:564`) but is NEVER used on Customer model
-- **Default:** `True` at registration (`main_new.py:2695`)
+- **Field:** `is_active` Boolean on Customer model (`models.py:636`)
+- **Login check:** `if not customer.is_active: raise 403` (`main_new.py:3056`)
+- **NOT an enum.** `CustomerStatus` enum exists (`models.py:572`) but is NEVER used on Customer model
+- **Default:** `True` at registration (`main_new.py:3153`)
 
 ### Driver
-- **Field:** `status` using `DriverStatus` enum (`models.py:690-696`)
+- **Field:** `status` using `DriverStatus` enum (`models.py:702-708`)
 - **Values:** `pending`, `approved`, `active`, `inactive`, `suspended`, `online`
-- **Login blocks:** Only `SUSPENDED` (`main_new.py:2022`)
-- **Registration default:** `DriverStatus.PENDING` (`main_new.py:2111`)
+- **Login blocks:** Only `SUSPENDED` (`main_new.py:2484`)
+- **Registration default:** `DriverStatus.PENDING` (`main_new.py:2583`)
 
 ### Vendor
 - **Field:** `onboarding_status` using `VendorStatus` enum (`models.py:27-32`)
 - **Values:** `pending`, `in_review`, `approved`, `rejected`, `suspended`
-- **Login blocks:** Any status that is NOT `approved` (`main_new.py:1314`)
+- **Login blocks:** Any status that is NOT `approved` (`main_new.py:1763`)
 
 ---
 
 ## 3. VEHICLE FIELDS (Driver)
 
-**Actual DB columns** (`models.py:721-726`):
+**Actual DB columns** (`models.py:733-738`):
 - `vehicle_type` (car/motorcycle/bicycle)
 - `vehicle_make`, `vehicle_model`, `vehicle_year`, `vehicle_color`, `license_plate`
 
@@ -64,9 +64,9 @@
 
 | Fee | Amount | Backend Source | iOS Source |
 |-----|--------|---------------|-----------|
-| Customer service fee | **$1.00 flat** | `order_flow.py:400` | `AppConfig.swift:98` |
-| Restaurant platform fee | **$1.00 flat** | `order_flow.py:401` | `AppConfig.swift:99` |
-| Driver commission | **$0.00** (keeps 100%) | `main_new.py:6286` (payout=delivery_fee+tip) | `AppConfig.swift:100` |
+| Customer service fee | **$1.00 flat** | `order_flow.py:421` | `AppConfig.swift:98` |
+| Restaurant platform fee | **$1.00 flat** | `order_flow.py:422` | `AppConfig.swift:99` |
+| Driver commission | **$0.00** (keeps 100%) | `main_new.py:6963` (payout=delivery_fee+tip) | `AppConfig.swift:100` |
 | Platform revenue/order | **$2.00** | `order_flow.py:2744` | |
 | Small order fee | **$2.00** (orders < $10) | | `AppConfig.swift:66-67` |
 | Max restaurants/order | **3** | | `AppConfig.swift:64` |
@@ -76,11 +76,11 @@
 
 | Constant | Value | Backend Source | iOS Source |
 |----------|-------|---------------|-----------|
-| Base fee | $2.49 | `order_flow.py:405` | |
-| Per mile | $0.50 | `order_flow.py:406` | `AppConfig.swift:237` |
-| Minimum | $2.99 | `order_flow.py:407` | `AppConfig.swift:61` |
-| Maximum | $12.99 | `order_flow.py:408` | `AppConfig.swift:238` |
-| Default (no distance) | $4.99 | `order_flow.py:409` | |
+| Base fee | $2.49 | `order_flow.py:426` | |
+| Per mile | $0.50 | `order_flow.py:427` | `AppConfig.swift:237` |
+| Minimum | $2.99 | `order_flow.py:428` | `AppConfig.swift:61` |
+| Maximum | $12.99 | `order_flow.py:429` | `AppConfig.swift:238` |
+| Default (no distance) | $4.99 | `order_flow.py:430` | |
 | Surge cap (delivery) | 2.0x | `order_flow.py:442` | |
 | Max delivery distance | 15 miles | | `AppConfig.swift:241` |
 
@@ -123,7 +123,7 @@
 
 ### Free Delivery
 - **No automatic threshold** - promo code only
-- Code: `FREEDELIVERY`, min order $20, max discount $5 (`main_new.py:6083`)
+- Code: `FREEDELIVERY`, min order $20, max discount $5 (`main_new.py:6823`)
 
 ---
 
@@ -132,8 +132,8 @@
 | Context | Rate | Source |
 |---------|------|--------|
 | iOS hardcoded default | **6% (0.06)** | `AppConfig.swift:60` |
-| Backend /api/config response | **6% (0.06)** | `main_new.py:1071` |
-| Backend DEFAULT_TAX_RATE | **6% (0.06)** | `order_flow.py:568` |
+| Backend /api/config response | **6% (0.06)** | `main_new.py:1511` |
+| Backend DEFAULT_TAX_RATE | **6% (0.06)** | `order_flow.py:589` |
 | Actual checkout | **Per-state** | `order_flow.py:512-565` |
 | iOS state lookup fallback | **0%** | `AppConfig.swift:623` |
 
@@ -154,7 +154,7 @@
 
 ## 6. ORDER STATUS VALUES
 
-**Backend enum** (`models.py:383-403`): Always lowercase with underscores in API responses.
+**Backend enum** (`models.py:385-406`): Always lowercase with underscores in API responses.
 
 | Status | Category |
 |--------|----------|
@@ -194,7 +194,7 @@ cancelled → "Cancelled"
 
 ## 7. RIDE REQUEST STATUS
 
-**Backend enum** (`models.py:1248-1255`):
+**Backend enum** (`models.py:1260-1267`):
 `open` → `bidding` → `matched` → `in_progress` → `completed`
 Also: `cancelled`, `expired`
 
@@ -202,7 +202,7 @@ Also: `cancelled`, `expired`
 
 ## 8. BID STATUS
 
-**Backend enum** (`models.py:1258-1264`):
+**Backend enum** (`models.py:1270-1276`):
 `pending` → `accepted` | `rejected` | `countered` | `withdrawn` | `expired`
 
 ---
@@ -224,7 +224,7 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 ### Full Lifecycle
 1. **Estimate:** `POST /api/rides/estimate` with pickup/dropoff coords (`bid_routes.py:1438`)
 2. **Request:** `POST /api/rides/request` → status=`open`, request_id=`RIDE-...` (`bid_routes.py:222`)
-3. **Available:** `GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z` (`main_new.py:14495`, also `bid_routes.py:709`)
+3. **Available:** `GET /api/rides/available?driver_id=X&latitude=Y&longitude=Z` (`main_new.py:15859`, also `bid_routes.py:709`)
 4. **Bid:** `POST /api/rides/request/{id}/bid` with proposed_price (no floor for drivers; 40% floor only applies to customer counter-offers at `bid_routes.py:574`) (`bid_routes.py:772`)
 5. **View Bids:** `GET /api/rides/request/{id}/bids`
 6. **Respond:** `POST /api/rides/bid/{bid_id}/respond` action=`accept`/`reject`/`counter` (`bid_routes.py:370`)
@@ -233,18 +233,18 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 9. **Start:** `POST /api/rides/request/{id}/start` matched→in_progress (`bid_routes.py:1276`)
 10. **Complete:** `POST /api/rides/request/{id}/complete` in_progress→completed (`bid_routes.py:1342`)
 11. **Payment:** `POST /api/payments/ride/create-intent` (`rideshare_payments.py:61`)
-12. **Complete+Pay:** `POST /api/rides/{ride_id}/complete-and-pay` (`main_new.py:4618`)
+12. **Complete+Pay:** `POST /api/rides/{ride_id}/complete-and-pay` (`main_new.py:5405`)
 13. **Tip:** `POST /api/rides/{ride_id}/tip` with tip_amount → `RideRequest.tip_amount`
-14. **Rate:** `POST /api/rides/{ride_id}/rate` rating (1-5), comment (`main_new.py:14373`)
+14. **Rate:** `POST /api/rides/{ride_id}/rate` rating (1-5), comment (`main_new.py:15628`)
 
 ### Communication
-- **Get:** `GET /api/p2p/ride-requests/{id}/chat` (`main_new.py:14595`)
-- **Send:** `POST /api/p2p/ride-requests/{id}/chat` message + sender_type (`main_new.py:14609`)
+- **Get:** `GET /api/p2p/ride-requests/{id}/chat` (`main_new.py:15959`)
+- **Send:** `POST /api/p2p/ride-requests/{id}/chat` message + sender_type (`main_new.py:15989`)
 - **Alias:** `POST/GET /api/chat/messages/{ride_id}`
 
 ### Driver Location
-- **Auth:** `PUT /api/auth/driver/location?latitude=X&longitude=Z` (`main_new.py:2498`)
-- **Android:** `POST /api/driver/location` JSON body (`main_new.py:19066`)
+- **Auth:** `PUT /api/auth/driver/location?latitude=X&longitude=Z` (`main_new.py:2960`)
+- **Android:** `POST /api/driver/location` JSON body (`main_new.py:20478`)
 
 ### Cancellation & Guards
 - `POST /api/rides/request/{id}/cancel` - only `open`/`bidding` rides (`bid_routes.py:656`)
@@ -256,7 +256,7 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 
 ## 11. RIDEREQUEST MODEL FIELDS
 
-`RideRequest` (`models.py:1267`):
+`RideRequest` (`models.py:1279`):
 - **IDs:** `id`, `request_id` (RIDE-...), `customer_id`, `matched_bid_id`, `matched_driver_id`
 - **Customer info:** `customer_name`, `customer_phone`
 - **Pickup:** `pickup_address`, `pickup_latitude`, `pickup_longitude`, `pickup_place_name`
@@ -299,7 +299,7 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 | Env | API | WebSocket | CDN |
 |-----|-----|-----------|-----|
 | Production | `https://api.dollor.ai` | `wss://ws.dollor.ai` | `https://cdn.dollor.ai` |
-| Staging | `https://d3kuu45w6kl8hr.cloudfront.net` | `wss://d3kuu45w6kl8hr.cloudfront.net` | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| Staging | `https://d34u5ixl0bulv4.cloudfront.net` | `wss://d34u5ixl0bulv4.cloudfront.net` | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ### Entitlements
 - **Push:** `production` (Release), `development` (Debug)
@@ -324,8 +324,8 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 ### Stripe Connect Accounts
 | User Type | Account Type | Business Type | MCC | Source |
 |-----------|-------------|---------------|-----|--------|
-| Driver | Express | individual | 4121 (Taxicabs) | `main_new.py:4091` |
-| Vendor | Express | company | 5812 (Restaurants) | `main_new.py:4412` |
+| Driver | Express | individual | 4121 (Taxicabs) | `main_new.py:4752` |
+| Vendor | Express | company | 5812 (Restaurants) | `main_new.py:5114` |
 
 ### Stripe Endpoints
 | Endpoint | Purpose | Source |
@@ -333,18 +333,18 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 | `POST /api/payments/create-intent` | Simple payment intent | `stripe_integration.py:111` |
 | `POST /api/orders` | Order payment intent (Apple/Google Pay) | `stripe_integration.py:156` |
 | `POST /api/payments/ride/create-intent` | Rideshare payment | `rideshare_payments.py:61` |
-| `POST /api/erp/payments/intent` | Main payment intent (w/ customer) | `main_new.py:16654` |
-| `GET /api/drivers/{id}/stripe/create-account` | Create driver Stripe | `main_new.py:4091` |
-| `GET /api/drivers/{id}/stripe/onboarding-link` | Driver Stripe onboarding | `main_new.py:4117` |
-| `GET /api/drivers/{id}/stripe/status` | Driver Stripe status | `main_new.py:4179` |
-| `POST /api/vendors/{id}/stripe/create-account` | Create vendor Stripe | `main_new.py:4412` |
-| `GET /api/vendors/{id}/stripe/onboarding-link` | Vendor Stripe onboarding | `main_new.py:4438` |
+| `POST /api/erp/payments/intent` | Main payment intent (w/ customer) | `main_new.py:17974` |
+| `POST /api/drivers/{id}/stripe/connect` | Create driver Stripe | `main_new.py:4752` |
+| `GET /api/drivers/{id}/stripe/onboarding-link` | Driver Stripe onboarding | `main_new.py:4825` |
+| `GET /api/drivers/{id}/stripe/status` | Driver Stripe status | `main_new.py:4904` |
+| `POST /api/vendors/{id}/stripe/connect` | Create vendor Stripe | `main_new.py:5114` |
+| `GET /api/vendors/{id}/stripe/onboarding-link` | Vendor Stripe onboarding | `main_new.py:5192` |
 
 ### Webhooks
 | Endpoint | Events | Source |
 |----------|--------|--------|
 | `POST /api/webhooks/stripe` | `payment_intent.succeeded`, `payment_intent.payment_failed` | `stripe_integration.py:323` |
-| `POST /api/webhooks/stripe-connect` | `account.updated`, `payout.paid`, `payout.failed` | `main_new.py:4288` |
+| `POST /api/webhooks/stripe-connect` | `account.updated`, `payout.paid`, `payout.failed` | `main_new.py:5031` |
 
 ### Stripe Fees & Limits
 - Processing fee: **2.9% + $0.30** per transaction (`stripe_integration.py:550-640`)
@@ -362,26 +362,26 @@ All use OAuth2 form-based auth (`username` + `password` fields).
 | RideRequest | `stripe_payment_intent_id`, `platform_fee`, `driver_payout`, `stripe_transfer_id` |
 
 ### Demo Bypass
-- `demo.customer@dollor.ai`, `demo.driver@dollor.ai`, `demo.restaurant@dollor.ai` bypass Stripe (`main_new.py:16654`)
+- `demo.customer@dollor.ai`, `demo.driver@dollor.ai`, `demo.restaurant@dollor.ai` bypass Stripe (`main_new.py:17974`)
 
 ---
 
 ## 15. ADMIN SECURITY (Feb 16, 2026)
 
 ### Admin Auth Middleware
-All `/api/admin/*` endpoints are secured by `admin_auth_middleware` (`main_new.py:167`).
+All `/api/admin/*` endpoints are secured by `admin_auth_middleware` (`main_new.py:196`).
 
 | Auth Method | How It Works | Source |
 |-------------|-------------|--------|
-| JWT Bearer token | `Authorization: Bearer <token>`, must be `UserRole.ADMIN` | `main_new.py:182-199` |
-| ADMIN_SECRET_KEY | `?secret_key=<key>` query param | `main_new.py:204-208` |
+| JWT Bearer token | `Authorization: Bearer <token>`, must be `UserRole.ADMIN` | `main_new.py:207-224` |
+| ADMIN_SECRET_KEY | `?secret_key=<key>` query param | `main_new.py:231-235` |
 
 ### Exempt Paths (No Auth Required)
 | Path | Reason | Source |
 |------|--------|--------|
-| `/api/admin/login` | Login must be accessible | `main_new.py:165` |
-| `/api/admin/set-document-status` | Has own body-based auth | `main_new.py:166` |
-| `OPTIONS` requests | CORS preflight | `main_new.py:175` |
+| `/api/admin/login` | Login must be accessible | `main_new.py:191` |
+| `/api/admin/set-document-status` | Has own body-based auth | `main_new.py:192` |
+| `OPTIONS` requests | CORS preflight | `main_new.py:204` |
 
 ### Secured Admin Endpoints (13 total)
 All return `401 Unauthorized` without valid auth:
@@ -402,8 +402,8 @@ All return `401 Unauthorized` without valid auth:
 ### CORS Security
 | Header | Behavior | Source |
 |--------|----------|--------|
-| `Vary: Origin` | Always set (fixes CloudFront caching) | `main_new.py:155` |
-| `access-control-allow-credentials` | Stripped when no `allow-origin` present | `main_new.py:157` |
+| `Vary: Origin` | Always set (fixes CloudFront caching) | `main_new.py:156` |
+| `access-control-allow-credentials` | Stripped when no `allow-origin` present | `main_new.py:161-162` |
 
 ### Deployment
 - ECS task-def: `dollor-api:309` (commit `4244c77a`)
@@ -438,13 +438,13 @@ All return `401 Unauthorized` without valid auth:
 ### Bugs Fixed (commit `e3253cd3`, task-def `dollor-api:313`)
 | Bug | Before | After | Source |
 |-----|--------|-------|--------|
-| **Tip body ignored** | iOS `{"tip_amount":5}` returned $0 | Reads body AND query param | `main_new.py:14527` |
-| **Rating stub** | Always returned 5, no validation | Validates 1-5, stores rating, updates driver avg | `main_new.py:14512` |
-| **Cancel completed ride** | Returned success on completed/cancelled | Returns 400 error | `main_new.py:14341`, `bid_routes.py:674` |
+| **Tip body ignored** | iOS `{"tip_amount":5}` returned $0 | Reads body AND query param | `main_new.py:15719` |
+| **Rating stub** | Always returned 5, no validation | Validates 1-5, stores rating, updates driver avg | `main_new.py:15625-15628` |
+| **Cancel completed ride** | Returned success on completed/cancelled | Returns 400 error | `main_new.py:15439`, `bid_routes.py:674` |
 | **Double payment** | Created duplicate Stripe intents | Returns existing intent (idempotent) | `rideshare_payments.py:75` |
 | **Counter > bid** | Customer could counter $25 on $18 bid | Must be less than driver's bid | `bid_routes.py:580` |
 | **$0 counter** | Driver could counter $0 | Must be > $0 | `bid_routes.py:1067` |
-| **Ride request 500s** | Empty dict/null coords/same location → 500 | Returns 400 with message | `main_new.py:3425-3460` |
+| **Ride request 500s** | Empty dict/null coords/same location → 500 | Returns 400 with message | `main_new.py:3848-3882` |
 
 ### iOS vs Backend Endpoint Mapping (Verified)
 | Feature | iOS Endpoint | ERP Endpoint | Status |
