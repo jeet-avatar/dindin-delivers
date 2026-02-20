@@ -2891,9 +2891,15 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        guard let token = customerToken else {
+            completion(.failure(P2PAPIError.serverError("Customer not logged in")))
+            return
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         var body: [String: Any] = [
             "vendor_id": vendorId,
@@ -2970,9 +2976,15 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        guard let token = customerToken else {
+            completion(.failure(P2PAPIError.serverError("Customer not logged in")))
+            return
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -3071,8 +3083,14 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        guard let token = vendorToken else {
+            completion(.failure(P2PAPIError.serverError("Vendor not logged in")))
+            return
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         isLoading = true
 
@@ -3988,9 +4006,17 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        guard let token = driverToken else {
+            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
         isLoading = true
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
