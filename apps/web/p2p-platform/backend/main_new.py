@@ -4038,7 +4038,7 @@ async def request_ride(
     }
 
 @app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status(ride_id: str, db: Session = Depends(get_db)):
+def get_ride_status(ride_id: str, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get current status of a ride from database (checks both rides and ride_requests tables)"""
     from sqlalchemy import text
     from models import RideRequest, RideRequestStatus
@@ -4226,7 +4226,7 @@ def estimate_fare_frontend(
 # Full tracking endpoint for RIDES (rideshare) - frontend polling
 # NOTE: Use /api/erp/rides/ path to avoid conflict with order tracking in order_flow.py
 @app.get("/api/erp/rides/{ride_id}/full-tracking")
-def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db)):
+def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Full tracking endpoint for RIDESHARE - queries real data from database
     For FOOD ORDER tracking, use /api/erp/orders/{order_id}/full-tracking (in order_flow.py)
@@ -8247,7 +8247,8 @@ def get_consolidated_dashboard(
 @app.get("/api/dashboard/coupa")
 def get_coupa_dashboard_counts(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get Coupa dashboard main metrics.
@@ -8291,7 +8292,8 @@ def get_coupa_dashboard_counts(
 @app.get("/api/dashboard/coupa/budget-overview")
 def get_coupa_budget_overview(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get monthly spend trends for Coupa dashboard.
@@ -8339,7 +8341,8 @@ def get_coupa_budget_overview(
 @app.get("/api/dashboard/coupa/status-distribution")
 def get_coupa_status_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get PO status distribution for Coupa dashboard.
@@ -8377,7 +8380,8 @@ def get_coupa_status_distribution(
 @app.get("/api/dashboard/coupa/cost-center-distribution")
 def get_coupa_cost_center_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get spend by cost center for Coupa dashboard.
@@ -8424,7 +8428,8 @@ def get_coupa_cost_center_distribution(
 @app.get("/api/dashboard/coupa/spend-by-department")
 def get_coupa_spend_by_department(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get spend by department for Coupa dashboard.
@@ -8472,7 +8477,8 @@ def get_coupa_spend_by_department(
 @app.get("/api/dashboard/coupa/commodity-distribution")
 def get_coupa_commodity_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get spend by commodity/category for Coupa dashboard.
@@ -8517,7 +8523,7 @@ def get_coupa_commodity_distribution(
 
 
 @app.get("/api/system-dashboard/coupa")
-def get_coupa_system_dashboard(db: Session = Depends(get_db)):
+def get_coupa_system_dashboard(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Get Coupa data for the system dashboard tab.
     Returns top categories and invoice approval cycle time.
@@ -8552,7 +8558,7 @@ def get_coupa_system_dashboard(db: Session = Depends(get_db)):
 
 
 @app.get("/api/dashboard/coupa/filters/suppliers")
-def get_coupa_suppliers_filter(db: Session = Depends(get_db)):
+def get_coupa_suppliers_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Get list of suppliers for filter dropdown.
     """
@@ -8571,7 +8577,7 @@ def get_coupa_suppliers_filter(db: Session = Depends(get_db)):
 
 
 @app.get("/api/dashboard/coupa/filters/cost-centers")
-def get_coupa_cost_centers_filter(db: Session = Depends(get_db)):
+def get_coupa_cost_centers_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Get list of cost centers for filter dropdown.
     """
@@ -8590,7 +8596,7 @@ def get_coupa_cost_centers_filter(db: Session = Depends(get_db)):
 
 
 @app.get("/api/dashboard/coupa/filters/departments")
-def get_coupa_departments_filter(db: Session = Depends(get_db)):
+def get_coupa_departments_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Get list of departments for filter dropdown.
     """
@@ -8609,7 +8615,7 @@ def get_coupa_departments_filter(db: Session = Depends(get_db)):
 
 
 @app.get("/api/dashboard/coupa/filters/statuses")
-def get_coupa_statuses_filter():
+def get_coupa_statuses_filter(_user = Depends(get_current_user)):
     """
     Get list of PO statuses for filter dropdown.
     """
@@ -8914,7 +8920,8 @@ def update_order_status(
 @app.get("/api/accounting/platform-revenue")
 def get_platform_revenue(
     period: str = Query("month", description="week, month, quarter, year"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get platform revenue statistics.
@@ -9051,7 +9058,8 @@ def get_vendor_payouts_list(
     status: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get vendor payout records.
@@ -9157,7 +9165,8 @@ def get_tickets(
     team: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get all support tickets with optional filtering."""
     from models import SupportTicket, TicketStatus, TicketPriority, TicketType
@@ -9220,7 +9229,8 @@ def get_tickets(
 @app.get("/api/tickets/metrics")
 def get_ticket_metrics(
     period: str = Query("month", description="week, month, quarter, year"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get ticket metrics for JIRA Dashboard."""
     from models import SupportTicket, TicketStatus, TicketPriority, TicketType
@@ -9271,7 +9281,8 @@ def get_ticket_metrics(
 @app.get("/api/tickets/trends")
 def get_ticket_trends(
     period: str = Query("month", description="week, month, quarter, year"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get ticket creation and resolution trends."""
     from models import SupportTicket, TicketStatus
@@ -9324,7 +9335,7 @@ def get_ticket_trends(
 
 
 @app.get("/api/tickets/priority-distribution")
-def get_priority_distribution(db: Session = Depends(get_db)):
+def get_priority_distribution(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get ticket priority distribution."""
     from models import SupportTicket, TicketPriority, TicketStatus
 
@@ -9356,7 +9367,7 @@ def get_priority_distribution(db: Session = Depends(get_db)):
 
 
 @app.get("/api/tickets/resolution-by-type")
-def get_resolution_by_type(db: Session = Depends(get_db)):
+def get_resolution_by_type(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get average resolution time by ticket type."""
     from models import SupportTicket, TicketType, TicketStatus
     from collections import defaultdict
@@ -9391,7 +9402,7 @@ def get_resolution_by_type(db: Session = Depends(get_db)):
 
 
 @app.get("/api/tickets/team-performance")
-def get_team_performance(db: Session = Depends(get_db)):
+def get_team_performance(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get ticket distribution by team."""
     from models import SupportTicket, TicketStatus
     from collections import defaultdict
@@ -9426,7 +9437,7 @@ def get_team_performance(db: Session = Depends(get_db)):
 
 
 @app.post("/api/tickets")
-def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db)):
+def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Create a new support ticket."""
     from models import SupportTicket, TicketPriority, TicketType, TicketStatus
 
@@ -9487,7 +9498,7 @@ def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db)):
 
 
 @app.patch("/api/tickets/{ticket_id}")
-def update_ticket(ticket_id: str, ticket_data: TicketUpdate, db: Session = Depends(get_db)):
+def update_ticket(ticket_id: str, ticket_data: TicketUpdate, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Update a support ticket."""
     from models import SupportTicket, TicketPriority, TicketType, TicketStatus
 
@@ -9843,7 +9854,8 @@ async def upload_vendor_document_public(
     file: UploadFile = File(...),
     document_type: str = Form(...),
     contact_email: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Public endpoint for uploading vendor documents during registration.
@@ -9927,7 +9939,8 @@ async def upload_vendor_document_public(
 def get_vendor_documents_public(
     vendor_id: int,
     contact_email: str = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get vendor document upload status for registration flow"""
     from models import Vendor
@@ -14776,7 +14789,8 @@ async def negotiate_ride_ios_alias(
 async def accept_fare_ios_alias(
     ride_id: int,
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Alias for iOS apps - accept negotiated fare
     iOS calls: POST /api/erp/rides/{rideId}/accept-fare
@@ -14807,7 +14821,8 @@ async def accept_fare_ios_alias(
 async def customer_negotiate_ios_alias(
     ride_id: int,
     proposed_fare: float = Query(default=0.0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Cross-platform fare negotiation endpoint
     iOS calls: POST /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
@@ -14845,7 +14860,8 @@ async def customer_negotiate_ios_alias(
 async def customer_accept_fare_ios_alias(
     ride_id: int,
     accepted_fare: float = Query(default=0.0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Alias for iOS Customer app - accept driver's fare
     iOS calls: POST /erp/rides/{rideId}/customer-accept-fare?accepted_fare=12.0
@@ -14871,7 +14887,8 @@ async def customer_accept_fare_ios_alias(
 @app.get("/api/erp/rides/{ride_id}/negotiation-status")
 async def negotiation_status_ios_alias(
     ride_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Alias for iOS apps - get negotiation status
     iOS calls: GET /erp/rides/{rideId}/negotiation-status
@@ -14947,7 +14964,7 @@ app.include_router(investor_router)
 from order_flow import create_order as erp_create_order, CreateOrderRequest
 
 @app.post("/api/orders/create")
-async def android_create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db)):
+async def android_create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Android alias for order creation.
     Maps to: POST /api/erp/orders/create
@@ -15248,7 +15265,8 @@ async def get_refund_status(
 @app.get("/api/rides/{ride_id}/track")
 async def track_ride(
     ride_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Track a ride's current status and driver location.
@@ -15539,7 +15557,8 @@ async def get_customer_active_orders(
 @app.get("/api/customer/orders/{order_id}/track")
 async def track_customer_order(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Track order status and driver location.
@@ -15940,7 +15959,8 @@ class RideChatMessageRequest(BaseModel):
 @app.get("/api/p2p/ride-requests/{ride_request_id}/chat")
 def get_ride_request_chat(
     ride_request_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get chat messages for a ride request"""
     from models import RideChatMessage
@@ -16003,7 +16023,7 @@ def send_ride_request_chat(
 
 
 @app.get("/api/chat/messages/{ride_id}")
-def get_chat_messages(ride_id: int, db: Session = Depends(get_db)):
+def get_chat_messages(ride_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get chat messages for a ride (alias endpoint)"""
     return {
         "ride_id": ride_id,
@@ -16016,7 +16036,8 @@ def get_chat_messages(ride_id: int, db: Session = Depends(get_db)):
 def send_chat_message(
     ride_id: int,
     message: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Send a chat message (alias endpoint)"""
     message_id = ride_id * 1000 + 1
@@ -16039,7 +16060,7 @@ class DeliveryDecisionRequest(BaseModel):
 
 
 @app.post("/api/erp/orders/{order_id}/start-delivery-decision")
-async def start_delivery_decision(order_id: int, db: Session = Depends(get_db)):
+async def start_delivery_decision(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Start the delivery decision window for an order.
     Alias for /api/erp/orders/{order_id}/request-delivery-decision
@@ -16080,7 +16101,8 @@ async def start_delivery_decision(order_id: int, db: Session = Depends(get_db)):
 async def restaurant_delivery_decision(
     order_id: int,
     decision_request: DeliveryDecisionRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Restaurant makes a delivery decision (self-deliver or pass to driver).
@@ -16176,7 +16198,7 @@ async def restaurant_delivery_decision(
 
 
 @app.get("/api/erp/orders/{order_id}/delivery-decision-status")
-async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db)):
+async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """
     Get the delivery decision status for an order.
     Used by iOS restaurant app.
@@ -16229,7 +16251,8 @@ def _format_address(addr: dict, index: int, is_default: bool = False) -> dict:
 @app.get("/api/addresses/{customer_id}")
 async def get_customer_addresses(
     customer_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get all saved addresses for a customer.
@@ -16266,7 +16289,8 @@ async def get_customer_addresses(
 @app.get("/api/addresses/{customer_id}/default")
 async def get_default_address(
     customer_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get default address for a customer.
@@ -16299,7 +16323,8 @@ async def get_default_address(
 async def add_customer_address(
     customer_id: int,
     address_data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Add a new address for a customer.
@@ -16347,7 +16372,8 @@ async def update_customer_address(
     customer_id: int,
     address_id: int,
     address_data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Update an existing address for a customer.
@@ -16396,7 +16422,8 @@ async def update_customer_address(
 async def delete_customer_address(
     customer_id: int,
     address_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Delete an address for a customer.
@@ -16429,7 +16456,8 @@ async def delete_customer_address(
 async def set_default_address(
     customer_id: int,
     address_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Set an address as the default for a customer.
@@ -16455,7 +16483,8 @@ async def set_default_address(
 @app.get("/api/customer/favorites/{customer_id}")
 async def get_customer_favorites(
     customer_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get favorite restaurants for a customer.
@@ -16487,7 +16516,8 @@ async def get_customer_favorites(
 async def add_customer_favorite(
     customer_id: int,
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Add a restaurant to customer's favorites.
@@ -16515,7 +16545,8 @@ async def add_customer_favorite(
 async def remove_customer_favorite(
     customer_id: int,
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Remove a restaurant from customer's favorites.
@@ -16539,7 +16570,8 @@ async def remove_customer_favorite(
 async def check_customer_favorite(
     customer_id: int,
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Check if a restaurant is in customer's favorites.
@@ -16560,7 +16592,8 @@ async def check_customer_favorite(
 @app.get("/api/customer/orders/{order_id}/chat")
 async def get_order_chat_messages(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get chat messages for an order.
@@ -16598,7 +16631,8 @@ async def get_order_chat_messages(
 async def send_order_chat_message(
     order_id: int,
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Send a chat message for an order.
@@ -16680,7 +16714,8 @@ async def send_order_chat_message(
 @app.post("/api/chat/send")
 async def web_send_chat_message(
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Send a chat message - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage, MessageSenderType, Order
@@ -16747,7 +16782,8 @@ async def web_get_chat_messages(
     order_id: int,
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get chat messages for an order - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage
@@ -16789,7 +16825,8 @@ async def web_mark_messages_read(
     order_id: int,
     reader_type: str = Query(...),
     reader_id: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Mark messages as read - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage
@@ -16955,7 +16992,8 @@ async def web_get_customer_conversations(
 @app.get("/api/orders/{order_id}/modification")
 async def get_order_modification(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get order modification details (e.g., when items are unavailable).
@@ -17000,7 +17038,8 @@ async def get_order_modification(
 async def respond_to_order_modification(
     order_id: int,
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Respond to order modification (accept/reject).
@@ -17041,7 +17080,8 @@ async def respond_to_order_modification(
 async def mark_items_unavailable(
     order_id: int,
     request: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Mark items as unavailable (vendor/restaurant use).
@@ -18396,7 +18436,8 @@ class FCMTokenRequest(BaseModel):
 def register_customer_fcm_token(
     customer_id: int,
     token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Register FCM token for customer push notifications"""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
@@ -18423,7 +18464,8 @@ def register_customer_fcm_token(
 def register_driver_fcm_token(
     driver_id: int,
     token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Register FCM token for driver push notifications"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -18451,7 +18493,8 @@ def register_driver_fcm_token(
 def register_vendor_fcm_token(
     vendor_id: int,
     token_request: FCMTokenRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Register FCM token for vendor/restaurant push notifications"""
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -18475,7 +18518,7 @@ def register_vendor_fcm_token(
 
 
 @app.delete("/api/erp/customers/{customer_id}/fcm-token")
-def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db)):
+def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Unregister FCM token for customer (on logout)"""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
@@ -18489,7 +18532,7 @@ def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db
 
 
 @app.delete("/api/erp/drivers/{driver_id}/fcm-token")
-def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
+def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Unregister FCM token for driver (on logout)"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
@@ -18504,7 +18547,7 @@ def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db)):
 
 
 @app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
-def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db)):
+def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Unregister FCM token for vendor (on logout)"""
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -20035,7 +20078,7 @@ def setup_support_customer(secret_key: Optional[str] = Query(None), db: Session 
 
 
 @app.get("/api/debug/order/{order_id}")
-def debug_order(order_id: int, db: Session = Depends(get_db)):
+def debug_order(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Debug endpoint to check raw order data - disabled in production."""
     if _is_production:
         raise HTTPException(status_code=404, detail="Not found")
@@ -20433,7 +20476,7 @@ def get_fare_estimate_erp(request: dict, db: Session = Depends(get_db)):
 
 # Driver location update endpoint
 @app.post("/api/driver/location")
-def update_driver_location_android(request: dict, db: Session = Depends(get_db)):
+def update_driver_location_android(request: dict, db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Update driver's current location (Android compatible)."""
     driver_id = request.get("driver_id")
     latitude = request.get("latitude")
@@ -20461,7 +20504,7 @@ def update_driver_location_android(request: dict, db: Session = Depends(get_db))
 
 # Available deliveries endpoint for driver app
 @app.get("/api/v2/driver/deliveries/available")
-def get_available_deliveries_android(db: Session = Depends(get_db)):
+def get_available_deliveries_android(db: Session = Depends(get_db), _user = Depends(get_current_user)):
     """Get available delivery orders for drivers (Android compatible).
 
     Includes Early Driver Notification fields:
@@ -20550,7 +20593,8 @@ def get_driver_deliveries_history(
     status: Optional[str] = None,
     limit: int = Query(50, le=100),
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """Get driver's delivery history"""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
@@ -21916,7 +21960,8 @@ class AIInsightsResponse(BaseModel):
 def get_vendor_ai_insights(
     vendor_id: int,
     period: str = Query("today", description="today, week, month, year"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
     """
     Get AI-powered insights for a vendor's restaurant.
