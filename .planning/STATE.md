@@ -46,6 +46,10 @@
 - CI green: 1,002/1,002 tests pass (run 22213511181)
 - Verification: `.planning/phases/01-unit-test-fixes/01-VERIFICATION.md`
 
+## Roadmap Evolution
+- Phase 03 added: Deploy Security Auth to Staging and Production
+- Phase 04 added: Documentation Overhaul — fix CLAUDE.md, GROUND_TRUTH, xcconfig, all stale docs
+
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
 - Staging API: `https://d34u5ixl0bulv4.cloudfront.net`
