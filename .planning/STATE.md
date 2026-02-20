@@ -1,24 +1,25 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Active — Phase 03.1 COMPLETE, ready for Phase 04 Documentation Overhaul
-**Last activity**: 2026-02-20 — Phase 03.1 COMPLETE (endpoint guardrails, API registry, CLAUDE.md rules)
+**Status**: Active — Phase 04 Plan 1/2 COMPLETE, executing Documentation Overhaul
+**Last activity**: 2026-02-20 — Phase 04 Plan 01 COMPLETE (CLAUDE.md fixes + iOS xcconfig)
 
-## Current Phase: 03.1 — Endpoint Validation & Anti-Hallucination Guardrails
+## Current Phase: 04 — Documentation Overhaul
 
-### Status: COMPLETE (Plan 1/1)
-- Fixed phantom `/api/vendors/featured` references in 3 planning files
-- Created `scripts/extract-api-endpoints.py` extracting 641 routes
-- Generated `.planning/API_REGISTRY.md` as canonical endpoint registry
-- Added mandatory endpoint verification rules to CLAUDE.md
-- Summary: `.planning/phases/03.1-endpoint-validation-guardrails/03.1-01-SUMMARY.md`
+### Status: IN PROGRESS (Plan 1/2 complete)
+- Plan 01 COMPLETE: Fixed 6 wrong facts in CLAUDE.md, added security/iOS docs, updated xcconfig
+- Plan 02: Pending (re-verify GROUND_TRUTH line numbers + update API_ENDPOINTS)
+- Summary: `.planning/phases/04-docs-overhaul/04-01-SUMMARY.md`
 
 ### Decisions
-- Used regex-based extraction (stdlib only, no external deps) over AST parsing
-- Added correction footnote to 03-01-SUMMARY.md rather than rewriting history
-- Auth status detection via Depends() patterns + public path allowlist cross-reference
+- Used em-dashes in CLAUDE.md tables instead of unicode for compatibility
+- Preserved Phase 03.1's API Endpoint Verification section unchanged
+- Did not modify Android build commands (verified correct as-is)
 
 ## Previous Phases
+- **Phase 03.1: Endpoint Validation Guardrails** — COMPLETE (2026-02-20)
+  - Fixed phantom `/api/vendors/featured`, created API registry, added CLAUDE.md guardrails
+  - Summary: `.planning/phases/03.1-endpoint-validation-guardrails/03.1-01-SUMMARY.md`
 - **Phase 03: Deploy Security Auth** — COMPLETE (2026-02-20)
   - Staging: `dollor-api-staging:31` (1/1 HEALTHY), 19/19 smoke tests
   - Production: `dollor-api:372` (2/2 HEALTHY), 9/9 smoke tests
@@ -35,7 +36,7 @@
 ## Roadmap Evolution
 - Phase 03 COMPLETE — staging + production deployed
 - Phase 03.1 COMPLETE — endpoint guardrails, API registry, CLAUDE.md rules
-- Phase 04 planned: Documentation Overhaul
+- Phase 04 IN PROGRESS — Plan 01 complete (CLAUDE.md + xcconfig), Plan 02 pending
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
