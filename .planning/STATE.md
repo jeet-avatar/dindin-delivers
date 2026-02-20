@@ -1,15 +1,22 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Active — Phase 03.1 Endpoint Validation Guardrails (not yet planned)
-**Last activity**: 2026-02-20 — Phase 03 COMPLETE (staging + production deployed via CI/CD, all smoke tests pass)
+**Status**: Active — Phase 03.1 COMPLETE, ready for Phase 04 Documentation Overhaul
+**Last activity**: 2026-02-20 — Phase 03.1 COMPLETE (endpoint guardrails, API registry, CLAUDE.md rules)
 
 ## Current Phase: 03.1 — Endpoint Validation & Anti-Hallucination Guardrails
 
-### Status: NOT YET PLANNED
-- Root cause: GSD executor hallucinated `/api/vendors/featured` (never existed) in smoke test plan + summary
-- Debug report: `.planning/debug/vendors-featured-401.md`
-- Goal: Canonical endpoint registry, CLAUDE.md validation rules, fix 3 plan/summary files
+### Status: COMPLETE (Plan 1/1)
+- Fixed phantom `/api/vendors/featured` references in 3 planning files
+- Created `scripts/extract-api-endpoints.py` extracting 641 routes
+- Generated `.planning/API_REGISTRY.md` as canonical endpoint registry
+- Added mandatory endpoint verification rules to CLAUDE.md
+- Summary: `.planning/phases/03.1-endpoint-validation-guardrails/03.1-01-SUMMARY.md`
+
+### Decisions
+- Used regex-based extraction (stdlib only, no external deps) over AST parsing
+- Added correction footnote to 03-01-SUMMARY.md rather than rewriting history
+- Auth status detection via Depends() patterns + public path allowlist cross-reference
 
 ## Previous Phases
 - **Phase 03: Deploy Security Auth** — COMPLETE (2026-02-20)
@@ -27,7 +34,7 @@
 
 ## Roadmap Evolution
 - Phase 03 COMPLETE — staging + production deployed
-- Phase 03.1 INSERTED: Endpoint Validation & Anti-Hallucination Guardrails (URGENT)
+- Phase 03.1 COMPLETE — endpoint guardrails, API registry, CLAUDE.md rules
 - Phase 04 planned: Documentation Overhaul
 
 ## Quick Reference
