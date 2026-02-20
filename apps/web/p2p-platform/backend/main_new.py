@@ -8116,7 +8116,8 @@ def format_amount(amount):
 @app.get("/api/dashboard/consolidated")
 def get_consolidated_dashboard(
     days_back: int = Query(30, description="Number of days to look back"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     Get consolidated dashboard metrics for Dollor.ai platform.
@@ -10131,7 +10132,8 @@ def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), current_u
 def get_vendors(
     status: Optional[str] = None,
     risk_rating: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """Get all vendors - public endpoint for dev mode, includes iOS compatibility fields"""
     from cache import cache_json_get, cache_json_set
@@ -12041,7 +12043,8 @@ def ai_review_menu_item(item, db: Session) -> dict:
 @app.post("/api/ai/menu/review-all/{vendor_id}")
 def ai_review_all_menu_items(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employee: MenuBot Zeta
@@ -12098,7 +12101,8 @@ def ai_review_all_menu_items(
 @app.post("/api/ai/menu/review-item/{item_id}")
 def ai_review_single_menu_item(
     item_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employee: MenuBot Zeta
@@ -12231,7 +12235,8 @@ def ai_auto_publish_vendor(vendor_id: int, db: Session) -> dict:
 @app.post("/api/ai/vendor/check-publish-ready/{vendor_id}")
 def ai_check_publish_ready(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employee: ComplianceBot Eta
@@ -12249,7 +12254,8 @@ def ai_check_publish_ready(
 @app.post("/api/ai/vendor/auto-publish/{vendor_id}")
 def ai_trigger_auto_publish(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employee: ComplianceBot Eta
@@ -12262,7 +12268,8 @@ def ai_trigger_auto_publish(
 @app.post("/api/ai/process-new-vendor/{vendor_id}")
 def ai_process_new_vendor(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employees: MenuBot Zeta + ComplianceBot Eta
@@ -12324,7 +12331,7 @@ def ai_process_new_vendor(
 
 
 @app.get("/api/ai/dashboard")
-def ai_dashboard(db: Session = Depends(get_db)):
+def ai_dashboard(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """
     Get AI Employee Dashboard - Shows all AI employees and their stats.
     """
@@ -12386,7 +12393,7 @@ def ai_dashboard(db: Session = Depends(get_db)):
 
 
 @app.get("/api/ai/pending-reviews")
-def ai_get_pending_reviews(db: Session = Depends(get_db)):
+def ai_get_pending_reviews(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """
     Get all items pending AI or manual review.
     """
