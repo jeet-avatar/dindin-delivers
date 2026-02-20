@@ -2,7 +2,7 @@
 
 > **Single Source of Truth** for API testing and iOS/Android integration
 >
-> Last Updated: February 3, 2026
+> Last Updated: February 20, 2026
 
 ---
 
@@ -11,7 +11,7 @@
 | Environment | Base URL |
 |-------------|----------|
 | **Production** | `https://api.dollor.ai` |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ---
 
@@ -30,6 +30,8 @@ curl -X POST "$BASE_URL/api/auth/customer/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "demo.customer@dollor.ai", "password": "..."}'
 ```
+
+> **Security Note (Feb 2026):** A global auth middleware (`require_auth_middleware` in `main_new.py:367`) blocks unauthenticated requests to any endpoint not on the public allowlist. See `auth_utils.py` for role-specific auth dependencies.
 
 ---
 
@@ -94,7 +96,7 @@ curl -X POST "$BASE_URL/api/auth/customer/login" \
 
 | Purpose | Endpoint | Method | Auth |
 |---------|----------|--------|------|
-| Get Orders | `/api/erp/orders/vendor/{id}` | GET | No* |
+| Get Orders | `/api/erp/orders/vendor/{id}` | GET | Bearer |
 | Update Status | `/api/erp/orders/{id}/status?status=X` | PUT | Bearer |
 | Accept Order | `/api/erp/orders/{id}/restaurant-accept` | POST | Bearer |
 | Decline Order | `/api/erp/orders/{id}/restaurant-decline` | POST | Bearer |
@@ -104,7 +106,7 @@ curl -X POST "$BASE_URL/api/auth/customer/login" \
 | Update Profile | `/api/vendors/{id}` | PUT | Bearer |
 | Analytics | `/api/vendors/{id}/analytics` | GET | Bearer |
 
-*Note: Vendor orders endpoint returns enriched driver details (phone, rating, vehicle)
+**Note:** Vendor orders endpoint returns enriched driver details (phone, rating, vehicle). Requires Bearer auth since Phase 02 security update.
 
 ---
 
@@ -213,7 +215,6 @@ These endpoints are intentionally duplicated for compatibility:
 | Endpoint | Replacement |
 |----------|-------------|
 | `/api/customer/register` | Use `/api/auth/customer/register` |
-| `/api/rides/estimate` | Use `/api/erp/rides/estimate` |
 
 ---
 
