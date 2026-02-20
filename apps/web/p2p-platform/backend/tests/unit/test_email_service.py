@@ -163,13 +163,13 @@ class TestSendEmail:
         subject = "Test Subject"
         html_body = "<h1>Test HTML</h1>"
 
-        # Act
-        with caplog.at_level(logging.ERROR):
+        # Act — SMTPConnectError is a transient error logged at WARNING, not ERROR
+        with caplog.at_level(logging.WARNING):
             result = email_service.send_email(to_email, subject, html_body)
 
         # Assert
         assert result is False
-        assert "SMTP error" in caplog.text or to_email in caplog.text
+        assert "SMTP transient error" in caplog.text or "Connection refused" in caplog.text
 
     @patch('email_service.IS_PRODUCTION', False)
     @patch('email_service.SMTP_USER', 'test@example.com')
