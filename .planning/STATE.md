@@ -1,39 +1,47 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Active — Security Auth Fix
-**Last activity**: 2026-02-20 — Phase 01 COMPLETE (CI green, 1002/1002 tests pass)
+**Status**: Active — Security Auth Fix (Code Complete, Deployment Pending)
+**Last activity**: 2026-02-20 — Phase 02 code changes COMPLETE (170+ endpoints secured, 890 tests pass)
 
 ## Current Phase: 02 — Security Auth Fix
 
-### Status: PLANNED — Awaiting Execution
+### Status: CODE COMPLETE — Deployment Pending
 
-**What**: Add authentication to ~280 unprotected API endpoints
-**Why**: 39 critical endpoints verified with ZERO auth (not hallucinated — checked line by line)
-**How**: Hybrid approach — global middleware safety net + router/endpoint-level role auth
+**What**: Added authentication to ~280 previously-unprotected API endpoints
+**How**: Hybrid approach — global middleware safety net + router/endpoint-level auth
+**Result**: 170+ endpoints with explicit Depends() auth + global middleware catching the rest
 
-### Key Verified Findings (Code Proof)
-| Finding | File:Line | Risk |
-|---------|-----------|------|
-| Stripe PaymentIntent without auth | stripe_integration.py:111 | CRITICAL |
-| Order delivered triggers payout, no auth | order_flow.py:2912 | CRITICAL |
-| Customer address IDOR (6 endpoints) | main_new.py:16058-16262 | HIGH |
-| FCM token hijacking (12 endpoints) | main_new.py:18224-18344 | HIGH |
-| GPS spoofing any driver | main_new.py:20264 | HIGH |
-| Push notification to any user | realtime_events.py:229 | HIGH |
+### Completed Tasks
+| Task | Description | Commit |
+|------|-------------|--------|
+| 2C.1 | iOS auth headers (guard-let) | `ad128e49` |
+| 2C.2 | Android interceptor verified | (no code changes) |
+| 2A.1 | auth_utils.py created | `c3930fb4` |
+| 2A.2 | Router-level auth (3 routers, 25 endpoints) | `ae6a3f15` |
+| 2A.3 | Per-endpoint auth (8 routers, 78 endpoints) | `f3c0eb31` |
+| 2B.1+2B.2 | Global middleware + allowlist | `87afad52` |
+| 2B.3 | Per-endpoint auth (main_new.py, 67 endpoints) | `72dcb376` |
 
-### Plan File
-`.planning/phases/02-security-auth-fix/PLAN.md`
+### Remaining Tasks
+| Task | Description | Blocker |
+|------|-------------|---------|
+| 2D.1 | Deploy to staging | Needs docker build + ECR push |
+| 2D.2 | Test E2E flows on staging | Needs 2D.1 |
+| 2D.3 | Deploy to production | Needs 2D.2 approval |
 
-### Prerequisites Before Execution
-1. Fix 4 iOS functions missing auth headers (Task 2C.1)
-2. Verify Android interceptor adds auth globally (Task 2C.2)
+### Key Decisions
+- Hybrid auth: global middleware safety net + per-endpoint Depends()
+- auth_utils.py uses auto_error=False for better error messages
+- iOS strengthened from if-let to guard-let (hard fail without token)
+- Android verified: per-call auth via DollorRepository, no changes needed
+- Deployment deferred: code complete, needs staging deploy + monitoring
 
-### Deployment Target
-- Staging first: `dollor-api-staging`
-- Production after: `dollor-api` (currently task-def 370)
+### Key Files
+- NEW: `apps/web/p2p-platform/backend/auth_utils.py`
+- MODIFIED: `main_new.py`, `order_flow.py`, `stripe_integration.py`, `promotions.py`, `matchmaking_routes.py`, `rideshare_payments.py`, `verification_routes.py`, `auto_onboarding.py`, `investor_tracking.py`, `P2PAPIService.swift`
 
-## Previous Phase: 01 — Unit Test Fixes (✓ COMPLETE)
+## Previous Phase: 01 — Unit Test Fixes (COMPLETE)
 - 18 fixes committed: `26ca1312` (17 assertions) + `9688c0cd` (1 flaky caplog)
 - CI green: 1,002/1,002 tests pass (run 22213511181)
 - Verification: `.planning/phases/01-unit-test-fixes/01-VERIFICATION.md`
@@ -43,3 +51,4 @@
 - Staging API: `https://d34u5ixl0bulv4.cloudfront.net`
 - ECR: `134607809447.dkr.ecr.us-east-1.amazonaws.com/dollor-api`
 - ECS cluster: `dollor-production`
+- Summary: `.planning/phases/02-security-auth-fix/02-SUMMARY.md`
