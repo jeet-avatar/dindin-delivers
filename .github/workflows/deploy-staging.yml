@@ -128,7 +128,7 @@ jobs:
         working-directory: apps/web/p2p-platform/frontend
         run: npm run build
         env:
-          VITE_API_URL: https://d3kuu45w6kl8hr.cloudfront.net
+          VITE_API_URL: https://d34u5ixl0bulv4.cloudfront.net
           VITE_APP_NAME: Dollor.ai (Staging)
           VITE_ENVIRONMENT: staging
 
@@ -251,7 +251,7 @@ jobs:
           echo ""
           echo "Staging URLs:"
           echo "  Frontend: https://d3b3ow4g7hjwi5.cloudfront.net"
-          echo "  API: https://d3kuu45w6kl8hr.cloudfront.net"
+          echo "  API: https://d34u5ixl0bulv4.cloudfront.net"
           echo ""
           echo "Test this environment before promoting to production."
           echo ""

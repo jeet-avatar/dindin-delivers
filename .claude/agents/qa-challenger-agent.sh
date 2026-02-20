@@ -33,7 +33,7 @@ NC='\033[0m'
 # Config
 ENV="${1:-staging}"
 DATE=$(date +%Y-%m-%d_%H-%M-%S)
-PROJECT_ROOT="/Users/jeet/StudioProjects/eatfair-ios"
+PROJECT_ROOT="/Users/jeet/doordash-p2p"
 REPORT_DIR="$PROJECT_ROOT/.planning/qa-challenger-reports"
 REPORT="$REPORT_DIR/CHALLENGER_${DATE}.md"
 
@@ -44,6 +44,44 @@ else
 fi
 
 mkdir -p "$REPORT_DIR"
+
+# Authenticate demo accounts and capture tokens for secured endpoints
+CUSTOMER_TOKEN=""
+DRIVER_TOKEN=""
+VENDOR_TOKEN=""
+
+echo -e "${CYAN}Authenticating demo accounts...${NC}"
+LOGIN_RESP=$(curl -s -X POST "$API_URL/api/auth/customer/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=demo.customer@dollor.ai" -d "password=DemoCustomer2025!" 2>/dev/null)
+CUSTOMER_TOKEN=$(echo "$LOGIN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+
+LOGIN_RESP=$(curl -s -X POST "$API_URL/api/auth/driver/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=demo.driver@dollor.ai" -d "password=DemoDriver2025!" 2>/dev/null)
+DRIVER_TOKEN=$(echo "$LOGIN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+
+LOGIN_RESP=$(curl -s -X POST "$API_URL/api/auth/vendor/login" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "username=demo.restaurant@dollor.ai" -d "password=DemoRestaurant2025!" 2>/dev/null)
+VENDOR_TOKEN=$(echo "$LOGIN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+
+if [ -n "$CUSTOMER_TOKEN" ]; then
+    echo -e "  Customer: ${GREEN}authenticated${NC}"
+else
+    echo -e "  Customer: ${RED}FAILED (demo accounts may need /api/demo/setup)${NC}"
+fi
+if [ -n "$DRIVER_TOKEN" ]; then
+    echo -e "  Driver:   ${GREEN}authenticated${NC}"
+else
+    echo -e "  Driver:   ${RED}FAILED${NC}"
+fi
+if [ -n "$VENDOR_TOKEN" ]; then
+    echo -e "  Vendor:   ${GREEN}authenticated${NC}"
+else
+    echo -e "  Vendor:   ${RED}FAILED${NC}"
+fi
+echo ""
 
 # Counters
 TOTAL_CHALLENGES=0
@@ -275,11 +313,11 @@ challenge_test "12" "Negotiate API" \
     'platform_fee_driver' \
     "Must have: success, status, customer_offer, platform_fee_driver, platform_fee_customer"
 
-# Agent 12/21: Bids Response
+# Agent 12/21: Bids Response (REQUIRES AUTH - secured Feb 2026)
 challenge_test "12" "Bids Response" \
     "CustomerRideBidsResponse has correct format" \
-    "curl -s '$API_URL/api/rides/request/1/bids'" \
-    'request_id' \
+    "curl -s '$API_URL/api/rides/request/1/bids' -H 'Authorization: Bearer $CUSTOMER_TOKEN'" \
+    'request_id\|bids\|total_bids' \
     "Must have: request_id, bids[], total_bids, bidding_open, bidding_ends_at"
 
 # Agent 10: Driver Dashboard
