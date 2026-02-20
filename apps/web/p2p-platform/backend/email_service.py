@@ -189,9 +189,19 @@ def _validate_recipient_in_db(email: str, db_session) -> Tuple[bool, Optional[st
     """
     SECURITY: Validate that the recipient email exists in our database.
     Only registered customers, vendors, or drivers can receive emails.
+    Exception: 3 demo emails are allowlisted for App Store / Google Play review.
 
     Returns: (is_valid, recipient_type, recipient_id)
     """
+    # Demo emails needed for Apple/Google app store review
+    DEMO_EMAILS_ALLOWLIST = {
+        "demo.customer@dollor.ai",
+        "demo.driver@dollor.ai",
+        "demo.restaurant@dollor.ai",
+    }
+    if email and email.lower() in DEMO_EMAILS_ALLOWLIST:
+        return True, "demo", 0
+
     if not db_session:
         logger.error("No database session available for recipient validation")
         return False, None, None

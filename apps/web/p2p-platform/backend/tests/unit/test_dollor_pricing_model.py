@@ -168,10 +168,10 @@ class TestAppConfigPricing:
         config = get_app_config()
         assert config["defaultTipRate"] == 0.15
 
-    def test_config_tax_rate_is_nine_percent(self):
-        """Default tax rate should be 9%"""
+    def test_config_tax_rate_is_six_percent(self):
+        """Default tax rate should be 6%"""
         config = get_app_config()
-        assert config["taxRate"] == 0.09
+        assert config["taxRate"] == 0.06
 
     def test_config_delivery_fee_reasonable(self):
         """Delivery fee should be reasonable"""
