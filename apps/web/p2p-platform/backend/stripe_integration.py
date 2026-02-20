@@ -4,6 +4,7 @@ Handles payment intents, webhooks, and invoice generation
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -109,7 +110,7 @@ class SimplePaymentIntentResponse(BaseModel):
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_key_here")
 
 @router.post("/payments/create-intent", response_model=SimplePaymentIntentResponse)
-async def create_simple_payment_intent(request: SimplePaymentIntentRequest):
+async def create_simple_payment_intent(request: SimplePaymentIntentRequest, _auth: dict = Depends(require_any_auth)):
     """
     Create a simple Stripe PaymentIntent for Apple Pay, Google Pay, or Card payments.
 
@@ -156,7 +157,8 @@ async def create_simple_payment_intent(request: SimplePaymentIntentRequest):
 @router.post("/orders", response_model=PaymentIntentResponse)
 async def create_order(
     order_data: CreateOrderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Step 1: Create order and Stripe Payment Intent
@@ -476,7 +478,7 @@ def generate_customer_invoice(order: Order, db: Session):
 # ===================== ORDER TRACKING =====================
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)
-def get_order(order_id: int, db: Session = Depends(get_db)):
+def get_order(order_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Get order details for mobile app tracking
     """
@@ -508,7 +510,8 @@ def list_orders(
     vendor_id: Optional[int] = None,
     status: Optional[str] = None,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     List orders with filters (admin dashboard)
@@ -538,7 +541,8 @@ def list_orders(
 def update_order_status(
     order_id: int,
     status_update: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Update order status (vendor app or admin)
@@ -570,7 +574,8 @@ def update_order_status(
 def sync_vendor_payouts(
     period_start: str,
     period_end: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Calculate and sync vendor payouts to Coupa
@@ -662,7 +667,8 @@ def sync_vendor_payouts(
 def get_vendor_payouts(
     vendor_id: Optional[int] = None,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get vendor payout history

@@ -12,6 +12,7 @@ Features:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -99,7 +100,8 @@ async def create_promotion(
     vendor_id: int,
     request: CreatePromotionRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a new promotion
@@ -261,7 +263,8 @@ def get_promotion_message(promotion: Promotion) -> str:
 @router.get("/suggestions/{vendor_id}")
 async def get_ai_suggested_promotions(
     vendor_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     AI-generated promotion suggestions based on restaurant data
@@ -395,7 +398,8 @@ async def get_ai_suggested_promotions(
 async def list_promotions(
     vendor_id: int,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Get all promotions for a vendor"""
     query = db.query(Promotion).filter(Promotion.vendor_id == vendor_id)
@@ -440,7 +444,8 @@ async def update_promotion(
     promotion_id: int,
     request: UpdatePromotionRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Update an existing promotion"""
     ai_employee = AI_EMPLOYEES["MARKETING_MAESTRO"]
@@ -653,7 +658,8 @@ async def record_redemption(
     customer_id: Optional[int] = None,
     original_total: Optional[float] = None,
     final_total: Optional[float] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Record a promotion redemption after order is placed
@@ -701,7 +707,8 @@ async def record_redemption(
 async def get_promotion_analytics(
     vendor_id: int,
     days: int = 30,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get promotion performance analytics
@@ -789,7 +796,8 @@ def generate_promotion_insights(promo_stats: List[Dict]) -> List[str]:
 @router.delete("/{promotion_id}")
 async def delete_promotion(
     promotion_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Delete a promotion (sets status to cancelled)"""
     promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
@@ -812,7 +820,8 @@ async def quick_create_promotion(
     vendor_id: int,
     promo_type: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Quick create common promotion types

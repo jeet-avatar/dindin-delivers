@@ -18,6 +18,7 @@ FIRST LAUNCH STATE: Wyoming (LOW regulatory risk)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from pydantic import BaseModel, Field
@@ -206,7 +207,8 @@ async def calculate_connection_fee(
 @router.post("/request", response_model=MatchmakingResponse)
 async def create_matchmaking_request(
     request: MatchmakingRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a matchmaking request.
@@ -278,7 +280,7 @@ async def create_matchmaking_request(
 
 
 @router.post("/bid")
-async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db)):
+async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Driver submits a fare proposal (bid).
 
@@ -337,7 +339,7 @@ async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db)
 
 
 @router.get("/request/{request_id}/bids")
-async def get_bids_for_request(request_id: str, db: Session = Depends(get_db)):
+async def get_bids_for_request(request_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Get all bids for a matchmaking request."""
     ride = db.query(RideRequest).filter(RideRequest.request_id == request_id).first()
     if not ride:
@@ -373,7 +375,7 @@ async def get_bids_for_request(request_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/accept-bid")
-async def accept_driver_bid(request: AcceptBidRequest, db: Session = Depends(get_db)):
+async def accept_driver_bid(request: AcceptBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Customer accepts a driver's bid.
 
@@ -487,7 +489,7 @@ async def accept_driver_bid(request: AcceptBidRequest, db: Session = Depends(get
 
 
 @router.post("/driver/payment-info")
-async def update_driver_payment_info(info: DriverPaymentInfo, db: Session = Depends(get_db)):
+async def update_driver_payment_info(info: DriverPaymentInfo, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Update driver's direct payment information.
 
@@ -565,7 +567,8 @@ async def complete_matchmaking_ride(
     fare_paid: float = Query(..., description="Fare amount paid directly to driver"),
     payment_method: str = Query(..., description="How customer paid driver (cash, venmo, zelle, cashapp)"),
     tip_amount: float = Query(0, description="Tip amount paid to driver"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Mark a ride as completed with proper CFO-level accounting.

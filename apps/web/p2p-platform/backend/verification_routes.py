@@ -19,6 +19,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, BackgroundTasks
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from database import get_db
@@ -142,7 +143,8 @@ def log_verification_event(
 @router.post("/persona/create-inquiry")
 async def create_persona_inquiry(
     request: CreateVerificationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a Persona verification inquiry.
@@ -194,7 +196,7 @@ async def create_persona_inquiry(
 
 
 @router.get("/persona/status/{inquiry_id}")
-async def get_persona_status(inquiry_id: str):
+async def get_persona_status(inquiry_id: str, _auth: dict = Depends(require_any_auth)):
     """Get the status of a Persona verification inquiry"""
     try:
         service = get_verification_service("persona")
@@ -224,7 +226,8 @@ async def get_persona_status(inquiry_id: str):
 @router.post("/onfido/create-applicant")
 async def create_onfido_applicant(
     request: CreateVerificationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create an Onfido applicant and return SDK token.
@@ -285,7 +288,8 @@ async def create_onfido_applicant(
 async def create_onfido_check(
     applicant_id: str,
     document_ids: List[str],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create an Onfido verification check after documents are uploaded.
@@ -331,7 +335,8 @@ async def create_onfido_check(
 @router.post("/veriff/create-session")
 async def create_veriff_session(
     request: CreateVerificationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Create a Veriff verification session.
@@ -389,7 +394,7 @@ async def create_veriff_session(
 
 
 @router.get("/veriff/status/{session_id}")
-async def get_veriff_status(session_id: str):
+async def get_veriff_status(session_id: str, _auth: dict = Depends(require_any_auth)):
     """Get the status of a Veriff verification session"""
     try:
         service = get_verification_service("veriff")
@@ -408,7 +413,7 @@ async def get_veriff_status(session_id: str):
 
 
 @router.get("/veriff/decision/{session_id}")
-async def get_veriff_decision(session_id: str):
+async def get_veriff_decision(session_id: str, _auth: dict = Depends(require_any_auth)):
     """Get the verification decision for a completed Veriff session"""
     try:
         service = get_verification_service("veriff")

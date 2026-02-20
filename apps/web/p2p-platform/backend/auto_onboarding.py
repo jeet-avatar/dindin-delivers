@@ -18,6 +18,7 @@ No manual data entry required!
 """
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -92,7 +93,8 @@ class ConfirmMenuRequest(BaseModel):
 async def send_invitation(
     request: SendInvitationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Send invitation to a restaurant to join the platform
@@ -1445,7 +1447,8 @@ async def upload_menu_pdf(
     invitation_code: str,
     menu_url: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Upload a menu PDF or image URL for OCR processing

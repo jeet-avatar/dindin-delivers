@@ -9,6 +9,7 @@ Tiered Fee Model (based on fare):
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Header
+from auth_utils import require_any_auth
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from pydantic import BaseModel
@@ -59,7 +60,7 @@ class PaymentResponse(BaseModel):
 
 
 @router.post("/create-intent", response_model=PaymentResponse)
-async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends(get_db)):
+async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Create Stripe payment for completed ride with tiered pricing.
 
     For demo accounts (App Store review), returns a demo payment response
@@ -150,7 +151,7 @@ async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends
 
 
 @router.get("/driver/{driver_id}/earnings")
-async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db)):
+async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Get driver earnings summary with tiered fees."""
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
