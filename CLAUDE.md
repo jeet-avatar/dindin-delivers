@@ -11,6 +11,11 @@
 2. **DEV → STAGING → PRODUCTION** - Never skip environments. Never touch production directly.
 3. **WE ARE A MATCHMAKING SERVICE** - Not a delivery company, not a TNC. This is legally critical.
 4. **ASK BEFORE MAJOR CHANGES** - Get approval before architectural changes or new dependencies.
+5. **ALWAYS USE CI/CD FOR DEPLOYMENTS** - Never run manual `aws ecs`, `docker build`, or `docker push` for deployments. Use the GitHub Actions workflows:
+   - **Staging**: `gh workflow run deploy-staging.yml --ref main` or push to `staging`/`develop` branch
+   - **Production**: `gh workflow run deploy-dollar-ai.yml` (runs tests → builds → pushes ECR → deploys ECS)
+   - **Promote staging→prod**: `gh workflow run promote-staging-to-production.yml -f confirm_promotion=PROMOTE`
+   - Monitor with: `gh run list --workflow=deploy-dollar-ai.yml --limit 5` and `gh run watch`
 
 ### Anti-Hallucination Rules (VERIFIED Feb 15, 2026)
 | Rule | Wrong | Correct | Source |

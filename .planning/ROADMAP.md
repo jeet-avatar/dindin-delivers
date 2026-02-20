@@ -3,17 +3,19 @@
 ## Current Milestone: v1.1 Security Hardening + Stability
 
 ### Active Phase
-- **Phase 03: Deploy Security Auth** — IN PROGRESS (Plan 1/2 Complete)
-  - Goal: Build, deploy, and verify security auth changes on staging then production
-  - Depends on: Phase 02 (code complete)
-  - Directory: `.planning/phases/03-deploy-security-auth/`
-  - **Requirements:** [DEPLOY-01, DEPLOY-02, DEPLOY-03]
-  - **Plans:** 2 plans (1 complete, 1 pending)
-  - Plans:
-    - [x] 03-01-PLAN.md — Deploy to staging + E2E smoke test + human verification (2026-02-20)
-    - [ ] 03-02-PLAN.md — Deploy to production + CloudWatch monitoring + human verification
+- **Phase 03.1: Endpoint Validation & Anti-Hallucination Guardrails** — NOT YET PLANNED
+  - Goal: Create canonical endpoint registry auto-generated from codebase, add validation rules to CLAUDE.md, fix plan/summary files with wrong /api/vendors/featured reference
+  - Depends on: Phase 03 (deployment revealed the hallucination)
+  - Directory: `.planning/phases/03.1-endpoint-validation-guardrails/`
+  - **Requirements:** [GUARD-01, GUARD-02, GUARD-03]
+  - **Plans:** 0 plans (not yet planned)
 
 ### Completed Phases
+- **Phase 03: Deploy Security Auth** — COMPLETE (2026-02-20)
+  - Staging: `dollor-api-staging:31` (1/1 HEALTHY), 19/19 smoke tests pass
+  - Production: `dollor-api:372` (2/2 HEALTHY), 9/9 smoke tests pass
+  - CI/CD: run `22217682847` (deploy-dollar-ai.yml) — tests + build + deploy
+  - Summary: `.planning/phases/03-deploy-security-auth/03-02-SUMMARY.md`
 - **Phase 02: Security Auth Fix** — CODE COMPLETE (2026-02-20)
   - 170+ endpoints secured with defense-in-depth auth (middleware + per-endpoint Depends)
   - 6 commits: `ad128e49`, `c3930fb4`, `ae6a3f15`, `f3c0eb31`, `87afad52`, `72dcb376`
