@@ -5505,6 +5505,278 @@ def get_vendor_stripe_dashboard_link(
         raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
 
 
+# ==================== ANDROID FINANCIAL ENDPOINTS ====================
+# Android calls these endpoints for driver balance, bank account, payouts, and vendor payouts.
+# These were missing from the backend, causing 404s on Android EarningsScreen / PaymentSettingsScreen.
+
+class BankAccountRequest(BaseModel):
+    account_holder_name: str
+    routing_number: str
+    account_number: str
+
+class PayoutRequest(BaseModel):
+    amount: float
+    payout_type: str = "standard"  # "standard" or "instant"
+
+
+@app.get("/api/drivers/{driver_id}/balance")
+def get_driver_balance(
+    driver_id: int,
+    _auth_driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the driver's available Stripe Connect balance.
+    Android calls this from EarningsScreen.
+    """
+    # Ownership check
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        return {"success": True, "available_balance": 0, "pending_balance": 0, "currency": "usd"}
+
+    try:
+        balance = stripe.Balance.retrieve(stripe_account=driver.stripe_account_id)
+        available = sum(b.amount for b in balance.available) / 100.0 if balance.available else 0
+        pending = sum(b.amount for b in balance.pending) / 100.0 if balance.pending else 0
+        return {
+            "success": True,
+            "available_balance": available,
+            "pending_balance": pending,
+            "currency": "usd"
+        }
+    except stripe.error.StripeError:
+        return {"success": True, "available_balance": 0, "pending_balance": 0, "currency": "usd"}
+
+
+@app.post("/api/drivers/{driver_id}/bank-account")
+def link_driver_bank_account(
+    driver_id: int,
+    request: BankAccountRequest,
+    _auth_driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """
+    Link a bank account to the driver's Stripe Connect account.
+    Android calls this from PaymentSettingsScreen.
+    """
+    # Ownership check
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        raise HTTPException(status_code=400, detail="Driver has no Stripe account. Create one first via POST /api/drivers/{id}/stripe/connect")
+
+    try:
+        bank_account = stripe.Account.create_external_account(
+            driver.stripe_account_id,
+            external_account={
+                "object": "bank_account",
+                "country": "US",
+                "currency": "usd",
+                "account_holder_name": request.account_holder_name,
+                "routing_number": request.routing_number,
+                "account_number": request.account_number,
+                "account_holder_type": "individual",
+            },
+        )
+        return {
+            "success": True,
+            "bank_account_id": bank_account.id,
+            "last4": bank_account.last4,
+            "bank_name": bank_account.bank_name
+        }
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+
+@app.post("/api/drivers/{driver_id}/payouts")
+def request_driver_payout(
+    driver_id: int,
+    request: PayoutRequest,
+    _auth_driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """
+    Request a manual payout for the driver via Stripe Connect.
+    Android calls this from EarningsScreen payout button.
+    """
+    # Ownership check
+    if _auth_driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if request.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payout amount must be greater than zero")
+
+    if request.amount > 10000:
+        raise HTTPException(status_code=400, detail="Payout amount exceeds maximum ($10,000)")
+
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not driver.stripe_account_id:
+        raise HTTPException(status_code=400, detail="Driver has no Stripe account")
+
+    try:
+        payout_method = "instant" if request.payout_type == "instant" else "standard"
+        payout = stripe.Payout.create(
+            amount=int(request.amount * 100),
+            currency="usd",
+            method=payout_method,
+            metadata={"driver_id": str(driver_id), "platform": "dollor.ai"},
+            stripe_account=driver.stripe_account_id,
+        )
+        return {
+            "success": True,
+            "payout_id": payout.id,
+            "amount": request.amount,
+            "status": payout.status,
+            "arrival_date": payout.arrival_date
+        }
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+
+@app.post("/api/vendors/{vendor_id}/bank-account")
+def link_vendor_bank_account(
+    vendor_id: int,
+    request: BankAccountRequest,
+    _auth_vendor: Vendor = Depends(require_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Link a bank account to the vendor's Stripe Connect account.
+    Android calls this from PaymentSettingsScreen for vendors.
+    """
+    # Ownership check
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.stripe_account_id:
+        raise HTTPException(status_code=400, detail="Vendor has no Stripe account. Create one first via POST /api/vendors/{id}/stripe/connect")
+
+    try:
+        bank_account = stripe.Account.create_external_account(
+            vendor.stripe_account_id,
+            external_account={
+                "object": "bank_account",
+                "country": "US",
+                "currency": "usd",
+                "account_holder_name": request.account_holder_name,
+                "routing_number": request.routing_number,
+                "account_number": request.account_number,
+                "account_holder_type": "company",
+            },
+        )
+        return {
+            "success": True,
+            "bank_account_id": bank_account.id,
+            "last4": bank_account.last4,
+            "bank_name": bank_account.bank_name
+        }
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+
+@app.get("/api/erp/payouts/vendor/{vendor_id}")
+def get_vendor_payouts(
+    vendor_id: int,
+    _auth_vendor: Vendor = Depends(require_vendor),
+    db: Session = Depends(get_db)
+):
+    """
+    Get vendor payout info including Stripe Connect balance and recent payouts.
+    Android calls this from vendor EarningsScreen.
+    """
+    # Ownership check
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    import stripe
+    import os
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not vendor.stripe_account_id:
+        return {
+            "success": True,
+            "has_stripe_account": False,
+            "available_balance": 0,
+            "pending_balance": 0,
+            "currency": "usd",
+            "recent_payouts": []
+        }
+
+    try:
+        balance = stripe.Balance.retrieve(stripe_account=vendor.stripe_account_id)
+        available = sum(b.amount for b in balance.available) / 100.0 if balance.available else 0
+        pending = sum(b.amount for b in balance.pending) / 100.0 if balance.pending else 0
+
+        # Get recent payouts
+        payouts = stripe.Payout.list(limit=10, stripe_account=vendor.stripe_account_id)
+        recent_payouts = [
+            {
+                "id": p.id,
+                "amount": p.amount / 100.0,
+                "status": p.status,
+                "arrival_date": p.arrival_date,
+                "created": p.created
+            }
+            for p in payouts.data
+        ]
+
+        return {
+            "success": True,
+            "has_stripe_account": True,
+            "available_balance": available,
+            "pending_balance": pending,
+            "currency": "usd",
+            "recent_payouts": recent_payouts
+        }
+    except stripe.error.StripeError:
+        return {
+            "success": True,
+            "has_stripe_account": True,
+            "available_balance": 0,
+            "pending_balance": 0,
+            "currency": "usd",
+            "recent_payouts": []
+        }
+
+
 # =============================================================================
 # DRIVER PAYOUTS - Stripe Connect Transfers
 # =============================================================================
