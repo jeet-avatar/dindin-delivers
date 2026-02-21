@@ -231,10 +231,49 @@ jobs:
 
       - name: Wait for ECS deployment
         run: |
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}
-          echo "Staging ECS deployment complete!"
+          echo "Waiting for ECS service to stabilize (up to 15 minutes)..."
+          CLUSTER="${{ env.ECS_CLUSTER }}"
+          SERVICE="${{ env.ECS_SERVICE }}"
+          MAX_ATTEMPTS=60
+          SLEEP_INTERVAL=15
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            ELAPSED=$((ATTEMPT * SLEEP_INTERVAL))
+            echo "--- Attempt $ATTEMPT/$MAX_ATTEMPTS (${ELAPSED}s elapsed) ---"
+
+            # Check deployment status
+            STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].rolloutState' --output text)
+
+            RUNNING=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].runningCount' --output text)
+
+            DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].deployments[?status==`PRIMARY`].desiredCount' --output text)
+
+            echo "  Rollout: $STATUS | Running: $RUNNING/$DESIRED"
+
+            if [ "$STATUS" = "COMPLETED" ] && [ "$RUNNING" = "$DESIRED" ]; then
+              echo "Staging ECS deployment complete!"
+              exit 0
+            fi
+
+            if [ "$STATUS" = "FAILED" ]; then
+              echo "::error::ECS deployment FAILED"
+              aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+                --query 'services[0].events[:5]'
+              exit 1
+            fi
+
+            sleep $SLEEP_INTERVAL
+          done
+
+          echo "::error::ECS deployment timed out after $((MAX_ATTEMPTS * SLEEP_INTERVAL))s"
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].events[:10]'
+          exit 1
 
   notify-staging:
     name: Staging Deployment Summary
