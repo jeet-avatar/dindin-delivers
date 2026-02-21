@@ -39,7 +39,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   - [x] 02-01-PLAN.md — Add backend route aliases and missing endpoints (order chat, demo-login, financial)
   - [x] 02-02-PLAN.md — Fix iOS paths (vendor delete, order chat) + deploy to staging
   - [x] 02-03-PLAN.md — Deploy to production + verify Android paths + human checkpoint
-- [ ] Phase 03: Android Fixes — Commit API path fixes, correct staging URLs, centralize photo URL resolution
+- [x] Phase 03: Android Fixes — Commit API path fixes, correct staging URLs, centralize photo URL resolution (completed 2026-02-21)
   **Goal:** Android apps call correct backend endpoints with zero path mismatches; no hardcoded wrong URLs remain
   **Requirements:** [ANDROID-01, ANDROID-02, ANDROID-03]
   **Plans:** 1 plan
@@ -57,6 +57,6 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 |-------|-----------|-------|--------|-----------|
 | 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
-| 03. Android Fixes | v1.2 | 0/1 | Planned | -- |
+| 03. Android Fixes | 1/1 | Complete   | 2026-02-21 | -- |
 | 04. Fix CI | v1.2 | 0/? | Pending | -- |
 | 05. Ops Security | v1.2 | 0/? | Pending | -- |
