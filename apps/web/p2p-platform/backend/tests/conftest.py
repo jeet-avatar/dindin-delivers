@@ -54,6 +54,9 @@ from main_new import app, get_db, create_access_token, get_password_hash
 from database import Base
 from models import User, Vendor, Driver, Customer, VendorStatus, OnboardingPhase, UserRole
 
+# Import extended models to ensure all tables are registered before create_all
+import models_extended  # noqa: F401
+
 # Create test engine
 if "postgresql" in TEST_DATABASE_URL:
     engine = create_engine(TEST_DATABASE_URL, poolclass=NullPool)
@@ -269,6 +272,33 @@ def vendor_auth_headers(test_vendor) -> Dict[str, str]:
 def driver_auth_headers(test_driver) -> Dict[str, str]:
     """Get authentication headers for driver"""
     token = create_access_token(data={"sub": test_driver.email, "driver_id": test_driver.id})
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(scope="function")
+def test_customer(db_session) -> Customer:
+    """Create a test customer for contract tests"""
+    customer = Customer(
+        email=f"customer_{datetime.now().timestamp()}@test.com",
+        password_hash=get_password_hash("CustomerPassword123!"),
+        first_name="Test",
+        last_name="Customer",
+        phone="+14155551234",
+        is_active=True,
+    )
+    db_session.add(customer)
+    db_session.commit()
+    db_session.refresh(customer)
+    return customer
+
+
+@pytest.fixture(scope="function")
+def customer_auth_headers(test_customer) -> Dict[str, str]:
+    """Get authentication headers for customer -- includes customer_id in JWT payload"""
+    token = create_access_token(data={
+        "sub": test_customer.email,
+        "customer_id": test_customer.id
+    })
     return {"Authorization": f"Bearer {token}"}
 
 
