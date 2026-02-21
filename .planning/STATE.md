@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.2 milestone ARCHIVED — ready for next milestone
-**Last activity**: 2026-02-21 — v1.2 App Store Ready milestone completed and archived
+**Status**: v1.3 milestone STARTED — defining requirements
+**Last activity**: 2026-02-21 — Milestone v1.3 Platform Hardening started
 
 ## Current Position
 
-**Active Phase:** none — planning next milestone
-**Current Plan:** n/a
-**Progress:** milestone complete
+**Active Phase:** not started (defining requirements)
+**Current Plan:** —
+**Progress:** defining requirements
 
 ## Project Reference
 
@@ -39,4 +39,4 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: v1.2 milestone archived — run /gsd:new-milestone to start next version
+Stopped at: Defining v1.3 requirements and roadmap
