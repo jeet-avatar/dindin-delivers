@@ -6740,7 +6740,7 @@ def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Sessi
 
 
 @app.get("/api/customer/profile")
-async def get_customer_profile_v2(customer: Customer = Depends(get_current_customer)):
+async def get_customer_profile_v2(customer: Customer = Depends(require_customer)):
     """Get current customer's profile - uses Customer table directly via JWT"""
     # Construct full name from first_name and last_name
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip()
@@ -6764,7 +6764,7 @@ async def get_customer_profile_v2(customer: Customer = Depends(get_current_custo
 # ==================== CUSTOMER DASHBOARD ====================
 
 @app.get("/api/customer/dashboard")
-async def get_customer_dashboard(customer: Customer = Depends(get_current_customer), db: Session = Depends(get_db)):
+async def get_customer_dashboard(customer: Customer = Depends(require_customer), db: Session = Depends(get_db)):
     """Get customer dashboard data with rides history and stats"""
     customer_id = customer.id
 
@@ -6826,7 +6826,7 @@ async def get_customer_dashboard(customer: Customer = Depends(get_current_custom
 async def get_customer_ride_history(
     limit: int = 20,
     offset: int = 0,
-    customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Get customer's ride history with pagination from real database"""
@@ -6960,14 +6960,10 @@ def calculate_cart_summary(cart: Cart, db: Session) -> dict:
 
 @app.get("/api/cart")
 def get_cart(
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Get current customer's cart"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     cart = get_or_create_cart(customer.id, db)
 
     # Format cart items
@@ -6999,14 +6995,10 @@ def get_cart(
 @app.post("/api/cart/items")
 def add_to_cart(
     request: AddToCartRequest,
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Add an item to the cart"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     # Verify menu item exists
     menu_item = db.query(VendorMenuItem).filter(VendorMenuItem.id == request.menu_item_id).first()
     if not menu_item:
@@ -7072,14 +7064,10 @@ def add_to_cart(
 def update_cart_item(
     item_id: int,
     request: UpdateCartItemRequest,
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Update a cart item's quantity or special instructions"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found")
@@ -7117,14 +7105,10 @@ def update_cart_item(
 @app.delete("/api/cart/items/{item_id}")
 def remove_cart_item(
     item_id: int,
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Remove an item from the cart"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found")
@@ -7151,14 +7135,10 @@ def remove_cart_item(
 
 @app.delete("/api/cart")
 def clear_cart(
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Clear all items from the cart"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
         return {"message": "Cart is already empty", "summary": {"subtotal": 0, "delivery_fee": 0, "platform_fee": 1.00, "tax": 0, "discount": 0, "total": 0, "item_count": 0, "restaurant_count": 0}}
@@ -7183,14 +7163,10 @@ def clear_cart(
 @app.post("/api/cart/apply-promo")
 def apply_promo_code(
     request: ApplyPromoRequest,
-    authorization: Optional[str] = Header(None),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Apply a promo code to the cart"""
-    customer = get_current_customer_from_token(authorization, db)
-    if not customer:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
     cart = get_or_create_cart(customer.id, db)
 
     if not cart.items:
@@ -7244,12 +7220,8 @@ def apply_promo_code(
 
 
 @app.delete("/api/cart/promo")
-def remove_promo_code(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def remove_promo_code(customer: Customer = Depends(require_customer), db: Session = Depends(get_db)):
     """Remove promo code from cart"""
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
     cart = db.query(Cart).filter(Cart.customer_id == customer.id).first()
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found")
@@ -17511,7 +17483,7 @@ async def mark_items_unavailable(
 @app.get("/api/customers/{customer_id}/cards")
 async def get_saved_cards(
     customer_id: int,
-    current_customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """
@@ -17519,9 +17491,8 @@ async def get_saved_cards(
     PCI Compliant: Card data is stored by Stripe, not in our database.
     """
     # SECURITY: Verify token owner matches URL customer_id
-    if current_customer.id != customer_id:
+    if customer.id != customer_id:
         raise HTTPException(status_code=403, detail="You can only access your own payment cards")
-    customer = current_customer
 
     # If no Stripe customer, return empty list
     if not customer.stripe_customer_id:
@@ -17572,7 +17543,7 @@ async def get_saved_cards(
 async def add_payment_card(
     customer_id: int,
     request: dict,
-    current_customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """
@@ -17580,9 +17551,8 @@ async def add_payment_card(
     PCI Compliant: Card tokenization happens on client, we only receive payment_method_id.
     """
     # SECURITY: Verify token owner matches URL customer_id
-    if current_customer.id != customer_id:
+    if customer.id != customer_id:
         raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
-    customer = current_customer
 
     payment_method_id = request.get("payment_method_id")
     if not payment_method_id:
@@ -17629,7 +17599,7 @@ async def add_payment_card(
 async def delete_payment_card(
     customer_id: int,
     card_id: str,
-    current_customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """
@@ -17637,9 +17607,8 @@ async def delete_payment_card(
     PCI Compliant: Card deletion happens in Stripe, not our database.
     """
     # SECURITY: Verify token owner matches URL customer_id
-    if current_customer.id != customer_id:
+    if customer.id != customer_id:
         raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
-    customer = current_customer
 
     if not customer.stripe_customer_id:
         raise HTTPException(status_code=404, detail="No payment methods found")
@@ -17658,7 +17627,7 @@ async def delete_payment_card(
 async def set_default_card(
     customer_id: int,
     card_id: str,
-    current_customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """
@@ -17666,9 +17635,8 @@ async def set_default_card(
     PCI Compliant: Default card setting stored in Stripe, not our database.
     """
     # SECURITY: Verify token owner matches URL customer_id
-    if current_customer.id != customer_id:
+    if customer.id != customer_id:
         raise HTTPException(status_code=403, detail="You can only manage your own payment cards")
-    customer = current_customer
 
     if not customer.stripe_customer_id:
         raise HTTPException(status_code=404, detail="No payment methods found")
@@ -18556,7 +18524,7 @@ def unregister_push_token(
 
 @app.get("/api/customer/notifications")
 def get_customer_notifications(
-    customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Get all notifications for the current customer, newest first."""
@@ -18585,7 +18553,7 @@ def get_customer_notifications(
 @app.put("/api/customer/notifications/{notification_id}/read")
 def mark_notification_read(
     notification_id: int,
-    customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Mark a notification as read. Customer can only mark their own."""
@@ -18603,7 +18571,7 @@ def mark_notification_read(
 
 @app.delete("/api/customer/notifications")
 def clear_all_notifications(
-    customer: Customer = Depends(get_current_customer),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Delete all notifications for the current customer."""
