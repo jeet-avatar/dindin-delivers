@@ -1,14 +1,18 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 04 COMPLETE — All CI + contract test plans done
-**Last activity**: 2026-02-21 — Plan 04-01 completed (208 API contract tests rewritten)
+**Status**: Phase 05 IN PROGRESS — Ops security credential cleanup
+**Last activity**: 2026-02-21 — Plan 05-01 completed (credential cleanup + .gitignore + pre-commit hook)
 
 ## Current Position
 
-**Active Phase:** 04-fix-ci (COMPLETE)
-**Current Plan:** Not started
-**Progress:** [██████████] 100%
+**Active Phase:** 05-ops-security
+**Current Plan:** Plan 02 of 3
+**Progress:** [████████░░] 83%
+
+## Active Phase: 05-ops-security
+
+- Plan 01 (COMPLETE): Credential cleanup -- 3 .p8 keys removed from git, backend/.env deleted, .gitignore + pre-commit hook installed
 
 ## Completed Phase: 04-fix-ci
 
@@ -68,6 +72,9 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [Phase 04-02]: Added full env var set to contract test and E2E test run steps for JWT + DB access
 - [Phase 04]: Used AUTHED status code set [200,201,400,401,403,404,422,500] for contract tests -- 401 from get_current_user proves endpoint exists
 - [Phase 04]: Created safe_request() wrapper for pre-existing backend bugs instead of fixing them -- contract tests verify route existence, not business logic
+- [Phase 05-01]: Used git rm (not git filter-repo) -- key revocation makes history copies useless, no force push needed
+- [Phase 05-01]: Shell pre-commit hook (zero deps) over detect-secrets -- single developer, immediate protection
+- [Phase 05-01]: sk_test_ pattern requires 20+ chars to avoid false positive on placeholder in stripe_integration.py
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
@@ -85,4 +92,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 04-01-PLAN.md — 208 API contract tests rewritten (Phase 04 fully complete)
+Stopped at: Completed 05-01-PLAN.md -- credential cleanup (3 .p8 removed, backend/.env deleted, .gitignore + pre-commit hook)
