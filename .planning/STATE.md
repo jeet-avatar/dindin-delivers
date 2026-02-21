@@ -1,16 +1,20 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 03 COMPLETE — Android API path fixes committed
-**Last activity**: 2026-02-21 — Plan 03-01 completed (5 API paths + staging URL + photo URL fixes)
+**Status**: Phase 04 Plan 02 COMPLETE — CI infrastructure fixes committed
+**Last activity**: 2026-02-21 — Plan 04-02 completed (database.py ENVIRONMENT default + CI env vars)
 
 ## Current Position
 
-**Active Phase:** None — Phase 03 complete
-**Current Plan:** Not started
-**Progress:** v1.2: [██████████] 100% (3/3 phases complete: 01, 02, 03)
+**Active Phase:** 04-fix-ci (Plan 02 complete)
+**Current Plan:** 2/2 complete
+**Progress:** [█████████░] 89%
 
-## Completed Phase: 03-android-fixes
+## Completed Phase: 04-fix-ci
+
+- Plan 02 (COMPLETE): Fix database.py ENVIRONMENT default + CI workflow env vars + remove error masking — 2 files, 1 commit
+
+## Previous Phase: 03-android-fixes (COMPLETE)
 
 - Plan 01 (COMPLETE): 5 API path fixes + staging URL + photo URL centralization — 6 files, 2 commits in Android repo
 
@@ -58,6 +62,9 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [Phase 02-02]: Driver/customer delete paths kept with /delete suffix -- matches their backend routes (only vendor was wrong)
 - [Phase 02]: No Android code changes needed -- all Retrofit paths already matched backend routes from Plan 01
 - [Phase 03-01]: Used AppConfig.apiBaseUrl.removeSuffix("/api") for photo URL resolution -- matches existing CustomerRideshareApiService pattern
+- [Phase 04-02]: Changed ENVIRONMENT default to empty string (not removed SSL logic) -- production ECS sets ENVIRONMENT=production explicitly
+- [Phase 04-02]: Kept || echo for Playwright only -- frontend tests are optional/flaky
+- [Phase 04-02]: Added full env var set to contract test and E2E test run steps for JWT + DB access
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
@@ -75,4 +82,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 03-01-PLAN.md — Android API path fixes (Phase 03 complete)
+Stopped at: Completed 04-02-PLAN.md — CI infrastructure fixes (database.py + integration-tests.yml)
