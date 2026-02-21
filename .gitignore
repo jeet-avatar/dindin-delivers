@@ -151,6 +151,11 @@ out/
 secrets/
 credentials/
 
+# App Store Connect API Keys (NEVER commit)
+*.p8
+**/fastlane/keys/
+api_key.json
+
 # ===================
 # OS files
 # ===================
