@@ -83,7 +83,7 @@ public struct NetworkConfig: Codable {
 
     /// Development configuration - STAGING ONLY
     public static let development = NetworkConfig(
-        p2pBaseURL: "https://d3kuu45w6kl8hr.cloudfront.net",
+        p2pBaseURL: "https://d34u5ixl0bulv4.cloudfront.net",
         p2pTimeout: 60.0,
         firebaseEnabled: true,
         firebaseProjectId: "eatfair-p2p",
