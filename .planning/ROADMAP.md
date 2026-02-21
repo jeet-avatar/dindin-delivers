@@ -55,7 +55,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
   3. Every driver endpoint rejects requests without a valid driver JWT (returns 401)
   4. Driver endpoints with user-specific data verify the authenticated driver owns the requested resource (returns 403 on mismatch)
   5. Existing contract tests still pass after auth additions (no regressions)
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md -- Convert all customer endpoints in main_new.py to Depends(require_customer)
@@ -104,7 +104,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 01. Customer + Driver Endpoint Auth | 1/3 | In Progress|  |
+| 01. Customer + Driver Endpoint Auth | 2/3 | In Progress|  |
 | 02. Vendor + Admin Endpoint Auth | 0/TBD | Not started | - |
 | 03. Rate Limiting Expansion | 0/TBD | Not started | - |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
