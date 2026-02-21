@@ -139,7 +139,7 @@ ErrorHandler.shared.handle(error, context: "Fetching restaurants")
 | Environment | Bundle ID Suffix | API URL |
 |-------------|------------------|---------|
 | Development | `.dev` | `https://dev-api.dollor.ai` |
-| Staging | `.staging` | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| Staging | `.staging` | `https://d34u5ixl0bulv4.cloudfront.net` |
 | Production | (none) | `https://api.dollor.ai` |
 
 **Access via:** `AppConfig.shared.p2pAPIBaseURL`

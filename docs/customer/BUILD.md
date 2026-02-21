@@ -312,7 +312,7 @@ AuthViewModel.logout()
 ### Base URL
 ```
 Production: https://api.dollor.ai
-Staging: https://d3kuu45w6kl8hr.cloudfront.net
+Staging: https://d34u5ixl0bulv4.cloudfront.net
 Development: https://dev-api.dollor.ai
 ```
 

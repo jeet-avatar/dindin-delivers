@@ -149,7 +149,7 @@ if message.contains("active ride") || message.contains("active delivery") {
 
 | Environment | URL |
 |-------------|-----|
-| Staging | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| Staging | `https://d34u5ixl0bulv4.cloudfront.net` |
 | Production | `https://api.dollor.ai` |
 
 ---

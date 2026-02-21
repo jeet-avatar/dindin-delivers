@@ -744,7 +744,7 @@ Alternative: → CANCELLED, EXPIRED, NO_BIDS
 | Environment | URL | Purpose |
 |-------------|-----|---------|
 | Production | https://api.dollor.ai | Live users |
-| Staging | https://d3kuu45w6kl8hr.cloudfront.net | Testing |
+| Staging | https://d34u5ixl0bulv4.cloudfront.net | Testing |
 | Local | http://localhost:8080 | Development |
 
 ---

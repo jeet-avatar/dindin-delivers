@@ -143,7 +143,7 @@ apps/web/p2p-platform/backend/main_new.py
 
 ### Staging API
 ```
-URL: https://d3kuu45w6kl8hr.cloudfront.net
+URL: https://d34u5ixl0bulv4.cloudfront.net
 ```
 
 ---

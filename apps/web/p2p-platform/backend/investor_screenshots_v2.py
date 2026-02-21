@@ -13,7 +13,7 @@ from playwright.async_api import async_playwright
 # Production URLs
 BASE_URL = "https://www.dollor.ai"
 API_URL = "https://api.dollor.ai"
-STAGING_URL = "https://d3kuu45w6kl8hr.cloudfront.net"
+STAGING_URL = "https://d34u5ixl0bulv4.cloudfront.net"
 
 # Output directory with timestamp
 TIMESTAMP = datetime.now().strftime('%Y%m%d_%H%M%S')

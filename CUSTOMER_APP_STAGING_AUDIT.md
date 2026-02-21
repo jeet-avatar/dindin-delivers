@@ -3,7 +3,7 @@
 **Audit Date:** January 9, 2026
 **Last Updated:** January 14, 2026
 **Auditor:** Claude AI
-**Environment:** Staging (`https://d3kuu45w6kl8hr.cloudfront.net`)
+**Environment:** Staging (`https://d34u5ixl0bulv4.cloudfront.net`)
 **Scope:** Customer App only - iOS, Android, WebApp
 
 ---
@@ -32,7 +32,7 @@
 }
 ```
 
-**Staging API URL:** `https://d3kuu45w6kl8hr.cloudfront.net/api`
+**Staging API URL:** `https://d34u5ixl0bulv4.cloudfront.net/api`
 
 ---
 
@@ -41,7 +41,7 @@
 ### Configuration
 - **Bundle ID:** `com.dollor.customer.staging`
 - **Version:** 1.0 (Build 2)
-- **API URL:** `https://d3kuu45w6kl8hr.cloudfront.net`
+- **API URL:** `https://d34u5ixl0bulv4.cloudfront.net`
 - **Config File:** `apps/ios/Config/Staging.xcconfig`
 
 ### All Screens Verified
@@ -236,7 +236,7 @@ All UI test files removed due to API incompatibility (January 14, 2026):
 ## WEBAPP CUSTOMER PAGES - FULL VERIFICATION
 
 ### Configuration
-- **Staging URL:** `https://d3kuu45w6kl8hr.cloudfront.net`
+- **Staging URL:** `https://d34u5ixl0bulv4.cloudfront.net`
 - **API Config:** `VITE_API_URL` environment variable
 - **Routes File:** `apps/web/p2p-platform/frontend/src/App.tsx`
 

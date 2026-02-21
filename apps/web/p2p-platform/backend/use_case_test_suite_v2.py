@@ -46,7 +46,7 @@ except ImportError:
 
 class Environment(Enum):
     PRODUCTION = "https://api.dollor.ai"
-    STAGING = "https://d3kuu45w6kl8hr.cloudfront.net"
+    STAGING = "https://d34u5ixl0bulv4.cloudfront.net"
     LOCAL = "http://localhost:8080"
 
 

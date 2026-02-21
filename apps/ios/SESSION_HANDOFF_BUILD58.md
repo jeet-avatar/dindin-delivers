@@ -52,7 +52,7 @@
 | Environment | URL |
 |-------------|-----|
 | **Production** | `https://api.dollor.ai` |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ### App Store Connect
 
@@ -112,7 +112,7 @@ Build Numbers:
 - Restaurant: 109
 
 Production API: https://api.dollor.ai
-Staging API: https://d3kuu45w6kl8hr.cloudfront.net
+Staging API: https://d34u5ixl0bulv4.cloudfront.net
 
 Reference files:
 - API_CONTRACT.md (status values, response structures)

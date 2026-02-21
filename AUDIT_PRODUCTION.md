@@ -396,7 +396,7 @@ curl -s http://localhost:8080/api/config | head -20
 
 ### 8.2 Staging Health Check
 ```bash
-curl -s https://d3kuu45w6kl8hr.cloudfront.net/health | head -20
+curl -s https://d34u5ixl0bulv4.cloudfront.net/health | head -20
 ```
 
 ### 8.3 Production Health Check

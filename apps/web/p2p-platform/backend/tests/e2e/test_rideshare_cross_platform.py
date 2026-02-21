@@ -13,7 +13,7 @@ Test Matrix:
 - TC-RS-005: Chat Message Consistency Across Platforms
 - TC-RS-006: Stripe Payment to Driver After Ride Completion
 
-API Base URL (Staging): https://d3kuu45w6kl8hr.cloudfront.net
+API Base URL (Staging): https://d34u5ixl0bulv4.cloudfront.net
 """
 
 import pytest
@@ -27,7 +27,7 @@ import json
 # CONFIGURATION - STAGING ONLY
 # =========================================================================
 
-BASE_URL = "https://d3kuu45w6kl8hr.cloudfront.net"
+BASE_URL = "https://d34u5ixl0bulv4.cloudfront.net"
 API_URL = f"{BASE_URL}/api"
 
 # Test user credentials (pre-seeded in staging)
@@ -782,7 +782,7 @@ MANUAL_TEST_SCENARIOS = """
 MANUAL CROSS-PLATFORM TEST SCENARIOS
 =============================================================================
 
-Staging URL: https://d3kuu45w6kl8hr.cloudfront.net
+Staging URL: https://d34u5ixl0bulv4.cloudfront.net
 
 -----------------------------------------------------------------------------
 SCENARIO 1: iOS Customer ↔ Android Driver - Basic Flow

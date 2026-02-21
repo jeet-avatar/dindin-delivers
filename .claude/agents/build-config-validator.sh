@@ -160,7 +160,7 @@ if [ "$SCAN_IOS" = true ]; then
 
     if [ -f "$IOS_SHARED_PATH/AppConfig.swift" ]; then
         # Check for hardcoded production URL outside of config
-        HARDCODED=$(grep -n "https://api.dollor.ai\|https://d3kuu45w6kl8hr" "$IOS_SHARED_PATH/AppConfig.swift" | grep -v "//" | head -5 || true)
+        HARDCODED=$(grep -n "https://api.dollor.ai\|https://d34u5ixl0bulv4" "$IOS_SHARED_PATH/AppConfig.swift" | grep -v "//" | head -5 || true)
         if [ -n "$HARDCODED" ]; then
             echo -e "${YELLOW}   ⚠️ WARNING: Hardcoded URLs in AppConfig.swift:${NC}"
             echo "$HARDCODED" | while read line; do echo "      $line"; done
@@ -322,7 +322,7 @@ if [ "$SCAN_ANDROID" = true ] && [ -d "$ANDROID_PATH" ]; then
     echo ""
     echo -e "${YELLOW}[2.3] Hardcoded URL Detection${NC}"
 
-    ANDROID_HARDCODED=$(grep -rn "https://api.dollor.ai\|https://d3kuu45w6kl8hr" "$ANDROID_PATH" --include="*.kt" 2>/dev/null | grep -v "build/" | grep -v "AppConfig" | grep -v "test" | grep -v "//" | head -10 || true)
+    ANDROID_HARDCODED=$(grep -rn "https://api.dollor.ai\|https://d34u5ixl0bulv4" "$ANDROID_PATH" --include="*.kt" 2>/dev/null | grep -v "build/" | grep -v "AppConfig" | grep -v "test" | grep -v "//" | head -10 || true)
 
     if [ -n "$ANDROID_HARDCODED" ]; then
         echo -e "${YELLOW}   ⚠️ WARNING: Hardcoded URLs outside AppConfig:${NC}"

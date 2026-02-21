@@ -354,7 +354,7 @@ HomeView shows active order banner
 
 ### Staging (Testing)
 ```
-API: https://d3kuu45w6kl8hr.cloudfront.net/api
+API: https://d34u5ixl0bulv4.cloudfront.net/api
 ```
 
 ### Production

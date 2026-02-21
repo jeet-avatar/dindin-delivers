@@ -375,7 +375,7 @@ Continuing Dollor.ai iOS development.
 ### Backend Status
 - API Contract Version: 1.0.14
 - Backend Version: 1.0.18
-- Staging: https://d3kuu45w6kl8hr.cloudfront.net (healthy)
+- Staging: https://d34u5ixl0bulv4.cloudfront.net (healthy)
 - Production: https://api.dollor.ai (healthy)
 
 ### Recent Fixes Applied
@@ -420,7 +420,7 @@ git log --oneline -5
 # Verify all systems before building
 echo "=== API Status ===" && \
 curl -s https://api.dollor.ai/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Production: {d[\"status\"]} v{d[\"version\"]}')" && \
-curl -s https://d3kuu45w6kl8hr.cloudfront.net/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Staging: {d[\"status\"]} v{d[\"version\"]}')" && \
+curl -s https://d34u5ixl0bulv4.cloudfront.net/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Staging: {d[\"status\"]} v{d[\"version\"]}')" && \
 echo "" && \
 echo "=== Build Versions ===" && \
 grep "CURRENT_PROJECT_VERSION" /Users/jeet/StudioProjects/eatfair-ios/apps/ios/customer/eatfaircustomer.xcodeproj/project.pbxproj | head -1 | awk '{print "Customer: "$3}' && \

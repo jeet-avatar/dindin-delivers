@@ -109,7 +109,7 @@ echo "    URLs should use config, not hardcoded values..."
 HARDCODED_PROD=""
 
 if [ "$SCAN_IOS" = true ] && [ -d "$IOS_PATH" ]; then
-    IOS_HARDCODED=$(grep -rn "https://api\.dollor\.ai\|https://d3kuu45w6kl8hr\.cloudfront\.net" "$IOS_PATH" --include="*.swift" \
+    IOS_HARDCODED=$(grep -rn "https://api\.dollor\.ai\|https://d34u5ixl0bulv4\.cloudfront\.net" "$IOS_PATH" --include="*.swift" \
         | grep -v "AppConfig" \
         | grep -v "xcconfig" \
         | grep -v "// " \
@@ -120,7 +120,7 @@ if [ "$SCAN_IOS" = true ] && [ -d "$IOS_PATH" ]; then
 fi
 
 if [ "$SCAN_ANDROID" = true ] && [ -d "$ANDROID_PATH" ]; then
-    ANDROID_HARDCODED=$(grep -rn "https://api\.dollor\.ai\|https://d3kuu45w6kl8hr\.cloudfront\.net" "$ANDROID_PATH" --include="*.kt" --include="*.java" \
+    ANDROID_HARDCODED=$(grep -rn "https://api\.dollor\.ai\|https://d34u5ixl0bulv4\.cloudfront\.net" "$ANDROID_PATH" --include="*.kt" --include="*.java" \
         | grep -v "BuildConfig" \
         | grep -v "build\.gradle" \
         | grep -v "// " \

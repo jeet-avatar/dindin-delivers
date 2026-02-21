@@ -32,7 +32,7 @@ Dollor.ai has three complementary testing systems:
 | Environment | API URL | Frontend URL |
 |-------------|---------|--------------|
 | **Production** | `https://api.dollor.ai` | `https://dollor.ai` |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ---
 
