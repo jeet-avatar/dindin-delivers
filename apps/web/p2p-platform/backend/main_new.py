@@ -102,7 +102,7 @@ PRODUCTION_ORIGINS = [
 # Staging origins (allowed in staging and development)
 STAGING_ORIGINS = [
     # Staging API (CloudFront) - Required for mobile apps and staging web
-    "https://d3kuu45w6kl8hr.cloudfront.net",
+    "https://d34u5ixl0bulv4.cloudfront.net",
     # Staging Frontend (CloudFront)
     "https://d3b3ow4g7hjwi5.cloudfront.net",
     # Staging Frontend (S3 bucket)

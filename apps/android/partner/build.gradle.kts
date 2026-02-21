@@ -69,7 +69,7 @@ android {
             applicationIdSuffix = ".staging"
             versionNameSuffix = "-staging"
             buildConfigField("Boolean", "IS_PRODUCTION", "false")
-            buildConfigField("String", "API_BASE_URL", "\"https://d3kuu45w6kl8hr.cloudfront.net/api\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://d34u5ixl0bulv4.cloudfront.net/api\"")
             resValue("string", "app_name", "Dollor Partner Staging")
         }
         create("production") {

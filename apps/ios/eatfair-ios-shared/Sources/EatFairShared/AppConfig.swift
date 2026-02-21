@@ -9,7 +9,7 @@ private let configLogger = Logger(subsystem: "ai.dollor.shared", category: "AppC
 ///
 /// Environment URLs are loaded from Info.plist (set via xcconfig files):
 /// - Development.xcconfig: https://dev-api.dollor.ai
-/// - Staging.xcconfig: https://d3kuu45w6kl8hr.cloudfront.net
+/// - Staging.xcconfig: https://d34u5ixl0bulv4.cloudfront.net
 /// - Production.xcconfig: https://api.dollor.ai
 public class AppConfig: ObservableObject {
     public static let shared = AppConfig()
