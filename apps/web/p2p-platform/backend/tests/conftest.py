@@ -277,9 +277,23 @@ def driver_auth_headers(test_driver) -> Dict[str, str]:
 
 @pytest.fixture(scope="function")
 def test_customer(db_session) -> Customer:
-    """Create a test customer for contract tests"""
+    """Create a test customer for contract tests.
+    Also creates a matching User record because many endpoints use
+    Depends(get_current_user) which queries the users table by email.
+    """
+    email = f"customer_{datetime.now().timestamp()}@test.com"
+    # Create matching User record (needed for get_current_user lookups)
+    user = User(
+        email=email,
+        password_hash=get_password_hash("CustomerPassword123!"),
+        full_name="Test Customer",
+        role=UserRole.USER,
+    )
+    db_session.add(user)
+    db_session.flush()
+
     customer = Customer(
-        email=f"customer_{datetime.now().timestamp()}@test.com",
+        email=email,
         password_hash=get_password_hash("CustomerPassword123!"),
         first_name="Test",
         last_name="Customer",
