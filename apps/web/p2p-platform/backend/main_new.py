@@ -3417,40 +3417,21 @@ def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depen
 
 
 @app.get("/api/auth/customer/me")
-def get_customer_profile(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_customer_profile(customer: Customer = Depends(require_customer), db: Session = Depends(get_db)):
     """Get current customer's profile"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        role = payload.get("role")
-        customer_id = payload.get("customer_id")
-
-        if role != "customer" or not customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a customer account")
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer profile not found")
-
-        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-        return {
-            "id": customer.id,
-            "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
-            "name": full_name,
-            "first_name": customer.first_name,
-            "last_name": customer.last_name,
-            "email": customer.email,
-            "phone": customer.phone,
-            "status": "active" if customer.is_active else "inactive",
-            "total_rides": getattr(customer, 'total_rides', 0) or 0,
-            "rating": getattr(customer, 'rating', 5.0) or 5.0
-        }
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    return {
+        "id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "first_name": customer.first_name,
+        "last_name": customer.last_name,
+        "email": customer.email,
+        "phone": customer.phone,
+        "status": "active" if customer.is_active else "inactive",
+        "total_rides": getattr(customer, 'total_rides', 0) or 0,
+        "rating": getattr(customer, 'rating', 5.0) or 5.0
+    }
 
 
 @app.put("/api/auth/customer/profile")
@@ -3458,48 +3439,32 @@ def update_customer_profile(
     customer_id: Optional[int] = None,
     name: Optional[str] = None,
     phone: Optional[str] = None,
-    token: str = Depends(oauth2_scheme),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Update customer profile"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # Use path customer_id if provided, otherwise get from token
-        token_customer_id = payload.get("customer_id")
-        if customer_id is None:
-            customer_id = token_customer_id
+    # SECURITY: If customer_id provided, verify ownership
+    if customer_id is not None and customer.id != customer_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-        if not customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a customer account")
+    if name:
+        name_parts = name.split(" ", 1)
+        customer.first_name = name_parts[0]
+        customer.last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer profile not found")
+    if phone:
+        customer.phone = phone
 
-        if name:
-            name_parts = name.split(" ", 1)
-            customer.first_name = name_parts[0]
-            customer.last_name = name_parts[1] if len(name_parts) > 1 else ""
+    db.commit()
+    db.refresh(customer)
 
-        if phone:
-            customer.phone = phone
-
-        db.commit()
-        db.refresh(customer)
-
-        full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-        return {
-            "success": True,
-            "customer_id": customer.id,
-            "name": full_name,
-            "phone": customer.phone
-        }
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    return {
+        "success": True,
+        "customer_id": customer.id,
+        "name": full_name,
+        "phone": customer.phone
+    }
 
 
 # ==================== CUSTOMER ACCOUNT DELETION ====================
@@ -3508,35 +3473,22 @@ def update_customer_profile(
 @app.delete("/api/customers/{customer_id}/delete")
 def delete_customer_account(
     customer_id: int,
-    token: str = Depends(oauth2_scheme),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Delete customer account - required by Play Store policy"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_customer_id = payload.get("customer_id")
-
-        # Verify the token belongs to the customer being deleted
-        if token_customer_id != customer_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot delete another user's account"
-            )
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Delete the customer
-        db.delete(customer)
-        db.commit()
-
-        return {"success": True, "message": "Account deleted successfully"}
-    except JWTError:
+    # SECURITY: Verify the token belongs to the customer being deleted
+    if customer.id != customer_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete another user's account"
         )
+
+    # Delete the customer
+    db.delete(customer)
+    db.commit()
+
+    return {"success": True, "message": "Account deleted successfully"}
 
 
 # ==================== DRIVER ACCOUNT DELETION ====================
@@ -3620,174 +3572,114 @@ class VerifyEmailRequest(BaseModel):
 
 @app.post("/api/customer/email/send-verification")
 def send_verification_email(
-    token: str = Depends(oauth2_scheme),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Send email verification code to customer's email"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
-
-        if not customer_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid customer token"
-            )
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Check if already verified
-        if customer.email_verified:
-            return {
-                "success": True,
-                "message": "Email already verified",
-                "already_verified": True
-            }
-
-        # Generate 6-digit verification code
-        verification_code = ''.join(random.choices(string.digits, k=6))
-
-        # Set expiry to 15 minutes from now
-        expiry_time = datetime.utcnow() + timedelta(minutes=15)
-
-        # Save code to database
-        customer.email_verification_code = verification_code
-        customer.email_verification_expires = expiry_time
-        db.commit()
-
-        # Send verification email
-        email_sent = send_email_verification_code(
-            to_email=customer.email,
-            customer_name=customer.name or "Customer",
-            verification_code=verification_code
-        )
-
-        if not email_sent:
-            logger.warning(f"Failed to send verification email to {customer.email}")
-            # Don't fail the request - code is saved, can try again
-
+    # Check if already verified
+    if customer.email_verified:
         return {
             "success": True,
-            "message": "Verification code sent to your email",
-            "email": customer.email[:3] + "***@" + customer.email.split("@")[1] if "@" in customer.email else "***",
-            "expires_in_minutes": 15
+            "message": "Email already verified",
+            "already_verified": True
         }
 
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+    # Generate 6-digit verification code
+    verification_code = ''.join(random.choices(string.digits, k=6))
+
+    # Set expiry to 15 minutes from now
+    expiry_time = datetime.utcnow() + timedelta(minutes=15)
+
+    # Save code to database
+    customer.email_verification_code = verification_code
+    customer.email_verification_expires = expiry_time
+    db.commit()
+
+    # Send verification email
+    email_sent = send_email_verification_code(
+        to_email=customer.email,
+        customer_name=customer.name or "Customer",
+        verification_code=verification_code
+    )
+
+    if not email_sent:
+        logger.warning(f"Failed to send verification email to {customer.email}")
+        # Don't fail the request - code is saved, can try again
+
+    return {
+        "success": True,
+        "message": "Verification code sent to your email",
+        "email": customer.email[:3] + "***@" + customer.email.split("@")[1] if "@" in customer.email else "***",
+        "expires_in_minutes": 15
+    }
 
 @app.post("/api/customer/email/verify")
 def verify_customer_email(
     request: VerifyEmailRequest,
-    token: str = Depends(oauth2_scheme),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Verify customer email with the 6-digit code"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
-
-        if not customer_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid customer token"
-            )
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Check if already verified
-        if customer.email_verified:
-            return {
-                "success": True,
-                "message": "Email already verified",
-                "verified": True
-            }
-
-        # Check if code exists and hasn't expired
-        if not customer.email_verification_code:
-            raise HTTPException(
-                status_code=400,
-                detail="No verification code found. Please request a new code."
-            )
-
-        if customer.email_verification_expires and customer.email_verification_expires < datetime.utcnow():
-            # Clear expired code
-            customer.email_verification_code = None
-            customer.email_verification_expires = None
-            db.commit()
-            raise HTTPException(
-                status_code=400,
-                detail="Verification code has expired. Please request a new code."
-            )
-
-        # Verify the code (constant-time comparison to prevent timing attacks)
-        import secrets as _secrets
-        if not _secrets.compare_digest(str(customer.email_verification_code), str(request.code)):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid verification code. Please try again."
-            )
-
-        # Mark email as verified
-        customer.email_verified = True
-        customer.email_verified_at = datetime.utcnow()
-        customer.email_verification_code = None  # Clear the code
-        customer.email_verification_expires = None
-        db.commit()
-
-        logger.info(f"Customer {customer.email} verified their email successfully")
-
+    # Check if already verified
+    if customer.email_verified:
         return {
             "success": True,
-            "message": "Email verified successfully!",
-            "verified": True,
-            "verified_at": customer.email_verified_at.isoformat()
+            "message": "Email already verified",
+            "verified": True
         }
 
-    except JWTError:
+    # Check if code exists and hasn't expired
+    if not customer.email_verification_code:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=400,
+            detail="No verification code found. Please request a new code."
         )
+
+    if customer.email_verification_expires and customer.email_verification_expires < datetime.utcnow():
+        # Clear expired code
+        customer.email_verification_code = None
+        customer.email_verification_expires = None
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code has expired. Please request a new code."
+        )
+
+    # Verify the code (constant-time comparison to prevent timing attacks)
+    import secrets as _secrets
+    if not _secrets.compare_digest(str(customer.email_verification_code), str(request.code)):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid verification code. Please try again."
+        )
+
+    # Mark email as verified
+    customer.email_verified = True
+    customer.email_verified_at = datetime.utcnow()
+    customer.email_verification_code = None  # Clear the code
+    customer.email_verification_expires = None
+    db.commit()
+
+    logger.info(f"Customer {customer.email} verified their email successfully")
+
+    return {
+        "success": True,
+        "message": "Email verified successfully!",
+        "verified": True,
+        "verified_at": customer.email_verified_at.isoformat()
+    }
 
 @app.get("/api/customer/email/status")
 def get_email_verification_status(
-    token: str = Depends(oauth2_scheme),
+    customer: Customer = Depends(require_customer),
     db: Session = Depends(get_db)
 ):
     """Get customer's email verification status"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
-
-        if not customer_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid customer token"
-            )
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        return {
-            "email": customer.email,
-            "verified": customer.email_verified or False,
-            "verified_at": customer.email_verified_at.isoformat() if customer.email_verified_at else None
-        }
-
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+    return {
+        "email": customer.email,
+        "verified": customer.email_verified or False,
+        "verified_at": customer.email_verified_at.isoformat() if customer.email_verified_at else None
+    }
 
 
 # ==================== RIDESHARE ENDPOINTS ====================
@@ -15320,7 +15212,7 @@ app.include_router(investor_router)
 from order_flow import create_order as erp_create_order, CreateOrderRequest
 
 @app.post("/api/orders/create")
-async def android_create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+async def android_create_order(order_data: CreateOrderRequest, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """
     Android alias for order creation.
     Maps to: POST /api/erp/orders/create
@@ -15331,7 +15223,7 @@ async def android_create_order(order_data: CreateOrderRequest, db: Session = Dep
 @app.get("/api/customer/orders")
 def get_customer_orders(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Get orders for the authenticated customer.
@@ -15341,7 +15233,7 @@ def get_customer_orders(
     from models import Order, Vendor
 
     # Get orders for this customer
-    query = db.query(Order).filter(Order.customer_email == current_user.email)
+    query = db.query(Order).filter(Order.customer_email == customer.email)
     query = query.order_by(Order.created_at.desc())
     orders = query.limit(50).all()
 
@@ -15386,7 +15278,7 @@ def get_customer_orders(
             "vendor_id": order.vendor_id,
             "vendor_name": vendor.restaurant_name if vendor else None,
             "restaurant_name": vendor.restaurant_name or vendor.company_name if vendor else None,  # iOS compatibility
-            "customer_name": order.customer_name or current_user.email.split('@')[0],
+            "customer_name": order.customer_name or customer.email.split('@')[0],
             "customer_phone": order.customer_phone,
             "total_amount": total,
             "total": total,  # iOS compatibility - expects 'total'
@@ -15440,17 +15332,13 @@ async def get_customer_rides(
     limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Get customer's rides from real database.
     Used by Android/iOS customer apps.
     """
-    from models import Customer, RideRequest as RideRequestDB, RideRequestStatus
-
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-    if not customer:
-        return {"rides": [], "total": 0, "has_more": False}
+    from models import RideRequest as RideRequestDB, RideRequestStatus
 
     # Query real ride requests for this customer
     query = db.query(RideRequestDB).filter(
@@ -15518,7 +15406,7 @@ async def tip_driver(
     order_id: int,
     tip_amount: float = 0.0,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Add tip to driver for an order.
@@ -15533,9 +15421,8 @@ async def tip_driver(
         raise HTTPException(status_code=404, detail="Order not found")
 
     # SECURITY: Only the order's customer can add a tip
-    if current_user.role != UserRole.ADMIN:
-        if not order.customer_email or order.customer_email != current_user.email:
-            raise HTTPException(status_code=403, detail="Only the order's customer can add a tip")
+    if not order.customer_email or order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Only the order's customer can add a tip")
 
     order.tip = (order.tip or 0) + tip_amount
     order.total_amount = (order.total_amount or 0) + tip_amount
@@ -15549,7 +15436,7 @@ async def cancel_order(
     order_id: int,
     reason: str = "customer_request",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Cancel an order.
@@ -15560,12 +15447,9 @@ async def cancel_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Verify the requesting user owns this order (customer email match) or is an admin
-    if current_user.role != UserRole.ADMIN:
-        if order.customer_email and order.customer_email != current_user.email:
-            # Also check if user is the vendor for this order
-            if not (current_user.vendor_id and order.vendor_id == current_user.vendor_id):
-                raise HTTPException(status_code=403, detail="You can only cancel your own orders")
+    # SECURITY: Verify the requesting customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="You can only cancel your own orders")
 
     # Only allow cancellation from certain states
     cancellable_states = {"PENDING_PAYMENT", "CONFIRMED", "PENDING_RESTAURANT", "PREPARING"}
@@ -15599,7 +15483,7 @@ async def cancel_order(
 async def get_refund_status(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Get refund status for an order.
@@ -15609,6 +15493,10 @@ async def get_refund_status(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     return {
         "order_id": order_id,
@@ -15821,7 +15709,7 @@ async def cancel_ride(
 async def get_customer_active_orders(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Get active orders for a customer.
@@ -15829,20 +15717,16 @@ async def get_customer_active_orders(
     Returns full order details needed for tracking view.
     SECURITY: Requires auth. Customer can only view their own active orders.
     """
-    from models import Order, OrderStatus, Vendor, Customer
+    from models import Order, OrderStatus, Vendor
     from sqlalchemy import or_, and_
 
-    # Get customer email for fallback lookup (for orders created before customer_id was set)
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    customer_email = customer.email if customer else None
-
-    # SECURITY: Verify the authenticated user owns this customer_id (admins can view any)
-    if current_user.role != UserRole.ADMIN:
-        if customer and customer.email != current_user.email:
-            raise HTTPException(status_code=403, detail="You can only view your own orders")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Query by customer_id OR customer_email (for backward compatibility)
     # Use and_() to combine with status filter for proper SQL generation
+    customer_email = customer.email
     if customer_email:
         customer_filter = or_(Order.customer_id == customer_id, Order.customer_email == customer_email)
     else:
@@ -15914,7 +15798,7 @@ async def get_customer_active_orders(
 async def track_customer_order(
     order_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Track order status and driver location.
@@ -15926,6 +15810,10 @@ async def track_customer_order(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Get driver details if assigned
     driver_info = None
@@ -16609,16 +16497,15 @@ def _format_address(addr: dict, index: int, is_default: bool = False) -> dict:
 async def get_customer_addresses(
     customer_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Get all saved addresses for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        return []
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     saved_addresses = customer.saved_addresses or []
     default_addr = customer.default_address
@@ -16647,16 +16534,15 @@ async def get_customer_addresses(
 async def get_default_address(
     customer_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Get default address for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Try default_address first, then first saved address
     if customer.default_address:
@@ -16681,16 +16567,15 @@ async def add_customer_address(
     customer_id: int,
     address_data: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Add a new address for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
@@ -16730,16 +16615,15 @@ async def update_customer_address(
     address_id: int,
     address_data: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Update an existing address for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
@@ -16780,16 +16664,15 @@ async def delete_customer_address(
     customer_id: int,
     address_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Delete an address for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     saved_addresses = list(customer.saved_addresses or [])  # Copy to new list for SQLAlchemy JSON change detection
 
@@ -16814,16 +16697,15 @@ async def set_default_address(
     customer_id: int,
     address_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Set an address as the default for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     saved_addresses = customer.saved_addresses or []
 
@@ -16841,16 +16723,17 @@ async def set_default_address(
 async def get_customer_favorites(
     customer_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Get favorite restaurants for a customer.
     Used by Android/iOS customer apps.
     """
-    from models import Customer, Vendor
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        return []
+    from models import Vendor
+
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     favorite_vendor_ids = customer.favorite_vendors or []
     if not favorite_vendor_ids:
@@ -16874,16 +16757,17 @@ async def add_customer_favorite(
     customer_id: int,
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Add a restaurant to customer's favorites.
     Used by Android/iOS customer apps.
     """
-    from models import Customer, Vendor
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    from models import Vendor
+
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -16903,16 +16787,15 @@ async def remove_customer_favorite(
     customer_id: int,
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Remove a restaurant from customer's favorites.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     favorite_vendors = customer.favorite_vendors or []
     if vendor_id in favorite_vendors:
@@ -16928,16 +16811,15 @@ async def check_customer_favorite(
     customer_id: int,
     vendor_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Check if a restaurant is in customer's favorites.
     Used by Android/iOS customer apps.
     """
-    from models import Customer
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        return {"is_favorite": False}
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     favorite_vendors = customer.favorite_vendors or []
     return {"is_favorite": vendor_id in favorite_vendors}
@@ -16950,14 +16832,21 @@ async def check_customer_favorite(
 async def get_order_chat_messages(
     order_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Get chat messages for an order.
     Used by Android/iOS customer apps.
     Returns list of ChatMessage objects.
     """
-    from models import ChatConversation, ChatMessage
+    from models import ChatConversation, ChatMessage, Order
+
+    # SECURITY: Verify the customer owns this order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     conversation = db.query(ChatConversation).filter(
         ChatConversation.order_id == order_id
@@ -16989,7 +16878,7 @@ async def send_order_chat_message(
     order_id: int,
     request: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Send a chat message for an order.
@@ -17003,6 +16892,10 @@ async def send_order_chat_message(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Get or create conversation
     conversation = db.query(ChatConversation).filter(
@@ -17660,7 +17553,7 @@ async def rate_order_driver(
     rating: int = 5,
     comment: str = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Rate the driver for an order.
@@ -17671,6 +17564,10 @@ async def rate_order_driver(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # SECURITY: Verify the customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     return {"success": True, "message": "Driver rating submitted", "order_id": order_id, "rating": rating}
 
 
@@ -17679,7 +17576,7 @@ async def rate_order_restaurant(
     order_id: int,
     request: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    customer: Customer = Depends(require_customer)
 ):
     """
     Rate the restaurant for an order.
@@ -17696,11 +17593,15 @@ async def rate_order_restaurant(
         "accuracy": bool (optional)
     }
     """
-    from models import Order, Vendor, RestaurantRating, Customer
+    from models import Order, Vendor, RestaurantRating
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Verify the customer owns this order
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     rating = request.get("rating", 5)
     if rating < 1 or rating > 5:
@@ -17718,9 +17619,7 @@ async def rate_order_restaurant(
     if not vendor:
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
-    # Get customer ID from current user
-    customer = db.query(Customer).filter(Customer.email == current_user.email).first()
-    customer_id = customer.id if customer else None
+    customer_id = customer.id
 
     # Check if already rated
     existing_rating = db.query(RestaurantRating).filter(
@@ -18182,12 +18081,12 @@ def register_customer_fcm_token(
     customer_id: int,
     token_request: FCMTokenRequest,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    customer: Customer = Depends(require_customer),
 ):
     """Register FCM token for customer push notifications"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     customer.push_token = token_request.fcm_token
     if token_request.platform:
@@ -18263,11 +18162,11 @@ def register_vendor_fcm_token(
 
 
 @app.delete("/api/erp/customers/{customer_id}/fcm-token")
-def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """Unregister FCM token for customer (on logout)"""
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    # SECURITY: Verify the authenticated customer owns this customer_id
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     customer.push_token = None
     customer.updated_at = datetime.utcnow()
