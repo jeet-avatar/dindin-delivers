@@ -1,19 +1,19 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 02 IN PROGRESS — Plan 01 complete (1/3)
-**Last activity**: 2026-02-21 — Plan 02-01 completed (backend route aliases + financial endpoints)
+**Status**: Phase 02 IN PROGRESS — Plan 02 complete (2/3)
+**Last activity**: 2026-02-21 — Plan 02-02 completed (iOS path fixes + staging deploy)
 
 ## Current Position
 
 **Active Phase:** 02-api-endpoint-standardization
-**Current Plan:** Plan 02 of 3
-**Progress:** [███████░░░] 67%
+**Current Plan:** Plan 03 of 3
+**Progress:** [████████░░] 83%
 
 ## Active Phase: 02-api-endpoint-standardization
 
 - Plan 01 (COMPLETE): Backend route aliases + financial endpoints — 9 new routes, iOS chat fix, Android demo-login + financial stubs
-- Plan 02: iOS client path fixes
+- Plan 02 (COMPLETE): iOS client path fixes — vendor delete, order chat, duplicate completeRide removed, deployed to staging
 - Plan 03: Android client path fixes
 
 ## Previous Phase: 01-finish-endpoint-auth (COMPLETE)
@@ -50,6 +50,8 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [Phase 02-01]: Financial endpoints use graceful degradation (zero balances) instead of 500 on Stripe errors
 - [Phase 02-01]: Demo-login endpoints gated by ADMIN_SECRET_KEY, added to public path allowlist
 - [Phase 02]: Used app.add_api_route() for chat aliases; financial endpoints use Depends(require_driver/vendor) + ownership checks
+- [Phase 02-02]: Removed completeRide() entirely rather than delegating -- updated DeliveryViewModel caller directly
+- [Phase 02-02]: Driver/customer delete paths kept with /delete suffix -- matches their backend routes (only vendor was wrong)
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
@@ -67,4 +69,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 02-01-PLAN.md — backend route aliases + financial endpoints
+Stopped at: Completed 02-02-PLAN.md — iOS path fixes + staging deploy
