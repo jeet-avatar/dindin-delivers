@@ -1,14 +1,22 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening — executing Phase 01 (customer + driver endpoint auth)
-**Last activity**: 2026-02-21 — Completed Plan 01-01 (customer endpoint auth conversion)
+**Status**: v1.3 Platform Hardening — Phase 01 Wave 1 complete, Wave 2 (Plan 01-02) pending
+**Last activity**: 2026-02-21 — Plan 01-03 complete (bid_routes.py auth)
 
 ## Current Position
 
 **Active Phase:** Phase 01 of 4 (Customer + Driver Endpoint Auth)
-**Current Plan:** Plan 02 of 3
-**Progress:** [███░░░░░░░] 33%
+**Current Plan:** Plan 2 of 3 (Wave 2: Plan 01-02 not yet started)
+**Progress:** [██████░░░░] 66%
+
+## Wave Status
+
+| Plan | Wave | File | Status | Commits |
+|------|------|------|--------|---------|
+| 01-01 | Wave 1 | main_new.py (customer) | COMPLETE | 88fe4f96, e61d0eba, 776c6714 |
+| 01-03 | Wave 1 | bid_routes.py | COMPLETE | 17613d66, 78f9015d |
+| 01-02 | Wave 2 | main_new.py (driver + shared ride) | NOT STARTED | depends on Wave 1 |
 
 ## Project Reference
 
@@ -32,9 +40,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 16 min
-- Total execution time: 16 min
+- Total plans completed: 2
+- Average duration: 20 min
+- Total execution time: 41 min
 
 ## Accumulated Context
 
@@ -46,6 +54,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 01-01: Converted 49 customer endpoints to Depends(require_customer), kept shared ride endpoints on get_current_user for Plan 02/03
 - 01-01: Removed admin bypass from customer tip endpoint (admin uses admin endpoints)
 - 01-01: Removed vendor fallback from customer cancel endpoint (vendor cancel is separate)
+- 01-03: Added auth_utils imports to bid_routes.py, converted 35 endpoints to Depends(require_customer/require_driver/require_any_auth)
+- 01-03: Removed admin bypass from customer/driver ownership checks -- admin uses admin endpoints
+- 01-03: Prevented customer_id spoofing on ride creation and driver_id spoofing on bid submission by overriding client-provided IDs
 
 ### Pending Todos
 
@@ -53,7 +64,6 @@ None yet.
 
 ### Blockers/Concerns
 
-- 78 endpoints need audit to determine exact role breakdown (customer vs driver vs vendor vs admin) before planning Phase 01
 - INFRA-02 (key revocation) requires user action in App Store Connect console — not automatable by Claude
 
 ### Quick Tasks Completed
@@ -66,5 +76,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 01-01-PLAN.md (customer endpoint auth)
-Resume: `/gsd:execute-phase 01` to continue with Plan 01-02
+Stopped at: Completed 01-03-PLAN.md (bid_routes.py auth)
+Resume: `/gsd:execute-phase 01` to start Wave 2 (Plan 01-02: main_new.py driver + shared ride auth)
