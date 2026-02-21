@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening — Phase 01 Wave 1 complete, Wave 2 (Plan 01-02) pending
-**Last activity**: 2026-02-21 — Plan 01-03 complete (bid_routes.py auth)
+**Status**: v1.3 Platform Hardening — Phase 01 COMPLETE (all 3 plans), ready for Phase 02
+**Last activity**: 2026-02-21 — Plan 01-02 complete (driver + shared ride endpoint auth)
 
 ## Current Position
 
-**Active Phase:** Phase 01 of 4 (Customer + Driver Endpoint Auth)
-**Current Plan:** Plan 2 of 3 (Wave 2: Plan 01-02 not yet started)
-**Progress:** [██████░░░░] 66%
+**Active Phase:** Phase 01 of 4 (Customer + Driver Endpoint Auth) -- COMPLETE
+**Current Plan:** Plan 3 of 3 (all plans complete)
+**Progress:** [██████████] 100%
 
 ## Wave Status
 
@@ -16,7 +16,7 @@
 |------|------|------|--------|---------|
 | 01-01 | Wave 1 | main_new.py (customer) | COMPLETE | 88fe4f96, e61d0eba, 776c6714 |
 | 01-03 | Wave 1 | bid_routes.py | COMPLETE | 17613d66, 78f9015d |
-| 01-02 | Wave 2 | main_new.py (driver + shared ride) | NOT STARTED | depends on Wave 1 |
+| 01-02 | Wave 2 | main_new.py (driver + shared ride) | COMPLETE | 0683a7c6, 85af5717 |
 
 ## Project Reference
 
@@ -40,9 +40,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 20 min
-- Total execution time: 41 min
+- Total plans completed: 3
+- Average duration: 18 min
+- Total execution time: 55 min
 
 ## Accumulated Context
 
@@ -57,6 +57,10 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 01-03: Added auth_utils imports to bid_routes.py, converted 35 endpoints to Depends(require_customer/require_driver/require_any_auth)
 - 01-03: Removed admin bypass from customer/driver ownership checks -- admin uses admin endpoints
 - 01-03: Prevented customer_id spoofing on ride creation and driver_id spoofing on bid submission by overriding client-provided IDs
+- 01-02: Removed admin-or-owner JWT bypass from all driver Stripe/payout/status endpoints -- admin uses admin-specific endpoints
+- 01-02: Converted ERP driver proxy endpoints from require_any_auth to require_driver with ownership checks
+- 01-02: Used JWT payload customer_id/driver_id for ride participant verification instead of manual JWT decode
+- 01-02: Ignored client-provided driver_id query param in /api/driver/bids to prevent IDOR -- always uses authenticated driver.id
 
 ### Pending Todos
 
@@ -76,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 01-03-PLAN.md (bid_routes.py auth)
-Resume: `/gsd:execute-phase 01` to start Wave 2 (Plan 01-02: main_new.py driver + shared ride auth)
+Stopped at: Completed 01-02-PLAN.md (driver + shared ride endpoint auth). Phase 01 fully complete (3/3 plans).
+Resume: Phase 01 complete. Next: `/gsd:execute-phase 02` for vendor+admin endpoint auth, or deploy Phase 01 changes first.

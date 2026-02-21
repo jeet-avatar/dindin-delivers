@@ -38,7 +38,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Milestone Goal:** Complete per-endpoint auth coverage for all 78 remaining endpoints, expand rate limiting to sensitive operations, fix CloudFront server header leak, and finalize credential revocation.
 
-- [ ] **Phase 01: Customer + Driver Endpoint Auth** - Add per-endpoint Depends() auth with ownership checks to all customer and driver endpoints
+- [x] **Phase 01: Customer + Driver Endpoint Auth** - Add per-endpoint Depends() auth with ownership checks to all customer and driver endpoints (completed 2026-02-21)
 - [ ] **Phase 02: Vendor + Admin Endpoint Auth** - Add per-endpoint Depends() auth to all vendor and admin endpoints, achieving zero middleware-only endpoints
 - [ ] **Phase 03: Rate Limiting Expansion** - Extend Redis-based rate limiting from login to password reset, payment, admin mutations, and registration endpoints
 - [ ] **Phase 04: Infrastructure Security + Final Verification** - Fix CloudFront server header, finalize credential revocation, deploy all changes, verify end-to-end
@@ -55,12 +55,12 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
   3. Every driver endpoint rejects requests without a valid driver JWT (returns 401)
   4. Driver endpoints with user-specific data verify the authenticated driver owns the requested resource (returns 403 on mismatch)
   5. Existing contract tests still pass after auth additions (no regressions)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md -- Convert all customer endpoints in main_new.py to Depends(require_customer)
-- [ ] 01-02-PLAN.md -- Convert all driver + shared ride endpoints in main_new.py to Depends(require_driver) / Depends(require_any_auth)
-- [ ] 01-03-PLAN.md -- Add per-endpoint auth to all bid_routes.py endpoints + fix test regressions
+- [x] 01-01-PLAN.md -- Convert all customer endpoints in main_new.py to Depends(require_customer)
+- [x] 01-02-PLAN.md -- Convert all driver + shared ride endpoints in main_new.py to Depends(require_driver) / Depends(require_any_auth)
+- [x] 01-03-PLAN.md -- Add per-endpoint auth to all bid_routes.py endpoints + fix test regressions
 
 ### Phase 02: Vendor + Admin Endpoint Auth
 **Goal**: Every vendor and admin endpoint enforces role-specific authentication, completing the transition from middleware-only to per-endpoint auth across the entire API surface
@@ -104,7 +104,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 01. Customer + Driver Endpoint Auth | 2/3 | In Progress|  |
+| 01. Customer + Driver Endpoint Auth | 3/3 | Complete   | 2026-02-21 |
 | 02. Vendor + Admin Endpoint Auth | 0/TBD | Not started | - |
 | 03. Rate Limiting Expansion | 0/TBD | Not started | - |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
