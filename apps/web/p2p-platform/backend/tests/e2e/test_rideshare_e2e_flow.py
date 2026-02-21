@@ -19,7 +19,7 @@ from models import (
     Customer, Driver, DriverStatus, RideRequest, RideBid,
     RideRequestStatus, BidStatus, Order, OrderStatus,
 )
-from main_new import get_password_hash
+from main_new import get_password_hash, create_access_token
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +41,26 @@ def test_customer(db_session):
     db_session.commit()
     db_session.refresh(customer)
     return customer
+
+
+@pytest.fixture
+def customer_headers(test_customer):
+    """Auth headers with customer_id in JWT for customer endpoints."""
+    token = create_access_token(data={
+        "sub": test_customer.email,
+        "customer_id": test_customer.id,
+    })
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def driver_headers(test_driver):
+    """Auth headers with driver_id in JWT for driver endpoints."""
+    token = create_access_token(data={
+        "sub": test_driver.email,
+        "driver_id": test_driver.id,
+    })
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
@@ -82,7 +102,7 @@ class TestRideshareE2EFlow:
 
     def test_full_rideshare_flow(
         self, client, db_session, test_customer, test_driver,
-        auth_headers, mock_stripe, mock_notifications,
+        customer_headers, driver_headers, auth_headers, mock_stripe, mock_notifications,
     ):
         customer = test_customer
         driver = test_driver
@@ -94,7 +114,7 @@ class TestRideshareE2EFlow:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "ride_type": "standard",
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -119,7 +139,7 @@ class TestRideshareE2EFlow:
             "ride_type": "standard",
             "customer_max_price": 40.00,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -134,7 +154,7 @@ class TestRideshareE2EFlow:
             "driver_id": driver.id,
             "latitude": 37.78,
             "longitude": -122.41,
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -149,7 +169,7 @@ class TestRideshareE2EFlow:
             "proposed_price": 25.00,
             "message": "I'm nearby and ready!",
             "estimated_arrival_minutes": 8,
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -164,7 +184,7 @@ class TestRideshareE2EFlow:
         assert ride_obj.status == RideRequestStatus.BIDDING
 
         # ── Step 5: Customer Views Bids ──────────────────────────────────
-        resp = client.get(f"/api/rides/request/{ride_id}/bids")
+        resp = client.get(f"/api/rides/request/{ride_id}/bids", headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_bids"] == 1
@@ -176,7 +196,7 @@ class TestRideshareE2EFlow:
             "action": "counter",
             "counter_price": 20.00,
             "message": "Can you do $20?",
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -190,7 +210,7 @@ class TestRideshareE2EFlow:
         resp = client.post(f"/api/rides/bid/{bid_id}/driver-counter", json={
             "counter_price": 22.00,
             "message": "Meet in the middle at $22?",
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -204,7 +224,7 @@ class TestRideshareE2EFlow:
         # ── Step 8: Customer Accepts Final Price ─────────────────────────
         resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
             "action": "accept",
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -254,7 +274,7 @@ class TestRideshareE2EFlow:
         assert driver_obj.current_longitude == -122.418
 
         # ── Step 12: Driver Starts Ride (Pickup) ─────────────────────────
-        resp = client.post(f"/api/rides/request/{ride_id}/start")
+        resp = client.post(f"/api/rides/request/{ride_id}/start", headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -264,14 +284,14 @@ class TestRideshareE2EFlow:
         assert ride_obj.status == RideRequestStatus.IN_PROGRESS
 
         # ── Step 13: Ride Tracking ───────────────────────────────────────
-        resp = client.get(f"/api/rides/request/{ride_id}")
+        resp = client.get(f"/api/rides/request/{ride_id}", headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["ride_request"]["status"] == "in_progress"
         assert data["ride_request"].get("matched_driver") is not None
 
         # ── Step 14: Driver Completes Ride (Dropoff) ─────────────────────
-        resp = client.post(f"/api/rides/request/{ride_id}/complete")
+        resp = client.post(f"/api/rides/request/{ride_id}/complete", headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -331,7 +351,7 @@ class TestRideshareEdgeCases:
 
     def test_low_bid_rejection(
         self, client, db_session, test_customer, test_driver,
-        mock_notifications,
+        customer_headers, driver_headers, mock_notifications,
     ):
         """Counter with price < 40% of suggested → 400."""
         customer = test_customer
@@ -347,7 +367,7 @@ class TestRideshareEdgeCases:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer_headers)
         ride_id = resp.json()["ride_request"]["id"]
         suggested = resp.json()["ride_request"]["suggested_price"]
 
@@ -355,7 +375,7 @@ class TestRideshareEdgeCases:
         resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
             "driver_id": driver.id,
             "proposed_price": suggested,
-        })
+        }, headers=driver_headers)
         bid_id = resp.json()["bid"]["id"]
 
         # Customer counters with < 40% of suggested → 400
@@ -363,13 +383,13 @@ class TestRideshareEdgeCases:
         resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
             "action": "counter",
             "counter_price": low_price,
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 400
         assert "too low" in resp.json()["detail"].lower()
 
     def test_max_counter_limit(
         self, client, db_session, test_customer, test_driver,
-        mock_notifications,
+        customer_headers, driver_headers, mock_notifications,
     ):
         """4th customer counter → 400 'Maximum 3 counter-offers reached'."""
         customer = test_customer
@@ -384,7 +404,7 @@ class TestRideshareEdgeCases:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer_headers)
         ride_id = resp.json()["ride_request"]["id"]
         suggested = resp.json()["ride_request"]["suggested_price"]
 
@@ -392,7 +412,7 @@ class TestRideshareEdgeCases:
         resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
             "driver_id": driver.id,
             "proposed_price": suggested,
-        })
+        }, headers=driver_headers)
         bid_id = resp.json()["bid"]["id"]
 
         # Manually set counter count to 3 (simulate 3 prior counters)
@@ -405,13 +425,13 @@ class TestRideshareEdgeCases:
         resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
             "action": "counter",
             "counter_price": round(suggested * 0.8, 2),
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 400
         assert "Maximum 3 counter-offers" in resp.json()["detail"]
 
     def test_driver_cannot_bid_with_active_ride(
         self, client, db_session, test_customer, test_driver,
-        mock_notifications,
+        customer_headers, driver_headers, mock_notifications,
     ):
         """Driver with an active ride cannot bid on new requests."""
         customer = test_customer
@@ -446,6 +466,12 @@ class TestRideshareEdgeCases:
         db_session.commit()
         db_session.refresh(customer2)
 
+        customer2_token = create_access_token(data={
+            "sub": customer2.email,
+            "customer_id": customer2.id,
+        })
+        customer2_headers = {"Authorization": f"Bearer {customer2_token}"}
+
         resp = client.post("/api/rides/request", json={
             "customer_id": customer2.id,
             "pickup_address": "123 Market St",
@@ -455,20 +481,20 @@ class TestRideshareEdgeCases:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer2_headers)
         new_ride_id = resp.json()["ride_request"]["id"]
 
         # Driver with active ride tries to bid → 400
         resp = client.post(f"/api/rides/request/{new_ride_id}/bid", json={
             "driver_id": driver.id,
             "proposed_price": 25.00,
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 400
         assert "active ride" in resp.json()["detail"].lower()
 
     def test_cancel_ride_request(
         self, client, db_session, test_customer, test_driver,
-        mock_notifications,
+        customer_headers, driver_headers, mock_notifications,
     ):
         """Cancel an OPEN ride → all pending bids get expired."""
         customer = test_customer
@@ -483,18 +509,18 @@ class TestRideshareEdgeCases:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer_headers)
         ride_id = resp.json()["ride_request"]["id"]
 
         # Driver bids
         resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
             "driver_id": driver.id,
             "proposed_price": 25.00,
-        })
+        }, headers=driver_headers)
         bid_id = resp.json()["bid"]["id"]
 
         # Cancel
-        resp = client.post(f"/api/rides/request/{ride_id}/cancel")
+        resp = client.post(f"/api/rides/request/{ride_id}/cancel", headers=customer_headers)
         assert resp.status_code == 200
         assert resp.json()["success"] is True
 
@@ -507,7 +533,7 @@ class TestRideshareEdgeCases:
 
     def test_bid_on_expired_window(
         self, client, db_session, test_customer, test_driver,
-        mock_notifications,
+        customer_headers, driver_headers, mock_notifications,
     ):
         """Bid after the bidding window expired → 400."""
         customer = test_customer
@@ -522,7 +548,7 @@ class TestRideshareEdgeCases:
             "dropoff_latitude": DROPOFF_LAT,
             "dropoff_longitude": DROPOFF_LNG,
             "bidding_duration_minutes": 5,
-        })
+        }, headers=customer_headers)
         ride_id = resp.json()["ride_request"]["id"]
 
         # Manually expire the bidding window
@@ -535,13 +561,13 @@ class TestRideshareEdgeCases:
         resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
             "driver_id": driver.id,
             "proposed_price": 25.00,
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 400
         assert "closed" in resp.json()["detail"].lower()
 
     def test_tiered_pricing_tiers(
         self, client, db_session, test_customer, test_driver,
-        mock_stripe, mock_notifications,
+        customer_headers, driver_headers, mock_stripe, mock_notifications,
     ):
         """Verify $1/$2/$3 tier fees at $30, $50, and $80 fares."""
         customer = test_customer
@@ -564,7 +590,7 @@ class TestRideshareEdgeCases:
                 "dropoff_latitude": DROPOFF_LAT,
                 "dropoff_longitude": DROPOFF_LNG,
                 "bidding_duration_minutes": 5,
-            })
+            }, headers=customer_headers)
             rid = resp.json()["ride_request"]["id"]
 
             # Set the final price and status directly for payment test

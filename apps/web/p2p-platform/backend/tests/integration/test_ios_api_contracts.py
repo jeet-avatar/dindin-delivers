@@ -85,14 +85,14 @@ class TestPublicEndpoints:
         response = client.get("/api/promotions/featured")
         assert response.status_code == 200
 
-    def test_rides_estimate(self, client):
-        """POST /api/rides/estimate [Both] -- fare estimate before booking"""
+    def test_rides_estimate(self, client, customer_auth_headers):
+        """POST /api/rides/estimate [Both] -- fare estimate (requires auth since per-endpoint auth)"""
         response = client.post("/api/rides/estimate", json={
             "pickup_latitude": 37.7749,
             "pickup_longitude": -122.4194,
             "dropoff_latitude": 37.7849,
             "dropoff_longitude": -122.4094,
-        })
+        }, headers=customer_auth_headers)
         assert response.status_code in [200, 400, 422]
 
     def test_vendor_menu_public(self, client, test_vendor):
