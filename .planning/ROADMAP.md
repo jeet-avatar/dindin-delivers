@@ -45,13 +45,13 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   **Plans:** 1 plan
   Plans:
   - [ ] 03-01-PLAN.md — Commit 5 path fixes + fix staging URLs + replace hardcoded photo URLs
-- [ ] Phase 04: Fix CI — Fix integration test workflow failures so full test suite is green
-  **Goal:** All tests pass in CI so the test suite is green and reliable for ongoing development
+- [ ] Phase 04: Fix CI + API Contract Tests — Update API contract tests to match actual shipped iOS/Android builds, fix CI workflow failures
+  **Goal:** API contract tests reflect real app API calls from latest TestFlight/Firebase builds; all tests pass in CI
   **Requirements:** [CI-01, CI-02, CI-03, CI-04, CI-05]
   **Plans:** 2 plans
   Plans:
-  - [ ] 04-01-PLAN.md — Fix database.py ENVIRONMENT default + CI env vars + auth test assertions
-  - [ ] 04-02-PLAN.md — Fix cross-platform test fixtures + document count assertion
+  - [ ] 04-01-PLAN.md — Rewrite contract tests covering all ~160 app-called endpoints + fix conftest.py fixtures
+  - [ ] 04-02-PLAN.md — Fix database.py ENVIRONMENT default + CI workflow env vars + remove error masking
 - [ ] Phase 05: Ops Security — DB password rotation, remove .p8 keys from git, CF server header
 
 ### Carried Forward
