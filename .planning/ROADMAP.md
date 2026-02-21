@@ -55,7 +55,12 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
   3. Every driver endpoint rejects requests without a valid driver JWT (returns 401)
   4. Driver endpoints with user-specific data verify the authenticated driver owns the requested resource (returns 403 on mismatch)
   5. Existing contract tests still pass after auth additions (no regressions)
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md -- Convert all customer endpoints in main_new.py to Depends(require_customer)
+- [ ] 01-02-PLAN.md -- Convert all driver + shared ride endpoints in main_new.py to Depends(require_driver) / Depends(require_any_auth)
+- [ ] 01-03-PLAN.md -- Add per-endpoint auth to all bid_routes.py endpoints + fix test regressions
 
 ### Phase 02: Vendor + Admin Endpoint Auth
 **Goal**: Every vendor and admin endpoint enforces role-specific authentication, completing the transition from middleware-only to per-endpoint auth across the entire API surface
@@ -99,7 +104,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 01. Customer + Driver Endpoint Auth | 0/TBD | Not started | - |
+| 01. Customer + Driver Endpoint Auth | 0/3 | Planning complete | - |
 | 02. Vendor + Admin Endpoint Auth | 0/TBD | Not started | - |
 | 03. Rate Limiting Expansion | 0/TBD | Not started | - |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
