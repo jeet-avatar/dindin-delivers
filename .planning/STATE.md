@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening — roadmap created, ready to plan Phase 01
-**Last activity**: 2026-02-21 — Roadmap created for v1.3 (4 phases, 14 requirements)
+**Status**: v1.3 Platform Hardening — executing Phase 01 (customer + driver endpoint auth)
+**Last activity**: 2026-02-21 — Completed Plan 01-01 (customer endpoint auth conversion)
 
 ## Current Position
 
 **Active Phase:** Phase 01 of 4 (Customer + Driver Endpoint Auth)
-**Current Plan:** none (ready to plan)
-**Progress:** [░░░░░░░░░░] 0%
+**Current Plan:** Plan 02 of 3
+**Progress:** [███░░░░░░░] 33%
 
 ## Project Reference
 
@@ -32,9 +32,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 16 min
+- Total execution time: 16 min
 
 ## Accumulated Context
 
@@ -43,6 +43,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 Decisions logged in PROJECT.md Key Decisions table.
 
 - v1.3 roadmap: 4 phases — auth split by role (customer+driver / vendor+admin), rate limiting separate, infra+deploy final
+- 01-01: Converted 49 customer endpoints to Depends(require_customer), kept shared ride endpoints on get_current_user for Plan 02/03
+- 01-01: Removed admin bypass from customer tip endpoint (admin uses admin endpoints)
+- 01-01: Removed vendor fallback from customer cancel endpoint (vendor cancel is separate)
 
 ### Pending Todos
 
@@ -63,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Roadmap created for v1.3 Platform Hardening
-Resume: `/gsd:plan-phase 01` to begin planning Phase 01
+Stopped at: Completed 01-01-PLAN.md (customer endpoint auth)
+Resume: `/gsd:execute-phase 01` to continue with Plan 01-02
