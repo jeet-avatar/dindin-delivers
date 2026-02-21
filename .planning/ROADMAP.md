@@ -31,7 +31,14 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   - [ ] 01-01-PLAN.md — Fix public allowlist + add Depends() to customer/driver/vendor endpoints
   - [ ] 01-02-PLAN.md — Add Depends(require_admin) to admin/AI endpoints
   - [ ] 01-03-PLAN.md — Delete 93 dead ERP proxy stubs + final auth audit
-- [ ] Phase 02: API Endpoint Standardization — Align 13 iOS/Android path divergences, fix Android recurring rides 404
+- [ ] Phase 02: API Endpoint Standardization — Fix broken iOS/Android API paths, add missing backend endpoints
+  **Goal:** All iOS and Android API calls reach working backend endpoints with zero 404s from path mismatches
+  **Requirements:** [API-01, API-02, API-03, API-04, API-05, API-06]
+  **Plans:** 3 plans
+  Plans:
+  - [ ] 02-01-PLAN.md — Add backend route aliases and missing endpoints (order chat, demo-login, financial)
+  - [ ] 02-02-PLAN.md — Fix iOS paths (vendor delete, order chat) + deploy to staging
+  - [ ] 02-03-PLAN.md — Deploy to production + verify Android paths + human checkpoint
 - [ ] Phase 03: Android Fixes — Commit Gson response wrapper fixes, rideshare field mismatches
 - [ ] Phase 04: Fix CI — Resolve integration test failures, fix 112 test_vendor_endpoints errors
 - [ ] Phase 05: Ops Security — DB password rotation, remove .p8 keys from git, CF server header
@@ -43,8 +50,8 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
-| 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | — |
-| 02. API Standardization | v1.2 | 0/? | Pending | — |
-| 03. Android Fixes | v1.2 | 0/? | Pending | — |
-| 04. Fix CI | v1.2 | 0/? | Pending | — |
-| 05. Ops Security | v1.2 | 0/? | Pending | — |
+| 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
+| 02. API Standardization | v1.2 | 0/3 | Planned | -- |
+| 03. Android Fixes | v1.2 | 0/? | Pending | -- |
+| 04. Fix CI | v1.2 | 0/? | Pending | -- |
+| 05. Ops Security | v1.2 | 0/? | Pending | -- |
