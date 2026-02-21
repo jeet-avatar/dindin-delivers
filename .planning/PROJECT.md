@@ -32,16 +32,19 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 - ✓ CLAUDE.md production security state documentation — v1.2
 
 ### Active
-- [ ] Android apps published to Play Store
-- [ ] Rideshare bidding system end-to-end testing
-- [ ] AI employee automation
-- [ ] Investor portal
-- [ ] Production DB password rotation
 - [ ] Remaining 78 endpoints: add per-endpoint Depends() auth
+- [ ] Rate limiting expansion beyond login endpoints
+- [ ] CloudFront server header fix
+- [ ] App Store Connect key JFVA7628SX revocation + credential finalization
 
 ### Out of Scope
 - **Commission-based pricing** — We use flat fees only, this is legally critical
 - **Operating as TNC/delivery company** — We are matchmaking service only
+- **Android Play Store publishing** — Deferred to future milestone
+- **Rideshare E2E testing** — Deferred to future milestone
+- **AI employee automation** — Deferred to future milestone
+- **Investor portal** — Deferred to future milestone
+- **Production DB password rotation** — Deferred (requires coordinated ECS+RDS update)
 
 ## Context
 
@@ -80,5 +83,15 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 | Shell pre-commit hook (v1.2) | Zero deps, immediate protection for single developer | ✓ Good |
 | git rm over filter-repo for .p8 (v1.2) | Key revocation makes history copies useless | ✓ Good |
 
+## Current Milestone: v1.3 Platform Hardening
+
+**Goal:** Complete per-endpoint auth coverage for all remaining 78 endpoints, expand rate limiting, fix CloudFront server header leak, and finalize credential revocation.
+
+**Target features:**
+- Per-endpoint Depends() auth on all 78 remaining middleware-only endpoints
+- Rate limiting on sensitive operations beyond login (password reset, payment, admin mutations)
+- CloudFront response headers policy to suppress uvicorn server header
+- App Store Connect key JFVA7628SX revocation confirmation + any remaining credential items
+
 ---
-*Last updated: 2026-02-21 after v1.2 milestone*
+*Last updated: 2026-02-21 after v1.3 milestone start*
