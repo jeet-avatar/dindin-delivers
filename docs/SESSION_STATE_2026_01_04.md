@@ -84,7 +84,7 @@ curl -H "Content-Type: application/json" -d '{"password":"DemoCustomer2025!"}'
 | Environment | Status | URL |
 |-------------|--------|-----|
 | Production (ECS) | Healthy | https://api.dollor.ai |
-| Staging (EKS) | Healthy | https://d3kuu45w6kl8hr.cloudfront.net |
+| Staging (EKS) | Healthy | https://d34u5ixl0bulv4.cloudfront.net |
 | Admin Portal | Working | https://d3pus2gxlb5cer.cloudfront.net/admin |
 
 ### Databases

@@ -59,7 +59,7 @@ Changed from Rancho Santa Margarita (400 miles away) to Cupertino (1.5 miles fro
 | Environment | URL |
 |-------------|-----|
 | **Production** | `https://api.dollor.ai` |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ### App Store Connect
 

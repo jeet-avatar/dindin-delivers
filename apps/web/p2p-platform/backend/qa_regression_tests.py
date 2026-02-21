@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-STAGING_URL = "https://d3kuu45w6kl8hr.cloudfront.net"
+STAGING_URL = "https://d34u5ixl0bulv4.cloudfront.net"
 PRODUCTION_URL = "https://api.dollor.ai"
 
 # Demo account IDs

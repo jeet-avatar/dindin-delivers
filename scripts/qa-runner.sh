@@ -32,7 +32,7 @@ REPORT_DIR="$PROJECT_ROOT/.planning/qa-reports/${DATE}_${PHASE}"
 if [ "$ENV" = "production" ]; then
     API_URL="https://api.dollor.ai"
 else
-    API_URL="https://d3kuu45w6kl8hr.cloudfront.net"
+    API_URL="https://d34u5ixl0bulv4.cloudfront.net"
 fi
 
 # Demo Credentials

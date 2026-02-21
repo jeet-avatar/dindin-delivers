@@ -29,7 +29,7 @@ BACKEND="$PROJECT_ROOT/apps/web/p2p-platform/backend"
 if [ "$ENV" = "production" ]; then
     API_URL="https://api.dollor.ai"
 else
-    API_URL="https://d3kuu45w6kl8hr.cloudfront.net"
+    API_URL="https://d34u5ixl0bulv4.cloudfront.net"
 fi
 
 echo ""

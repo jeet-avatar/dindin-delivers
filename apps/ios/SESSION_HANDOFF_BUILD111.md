@@ -68,7 +68,7 @@ All 3 apps built and uploaded successfully:
 | Environment | URL |
 |-------------|-----|
 | **Production** | `https://api.dollor.ai` |
-| **Staging** | `https://d3kuu45w6kl8hr.cloudfront.net` |
+| **Staging** | `https://d34u5ixl0bulv4.cloudfront.net` |
 
 ### App Store Connect
 

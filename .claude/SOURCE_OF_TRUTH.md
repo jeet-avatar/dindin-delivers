@@ -119,7 +119,7 @@ WE ARE NOT: Delivery company, TNC
 
 | Environment | URL | Usage |
 |-------------|-----|-------|
-| Staging | `https://d3kuu45w6kl8hr.cloudfront.net` | Testing |
+| Staging | `https://d34u5ixl0bulv4.cloudfront.net` | Testing |
 | Production | `https://api.dollor.ai` | Live users |
 
 ### Demo Credentials (App Store Review)

@@ -3,7 +3,7 @@
 import requests
 import json
 
-BASE_URL = "https://d3kuu45w6kl8hr.cloudfront.net/api"
+BASE_URL = "https://d34u5ixl0bulv4.cloudfront.net/api"
 
 # Demo credentials
 DRIVER_EMAIL = "demo.driver@dollor.ai"

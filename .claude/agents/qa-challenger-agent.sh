@@ -40,7 +40,7 @@ REPORT="$REPORT_DIR/CHALLENGER_${DATE}.md"
 if [ "$ENV" = "production" ]; then
     API_URL="https://api.dollor.ai"
 else
-    API_URL="https://d3kuu45w6kl8hr.cloudfront.net"
+    API_URL="https://d34u5ixl0bulv4.cloudfront.net"
 fi
 
 mkdir -p "$REPORT_DIR"

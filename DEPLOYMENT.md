@@ -9,7 +9,7 @@
 
 | Environment | Frontend URL | API URL | Trigger |
 |-------------|--------------|---------|---------|
-| **Staging** | https://staging.dollor.ai | https://d3kuu45w6kl8hr.cloudfront.net | Push to `staging`/`develop` or manual |
+| **Staging** | https://staging.dollor.ai | https://d34u5ixl0bulv4.cloudfront.net | Push to `staging`/`develop` or manual |
 | **Production** | https://dollor.ai | https://api.dollor.ai | Push to `main` or manual |
 
 ---
@@ -71,7 +71,7 @@ gh run view <run-id> --log
 ### Verify Staging Deployment
 ```bash
 # Check API health
-curl https://d3kuu45w6kl8hr.cloudfront.net/health
+curl https://d34u5ixl0bulv4.cloudfront.net/health
 
 # Expected response:
 # {"status": "healthy", "service": "p2p-backend", "version": "1.0.x", "database": "connected"}

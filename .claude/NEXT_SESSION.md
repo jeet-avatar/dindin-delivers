@@ -2,7 +2,7 @@
 
 > **Date:** February 5, 2026
 > **Priority:** Fix order DOLL2026174 (and all orders) not showing on customer app
-> **Staging API:** `https://d3kuu45w6kl8hr.cloudfront.net`
+> **Staging API:** `https://d34u5ixl0bulv4.cloudfront.net`
 > **Production API:** `https://api.dollor.ai`
 
 ---
@@ -55,7 +55,7 @@ public let items: String  // Expects JSON STRING, not array
 
 ```bash
 # Check response format (should be dict with "orders" key)
-curl -s "https://d3kuu45w6kl8hr.cloudfront.net/api/customer/74/active-orders" | python3 -c "
+curl -s "https://d34u5ixl0bulv4.cloudfront.net/api/customer/74/active-orders" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 print('Type:', type(data).__name__)
@@ -66,7 +66,7 @@ if 'orders' in data and len(data['orders']) > 0:
 "
 
 # Check full-tracking works (should be 200)
-curl -s -w "Status: %{http_code}\n" -o /dev/null "https://d3kuu45w6kl8hr.cloudfront.net/api/erp/orders/174/full-tracking"
+curl -s -w "Status: %{http_code}\n" -o /dev/null "https://d34u5ixl0bulv4.cloudfront.net/api/erp/orders/174/full-tracking"
 ```
 
 ---
@@ -140,7 +140,7 @@ A deployment was in progress when session ended. First thing next session:
 
 ```bash
 # Re-verify after deployment
-curl -s "https://d3kuu45w6kl8hr.cloudfront.net/api/customer/74/active-orders" | python3 -c "
+curl -s "https://d34u5ixl0bulv4.cloudfront.net/api/customer/74/active-orders" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 print('Type:', type(d).__name__)

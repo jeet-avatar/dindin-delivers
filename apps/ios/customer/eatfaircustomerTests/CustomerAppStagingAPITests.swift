@@ -3,7 +3,7 @@
 //  eatfaircustomerTests
 //
 //  Comprehensive Staging API Tests for iOS Customer App
-//  STAGING ENVIRONMENT: https://d3kuu45w6kl8hr.cloudfront.net
+//  STAGING ENVIRONMENT: https://d34u5ixl0bulv4.cloudfront.net
 //
 
 import Testing
@@ -28,7 +28,7 @@ import Foundation
 // MARK: - Staging Configuration
 
 struct StagingConfig {
-    static let baseURL = "https://d3kuu45w6kl8hr.cloudfront.net"
+    static let baseURL = "https://d34u5ixl0bulv4.cloudfront.net"
     static let apiBaseURL = "\(baseURL)/api"
 
     // Test credentials

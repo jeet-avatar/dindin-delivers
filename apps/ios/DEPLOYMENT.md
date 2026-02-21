@@ -10,7 +10,7 @@
 | Service | URL | Health Check |
 |---------|-----|--------------|
 | **Production API** | `https://api.dollor.ai` | `GET /health` |
-| **Staging API** | `https://d3kuu45w6kl8hr.cloudfront.net` | `GET /health` |
+| **Staging API** | `https://d34u5ixl0bulv4.cloudfront.net` | `GET /health` |
 | **Admin Portal** | `https://admin.dollor.ai` | N/A |
 
 ---
@@ -75,7 +75,7 @@ git push origin main
 # GitHub Actions will auto-deploy to staging
 
 # Wait for deployment, then verify
-curl -s https://d3kuu45w6kl8hr.cloudfront.net/health | jq .
+curl -s https://d34u5ixl0bulv4.cloudfront.net/health | jq .
 ```
 
 ### Deploy to Production

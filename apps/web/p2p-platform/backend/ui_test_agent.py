@@ -31,7 +31,7 @@ ENVIRONMENTS = {
 
 API_URLS = {
     "production": "https://api.dollor.ai",
-    "staging": "https://d3kuu45w6kl8hr.cloudfront.net",
+    "staging": "https://d34u5ixl0bulv4.cloudfront.net",
     "local": "http://localhost:8080",
 }
 

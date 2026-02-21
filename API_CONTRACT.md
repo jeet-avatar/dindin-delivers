@@ -7,7 +7,7 @@
 **Last Updated**: February 3, 2026
 **API Version**: 1.0.9
 **Production URL**: `https://api.dollor.ai`
-**Staging URL**: `https://d3kuu45w6kl8hr.cloudfront.net`
+**Staging URL**: `https://d34u5ixl0bulv4.cloudfront.net`
 
 ---
 

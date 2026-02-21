@@ -391,7 +391,7 @@ Orders:     POST /api/orders, GET /api/orders/{id}
 | Environment | URL |
 |-------------|-----|
 | Local | http://localhost:8080 |
-| Staging | https://d3kuu45w6kl8hr.cloudfront.net |
+| Staging | https://d34u5ixl0bulv4.cloudfront.net |
 | Production | https://api.dollor.ai |
 
 ---

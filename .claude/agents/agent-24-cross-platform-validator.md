@@ -312,7 +312,7 @@ echo "Order create endpoints: iOS=$IOS_CREATE, Android=$ANDROID_CREATE"
 
 echo "=== BUTTON ACTION TIMING TEST ==="
 
-API="https://d3kuu45w6kl8hr.cloudfront.net"
+API="https://d34u5ixl0bulv4.cloudfront.net"
 THRESHOLD=2.0
 
 test_endpoint() {
