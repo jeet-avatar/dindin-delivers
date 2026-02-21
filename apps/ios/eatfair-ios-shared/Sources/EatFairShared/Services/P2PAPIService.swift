@@ -4949,42 +4949,6 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    /// Complete a ride (passenger dropped off)
-    public func completeRide(
-        rideId: Int,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    ) {
-        guard let token = driverToken else {
-            completion(.failure(P2PAPIError.serverError("Driver not logged in")))
-            return
-        }
-
-        // Rides use the same completion endpoint as deliveries since they're stored as orders
-        guard let url = URL(string: "\(baseURL)/erp/orders/\(rideId)/complete-delivery") else {
-            completion(.failure(P2PAPIError.invalidURL))
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    completion(.failure(error))
-                    return
-                }
-
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
-                } else {
-                    completion(.failure(P2PAPIError.serverError("Failed to complete ride")))
-                }
-            }
-        }.resume()
-    }
-
     // MARK: - Customer Ride Request APIs
 
     /// Get fare estimate from production API (consistent pricing with Android)
@@ -6727,7 +6691,7 @@ public class P2PAPIService: ObservableObject {
         vendorId: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/delete") else {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -11684,7 +11648,7 @@ extension P2PAPIService {
         senderType: String = "customer",
         completion: @escaping (Result<P2PChatMessageResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/chat") else {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/chat") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -11740,7 +11704,7 @@ extension P2PAPIService {
         orderId: Int,
         completion: @escaping (Result<P2PChatMessagesResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/orders/\(orderId)/chat") else {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/chat") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
