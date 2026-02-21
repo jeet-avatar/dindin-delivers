@@ -45,7 +45,13 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   **Plans:** 1 plan
   Plans:
   - [ ] 03-01-PLAN.md — Commit 5 path fixes + fix staging URLs + replace hardcoded photo URLs
-- [ ] Phase 04: Fix CI — Resolve integration test failures, fix 112 test_vendor_endpoints errors
+- [ ] Phase 04: Fix CI — Fix integration test workflow failures so full test suite is green
+  **Goal:** All tests pass in CI so the test suite is green and reliable for ongoing development
+  **Requirements:** [CI-01, CI-02, CI-03, CI-04, CI-05]
+  **Plans:** 2 plans
+  Plans:
+  - [ ] 04-01-PLAN.md — Fix database.py ENVIRONMENT default + CI env vars + auth test assertions
+  - [ ] 04-02-PLAN.md — Fix cross-platform test fixtures + document count assertion
 - [ ] Phase 05: Ops Security — DB password rotation, remove .p8 keys from git, CF server header
 
 ### Carried Forward
@@ -58,5 +64,5 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
 | 03. Android Fixes | 1/1 | Complete    | 2026-02-21 | -- |
-| 04. Fix CI | v1.2 | 0/? | Pending | -- |
+| 04. Fix CI | v1.2 | 0/2 | Planned | -- |
 | 05. Ops Security | v1.2 | 0/? | Pending | -- |
