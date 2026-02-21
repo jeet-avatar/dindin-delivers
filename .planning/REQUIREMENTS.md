@@ -52,26 +52,26 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| AUTH-05 | — | Pending |
-| AUTH-06 | — | Pending |
-| RATE-01 | — | Pending |
-| RATE-02 | — | Pending |
-| RATE-03 | — | Pending |
-| RATE-04 | — | Pending |
-| RATE-05 | — | Pending |
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
+| AUTH-01 | Phase 01 | Pending |
+| AUTH-02 | Phase 01 | Pending |
+| AUTH-03 | Phase 02 | Pending |
+| AUTH-04 | Phase 02 | Pending |
+| AUTH-05 | Phase 02 | Pending |
+| AUTH-06 | Phase 02 | Pending |
+| RATE-01 | Phase 03 | Pending |
+| RATE-02 | Phase 03 | Pending |
+| RATE-03 | Phase 03 | Pending |
+| RATE-04 | Phase 03 | Pending |
+| RATE-05 | Phase 03 | Pending |
+| INFRA-01 | Phase 04 | Pending |
+| INFRA-02 | Phase 04 | Pending |
+| INFRA-03 | Phase 04 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 (pending roadmap creation)
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-21*
-*Last updated: 2026-02-21 after initial definition*
+*Last updated: 2026-02-21 after roadmap creation*
