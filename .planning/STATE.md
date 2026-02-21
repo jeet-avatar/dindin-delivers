@@ -1,16 +1,20 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 02 COMPLETE — All 3 plans done (production deployed, Android verified)
-**Last activity**: 2026-02-21 — Plan 02-03 completed (production deploy + Android path verification)
+**Status**: Phase 03 COMPLETE — Android API path fixes committed
+**Last activity**: 2026-02-21 — Plan 03-01 completed (5 API paths + staging URL + photo URL fixes)
 
 ## Current Position
 
-**Active Phase:** None — Phase 02 complete, Phase 03 next
+**Active Phase:** None — Phase 03 complete
 **Current Plan:** —
-**Progress:** v1.2: [████░░░░░░] 40% (2/5 phases)
+**Progress:** v1.2: [██████████] 100% (3/3 phases complete: 01, 02, 03)
 
-## Active Phase: 02-api-endpoint-standardization
+## Completed Phase: 03-android-fixes
+
+- Plan 01 (COMPLETE): 5 API path fixes + staging URL + photo URL centralization — 6 files, 2 commits in Android repo
+
+## Previous Phase: 02-api-endpoint-standardization (COMPLETE)
 
 - Plan 01 (COMPLETE): Backend route aliases + financial endpoints — 9 new routes, iOS chat fix, Android demo-login + financial stubs
 - Plan 02 (COMPLETE): iOS client path fixes — vendor delete, order chat, duplicate completeRide removed, deployed to staging
@@ -53,6 +57,7 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [Phase 02-02]: Removed completeRide() entirely rather than delegating -- updated DeliveryViewModel caller directly
 - [Phase 02-02]: Driver/customer delete paths kept with /delete suffix -- matches their backend routes (only vendor was wrong)
 - [Phase 02]: No Android code changes needed -- all Retrofit paths already matched backend routes from Plan 01
+- [Phase 03-01]: Used AppConfig.apiBaseUrl.removeSuffix("/api") for photo URL resolution -- matches existing CustomerRideshareApiService pattern
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
@@ -70,4 +75,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 02-03-PLAN.md — production deploy + Android path verification (Phase 02 complete)
+Stopped at: Completed 03-01-PLAN.md — Android API path fixes (Phase 03 complete)
