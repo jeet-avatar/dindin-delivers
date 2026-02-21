@@ -1,5 +1,25 @@
 # Milestones
 
+## v1.2 App Store Ready (Shipped: 2026-02-21)
+
+**Phases completed:** 5 phases (01-05), 12 plans, 66 commits
+**Files modified:** 154 | **Lines:** +17,272 / -2,851
+
+**Key accomplishments:**
+- Added 32 per-endpoint Depends() auth guards, deleted 93 dead ERP proxy stubs (~1021 lines)
+- Fixed 3 iOS + 5 Android broken API paths, added 9 backend route aliases, deployed to production
+- Rewrote 208 API contract tests from actual shipped TestFlight/Firebase builds (up from 19)
+- Removed 3 tracked .p8 keys + backend/.env, installed pre-commit secret detection hook
+- Replaced wrong staging URL across 61 files, achieving zero-reference verification
+- Updated CLAUDE.md with Secrets Manager docs, credential rules, and prevention mechanisms
+
+**Known gaps:**
+- 78 endpoints remain middleware-only auth (no per-endpoint Depends) — documented
+- Key JFVA7628SX revocation pending user action in App Store Connect
+- No formal REQUIREMENTS.md for v1.2 (reactive milestone, requirements tracked in ROADMAP.md)
+
+---
+
 ## v1.1 Security Hardening + Stability (Shipped: 2026-02-20)
 
 **Phases completed:** 5 phases (01-04 + 03.1), 7 plans, 44 commits
