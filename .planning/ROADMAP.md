@@ -31,7 +31,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   - [ ] 01-01-PLAN.md — Fix public allowlist + add Depends() to customer/driver/vendor endpoints
   - [ ] 01-02-PLAN.md — Add Depends(require_admin) to admin/AI endpoints
   - [ ] 01-03-PLAN.md — Delete 93 dead ERP proxy stubs + final auth audit
-- [ ] Phase 02: API Endpoint Standardization — Fix broken iOS/Android API paths, add missing backend endpoints
+- [x] Phase 02: API Endpoint Standardization — Fix broken iOS/Android API paths, add missing backend endpoints (completed 2026-02-21)
   **Goal:** All iOS and Android API calls reach working backend endpoints with zero 404s from path mismatches
   **Requirements:** [API-01, API-02, API-03, API-04, API-05, API-06]
   **Plans:** 3 plans
@@ -51,7 +51,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
 | 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
-| 02. API Standardization | 2/3 | In Progress|  | -- |
+| 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
 | 03. Android Fixes | v1.2 | 0/? | Pending | -- |
 | 04. Fix CI | v1.2 | 0/? | Pending | -- |
 | 05. Ops Security | v1.2 | 0/? | Pending | -- |
